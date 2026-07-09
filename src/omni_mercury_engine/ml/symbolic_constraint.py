@@ -42,8 +42,9 @@ as a Real-Logic LTN weights its axioms.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import torch
 from torch import nn
@@ -56,10 +57,15 @@ __all__ = [
     "ScarcityWeightSchedule",
     "SymbolicConstraintModule",
     "SymbolicWeight",
+    "ThresholdAtom",
     "consensus_rule_graph",
     "consensus_salience_rule_graph",
+    "parse_evolved_predicate",
+    "quantize_threshold",
     "resolve_rule_graph",
     "resolve_symbolic_weight",
+    "rule_graph_from_spec",
+    "rule_graph_to_spec",
 ]
 
 
@@ -146,6 +152,203 @@ class RuleGraph:
     def __len__(self) -> int:
         """Return the length."""
         return len(self.rules)
+
+
+# -- evolved-predicate grammar -----------------------------------------------
+#
+# Genetically evolved rule graphs (``omni_mercury_engine.ml.rule_evolution``)
+# stay plain :class:`Rule`/:class:`RuleGraph` data by encoding *conjunctive
+# threshold predicates* in the predicate NAME with a small canonical grammar:
+#
+#     atom      := builtin | threshold
+#     builtin   := "Consensus" | "NotConsensus"
+#     threshold := "x" <channel> (">=" | "<=") <threshold %.6f in [0, 1]>
+#     predicate := atom ("&" atom)*
+#
+# e.g. ``"x3>=0.612500&x7<=0.250000"`` reads "score channel 3 is at least
+# 0.6125 AND score channel 7 is at most 0.25".  Channels index the module's
+# ``detector_scores`` columns -- the same per-detector consensus channels the
+# built-in ``Consensus`` predicate aggregates -- so an evolved graph plugs into
+# :class:`SymbolicConstraintModule` exactly like the hand-written graphs.
+# Thresholds are quantised to 6 decimals so the name round-trips losslessly.
+
+# Fixed sigmoid slope for grounding a threshold atom as a fuzzy truth value:
+# ``sigmoid((score - threshold) * EVOLVED_ATOM_SLOPE)``.  On [0, 1]-normalised
+# score channels a slope of 25 gives a crisp-but-smooth transition band of
+# roughly +/-0.09 around the threshold.  It is a *fixed part of the scoring
+# semantics* (never fit per dataset), so the fitness-time scoring path and the
+# deployed scoring path are the same function by construction.
+EVOLVED_ATOM_SLOPE: float = 25.0
+
+# Number of decimals thresholds are quantised to; matched by the atom regex so
+# format -> parse round-trips exactly.
+THRESHOLD_DECIMALS: int = 6
+
+# Builtin predicates allowed as atoms inside an evolved conjunction.  Salience
+# is deliberately excluded: it requires the module's optional learnable
+# salience parameters, which are only instantiated when the *graph name*
+# ``Salient`` is referenced directly.
+_BUILTIN_CONJUNCTION_ATOMS = frozenset({"Consensus", "NotConsensus"})
+
+_THRESHOLD_ATOM_RE = re.compile(r"^x(\d+)(>=|<=)([01]\.\d{6})$")
+
+_THRESHOLD_OPS = (">=", "<=")
+
+
+def quantize_threshold(value: float) -> float:
+    """Clip a threshold to ``[0, 1]`` and quantise it to the grammar precision.
+
+    Quantisation makes the predicate-name encoding lossless: a quantised
+    threshold formatted with ``%.6f`` parses back to the identical float.
+
+    Args:
+        value: Raw threshold value.
+
+    Returns:
+        The clipped, 6-decimal-quantised threshold.
+
+    Raises:
+        ValueError: If ``value`` is not finite.
+    """
+    if not math.isfinite(value):
+        raise ValueError(f"threshold must be finite, got {value}")
+    clipped = min(max(float(value), 0.0), 1.0)
+    return float(f"{clipped:.{THRESHOLD_DECIMALS}f}")
+
+
+@dataclass(frozen=True, order=True)
+class ThresholdAtom:
+    """One soft threshold test over a named score channel.
+
+    The atom is grounded as the differentiable fuzzy truth value
+    ``sigmoid((score[channel] - threshold) * EVOLVED_ATOM_SLOPE)`` for ``>=``
+    (mirrored for ``<=``), i.e. the same soft-threshold construction as the
+    module's ``Salient`` predicate but with an *evolved, fixed* threshold
+    instead of a learnable one.
+
+    Attributes:
+        channel: Column index into the module's ``detector_scores`` matrix.
+        op: Comparison operator, ``">="`` or ``"<="``.
+        threshold: Quantised threshold in ``[0, 1]`` (see
+            :func:`quantize_threshold`).
+    """
+
+    channel: int
+    op: str
+    threshold: float
+
+    def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
+        if self.channel < 0:
+            raise ValueError(f"channel must be >= 0, got {self.channel}")
+        if self.op not in _THRESHOLD_OPS:
+            raise ValueError(f"op must be one of {_THRESHOLD_OPS}, got {self.op!r}")
+        quantised = quantize_threshold(self.threshold)
+        if quantised != self.threshold:
+            raise ValueError(
+                f"threshold {self.threshold!r} is not quantised to "
+                f"{THRESHOLD_DECIMALS} decimals in [0, 1]; use quantize_threshold()"
+            )
+
+    def fragment(self) -> str:
+        """Return the canonical grammar fragment, e.g. ``"x3>=0.612500"``."""
+        return f"x{self.channel}{self.op}{self.threshold:.{THRESHOLD_DECIMALS}f}"
+
+
+def parse_evolved_predicate(name: str) -> tuple[str | ThresholdAtom, ...]:
+    """Parse a conjunctive evolved-predicate name into its atoms.
+
+    Args:
+        name: Predicate name following the evolved-predicate grammar --
+            ``"&"``-joined atoms, each either a builtin predicate
+            (``Consensus``/``NotConsensus``) or a threshold test such as
+            ``"x3>=0.612500"``.
+
+    Returns:
+        Tuple of atoms; builtin atoms stay strings, threshold atoms become
+        :class:`ThresholdAtom`.
+
+    Raises:
+        ValueError: If the name (or any atom in it) does not follow the
+            grammar.  Unknown predicate names fail loud here rather than
+            silently grounding to something else.
+    """
+    parts = name.split("&")
+    atoms: list[str | ThresholdAtom] = []
+    for part in parts:
+        if part in _BUILTIN_CONJUNCTION_ATOMS:
+            atoms.append(part)
+            continue
+        match = _THRESHOLD_ATOM_RE.match(part)
+        if match is None:
+            raise ValueError(
+                f"cannot ground predicate {name!r}: atom {part!r} is neither a "
+                f"builtin atom ({sorted(_BUILTIN_CONJUNCTION_ATOMS)}) nor a "
+                "threshold atom like 'x3>=0.612500'"
+            )
+        atoms.append(ThresholdAtom(channel=int(match[1]), op=match[2], threshold=float(match[3])))
+    return tuple(atoms)
+
+
+def rule_graph_to_spec(graph: RuleGraph) -> dict[str, Any]:
+    """Serialise a :class:`RuleGraph` to a plain-JSON-compatible dict.
+
+    Rules are pure data, so the spec is lossless: it captures the graph name
+    and every rule's name/antecedent/consequent/description.  Used by the
+    engine checkpoint (so a non-registry graph -- e.g. an evolved one --
+    round-trips through ``save_model``/``load_model``) and by the evolved-graph
+    artifact format.
+
+    Args:
+        graph: Rule graph to serialise.
+
+    Returns:
+        JSON-compatible dict with ``name`` and ``rules`` keys.
+    """
+    return {
+        "name": graph.name,
+        "rules": [
+            {
+                "name": rule.name,
+                "antecedent": rule.antecedent,
+                "consequent": rule.consequent,
+                "description": rule.description,
+            }
+            for rule in graph.rules
+        ],
+    }
+
+
+def rule_graph_from_spec(spec: dict[str, Any]) -> RuleGraph:
+    """Reconstruct a :class:`RuleGraph` from :func:`rule_graph_to_spec` output.
+
+    Args:
+        spec: Dict with ``name`` and a non-empty ``rules`` list.
+
+    Returns:
+        The reconstructed rule graph (equal to the original under dataclass
+        equality).
+
+    Raises:
+        ValueError: If the spec is malformed (missing keys or no rules).
+    """
+    try:
+        name = str(spec["name"])
+        rule_entries = spec["rules"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError(f"malformed rule-graph spec: {exc!r}") from exc
+    if not isinstance(rule_entries, (list, tuple)) or not rule_entries:
+        raise ValueError("rule-graph spec must contain a non-empty 'rules' list")
+    rules = tuple(
+        Rule(
+            name=str(entry["name"]),
+            antecedent=str(entry["antecedent"]),
+            consequent=str(entry["consequent"]),
+            description=str(entry.get("description", "")),
+        )
+        for entry in rule_entries
+    )
+    return RuleGraph(name=name, rules=rules)
 
 
 def consensus_rule_graph() -> RuleGraph:
@@ -539,6 +742,90 @@ class SymbolicConstraintModule(nn.Module):
                 )
             return self._consensus(detector_scores).squeeze(-1)
 
+    def score_samples(self, detector_scores: torch.Tensor) -> torch.Tensor:
+        """Per-sample anomaly score implied by the rule graph (modus-ponens pooling).
+
+        This is the module's *per-sample* inference API and the single scoring
+        path for rule graphs used as standalone detectors -- in particular for
+        genetically evolved graphs (``omni_mercury_engine.ml.rule_evolution``),
+        whose fitness is measured through this exact method, so the
+        fitness-time and deployment-time scoring semantics are identical by
+        construction (no train/serve skew).
+
+        Semantics: each rule contributes its grounded antecedent truth
+        ``a_r(x)`` as evidence *for* anomaly when its consequent is
+        ``Anomalous`` and *against* anomaly when it is ``NotAnomalous``,
+        weighted by the (softmax-normalised, learnable) rule confidences::
+
+            score(x) = 0.5 + 0.5 * sum_r w_r * sign_r * a_r(x)
+
+        A vacuous rule (``a_r ~ 0``) contributes nothing, so negative rules
+        push the score down only when they actually fire.  For the untrained
+        module the weights are exactly uniform (parameters initialise to
+        zero), making the score deterministic; a co-trained module applies its
+        learned confidences.  For the default consensus graph the score is a
+        strictly monotone transform of :meth:`predict`'s consensus
+        probability, so both rank identically.
+
+        Args:
+            detector_scores: ``(B, D)`` per-detector anomaly scores in
+                ``[0, 1]``, where ``D == num_detectors``.  Values are clamped
+                to ``[0, 1]`` as in :meth:`forward`.
+
+        Returns:
+            ``(B,)`` anomaly scores in ``[0, 1]`` (detached, no grad); ``0.5``
+            everywhere when the module has no detector channels (no signal).
+
+        Raises:
+            ValueError: If ``detector_scores`` is not 2-D or its width does
+                not match ``num_detectors``; if any rule's consequent is not
+                ``Anomalous``/``NotAnomalous``; or if a rule's antecedent
+                references the fusion output (circular for scoring).
+        """
+        if detector_scores.ndim != 2:
+            raise ValueError(
+                f"detector_scores must be 2-D (B, D); got shape {tuple(detector_scores.shape)}"
+            )
+        batch = detector_scores.shape[0]
+        with torch.no_grad():
+            if self.num_detectors == 0 or detector_scores.shape[1] == 0:
+                return torch.full(
+                    (batch,),
+                    0.5,
+                    dtype=detector_scores.dtype,
+                    device=detector_scores.device,
+                )
+            if detector_scores.shape[1] != self.num_detectors:
+                raise ValueError(
+                    f"detector_scores width {detector_scores.shape[1]} != "
+                    f"num_detectors {self.num_detectors}"
+                )
+            scores = detector_scores.clamp(0.0, 1.0)
+            grounded = self._ground_shared(scores)
+            weights = torch.softmax(self.rule_weights, dim=0)
+            net = torch.zeros((batch, 1), dtype=scores.dtype, device=scores.device)
+            for i, rule in enumerate(self.rule_graph.rules):
+                if rule.consequent == "Anomalous":
+                    sign = 1.0
+                elif rule.consequent == "NotAnomalous":
+                    sign = -1.0
+                else:
+                    raise ValueError(
+                        "score_samples requires rule consequents 'Anomalous' or "
+                        f"'NotAnomalous'; rule {rule.name!r} has {rule.consequent!r}"
+                    )
+                if rule.antecedent in ("Anomalous", "NotAnomalous"):
+                    raise ValueError(
+                        f"rule {rule.name!r} antecedent {rule.antecedent!r} references "
+                        "the fusion output; per-sample scoring would be circular"
+                    )
+                if rule.antecedent not in grounded:
+                    grounded[rule.antecedent] = self._ground_conjunction(
+                        rule.antecedent, grounded, scores
+                    )
+                net = net + weights[i] * sign * grounded[rule.antecedent]
+            return (0.5 + 0.5 * net).squeeze(1).clamp(0.0, 1.0)
+
     def _salience(self, detector_scores: torch.Tensor) -> torch.Tensor:
         """Ground the ``Salient`` predicate: "some detector saliently fires".
 
@@ -562,18 +849,17 @@ class SymbolicConstraintModule(nn.Module):
         salient = 1.0 - torch.prod(1.0 - indicators, dim=1, keepdim=True)
         return salient.clamp(_EPS, 1.0 - _EPS)
 
-    def _ground(
-        self, anomaly_prob: torch.Tensor, detector_scores: torch.Tensor
-    ) -> dict[str, torch.Tensor]:
-        """Ground every predicate referenced by the rule graph.
+    def _ground_shared(self, detector_scores: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Ground the evidence predicates that depend only on detector scores.
 
-        Returns a mapping ``predicate_name -> (B, 1)`` fuzzy truth tensor.
+        Returns a mapping ``predicate_name -> (B, 1)`` fuzzy truth tensor for
+        ``Consensus``/``NotConsensus`` (and ``Salient``/``NotSalient`` when the
+        graph uses salience).  Shared by the co-training path
+        (:meth:`_ground`) and the inference path (:meth:`score_samples`), so
+        both ground evidence identically.
         """
-        anomalous = anomaly_prob.clamp(_EPS, 1.0 - _EPS)
         consensus = self._consensus(detector_scores)
         grounded = {
-            "Anomalous": anomalous,
-            "NotAnomalous": self._not(anomalous),
             "Consensus": consensus,
             "NotConsensus": self._not(consensus),
         }
@@ -581,6 +867,78 @@ class SymbolicConstraintModule(nn.Module):
             salient = self._salience(detector_scores)
             grounded["Salient"] = salient
             grounded["NotSalient"] = self._not(salient)
+        return grounded
+
+    def _ground_conjunction(
+        self,
+        name: str,
+        grounded: dict[str, torch.Tensor],
+        detector_scores: torch.Tensor,
+    ) -> torch.Tensor:
+        """Ground an evolved conjunctive predicate name (see the grammar).
+
+        Each threshold atom becomes the fuzzy truth
+        ``sigmoid((score[channel] - threshold) * EVOLVED_ATOM_SLOPE)`` (mirrored
+        for ``<=``); builtin atoms reuse the already-grounded predicate; the
+        conjunction is the product t-norm.
+
+        Args:
+            name: Predicate name following the evolved-predicate grammar.
+            grounded: Already-grounded predicates (for builtin atoms).
+            detector_scores: ``(B, D)`` per-detector scores in ``[0, 1]``.
+
+        Returns:
+            ``(B, 1)`` fuzzy truth tensor clamped away from ``{0, 1}``.
+
+        Raises:
+            ValueError: If the name does not parse, references an ungrounded
+                builtin atom, or references a channel outside ``[0, D)``.
+        """
+        atoms = parse_evolved_predicate(name)
+        truth: torch.Tensor | None = None
+        for atom in atoms:
+            if isinstance(atom, str):
+                base = grounded.get(atom)
+                if base is None:
+                    raise ValueError(
+                        f"predicate {name!r} references builtin atom {atom!r}, "
+                        "which is not grounded for this module"
+                    )
+                part = base
+            else:
+                if atom.channel >= detector_scores.shape[1]:
+                    raise ValueError(
+                        f"predicate {name!r} references score channel {atom.channel} "
+                        f"but only {detector_scores.shape[1]} channels are available"
+                    )
+                column = detector_scores[:, atom.channel : atom.channel + 1]
+                logits = (column - atom.threshold) * EVOLVED_ATOM_SLOPE
+                part = torch.sigmoid(logits if atom.op == ">=" else -logits)
+            truth = part if truth is None else truth * part
+        assert truth is not None  # the grammar guarantees at least one atom
+        return truth.clamp(_EPS, 1.0 - _EPS)
+
+    def _ground(
+        self, anomaly_prob: torch.Tensor, detector_scores: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        """Ground every predicate referenced by the rule graph.
+
+        Returns a mapping ``predicate_name -> (B, 1)`` fuzzy truth tensor.
+        Builtin predicates ground exactly as before; any further predicate
+        name referenced by the graph is grounded through the evolved
+        conjunctive-threshold grammar (:func:`parse_evolved_predicate`), in
+        deterministic rule order.  Unknown names fail loud.
+        """
+        anomalous = anomaly_prob.clamp(_EPS, 1.0 - _EPS)
+        grounded = {
+            "Anomalous": anomalous,
+            "NotAnomalous": self._not(anomalous),
+        }
+        grounded.update(self._ground_shared(detector_scores))
+        for rule in self.rule_graph.rules:
+            for name in (rule.antecedent, rule.consequent):
+                if name not in grounded:
+                    grounded[name] = self._ground_conjunction(name, grounded, detector_scores)
         return grounded
 
     # -- forward / loss ------------------------------------------------------
