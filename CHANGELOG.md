@@ -27,6 +27,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Hazard honesty wave — physics from observations, not untrained networks
+
+Every natural-hazard forecast surface was audited for fabricated signal.
+Untrained neural networks (random weights, no labelled corpus) no longer
+produce eruption probabilities, storm Kp forecasts, tsunami confidences,
+tornado rotation values, or earthquake magnitudes. Each detector now runs a
+deterministic physics core computed from the OBSERVED inputs, with a guarded
+`load_neural_weights()` hook that flips to the learned path only when a real
+checkpoint is loaded:
+
+- **Volcanic** — noisy-OR evidence fusion over observed gas flux, InSAR
+  deformation, thermal radiance and seismic statistics + median/MAD swarm
+  detection (was: `randn(128)` through an untrained forecast net).
+- **Space cluster** — Boyle-index geomagnetic storm physics with NOAA G-scale
+  classification; earthquake-precursor magnitude is `None` until a trained
+  model exists (was: untrained-net output × 9.0 presented as magnitude).
+- **Tsunami + earthquake** — observed peak-vs-baseline wave analysis;
+  unconditional STA/LTA triggering with real P/S arrival picks and S–P
+  distance; magnitude honestly `undetermined`.
+- **Tornado / wildfire / landslide / hurricane** — Doppler-couplet rotation,
+  VIIRS/MODIS brightness-temperature ignition, geotechnical slope stability,
+  and vorticity/max-wind from the previously ignored wind field; the dead
+  uncomputed hurricane track/landfall fields were removed.
+
+### Hazard live-data wiring (T1e)
+
+One uniform, provenance-checked live-ingestion seam
+(`data_sources/live_ingestion.py`) now connects every hazard detector to its
+real client via dependency injection (default = fully offline):
+
+- Earthquake/tsunami → USGS FDSN catalog; volcano → the **real USGS HANS
+  public API** (the simulated `US_VOLCANOES` table that emitted fabricated
+  all-clear alerts is gone, DEPRECATION §6.9); tornado/flood → NWS CAP alerts
+  + NWPS river gauges; solar → NOAA SWPC + NASA DONKI; Schumann → BGS ELF
+  client whose simulation is now explicitly labelled and refused without an
+  `allow_simulated=True` opt-in; meteor → NASA NeoWs + new real JPL
+  fireball/Sentry clients (`data_sources/jpl_ssd.py`) replacing the private
+  in-detector HTTP loaders (DEPRECATION §6.8).
+- The duplicate geological `SolarFlareDetector` (hand-authored per-HMM-state
+  Kp/Dst lookup tables — invented indices presented as predictions) was
+  removed; the canonical space-cluster class populates storm fields only from
+  an observed planetary Kp with the documented NOAA G-scale / Loewe & Prölss
+  (1997) Dst mapping (DEPRECATION §6.7).
+- `FloodDetector`'s never-invoked untrained `TopographicRunoffPredictor` was
+  removed; the physics runoff coefficient is the real path (DEPRECATION §6.10).
+- Earthquake, tsunami, meteor and solar-flare detectors joined
+  `DETECTOR_MANIFEST`. 195 offline-deterministic wiring tests on recorded
+  fixtures + a `network`-marked live smoke module
+  (`tests/test_live_wiring_network.py`; 11 live paths verified green).
+
+### Per-hazard skill metrics + regression gate (T2)
+
+- `evaluation/hazard_metrics.py`: POD / FAR / CSI / frequency bias / HSS,
+  lead-time, magnitude MAE/bias, haversine location error, VEI and ordinal
+  alert-level accuracy, flare-class and Kp skill — literature-standard
+  definitions with strict validation.
+- `benchmarks/hazard_regression_guard.py` + committed
+  `hazard_domain_baseline.json`: measured baselines with provenance (commit,
+  seeds, scenario hashes) over seven guarded domains (tornado, flood,
+  hurricane, earthquake, tsunami, volcano, solar) on committed scenario sets
+  (real recorded SWPC/GOES windows + seeded detector-contract scenarios);
+  floors derived as measured − margin; `--check` fails CI on regression via
+  the new `ci/hazard-regression` lane
+  (`.github/workflows/hazard-regression.yml`). Hurricane track error is
+  explicitly excluded until a track model exists. Non-vacuous floor tests
+  prove every floor sits strictly between the degenerate score and the
+  measured baseline.
+
+### Fixed — deferred correctness items (F5, F16, F10)
+
+- **F5** — `DatasetConfig.get_cache_key()` now includes `split_ratios`;
+  changing the split can no longer silently reuse a stale `.npz` cache whose
+  train/val/test split was baked with the old ratios. Behavioral regression
+  test proves the second load re-splits.
+- **F16** — in-memory stream state moved off the producer CLASS onto an
+  explicit `InMemoryStreamBroker` (instance state, broker-scoped topics,
+  default broker + reset seam). Two pipelines can no longer bleed messages
+  through the class object, and tests no longer depend on remembering manual
+  `.clear()` calls.
+- **F10** — permanent GOSNN singleton product fix: the scalar registry is now
+  lock-guarded with per-component ownership and `unregister_scalars()` /
+  context-manager scoping; operational scalars feeding the σ_Immutable gate
+  are validated (non-finite or grossly out-of-range values are excluded with
+  a loud once-per-scalar warning, never clamped); the adapter's raw
+  unix-timestamp posture scalar moved to the new `omni_diag_` metric-only
+  channel — a real key rotation no longer collapses an unrelated
+  `detect_with_fusion` to a spurious fail-closed σ=0.0; and re-constructing
+  the singleton with materially different config raises loudly instead of
+  silently ignoring the new configuration.
+
 ### Security & robustness hardening (real-backend audit pass)
 
 A deliberate audit + fix pass built and tested end-to-end against the real AMA
