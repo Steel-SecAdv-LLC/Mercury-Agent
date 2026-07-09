@@ -49,7 +49,19 @@ class LiveDataError(RuntimeError):
 
     Raised instead of silently degrading: callers that opted into live
     ingestion must see fetch failures, not fabricated or empty stand-ins.
+
+    Attributes:
+        unreachable: True when the underlying failure was transport-level
+            (service down / DNS / timeout / breaker open / throttled) rather
+            than a payload or contract problem from a reachable service.
+            Consumers such as the weekly network smoke lane skip only on
+            ``unreachable=True`` so schema drift can never hide as a skip.
     """
+
+    def __init__(self, message: str, *, unreachable: bool = False) -> None:
+        """Initialize with the failure message and unreachability flag."""
+        super().__init__(message)
+        self.unreachable = unreachable
 
 
 class SimulatedDataError(LiveDataError):
@@ -123,7 +135,10 @@ def fetch_live_datapoints(
         start_time=start_time, end_time=end_time, use_cache=use_cache, **kwargs
     )
     if not result.success:
-        raise LiveDataError(f"{client.source_id}: live fetch failed: {result.error}")
+        raise LiveDataError(
+            f"{client.source_id}: live fetch failed: {result.error}",
+            unreachable=result.unreachable,
+        )
 
     points = result.data_points
     if source_types is not None:

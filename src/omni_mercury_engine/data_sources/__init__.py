@@ -29,6 +29,7 @@ from omni_mercury_engine.data_sources.base import (
     DataSourceType,
     FetchResult,
     RateLimitConfig,
+    SourceUnreachableError,
 )
 from omni_mercury_engine.data_sources.consciousness import (
     GCPDataSource,
@@ -114,6 +115,7 @@ __all__ = [
     "SentryImpactRisk",
     "SimulatedDataError",
     "SolarSystemOpenDataSource",
+    "SourceUnreachableError",
     "SuperMAGSource",
     "USGSEarthquakeSource",
     "USGSGeomagnetismSource",

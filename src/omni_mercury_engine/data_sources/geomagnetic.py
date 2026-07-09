@@ -556,6 +556,17 @@ class HeartMathGCMSSource(DataSourceBase):
     - Sites: California, Saudi Arabia, Lithuania, New Zealand, South Africa, Canada
     - Hourly power calculations with 24-hour moving average
 
+    HONESTY CONTRACT: HeartMath GCMS publishes its spectrograms as web
+    imagery only — there is no public machine-readable API — so this source
+    cannot fetch real per-mode power values. Every point it emits therefore
+    carries a fixed, clearly-invented placeholder spectrum and is labelled
+    ``metadata["simulated"] = True`` with ``confidence=0.0``, which the
+    live-ingestion seam refuses unless the consumer explicitly passes
+    ``allow_simulated=True`` (see
+    :mod:`omni_mercury_engine.data_sources.live_ingestion`). For real
+    Schumann-resonance measurements use :class:`BGSELFStationSource`
+    instrument mode with raw ELF samples.
+
     Example:
         >>> source = HeartMathGCMSSource()
         >>> result = await source.fetch(sites=[HeartMathSite.CALIFORNIA])
@@ -597,6 +608,7 @@ class HeartMathGCMSSource(DataSourceBase):
         super().__init__(base_config)
 
         self._sites = sites or list(HeartMathSite)
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -633,12 +645,26 @@ class HeartMathGCMSSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch Schumann resonance data from HeartMath GCMS.
+        """Emit labelled placeholder Schumann-resonance points (no real API).
 
-        Note: The actual HeartMath GCMS API may require specific access.
-        This implementation provides structured data format.
+        HeartMath GCMS has no public machine-readable endpoint, so nothing
+        here is measured: the per-mode power spectrum is a fixed placeholder
+        (``10 / mode``). Every point is labelled
+        ``metadata["simulated"] = True`` with ``confidence=0.0`` so the
+        live-ingestion seam refuses it without an explicit
+        ``allow_simulated=True`` opt-in — this source can never masquerade
+        as a live feed (see the class HONESTY CONTRACT).
         """
         data_points: list[DataPoint] = []
+
+        if not self._warned_simulated:
+            logger.warning(
+                "HeartMath GCMS has no public machine-readable API; emitting "
+                "PLACEHOLDER spectra labelled metadata['simulated']=True with "
+                "confidence=0.0. Consumers must opt in with allow_simulated=True; "
+                "use BGSELFStationSource instrument mode for real measurements."
+            )
+            self._warned_simulated = True
 
         for site in self._sites:
             site_info = self.SITE_COORDS.get(site)
@@ -647,8 +673,6 @@ class HeartMathGCMSSource(DataSourceBase):
 
             name, lat, lon = site_info
 
-            # Generate Schumann resonance data structure
-            # In production, this would fetch from the actual API
             schumann_data: dict[str, Any] = {
                 "site": site.value,
                 "site_name": name,
@@ -656,14 +680,16 @@ class HeartMathGCMSSource(DataSourceBase):
                 "schumann_frequencies_hz": self.SCHUMANN_FREQUENCIES,
                 "fundamental_frequency": 7.83,
                 "update_interval": "hourly",
-                "note": "Schumann resonance spectrogram data",
+                "note": (
+                    "PLACEHOLDER Schumann spectrum (no public HeartMath API); "
+                    "simulated=True, not a measurement"
+                ),
             }
 
-            # Simulated power for each resonance mode
-            # In production, this comes from FFT of magnetometer data
+            # Fixed placeholder power per resonance mode — deliberately not
+            # randomised so it can never be mistaken for a measurement.
             power_data: dict[str, float] = {}
             for i, freq in enumerate(self.SCHUMANN_FREQUENCIES):
-                # Power typically decreases with harmonic number
                 power_data[f"mode_{i+1}_{freq}Hz"] = 10.0 / (i + 1)
 
             schumann_data["power_spectrum"] = power_data
@@ -676,16 +702,18 @@ class HeartMathGCMSSource(DataSourceBase):
                     timestamp=datetime.now(UTC),
                     data=schumann_data,
                     location=(lat, lon, 0.0),
-                    alert_level=self._calculate_coherence_level(power_data),
-                    confidence=0.8,
+                    alert_level=AlertLevel.NONE,
+                    confidence=0.0,
                     metadata={
                         "network": "HeartMath GCI",
                         "measurement_type": "schumann_resonance",
+                        "simulated": True,
+                        "data_provenance": "simulated",
                     },
                 )
             )
 
-        logger.info(f"HeartMath GCMS: Created {len(data_points)} site entries")
+        logger.info(f"HeartMath GCMS: Created {len(data_points)} labelled-simulated site entries")
         return data_points
 
 

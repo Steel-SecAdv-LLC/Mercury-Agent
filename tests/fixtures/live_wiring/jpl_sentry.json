@@ -3,7 +3,7 @@
   "source": "NASA/JPL Sentry Data API",
   "version": "2.0"
  },
- "count": 7,
+ "count": 6,
  "data": [
   {
    "n_imp": 1,
@@ -84,22 +84,6 @@
    "v_inf": "1.35802744453748",
    "id": "bK00SY4G",
    "ps_cum": "-2.77"
-  },
-  {
-   "diameter": "0.66",
-   "n_imp": 4,
-   "last_obs_jd": "2444222.5",
-   "h": "18.54",
-   "des": "1979 XB",
-   "ts_max": "0",
-   "ps_max": "-2.99",
-   "ip": "8.515158e-07",
-   "range": "2056-2113",
-   "last_obs": "1979-12-15",
-   "fullname": "(1979 XB)",
-   "v_inf": "23.7606234552547",
-   "id": "bJ79X00B",
-   "ps_cum": "-2.69"
   },
   {
    "last_obs_jd": "2459722.5",

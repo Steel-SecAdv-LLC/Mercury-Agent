@@ -152,9 +152,22 @@ class USGSEarthquakeSource(DataSourceBase):
         response = await self._http_get("query", params=params)
         data = response.json()
 
-        data_points: list[DataPoint] = []
+        # Contract check: FDSN GeoJSON always carries a "features" array. A
+        # payload without it is endpoint drift and must fail loud -- returning
+        # an empty success here would read as "no earthquakes this week".
+        if not isinstance(data, dict) or "features" not in data:
+            raise DataSourceError(
+                "USGS FDSN payload has no 'features' array "
+                f"(got {type(data).__name__}); endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        features = data["features"]
 
-        for feature in data.get("features", []):
+        data_points: list[DataPoint] = []
+        parse_failures = 0
+
+        for feature in features:
             try:
                 props = feature.get("properties", {})
                 coords = feature.get("geometry", {}).get("coordinates", [0, 0, 0])
@@ -204,8 +217,19 @@ class USGSEarthquakeSource(DataSourceBase):
                 )
 
             except (ValueError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to parse earthquake: {e}")
+                parse_failures += 1
+                logger.warning(f"Failed to parse earthquake feature: {e}")
                 continue
+
+        if features and not data_points:
+            # Every feature failed to parse: that is schema drift, not a
+            # quiet catalog. Refuse to return a fabricated empty success.
+            raise DataSourceError(
+                f"USGS FDSN returned {len(features)} features but none parsed "
+                f"({parse_failures} parse failures); schema drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         logger.info(
             f"USGS Earthquake: Fetched {len(data_points)} earthquakes (M>={self._min_magnitude})"
@@ -528,7 +552,17 @@ class NOAANWPSSource(DataSourceBase):
         response = await self._http_get("gauges", params=params)
         data = response.json()
 
-        gauges = data.get("gauges", [])
+        # Contract check: the NWPS v1 /gauges payload always carries a
+        # "gauges" array (possibly empty for an unpopulated bbox). A payload
+        # without it is endpoint drift and must fail loud.
+        if not isinstance(data, dict) or "gauges" not in data:
+            raise DataSourceError(
+                f"NWPS payload has no 'gauges' array (got {type(data).__name__}); "
+                "endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        gauges = data["gauges"]
 
         for gauge in gauges[: self._max_gauges]:
             try:
@@ -689,52 +723,60 @@ class NOAACOOPSSource(DataSourceBase):
 
         data_points: list[DataPoint] = []
 
-        try:
-            response = await self._http_get("datagetter", params=params)
-            data = response.json()
+        # A fetch failure propagates loudly (DataSourceError from _http_get):
+        # silently returning [] here used to convert an outage or contract
+        # drift into a fabricated "no readings" result.
+        response = await self._http_get("datagetter", params=params)
+        data = response.json()
 
-            # Get station info
-            station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
-            station_name, lat, lon = station_info
+        # CO-OPS reports errors as {"error": {"message": ...}} with HTTP 200.
+        if isinstance(data, dict) and "error" in data:
+            raise DataSourceError(
+                f"CO-OPS {product.value} error for station {self._station_id}: "
+                f"{data['error'].get('message', data['error'])}",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
-            readings = data.get("data", [])
+        # Get station info
+        station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
+        station_name, lat, lon = station_info
 
-            for reading in readings[-20:]:  # Last 20 readings
-                try:
-                    time_str = reading.get("t", "")
-                    value = reading.get("v")
+        readings = data.get("data", [])
 
-                    if not time_str or value is None:
-                        continue
+        for reading in readings[-20:]:  # Last 20 readings
+            try:
+                time_str = reading.get("t", "")
+                value = reading.get("v")
 
-                    timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
-
-                    data_points.append(
-                        DataPoint(
-                            source_id=self.source_id,
-                            source_type=DataSourceType.TIDE,
-                            event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
-                            timestamp=timestamp,
-                            data={
-                                "station_id": self._station_id,
-                                "station_name": station_name,
-                                "product": product.value,
-                                "value": float(value),
-                                "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
-                                "quality": reading.get("q"),
-                            },
-                            location=(lat, lon, 0.0),
-                            confidence=0.95 if reading.get("q") == "v" else 0.8,
-                            metadata={"datum": "MLLW"},
-                        )
-                    )
-
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse CO-OPS reading: {e}")
+                if not time_str or value is None:
                     continue
 
-        except Exception as e:
-            logger.warning(f"CO-OPS {product.value} fetch failed: {e}")
+                timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.TIDE,
+                        event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "station_id": self._station_id,
+                            "station_name": station_name,
+                            "product": product.value,
+                            "value": float(value),
+                            "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
+                            "quality": reading.get("q"),
+                        },
+                        location=(lat, lon, 0.0),
+                        confidence=0.95 if reading.get("q") == "v" else 0.8,
+                        metadata={"datum": "MLLW"},
+                    )
+                )
+
+            except (ValueError, KeyError, TypeError) as e:
+                logger.warning(f"Failed to parse CO-OPS reading: {e}")
+                continue
 
         return data_points
 

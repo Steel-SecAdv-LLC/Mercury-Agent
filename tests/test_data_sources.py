@@ -495,6 +495,35 @@ class TestHeartMathGCMSSource:
         coords = HeartMathGCMSSource.SITE_COORDS
         assert HeartMathSite.CALIFORNIA in coords
 
+    @pytest.mark.asyncio
+    async def test_placeholder_points_are_labelled_simulated(self) -> None:
+        """No public HeartMath API exists: every point must be labelled simulated.
+
+        Regression: these placeholder spectra used to ship unlabelled with
+        confidence 0.8 and a computed alert level, which the live-ingestion
+        provenance seam would have accepted as a live feed.
+        """
+        source = HeartMathGCMSSource(sites=[HeartMathSite.CALIFORNIA])
+        points = await source._fetch_impl()
+        assert points, "expected placeholder points"
+        for point in points:
+            assert point.metadata["simulated"] is True
+            assert point.confidence == 0.0
+            assert point.alert_level == AlertLevel.NONE
+
+    def test_live_ingestion_refuses_unopted_simulated_feed(self) -> None:
+        """The provenance seam must refuse HeartMath without allow_simulated."""
+        from omni_mercury_engine.data_sources.live_ingestion import (
+            SimulatedDataError,
+            fetch_live_datapoints,
+        )
+
+        source = HeartMathGCMSSource(sites=[HeartMathSite.CALIFORNIA])
+        with pytest.raises(SimulatedDataError):
+            fetch_live_datapoints(source)
+        fetched = fetch_live_datapoints(source, allow_simulated=True)
+        assert fetched.data_provenance == "simulated"
+
 
 class TestBGSELFStationSource:
     """Tests for BGS ELF Station data source."""

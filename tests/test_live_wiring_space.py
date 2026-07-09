@@ -20,6 +20,7 @@ import pytest
 
 pytest.importorskip("torch")
 
+from omni_mercury_engine.data_sources.base import DataSourceError
 from omni_mercury_engine.data_sources.geomagnetic import BGSELFStationSource
 from omni_mercury_engine.data_sources.live_ingestion import (
     LiveDataError,
@@ -48,6 +49,30 @@ class _FakeResponse:
 
     def json(self) -> Any:
         return self._payload
+
+
+def make_donki_source() -> Any:
+    """NASA DONKI client whose HTTP layer replays recorded FLR/GST payloads.
+
+    Fixtures are REAL 30-day DONKI responses recorded 2026-07-09 through the
+    live api.nasa.gov endpoint (71 solar flares incl. the 2026-06 M-class
+    cluster, 1 geomagnetic storm).
+    """
+    from omni_mercury_engine.data_sources.space_weather import NASADONKISource
+
+    source = NASADONKISource()
+    flr = load_fixture("donki_flr.json")
+    gst = load_fixture("donki_gst.json")
+
+    async def _fake_http_get(endpoint: str, params: dict[str, Any] | None = None) -> _FakeResponse:
+        if endpoint == "FLR":
+            return _FakeResponse(flr)
+        if endpoint == "GST":
+            return _FakeResponse(gst)
+        raise AssertionError(f"unexpected DONKI endpoint: {endpoint}")
+
+    source._http_get = _fake_http_get  # type: ignore[method-assign]
+    return source
 
 
 def make_swpc_source() -> NOAASWPCSource:
@@ -148,6 +173,38 @@ class TestCanonicalSolarFlareDetector:
         assert result.dst_index_predicted is not None
         assert result.live_context is not None
         assert result.live_context["xray_points"] > 0
+
+    def test_donki_corroboration_from_recorded_events(self) -> None:
+        """The DONKI context path counts real recorded FLR/GST events.
+
+        Regression: this corroboration branch previously had zero test
+        coverage; a parse change could silently zero the counts.
+        """
+        detector = SolarFlareDetector(
+            swpc_source=make_swpc_source(), donki_source=make_donki_source()
+        )
+        result = detector.detect_live()
+        assert result.live_context is not None
+        assert result.live_context["donki_recent_flares"] == 71
+        assert result.live_context["donki_recent_storms"] == 1
+        assert "nasa_donki" in result.source_id
+
+    def test_donki_failure_is_context_not_detection_failure(self) -> None:
+        """A DONKI outage must be surfaced in context, never faked or fatal."""
+        from omni_mercury_engine.data_sources.space_weather import NASADONKISource
+
+        donki = NASADONKISource()
+
+        async def _down(endpoint: str, params: Any | None = None) -> Any:
+            raise DataSourceError("DONKI down", source_id="nasa_donki")
+
+        donki._http_get = _down  # type: ignore[method-assign]
+        detector = SolarFlareDetector(swpc_source=make_swpc_source(), donki_source=donki)
+        result = detector.detect_live()
+        assert result.data_provenance == "live"  # SWPC measurement unaffected
+        assert result.live_context is not None
+        assert "donki_error" in result.live_context
+        assert "donki_recent_flares" not in result.live_context
 
 
 class TestSolarStormDetectorLive:

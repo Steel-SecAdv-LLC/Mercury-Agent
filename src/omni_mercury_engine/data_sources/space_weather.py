@@ -36,6 +36,7 @@ from omni_mercury_engine.data_sources.base import (
     DataPoint,
     DataSourceBase,
     DataSourceConfig,
+    DataSourceError,
     DataSourceType,
     RateLimitConfig,
 )
@@ -213,26 +214,31 @@ class NASADONKISource(DataSourceBase):
             "api_key": self._api_key,
         }
 
-        try:
-            response = await self._http_get(event_type.value, params=params)
-            events = response.json()
+        response = await self._http_get(event_type.value, params=params)
+        events = response.json()
 
-            if not isinstance(events, list):
-                return []
+        # Contract check: DONKI event endpoints always return a JSON array
+        # (empty when quiet). A non-list payload is endpoint drift; a fetch
+        # failure propagates from _http_get. Neither may silently become
+        # "0 events" -- a fabricated all-clear is indistinguishable from a
+        # genuinely quiet sun downstream.
+        if not isinstance(events, list):
+            raise DataSourceError(
+                f"DONKI {event_type.value} payload is {type(events).__name__}, "
+                "expected a JSON array; endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
-            data_points: list[DataPoint] = []
-            source_type = self._event_type_to_source_type(event_type)
+        data_points: list[DataPoint] = []
+        source_type = self._event_type_to_source_type(event_type)
 
-            for event in events:
-                data_point = self._parse_event(event, event_type, source_type)
-                if data_point:
-                    data_points.append(data_point)
+        for event in events:
+            data_point = self._parse_event(event, event_type, source_type)
+            if data_point:
+                data_points.append(data_point)
 
-            return data_points
-
-        except Exception as e:
-            logger.warning(f"DONKI {event_type.value} fetch failed: {e}")
-            return []
+        return data_points
 
     def _parse_event(
         self,

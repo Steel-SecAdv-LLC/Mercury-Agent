@@ -26,7 +26,7 @@ import os
 
 import pytest
 
-from omni_mercury_engine.data_sources.base import DataSourceError
+from omni_mercury_engine.data_sources.base import DataSourceError, SourceUnreachableError
 from omni_mercury_engine.data_sources.earth_science import (
     NOAANWPSSource,
     NWSWeatherAlertsSource,
@@ -49,11 +49,34 @@ _LOUD_FAILURES = (DataSourceError, LiveDataError)
 
 
 def _fetch_or_loud(source):  # type: ignore[no-untyped-def]
-    """Fetch synchronously; unreachable upstream must fail loud, not silent."""
+    """Fetch synchronously; skip ONLY on genuine unreachability.
+
+    A transport-level failure (service down, DNS, timeout, throttle) is the
+    one acceptable skip. Any other error from a *reachable* service --
+    unexpected payload, contract drift, parse failure -- FAILS the test:
+    masking drift as a skip is exactly the silent bitrot this lane exists
+    to catch.
+    """
     result = source.fetch_sync()
     if not result.success:
-        pytest.skip(f"{source.source_id}: upstream unavailable ({result.error})")
+        if result.unreachable:
+            pytest.skip(f"{source.source_id}: upstream unreachable ({result.error})")
+        pytest.fail(
+            f"{source.source_id}: service responded but the fetch failed -- "
+            f"probable schema/endpoint drift, not unavailability: {result.error}"
+        )
     return result
+
+
+def _skip_only_if_unreachable(exc):  # type: ignore[no-untyped-def]
+    """Skip for transport-level unavailability; re-raise anything else."""
+    if getattr(exc, "unreachable", False):
+        pytest.skip(f"upstream unreachable: {exc}")
+    if isinstance(exc, DataSourceError) and not isinstance(exc, SourceUnreachableError):
+        pytest.fail(f"reachable service returned an error (drift, not outage): {exc}")
+    if isinstance(exc, SourceUnreachableError):
+        pytest.skip(f"upstream unreachable: {exc}")
+    pytest.fail(f"live round-trip failed loudly (not an outage): {exc}")
 
 
 class TestRealSourcesLive:
@@ -71,7 +94,11 @@ class TestRealSourcesLive:
         assert levels & {"normal", "advisory", "watch", "warning", "unassigned"}
 
     def test_nwps_river_gauges(self) -> None:
-        result = _fetch_or_loud(NOAANWPSSource())
+        # The /gauges endpoint requires a bounding box (documented on the
+        # client); without one it returns an empty list even when healthy,
+        # which made this smoke unable to pass. Houston-area box from the
+        # client's own docstring example.
+        result = _fetch_or_loud(NOAANWPSSource(bbox=(-96.0, 28.0, -93.0, 31.0)))
         assert result.data_points
 
     def test_nws_active_alerts(self) -> None:
@@ -110,7 +137,7 @@ class TestDetectorsLiveRoundTrip:
         try:
             result = detector.detect_live()
         except _LOUD_FAILURES as exc:
-            pytest.skip(f"upstream unavailable: {exc}")
+            _skip_only_if_unreachable(exc)
         assert result.data_provenance == "live"
         assert result.live_context is not None
 
@@ -122,7 +149,7 @@ class TestDetectorsLiveRoundTrip:
         try:
             result = detector.detect_live()
         except _LOUD_FAILURES as exc:
-            pytest.skip(f"upstream unavailable: {exc}")
+            _skip_only_if_unreachable(exc)
         assert result.data_provenance == "live"
         assert result.threat_level in ("none", "marginal", "slight", "moderate", "high")
 
@@ -134,7 +161,7 @@ class TestDetectorsLiveRoundTrip:
         try:
             result = detector.detect_live()
         except _LOUD_FAILURES as exc:
-            pytest.skip(f"upstream unavailable: {exc}")
+            _skip_only_if_unreachable(exc)
         assert result.data_provenance == "live"
         assert result.severity in ("no_flood", "minor", "moderate", "major", "record")
 
@@ -146,7 +173,7 @@ class TestDetectorsLiveRoundTrip:
         try:
             result = detector.detect_live()
         except _LOUD_FAILURES as exc:
-            pytest.skip(f"upstream unavailable: {exc}")
+            _skip_only_if_unreachable(exc)
         assert result.data_provenance == "live"
         assert result.live_context is not None
         assert result.live_context["volcanoes_reported"] >= 1
@@ -159,5 +186,5 @@ class TestDetectorsLiveRoundTrip:
         try:
             result = detector.predict_meteor()
         except _LOUD_FAILURES as exc:
-            pytest.skip(f"upstream unavailable: {exc}")
+            _skip_only_if_unreachable(exc)
         assert result.data_provenance in ("live", None)

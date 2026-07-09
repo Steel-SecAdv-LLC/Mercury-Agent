@@ -130,6 +130,30 @@ class TestEarthquakeDetectorLive:
         with pytest.raises(LiveDataError, match="no USGS earthquake client"):
             EarthquakeDetector().detect_live()
 
+    def test_payload_without_features_fails_loud(self) -> None:
+        """A payload missing the FDSN 'features' array is drift, not quiet.
+
+        Regression: this used to return an empty success, which downstream
+        reads as "no earthquakes this week".
+        """
+        source = USGSEarthquakeSource(min_magnitude=4.5)
+        patch_http_get(source, {"metadata": {"status": 200}})
+        result = source.fetch_sync(use_cache=False)
+        assert result.success is False
+        assert "features" in (result.error or "")
+        assert result.unreachable is False  # drift, not an outage
+
+    def test_all_features_unparseable_fails_loud(self) -> None:
+        """If every feature fails to parse, refuse the empty-success lie."""
+        source = USGSEarthquakeSource(min_magnitude=4.5)
+        patch_http_get(
+            source,
+            {"features": [{"properties": {"mag": "not-a-number", "time": None}}] * 3},
+        )
+        result = source.fetch_sync(use_cache=False)
+        assert result.success is False
+        assert "schema drift" in (result.error or "")
+
     def test_detect_live_reports_observed_catalog_magnitude(self) -> None:
         detector = EarthquakeDetector(data_source=make_catalog_source())
         result = detector.detect_live()
@@ -465,11 +489,24 @@ class TestVolcanicDetectorLiveWiring:
         assert context["volcanoes_reported"] >= 1
         assert context["highest_alert_volcano"]["name"] == name
 
-    def test_quiet_feed_reports_normal(self) -> None:
+    def test_empty_feed_raises_instead_of_reporting_normal(self) -> None:
+        """No data must never become an all-clear.
+
+        Regression: an empty HANS feed used to yield ``alert_level="normal"``
+        with confidence 0.0 — a fabricated all-clear (the real HANS
+        monitored-volcano list is never empty, so an empty feed means drift
+        or an outage, not calm volcanoes).
+        """
         source = USGSVolcanoSource()
         patch_http_get(source, [])
         detector = VolcanicEruptionDetector(data_source=source)
-        result = detector.detect_live()
-        assert result.eruption_imminent is False
-        assert result.alert_level == "normal"
-        assert result.confidence == 0.0
+        with pytest.raises(LiveDataError, match="refusing to fabricate"):
+            detector.detect_live()
+
+    def test_unmatched_volcano_name_raises_instead_of_reporting_normal(self) -> None:
+        """Asking about a volcano absent from the feed must fail loud."""
+        source = USGSVolcanoSource()
+        patch_http_get(source, load_fixture("hans_elevated.json"))
+        detector = VolcanicEruptionDetector(data_source=source)
+        with pytest.raises(LiveDataError, match="no volcano named"):
+            detector.detect_live(volcano_name="Definitely Not A Volcano")

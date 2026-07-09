@@ -127,3 +127,46 @@ class TestEarthquakeHonesty:
         det = EarthquakeDetector(sampling_rate=100.0)
         features = det.extract_features(_quake_record(np.random.default_rng(3)))
         assert np.isfinite(features).all()
+
+
+class TestLegacyTrainerSyntheticFallbackOptIn:
+    """Legacy trainers must not silently degrade to synthetic training data.
+
+    Regression: when the real DART/USGS loaders failed, these helpers used
+    to fall back to synthetic samples automatically — weights trained that
+    way are indistinguishable from real-trained weights downstream.
+    """
+
+    def test_waveform_trainer_fails_loud_without_opt_in(
+        self, monkeypatch: object
+    ) -> None:
+        import pytest
+
+        from omni_mercury_engine.detectors.geological import disaster_detectors as dd
+
+        monkeypatch.setattr(dd, "load_dart_buoy_data", lambda *a, **k: None)  # type: ignore[attr-defined]
+        model = dd.WaveformFFTAnalyzer()
+        with pytest.raises(RuntimeError, match=r"synthetic .*not explicitly allowed"):
+            dd.train_waveform_analyzer(model, n_epochs=1, n_samples=8)
+
+    def test_waveform_trainer_synthetic_requires_explicit_flag(
+        self, monkeypatch: object
+    ) -> None:
+        from omni_mercury_engine.detectors.geological import disaster_detectors as dd
+
+        monkeypatch.setattr(dd, "load_dart_buoy_data", lambda *a, **k: None)  # type: ignore[attr-defined]
+        model = dd.WaveformFFTAnalyzer()
+        history = dd.train_waveform_analyzer(
+            model, n_epochs=1, n_samples=8, allow_synthetic_fallback=True
+        )
+        assert "loss" in history or history  # trained without raising
+
+    def test_seismic_trainer_fails_loud_without_opt_in(self, monkeypatch: object) -> None:
+        import pytest
+
+        from omni_mercury_engine.detectors.geological import disaster_detectors as dd
+
+        monkeypatch.setattr(dd, "load_usgs_earthquake_catalog", lambda *a, **k: None)  # type: ignore[attr-defined]
+        model = dd.SeismicWaveAnalyzer()
+        with pytest.raises(RuntimeError, match=r"synthetic .*not explicitly allowed"):
+            dd.train_seismic_analyzer(model, n_epochs=1, n_samples=8)

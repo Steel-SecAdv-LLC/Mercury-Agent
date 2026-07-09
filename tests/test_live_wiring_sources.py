@@ -146,6 +146,40 @@ class TestLiveIngestionSeam:
         with pytest.raises(LiveDataError, match="live fetch failed"):
             fetch_live_datapoints(source, use_cache=False)
 
+    def test_unreachable_transport_failure_is_flagged(self) -> None:
+        """Transport-level failures carry unreachable=True end to end.
+
+        The weekly network smoke lane skips ONLY on this flag; without it a
+        schema-drift error could masquerade as unavailability.
+        """
+        from omni_mercury_engine.data_sources.base import SourceUnreachableError
+
+        class _DownSource(_InMemorySource):
+            async def _fetch_impl(self, start_time=None, end_time=None, **kwargs):  # type: ignore[no-untyped-def]
+                raise SourceUnreachableError("connect timeout", source_id="in_memory")
+
+        result = _DownSource([]).fetch_sync(use_cache=False)
+        assert result.success is False and result.unreachable is True
+
+        with pytest.raises(LiveDataError) as excinfo:
+            fetch_live_datapoints(_DownSource([]), use_cache=False)
+        assert excinfo.value.unreachable is True
+
+    def test_schema_drift_failure_is_not_flagged_unreachable(self) -> None:
+        """A reachable service's payload error must NOT read as unavailability."""
+        from omni_mercury_engine.data_sources.base import DataSourceError
+
+        class _DriftedSource(_InMemorySource):
+            async def _fetch_impl(self, start_time=None, end_time=None, **kwargs):  # type: ignore[no-untyped-def]
+                raise DataSourceError("unexpected payload shape", source_id="in_memory")
+
+        result = _DriftedSource([]).fetch_sync(use_cache=False)
+        assert result.success is False and result.unreachable is False
+
+        with pytest.raises(LiveDataError) as excinfo:
+            fetch_live_datapoints(_DriftedSource([]), use_cache=False)
+        assert excinfo.value.unreachable is False
+
     def test_source_type_filter(self) -> None:
         points = [
             _make_point(source_type=DataSourceType.CUSTOM),
@@ -328,6 +362,41 @@ class TestNOAANWPSRealShape:
         assert NOAANWPSSource._numeric_or_none(-999) is None
         assert NOAANWPSSource._numeric_or_none(None) is None
         assert NOAANWPSSource._numeric_or_none(72.68) == pytest.approx(72.68)
+
+
+class TestNOAACOOPSRecordedShape:
+    """CO-OPS water-level parser against a recorded real response.
+
+    Fixture: real 2026-07-08 verified/preliminary water levels for station
+    8518750 (The Battery, NY) recorded from the live CO-OPS datagetter API.
+    """
+
+    def test_parse_recorded_water_levels(self) -> None:
+        from omni_mercury_engine.data_sources.earth_science import NOAACOOPSSource
+
+        source = NOAACOOPSSource(station_id="8518750")
+        patch_http_get(source, load_fixture("coops_water_level.json"))
+        result = source.fetch_sync(use_cache=False)
+        assert result.success
+        assert result.data_points
+        point = result.data_points[-1]
+        assert point.data["station_id"] == "8518750"
+        assert point.data["product"] == "water_level"
+        assert isinstance(point.data["value"], float)
+        assert point.data["unit"] == "meters"
+        assert point.source_id == "noaa_coops_8518750"
+
+    def test_coops_error_payload_fails_loud(self) -> None:
+        """CO-OPS reports errors as HTTP-200 {'error': ...}: must not become
+        an empty success (regression: the fetch used to swallow every
+        exception and return [])."""
+        from omni_mercury_engine.data_sources.earth_science import NOAACOOPSSource
+
+        source = NOAACOOPSSource(station_id="0000000")
+        patch_http_get(source, {"error": {"message": "No station found"}})
+        result = source.fetch_sync(use_cache=False)
+        assert result.success is False
+        assert "No station found" in (result.error or "")
 
 
 class TestJPLFireballSource:
