@@ -1,0 +1,41 @@
+{
+  "description": "Recorded real-data fixtures for the severe-storm meteorological detector cluster. Nothing in this directory is synthetic or hand-edited: every file is the verbatim HTTP response body recorded from the named public endpoint at the named UTC instant.",
+  "recorded_by": "Mercury-Agent T4b2 severe-storms implementation session",
+  "fixtures": {
+    "nws_severe_thunderstorm_warnings.json": {
+      "url": "https://api.weather.gov/alerts?event=Severe%20Thunderstorm%20Warning&limit=25",
+      "recorded_utc": "2026-07-09T05:47:00Z",
+      "method": "GET with User-Agent 'MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)', Accept 'application/geo+json'",
+      "content": "25 real NWS Severe Thunderstorm Warnings (most recent at record time), CAP GeoJSON with Impact-Based Warning parameters including maxHailSize (values such as '1.00', '0.75', 'Up to .75'), hailThreat, maxWindGust.",
+      "notes": "Used by the hail detector NWS cross-check wiring tests."
+    },
+    "nws_dust_storm_warnings.json": {
+      "url": "https://api.weather.gov/alerts?event=Dust%20Storm%20Warning&limit=5",
+      "recorded_utc": "2026-07-09T05:44:00Z",
+      "method": "GET with User-Agent 'MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)', Accept 'application/geo+json'",
+      "content": "5 real NWS Dust Storm Warnings issued 2026-07-08 for the San Luis Valley, Colorado (Alamosa/Conejos/Costilla/Huerfano/Saguache counties).",
+      "notes": "Used by the dust-storm detector NWS cross-check wiring tests, and as a schema-identical populated CAP feed for the winter detector's negative-filter test."
+    },
+    "nws_winter_alerts_query_july.json": {
+      "url": "https://api.weather.gov/alerts?event=Winter%20Storm%20Warning&limit=5",
+      "recorded_utc": "2026-07-09T05:47:00Z",
+      "method": "GET with User-Agent 'MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)', Accept 'application/geo+json'",
+      "content": "Real (verbatim) NWS API response: an empty FeatureCollection. The api.weather.gov /alerts retention window does not reach back to the previous northern-hemisphere winter, so a July query for Winter Storm Warnings genuinely returns zero features.",
+      "notes": "Committed as-recorded rather than fabricating a winter alert payload. The winter detector's populated-feed filtering behaviour is exercised against the schema-identical real dust/severe-thunderstorm fixtures above (the CAP property schema is shared across NWS products); this file exercises the honest empty-feed path."
+    },
+    "spc_hail_archive_subset.csv": {
+      "url": "https://www.spc.noaa.gov/wcm/data/1955-2023_hail.csv.zip",
+      "recorded_utc": "2026-07-09T05:52:00Z",
+      "method": "GET; archive member 1955-2023_hail.csv extracted; rows filtered to the three HailLoader ground-truth event windows (2010-07-22..24, 2016-04-10..13, 2017-05-07..09) plus the verbatim header",
+      "content": "451 verbatim rows of the NOAA SPC severe-hail report archive (schema om,yr,mo,dy,date,time,tz,st,stf,stn,mag,...; mag = hail diameter in inches): 69 rows for the 2010 Vivian SD record-hailstone window (max mag 8.00), 238 rows for the April 2016 Texas hail outbreak (max 5.25), 144 rows for the May 2017 Colorado Front Range hailstorm (max 2.75).",
+      "notes": "Row selection by date window only; no row is edited. Used by the offline HailLoader tests in tests/loaders/test_hail_loader.py."
+    },
+    "spc_storm_reports_20120629.csv": {
+      "url": "https://www.spc.noaa.gov/climo/reports/120629_rpts_filtered.csv",
+      "recorded_utc": "2026-07-09T05:47:00Z",
+      "method": "GET",
+      "content": "Verbatim NOAA Storm Prediction Center filtered storm reports for the convective day 2012-06-29 12:00 UTC through 2012-06-30 11:59 UTC: 675 wind reports (plus tornado and hail sections), covering the historic 29 June 2012 Ohio Valley / mid-Atlantic derecho (the 'June 2012 North American derecho'). Speeds are mph where measured ('UNK' otherwise); times are HHMM UTC with values before 1200 belonging to 2012-06-30.",
+      "notes": "The derecho regression test selects the derecho's report chain from this file using the corridor and timing published in the NOAA/NWS Service Assessment 'The Historic Derecho of June 29, 2012' (states IA/IL/IN/MI/OH/KY/WV/VA/MD/DC/DE/NJ/PA/NC, 16:00 UTC Jun 29 - 07:00 UTC Jun 30). The selection is documented test logic over unmodified real reports; no report is fabricated or altered."
+    }
+  }
+}

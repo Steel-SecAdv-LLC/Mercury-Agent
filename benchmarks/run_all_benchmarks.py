@@ -41,6 +41,10 @@ AUC_GATES: dict[str, float] = {
     "hurricane": 0.60,
     "tornado": 0.60,
     "flood": 0.60,
+    # Measured 2026-07-09 (deterministic across repeat runs): mean AUC 0.6132
+    # over the three SPC archive events (vivian_2010 0.750, texas_2016 0.502,
+    # colorado_2017 0.588). Gate set below the measured mean with margin.
+    "hail": 0.55,
     "wildfire": 0.60,
     "volcanic": 0.60,
     "landslide": 0.60,
@@ -90,6 +94,7 @@ def _get_loader(domain: str) -> Any:
         "hurricane": "HurricaneLoader",
         "tornado": "TornadoLoader",
         "flood": "FloodLoader",
+        "hail": "HailLoader",
         "wildfire": "WildfireLoader",
         "volcanic": "VolcanicLoader",
         "landslide": "LandslideLoader",

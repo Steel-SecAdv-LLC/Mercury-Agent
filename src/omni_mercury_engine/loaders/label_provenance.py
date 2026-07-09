@@ -153,6 +153,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = ``gauge_height_ft >= NWS_flood_stage`` on feature[0].",
     ),
+    "hail_loader.HailLoader": (
+        "statistical",
+        "Labels = ``mag >= 2.0`` in (SPC significant-hail diameter) and feature[0] "
+        "is the same ``mag`` (hail size) column.",
+    ),
     "landslide_loader.LandslideLoader": (
         "statistical",
         "Labels = (fatality_count > 0) OR (size_code >= large); both are scored features.",

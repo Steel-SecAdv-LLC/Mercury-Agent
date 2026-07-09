@@ -1,12 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Meteorological / hydro-climate hazard detectors.
+"""Meteorological hazard detectors.
 
 Physics/statistics cores for drought (SPI/SPEI), heatwave (percentile
 climatology + Excess Heat Factor), atmospheric rivers (IVT + Ralph et al.
-AR scale), lightning (Schultz et al. 2-sigma lightning jump), and the
-hurricane -> surge -> compound-flood cascade.  All detectors work
-untrained and fail loudly on inadequate input.
+AR scale), lightning (Schultz et al. 2-sigma lightning jump), the
+hurricane -> surge -> compound-flood cascade, and the severe-storm
+cluster (hail/SHIP, winter and ice storms, derecho criteria, dust
+storms).  All detectors work untrained, carry literature citations, and
+fail loudly on inadequate input; none carries a neural network.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from omni_mercury_engine.detectors.meteorological.atmospheric_river_detector imp
     IVTResult,
     compute_ivt,
 )
+from omni_mercury_engine.detectors.meteorological.derecho_detector import DerechoDetector
 from omni_mercury_engine.detectors.meteorological.drought_detector import (
     DroughtAssessmentResult,
     DroughtCategory,
@@ -27,6 +30,8 @@ from omni_mercury_engine.detectors.meteorological.drought_detector import (
     compute_spi,
     thornthwaite_pet,
 )
+from omni_mercury_engine.detectors.meteorological.dust_storm_detector import DustStormDetector
+from omni_mercury_engine.detectors.meteorological.hail_detector import HailDetector
 from omni_mercury_engine.detectors.meteorological.heatwave_detector import (
     HeatRiskCategory,
     HeatwaveAssessmentResult,
@@ -49,6 +54,7 @@ from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (
     SurgeFloodCascade,
     SurgeSeries,
 )
+from omni_mercury_engine.detectors.meteorological.winter_storm_detector import WinterStormDetector
 
 __all__ = [
     "ARAssessmentResult",
@@ -56,10 +62,13 @@ __all__ = [
     "AtmosphericRiverDetector",
     "CascadeAssessment",
     "CascadeStage",
+    "DerechoDetector",
     "DroughtAssessmentResult",
     "DroughtCategory",
     "DroughtDetector",
+    "DustStormDetector",
     "EvidenceRecord",
+    "HailDetector",
     "HeatRiskCategory",
     "HeatwaveAssessmentResult",
     "HeatwaveDetector",
@@ -72,6 +81,7 @@ __all__ = [
     "LightningJumpResult",
     "SurgeFloodCascade",
     "SurgeSeries",
+    "WinterStormDetector",
     "classify_usdm",
     "compute_ivt",
     "compute_spei",

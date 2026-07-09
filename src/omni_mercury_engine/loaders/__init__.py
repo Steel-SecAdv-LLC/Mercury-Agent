@@ -16,6 +16,7 @@ from omni_mercury_engine.loaders.energy_loader import EnergyLoader
 from omni_mercury_engine.loaders.fema_loader import FEMALoader
 from omni_mercury_engine.loaders.financial_loader import FinancialLoader
 from omni_mercury_engine.loaders.flood_loader import FloodLoader
+from omni_mercury_engine.loaders.hail_loader import HailLoader
 from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
 from omni_mercury_engine.loaders.landslide_loader import LandslideLoader
 from omni_mercury_engine.loaders.marine_loader import MarineLoader
@@ -37,6 +38,7 @@ __all__ = [
     "FEMALoader",
     "FinancialLoader",
     "FloodLoader",
+    "HailLoader",
     "HurricaneLoader",
     "LandslideLoader",
     "MarineLoader",

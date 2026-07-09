@@ -1,0 +1,3282 @@
+{
+    "@context": [
+        "https://geojson.org/geojson-ld/geojson-context.jsonld",
+        {
+            "@version": "1.1",
+            "wx": "https://api.weather.gov/ontology#",
+            "@vocab": "https://api.weather.gov/ontology#"
+        }
+    ],
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9b6820218384d3c3628f7058478eed8373d5c626.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.95,
+                            39.69
+                        ],
+                        [
+                            -96.96,
+                            39.94
+                        ],
+                        [
+                            -96.48,
+                            39.94
+                        ],
+                        [
+                            -96.47,
+                            39.68
+                        ],
+                        [
+                            -96.95,
+                            39.69
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9b6820218384d3c3628f7058478eed8373d5c626.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.9b6820218384d3c3628f7058478eed8373d5c626.001.1",
+                "areaDesc": "Marshall, KS; Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020117",
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC117",
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC117",
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6c938c471eac7e2d3eaf9cc2e3ee81f6c5aa4555.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.6c938c471eac7e2d3eaf9cc2e3ee81f6c5aa4555.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-09T00:23:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-09T00:39:00-05:00",
+                "effective": "2026-07-09T00:39:00-05:00",
+                "onset": "2026-07-09T00:39:00-05:00",
+                "expires": "2026-07-09T00:54:32-05:00",
+                "ends": "2026-07-09T01:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KTOP 090539"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR NORTHEASTERN WASHINGTON AND NORTHWESTERN MARSHALL COUNTIES IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:37:00-00:00...storm...287DEG...30KT...39.77,-96.67"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KTOP.SV.W.0347.000000T0000Z-260709T0600Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T01:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.73761566437a67a4d31f258e0f529647ca3f8a40.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.03,
+                            39.64
+                        ],
+                        [
+                            -96.04,
+                            39.37
+                        ],
+                        [
+                            -96.66,
+                            39.36
+                        ],
+                        [
+                            -96.83,
+                            39.47
+                        ],
+                        [
+                            -96.82,
+                            39.57
+                        ],
+                        [
+                            -96.81,
+                            39.57
+                        ],
+                        [
+                            -96.81,
+                            39.69
+                        ],
+                        [
+                            -96.41,
+                            39.72
+                        ],
+                        [
+                            -96.03,
+                            39.64
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.73761566437a67a4d31f258e0f529647ca3f8a40.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.73761566437a67a4d31f258e0f529647ca3f8a40.001.1",
+                "areaDesc": "Marshall, KS; Nemaha, KS; Pottawatomie, KS; Riley, KS",
+                "geocode": {
+                    "SAME": [
+                        "020117",
+                        "020131",
+                        "020149",
+                        "020161"
+                    ],
+                    "UGC": [
+                        "KSC117",
+                        "KSC131",
+                        "KSC149",
+                        "KSC161"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC117",
+                    "https://api.weather.gov/zones/county/KSC131",
+                    "https://api.weather.gov/zones/county/KSC149",
+                    "https://api.weather.gov/zones/county/KSC161"
+                ],
+                "references": [],
+                "sent": "2026-07-09T00:38:00-05:00",
+                "effective": "2026-07-09T00:38:00-05:00",
+                "onset": "2026-07-09T00:38:00-05:00",
+                "expires": "2026-07-09T01:15:00-05:00",
+                "ends": "2026-07-09T01:15:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 9 at 12:38AM CDT until July 9 at 1:15AM CDT by NWS Topeka KS",
+                "description": "SVRTOP\n\nThe National Weather Service in Topeka has issued a\n\n* Severe Thunderstorm Warning for...\nNorth central Riley County in northeastern Kansas...\nSouthwestern Nemaha County in northeastern Kansas...\nNorthern Pottawatomie County in northeastern Kansas...\nSouthern Marshall County in northeastern Kansas...\n\n* Until 115 AM CDT.\n\n* At 1237 AM CDT, a severe thunderstorm was located near Blue\nRapids, moving southeast at 40 mph. Another severe thunderstorm\nwas located near Frankfort, also moving southeast at 40 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\n* Locations impacted include...\nBlue Rapids, Westmoreland, Blaine, Frankfort, Onaga, Waterville,\nOlsburg, Randolph, Havensville, Wheaton, and Lillis.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KTOP 090538"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:37:00-00:00...storm...307DEG...37KT...39.64,-96.67"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTOP.SV.W.0348.260709T0538Z-260709T0615Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T01:15:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3eac71fa9a50869515de1fab5bf1ced8a6ecdce9.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -109.82,
+                            48.83
+                        ],
+                        [
+                            -109.85,
+                            49
+                        ],
+                        [
+                            -109.49,
+                            49
+                        ],
+                        [
+                            -109.5,
+                            48.93
+                        ],
+                        [
+                            -109.48,
+                            48.92
+                        ],
+                        [
+                            -109.51,
+                            48.91
+                        ],
+                        [
+                            -109.51,
+                            48.76
+                        ],
+                        [
+                            -109.82,
+                            48.83
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3eac71fa9a50869515de1fab5bf1ced8a6ecdce9.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.3eac71fa9a50869515de1fab5bf1ced8a6ecdce9.001.1",
+                "areaDesc": "Hill, MT",
+                "geocode": {
+                    "SAME": [
+                        "030041"
+                    ],
+                    "UGC": [
+                        "MTC041"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/MTC041"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:49:00-06:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7bfdb6b05c36c21edcfbf210e31e1e0432d3ea86.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.7bfdb6b05c36c21edcfbf210e31e1e0432d3ea86.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:09:00-06:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:29:00-06:00",
+                "effective": "2026-07-08T23:29:00-06:00",
+                "onset": "2026-07-08T23:29:00-06:00",
+                "expires": "2026-07-08T23:44:28-06:00",
+                "ends": "2026-07-08T23:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Great Falls MT",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTFX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS55 KTFX 090529"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR NORTHEASTERN HILL COUNTY IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:26:00-00:00...storm...281DEG...15KT...48.91,-109.59"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KTFX.SV.W.0039.000000T0000Z-260709T0545Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T23:45:00-06:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6c938c471eac7e2d3eaf9cc2e3ee81f6c5aa4555.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.95,
+                            39.69
+                        ],
+                        [
+                            -96.96,
+                            39.94
+                        ],
+                        [
+                            -96.48,
+                            39.94
+                        ],
+                        [
+                            -96.47,
+                            39.68
+                        ],
+                        [
+                            -96.95,
+                            39.69
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6c938c471eac7e2d3eaf9cc2e3ee81f6c5aa4555.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.6c938c471eac7e2d3eaf9cc2e3ee81f6c5aa4555.001.1",
+                "areaDesc": "Marshall, KS; Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020117",
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC117",
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC117",
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [],
+                "sent": "2026-07-09T00:23:00-05:00",
+                "effective": "2026-07-09T00:23:00-05:00",
+                "onset": "2026-07-09T00:23:00-05:00",
+                "expires": "2026-07-09T01:00:00-05:00",
+                "ends": "2026-07-09T01:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 9 at 12:23AM CDT until July 9 at 1:00AM CDT by NWS Topeka KS",
+                "description": "SVRTOP\n\nThe National Weather Service in Topeka has issued a\n\n* Severe Thunderstorm Warning for...\nNortheastern Washington County in north central Kansas...\nNorthwestern Marshall County in northeastern Kansas...\n\n* Until 100 AM CDT.\n\n* At 1223 AM CDT, a severe thunderstorm was located 6 miles south of\nHanover, moving east at 35 mph.\n\nHAZARD...60 mph wind gusts.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\n* Locations impacted include...\nMarysville, Blue Rapids, Hanover, Waterville, Barnes, and Bremen.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KTOP 090523"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:23:00-00:00...storm...287DEG...30KT...39.81,-96.84"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "Up to .75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTOP.SV.W.0347.260709T0523Z-260709T0600Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T01:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9b6820218384d3c3628f7058478eed8373d5c626.001.1",
+                "replacedAt": "2026-07-09T00:39:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.aab564f0295ff980347d7e339986d86a92e6bea5.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.85,
+                            40
+                        ],
+                        [
+                            -96.83,
+                            39.67
+                        ],
+                        [
+                            -97.14,
+                            39.67
+                        ],
+                        [
+                            -97.15,
+                            39.83
+                        ],
+                        [
+                            -97.16,
+                            40
+                        ],
+                        [
+                            -96.85,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.aab564f0295ff980347d7e339986d86a92e6bea5.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.aab564f0295ff980347d7e339986d86a92e6bea5.001.1",
+                "areaDesc": "Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:54:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b441bff3ef4557989a585f9d706588d196689af.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.2b441bff3ef4557989a585f9d706588d196689af.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-09T00:02:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-09T00:12:00-05:00",
+                "effective": "2026-07-09T00:12:00-05:00",
+                "onset": "2026-07-09T00:12:00-05:00",
+                "expires": "2026-07-09T00:30:00-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 9 at 12:12AM CDT until July 9 at 12:30AM CDT by NWS Topeka KS",
+                "description": "At 1210 AM CDT, a severe thunderstorm was located 4 miles east of\nWashington, moving east at 35 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Trained weather spotters had reported a 60 mph wind gust in\nMorrowville at 1200 AM with small tree limbs down.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\nLocations impacted include...\nWashington, Hanover, Linn, Greenleaf, Barnes, and Hollenberg.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KTOP 090512"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1230 AM CDT FOR NORTHEASTERN WASHINGTON COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:10:00-00:00...storm...287DEG...30KT...39.83,-96.96"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KTOP.SV.W.0346.000000T0000Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1054ab02488860becea01eb88ee0e329eff3974a.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -98.61,
+                            40.14
+                        ],
+                        [
+                            -98.55,
+                            40.26
+                        ],
+                        [
+                            -98.3,
+                            40.21
+                        ],
+                        [
+                            -98.44,
+                            40.02
+                        ],
+                        [
+                            -98.61,
+                            40.14
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1054ab02488860becea01eb88ee0e329eff3974a.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.1054ab02488860becea01eb88ee0e329eff3974a.001.1",
+                "areaDesc": "Webster, NE",
+                "geocode": {
+                    "SAME": [
+                        "031181"
+                    ],
+                    "UGC": [
+                        "NEC181"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC181"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:40:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fd649f98e4e9846eced31e7d284988e2c529cbd2.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.fd649f98e4e9846eced31e7d284988e2c529cbd2.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-09T00:02:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-09T00:11:00-05:00",
+                "effective": "2026-07-09T00:11:00-05:00",
+                "onset": "2026-07-09T00:11:00-05:00",
+                "expires": "2026-07-09T00:26:20-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGID"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGID 090511"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR CENTRAL WEBSTER COUNTY IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:09:00-00:00...storm...295DEG...14KT...40.13,-98.43"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KGID.SV.W.0236.000000T0000Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7bfdb6b05c36c21edcfbf210e31e1e0432d3ea86.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -109.82,
+                            48.83
+                        ],
+                        [
+                            -109.85,
+                            49
+                        ],
+                        [
+                            -109.49,
+                            49
+                        ],
+                        [
+                            -109.5,
+                            48.93
+                        ],
+                        [
+                            -109.48,
+                            48.92
+                        ],
+                        [
+                            -109.51,
+                            48.91
+                        ],
+                        [
+                            -109.51,
+                            48.76
+                        ],
+                        [
+                            -109.82,
+                            48.83
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7bfdb6b05c36c21edcfbf210e31e1e0432d3ea86.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.7bfdb6b05c36c21edcfbf210e31e1e0432d3ea86.001.1",
+                "areaDesc": "Hill, MT",
+                "geocode": {
+                    "SAME": [
+                        "030041"
+                    ],
+                    "UGC": [
+                        "MTC041"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/MTC041"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:49:00-06:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:09:00-06:00",
+                "effective": "2026-07-08T23:09:00-06:00",
+                "onset": "2026-07-08T23:09:00-06:00",
+                "expires": "2026-07-08T23:45:00-06:00",
+                "ends": "2026-07-08T23:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Great Falls MT",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:09PM MDT until July 8 at 11:45PM MDT by NWS Great Falls MT",
+                "description": "At 1109 PM MDT, a severe thunderstorm was located 26 miles north of\nHavre, moving east at 25 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\nThis severe thunderstorm will remain over mainly rural areas of\nnortheastern Hill County.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTFX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS55 KTFX 090509"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1145 PM MDT FOR NORTHEASTERN HILL COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:09:00-00:00...storm...275DEG...23KT...48.93,-109.71"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KTFX.SV.W.0039.000000T0000Z-260709T0545Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T23:45:00-06:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3eac71fa9a50869515de1fab5bf1ced8a6ecdce9.001.1",
+                "replacedAt": "2026-07-08T23:29:00-06:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b441bff3ef4557989a585f9d706588d196689af.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.85,
+                            40
+                        ],
+                        [
+                            -96.83,
+                            39.67
+                        ],
+                        [
+                            -97.2,
+                            39.67
+                        ],
+                        [
+                            -97.26,
+                            39.84
+                        ],
+                        [
+                            -97.28,
+                            40
+                        ],
+                        [
+                            -96.85,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b441bff3ef4557989a585f9d706588d196689af.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.2b441bff3ef4557989a585f9d706588d196689af.001.1",
+                "areaDesc": "Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:54:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-09T00:02:00-05:00",
+                "effective": "2026-07-09T00:02:00-05:00",
+                "onset": "2026-07-09T00:02:00-05:00",
+                "expires": "2026-07-09T00:30:00-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 9 at 12:02AM CDT until July 9 at 12:30AM CDT by NWS Topeka KS",
+                "description": "At 1201 AM CDT, a severe thunderstorm was located near Washington,\nmoving east at 35 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Trained weather spotters reported 60 mph wind gusts in\nMorrowville at 1200 AM.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\nLocations impacted include...\nWashington, Hanover, Linn, Greenleaf, Barnes, Morrowville, and\nHollenberg.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KTOP 090502"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1230 AM CDT FOR CENTRAL WASHINGTON COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:01:00-00:00...storm...287DEG...30KT...39.85,-97.06"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KTOP.SV.W.0346.000000T0000Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.aab564f0295ff980347d7e339986d86a92e6bea5.001.1",
+                "replacedAt": "2026-07-09T00:12:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fd649f98e4e9846eced31e7d284988e2c529cbd2.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -98.61,
+                            40.14
+                        ],
+                        [
+                            -98.55,
+                            40.26
+                        ],
+                        [
+                            -98.3,
+                            40.21
+                        ],
+                        [
+                            -98.44,
+                            40.02
+                        ],
+                        [
+                            -98.61,
+                            40.14
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fd649f98e4e9846eced31e7d284988e2c529cbd2.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.fd649f98e4e9846eced31e7d284988e2c529cbd2.001.1",
+                "areaDesc": "Webster, NE",
+                "geocode": {
+                    "SAME": [
+                        "031181"
+                    ],
+                    "UGC": [
+                        "NEC181"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC181"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:40:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-09T00:02:00-05:00",
+                "effective": "2026-07-09T00:02:00-05:00",
+                "onset": "2026-07-09T00:02:00-05:00",
+                "expires": "2026-07-09T00:30:00-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 9 at 12:02AM CDT until July 9 at 12:30AM CDT by NWS Hastings NE",
+                "description": "At 1202 AM CDT, a severe thunderstorm was located over Cowles, or 30\nmiles south of Hastings, moving southeast at 15 mph.\n\nHAZARD...60 mph wind gusts.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\nLocations impacted include...\nRed Cloud and Cowles.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGID"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGID 090502"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1230 AM CDT FOR CENTRAL WEBSTER COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T05:02:00-00:00...storm...295DEG...14KT...40.15,-98.47"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "Up to .75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KGID.SV.W.0236.000000T0000Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1054ab02488860becea01eb88ee0e329eff3974a.001.1",
+                "replacedAt": "2026-07-09T00:11:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.37,
+                            40
+                        ],
+                        [
+                            -97.56,
+                            40
+                        ],
+                        [
+                            -97.52,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+                "areaDesc": "Thayer, NE",
+                "geocode": {
+                    "SAME": [
+                        "031169"
+                    ],
+                    "UGC": [
+                        "NEC169"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC169"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:08:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:30:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.21bf536003933174446c98e03fb3763529cc89f0.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.21bf536003933174446c98e03fb3763529cc89f0.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:45:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:55:00-05:00",
+                "effective": "2026-07-08T23:55:00-05:00",
+                "onset": "2026-07-08T23:55:00-05:00",
+                "expires": "2026-07-09T00:05:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:55PM CDT until July 9 at 12:00AM CDT by NWS Hastings NE",
+                "description": "The storm which prompted the warning has moved out of the area.\nTherefore, the warning will be allowed to expire.",
+                "instruction": null,
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGID"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGID 090455"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR SOUTHEASTERN THAYER COUNTY WILL EXPIRE AT MIDNIGHT CDT"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:55:00-00:00...storm...304DEG...15KT...39.99,-97.43"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.EXP.KGID.SV.W.0235.000000T0000Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.85,
+                            40
+                        ],
+                        [
+                            -96.83,
+                            39.67
+                        ],
+                        [
+                            -97.26,
+                            39.67
+                        ],
+                        [
+                            -97.32,
+                            39.8
+                        ],
+                        [
+                            -97.33,
+                            40
+                        ],
+                        [
+                            -96.85,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.819fb6d7edcf03931b25b6c2e28b2b148e8f5747.001.1",
+                "areaDesc": "Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [],
+                "sent": "2026-07-08T23:54:00-05:00",
+                "effective": "2026-07-08T23:54:00-05:00",
+                "onset": "2026-07-08T23:54:00-05:00",
+                "expires": "2026-07-09T00:30:00-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:54PM CDT until July 9 at 12:30AM CDT by NWS Topeka KS",
+                "description": "SVRTOP\n\nThe National Weather Service in Topeka has issued a\n\n* Severe Thunderstorm Warning for...\nWashington County in north central Kansas...\n\n* Until 1230 AM CDT.\n\n* At 1153 PM CDT, a severe thunderstorm was located near Morrowville,\nmoving east at 35 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Trained weather spotters reported wind gusts of 60 mph in\nHaddam at 1145 PM.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\n* Locations impacted include...\nWashington, Hanover, Linn, Greenleaf, Barnes, Morrowville, Haddam,\nand Hollenberg.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KTOP 090454"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:53:00-00:00...storm...287DEG...30KT...39.87,-97.15"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTOP.SV.W.0346.260709T0454Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.aab564f0295ff980347d7e339986d86a92e6bea5.001.1",
+                "replacedAt": "2026-07-09T00:12:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -109.5,
+                            48.93
+                        ],
+                        [
+                            -109.48,
+                            48.92
+                        ],
+                        [
+                            -109.51,
+                            48.91
+                        ],
+                        [
+                            -109.51,
+                            48.76
+                        ],
+                        [
+                            -110.03,
+                            48.87
+                        ],
+                        [
+                            -110.02,
+                            49
+                        ],
+                        [
+                            -109.49,
+                            49
+                        ],
+                        [
+                            -109.5,
+                            48.93
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.b8bdd9542b45d3dea360d67cb7beff528eb0ab80.001.1",
+                "areaDesc": "Hill, MT",
+                "geocode": {
+                    "SAME": [
+                        "030041"
+                    ],
+                    "UGC": [
+                        "MTC041"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/MTC041"
+                ],
+                "references": [],
+                "sent": "2026-07-08T22:49:00-06:00",
+                "effective": "2026-07-08T22:49:00-06:00",
+                "onset": "2026-07-08T22:49:00-06:00",
+                "expires": "2026-07-08T23:45:00-06:00",
+                "ends": "2026-07-08T23:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Great Falls MT",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 10:49PM MDT until July 8 at 11:45PM MDT by NWS Great Falls MT",
+                "description": "SVRTFX\n\nThe National Weather Service in Great Falls has issued a\n\n* Severe Thunderstorm Warning for...\nNortheastern Hill County in north central Montana...\n\n* Until 1145 PM MDT.\n\n* At 1048 PM MDT, a severe thunderstorm was located 26 miles north of\nBeaver Creek, or 28 miles north of Havre, moving east at 15 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage\nto roofs, siding, and trees.\n\n* This severe thunderstorm will remain over mainly rural areas of\nnortheastern Hill County.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTFX"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS55 KTFX 090449"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:48:00-00:00...storm...281DEG...15KT...48.93,-109.91"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTFX.SV.W.0039.260709T0449Z-260709T0545Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T23:45:00-06:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3eac71fa9a50869515de1fab5bf1ced8a6ecdce9.001.1",
+                "replacedAt": "2026-07-08T23:29:00-06:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.eac038af374e4727d1ba80cea5949a330c96e2d8.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.12,
+                            40
+                        ],
+                        [
+                            -97.15,
+                            39.77
+                        ],
+                        [
+                            -97.32,
+                            39.67
+                        ],
+                        [
+                            -97.48,
+                            39.83
+                        ],
+                        [
+                            -97.54,
+                            40
+                        ],
+                        [
+                            -97.12,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.eac038af374e4727d1ba80cea5949a330c96e2d8.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.eac038af374e4727d1ba80cea5949a330c96e2d8.001.1",
+                "areaDesc": "Republic, KS; Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020157",
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC157",
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC157",
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.61ae62e8765021eeb09ec115edefaaea1a4b2915.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.61ae62e8765021eeb09ec115edefaaea1a4b2915.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:25:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:47:00-05:00",
+                "effective": "2026-07-08T23:47:00-05:00",
+                "onset": "2026-07-08T23:47:00-05:00",
+                "expires": "2026-07-09T00:00:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:47PM CDT until July 9 at 12:00AM CDT by NWS Topeka KS",
+                "description": "At 1146 PM CDT, a severe thunderstorm was located near Haddam, moving\nsoutheast at 30 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Trained weather spotters estimated wind gusts of 60 mph in\nHaddam at 1145 PM.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage to\nroofs, siding, and trees.\n\nLocations impacted include...\nCuba, Morrowville, Haddam, Narka, and Mahaska.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KTOP 090447"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL MIDNIGHT CDT FOR NORTHEASTERN REPUBLIC AND NORTHWESTERN WASHINGTON COUNTIES"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:46:00-00:00...storm...310DEG...25KT...39.81,-97.28"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KTOP.SV.W.0345.000000T0000Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.21bf536003933174446c98e03fb3763529cc89f0.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.37,
+                            40
+                        ],
+                        [
+                            -97.56,
+                            40
+                        ],
+                        [
+                            -97.52,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.21bf536003933174446c98e03fb3763529cc89f0.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.21bf536003933174446c98e03fb3763529cc89f0.001.1",
+                "areaDesc": "Thayer, NE",
+                "geocode": {
+                    "SAME": [
+                        "031169"
+                    ],
+                    "UGC": [
+                        "NEC169"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC169"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:08:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:30:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:45:00-05:00",
+                "effective": "2026-07-08T23:45:00-05:00",
+                "onset": "2026-07-08T23:45:00-05:00",
+                "expires": "2026-07-09T00:00:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:45PM CDT until July 9 at 12:00AM CDT by NWS Hastings NE",
+                "description": "At 1145 PM CDT, a severe thunderstorm was located over Hubbell, or 15\nmiles northeast of Belleville, moving southeast at 15 mph.\n\nHAZARD...60 mph wind gusts and penny size hail.\n\nSOURCE...Automated Weather Station.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\nLocations impacted include...\nHubbell.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGID"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGID 090445"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL MIDNIGHT CDT FOR SOUTHEASTERN THAYER COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:45:00-00:00...storm...295DEG...12KT...40.01,-97.47"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "0.75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KGID.SV.W.0235.000000T0000Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+                "replacedAt": "2026-07-08T23:55:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -98.69,
+                            40.14
+                        ],
+                        [
+                            -98.61,
+                            40.27
+                        ],
+                        [
+                            -98.3,
+                            40.21
+                        ],
+                        [
+                            -98.45,
+                            40.01
+                        ],
+                        [
+                            -98.69,
+                            40.14
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.3afc2484015c57b4fdc5e8e324ce540378b261f7.001.1",
+                "areaDesc": "Webster, NE",
+                "geocode": {
+                    "SAME": [
+                        "031181"
+                    ],
+                    "UGC": [
+                        "NEC181"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC181"
+                ],
+                "references": [],
+                "sent": "2026-07-08T23:40:00-05:00",
+                "effective": "2026-07-08T23:40:00-05:00",
+                "onset": "2026-07-08T23:40:00-05:00",
+                "expires": "2026-07-09T00:30:00-05:00",
+                "ends": "2026-07-09T00:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:40PM CDT until July 9 at 12:30AM CDT by NWS Hastings NE",
+                "description": "SVRGID\n\nThe National Weather Service in Hastings has issued a\n\n* Severe Thunderstorm Warning for...\nCentral Webster County in south central Nebraska...\n\n* Until 1230 AM CDT.\n\n* At 1140 PM CDT, a severe thunderstorm was located near Cowles, or\n29 miles south of Hastings, moving southeast at 15 mph.\n\nHAZARD...60 mph wind gusts.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect damage to roofs, siding, and trees.\n\n* This severe thunderstorm will be near...\nCowles around 1150 PM CDT.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRGID"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KGID 090440"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:40:00-00:00...storm...295DEG...14KT...40.19,-98.57"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "Up to .75"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KGID.SV.W.0236.260709T0440Z-260709T0530Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1054ab02488860becea01eb88ee0e329eff3974a.001.1",
+                "replacedAt": "2026-07-09T00:11:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.37,
+                            40
+                        ],
+                        [
+                            -97.66,
+                            40
+                        ],
+                        [
+                            -97.63,
+                            40.09
+                        ],
+                        [
+                            -97.51,
+                            40.13
+                        ],
+                        [
+                            -97.37,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.685163f95b6f5f5e9c5b6593958fdb032a1de72a.001.1",
+                "areaDesc": "Thayer, NE",
+                "geocode": {
+                    "SAME": [
+                        "031169"
+                    ],
+                    "UGC": [
+                        "NEC169"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC169"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:08:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:30:00-05:00",
+                "effective": "2026-07-08T23:30:00-05:00",
+                "onset": "2026-07-08T23:30:00-05:00",
+                "expires": "2026-07-09T00:00:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:30PM CDT until July 9 at 12:00AM CDT by NWS Hastings NE",
+                "description": "At 1130 PM CDT, a severe thunderstorm was located over Hubbell, or 14\nmiles northeast of Belleville, moving southeast at 15 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Automated Weather Station. This storm has a history of\nproducing measured wind gusts near 60 MPH in southern\nThayer County.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage to\nroofs, siding, and trees.\n\nLocations impacted include...\nChester and Hubbell.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGID"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGID 090430"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL MIDNIGHT CDT FOR SOUTHEASTERN THAYER COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:30:00-00:00...storm...300DEG...13KT...40.02,-97.52"
+                    ],
+                    "windThreat": [
+                        "OBSERVED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KGID.SV.W.0235.000000T0000Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+                "replacedAt": "2026-07-08T23:55:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.61ae62e8765021eeb09ec115edefaaea1a4b2915.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.12,
+                            40
+                        ],
+                        [
+                            -97.15,
+                            39.77
+                        ],
+                        [
+                            -97.33,
+                            39.64
+                        ],
+                        [
+                            -97.64,
+                            39.96
+                        ],
+                        [
+                            -97.54,
+                            40
+                        ],
+                        [
+                            -97.12,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.61ae62e8765021eeb09ec115edefaaea1a4b2915.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.61ae62e8765021eeb09ec115edefaaea1a4b2915.001.1",
+                "areaDesc": "Republic, KS; Washington, KS",
+                "geocode": {
+                    "SAME": [
+                        "020157",
+                        "020201"
+                    ],
+                    "UGC": [
+                        "KSC157",
+                        "KSC201"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC157",
+                    "https://api.weather.gov/zones/county/KSC201"
+                ],
+                "references": [],
+                "sent": "2026-07-08T23:25:00-05:00",
+                "effective": "2026-07-08T23:25:00-05:00",
+                "onset": "2026-07-08T23:25:00-05:00",
+                "expires": "2026-07-09T00:00:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:25PM CDT until July 9 at 12:00AM CDT by NWS Topeka KS",
+                "description": "SVRTOP\n\nThe National Weather Service in Topeka has issued a\n\n* Severe Thunderstorm Warning for...\nNortheastern Republic County in north central Kansas...\nNorthwestern Washington County in north central Kansas...\n\n* Until midnight CDT.\n\n* At 1124 PM CDT, a severe thunderstorm was located near Narka,\nmoving southeast at 25 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage\nto roofs, siding, and trees.\n\n* Locations impacted include...\nCuba, Morrowville, Haddam, Munden, Narka, and Mahaska.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KTOP 090425"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:24:00-00:00...storm...313DEG...23KT...39.92,-97.46"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTOP.SV.W.0345.260709T0425Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.eac038af374e4727d1ba80cea5949a330c96e2d8.001.1",
+                "replacedAt": "2026-07-08T23:47:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.74d7816675f26920b5dc572c0078c53e01030944.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.39,
+                            40
+                        ],
+                        [
+                            -97.37,
+                            39.99
+                        ],
+                        [
+                            -97.37,
+                            39.77
+                        ],
+                        [
+                            -97.5,
+                            39.67
+                        ],
+                        [
+                            -97.77,
+                            39.99
+                        ],
+                        [
+                            -97.74,
+                            40
+                        ],
+                        [
+                            -97.39,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.74d7816675f26920b5dc572c0078c53e01030944.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.74d7816675f26920b5dc572c0078c53e01030944.001.1",
+                "areaDesc": "Republic, KS",
+                "geocode": {
+                    "SAME": [
+                        "020157"
+                    ],
+                    "UGC": [
+                        "KSC157"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC157"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6b2d2b10abe163eed55edf2dbf99e74c2c155aec.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.6b2d2b10abe163eed55edf2dbf99e74c2c155aec.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T23:06:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T23:19:00-05:00",
+                "effective": "2026-07-08T23:19:00-05:00",
+                "onset": "2026-07-08T23:19:00-05:00",
+                "expires": "2026-07-08T23:30:00-05:00",
+                "ends": "2026-07-08T23:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:19PM CDT until July 8 at 11:30PM CDT by NWS Topeka KS",
+                "description": "At 1119 PM CDT, a severe thunderstorm was located near Munden, moving\nsoutheast at 25 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage to\nroofs, siding, and trees.\n\nLocations impacted include...\nBelleville, Cuba, Munden, and Narka.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KTOP 090419"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1130 PM CDT FOR EASTERN REPUBLIC COUNTY"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:19:00-00:00...storm...314DEG...23KT...39.92,-97.5"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KTOP.SV.W.0344.000000T0000Z-260709T0430Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T23:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.37,
+                            40
+                        ],
+                        [
+                            -97.76,
+                            40
+                        ],
+                        [
+                            -97.68,
+                            40.12
+                        ],
+                        [
+                            -97.51,
+                            40.13
+                        ],
+                        [
+                            -97.37,
+                            40.07
+                        ],
+                        [
+                            -97.37,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.f64702dc45e64300176fcc3d907c2c7bc859200c.001.1",
+                "areaDesc": "Thayer, NE",
+                "geocode": {
+                    "SAME": [
+                        "031169"
+                    ],
+                    "UGC": [
+                        "NEC169"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC169"
+                ],
+                "references": [],
+                "sent": "2026-07-08T23:08:00-05:00",
+                "effective": "2026-07-08T23:08:00-05:00",
+                "onset": "2026-07-08T23:08:00-05:00",
+                "expires": "2026-07-09T00:00:00-05:00",
+                "ends": "2026-07-09T00:00:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Hastings NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:08PM CDT until July 9 at 12:00AM CDT by NWS Hastings NE",
+                "description": "SVRGID\n\nThe National Weather Service in Hastings has issued a\n\n* Severe Thunderstorm Warning for...\nSoutheastern Thayer County in south central Nebraska...\n\n* Until midnight CDT.\n\n* At 1108 PM CDT, a severe thunderstorm was located near Chester, or\n15 miles north of Belleville, moving southeast at 20 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage\nto roofs, siding, and trees.\n\n* This severe thunderstorm will be near...\nHubbell around 1115 PM CDT.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRGID"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KGID 090408"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:08:00-00:00...storm...304DEG...15KT...40.05,-97.59"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KGID.SV.W.0235.260709T0408Z-260709T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-09T00:00:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8c4014bda36a3e911db45986e007bfe73ad81d94.001.1",
+                "replacedAt": "2026-07-08T23:55:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6b2d2b10abe163eed55edf2dbf99e74c2c155aec.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -97.39,
+                            40
+                        ],
+                        [
+                            -97.37,
+                            39.99
+                        ],
+                        [
+                            -97.37,
+                            39.77
+                        ],
+                        [
+                            -97.5,
+                            39.67
+                        ],
+                        [
+                            -97.77,
+                            39.99
+                        ],
+                        [
+                            -97.74,
+                            40
+                        ],
+                        [
+                            -97.39,
+                            40
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6b2d2b10abe163eed55edf2dbf99e74c2c155aec.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.6b2d2b10abe163eed55edf2dbf99e74c2c155aec.001.1",
+                "areaDesc": "Republic, KS",
+                "geocode": {
+                    "SAME": [
+                        "020157"
+                    ],
+                    "UGC": [
+                        "KSC157"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC157"
+                ],
+                "references": [],
+                "sent": "2026-07-08T23:06:00-05:00",
+                "effective": "2026-07-08T23:06:00-05:00",
+                "onset": "2026-07-08T23:06:00-05:00",
+                "expires": "2026-07-08T23:30:00-05:00",
+                "ends": "2026-07-08T23:30:00-05:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Topeka KS",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 11:06PM CDT until July 8 at 11:30PM CDT by NWS Topeka KS",
+                "description": "SVRTOP\n\nThe National Weather Service in Topeka has issued a\n\n* Severe Thunderstorm Warning for...\nEastern Republic County in north central Kansas...\n\n* Until 1130 PM CDT.\n\n* At 1106 PM CDT, a severe thunderstorm was located near Chester,\nmoving southeast at 25 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage\nto roofs, siding, and trees.\n\n* Locations impacted include...\nBelleville, Cuba, Munden, and Narka.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVRTOP"
+                    ],
+                    "WMOidentifier": [
+                        "WUUS53 KTOP 090406"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T04:06:00-00:00...storm...314DEG...23KT...39.98,-97.58"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KTOP.SV.W.0344.260709T0406Z-260709T0430Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T23:30:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVR"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.74d7816675f26920b5dc572c0078c53e01030944.001.1",
+                "replacedAt": "2026-07-08T23:19:00-05:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6b825bc336929874562ff8504754f6c7b4e581be.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -101.41,
+                            39.71
+                        ],
+                        [
+                            -101.41,
+                            39.57
+                        ],
+                        [
+                            -101.45,
+                            39.31
+                        ],
+                        [
+                            -102.04,
+                            39.33
+                        ],
+                        [
+                            -102.05,
+                            39.35
+                        ],
+                        [
+                            -102.05,
+                            39.83
+                        ],
+                        [
+                            -101.41,
+                            39.71
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6b825bc336929874562ff8504754f6c7b4e581be.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.6b825bc336929874562ff8504754f6c7b4e581be.001.1",
+                "areaDesc": "Cheyenne, KS; Sherman, KS",
+                "geocode": {
+                    "SAME": [
+                        "020023",
+                        "020181"
+                    ],
+                    "UGC": [
+                        "KSC023",
+                        "KSC181"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/KSC023",
+                    "https://api.weather.gov/zones/county/KSC181"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d6ebb6235e26a26cb524197f8ee2b86166ada9d7.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.d6ebb6235e26a26cb524197f8ee2b86166ada9d7.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T21:09:00-06:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.64b7e7df72058c877fec7d3606f6100c39164994.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.64b7e7df72058c877fec7d3606f6100c39164994.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T21:16:00-06:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4379e410dd9ee2194c2ea015e62f338294cf9902.002.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.4379e410dd9ee2194c2ea015e62f338294cf9902.002.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T21:27:00-06:00"
+                    }
+                ],
+                "sent": "2026-07-08T21:46:00-06:00",
+                "effective": "2026-07-08T21:46:00-06:00",
+                "onset": "2026-07-08T21:46:00-06:00",
+                "expires": "2026-07-08T22:01:14-06:00",
+                "ends": "2026-07-08T22:15:00-06:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Goodland KS",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSGLD"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KGLD 090346"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR SOUTHERN CHEYENNE AND NORTHERN SHERMAN COUNTIES IN NORTHWESTERN KANSAS IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T03:44:00-00:00...storm...312DEG...24KT...39.61,-101.7 39.36,-101.63 39.43,-101.89"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KGLD.SV.W.0228.000000T0000Z-260709T0415Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T22:15:00-06:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2582ca0738e22740ea4a5d2de5821b5f65dd2a7a.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.91,
+                            40.46
+                        ],
+                        [
+                            -96.91,
+                            40.52
+                        ],
+                        [
+                            -96.83,
+                            40.76
+                        ],
+                        [
+                            -96.52,
+                            40.7
+                        ],
+                        [
+                            -96.68,
+                            40.37
+                        ],
+                        [
+                            -96.91,
+                            40.46
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2582ca0738e22740ea4a5d2de5821b5f65dd2a7a.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.2582ca0738e22740ea4a5d2de5821b5f65dd2a7a.001.1",
+                "areaDesc": "Gage, NE; Lancaster, NE",
+                "geocode": {
+                    "SAME": [
+                        "031067",
+                        "031109"
+                    ],
+                    "UGC": [
+                        "NEC067",
+                        "NEC109"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC067",
+                    "https://api.weather.gov/zones/county/NEC109"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.94654192b46bace0aa95c27464285812b5e284ae.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.94654192b46bace0aa95c27464285812b5e284ae.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:02:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e84598d67c266ace51df88dcd12d23358d915747.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.e84598d67c266ace51df88dcd12d23358d915747.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:14:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.44a94acc259ee385192141f7524d5b28828b4eda.002.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.44a94acc259ee385192141f7524d5b28828b4eda.002.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:29:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T22:38:00-05:00",
+                "effective": "2026-07-08T22:38:00-05:00",
+                "onset": "2026-07-08T22:38:00-05:00",
+                "expires": "2026-07-08T22:48:00-05:00",
+                "ends": "2026-07-08T22:45:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Omaha/Valley NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 10:38PM CDT until July 8 at 10:45PM CDT by NWS Omaha/Valley NE",
+                "description": "The storm which prompted the warning has weakened below severe\nlimits, and no longer poses an immediate threat to life or property.\nTherefore, the warning will be allowed to expire.  However, gusty\nwinds and heavy rain are still possible with this thunderstorm.\n\nA Severe Thunderstorm Watch remains in effect until 100 AM CDT for\nsoutheastern Nebraska.",
+                "instruction": null,
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSOAX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KOAX 090338"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR SOUTHERN LANCASTER AND NORTHWESTERN GAGE COUNTIES WILL EXPIRE AT 1045 PM CDT"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T03:38:00-00:00...storm...280DEG...24KT...40.55,-96.62"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.EXP.KOAX.SV.W.0321.000000T0000Z-260709T0345Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T22:45:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b5f0fa329f538f808734b2a53ed218748175ad2a.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -95.16,
+                            41.5
+                        ],
+                        [
+                            -95.16,
+                            41.37
+                        ],
+                        [
+                            -95.34,
+                            41.39
+                        ],
+                        [
+                            -95.36,
+                            41.5
+                        ],
+                        [
+                            -95.16,
+                            41.5
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b5f0fa329f538f808734b2a53ed218748175ad2a.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.b5f0fa329f538f808734b2a53ed218748175ad2a.001.1",
+                "areaDesc": "Pottawattamie, IA",
+                "geocode": {
+                    "SAME": [
+                        "019155"
+                    ],
+                    "UGC": [
+                        "IAC155"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/IAC155"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b01637815b50c04edebec791b1ff5e8df6973d93.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.b01637815b50c04edebec791b1ff5e8df6973d93.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T21:42:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7bbcbe8984c407985932d7553047b79f46e8efae.002.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.7bbcbe8984c407985932d7553047b79f46e8efae.002.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:08:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c3a5d37d1a5f9082d7f01f3ede209f985b6efbdc.002.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.c3a5d37d1a5f9082d7f01f3ede209f985b6efbdc.002.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:28:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T22:31:00-05:00",
+                "effective": "2026-07-08T22:31:00-05:00",
+                "onset": "2026-07-08T22:31:00-05:00",
+                "expires": "2026-07-08T22:46:29-05:00",
+                "ends": "2026-07-08T22:45:00-05:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Omaha/Valley NE",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSOAX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KOAX 090331"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR NORTHEASTERN POTTAWATTAMIE COUNTY IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T03:30:00-00:00...storm...269DEG...23KT...41.56,-95.08 41.48,-95.06"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KOAX.SV.W.0320.000000T0000Z-260709T0345Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T22:45:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.75020a82e90cffcac861e77b5df272c60869eb98.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -95.15,
+                            41.5
+                        ],
+                        [
+                            -95.04,
+                            41.51
+                        ],
+                        [
+                            -95.04,
+                            41.58
+                        ],
+                        [
+                            -94.94,
+                            41.57
+                        ],
+                        [
+                            -94.86,
+                            41.33
+                        ],
+                        [
+                            -94.95,
+                            41.16
+                        ],
+                        [
+                            -95.12,
+                            41.16
+                        ],
+                        [
+                            -95.16,
+                            41.17
+                        ],
+                        [
+                            -95.15,
+                            41.5
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.75020a82e90cffcac861e77b5df272c60869eb98.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.75020a82e90cffcac861e77b5df272c60869eb98.001.1",
+                "areaDesc": "Audubon, IA; Cass, IA",
+                "geocode": {
+                    "SAME": [
+                        "019009",
+                        "019029"
+                    ],
+                    "UGC": [
+                        "IAC009",
+                        "IAC029"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/IAC009",
+                    "https://api.weather.gov/zones/county/IAC029"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e9b3ea5c25b6f9bd8c01ea845ade2f13dc2b5848.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.e9b3ea5c25b6f9bd8c01ea845ade2f13dc2b5848.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T21:53:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T22:30:00-05:00",
+                "effective": "2026-07-08T22:30:00-05:00",
+                "onset": "2026-07-08T22:30:00-05:00",
+                "expires": "2026-07-08T22:45:53-05:00",
+                "ends": "2026-07-08T22:45:00-05:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Des Moines IA",
+                "headline": "The Severe Thunderstorm Warning has been cancelled.",
+                "description": "The Severe Thunderstorm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSDMX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KDMX 090330"
+                    ],
+                    "NWSheadline": [
+                        "THE SEVERE THUNDERSTORM WARNING FOR WESTERN CASS AND SOUTHWESTERN AUDUBON COUNTIES IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T03:29:00-00:00...storm...293DEG...27KT...41.5,-95.04 41.35,-94.95 41.21,-95.05"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KDMX.SV.W.0271.000000T0000Z-260709T0345Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T22:45:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.44a94acc259ee385192141f7524d5b28828b4eda.002.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -96.91,
+                            40.46
+                        ],
+                        [
+                            -96.91,
+                            40.52
+                        ],
+                        [
+                            -96.83,
+                            40.76
+                        ],
+                        [
+                            -96.52,
+                            40.7
+                        ],
+                        [
+                            -96.68,
+                            40.37
+                        ],
+                        [
+                            -96.91,
+                            40.46
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.44a94acc259ee385192141f7524d5b28828b4eda.002.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.44a94acc259ee385192141f7524d5b28828b4eda.002.1",
+                "areaDesc": "Gage, NE; Lancaster, NE",
+                "geocode": {
+                    "SAME": [
+                        "031067",
+                        "031109"
+                    ],
+                    "UGC": [
+                        "NEC067",
+                        "NEC109"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NEC067",
+                    "https://api.weather.gov/zones/county/NEC109"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.94654192b46bace0aa95c27464285812b5e284ae.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.94654192b46bace0aa95c27464285812b5e284ae.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:02:00-05:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e84598d67c266ace51df88dcd12d23358d915747.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.e84598d67c266ace51df88dcd12d23358d915747.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-08T22:14:00-05:00"
+                    }
+                ],
+                "sent": "2026-07-08T22:29:00-05:00",
+                "effective": "2026-07-08T22:29:00-05:00",
+                "onset": "2026-07-08T22:29:00-05:00",
+                "expires": "2026-07-08T22:45:00-05:00",
+                "ends": "2026-07-08T22:45:00-05:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Observed",
+                "urgency": "Immediate",
+                "event": "Severe Thunderstorm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Omaha/Valley NE",
+                "headline": "Severe Thunderstorm Warning issued July 8 at 10:29PM CDT until July 8 at 10:45PM CDT by NWS Omaha/Valley NE",
+                "description": "At 1029 PM CDT, a severe thunderstorm was located 3 miles north of\nCortland, or 17 miles south of Lincoln, moving southeast at 20 mph.\n\nHAZARD...60 mph wind gusts and quarter size hail.\n\nSOURCE...Radar indicated.\n\nIMPACT...Hail damage to vehicles is expected. Expect wind damage to\nroofs, siding, and trees.\n\nLocations impacted include...\nSouthern Lincoln, Hickman, Firth, Cortland, Clatonia, Roca, Hallam,\nSprague, Yankee Hill Lake, Stagecoach State Recreation Area, Wagon\nTrain State Recreation Area, Olive Creek State Recreation Area, and\nBluestem State Recreation Area.",
+                "instruction": "For your protection move to an interior room on the lowest floor of a\nbuilding.\n\nTorrential rainfall is occurring with this storm, and may lead to\nflash flooding. Do not drive your vehicle through flooded roadways.",
+                "response": "Shelter",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "SVSOAX"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS53 KOAX 090329"
+                    ],
+                    "NWSheadline": [
+                        "A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1045 PM CDT FOR SOUTHERN LANCASTER AND NORTHWESTERN GAGE COUNTIES"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-09T03:29:00-00:00...storm...293DEG...19KT...40.56,-96.69"
+                    ],
+                    "windThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxWindGust": [
+                        "60 MPH"
+                    ],
+                    "hailThreat": [
+                        "RADAR INDICATED"
+                    ],
+                    "maxHailSize": [
+                        "1.00"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KOAX.SV.W.0321.000000T0000Z-260709T0345Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T22:45:00-05:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "SVS"
+                    ],
+                    "NationalWeatherService": [
+                        "SVW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2582ca0738e22740ea4a5d2de5821b5f65dd2a7a.001.1",
+                "replacedAt": "2026-07-08T22:38:00-05:00"
+            }
+        }
+    ],
+    "title": "Severe Thunderstorm Warning events",
+    "updated": "2026-07-09T05:39:39+00:00",
+    "pagination": {
+        "next": "https://api.weather.gov/alerts?event%5B0%5D=Severe%20Thunderstorm%20Warning&limit=25&cursor=eyJ0IjoxNzgzNTY3NzQwLCJpIjoidXJuOm9pZDoyLjQ5LjAuMS44NDAuMC40NGE5NGFjYzI1OWVlMzg1MTkyMTQxZjc1MjRkNWIyODgyOGI0ZWRhLjAwMi4xIn0%3D"
+    }
+}
