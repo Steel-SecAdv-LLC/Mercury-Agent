@@ -140,6 +140,10 @@ class _SplitProbeLoader(DatasetLoader):
     """
 
     DATASET_NAME = "split_probe"
+    # Honest provenance for the manufactured probe labels. The provenance
+    # gate exempts test-module fixtures from its audit sweep, but the
+    # declaration should still tell the truth.
+    LABEL_SOURCE = "statistical"
 
     def download(self) -> bool:
         """Pretend the data is always available."""

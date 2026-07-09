@@ -39,6 +39,13 @@ at the root:
   `torch.load` is now hard-pinned to `weights_only=True` (house convention),
   including the shipped-checkpoint loader which previously passed
   `weights_only=False` explicitly.
+- **Label-provenance gate no longer audits test fixtures.**
+  `datasets/label_provenance.py::discover_loaders()` now carries the same
+  documented test-module exemption as its `loaders/` sibling: the F5
+  cache-vs-split probe loader (a test-local fixture) tripped the full-suite
+  ML lane because `__subclasses__` sweeps see any test module imported
+  earlier in the same process. The probe also declares its manufactured
+  labels honestly (`LABEL_SOURCE = "statistical"`).
 - **Scenario regeneration test made environment-honest.** numpy dispatches
   transcendental kernels by CPU capability, so seeded regeneration is not
   bit-stable across hardware (observed on CI). The slow-tier test now
