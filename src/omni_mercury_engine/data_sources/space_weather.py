@@ -609,6 +609,11 @@ class SWPCProduct(Enum):
     KP_INDEX = "noaa-planetary-k-index.json"
     ALERTS = "alerts.json"
     XRAY_FLUX = "primary/xrays-7-day.json"
+    # GOES integral proton flux (pfu) — served under json/goes/, rows of
+    # {time_tag, satellite, flux, energy} with energy in
+    # {">=1 MeV", ">=5 MeV", ">=10 MeV", ">=30 MeV", ">=50 MeV",
+    #  ">=60 MeV", ">=100 MeV", ">=500 MeV"}. Verified live 2026-07-09.
+    INTEGRAL_PROTONS = "primary/integral-protons-7-day.json"
     REALTIME_SOLAR_WIND = "rtsw/rtsw_mag_1m.json"
     GEOSPACE_PRED = "geospace/geospace-pred-7-day.json"
     SOLAR_CYCLE = "solar-cycle-observed.json"
@@ -684,6 +689,7 @@ class NOAASWPCSource(DataSourceBase):
             SWPCProduct.ALERTS: DataSourceType.WEATHER_ALERT,
             SWPCProduct.XRAY_FLUX: DataSourceType.SOLAR_FLARE,
             SWPCProduct.REALTIME_SOLAR_WIND: DataSourceType.SOLAR_WIND,
+            SWPCProduct.INTEGRAL_PROTONS: DataSourceType.SOLAR_ENERGETIC_PARTICLE,
         }
         return mapping.get(product, DataSourceType.CUSTOM)
 
@@ -705,7 +711,7 @@ class NOAASWPCSource(DataSourceBase):
         """Fetch a specific SWPC product."""
         endpoint = f"products/{product.value}"
 
-        if product == SWPCProduct.XRAY_FLUX:
+        if product in (SWPCProduct.XRAY_FLUX, SWPCProduct.INTEGRAL_PROTONS):
             endpoint = f"json/goes/{product.value}"
         elif product == SWPCProduct.REALTIME_SOLAR_WIND:
             endpoint = f"products/{product.value}"
@@ -738,6 +744,8 @@ class NOAASWPCSource(DataSourceBase):
             data_points = self._parse_propagated_solar_wind(data, source_type)
         elif product == SWPCProduct.XRAY_FLUX:
             data_points = self._parse_xray_flux(data, source_type)
+        elif product == SWPCProduct.INTEGRAL_PROTONS:
+            data_points = self._parse_integral_protons(data, source_type)
 
         return data_points
 
@@ -1100,6 +1108,70 @@ class NOAASWPCSource(DataSourceBase):
 
             except (ValueError, IndexError) as e:
                 logger.debug(f"Failed to parse X-ray row: {e}")
+                continue
+
+        return data_points
+
+    def _parse_integral_protons(
+        self,
+        data: list[dict[str, Any]],
+        source_type: DataSourceType,
+    ) -> list[DataPoint]:
+        """Parse GOES integral proton flux rows.
+
+        Rows carry ``{time_tag, satellite, flux, energy}`` with flux in pfu
+        (protons cm^-2 s^-1 sr^-1). Alert level for ``>=10 MeV`` rows follows
+        the NOAA S-scale (S1..S5 at 10/100/1e3/1e4/1e5 pfu; NOAA Space
+        Weather Scales, "Solar Radiation Storms").
+
+        Args:
+            data: Parsed JSON list from the SWPC product.
+            source_type: Source type to stamp on the data points.
+
+        Returns:
+            One DataPoint per (time, energy-channel) row.
+        """
+        data_points: list[DataPoint] = []
+
+        for row in data:
+            try:
+                time_str = row["time_tag"]
+                flux = float(row["flux"])
+                energy = str(row["energy"])
+                timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+
+                alert_level = AlertLevel.NONE
+                if energy == ">=10 MeV":
+                    if flux >= 1e5:
+                        alert_level = AlertLevel.EXTREME  # S5
+                    elif flux >= 1e4:
+                        alert_level = AlertLevel.SEVERE  # S4
+                    elif flux >= 1e3:
+                        alert_level = AlertLevel.STRONG  # S3
+                    elif flux >= 1e2:
+                        alert_level = AlertLevel.MODERATE  # S2
+                    elif flux >= 1e1:
+                        alert_level = AlertLevel.MINOR  # S1
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"protons_{energy}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "flux": flux,
+                            "energy": energy,
+                            "satellite": row.get("satellite"),
+                        },
+                        alert_level=alert_level,
+                        confidence=0.95,
+                        metadata={"product": "integral_protons"},
+                    )
+                )
+
+            except (KeyError, ValueError, TypeError) as e:
+                logger.debug(f"Failed to parse integral-proton row: {e}")
                 continue
 
         return data_points
