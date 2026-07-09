@@ -79,6 +79,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.data_sources.space_weather import NASANeoWsSource
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
@@ -212,6 +213,9 @@ class TsunamiPredictionResult:
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
 
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
+
 
 @dataclass
 class EarthquakePredictionResult:
@@ -243,6 +247,9 @@ class EarthquakePredictionResult:
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
 
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
+
 
 @dataclass
 class MeteorPredictionResult:
@@ -269,6 +276,9 @@ class MeteorPredictionResult:
     source_id: str | None = None
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
 
 
 if TYPE_CHECKING or TORCH_AVAILABLE:
@@ -519,6 +529,7 @@ class TsunamiDetector:
         detection_threshold: float = 0.96,
         device: str = "cpu",
         data_source: USGSEarthquakeSource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize the instance.
 
@@ -535,12 +546,17 @@ class TsunamiDetector:
             detection_threshold: Confidence threshold for detection.
             device: Torch device for the (optional) neural analyzer.
             data_source: Optional USGS earthquake-catalog client.
+            keep_diagnostics: When True, each prediction result carries the FFT
+                power spectrum the resonance scan computed (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
         if not TORCH_AVAILABLE:
             raise ImportError("TsunamiDetector requires PyTorch. Install with: pip install torch")
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
+        self.keep_diagnostics = keep_diagnostics
         self.rng = get_global_rng()
         self._catalog_source = data_source
 
@@ -672,6 +688,23 @@ class TsunamiDetector:
         warnings = self._generate_warnings(tsunami_detected, severity)
         zones = self._generate_evacuation_zones(severity)
 
+        diagnostics: HazardDiagnostics | None = None
+        if self.keep_diagnostics:
+            # Capture the spectrum arrays the resonance scan above ALREADY built
+            # (two-sided FFT ordering, exactly as computed) -- no recomputation.
+            diagnostics = HazardDiagnostics(
+                hazard="tsunami",
+                arrays={
+                    "fft_freqs_hz": np.asarray(freqs, dtype=float),
+                    "fft_power": np.asarray(power_spectrum, dtype=float),
+                },
+                context={
+                    "sampling_rate_hz": float(self.sampling_rate),
+                    "resonance_score": float(resonance_score),
+                    "dominant_frequencies_hz": [float(f) for f in dominant_freqs],
+                },
+            )
+
         return TsunamiPredictionResult(
             tsunami_detected=tsunami_detected,
             confidence=confidence,
@@ -685,6 +718,7 @@ class TsunamiDetector:
             waveform_anomaly_score=float(np.std(power_spectrum)),
             warning_actions=warnings,
             evacuation_zones=zones,
+            diagnostics=diagnostics,
         )
 
     def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
@@ -873,6 +907,7 @@ class EarthquakeDetector:
         detection_threshold: float = 0.96,
         device: str = "cpu",
         data_source: USGSEarthquakeSource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize the instance.
 
@@ -889,6 +924,11 @@ class EarthquakeDetector:
             detection_threshold: Confidence threshold for detection.
             device: Torch device for the (optional) neural analyzer.
             data_source: Optional USGS earthquake-catalog client.
+            keep_diagnostics: When True, each prediction result carries the
+                normalized spectrogram fed to the CNN plus the STA/LTA
+                arrival-detection series (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -897,6 +937,7 @@ class EarthquakeDetector:
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
+        self.keep_diagnostics = keep_diagnostics
         self.rng = get_global_rng()
         self._catalog_source = data_source
 
@@ -987,9 +1028,16 @@ class EarthquakeDetector:
         # random p_prob/s_prob heads gated whether it ran at all). The S pick
         # searches after the P trigger plus one second -- on a single trace the
         # lower S threshold would otherwise fire at-or-before the P pick.
-        p_arrival = self._detect_wave_arrival(seismic_data[0], "p")
-        s_min_index = (p_arrival + int(self.sampling_rate)) if p_arrival is not None else 0
-        s_arrival = self._detect_wave_arrival(seismic_data[0], "s", min_index=s_min_index)
+        # Compute the STA/LTA ratio series ONCE and derive both arrivals from it
+        # (previously it was rebuilt per wave type and then discarded); with
+        # keep_diagnostics the series itself is persisted on the result.
+        sta_lta = self._sta_lta_series(seismic_data[0])
+        p_arrival: int | None = None
+        s_arrival: int | None = None
+        if sta_lta is not None:
+            p_arrival = self._first_arrival(sta_lta, "p")
+            s_min_index = (p_arrival + int(self.sampling_rate)) if p_arrival is not None else 0
+            s_arrival = self._first_arrival(sta_lta, "s", min_index=s_min_index)
 
         estimated_mag: float | None
         if self._neural_trained:
@@ -1035,6 +1083,28 @@ class EarthquakeDetector:
 
         warnings = self._generate_warnings(earthquake_detected, magnitude_class)
 
+        diagnostics: HazardDiagnostics | None = None
+        if self.keep_diagnostics:
+            # Capture the spectrogram exactly as fed to the CNN (f, t, Sxx_norm)
+            # plus the STA/LTA series computed above -- no recomputation.
+            arrays: dict[str, np.ndarray[Any, Any]] = {
+                "spectrogram_freqs_hz": np.asarray(f, dtype=float),
+                "spectrogram_times_s": np.asarray(t, dtype=float),
+                "spectrogram_norm": np.asarray(Sxx_norm, dtype=float),
+            }
+            if sta_lta is not None:
+                arrays["sta_lta_ratio"] = np.asarray(sta_lta, dtype=float)
+            diagnostics = HazardDiagnostics(
+                hazard="earthquake",
+                arrays=arrays,
+                context={
+                    "sampling_rate_hz": float(self.sampling_rate),
+                    "p_arrival_index": p_arrival,
+                    "s_arrival_index": s_arrival,
+                    "sta_lta_available": sta_lta is not None,
+                },
+            )
+
         return EarthquakePredictionResult(
             earthquake_detected=earthquake_detected,
             confidence=confidence,
@@ -1049,6 +1119,7 @@ class EarthquakeDetector:
             spectral_anomalies=self._find_spectral_anomalies(Sxx, f),
             warning_actions=warnings,
             aftershock_probability=aftershock_probability,
+            diagnostics=diagnostics,
         )
 
     def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
@@ -1252,18 +1323,15 @@ class EarthquakeDetector:
         else:
             return EarthquakeMagnitude.GREAT.value
 
-    def _detect_wave_arrival(
-        self, data: np.ndarray[Any, Any], wave_type: str, min_index: int = 0
-    ) -> int | None:
-        """Detect P or S wave arrival time using STA/LTA.
+    def _sta_lta_series(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """Compute the STA/LTA ratio series used for P/S arrival picking.
 
         Args:
-            data: The seismic trace.
-            wave_type: ``"p"`` (threshold 3.0) or ``"s"`` (threshold 2.0).
-            min_index: Ignore triggers before this sample. Required for a
-                meaningful S pick on a single trace: the lower S threshold
-                otherwise always fires at-or-before the P trigger, so the S
-                search must start after the P arrival.
+            data: 1-D seismic waveform.
+
+        Returns:
+            The per-sample short-term/long-term average ratio, or ``None`` when
+            the record is shorter than one STA+LTA window (no ratio exists).
         """
         sta_len = int(0.5 * self.sampling_rate)
         lta_len = int(5.0 * self.sampling_rate)
@@ -1276,11 +1344,45 @@ class EarthquakeDetector:
             sta = np.mean(np.abs(data[i : i + sta_len]))
             lta = np.mean(np.abs(data[i - lta_len : i]))
             sta_lta[i] = sta / (lta + 1e-10)
+        return sta_lta
 
+    @staticmethod
+    def _first_arrival(
+        sta_lta: np.ndarray[Any, Any], wave_type: str, min_index: int = 0
+    ) -> int | None:
+        """Pick the first sample where the STA/LTA ratio crosses the wave threshold.
+
+        Args:
+            sta_lta: STA/LTA ratio series from :meth:`_sta_lta_series`.
+            wave_type: ``"p"`` (threshold 3.0) or ``"s"`` (threshold 2.0).
+            min_index: Ignore triggers before this sample. Required for a
+                meaningful S pick on a single trace: the lower S threshold
+                otherwise always fires at-or-before the P trigger, so the S
+                search must start after the P arrival.
+
+        Returns:
+            The first crossing index, or ``None`` if the threshold is never crossed.
+        """
         threshold = 3.0 if wave_type == "p" else 2.0
         arrivals = np.where(sta_lta[min_index:] > threshold)[0]
 
         return int(arrivals[0]) + min_index if len(arrivals) > 0 else None
+
+    def _detect_wave_arrival(
+        self, data: np.ndarray[Any, Any], wave_type: str, min_index: int = 0
+    ) -> int | None:
+        """Detect P or S wave arrival time using STA/LTA.
+
+        Args:
+            data: The seismic trace.
+            wave_type: ``"p"`` (threshold 3.0) or ``"s"`` (threshold 2.0).
+            min_index: Ignore triggers before this sample (see
+                :meth:`_first_arrival`).
+        """
+        sta_lta = self._sta_lta_series(data)
+        if sta_lta is None:
+            return None
+        return self._first_arrival(sta_lta, wave_type, min_index=min_index)
 
     def _find_spectral_anomalies(
         self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
@@ -1392,6 +1494,7 @@ class MeteorDetector:
         fireball_source: JPLFireballSource | None = None,
         neo_source: NASANeoWsSource | None = None,
         sentry_source: JPLSentrySource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize MeteorDetector.
 
@@ -1403,10 +1506,16 @@ class MeteorDetector:
             fireball_source: Optional injected JPL Fireball client
             neo_source: Optional injected NASA NeoWs close-approach client
             sentry_source: Optional injected JPL Sentry impact-risk client
+            keep_diagnostics: When True and radar data is supplied, the prediction
+                result carries the first-difference Doppler shift profile whose
+                mean drives the velocity estimate (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
         self.detection_threshold = detection_threshold
         self.bayesian_filter = BayesianMeteorFilter(prior_probability=prior_probability)
         self.rng = get_global_rng()
+        self.keep_diagnostics = keep_diagnostics
 
         any_injected = any(s is not None for s in (fireball_source, neo_source, sentry_source))
         self.use_nasa_data = use_nasa_data or any_injected
@@ -1660,11 +1769,17 @@ class MeteorDetector:
         size_estimate = nasa_size_estimate
         velocity_estimate = nasa_velocity_estimate
 
+        # Capture the Doppler shift profile ONCE; the velocity estimate consumes
+        # its mean and (with keep_diagnostics) the profile itself is persisted.
+        doppler_profile: np.ndarray[Any, Any] | None = None
+        if radar_data is not None and len(radar_data) >= 2:
+            doppler_profile = np.diff(np.asarray(radar_data, dtype=float))
+
         # Fall back to local radar estimates
         if size_estimate is None and meteor_detected and radar_data is not None:
             size_estimate = self._estimate_size(radar_data)
         if velocity_estimate is None and meteor_detected and radar_data is not None:
-            velocity_estimate = self._estimate_velocity(radar_data)
+            velocity_estimate = self._estimate_velocity(radar_data, profile=doppler_profile)
 
         # Use external stub estimates if provided
         if noaa_stub is not None:
@@ -1687,6 +1802,17 @@ class MeteorDetector:
         if nasa_close_approach_alert:
             warnings.insert(0, "NASA CNEOS: Imminent near-Earth object close approach")
 
+        diagnostics: HazardDiagnostics | None = None
+        if self.keep_diagnostics and doppler_profile is not None:
+            diagnostics = HazardDiagnostics(
+                hazard="meteor",
+                arrays={"doppler_shift_profile": doppler_profile},
+                context={
+                    "n_radar_samples": len(radar_data) if radar_data is not None else 0,
+                    "mean_doppler_shift": float(doppler_profile.mean()),
+                },
+            )
+
         return MeteorPredictionResult(
             meteor_detected=meteor_detected,
             confidence=posterior,
@@ -1704,6 +1830,7 @@ class MeteorDetector:
             source_id=",".join(live_sources_used) if live_sources_used else None,
             data_provenance="live" if live_sources_used else None,
             live_context=live_context or None,
+            diagnostics=diagnostics,
         )
 
     def _assess_threat(
@@ -1732,12 +1859,28 @@ class MeteorDetector:
         size = np.sqrt(rcs / np.pi) * 10
         return float(size)
 
-    def _estimate_velocity(self, radar_data: np.ndarray[Any, Any]) -> float:
-        """Estimate meteor velocity from Doppler shift."""
+    def _estimate_velocity(
+        self,
+        radar_data: np.ndarray[Any, Any],
+        profile: np.ndarray[Any, Any] | None = None,
+    ) -> float:
+        """Estimate meteor velocity from Doppler shift.
+
+        Args:
+            radar_data: Radar return series.
+            profile: Optional precomputed first-difference Doppler profile
+                (``np.diff(radar_data)``) so the caller can capture it without
+                recomputation.
+
+        Returns:
+            Velocity estimate in km/s.
+        """
         if len(radar_data) < 2:
             return 20.0
 
-        doppler_shift = np.diff(radar_data).mean()
+        if profile is None:
+            profile = np.diff(radar_data)
+        doppler_shift = profile.mean()
         velocity = abs(doppler_shift) * 0.1 + 10
         return float(velocity)
 

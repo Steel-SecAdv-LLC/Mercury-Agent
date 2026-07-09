@@ -52,6 +52,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -121,6 +122,9 @@ class TornadoPredictionResult:
     source_id: str | None = None
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class DopplerRadarAnalyzer(nn.Module):
@@ -457,6 +461,7 @@ class TornadoDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
         data_source: NWSWeatherAlertsSource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize the instance.
 
@@ -466,6 +471,22 @@ class TornadoDetector:
         exposes a provenance-checked fetch and :meth:`detect_live` assesses
         the real active tornado warning/watch state -- official NWS alert
         metadata is never turned into synthetic radar or CAPE values.
+
+        Args:
+            enable_radar: Enable Doppler radar mesocyclone analysis.
+            enable_atmospheric: Enable CAPE/helicity/shear instability analysis.
+            enable_pressure: Enable pressure-gradient monitoring.
+            enable_resonance: Enable FFT resonance pattern analysis.
+            enable_recursion: Enable recursive multi-scale feature extraction.
+            enable_refactoring: Enable the 3R refactoring engine.
+            rng: Deterministic RNG for reproducibility.
+            data_source: Optional NWS weather-alerts client.
+            keep_diagnostics: When True and radar data is supplied, each
+                prediction result carries the Doppler velocity field the LSTM
+                consumed, its attention weights, and the located velocity
+                couplet (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
         self.enable_radar = enable_radar
         self.enable_atmospheric = enable_atmospheric
@@ -473,6 +494,7 @@ class TornadoDetector:
         self.enable_resonance = enable_resonance
         self.enable_recursion = enable_recursion
         self.enable_refactoring = enable_refactoring
+        self.keep_diagnostics = keep_diagnostics
         self._rng = rng or get_global_rng()
 
         self.radar_analyzer = DopplerRadarAnalyzer() if enable_radar else None
@@ -545,6 +567,11 @@ class TornadoDetector:
             if radar_result["mesocyclone_detected"]:
                 indicators_detected += 2
                 result.confidence = max(result.confidence, radar_result["confidence"])
+            if self.keep_diagnostics and "velocity_field" in radar_result:
+                # The captured field/attention exist only on the trained-LSTM
+                # path; the physics fallback captures nothing, so build nothing
+                # (mirrors the volcanic detector's empty-attention guard).
+                result.diagnostics = self._build_radar_diagnostics(radar_result)
 
         indicators_float: float = float(indicators_detected)
 
@@ -685,15 +712,61 @@ class TornadoDetector:
         assert self.radar_analyzer is not None
         self.radar_analyzer.eval()
         with torch.no_grad():
-            meso_prob, rotation_vel, _ = self.radar_analyzer(seq_tensor)
+            meso_prob, rotation_vel, attention = self.radar_analyzer(seq_tensor)
 
         mesocyclone_detected = float(meso_prob[0].item()) > 0.5
 
-        return {
+        radar_result: dict[str, Any] = {
             "mesocyclone_detected": mesocyclone_detected,
             "confidence": float(meso_prob[0].item()),
             "rotation_velocity": float(rotation_vel[0].item()) * 50,
         }
+        if self.keep_diagnostics:
+            # Capture the field the LSTM consumed and its attention weights
+            # (previously discarded) exactly as computed.
+            radar_result["velocity_field"] = seq_tensor[0].cpu().numpy().astype(float)
+            radar_result["attention_weights"] = attention[0].cpu().numpy().astype(float)
+        return radar_result
+
+    @staticmethod
+    def _build_radar_diagnostics(radar_result: dict[str, Any]) -> HazardDiagnostics:
+        """Assemble the radar diagnostics payload, locating the velocity couplet.
+
+        The couplet is the classic mesocyclone signature: the strongest
+        adjacent-gate velocity shear in the consumed Doppler field. It is
+        located deterministically on the captured field
+        (``argmax |v[:, j+1] - v[:, j]|``); nothing is fabricated.
+
+        Args:
+            radar_result: Output of :meth:`_analyze_radar` with diagnostics kept.
+
+        Returns:
+            The tornado :class:`HazardDiagnostics` payload.
+        """
+        field_2d: np.ndarray[Any, Any] = radar_result["velocity_field"]
+        context: dict[str, Any] = {
+            "mesocyclone_detected": bool(radar_result["mesocyclone_detected"]),
+            "rotation_velocity_ms": float(radar_result["rotation_velocity"]),
+        }
+        if field_2d.ndim == 2 and field_2d.shape[1] >= 2:
+            gate_shear = np.abs(np.diff(field_2d, axis=1))
+            row, col = np.unravel_index(int(np.argmax(gate_shear)), gate_shear.shape)
+            context["couplet_row"] = int(row)
+            context["couplet_col"] = int(col)
+            context["couplet_shear"] = float(gate_shear[row, col])
+        else:
+            # A single-gate field has no adjacent-gate shear: say so honestly.
+            context["couplet_row"] = None
+            context["couplet_col"] = None
+            context["couplet_shear"] = None
+        return HazardDiagnostics(
+            hazard="tornado",
+            arrays={
+                "doppler_velocity_field": field_2d,
+                "radar_attention": radar_result["attention_weights"],
+            },
+            context=context,
+        )
 
     @staticmethod
     def _analyze_radar_physics(radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:

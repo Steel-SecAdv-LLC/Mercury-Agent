@@ -55,6 +55,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.geomagnetic import BGSELFStationSource
     from omni_mercury_engine.data_sources.live_ingestion import LiveFetch
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 
 try:
     import torch
@@ -98,6 +99,8 @@ class SchumannAnomalyResult:
     source_id: str | None = None
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
@@ -209,6 +212,7 @@ class SchumannResonanceDetector:
         enable_ancient_correlation: bool = True,
         golden_ratio_thresholds: bool = True,
         data_source: BGSELFStationSource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize Schumann resonance detector.
 
@@ -228,6 +232,11 @@ class SchumannResonanceDetector:
             enable_ancient_correlation: Correlate with ancient solar/lunar cycles
             golden_ratio_thresholds: Use φ-optimized detection thresholds
             data_source: Optional BGS ELF station client for the live path.
+            keep_diagnostics: When True, each anomaly result carries the
+                one-sided, max-normalized ELF power spectrum the detection ran
+                on (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -239,6 +248,7 @@ class SchumannResonanceDetector:
         self.enable_ancient_correlation = enable_ancient_correlation
         self.golden_ratio = 1.618 if golden_ratio_thresholds else 1.0
         self._elf_source = data_source
+        self.keep_diagnostics = keep_diagnostics
 
         self.schumann_frequencies = [7.83, 14.3, 20.8, 27.3, 33.8]
 
@@ -327,7 +337,7 @@ class SchumannResonanceDetector:
         """
         power_spectrum, frequencies = self._compute_power_spectrum(elf_signal)
 
-        fundamental_freq, _fundamental_power = self._detect_fundamental(power_spectrum, frequencies)
+        fundamental_freq, fundamental_power = self._detect_fundamental(power_spectrum, frequencies)
 
         fundamental_deviation = abs(fundamental_freq - 7.83)
 
@@ -398,6 +408,24 @@ class SchumannResonanceDetector:
                 fundamental_freq, temporal_pattern, metadata
             )
 
+        diagnostics: HazardDiagnostics | None = None
+        if self.keep_diagnostics:
+            # Capture the harmonic power spectrum the detection ALREADY computed
+            # (one-sided, max-normalized) -- no recomputation.
+            diagnostics = HazardDiagnostics(
+                hazard="schumann",
+                arrays={
+                    "frequencies_hz": np.asarray(frequencies, dtype=float),
+                    "power_spectrum": np.asarray(power_spectrum, dtype=float),
+                },
+                context={
+                    "sampling_rate_hz": float(self.sampling_rate),
+                    "fundamental_freq_hz": float(fundamental_freq),
+                    "fundamental_power": float(fundamental_power),
+                    "schumann_harmonics_hz": [float(f) for f in self.schumann_frequencies],
+                },
+            )
+
         result = SchumannAnomalyResult(
             anomaly_detected=anomaly_detected,
             anomaly_type=anomaly_type,
@@ -413,6 +441,7 @@ class SchumannResonanceDetector:
             temporal_pattern=temporal_pattern,
             recommendations=recommendations,
             ancient_correlation=ancient_correlation,
+            diagnostics=diagnostics,
         )
 
         self.logger.info(
