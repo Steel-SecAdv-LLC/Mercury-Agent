@@ -5675,7 +5675,7 @@ class OmniMercuryEngine(LoggerMixin):
                 if use_mixed_precision and scaler is not None:
                     with torch.cuda.amp.autocast():
                         loss = trainer_module.training_step(batch, batch_idx)
-                    scaler.scale(loss / gradient_accumulation_steps).backward()
+                    scaler.scale(loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call, unused-ignore]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         scaler.step(optimizer)

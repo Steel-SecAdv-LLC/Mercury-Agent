@@ -11,10 +11,14 @@ them, not against live archives (the weekly network lane re-runs fetch).
 
 from __future__ import annotations
 
-from pathlib import Path
+import pickle
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 torch = pytest.importorskip("torch")
 
@@ -102,6 +106,30 @@ class TestMeritGate:
     def test_non_finite_never_ships(self) -> None:
         assert self._outcome(float("nan"), 1.0).learned_beats_physics is False
 
+    def test_ship_checkpoint_refuses_when_physics_wins(self, tmp_path: Path) -> None:
+        """The central safety property: a losing model must never ship.
+
+        Exercises :func:`ship_checkpoint` directly (not just the boolean),
+        proving the refusal raises before any file is written.
+        """
+        from omni_mercury_engine.ml.hazard_training.common import (
+            MeritGateError,
+            ship_checkpoint,
+        )
+
+        out_dir = tmp_path / "shipped"
+        with pytest.raises(MeritGateError, match="MERIT GATE REFUSED"):
+            ship_checkpoint(
+                hook="solar_storm",
+                checkpoint_name="solar_storm_geomag",
+                data_dir=tmp_path,
+                outcome=self._outcome(learned=1.0, physics=0.5),
+                data_sources=[],
+                seed=0,
+                out_dir=out_dir,
+            )
+        assert not out_dir.exists() or not any(out_dir.iterdir()), "refusal must not write files"
+
 
 class TestShippedSolarStormCheckpoint:
     """The committed artifact is real, provenanced, and loadable by the hook."""
@@ -109,8 +137,31 @@ class TestShippedSolarStormCheckpoint:
     def test_artifact_and_sidecar_exist(self) -> None:
         path = shipped_checkpoint_path("solar_storm_geomag")
         assert path.exists(), "shipped checkpoint missing"
-        sidecar = path.with_suffix("").with_suffix(".provenance.json")
-        assert Path(str(path)[: -len(".pt")] + ".provenance.json").exists()
+        sidecar = path.with_suffix(".provenance.json")
+        assert sidecar.exists(), "provenance sidecar missing"
+
+    def test_tampered_checkpoint_refuses_to_load(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A .pt that no longer matches its sidecar's pinned sha256 must not load."""
+        import shutil
+
+        from omni_mercury_engine.models import checkpoint_paths as cp
+
+        src = shipped_checkpoint_path("solar_storm_geomag")
+        fake_dir = tmp_path / "checkpoints"
+        fake_dir.mkdir()
+        tampered = fake_dir / src.name
+        shutil.copy(src, tampered)
+        shutil.copy(src.with_suffix(".provenance.json"), fake_dir / f"{src.stem}.provenance.json")
+        with tampered.open("r+b") as fh:  # flip one byte past the header
+            fh.seek(128)
+            byte = fh.read(1)
+            fh.seek(128)
+            fh.write(bytes([byte[0] ^ 0xFF]))
+        monkeypatch.setattr(cp, "checkpoints_dir", lambda: fake_dir)
+        with pytest.raises(RuntimeError, match="does not match its provenance"):
+            cp.load_shipped_checkpoint("solar_storm_geomag")
 
     def test_provenance_is_complete_and_merit_gated(self) -> None:
         payload, provenance = load_shipped_checkpoint("solar_storm_geomag")
@@ -142,7 +193,17 @@ class TestShippedSolarStormCheckpoint:
             }
         )
         assert result.kp_index is not None and np.isfinite(float(result.kp_index))
-        assert result.geomagnetic_storm_level in ("none", "G1", "G2", "G3", "G4", "G5")
+        # The detector's real G-scale vocabulary is the GeostormScale enum
+        # VALUES (a previous revision asserted "G1".."G5", which the detector
+        # never emits -- that check could only ever match "none").
+        assert result.geomagnetic_storm_level in (
+            "none",
+            "minor",
+            "moderate",
+            "strong",
+            "severe",
+            "extreme",
+        )
         # Strong southward-Bz driving must predict elevated (near-storm) Kp.
         assert float(result.kp_index) > 4.0
 
@@ -152,6 +213,8 @@ class TestShippedSolarStormCheckpoint:
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")
         detector = SolarStormDetector()
-        with pytest.raises(Exception):  # torch raises UnpicklingError/RuntimeError
+        # torch.load(weights_only=True) refuses garbage with UnpicklingError
+        # (zip-container damage surfaces as RuntimeError instead).
+        with pytest.raises((pickle.UnpicklingError, RuntimeError)):
             detector.load_neural_weights(str(bad))
         assert detector._neural_trained is False

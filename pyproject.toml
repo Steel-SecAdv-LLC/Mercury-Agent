@@ -445,6 +445,11 @@ namespaces = false
 omni_mercury_engine = [
     "py.typed",
     "models/checkpoints/*.pt",
+    # Provenance sidecars travel WITH their checkpoints: a non-editable
+    # install without them would silently degrade the shipped-checkpoint
+    # provenance guarantee (load_shipped_checkpoint verifies the .pt against
+    # the sidecar's pinned sha256 and logs the training provenance).
+    "models/checkpoints/*.provenance.json",
     "security/sigma_immutable_corpus.json",
     "security/sigma_immutable_corpus.sig.json",
     "security/sigma_immutable_weights.pt",

@@ -330,7 +330,7 @@ class RealTimeThreatDetector(LoggerMixin):
         standardized: dict[str, np.ndarray[Any, Any]],
     ) -> np.ndarray[Any, Any]:
         """Mean of the per-detector standardized scores (scale-invariant)."""
-        return np.mean(np.vstack(list(standardized.values())), axis=0)
+        return np.asarray(np.mean(np.vstack(list(standardized.values())), axis=0))
 
     def detect_threat(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect threats in real-time data.
@@ -418,7 +418,7 @@ class RealTimeThreatDetector(LoggerMixin):
         if not predictions:
             return np.zeros(n)
         flags = np.vstack([np.asarray(p) == -1 for p in predictions.values()])
-        return flags.mean(axis=0).astype(float)
+        return np.asarray(flags.mean(axis=0), dtype=float)
 
     def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
         """Grade the batch by its peak standardized ensemble score vs training."""

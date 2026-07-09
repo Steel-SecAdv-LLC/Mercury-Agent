@@ -316,7 +316,7 @@ def build_dataset(ctx: PipelineContext) -> GeomagDataset:
             ("proton_temperature_k", omni.temperature),
             ("flow_pressure_npa", omni.pressure),
         ):
-            v = _opt(values, i)
+            v = _opt(values, int(i))
             if v is not None:
                 fields[key] = v
         raw_fields.append(fields)

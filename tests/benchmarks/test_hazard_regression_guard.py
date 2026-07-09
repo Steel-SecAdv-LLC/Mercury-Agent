@@ -13,8 +13,10 @@ Three tiers, all offline (the scenario sets are committed and hash-pinned):
   and mutated baselines to prove the guard can actually fail.
 * A ``slow`` tier runs the full live measurement twice (determinism) and
   asserts it clears every pinned bound, plus regenerates the constructed
-  scenario sets from their seeds and confirms the content hashes match the
-  manifest (reproducibility). No network marker is needed anywhere.
+  scenario sets from their seeds and confirms the content matches the
+  committed sets (exact for integers/strings, last-ulp float tolerance --
+  numpy's CPU-dispatched transcendental kernels are not bit-stable across
+  hardware). No network marker is needed anywhere.
 """
 
 from __future__ import annotations
@@ -189,6 +191,48 @@ def test_kp_ceiling_beats_climatology_and_zero_predictors() -> None:
     )
 
 
+def test_kp_g_bucket_accuracy_is_reported_but_not_gated() -> None:
+    """The G-bucket rate is deliberately ungated (vacuous vs. degenerates).
+
+    On the committed quiet-dominated week the always-G0 predictor scores
+    49/55 = 0.891 exact -- above the physics path's own 0.873 -- and on the
+    six Kp>=5 storm windows the Boyle path's exact-bucket skill (1/6) sits
+    below even always-G1 (3/6). A floor here could only certify quietness.
+    kp_mae carries the solar skill gate instead (see
+    ``test_kp_ceiling_beats_climatology_and_zero_predictors``).
+    """
+    payload = json.loads((_SCENARIOS / "solar_kp_windows.json").read_text())
+    kp = [w["kp_observed"] for w in payload["windows"]]
+    always_g0_accuracy = sum(k < 5.0 for k in kp) / len(kp)
+    measured = float(_baseline()["domains"]["solar"]["metrics"]["kp_g_bucket_accuracy"])
+    # The premise that makes gating vacuous, pinned so a future window
+    # re-record that changes it forces this decision to be revisited:
+    assert always_g0_accuracy > measured
+    bounds = guard._floors_from(_baseline())["domains"]["solar"]
+    assert "kp_g_bucket_accuracy" not in bounds
+
+
+def test_check_reports_domain_missing_from_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A baseline missing a guarded domain must be a loud violation.
+
+    Regression: ``_floors_from`` used to KeyError first, making check()'s
+    friendly "missing from baseline" branch unreachable.
+    """
+    baseline = _baseline()
+    del baseline["domains"]["solar"]
+    reduced = tmp_path / "reduced_baseline.json"
+    reduced.write_text(json.dumps(baseline))
+    monkeypatch.setattr(guard, "BASELINE_PATH", reduced)
+
+    floors = guard._floors_from(baseline)  # must not raise
+    assert "solar" not in floors["domains"]
+
+    violations = guard.check(_baseline())  # full measurement stands in
+    assert any("solar: missing from baseline" in v for v in violations)
+
+
 def test_kp_windows_span_storm_and_quiet_conditions() -> None:
     """The real week must include both quiet and G3+ storm windows -- a flat
     week could not pin a meaningful Kp baseline."""
@@ -287,24 +331,75 @@ def test_live_guard_clears_floors_and_is_deterministic() -> None:
         ), f"{domain}: evaluation is not deterministic"
 
 
+def _assert_json_equal_with_float_tolerance(committed: Any, rebuilt: Any, ctx: str) -> None:
+    """Structural equality with last-ulp float tolerance (see regen test)."""
+    if isinstance(committed, dict):
+        assert isinstance(rebuilt, dict), f"{ctx}: type diverged"
+        assert set(committed) == set(rebuilt), f"{ctx}: keys diverged"
+        for k in committed:
+            _assert_json_equal_with_float_tolerance(committed[k], rebuilt[k], f"{ctx}.{k}")
+    elif isinstance(committed, list):
+        assert isinstance(rebuilt, list), f"{ctx}: type diverged"
+        assert len(committed) == len(rebuilt), f"{ctx}: length diverged"
+        for i, (c, r) in enumerate(zip(committed, rebuilt, strict=True)):
+            _assert_json_equal_with_float_tolerance(c, r, f"{ctx}[{i}]")
+    elif isinstance(committed, float) and not isinstance(committed, bool):
+        assert isinstance(rebuilt, (int, float)), f"{ctx}: type diverged"
+        assert rebuilt == pytest.approx(committed, rel=1e-9, abs=1e-12), f"{ctx}: value diverged"
+    else:
+        assert committed == rebuilt, f"{ctx}: value diverged"
+
+
 @pytest.mark.slow
-def test_constructed_sets_regenerate_bit_identically(
+def test_constructed_sets_regenerate_from_seeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Re-running the committed generator reproduces the pinned content hashes."""
+    """Re-running the committed generator reproduces the committed content.
+
+    Integer/string/structural content must match **exactly**; floating-point
+    content must match to within last-ulp tolerance (rel 1e-9). Bit-exactness
+    is deliberately NOT asserted here: numpy dispatches transcendental kernels
+    (``exp``/``sin``) by runtime CPU capability, so the same seed can produce
+    last-ulp float differences on different hardware (observed: the committed
+    earthquake set regenerated on a CI runner differed only in float bits).
+    The committed files themselves stay byte/content-pinned in the manifest --
+    that is what makes the *gate* deterministic and tamper-evident (see
+    ``test_scenario_files_match_manifest``); this test proves those
+    committed files are what the seeded generator actually produces.
+    """
     from benchmarks.hazard_scenarios import generate_scenarios as gen
 
-    manifest = scenario_io.load_manifest()
     monkeypatch.setattr(gen, "SCENARIO_DIR", tmp_path)
-    rebuilt = {
-        "tornado_scenarios.npz": gen.build_tornado(),
-        "earthquake_scenarios.npz": gen.build_earthquake(),
-        "tsunami_scenarios.npz": gen.build_tsunami(),
-        "hurricane_scenarios.npz": gen.build_hurricane(),
-        "flood_scenarios.json": gen.build_flood(),
-        "volcano_scenarios.json": gen.build_volcano(),
+    rebuilt_names = {
+        "tornado_scenarios.npz": gen.build_tornado,
+        "earthquake_scenarios.npz": gen.build_earthquake,
+        "tsunami_scenarios.npz": gen.build_tsunami,
+        "hurricane_scenarios.npz": gen.build_hurricane,
+        "flood_scenarios.json": gen.build_flood,
+        "volcano_scenarios.json": gen.build_volcano,
     }
-    for name, entry in rebuilt.items():
-        assert (
-            entry["sha256"] == manifest["files"][name]["sha256"]
-        ), f"{name}: regeneration is not reproducible from its seed"
+    for name, build in rebuilt_names.items():
+        build()
+        committed_path = _SCENARIOS / name
+        rebuilt_path = tmp_path / name
+        if name.endswith(".npz"):
+            with np.load(committed_path) as committed, np.load(rebuilt_path) as regen:
+                assert sorted(committed.files) == sorted(regen.files), f"{name}: keys diverged"
+                for key in committed.files:
+                    c, r = committed[key], regen[key]
+                    assert c.dtype == r.dtype, f"{name}[{key}]: dtype diverged"
+                    assert c.shape == r.shape, f"{name}[{key}]: shape diverged"
+                    if np.issubdtype(c.dtype, np.floating):
+                        np.testing.assert_allclose(
+                            r,
+                            c,
+                            rtol=1e-9,
+                            atol=1e-12,
+                            err_msg=f"{name}[{key}]: regeneration diverged beyond float ulp",
+                        )
+                    else:
+                        assert np.array_equal(c, r), f"{name}[{key}]: exact content diverged"
+        else:
+            committed_payload = json.loads(committed_path.read_text())
+            rebuilt_payload = json.loads(rebuilt_path.read_text())
+            _assert_json_equal_with_float_tolerance(committed_payload, rebuilt_payload, name)

@@ -585,7 +585,7 @@ class WildfireDetector:
         """
         if self.ignition_detector is None:
             raise RuntimeError("ignition detection is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.ignition_detector.load_state_dict(checkpoint["ignition_detector"])
         if self.enhanced_cnn is not None and "enhanced_cnn" in checkpoint:
             self.enhanced_cnn.load_state_dict(checkpoint["enhanced_cnn"])

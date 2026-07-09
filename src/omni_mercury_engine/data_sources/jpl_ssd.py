@@ -449,7 +449,7 @@ def fireball_events_from_datapoints(points: list[DataPoint]) -> list[FireballEve
     for dp in points:
         if dp.metadata.get("event_kind") != "bolide":
             continue
-        lat, lon, alt = dp.location or (None, None, None)  # type: ignore[assignment]
+        lat, lon, alt = dp.location or (None, None, None)
         events.append(
             FireballEvent(
                 date=dp.timestamp,

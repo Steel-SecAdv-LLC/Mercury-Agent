@@ -44,9 +44,12 @@ call sites remain interpretable as "spec v1 with everything else missing".
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 GEOMAG_FEATURE_SPEC_VERSION = "geomag-v1"
 GEOMAG_FEATURE_DIM = 32

@@ -14,6 +14,7 @@ pipeline can import it without cycles.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -52,7 +53,8 @@ def load_shipped_checkpoint(name: str) -> tuple[dict[str, Any], dict[str, Any] |
     Raises:
         FileNotFoundError: No checkpoint of that name has been shipped. The
             message names the pipeline command that produces one.
-        RuntimeError: The checkpoint file exists but cannot be deserialized
+        RuntimeError: The checkpoint file exists but does not match its
+            provenance sidecar's pinned sha256, or cannot be deserialized
             (corruption or tampering) -- never silently ignored.
     """
     path = shipped_checkpoint_path(name)
@@ -61,18 +63,6 @@ def load_shipped_checkpoint(name: str) -> tuple[dict[str, Any], dict[str, Any] |
             f"no shipped checkpoint at {path}. Train and ship one with: "
             f"python scripts/train_hazard_checkpoints.py --hook <hook> "
             "--fetch --train --evaluate --ship (the merit gate must pass)."
-        )
-    try:
-        payload = torch.load(path, map_location="cpu", weights_only=False)
-    except Exception as exc:
-        raise RuntimeError(
-            f"shipped checkpoint {path} is unreadable/corrupt: {exc}. Refusing to "
-            "run with broken weights; re-ship from the training pipeline."
-        ) from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError(
-            f"shipped checkpoint {path} has unexpected payload type "
-            f"{type(payload).__name__}; expected a dict of state dicts."
         )
 
     provenance: dict[str, Any] | None = None
@@ -85,6 +75,37 @@ def load_shipped_checkpoint(name: str) -> tuple[dict[str, Any], dict[str, Any] |
                 f"provenance sidecar {sidecar} is unreadable: {exc}. A shipped "
                 "checkpoint without valid provenance must not load silently."
             ) from exc
+        # Integrity first: verify the artifact against the sidecar's pinned
+        # digest BEFORE deserializing anything from it.
+        pinned_sha = provenance.get("checkpoint_sha256")
+        if pinned_sha:
+            actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual_sha != pinned_sha:
+                raise RuntimeError(
+                    f"shipped checkpoint {path} does not match its provenance "
+                    f"sidecar (sha256 {actual_sha} != pinned {pinned_sha}). The "
+                    "artifact was modified after shipping or the sidecar is "
+                    "stale; refusing to load unverifiable weights. Re-ship "
+                    "both from the training pipeline."
+                )
+
+    try:
+        # Hard-pinned to weights_only=True (house convention): shipped
+        # checkpoints are state dicts + primitive containers only, so the
+        # safe-load mode admits them and arbitrary-code pickles are refused.
+        payload = torch.load(path, map_location="cpu", weights_only=True)
+    except Exception as exc:
+        raise RuntimeError(
+            f"shipped checkpoint {path} is unreadable/corrupt: {exc}. Refusing to "
+            "run with broken weights; re-ship from the training pipeline."
+        ) from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"shipped checkpoint {path} has unexpected payload type "
+            f"{type(payload).__name__}; expected a dict of state dicts."
+        )
+
+    if provenance is not None:
         evaluation = provenance.get("evaluation", {})
         logger.info(
             "checkpoint %s provenance: trained seed=%s, test_years=%s, %s learned=%s vs "

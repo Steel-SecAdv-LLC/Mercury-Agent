@@ -830,7 +830,7 @@ class SolarStormDetector:
             checkpoint, _provenance = load_shipped_checkpoint("solar_storm_geomag")
             source = "shipped default 'solar_storm_geomag'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu")
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
         self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
         if "feature_mean" in checkpoint and "feature_std" in checkpoint:

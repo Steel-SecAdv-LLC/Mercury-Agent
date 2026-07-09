@@ -45,6 +45,7 @@ from torch import nn
 
 from omni_mercury_engine.data_sources.base import DataSourceType
 from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveDataError,
     LiveFetch,
     fetch_live_datapoints,
     require_live_client,
@@ -830,7 +831,7 @@ class VolcanicEruptionDetector:
             checkpoint_path: Path to a torch checkpoint with ``eruption_model``
                 (and optionally ``seismic_detector``) state dicts.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.eruption_model.load_state_dict(checkpoint["eruption_model"])
         if self.seismic_detector is not None and "seismic_detector" in checkpoint:
             self.seismic_detector.load_state_dict(checkpoint["seismic_detector"])
@@ -909,6 +910,20 @@ class VolcanicEruptionDetector:
             wanted = volcano_name.strip().lower()
             points = [dp for dp in points if str(dp.data.get("name", "")).lower() == wanted]
 
+        if not points:
+            # No data is NOT an all-clear: an empty HANS feed (the monitored
+            # list is never empty upstream) or a name filter that matches
+            # nothing must fail loud rather than report "normal" for
+            # volcanoes the feed did not actually assess.
+            detail = (
+                f"no volcano named {volcano_name!r} in the live feed"
+                if volcano_name is not None
+                else "live volcano feed returned no volcanoes"
+            )
+            raise LiveDataError(
+                f"{detail}; refusing to fabricate a 'normal' alert state from no data"
+            )
+
         level_rank = {"normal": 0, "advisory": 1, "watch": 2, "warning": 3}
         level_counts: dict[str, int] = {}
         worst_rank = -1
@@ -937,7 +952,9 @@ class VolcanicEruptionDetector:
         # Official observatory alert statements: confidence mirrors the source
         # client's stated confidence for HANS statements (0.98) when any
         # volcano is elevated; a quiet feed asserts nothing.
-        alert_level = "normal" if worst_rank < 0 else str(worst.get("alert_level", "normal"))
+        alert_level = (
+            "normal" if worst is None or worst_rank < 0 else str(worst.get("alert_level", "normal"))
+        )
         eruption_imminent = worst_rank == 3
         confidence = 0.98 if worst_rank >= 1 else 0.0
         actions: list[str] = []

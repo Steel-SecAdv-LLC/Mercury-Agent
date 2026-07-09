@@ -648,7 +648,7 @@ class TornadoDetector:
         """
         if self.radar_analyzer is None:
             raise RuntimeError("radar analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
         self._neural_trained = True
         self.logger.info(

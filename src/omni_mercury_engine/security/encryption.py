@@ -105,9 +105,12 @@ class QuantumResistantEncryption:
         aes_key = encapsulated.shared_secret[:_AES_KEY_BYTES]
         sealed = self._crypto.encrypt(data, key=aes_key)
 
-        kyber_ct = encapsulated.ciphertext
+        kyber_ct: bytes = encapsulated.ciphertext
         header = len(kyber_ct).to_bytes(_CT_LEN_BYTES, "big")
-        return header + kyber_ct + sealed["nonce"] + sealed["tag"] + sealed["ciphertext"]
+        nonce: bytes = sealed["nonce"]
+        tag: bytes = sealed["tag"]
+        ciphertext: bytes = sealed["ciphertext"]
+        return header + kyber_ct + nonce + tag + ciphertext
 
     def decrypt_hybrid(self, encrypted_data: bytes, secret_key: bytes) -> bytes:
         """Decapsulate the shared secret and AES-256-GCM-decrypt the payload.

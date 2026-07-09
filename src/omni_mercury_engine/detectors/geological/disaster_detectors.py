@@ -88,11 +88,41 @@ from omni_mercury_engine.security.safe_http import SafeHTTPClient
 # fabricated per-HMM-state Kp/Dst lookup tables; the canonical implementation
 # derives storm fields only from a REAL observed planetary Kp (see its
 # docstring and DEPRECATION.md).
-from omni_mercury_engine.space.solar_storm_detector import (  # noqa: F401
+# ``__all__`` below re-exports the two imported names explicitly: pyflakes,
+# ruff and mypy all treat ``__all__`` membership as an intentional re-export,
+# which is the one mechanism the three tools agree on (a self-alias trips
+# ruff PLC0414; a bare import without ``__all__`` trips flake8 F401 and
+# mypy attr-defined).
+from omni_mercury_engine.space.solar_storm_detector import (
     SolarFlareDetector,
     SolarFlarePredictionResult,
 )
 from omni_mercury_engine.utils.rng import get_global_rng
+
+__all__ = [
+    "BayesianMeteorFilter",
+    "EarthquakeDetector",
+    "EarthquakeMagnitude",
+    "EarthquakePredictionResult",
+    "MeteorDetector",
+    "MeteorPredictionResult",
+    "MeteorThreatLevel",
+    "SeismicWaveAnalyzer",
+    "SolarFlareClass",
+    "SolarFlareDetector",
+    "SolarFlarePredictionResult",
+    "TsunamiDetector",
+    "TsunamiPredictionResult",
+    "TsunamiSeverity",
+    "WaveformFFTAnalyzer",
+    "generate_synthetic_earthquake_data",
+    "generate_synthetic_tsunami_data",
+    "load_dart_buoy_data",
+    "load_usgs_earthquake_catalog",
+    "train_all_disaster_networks",
+    "train_seismic_analyzer",
+    "train_waveform_analyzer",
+]
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import USGSEarthquakeSource
@@ -540,7 +570,7 @@ class TsunamiDetector:
             checkpoint_path: Path to a torch checkpoint containing a
                 ``waveform_analyzer`` state dict.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.waveform_analyzer.load_state_dict(checkpoint["waveform_analyzer"])
         self._neural_trained = True
         logger.info(
@@ -898,7 +928,7 @@ class EarthquakeDetector:
             checkpoint_path: Path to a torch checkpoint containing a
                 ``seismic_analyzer`` state dict.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
         self._neural_trained = True
         logger.info(
@@ -1378,6 +1408,9 @@ class MeteorDetector:
         any_injected = any(s is not None for s in (fireball_source, neo_source, sentry_source))
         self.use_nasa_data = use_nasa_data or any_injected
 
+        self._fireball_source: JPLFireballSource | None
+        self._neo_source: NASANeoWsSource | None
+        self._sentry_source: JPLSentrySource | None
         if self.use_nasa_data:
             self._fireball_source = fireball_source or JPLFireballSource(days_back=30)
             self._neo_source = neo_source or NASANeoWsSource(days_forward=7)
@@ -1535,7 +1568,8 @@ class MeteorDetector:
             # Recent fireballs (last 24 hours with significant energy).
             try:
                 fireballs = self.get_recent_fireballs(days=1)
-                live_sources_used.append(self._fireball_source.source_id)  # type: ignore[union-attr]
+                if self._fireball_source is not None:
+                    live_sources_used.append(self._fireball_source.source_id)
                 significant = [
                     fb
                     for fb in fireballs
@@ -1559,7 +1593,8 @@ class MeteorDetector:
             # Imminent close approaches (within 1 lunar distance, next 7 days).
             try:
                 approaches = self.get_upcoming_close_approaches()
-                live_sources_used.append(self._neo_source.source_id)  # type: ignore[union-attr]
+                if self._neo_source is not None:
+                    live_sources_used.append(self._neo_source.source_id)
                 lunar_distance_km = 384400
                 imminent = [
                     ca
@@ -1584,7 +1619,8 @@ class MeteorDetector:
             # Sentry elevated impact risks.
             try:
                 risks = self.get_impact_risks()
-                live_sources_used.append(self._sentry_source.source_id)  # type: ignore[union-attr]
+                if self._sentry_source is not None:
+                    live_sources_used.append(self._sentry_source.source_id)
                 high_risk = [s for s in risks if s.palermo_scale > -3]
                 live_context["sentry_high_risk_objects"] = len(high_risk)
                 if high_risk:
@@ -2120,11 +2156,17 @@ def train_waveform_analyzer(
     n_samples: int = 1000,
     device: str = "cpu",
     use_real_data: bool = True,
+    allow_synthetic_fallback: bool = False,
 ) -> dict[str, list[float]]:
     """Train WaveformFFTAnalyzer on tsunami data.
 
-    Attempts to load real-world data from NOAA DART buoy network first,
-    falling back to synthetic data if the API is unavailable.
+    Attempts to load real-world data from the NOAA DART buoy network first.
+    When real data is unavailable this FAILS LOUD by default: silently
+    training on synthetic waveforms produces weights indistinguishable from
+    real-trained ones downstream. Synthetic training requires the explicit
+    ``allow_synthetic_fallback=True`` opt-in (demo/experiment use only —
+    never ship such weights; the merit-gated pipeline in
+    ``ml/hazard_training`` is the only shipping path).
 
     Real-world data sources:
     - NOAA DART buoy network (https://www.ndbc.noaa.gov/dart.shtml)
@@ -2138,9 +2180,15 @@ def train_waveform_analyzer(
         n_samples: Number of synthetic samples to generate (fallback)
         device: Training device ('cpu' or 'cuda')
         use_real_data: Whether to attempt loading real-world data first
+        allow_synthetic_fallback: Explicit opt-in to train on synthetic
+            waveforms when real data is unavailable (default False: raise).
 
     Returns:
         Training history with loss and accuracy per epoch
+
+    Raises:
+        RuntimeError: Real data unavailable and synthetic fallback not
+            explicitly allowed.
     """
     model = model.to(device)
     model.train()
@@ -2159,7 +2207,18 @@ def train_waveform_analyzer(
             logger.info(f"Loaded {len(waveforms)} real tsunami waveform samples")
 
     if waveforms is None:
-        logger.info(f"Using synthetic tsunami data ({n_samples} samples)")
+        if not allow_synthetic_fallback:
+            raise RuntimeError(
+                "real DART buoy tsunami data is unavailable and synthetic "
+                "fallback was not explicitly allowed. Pass "
+                "allow_synthetic_fallback=True ONLY for demo/experiment "
+                "training; synthetic-trained weights must never ship."
+            )
+        logger.warning(
+            f"SYNTHETIC-FALLBACK OPT-IN: training on {n_samples} synthetic "
+            "tsunami samples; the resulting weights are demo-grade and must "
+            "never ship."
+        )
         waveforms, labels, wave_heights = generate_synthetic_tsunami_data(n_samples)
 
     logger.info(f"Training WaveformFFTAnalyzer for {n_epochs} epochs on {data_source} data")
@@ -2242,11 +2301,16 @@ def train_seismic_analyzer(
     n_samples: int = 1000,
     device: str = "cpu",
     use_real_data: bool = True,
+    allow_synthetic_fallback: bool = False,
 ) -> dict[str, list[float]]:
     """Train SeismicWaveAnalyzer on earthquake data.
 
-    Attempts to load real-world data from USGS Earthquake Catalog first,
-    falling back to synthetic data if the API is unavailable.
+    Attempts to load real-world data from the USGS Earthquake Catalog first.
+    When real data is unavailable this FAILS LOUD by default; synthetic
+    training requires the explicit ``allow_synthetic_fallback=True`` opt-in
+    (demo/experiment use only — synthetic-trained weights must never ship;
+    the merit-gated pipeline in ``ml/hazard_training`` is the only shipping
+    path).
 
     Real-world data sources:
     - USGS Earthquake Hazards Program (https://earthquake.usgs.gov/)
@@ -2260,9 +2324,15 @@ def train_seismic_analyzer(
         n_samples: Number of synthetic samples to generate (fallback)
         device: Training device ('cpu' or 'cuda')
         use_real_data: Whether to attempt loading real-world data first
+        allow_synthetic_fallback: Explicit opt-in to train on synthetic
+            spectrograms when real data is unavailable (default False: raise).
 
     Returns:
         Training history with loss and accuracy per epoch
+
+    Raises:
+        RuntimeError: Real data unavailable and synthetic fallback not
+            explicitly allowed.
     """
     model = model.to(device)
     model.train()
@@ -2281,7 +2351,18 @@ def train_seismic_analyzer(
             logger.info(f"Loaded {len(spectrograms)} real earthquake samples")
 
     if spectrograms is None:
-        logger.info(f"Using synthetic earthquake data ({n_samples} samples)")
+        if not allow_synthetic_fallback:
+            raise RuntimeError(
+                "real USGS earthquake-catalog data is unavailable and "
+                "synthetic fallback was not explicitly allowed. Pass "
+                "allow_synthetic_fallback=True ONLY for demo/experiment "
+                "training; synthetic-trained weights must never ship."
+            )
+        logger.warning(
+            f"SYNTHETIC-FALLBACK OPT-IN: training on {n_samples} synthetic "
+            "earthquake spectrograms; the resulting weights are demo-grade "
+            "and must never ship."
+        )
         spectrograms, labels, magnitudes = generate_synthetic_earthquake_data(n_samples)
 
     logger.info(f"Training SeismicWaveAnalyzer for {n_epochs} epochs on {data_source} data")
@@ -2360,11 +2441,16 @@ def train_all_disaster_networks(
     device: str = "cpu",
     n_epochs: int = 10,
 ) -> dict[str, dict[str, list[float]]]:
-    """Train all disaster detection neural networks on synthetic data.
+    """Train all disaster detection neural networks (DEMO; synthetic fallback).
 
-    This function initializes and trains:
+    This demo helper initializes and trains:
     - WaveformFFTAnalyzer for tsunami detection
     - SeismicWaveAnalyzer for earthquake detection
+
+    It passes ``allow_synthetic_fallback=True`` explicitly: when the real
+    data sources are unreachable the models train on synthetic samples and
+    the resulting weights are demo-grade — they must never ship. The
+    merit-gated pipeline in ``ml/hazard_training`` is the only shipping path.
 
     Args:
         device: Training device ('cpu' or 'cuda')
@@ -2380,13 +2466,13 @@ def train_all_disaster_networks(
     # Train WaveformFFTAnalyzer
     waveform_model = WaveformFFTAnalyzer()
     results["WaveformFFTAnalyzer"] = train_waveform_analyzer(
-        waveform_model, n_epochs=n_epochs, device=device
+        waveform_model, n_epochs=n_epochs, device=device, allow_synthetic_fallback=True
     )
 
     # Train SeismicWaveAnalyzer
     seismic_model = SeismicWaveAnalyzer()
     results["SeismicWaveAnalyzer"] = train_seismic_analyzer(
-        seismic_model, n_epochs=n_epochs, device=device
+        seismic_model, n_epochs=n_epochs, device=device, allow_synthetic_fallback=True
     )
 
     logger.info("All disaster detection networks trained successfully.")

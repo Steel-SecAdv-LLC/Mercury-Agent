@@ -422,7 +422,7 @@ class HurricaneDetector:
         """
         if self.wind_analyzer is None:
             raise RuntimeError("wind analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.wind_analyzer.load_state_dict(checkpoint["wind_analyzer"])
         self._neural_trained = True
         self.logger.info(

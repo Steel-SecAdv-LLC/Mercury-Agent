@@ -137,26 +137,35 @@ class GeomageticCorrelator:
 
         Args:
             schumann_anomaly: Schumann resonance anomaly data
-            geomagnetic_data: Kp, Dst, and other indices
+            geomagnetic_data: Observed Kp/Dst indices. When absent (or an
+                index is missing) the analysis reports honestly: status
+                ``"unknown"``, ``kp_index``/``dst_index`` ``None``, and a
+                ``geomagnetic_data_unavailable`` indicator. No quiet-time
+                default is ever invented — a fabricated Kp 3.0 / Dst −20
+                "quiet" reading is indistinguishable from a measurement
+                downstream (this replaced exactly that behavior).
 
         Returns:
             Correlation analysis
         """
         if geomagnetic_data is None:
-            geomagnetic_data = {"kp_index": 3.0, "dst_index": -20.0}
+            geomagnetic_data = {}
 
-        kp = geomagnetic_data.get("kp_index", 3.0)
-        dst = geomagnetic_data.get("dst_index", -20.0)
+        kp = geomagnetic_data.get("kp_index")
+        dst = geomagnetic_data.get("dst_index")
 
-        geomagnetic_status = self._classify_geomagnetic_activity(kp)
+        geomagnetic_status = (
+            self._classify_geomagnetic_activity(kp) if kp is not None else "unknown"
+        )
 
         space_weather_factor = 1.0
-        if kp > 7.0:
-            space_weather_factor = 1.6
-        elif kp > 5.0:
-            space_weather_factor = 1.3
+        if kp is not None:
+            if kp > 7.0:
+                space_weather_factor = 1.6
+            elif kp > 5.0:
+                space_weather_factor = 1.3
 
-        dst_disturbance = dst < -50
+        dst_disturbance = dst is not None and dst < -50
 
         correlation_strength = 0.0
 
@@ -176,11 +185,13 @@ class GeomageticCorrelator:
         correlation_strength = min(correlation_strength, 1.0)
 
         indicators = []
+        if kp is None and dst is None:
+            indicators.append("geomagnetic_data_unavailable")
         if correlation_strength > 0.5:
             indicators.append("strong_geomagnetic_correlation")
         if dst_disturbance:
             indicators.append("ionospheric_current_disturbance")
-        if kp > 6:
+        if kp is not None and kp > 6:
             indicators.append("severe_space_weather")
 
         return {
@@ -353,7 +364,7 @@ class DisasterPrecursorDetector:
         """
         if self.earthquake_analyzer is None:
             raise RuntimeError("earthquake precursor analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
         self._neural_trained = True
         self.logger.info(

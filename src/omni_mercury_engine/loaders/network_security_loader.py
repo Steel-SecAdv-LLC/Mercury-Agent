@@ -349,7 +349,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 f"and the fetched dataframe has no 'label' column "
                 f"(columns: {list(df.columns)}). Refusing to fabricate labels."
             )
-        labels = df["label"].values.astype(np.int64)
+        labels = np.asarray(df["label"].values, dtype=np.int64)
 
         logger.info(
             "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",

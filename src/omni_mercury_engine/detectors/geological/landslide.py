@@ -545,7 +545,7 @@ class LandslideDetector:
         """
         if self.stability_model is None:
             raise RuntimeError("slope-stability modelling is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         self.stability_model.load_state_dict(checkpoint["stability_model"])
         self._neural_trained = True
         self.logger.info(
