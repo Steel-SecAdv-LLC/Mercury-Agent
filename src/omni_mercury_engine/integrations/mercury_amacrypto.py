@@ -202,7 +202,13 @@ class EWMATimingMonitor:
                     omni_scalars={
                         "omni_crypto_timing_deviation": deviation,
                         "omni_crypto_timing_severity": severity,
-                        "omni_crypto_operation_count": float(stats.sample_count),
+                        # Metric-only ("omni_diag_") channel: a raw operation
+                        # counter grows without bound over process life and is
+                        # a diagnostic measurement, not a normalized signal —
+                        # it must never enter the σ_Immutable operational
+                        # vector (same defect class as the raw posture
+                        # timestamps, F10).
+                        "omni_diag_crypto_operation_count": float(stats.sample_count),
                     },
                 )
 
@@ -268,7 +274,22 @@ class MercuryGuardianAdapter:
         PostureEvaluator ← GOSNN security scalars ──┘
                 ↓
         Posture decisions → GOSNN ScalarGroup.SECURITY
+
+    Lifecycle: the adapter registers scalars into the process-global GOSNN
+    under the component names in :data:`_GOSNN_COMPONENT_NAMES`.  Call
+    :meth:`close` (or use the adapter as a context manager) when the
+    adapter is retired so its SECURITY-group registrations are removed
+    from the singleton instead of persisting for process life.
     """
+
+    #: GOSNN component names this adapter registers under; ``close()``
+    #: unregisters exactly these.
+    _GOSNN_COMPONENT_NAMES: tuple[str, ...] = (
+        "ama_cryptography_pqc",
+        "ama_adaptive_posture",
+        "ama_posture_rotation",
+        "ama_posture_algorithm",
+    )
 
     def __init__(
         self,
@@ -459,9 +480,11 @@ class MercuryGuardianAdapter:
 
             gosnn = GlobalOmniScalarNetwork()
 
-            # Gather GOSNN security + ethical scalars for context
-            security_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.SECURITY, {}))
-            ethical_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.ETHICAL, {}))
+            # Gather GOSNN security + ethical scalars for context.
+            # ``get_group_scalars`` snapshots under the registry lock, so a
+            # concurrent registration cannot tear the read.
+            security_scalars = gosnn.get_group_scalars(ScalarGroup.SECURITY)
+            ethical_scalars = gosnn.get_group_scalars(ScalarGroup.ETHICAL)
 
             # Build a synthetic monitor report from full system context
             report = self._build_posture_report(security_scalars, ethical_scalars)
@@ -574,7 +597,16 @@ class MercuryGuardianAdapter:
                     component_name="ama_posture_rotation",
                     scalars={
                         "omni_posture_key_rotation_triggered": 1.0,
-                        "omni_posture_rotation_timestamp": time.time(),
+                        # Metric-only ("omni_diag_") channel: a raw unix
+                        # timestamp (~1.7e9) registered as an operational
+                        # SECURITY scalar leaked into the σ_Immutable gate
+                        # input of unrelated detect_with_fusion calls later
+                        # in the process, collapsing the ethical score to
+                        # 0.0 and forcing a spurious fail-closed
+                        # EthicalConstraintViolationError (F10). Diagnostic
+                        # timestamps stay discoverable in scalar_groups but
+                        # never enter the gate vector.
+                        "omni_diag_posture_rotation_timestamp": time.time(),
                     },
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_key_rotation"},
@@ -599,7 +631,10 @@ class MercuryGuardianAdapter:
                     component_name="ama_posture_algorithm",
                     scalars={
                         "omni_posture_algorithm_switch_triggered": 1.0,
-                        "omni_posture_switch_timestamp": time.time(),
+                        # Metric-only ("omni_diag_") channel — raw unix
+                        # timestamp; see _on_posture_rotation for the F10
+                        # rationale.
+                        "omni_diag_posture_switch_timestamp": time.time(),
                     },
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_algorithm_switch", "new_algorithm": new_algorithm},
@@ -1002,6 +1037,41 @@ class MercuryGuardianAdapter:
             scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence
 
         return scalars
+
+    def close(self) -> None:
+        """Retire the adapter: remove its GOSNN scalar registrations.
+
+        Unregisters every component name this adapter registers under
+        (:data:`_GOSNN_COMPONENT_NAMES`) so its SECURITY-group scalars do
+        not persist in the process-global GOSNN after the adapter is done
+        (the cross-request scalar-bleed defect, F10).  Idempotent: closing
+        twice, or closing an adapter that never registered anything, is a
+        no-op.  If the GOSNN singleton was never constructed there is
+        nothing to clean up and none is created just to be cleaned.
+        """
+        try:
+            from omni_mercury_engine.core.global_omni_scalar_network import (
+                GlobalOmniScalarNetwork,
+            )
+        except ImportError:
+            logger.debug("GOSNN not available at close(); nothing to unregister")
+            return
+
+        if GlobalOmniScalarNetwork._instance is None:
+            return
+
+        gosnn = GlobalOmniScalarNetwork()
+        removed = [name for name in self._GOSNN_COMPONENT_NAMES if gosnn.unregister_scalars(name)]
+        if removed:
+            logger.debug("MercuryGuardianAdapter.close(): unregistered %s from GOSNN", removed)
+
+    def __enter__(self) -> MercuryGuardianAdapter:
+        """Enter a ``with`` block; returns the adapter itself."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        """Exit a ``with`` block by calling :meth:`close`."""
+        self.close()
 
 
 def create_ama_cryptography_adapter(

@@ -48,14 +48,20 @@ References:
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # P2: Import from centralized constants
 from omni_mercury_engine.core.centralized_constants import (
@@ -627,6 +633,15 @@ class GlobalOmniScalarNetwork:
     # allowlists once; no other call site needs to change.
     # ------------------------------------------------------------------
     _METRIC_ONLY_PREFIXES: tuple[str, ...] = (
+        # Generic diagnostic channel.  Raw measurements that are useful for
+        # reporting but must NEVER enter the σ_Immutable operational vector
+        # (unix timestamps, unbounded counters, identifiers) are registered
+        # under this prefix.  The MercuryGuardianAdapter's posture-rotation /
+        # algorithm-switch timestamps (~1.7e9 unix seconds) were previously
+        # registered as plain SECURITY scalars and leaked into the gate input
+        # of unrelated ``detect_with_fusion`` calls later in the same process,
+        # collapsing the ethical score to 0.0 (defect F10).
+        "omni_diag_",
         # Software-engineering diagnostic measurement families.
         "omni_iso25010_",
         "omni_halstead_",
@@ -659,6 +674,33 @@ class GlobalOmniScalarNetwork:
         }
     )
 
+    # ------------------------------------------------------------------
+    # Gross-outlier tripwire for the operational scalar band.
+    #
+    # Expected range of an operational scalar (determined from the σ gate
+    # input handling, not invented): the trained σ_Immutable network was
+    # trained on ``U[0, 2]`` support (``security/sigma_immutable_gate.py``,
+    # SIGMA_IMMUTABLE_PERMISSIBLE_HIGH == 2.0), the NumPy fallback and
+    # ``compute_hierarchical_score`` both treat 2.0 as full scale
+    # (``min(mean / 2.0, 1.0)`` / ``clip(arr / 2.0, 0, 1)``), and every
+    # default scalar sits in ``[0.1, PHI]``.  Some legitimate component
+    # registrations run hotter — posture action codes reach 4.0
+    # (``integrations/mercury_amacrypto.ACTION_MAP``) and bounded anomaly
+    # counters reach ~1e3 — so this limit is deliberately a *gross* bound,
+    # not a strict range validator: three orders of magnitude above the
+    # hottest legitimate registration and three below the smallest unit
+    # error actually seen corrupting the gate (a raw unix timestamp,
+    # ~1.7e9 seconds).  A finite operational scalar with ``|value|`` above
+    # this limit cannot be a normalized signal; fed to the trained gate it
+    # saturates the first linear layer and collapses the ethical score to
+    # 0.0, which forced spurious fail-closed
+    # ``EthicalConstraintViolationError``s on unrelated requests (F10).
+    # Such scalars are EXCLUDED from every operational read and logged at
+    # WARNING once per (group, scalar) — fail-visible, never silently
+    # clamped (clamping would hide the misregistration upstream).
+    # ------------------------------------------------------------------
+    OPERATIONAL_SCALAR_ABS_LIMIT: float = 1.0e6
+
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
         if cls._instance is None:
@@ -670,61 +712,197 @@ class GlobalOmniScalarNetwork:
 
     def __init__(
         self,
-        device: str = "cpu",
-        quantum_mode: bool = False,
-        max_dimensions: int = 37,
+        device: str | None = None,
+        quantum_mode: bool | None = None,
+        max_dimensions: int | None = None,
         domain: str | None = None,
-        num_attention_heads: int = 32,
-        enable_triadic_phi: bool = True,
+        num_attention_heads: int | None = None,
+        enable_triadic_phi: bool | None = None,
     ):
-        """Initialize the Global Omni-Scalar Network.
+        """Initialize the Global Omni-Scalar Network singleton.
+
+        First construction resolves and freezes the configuration.  Every
+        parameter defaults to ``None`` meaning "not specified": a later
+        no-argument construction is the established "give me the live
+        singleton" idiom and stays a cheap no-op.  A later construction
+        that EXPLICITLY requests a materially different configuration
+        (different device, quantum mode, dimensions, attention heads,
+        triadic weighting, or a domain resolving to a different
+        σ_Immutable threshold) raises :class:`ValueError` instead of
+        silently ignoring the request — call
+        :func:`reset_global_network` first to reconfigure.  ``domain`` is
+        material through its resolved threshold; because ``None`` doubles
+        as "not specified", a caller cannot use ``domain=None`` to demand
+        the non-domain default — reset the singleton instead.
 
         Args:
-            device: Computation device ('cpu' or 'cuda')
-            quantum_mode: Enable quantum-inspired operations
-            max_dimensions: Maximum dimensions for fusion (default 37)
-            domain: Domain identifier for threshold tuning (e.g., "medical")
-            num_attention_heads: Number of attention heads (default 32 for head_dim=16)
-            enable_triadic_phi: Enable triadic phi-weighting for harmonic synergy
+            device: Computation device ('cpu' or 'cuda'). Default 'cpu'.
+            quantum_mode: Enable quantum-inspired operations. Default False.
+            max_dimensions: Maximum dimensions for fusion. Default 37.
+            domain: Domain identifier for threshold tuning (e.g., "medical").
+            num_attention_heads: Number of attention heads. Default 32
+                (head_dim=16).
+            enable_triadic_phi: Enable triadic phi-weighting for harmonic
+                synergy. Default True.
+
+        Raises:
+            ValueError: If the singleton is already initialized and an
+                explicitly requested parameter differs materially from the
+                live configuration.
         """
-        if getattr(self, "_initialized", False):
+        # Serialize full initialization (and the re-init config check)
+        # under the class lock: previously a second thread constructing
+        # while the first was mid-``__init__`` saw ``_initialized=False``
+        # and re-ran initialization concurrently.
+        with self._lock:
+            if getattr(self, "_initialized", False):
+                self._raise_if_material_reinit(
+                    device=device,
+                    quantum_mode=quantum_mode,
+                    max_dimensions=max_dimensions,
+                    domain=domain,
+                    num_attention_heads=num_attention_heads,
+                    enable_triadic_phi=enable_triadic_phi,
+                )
+                return
+
+            self.device = device if device is not None else "cpu"
+            self.quantum_mode = quantum_mode if quantum_mode is not None else False
+            self.max_dimensions = max_dimensions if max_dimensions is not None else 37
+            self.domain = domain
+            self.num_attention_heads = (
+                num_attention_heads if num_attention_heads is not None else 32
+            )
+            self.enable_triadic_phi = enable_triadic_phi if enable_triadic_phi is not None else True
+            self.logger = logging.getLogger(__name__)
+
+            # Get domain-appropriate sigma_Immutable threshold
+            self.sigma_immutable_threshold = get_sigma_immutable_threshold(domain)
+
+            # Registry lock: guards every mutation of / snapshot read from
+            # ``registered_scalars`` + ``scalar_groups`` and the ownership
+            # index below.  Reentrant because operational readers
+            # (``_collect_all_scalars`` → ``_operational_scalars_for``)
+            # nest lock acquisitions for consistent multi-group snapshots.
+            self._registry_lock = threading.RLock()
+
+            self.registered_scalars: dict[str, ScalarRegistration] = {}
+            self.scalar_groups: dict[ScalarGroup, dict[str, float]] = {
+                group: {} for group in ScalarGroup
+            }
+
+            # Per-component ownership of group entries, so
+            # ``unregister_scalars`` can remove exactly what a component
+            # contributed. Keyed by (group, scalar name) -> component.
+            self._scalar_owners: dict[tuple[ScalarGroup, str], str] = {}
+            self._component_scalar_keys: dict[str, set[tuple[ScalarGroup, str]]] = {}
+
+            # (group, scalar name) pairs already reported by the
+            # gross-outlier tripwire — WARNING fires once per scalar, not
+            # once per gate evaluation.
+            self._quarantine_warned: set[tuple[ScalarGroup, str]] = set()
+
+            # Initialize ethical gate with configurable threshold
+            self.ethical_gate = EthicalGate(threshold=self.sigma_immutable_threshold)
+
+            # Initialize 32-head attention with triadic phi-weighting
+            self.attention_fusion = MultiHeadAttentionFusion(
+                d_model=512,
+                num_heads=self.num_attention_heads,
+                max_dimensions=self.max_dimensions,
+                enable_triadic_phi=self.enable_triadic_phi,
+            )
+
+            # Track harmonic synergy for weighted fusion Equation
+            self.last_harmonic_synergy: float = 0.5
+
+            self._initialize_default_scalars()
+
+            # Baseline defaults snapshot: when a component that shadowed a
+            # default scalar unregisters, the default value is restored so
+            # the σ_Immutable operational layout never loses a column.
+            self._baseline_scalars: dict[ScalarGroup, dict[str, float]] = {
+                group: dict(scalars) for group, scalars in self.scalar_groups.items()
+            }
+
+            self._initialized = True
+
+            self.logger.debug(
+                "GOSNN initialized with %d dimensions and %d attention heads",
+                self.max_dimensions,
+                self.num_attention_heads,
+            )
+
+    def _material_config_divergence(
+        self,
+        device: str | None,
+        quantum_mode: bool | None,
+        max_dimensions: int | None,
+        domain: str | None,
+        num_attention_heads: int | None,
+        enable_triadic_phi: bool | None,
+    ) -> dict[str, tuple[Any, Any]]:
+        """Compare explicitly requested config against the live instance.
+
+        Only parameters the caller actually passed (non-``None``)
+        participate; unspecified parameters mean "whatever the live
+        instance has".  ``domain`` is compared through its resolved
+        σ_Immutable threshold — two domain labels mapping to the same
+        threshold are not a material difference.
+
+        Returns:
+            Mapping of field name -> ``(live_value, requested_value)`` for
+            every material difference; empty when the request is
+            compatible with the live configuration.
+        """
+        requested: dict[str, Any] = {}
+        if device is not None:
+            requested["device"] = device
+        if quantum_mode is not None:
+            requested["quantum_mode"] = quantum_mode
+        if max_dimensions is not None:
+            requested["max_dimensions"] = max_dimensions
+        if num_attention_heads is not None:
+            requested["num_attention_heads"] = num_attention_heads
+        if enable_triadic_phi is not None:
+            requested["enable_triadic_phi"] = enable_triadic_phi
+        if domain is not None:
+            requested["sigma_immutable_threshold"] = get_sigma_immutable_threshold(domain)
+
+        diffs: dict[str, tuple[Any, Any]] = {}
+        for field_name, want in requested.items():
+            have = getattr(self, field_name)
+            if have != want:
+                diffs[field_name] = (have, want)
+        return diffs
+
+    def _raise_if_material_reinit(self, **requested: Any) -> None:
+        """Fail loudly when re-construction requests a different config.
+
+        Before this check, ``__init__`` early-returned and the second
+        caller's device/domain/threshold/dimensions were SILENTLY ignored
+        — e.g. the first caller's σ_Immutable threshold (0.96 default vs
+        0.93 medical) stayed frozen for process life while a medical
+        caller believed it had configured 0.93 (defect F10).
+
+        Raises:
+            ValueError: Listing each materially different field with the
+                live and requested values, and directing the caller to
+                ``reset_global_network()``.
+        """
+        diffs = self._material_config_divergence(**requested)
+        if not diffs:
             return
-
-        self.device = device
-        self.quantum_mode = quantum_mode
-        self.max_dimensions = max_dimensions
-        self.domain = domain
-        self.logger = logging.getLogger(__name__)
-
-        # Get domain-appropriate sigma_Immutable threshold
-        self.sigma_immutable_threshold = get_sigma_immutable_threshold(domain)
-
-        self.registered_scalars: dict[str, ScalarRegistration] = {}
-        self.scalar_groups: dict[ScalarGroup, dict[str, float]] = {
-            group: {} for group in ScalarGroup
-        }
-
-        # Initialize ethical gate with configurable threshold
-        self.ethical_gate = EthicalGate(threshold=self.sigma_immutable_threshold)
-
-        # Initialize 32-head attention with triadic phi-weighting
-        self.attention_fusion = MultiHeadAttentionFusion(
-            d_model=512,
-            num_heads=num_attention_heads,
-            max_dimensions=max_dimensions,
-            enable_triadic_phi=enable_triadic_phi,
+        detail = ", ".join(
+            f"{name}: live={have!r} requested={want!r}" for name, (have, want) in diffs.items()
         )
-
-        # Track harmonic synergy for weighted fusion Equation
-        self.last_harmonic_synergy: float = 0.5
-
-        self._initialize_default_scalars()
-        self._initialized = True
-
-        self.logger.debug(
-            "GOSNN initialized with %d dimensions and %d attention heads",
-            max_dimensions,
-            num_attention_heads,
+        raise ValueError(
+            "GlobalOmniScalarNetwork is a process-wide singleton and is already "
+            f"initialized with a materially different configuration ({detail}). "
+            "Re-construction cannot reconfigure it; call "
+            "omni_mercury_engine.core.global_omni_scalar_network."
+            "reset_global_network() first if you really need a differently "
+            "configured instance."
         )
 
     def _initialize_default_scalars(self) -> None:
@@ -1116,10 +1294,30 @@ class GlobalOmniScalarNetwork:
             Scalar value
         """
         resolved_name = self.resolve_scalar_name(name)
-        for group_scalars in self.scalar_groups.values():
-            if resolved_name in group_scalars:
-                return group_scalars[resolved_name]
+        with self._registry_lock:
+            for group_scalars in self.scalar_groups.values():
+                if resolved_name in group_scalars:
+                    return group_scalars[resolved_name]
         return default
+
+    def get_group_scalars(self, group: ScalarGroup) -> dict[str, float]:
+        """Return a consistent snapshot of one group's registered scalars.
+
+        Includes diagnostic (metric-only) entries — this is the
+        *registered* view, not the operational one.  External readers must
+        use this instead of iterating ``scalar_groups[group]`` directly:
+        the live dict is mutated by concurrent ``register_scalars`` /
+        ``unregister_scalars`` calls and iterating it raises
+        ``RuntimeError: dictionary changed size during iteration``.
+
+        Args:
+            group: Scalar group to snapshot.
+
+        Returns:
+            Copy of the group's name -> value mapping.
+        """
+        with self._registry_lock:
+            return dict(self.scalar_groups[group])
 
     def register_scalars(
         self,
@@ -1130,14 +1328,25 @@ class GlobalOmniScalarNetwork:
     ) -> None:
         """Register scalars from a component.
 
+        Thread-safe.  Ownership of each ``(group, name)`` entry is tracked
+        per component so :meth:`unregister_scalars` can remove exactly the
+        entries this component contributed.  Repeated registrations by the
+        same component accumulate ownership (a component that registers
+        scalar A and later scalar B owns both).  When a component
+        overwrites an entry currently owned by a DIFFERENT component the
+        write wins (last-write-wins, the pre-existing contract) but a
+        WARNING is logged and ownership transfers to the new component;
+        unregistering the previous owner will then no longer touch the
+        entry, and unregistering the new owner deletes it without
+        restoring the overwritten value (re-register instead of relying on
+        restore).
+
         Args:
             component_name: Name of the registering component
             scalars: Dictionary of scalar name to value
             group: Scalar group classification
             metadata: Optional metadata about the registration
         """
-        import time
-
         registration = ScalarRegistration(
             component_name=component_name,
             scalars=scalars,
@@ -1146,14 +1355,116 @@ class GlobalOmniScalarNetwork:
             metadata=metadata or {},
         )
 
-        self.registered_scalars[component_name] = registration
+        with self._registry_lock:
+            self.registered_scalars[component_name] = registration
+            owned = self._component_scalar_keys.setdefault(component_name, set())
 
-        for name, value in scalars.items():
-            self.scalar_groups[group][name] = value
+            for name, value in scalars.items():
+                key = (group, name)
+                previous_owner = self._scalar_owners.get(key)
+                if previous_owner is not None and previous_owner != component_name:
+                    self.logger.warning(
+                        "GOSNN scalar %r in group %s overwritten by component %r "
+                        "(previously owned by %r); last write wins and ownership "
+                        "transfers — unregistering %r will delete the entry, not "
+                        "restore %r's value",
+                        name,
+                        group.value,
+                        component_name,
+                        previous_owner,
+                        component_name,
+                        previous_owner,
+                    )
+                    previous_keys = self._component_scalar_keys.get(previous_owner)
+                    if previous_keys is not None:
+                        previous_keys.discard(key)
+                self._scalar_owners[key] = component_name
+                owned.add(key)
+                self.scalar_groups[group][name] = value
 
         self.logger.debug(
             f"Registered {len(scalars)} scalars from {component_name} in group {group.value}"
         )
+
+    def unregister_scalars(self, component_name: str) -> bool:
+        """Remove a component's registration and its group contributions.
+
+        Removes exactly the ``(group, name)`` entries currently owned by
+        ``component_name`` (accumulated across all of its
+        :meth:`register_scalars` calls).  Entries that shadowed a built-in
+        default scalar are restored to the default value — deleting them
+        would silently shrink the σ_Immutable operational layout.  Entries
+        the component introduced are deleted.  Entries the component once
+        owned but that another component has since overwritten are left
+        untouched (ownership transferred at overwrite time).
+
+        Args:
+            component_name: Component whose registration to remove.
+
+        Returns:
+            True if the component had a registration or owned entries,
+            False if there was nothing to remove.
+        """
+        with self._registry_lock:
+            registration = self.registered_scalars.pop(component_name, None)
+            owned = self._component_scalar_keys.pop(component_name, set())
+
+            for key in owned:
+                if self._scalar_owners.get(key) != component_name:
+                    # Defensive: ownership index and per-component sets are
+                    # updated together under the lock, so this cannot
+                    # happen; skip rather than delete someone else's entry.
+                    continue
+                del self._scalar_owners[key]
+                group, name = key
+                baseline_value = self._baseline_scalars.get(group, {}).get(name)
+                if baseline_value is not None:
+                    self.scalar_groups[group][name] = baseline_value
+                else:
+                    self.scalar_groups[group].pop(name, None)
+                # Allow the gross-outlier tripwire to fire again if the
+                # scalar is later re-registered with another bad value.
+                self._quarantine_warned.discard(key)
+
+            removed = registration is not None or bool(owned)
+
+        if removed:
+            self.logger.debug(
+                "Unregistered component %r (%d owned scalar entries removed/restored)",
+                component_name,
+                len(owned),
+            )
+        return removed
+
+    @contextmanager
+    def scalar_registration(
+        self,
+        component_name: str,
+        scalars: dict[str, float],
+        group: ScalarGroup = ScalarGroup.ETHICAL,
+        metadata: dict[str, Any] | None = None,
+    ) -> Iterator[GlobalOmniScalarNetwork]:
+        """Register scalars for the duration of a ``with`` block.
+
+        On exit ALL entries owned by ``component_name`` are unregistered
+        via :meth:`unregister_scalars` — including entries from earlier
+        registrations under the same component name — with shadowed
+        default scalars restored to their default values.
+
+        Args:
+            component_name: Name of the registering component.
+            scalars: Dictionary of scalar name to value.
+            group: Scalar group classification.
+            metadata: Optional metadata about the registration.
+
+        Yields:
+            This network instance, for chained calls inside the block.
+        """
+        self.register_scalars(component_name, scalars, group=group, metadata=metadata)
+        try:
+            yield self
+        finally:
+            self.unregister_scalars(component_name)
 
     def get_enhanced_scalars(
         self,
@@ -1333,14 +1644,11 @@ class GlobalOmniScalarNetwork:
         elif boost_ratio < 0.55:
             recommendations.append("Consider increasing boost scalars for balance")
 
-        omniempathy = self.scalar_groups[ScalarGroup.ETHICAL].get("omniempathy", self.MIN_EMPATHY)
-        omnimorality = self.scalar_groups[ScalarGroup.ETHICAL].get(
-            "omnimorality", self.MIN_MORALITY
-        )
+        ethical_snapshot = self.get_group_scalars(ScalarGroup.ETHICAL)
+        omniempathy = ethical_snapshot.get("omniempathy", self.MIN_EMPATHY)
+        omnimorality = ethical_snapshot.get("omnimorality", self.MIN_MORALITY)
         benevolence_threshold = ETHICAL.BENEVOLENCE_IMMUTABLE
-        omnibenevolence = self.scalar_groups[ScalarGroup.ETHICAL].get(
-            "omnibenevolence", benevolence_threshold
-        )
+        omnibenevolence = ethical_snapshot.get("omnibenevolence", benevolence_threshold)
 
         if omniempathy < self.MIN_EMPATHY:
             recommendations.append(
@@ -1397,7 +1705,7 @@ class GlobalOmniScalarNetwork:
         total_registered = 0
         total_metric_only = 0
         for group in ScalarGroup:
-            group_scalars = self.scalar_groups[group]
+            group_scalars = self.get_group_scalars(group)
             if not group_scalars:
                 continue
             operational = self._operational_scalars_for(group)
@@ -1446,6 +1754,33 @@ class GlobalOmniScalarNetwork:
             return True
         return any(key.startswith(prefix) for prefix in cls._METRIC_ONLY_PREFIXES)
 
+    def _quarantine_operational_outlier(self, group: ScalarGroup, name: str, value: float) -> None:
+        """Log the gross-outlier tripwire WARNING once per (group, scalar).
+
+        Includes the owning component (when the entry came through
+        :meth:`register_scalars`) so the misregistration can be traced to
+        its source instead of just to a scalar name.
+        """
+        key = (group, name)
+        with self._registry_lock:
+            if key in self._quarantine_warned:
+                return
+            self._quarantine_warned.add(key)
+            owner = self._scalar_owners.get(key, "<built-in/unknown>")
+        self.logger.warning(
+            "GOSNN operational scalar %r in group %s (registered by %r) has value %r "
+            "which is non-finite or grossly outside the expected normalized band "
+            "(|value| > %.0e; σ_Immutable trained support is U[0, 2]); excluding it "
+            "from the fusion/gate input. Fix the registering component — raw "
+            "measurements (timestamps, counters) belong in the metric-only "
+            "'omni_diag_' channel.",
+            name,
+            group.value,
+            owner,
+            value,
+            self.OPERATIONAL_SCALAR_ABS_LIMIT,
+        )
+
     def _operational_scalars_for(self, group: ScalarGroup) -> dict[str, float]:
         """Return the operational subset of one group's scalars.
 
@@ -1455,13 +1790,28 @@ class GlobalOmniScalarNetwork:
         measurement families are filtered out via
         ``_is_metric_only_scalar``.
 
+        Additionally applies the gross-outlier tripwire: a scalar that is
+        non-finite or has ``|value| > OPERATIONAL_SCALAR_ABS_LIMIT``
+        cannot be a normalized operational signal (it is a unit error —
+        e.g. a raw unix timestamp) and is excluded with a once-per-scalar
+        WARNING rather than silently clamped or silently fed to the gate.
+
         Centralising the filter here gives every operational call site
         a single helper to call — adding a new measurement family
         means updating ``_METRIC_ONLY_PREFIXES`` once and nothing else.
+        Thread-safe: snapshots the group under the registry lock.
         """
-        return {
-            k: v for k, v in self.scalar_groups[group].items() if not self._is_metric_only_scalar(k)
-        }
+        with self._registry_lock:
+            items = list(self.scalar_groups[group].items())
+        operational: dict[str, float] = {}
+        for name, value in items:
+            if self._is_metric_only_scalar(name):
+                continue
+            if not math.isfinite(value) or abs(value) > self.OPERATIONAL_SCALAR_ABS_LIMIT:
+                self._quarantine_operational_outlier(group, name, value)
+                continue
+            operational[name] = value
+        return operational
 
     def _metric_only_scalars_for(self, group: ScalarGroup) -> dict[str, float]:
         """Return the diagnostic measurement subset of one group's scalars.
@@ -1471,10 +1821,11 @@ class GlobalOmniScalarNetwork:
         paths (``get_scalar_statistics``) can show the operational /
         diagnostic split explicitly instead of letting a single
         ``count`` field hide the difference.
+        Thread-safe: snapshots the group under the registry lock.
         """
-        return {
-            k: v for k, v in self.scalar_groups[group].items() if self._is_metric_only_scalar(k)
-        }
+        with self._registry_lock:
+            items = list(self.scalar_groups[group].items())
+        return {k: v for k, v in items if self._is_metric_only_scalar(k)}
 
     def critical_ethical_anchors(self) -> dict[str, float]:
         """Return the ETHICAL-group scalars subject to the hard ethical floor.
@@ -1494,7 +1845,8 @@ class GlobalOmniScalarNetwork:
         Returns:
             Mapping of anchor scalar name -> current value.
         """
-        ethical = self.scalar_groups.get(ScalarGroup.ETHICAL, {})
+        with self._registry_lock:
+            ethical = dict(self.scalar_groups.get(ScalarGroup.ETHICAL, {}))
         return {
             name: float(value)
             for name, value in ethical.items()
@@ -1510,11 +1862,16 @@ class GlobalOmniScalarNetwork:
         ``scalar_groups`` but are filtered out here so the σ_Immutable
         trained gate continues to see the fixed operational layout it
         was trained on.  See the class-level ``_METRIC_ONLY_PREFIXES``
-        comment for the contract.
+        comment for the contract.  Non-finite / gross-outlier entries are
+        excluded by the same helper (see
+        :meth:`_operational_scalars_for`).  The whole union is taken
+        under the registry lock so concurrent registrations cannot
+        produce a torn multi-group snapshot.
         """
         all_scalars: dict[str, float] = {}
-        for group in self.scalar_groups:
-            all_scalars.update(self._operational_scalars_for(group))
+        with self._registry_lock:
+            for group in self.scalar_groups:
+                all_scalars.update(self._operational_scalars_for(group))
         return all_scalars
 
     def _prepare_dimensional_states(
@@ -1529,18 +1886,21 @@ class GlobalOmniScalarNetwork:
         Previously this iterated the raw group dicts and relied on
         the implicit invariant that measurement scalars sit past the
         ``max_dimensions`` truncation horizon — that invariant is now
-        explicit instead of accidental.
+        explicit instead of accidental.  The per-group snapshots are
+        taken under the registry lock so a concurrent registration
+        cannot tear the multi-group layout mid-build.
         """
         states = []
 
         base_values = np.array(list(base_scalars.values()))
         states.append(base_values)
 
-        for group in ScalarGroup:
-            group_scalars = self._operational_scalars_for(group)
-            if group_scalars:
-                group_values = np.array(list(group_scalars.values()))
-                states.append(group_values)
+        with self._registry_lock:
+            for group in ScalarGroup:
+                group_scalars = self._operational_scalars_for(group)
+                if group_scalars:
+                    group_values = np.array(list(group_scalars.values()))
+                    states.append(group_values)
 
         return states
 
@@ -1715,21 +2075,27 @@ class GlobalOmniScalarNetwork:
         }
 
 
-# Global GOSNN singleton instance
-# Thread Safety: Uses lazy initialization with potential race condition on first access.
-# The GlobalOmniScalarNetwork class uses internal locking for thread-safe operations
-# once instantiated. For production multi-threaded use, call get_global_scalar_network()
-# once during application startup before spawning worker threads.
+# Global GOSNN singleton instance.
+# Thread Safety: the accessor below serializes lazy creation under
+# ``_global_network_lock``; the class itself serializes ``__init__`` under
+# its own lock and guards the scalar registry with a per-instance RLock.
 _global_network: GlobalOmniScalarNetwork | None = None
+_global_network_lock = threading.Lock()
+
+# Material-divergence WARNINGs already emitted by the accessor, keyed by the
+# rendered diff string — each distinct ignored reconfiguration request is
+# reported once per live instance, not once per call (the engine legitimately
+# passes a per-request ``domain`` on every ``detect_with_fusion``).
+_accessor_divergence_warned: set[str] = set()
 
 
 def get_global_scalar_network(
-    device: str = "cpu",
-    quantum_mode: bool = False,
-    max_dimensions: int = 37,
+    device: str | None = None,
+    quantum_mode: bool | None = None,
+    max_dimensions: int | None = None,
     domain: str | None = None,
-    num_attention_heads: int = 32,
-    enable_triadic_phi: bool = True,
+    num_attention_heads: int | None = None,
+    enable_triadic_phi: bool | None = None,
 ) -> GlobalOmniScalarNetwork:
     """Get the global GOSNN singleton instance.
 
@@ -1737,13 +2103,25 @@ def get_global_scalar_network(
     and other components. It uses 32-head attention with triadic phi-weighting
     for harmonic synergy and configurable sigma_Immutable threshold for ethical gating.
 
+    Configuration arguments apply to the FIRST construction only.  Once a
+    live instance exists this is an accessor: it returns the live instance
+    and, when an explicitly requested parameter differs materially from
+    the live configuration, logs a WARNING (once per distinct divergence)
+    instead of silently ignoring the request.  Callers that genuinely need
+    a differently configured network must call :func:`reset_global_network`
+    first.  Direct construction of :class:`GlobalOmniScalarNetwork` with a
+    materially different configuration raises ``ValueError`` instead —
+    this accessor is deliberately non-raising because boundary code passes
+    per-request hints (e.g. ``domain``) on every call.
+
     Args:
-        device: Computation device ('cpu' or 'cuda')
-        quantum_mode: Enable quantum-inspired operations
-        max_dimensions: Maximum dimensions for fusion (default 37)
+        device: Computation device ('cpu' or 'cuda'). Default 'cpu'.
+        quantum_mode: Enable quantum-inspired operations. Default False.
+        max_dimensions: Maximum dimensions for fusion. Default 37.
         domain: Domain identifier for threshold tuning (e.g., "medical" uses 0.93)
-        num_attention_heads: Number of attention heads (default 32 for head_dim=16)
-        enable_triadic_phi: Enable triadic phi-weighting for harmonic synergy
+        num_attention_heads: Number of attention heads. Default 32 (head_dim=16).
+        enable_triadic_phi: Enable triadic phi-weighting for harmonic synergy.
+            Default True.
 
     Returns:
         GlobalOmniScalarNetwork singleton instance
@@ -1754,8 +2132,24 @@ def get_global_scalar_network(
         ~10-15% false positive reduction. Medical domains use 0.93 fallback.
     """
     global _global_network
-    if _global_network is None:
-        _global_network = GlobalOmniScalarNetwork(
+    with _global_network_lock:
+        live = _global_network or GlobalOmniScalarNetwork._instance
+        if live is None or not getattr(live, "_initialized", False):
+            _global_network = GlobalOmniScalarNetwork(
+                device=device,
+                quantum_mode=quantum_mode,
+                max_dimensions=max_dimensions,
+                domain=domain,
+                num_attention_heads=num_attention_heads,
+                enable_triadic_phi=enable_triadic_phi,
+            )
+            return _global_network
+
+        # Adopt an instance created via direct construction so both caches
+        # agree, then surface (never silently swallow) any materially
+        # different reconfiguration request.
+        _global_network = live
+        diffs = live._material_config_divergence(
             device=device,
             quantum_mode=quantum_mode,
             max_dimensions=max_dimensions,
@@ -1763,11 +2157,27 @@ def get_global_scalar_network(
             num_attention_heads=num_attention_heads,
             enable_triadic_phi=enable_triadic_phi,
         )
-    return _global_network
+        if diffs:
+            detail = ", ".join(
+                f"{name}: live={have!r} requested={want!r}" for name, (have, want) in diffs.items()
+            )
+            if detail not in _accessor_divergence_warned:
+                _accessor_divergence_warned.add(detail)
+                logging.getLogger(__name__).warning(
+                    "get_global_scalar_network() called with configuration that "
+                    "differs materially from the live GOSNN singleton (%s); the "
+                    "request is ignored and the live instance returned. Call "
+                    "reset_global_network() first if you need a differently "
+                    "configured network.",
+                    detail,
+                )
+        return live
 
 
 def reset_global_network() -> None:
     """Reset the global GOSNN instance (primarily for testing)."""
     global _global_network
-    GlobalOmniScalarNetwork._instance = None
-    _global_network = None
+    with _global_network_lock:
+        GlobalOmniScalarNetwork._instance = None
+        _global_network = None
+        _accessor_divergence_warned.clear()
