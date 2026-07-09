@@ -622,9 +622,7 @@ class DataSourceBase(ABC):
                     # upstream throttle (unreachable-class); other 4xx from a
                     # reachable service indicate endpoint/contract drift.
                     error_cls = (
-                        SourceUnreachableError
-                        if e.response.status_code == 429
-                        else DataSourceError
+                        SourceUnreachableError if e.response.status_code == 429 else DataSourceError
                     )
                     raise error_cls(
                         f"HTTP {e.response.status_code}: {e.response.text[:200]}",
@@ -729,9 +727,7 @@ class DataSourceBase(ABC):
                     # See the async variant above: 429 = transient throttle
                     # (unreachable-class); other 4xx = contract drift.
                     error_cls = (
-                        SourceUnreachableError
-                        if e.response.status_code == 429
-                        else DataSourceError
+                        SourceUnreachableError if e.response.status_code == 429 else DataSourceError
                     )
                     raise error_cls(
                         f"HTTP {e.response.status_code}: {e.response.text[:200]}",

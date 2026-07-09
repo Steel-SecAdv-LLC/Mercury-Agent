@@ -40,7 +40,7 @@ def test_ppo_names_absent_from_all() -> None:
 def test_ppo_module_gone() -> None:
     assert importlib.util.find_spec("omni_mercury_engine.ml.ppo_trainer") is None
     with pytest.raises(ImportError):
-        import omni_mercury_engine.ml.ppo_trainer  # noqa: F401
+        import omni_mercury_engine.ml.ppo_trainer  # type: ignore[import-not-found]  # noqa: F401
 
 
 def test_compat_flag_removed() -> None:

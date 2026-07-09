@@ -17,6 +17,8 @@ Regression locks for the anti-theater fixes:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 import torch
@@ -25,7 +27,7 @@ from omni_mercury_engine.space.disaster_precursor_detector import DisasterPrecur
 from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
 
 
-def _kp(det: SolarStormDetector, v: float, bz: float, by: float = 0.0) -> dict:
+def _kp(det: SolarStormDetector, v: float, bz: float, by: float = 0.0) -> dict[str, Any]:
     return det._predict_geomagnetic_storm(
         {"solar_wind_speed_km_s": v, "bz_imf_nt": bz, "by_imf_nt": by}
     )
@@ -40,6 +42,7 @@ class TestSolarStormHonesty:
         det = SolarStormDetector()
         data = {"magnetosphere_data": {"solar_wind_speed_km_s": 600, "bz_imf_nt": -10}}
         before = det.predict_solar_storm(dict(data)).kp_index
+        assert det.geomag_predictor is not None
         with torch.no_grad():
             for p in det.geomag_predictor.parameters():
                 p.mul_(0).add_(5.0)
@@ -75,7 +78,7 @@ class TestSolarStormHonesty:
 
 class TestDisasterPrecursorHonesty:
     @staticmethod
-    def _payload(rng: np.random.Generator) -> dict:
+    def _payload(rng: np.random.Generator) -> dict[str, object]:
         t = np.arange(1000) / 100.0
         return {
             "elf_signal": rng.normal(0, 1, 1000) + np.sin(2 * np.pi * 7.83 * t),
@@ -104,6 +107,7 @@ class TestDisasterPrecursorHonesty:
         det = DisasterPrecursorDetector()
         payload = self._payload(np.random.default_rng(2))
         before = det.detect_disaster_precursor(dict(payload))
+        assert det.earthquake_analyzer is not None
         with torch.no_grad():
             for p in det.earthquake_analyzer.parameters():
                 p.mul_(0).add_(3.0)

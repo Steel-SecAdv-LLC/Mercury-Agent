@@ -8,6 +8,8 @@ simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.security.crypto_api import (
@@ -146,7 +148,7 @@ class TestSixLayerVerify:
     """MercuryCrypto can verify the 6-layer AMA packages it emits (F8)."""
 
     @staticmethod
-    def _content(data: dict) -> bytes:
+    def _content(data: dict[str, Any]) -> bytes:
         import json
 
         return json.dumps(data, sort_keys=True, default=str).encode()

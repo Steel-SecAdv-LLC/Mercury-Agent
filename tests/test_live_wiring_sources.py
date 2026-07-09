@@ -84,7 +84,7 @@ def patch_http_get(source: DataSourceBase, payload: Any) -> None:
     async def _fake_http_get(endpoint: str, params: dict[str, Any] | None = None) -> _FakeResponse:
         return _FakeResponse(payload)
 
-    source._http_get = _fake_http_get  # type: ignore[method-assign]
+    source._http_get = _fake_http_get  # type: ignore[assignment, method-assign, unused-ignore]
 
 
 class _InMemorySource(DataSourceBase):
@@ -103,7 +103,9 @@ class _InMemorySource(DataSourceBase):
     def default_source_types(self) -> list[DataSourceType]:
         return [DataSourceType.CUSTOM]
 
-    async def _fetch_impl(self, start_time=None, end_time=None, **kwargs):  # type: ignore[no-untyped-def]
+    async def _fetch_impl(
+        self, start_time: Any = None, end_time: Any = None, **kwargs: Any
+    ) -> list[DataPoint]:
         if self._fail:
             raise RuntimeError("backend down")
         return self._points
@@ -155,7 +157,9 @@ class TestLiveIngestionSeam:
         from omni_mercury_engine.data_sources.base import SourceUnreachableError
 
         class _DownSource(_InMemorySource):
-            async def _fetch_impl(self, start_time=None, end_time=None, **kwargs):  # type: ignore[no-untyped-def]
+            async def _fetch_impl(
+                self, start_time: Any = None, end_time: Any = None, **kwargs: Any
+            ) -> list[DataPoint]:
                 raise SourceUnreachableError("connect timeout", source_id="in_memory")
 
         result = _DownSource([]).fetch_sync(use_cache=False)
@@ -170,7 +174,9 @@ class TestLiveIngestionSeam:
         from omni_mercury_engine.data_sources.base import DataSourceError
 
         class _DriftedSource(_InMemorySource):
-            async def _fetch_impl(self, start_time=None, end_time=None, **kwargs):  # type: ignore[no-untyped-def]
+            async def _fetch_impl(
+                self, start_time: Any = None, end_time: Any = None, **kwargs: Any
+            ) -> list[DataPoint]:
                 raise DataSourceError("unexpected payload shape", source_id="in_memory")
 
         result = _DriftedSource([]).fetch_sync(use_cache=False)

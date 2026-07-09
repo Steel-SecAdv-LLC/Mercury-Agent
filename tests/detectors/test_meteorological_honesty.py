@@ -56,6 +56,7 @@ class TestTornadoHonesty:
         det = TornadoDetector()
         field = np.stack([np.linspace(-20, 20, 64) for _ in range(6)])
         before = det._analyze_radar(field)["rotation_velocity"]
+        assert det.radar_analyzer is not None
         with torch.no_grad():
             for p in det.radar_analyzer.parameters():
                 p.mul_(0).add_(3.0)
@@ -85,6 +86,7 @@ class TestWildfireHonesty:
         scene = rng.normal(295, 3, (32, 32))
         scene[10, 10] = 400.0
         before = det.predict_wildfire({"thermal_image": scene.copy()}).confidence
+        assert det.ignition_detector is not None
         with torch.no_grad():
             for p in det.ignition_detector.parameters():
                 p.mul_(0).add_(2.0)
@@ -133,6 +135,7 @@ class TestLandslideHonesty:
             "slope_data": {"slope_angle_deg": 30.0},
         }
         before = det.predict_landslide(dict(payload)).slope_failure_probability
+        assert det.stability_model is not None
         with torch.no_grad():
             for p in det.stability_model.parameters():
                 p.mul_(0).add_(1.0)

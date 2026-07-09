@@ -33,7 +33,7 @@ def _tsunami_record(rng: np.random.Generator, amplitude: float = 1.5) -> np.ndar
     n = 4096
     t = np.arange(n)
     noise = rng.normal(0, 0.05, n)
-    return noise + amplitude * np.sin(2 * np.pi * 0.005 * t) * (t > 2000)
+    return np.asarray(noise + amplitude * np.sin(2 * np.pi * 0.005 * t) * (t > 2000))
 
 
 def _quake_record(rng: np.random.Generator) -> np.ndarray:
@@ -137,9 +137,7 @@ class TestLegacyTrainerSyntheticFallbackOptIn:
     way are indistinguishable from real-trained weights downstream.
     """
 
-    def test_waveform_trainer_fails_loud_without_opt_in(
-        self, monkeypatch: object
-    ) -> None:
+    def test_waveform_trainer_fails_loud_without_opt_in(self, monkeypatch: object) -> None:
         import pytest
 
         from omni_mercury_engine.detectors.geological import disaster_detectors as dd
@@ -149,9 +147,7 @@ class TestLegacyTrainerSyntheticFallbackOptIn:
         with pytest.raises(RuntimeError, match=r"synthetic .*not explicitly allowed"):
             dd.train_waveform_analyzer(model, n_epochs=1, n_samples=8)
 
-    def test_waveform_trainer_synthetic_requires_explicit_flag(
-        self, monkeypatch: object
-    ) -> None:
+    def test_waveform_trainer_synthetic_requires_explicit_flag(self, monkeypatch: object) -> None:
         from omni_mercury_engine.detectors.geological import disaster_detectors as dd
 
         monkeypatch.setattr(dd, "load_dart_buoy_data", lambda *a, **k: None)  # type: ignore[attr-defined]

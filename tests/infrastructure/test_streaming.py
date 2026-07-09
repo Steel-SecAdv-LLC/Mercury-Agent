@@ -307,9 +307,14 @@ class TestInMemoryStreamBroker:
         broker_b = InMemoryStreamBroker()
         pipeline_a = StreamingAnomalyPipeline("in", "out", backend="memory", broker=broker_a)
         pipeline_b = StreamingAnomalyPipeline("in", "out", backend="memory", broker=broker_b)
-        assert pipeline_a._producer.broker is broker_a  # type: ignore[union-attr]
-        assert pipeline_b._producer.broker is broker_b  # type: ignore[union-attr]
-        assert pipeline_a._consumer.broker is broker_a  # type: ignore[union-attr]
+        producer_a, producer_b = pipeline_a._producer, pipeline_b._producer
+        consumer_a = pipeline_a._consumer
+        assert isinstance(producer_a, InMemoryStreamProducer)
+        assert isinstance(producer_b, InMemoryStreamProducer)
+        assert isinstance(consumer_a, InMemoryStreamConsumer)
+        assert producer_a.broker is broker_a
+        assert producer_b.broker is broker_b
+        assert consumer_a.broker is broker_a
 
     @pytest.mark.asyncio
     async def test_default_broker_shared_between_producer_and_consumer(self) -> None:

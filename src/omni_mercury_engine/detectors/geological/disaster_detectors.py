@@ -101,13 +101,16 @@ from omni_mercury_engine.utils.rng import get_global_rng
 
 __all__ = [
     "BayesianMeteorFilter",
+    "CloseApproachEvent",
     "EarthquakeDetector",
     "EarthquakeMagnitude",
     "EarthquakePredictionResult",
+    "FireballEvent",
     "MeteorDetector",
     "MeteorPredictionResult",
     "MeteorThreatLevel",
     "SeismicWaveAnalyzer",
+    "SentryImpactRisk",
     "SolarFlareClass",
     "SolarFlareDetector",
     "SolarFlarePredictionResult",

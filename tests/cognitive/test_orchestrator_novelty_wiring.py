@@ -127,12 +127,16 @@ def test_engine_enable_cognitive_analysis_plumbs_opt_in_flags() -> None:
     engine = OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False)
 
     engine.enable_cognitive_analysis()
-    assert engine.cognitive_orchestrator.curiosity is None
-    assert engine.cognitive_orchestrator.enhanced_detector is None
+    orchestrator = engine.cognitive_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.curiosity is None
+    assert orchestrator.enhanced_detector is None
 
     engine.enable_cognitive_analysis(
         enable_curiosity=True,
         enable_enhanced_detection=True,
     )
-    assert engine.cognitive_orchestrator.curiosity is not None
-    assert engine.cognitive_orchestrator.enhanced_detector is not None
+    orchestrator = engine.cognitive_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.curiosity is not None
+    assert orchestrator.enhanced_detector is not None

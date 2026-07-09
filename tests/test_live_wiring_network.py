@@ -23,6 +23,7 @@ and on-demand local runs)::
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pytest
 
@@ -48,7 +49,7 @@ pytestmark = [
 _LOUD_FAILURES = (DataSourceError, LiveDataError)
 
 
-def _fetch_or_loud(source):  # type: ignore[no-untyped-def]
+def _fetch_or_loud(source: Any) -> Any:
     """Fetch synchronously; skip ONLY on genuine unreachability.
 
     A transport-level failure (service down, DNS, timeout, throttle) is the
@@ -68,7 +69,7 @@ def _fetch_or_loud(source):  # type: ignore[no-untyped-def]
     return result
 
 
-def _skip_only_if_unreachable(exc):  # type: ignore[no-untyped-def]
+def _skip_only_if_unreachable(exc: BaseException) -> None:
     """Skip for transport-level unavailability; re-raise anything else."""
     if getattr(exc, "unreachable", False):
         pytest.skip(f"upstream unreachable: {exc}")

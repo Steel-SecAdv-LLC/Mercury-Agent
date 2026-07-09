@@ -59,7 +59,7 @@ def patch_http_get(source: Any, payload: Any, fail: bool = False) -> None:
             raise RuntimeError("backend down")
         return _FakeResponse(payload)
 
-    source._http_get = _fake_http_get  # type: ignore[method-assign]
+    source._http_get = _fake_http_get  # type: ignore[assignment, method-assign, unused-ignore]
 
 
 def make_catalog_source() -> USGSEarthquakeSource:

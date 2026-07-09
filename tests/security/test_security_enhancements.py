@@ -174,7 +174,7 @@ class TestRealTimeThreatDetector:
 
         # Make every sub-detector's fit raise.
         for det in detector.detectors.values():
-            det.fit = _raise_fit  # type: ignore[method-assign]
+            det.fit = _raise_fit  # type: ignore[method-assign, unused-ignore]
 
         with pytest.raises(RuntimeError, match=r"all .* sub-detectors failed to fit"):
             detector.fit(normal_data)
@@ -189,11 +189,11 @@ class TestRealTimeThreatDetector:
 
         # Break every sub-detector's inference methods.
         for det in detector.detectors.values():
-            det.predict = _raise_predict  # type: ignore[method-assign]
+            det.predict = _raise_predict  # type: ignore[method-assign, unused-ignore]
             if hasattr(det, "score_samples"):
-                det.score_samples = _raise_predict  # type: ignore[method-assign]
+                det.score_samples = _raise_predict  # type: ignore[method-assign, unused-ignore]
             if hasattr(det, "decision_function"):
-                det.decision_function = _raise_predict  # type: ignore[method-assign]
+                det.decision_function = _raise_predict  # type: ignore[method-assign, unused-ignore]
 
         with pytest.raises(RuntimeError, match="all sub-detectors errored"):
             detector.detect_threat(np.random.randn(10, 8))
@@ -253,7 +253,9 @@ class TestRealTimeThreatDetector:
 
         corrs = []
         for name, sub in detector.detectors.items():
-            z = detector._standardize(name, detector._raw_score(sub, x_test))
+            raw = detector._raw_score(sub, x_test)
+            assert raw is not None
+            z = detector._standardize(name, raw)
             corrs.append(abs(np.corrcoef(ensemble, z)[0, 1]))
         # Every detector contributes materially; none dominates to ~1.0 alone.
         # (A raw-score average would be driven ~entirely by the largest-scale

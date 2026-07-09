@@ -16,7 +16,7 @@ import numpy as np
 from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
 
 
-def _unrest(vertical_cm: float, so2: float, co2: float, radiant_mw: float) -> dict:
+def _unrest(vertical_cm: float, so2: float, co2: float, radiant_mw: float) -> dict[str, object]:
     rng = np.random.default_rng(0)
     return {
         "seismic_sequence": np.concatenate([rng.normal(0, 1, 180), np.full(20, 12.0)]),

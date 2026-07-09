@@ -71,7 +71,7 @@ def make_donki_source() -> Any:
             return _FakeResponse(gst)
         raise AssertionError(f"unexpected DONKI endpoint: {endpoint}")
 
-    source._http_get = _fake_http_get  # type: ignore[method-assign]
+    source._http_get = _fake_http_get  # type: ignore[assignment, method-assign, unused-ignore]
     return source
 
 
@@ -91,7 +91,7 @@ def make_swpc_source() -> NOAASWPCSource:
             return _FakeResponse(wind)
         raise AssertionError(f"unexpected SWPC endpoint: {endpoint}")
 
-    source._http_get = _fake_http_get  # type: ignore[method-assign]
+    source._http_get = _fake_http_get  # type: ignore[assignment, method-assign, unused-ignore]
     return source
 
 
@@ -187,7 +187,7 @@ class TestCanonicalSolarFlareDetector:
         assert result.live_context is not None
         assert result.live_context["donki_recent_flares"] == 71
         assert result.live_context["donki_recent_storms"] == 1
-        assert "nasa_donki" in result.source_id
+        assert result.source_id is not None and "nasa_donki" in result.source_id
 
     def test_donki_failure_is_context_not_detection_failure(self) -> None:
         """A DONKI outage must be surfaced in context, never faked or fatal."""

@@ -19,7 +19,7 @@ from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.loaders.network_security_loader import NetworkSecurityLoader
 
 
-def test_ground_truth_fails_loud_when_labels_underivable(monkeypatch) -> None:
+def test_ground_truth_fails_loud_when_labels_underivable(monkeypatch: pytest.MonkeyPatch) -> None:
     """No label column + no dataset-infra labels → raise, never fabricate."""
     loader = NetworkSecurityLoader()
 
@@ -36,7 +36,7 @@ def test_ground_truth_fails_loud_when_labels_underivable(monkeypatch) -> None:
         loader.get_ground_truth("nsl_kdd")
 
 
-def test_ground_truth_uses_label_column_when_present(monkeypatch) -> None:
+def test_ground_truth_uses_label_column_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
     """The honest path still works: a 'label' column is returned verbatim."""
     loader = NetworkSecurityLoader()
 
@@ -51,7 +51,7 @@ def test_ground_truth_uses_label_column_when_present(monkeypatch) -> None:
     assert np.array_equal(labels, np.array([0, 1, 0], dtype=np.int64))
 
 
-def test_ground_truth_empty_dataframe_returns_empty(monkeypatch) -> None:
+def test_ground_truth_empty_dataframe_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """An empty fetch is a distinct, non-fabricating case (empty labels)."""
     loader = NetworkSecurityLoader()
 
