@@ -166,6 +166,8 @@ from omni_mercury_engine.ml.symbolic_constraint import (
     SymbolicWeight,
     resolve_rule_graph,
     resolve_symbolic_weight,
+    rule_graph_from_spec,
+    rule_graph_to_spec,
 )
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -1212,17 +1214,27 @@ class OmniMercuryEngine(LoggerMixin):
         module = self._symbolic_module
         if module is None:
             return None
-        graph_name = {
+        registry_names = {
             "detector_consensus": "consensus",
             "detector_consensus_salience": "consensus_salience",
-        }.get(module.rule_graph.name, module.rule_graph.name)
-        return {
+        }
+        graph_name = registry_names.get(module.rule_graph.name, module.rule_graph.name)
+        config = {
             "num_detectors": module.num_detectors,
             "rule_graph": graph_name,
             "semantics": module.semantics,
             "learn_detector_reliability": module.learn_detector_reliability,
             "p_aggregator": module.p_aggregator,
         }
+        # Non-registry graphs (e.g. evolved rule graphs selected via
+        # ``symbolic_rule_graph="evolved:<path>"``) are not resolvable by name
+        # at load time, so serialise the full rule data inline; rules are pure
+        # data, so the checkpoint stays self-contained and the artifact file
+        # is not needed to restore it. Registry graphs keep the name-only
+        # format byte-identical to before.
+        if module.rule_graph.name not in registry_names:
+            config["rule_graph_spec"] = rule_graph_to_spec(module.rule_graph)
+        return config
 
     def _init_resilience(self) -> None:
         """Initialize resilience and self-healing components."""
@@ -1368,8 +1380,12 @@ class OmniMercuryEngine(LoggerMixin):
                 §2.2). Ignored when the effective weight is 0.
             symbolic_rule_graph: Rule graph for the constraint when co-training
                 is active -- ``"consensus"`` (default, two rules over a learned
-                consensus predicate) or ``"consensus_salience"`` (adds a
-                soft-existential salience recall rule; §2.3). Ignored when the
+                consensus predicate), ``"consensus_salience"`` (adds a
+                soft-existential salience recall rule; §2.3), or
+                ``"evolved:<path>"`` (a genetically evolved rule graph loaded
+                from the JSON artifact written by
+                ``omni_mercury_engine.ml.rule_evolution``; see
+                ``benchmarks/rule_evolution_benchmark.py``). Ignored when the
                 effective weight is 0.
 
         Returns:
@@ -5991,9 +6007,18 @@ class OmniMercuryEngine(LoggerMixin):
             symbolic_state = checkpoint.get("symbolic_constraint_state_dict")
             symbolic_config = checkpoint.get("symbolic_constraint_config")
             if symbolic_state is not None and isinstance(symbolic_config, dict):
+                # Prefer the inline rule spec (written for non-registry graphs,
+                # e.g. evolved ones) so the checkpoint round-trips without the
+                # original artifact file; registry graphs resolve by name.
+                graph_spec = symbolic_config.get("rule_graph_spec")
+                rule_graph = (
+                    rule_graph_from_spec(graph_spec)
+                    if isinstance(graph_spec, dict)
+                    else resolve_rule_graph(str(symbolic_config["rule_graph"]))
+                )
                 symbolic_module = SymbolicConstraintModule(
                     num_detectors=int(symbolic_config["num_detectors"]),
-                    rule_graph=resolve_rule_graph(str(symbolic_config["rule_graph"])),
+                    rule_graph=rule_graph,
                     semantics=str(symbolic_config["semantics"]),
                     learn_detector_reliability=bool(
                         symbolic_config.get("learn_detector_reliability", True)
