@@ -208,4 +208,197 @@ class HazardDiagnostics:
         return cls(hazard=hazard, arrays=arrays, context=context)
 
 
-__all__ = ["KNOWN_HAZARDS", "HazardDiagnostics"]
+PRIMARY_INPUT_ARRAY: dict[str, str] = {
+    "earthquake": "series",
+    "tsunami": "series",
+    "schumann": "series",
+    "meteor": "radar_series",
+    "wildfire": "thermal_image",
+    "tornado": "radar_sequence",
+    "volcanic": "seismic_sequence",
+    "landslide": "slope_features",
+    "hurricane": "wind_speed",
+}
+
+
+def _series_input(arrays: dict[str, np.ndarray[Any, Any]], name: str) -> np.ndarray[Any, Any]:
+    """Fetch and ravel a required 1-D input array, failing loud when absent."""
+    if name not in arrays:
+        raise ValueError(f"this hazard requires input array {name!r}; got {sorted(arrays)}")
+    return np.asarray(arrays[name], dtype=float).ravel()
+
+
+def run_hazard_detector(
+    hazard: str,
+    arrays: dict[str, np.ndarray[Any, Any]],
+    params: dict[str, Any] | None = None,
+) -> HazardDiagnostics:
+    """Run one hazard detector with diagnostics enabled and return its payload.
+
+    This is the shared runtime behind the ``hazard-viz`` CLI, the
+    ``POST /api/v1/hazard/visualize`` HTTP route, and the
+    ``mercury_hazard_visualize`` MCP tool: it builds the named detector with
+    ``keep_diagnostics=True``, feeds it the caller's input arrays, and returns
+    the captured :class:`HazardDiagnostics`.
+
+    Expected input arrays per hazard (see :data:`PRIMARY_INPUT_ARRAY`):
+
+    - ``earthquake``/``tsunami``/``schumann``: ``series`` (1-D waveform);
+      ``params['sampling_rate_hz']`` optional.
+    - ``meteor``: ``radar_series`` (1-D radar returns). NASA CNEOS lookups are
+      disabled here so the run is hermetic.
+    - ``wildfire``: ``thermal_image`` shaped ``(3, H, W)`` -- the ignition CNN
+      consumes 3-channel thermal imagery; ``params['pixel_size_km']`` optional.
+    - ``tornado``: ``radar_sequence`` shaped ``(sweeps, 64)`` (the Doppler
+      analyzer's fixed gate count).
+    - ``hurricane``: ``wind_u`` + ``wind_v`` (2-D components,
+      ``params['grid_spacing_m']`` optional) or ``wind_speed`` (2-D, no
+      vorticity derivable).
+    - ``volcanic``: ``seismic_sequence`` shaped ``(timesteps, 32)``.
+    - ``landslide``: ``slope_features`` (64 features).
+
+    Args:
+        hazard: One of :data:`KNOWN_HAZARDS`.
+        arrays: Named input arrays for the detector.
+        params: Optional scalar parameters (see above).
+
+    Returns:
+        The diagnostics payload the detector captured.
+
+    Raises:
+        ValueError: On an unknown hazard or invalid input arrays.
+        ImportError: When the detector's ML stack (torch) is unavailable.
+    """
+    params = params or {}
+    if hazard not in KNOWN_HAZARDS:
+        raise ValueError(f"unknown hazard {hazard!r}; expected one of {sorted(KNOWN_HAZARDS)}")
+
+    diagnostics: HazardDiagnostics | None
+    if hazard == "earthquake":
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        series = _series_input(arrays, "series")
+        detector = EarthquakeDetector(
+            sampling_rate=float(params.get("sampling_rate_hz", 100.0)),
+            keep_diagnostics=True,
+        )
+        diagnostics = detector.predict_earthquake(series).diagnostics
+    elif hazard == "tsunami":
+        from omni_mercury_engine.detectors.geological.disaster_detectors import TsunamiDetector
+
+        series = _series_input(arrays, "series")
+        detector_t = TsunamiDetector(
+            sampling_rate=float(params.get("sampling_rate_hz", 1.0)),
+            keep_diagnostics=True,
+        )
+        diagnostics = detector_t.predict_tsunami(series.astype(np.float32)).diagnostics
+    elif hazard == "schumann":
+        from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+
+        series = _series_input(arrays, "series")
+        detector_s = SchumannResonanceDetector(
+            sampling_rate=float(params.get("sampling_rate_hz", 100.0)),
+            keep_diagnostics=True,
+        )
+        diagnostics = detector_s.detect_resonance_anomaly(series).diagnostics
+    elif hazard == "meteor":
+        from omni_mercury_engine.detectors.geological.disaster_detectors import MeteorDetector
+
+        radar = _series_input(arrays, "radar_series")
+        if len(radar) < 2:
+            raise ValueError("meteor 'radar_series' needs at least 2 samples for a profile")
+        detector_m = MeteorDetector(use_nasa_data=False, keep_diagnostics=True)
+        diagnostics = detector_m.predict_meteor(radar_data=radar).diagnostics
+    elif hazard == "wildfire":
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        if "thermal_image" not in arrays:
+            raise ValueError(f"wildfire requires input array 'thermal_image'; got {sorted(arrays)}")
+        thermal = np.asarray(arrays["thermal_image"], dtype=float)
+        if thermal.ndim != 3 or thermal.shape[0] != 3:
+            raise ValueError(
+                "wildfire 'thermal_image' must be shaped (3, H, W): the ignition CNN "
+                f"consumes 3-channel thermal imagery, got shape {thermal.shape}"
+            )
+        wildfire_data: dict[str, Any] = {"thermal_image": thermal}
+        if "pixel_size_km" in params:
+            wildfire_data["pixel_size_km"] = float(params["pixel_size_km"])
+        detector_w = WildfireDetector(keep_diagnostics=True)
+        diagnostics = detector_w.predict_wildfire(wildfire_data).diagnostics
+    elif hazard == "tornado":
+        from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+
+        if "radar_sequence" not in arrays:
+            raise ValueError(f"tornado requires input array 'radar_sequence'; got {sorted(arrays)}")
+        radar_seq = np.asarray(arrays["radar_sequence"], dtype=float)
+        if radar_seq.ndim != 2 or radar_seq.shape[1] != 64:
+            raise ValueError(
+                "tornado 'radar_sequence' must be shaped (sweeps, 64) -- the Doppler "
+                f"analyzer's fixed gate count -- got shape {radar_seq.shape}"
+            )
+        detector_to = TornadoDetector(keep_diagnostics=True)
+        diagnostics = detector_to.predict_tornado({"radar_sequence": radar_seq}).diagnostics
+    elif hazard == "hurricane":
+        from omni_mercury_engine.detectors.geological.hurricane_detector import (
+            HurricaneDetector,
+        )
+
+        wind_field: Any
+        if "wind_u" in arrays and "wind_v" in arrays:
+            wind_field = {
+                "u": np.asarray(arrays["wind_u"], dtype=float),
+                "v": np.asarray(arrays["wind_v"], dtype=float),
+            }
+            if "grid_spacing_m" in params:
+                wind_field["grid_spacing_m"] = float(params["grid_spacing_m"])
+        elif "wind_speed" in arrays:
+            wind_field = np.asarray(arrays["wind_speed"], dtype=float)
+        else:
+            raise ValueError(
+                "hurricane requires 'wind_u'+'wind_v' component arrays or a 'wind_speed' "
+                f"field; got {sorted(arrays)}"
+            )
+        detector_h = HurricaneDetector(keep_diagnostics=True)
+        diagnostics = detector_h.predict_hurricane({"wind_field": wind_field}).diagnostics
+    elif hazard == "volcanic":
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        if "seismic_sequence" not in arrays:
+            raise ValueError(
+                f"volcanic requires input array 'seismic_sequence'; got {sorted(arrays)}"
+            )
+        seismic = np.asarray(arrays["seismic_sequence"], dtype=float)
+        if seismic.ndim != 2 or seismic.shape[1] != 32:
+            raise ValueError(
+                "volcanic 'seismic_sequence' must be shaped (timesteps, 32) -- the swarm "
+                f"detector's feature width -- got shape {seismic.shape}"
+            )
+        detector_v = VolcanicEruptionDetector(keep_diagnostics=True)
+        diagnostics = detector_v.predict_eruption(
+            {"seismic_sequence": seismic.astype(np.float32)}
+        ).diagnostics
+    else:  # landslide
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        features = _series_input(arrays, "slope_features")
+        if features.shape != (64,):
+            raise ValueError(
+                "landslide 'slope_features' must have 64 features (the stability "
+                f"model's input width), got shape {features.shape}"
+            )
+        detector_l = LandslideDetector(enable_ml_ensemble=False, keep_diagnostics=True)
+        diagnostics = detector_l.predict_landslide(
+            {"slope_features": features.astype(np.float32)}
+        ).diagnostics
+
+    if diagnostics is None:
+        raise RuntimeError(
+            f"the {hazard} detector produced no diagnostics for this input; this is a "
+            "bug in the capture path, not a rendering fallback"
+        )
+    return diagnostics
+
+
+__all__ = ["KNOWN_HAZARDS", "PRIMARY_INPUT_ARRAY", "HazardDiagnostics", "run_hazard_detector"]

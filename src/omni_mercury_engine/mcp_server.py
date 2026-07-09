@@ -303,6 +303,82 @@ class MercuryMCPServer:
                 handler=self._tool_localize_root_cause,
             ),
             ToolSpec(
+                name="mercury_hazard_visualize",
+                description=(
+                    "Render a hazard detector's persisted intermediate arrays into an "
+                    "artifact: a deterministic PNG (base64) or an RFC 7946 GeoJSON "
+                    "FeatureCollection. Supply either a prior 'diagnostics' payload (as "
+                    "returned by a detector run with keep_diagnostics=True) or 'hazard' + "
+                    "'arrays' raw detector input to run that detector server-side. PNG "
+                    "panels draw only what the detectors genuinely compute: earthquake "
+                    "spectrogram + STA/LTA arrivals, tornado Doppler field + located "
+                    "velocity couplet, wildfire thermal map + hotspot mask, hurricane "
+                    "wind/vorticity fields (no track cone -- the track model was removed "
+                    "as uncomputed), and tsunami/schumann/meteor spectra plus "
+                    "volcanic/landslide score series. GeoJSON is derivable only from "
+                    "wildfire hotspots and requires a caller-supplied 'geotransform' "
+                    "(pixel-space coordinates are never presented as lat/lon). The same "
+                    "rendering behind 'mercury-agent hazard-viz' and "
+                    "'POST /hazard/visualize'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "hazard": {
+                            "type": "string",
+                            "enum": [
+                                "earthquake",
+                                "tsunami",
+                                "meteor",
+                                "wildfire",
+                                "tornado",
+                                "hurricane",
+                                "volcanic",
+                                "landslide",
+                                "schumann",
+                            ],
+                            "description": "Detector to run on 'arrays' (raw-input mode).",
+                        },
+                        "format": {
+                            "type": "string",
+                            "enum": ["png", "geojson"],
+                            "description": "Artifact format (default png).",
+                        },
+                        "diagnostics": {
+                            "type": "object",
+                            "description": (
+                                "A prior HazardDiagnostics payload "
+                                "(hazard/arrays/context JSON form)."
+                            ),
+                        },
+                        "arrays": {
+                            "type": "object",
+                            "description": (
+                                "Raw detector input arrays (nested numeric lists) keyed "
+                                "by name, e.g. {'series': [...]} or "
+                                "{'wind_u': [[...]], 'wind_v': [[...]]}."
+                            ),
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": (
+                                "Detector parameters: sampling_rate_hz, pixel_size_km, "
+                                "grid_spacing_m."
+                            ),
+                        },
+                        "geotransform": {
+                            "type": "object",
+                            "description": (
+                                "Pixel->WGS84 mapping (origin_lon, origin_lat, "
+                                "deg_per_pixel_lon, deg_per_pixel_lat); REQUIRED for "
+                                "geojson output."
+                            ),
+                        },
+                    },
+                },
+                handler=self._tool_hazard_visualize,
+            ),
+            ToolSpec(
                 name="mercury_score_ethics",
                 description=(
                     "Score an action against Mercury's benevolence/harm gate. Returns "
@@ -684,6 +760,99 @@ class MercuryMCPServer:
         except (ValueError, TypeError) as exc:
             raise ToolError(str(exc)) from exc
         return json.dumps(result)
+
+    @staticmethod
+    def _tool_hazard_visualize(args: dict[str, Any]) -> str:
+        import base64
+
+        import numpy as np
+
+        try:
+            from omni_mercury_engine.detectors.hazard_diagnostics import (
+                HazardDiagnostics,
+                run_hazard_detector,
+            )
+            from omni_mercury_engine.detectors.hazard_visuals import (
+                build_hazard_geojson,
+                render_hazard_png,
+            )
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(
+                f"hazard visualization stack unavailable in this environment: {exc}"
+            ) from exc
+
+        fmt = args.get("format", "png")
+        if fmt not in ("png", "geojson"):
+            raise ToolError("'format' must be 'png' or 'geojson'")
+
+        diagnostics_arg = args.get("diagnostics")
+        arrays_arg = args.get("arrays")
+        if diagnostics_arg is not None and arrays_arg is not None:
+            raise ToolError("provide either 'diagnostics' or 'arrays', not both")
+
+        if diagnostics_arg is not None:
+            if not isinstance(diagnostics_arg, dict):
+                raise ToolError("'diagnostics' must be an object")
+            try:
+                diagnostics = HazardDiagnostics.from_jsonable(diagnostics_arg)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+        else:
+            hazard = args.get("hazard")
+            if not isinstance(hazard, str):
+                raise ToolError(
+                    "provide a prior 'diagnostics' payload, or 'hazard' + 'arrays' to "
+                    "run a detector"
+                )
+            if not isinstance(arrays_arg, dict) or not arrays_arg:
+                raise ToolError("'arrays' must be a non-empty object of numeric arrays")
+            arrays = {}
+            for name, value in arrays_arg.items():
+                try:
+                    arrays[name] = np.asarray(value, dtype=float)
+                except (ValueError, TypeError) as exc:
+                    raise ToolError(f"input array {name!r} is not numeric: {exc}") from exc
+            params = args.get("params") or {}
+            if not isinstance(params, dict):
+                raise ToolError("'params' must be an object")
+            try:
+                diagnostics = run_hazard_detector(hazard, arrays, params=params)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            except ImportError as exc:  # pragma: no cover - slim-install path
+                raise ToolError(str(exc)) from exc
+
+        if fmt == "geojson":
+            geotransform = args.get("geotransform")
+            if geotransform is not None and not isinstance(geotransform, dict):
+                raise ToolError("'geotransform' must be an object")
+            try:
+                feature_collection = build_hazard_geojson(diagnostics, geotransform=geotransform)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            return json.dumps(
+                {
+                    "hazard": diagnostics.hazard,
+                    "format": "geojson",
+                    "geojson": feature_collection,
+                    "n_features": len(feature_collection["features"]),
+                }
+            )
+
+        try:
+            png = render_hazard_png(diagnostics)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        except ImportError as exc:  # pragma: no cover - slim-install path
+            raise ToolError(str(exc)) from exc
+        return json.dumps(
+            {
+                "hazard": diagnostics.hazard,
+                "format": "png",
+                "png_base64": base64.b64encode(png).decode("ascii"),
+                "size_bytes": len(png),
+            }
+        )
 
     def _tool_score_ethics(self, args: dict[str, Any]) -> str:
         action = args.get("action")

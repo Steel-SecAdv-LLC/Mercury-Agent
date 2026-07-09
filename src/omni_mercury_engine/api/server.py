@@ -1304,6 +1304,15 @@ try:
 except ImportError as e:
     logger.warning(f"Advanced detection routes not available: {e}")
 
+# Include Hazard Visualization Routes
+try:
+    from omni_mercury_engine.api.routes.hazard import router as hazard_router
+
+    app.include_router(hazard_router)
+    logger.info("Hazard visualization routes registered")
+except ImportError as e:
+    logger.warning(f"Hazard visualization routes not available: {e}")
+
 # Include Voice Interface Routes
 try:
     from omni_mercury_engine.api.voice import router as voice_router
