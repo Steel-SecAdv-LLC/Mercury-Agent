@@ -738,6 +738,9 @@ def run_tier_ensemble(
     calibration: str | None = None,
     conformal_alpha: float | None = None,
     include_attribution: bool = False,
+    include_counterfactual: bool = False,
+    counterfactual_index: int | None = None,
+    counterfactual_method: str = "prototype",
 ) -> dict[str, Any]:
     """Build → fit → score the streaming detector-tier ensemble in one call.
 
@@ -768,6 +771,20 @@ def run_tier_ensemble(
             ``per_detector_scores``, ``n_points`` × ``n_detectors``) so a caller
             can see *which* members drove each point -- the detector-level
             attribution behind the blended score.
+        include_counterfactual: When ``True``, also return a verified minimal
+            counterfactual for one point (``counterfactual`` key): the
+            replacement value at that point that flips its decision, found and
+            re-scored through this same fitted ensemble (see
+            :mod:`omni_mercury_engine.explainability.detection_counterfactuals`).
+        counterfactual_index: Point to explain; default is the highest-scoring
+            flagged point (or the global argmax when nothing is flagged).
+        counterfactual_method: Search method. The ``prototype`` default
+            anchors candidates at REAL normal windows observed elsewhere in
+            the same series (the tier's calibrated score is piecewise
+            constant, so gradient methods stall, and blind sampling rarely
+            shrinks a whole burst window at once — real normal neighborhoods
+            are the honest, robust anchors). Also ``growing_spheres`` /
+            ``dice`` / ``genetic`` / ``wachter``.
 
     Returns:
         A JSON-serialisable dict: ``method``, ``members``, ``threshold``,
@@ -809,6 +826,58 @@ def run_tier_ensemble(
         detector_names, calibrated = ensemble.per_detector_scores(series)
         result["detector_names"] = detector_names
         result["per_detector_scores"] = np.asarray(calibrated, dtype=float).tolist()
+
+    if include_counterfactual:
+        from omni_mercury_engine.explainability.detection_counterfactuals import (
+            explain_detection_counterfactual,
+            make_tier_score_fn,
+        )
+
+        if counterfactual_index is not None:
+            cf_index = int(counterfactual_index)
+        elif flags.any():
+            flagged_idx = np.flatnonzero(flags)
+            cf_index = int(flagged_idx[np.argmax(scores[flagged_idx])])
+        else:
+            cf_index = int(np.argmax(scores))
+        score_fn, x_window, cf_names = make_tier_score_fn(ensemble, series, cf_index)
+        # Candidate anchors: every same-width window of THIS series, labeled
+        # by whether it touches a flagged point. The prototype method then
+        # proposes real observed-normal neighborhoods and the greedy
+        # minimizer prunes back to exactly the values that must change.
+        arr = np.asarray(series, dtype=float).ravel()
+        width = x_window.size
+        window_view = np.lib.stride_tricks.sliding_window_view(arr, width)
+        flag_arr = np.asarray(flags, dtype=bool)
+        window_flagged = np.array(
+            [bool(flag_arr[i : i + width].any()) for i in range(window_view.shape[0])],
+            dtype=int,
+        )
+        # Every candidate evaluation re-scores the WHOLE series through the
+        # full fitted ensemble, so the search budget must stay bounded; these
+        # per-method budgets flip the fixture-scale detections in seconds and
+        # are overridable only through the library API (the surface options
+        # deliberately expose method choice, not budget knobs).
+        budget: dict[str, Any] = {
+            "growing_spheres": {"n_samples": 40, "step_size": 1.0, "max_iterations": 25},
+            "wachter": {"max_iterations": 150},
+            "dice": {"max_iterations": 60},
+            "genetic": {"population_size": 24, "max_generations": 20},
+            "prototype": {},
+        }.get(counterfactual_method, {})
+        cf = explain_detection_counterfactual(
+            score_fn,
+            x_window,
+            threshold=float(ensemble.threshold),
+            feature_names=cf_names,
+            method=counterfactual_method,
+            n_restarts=1,
+            max_pair_evals=40,
+            training_data=window_view.copy(),
+            training_labels=window_flagged,
+            **budget,
+        )
+        result["counterfactual"] = {"index": cf_index, **cf.to_dict()}
 
     if conformal_alpha is not None:
         if labels is not None:

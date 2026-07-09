@@ -44,7 +44,11 @@ _flagship_engine: Any = None
 
 
 def _run_flagship_detection(
-    matrix: np.ndarray[Any, Any], domain: str | None, explain: bool
+    matrix: np.ndarray[Any, Any],
+    domain: str | None,
+    explain: bool,
+    gdpr_report: bool = False,
+    subject_id: str | None = None,
 ) -> dict[str, Any]:
     """Build (once) and run the flagship fusion engine under the serialization lock.
 
@@ -62,7 +66,13 @@ def _run_flagship_detection(
             engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
             engine.load_default_fusion_checkpoint()
             _flagship_engine = engine
-        return _flagship_engine.detect_with_fusion(matrix, domain=domain, explain=explain)
+        return _flagship_engine.detect_with_fusion(
+            matrix,
+            domain=domain,
+            explain=explain,
+            gdpr_report=gdpr_report,
+            subject_id=subject_id,
+        )
 
 
 class NeurosymbolicRequest(BaseModel):
@@ -573,6 +583,23 @@ class TierDetectRequest(BaseModel):
         lt=1.0,
         description="Distribution-free false-positive rate; adds conformal flags",
     )
+    include_counterfactual: bool = Field(
+        default=False,
+        description=(
+            "Attach a verified minimal counterfactual for one point: the "
+            "replacement value that flips its decision, re-scored through the "
+            "same fitted ensemble (off by default)."
+        ),
+    )
+    counterfactual_index: int | None = Field(
+        default=None,
+        description="Point to explain (default: highest-scoring flagged point).",
+    )
+    counterfactual_method: str = Field(
+        default="prototype",
+        pattern="^(wachter|dice|growing_spheres|prototype|genetic)$",
+        description="Counterfactual search method.",
+    )
     include_attribution: bool = Field(
         default=False,
         description="Also return the calibrated per-detector score matrix (which detectors fired)",
@@ -610,6 +637,9 @@ async def detect_tier(
             contamination=request.contamination,
             conformal_alpha=request.conformal_alpha,
             include_attribution=request.include_attribution,
+            include_counterfactual=request.include_counterfactual,
+            counterfactual_index=request.counterfactual_index,
+            counterfactual_method=request.counterfactual_method,
         )
 
         user_id = user.id if user else "anonymous"
@@ -657,6 +687,18 @@ class FlagshipDetectRequest(BaseModel):
             "(expensive; off by default)."
         ),
     )
+    gdpr_report: bool = Field(
+        default=False,
+        description=(
+            "Attach a GDPR Art. 22-style explanation report with Wachter "
+            "counterfactuals from the engine's explainability pipeline "
+            "(expensive; off by default)."
+        ),
+    )
+    subject_id: str | None = Field(
+        default=None,
+        description="Optional data-subject identifier recorded in the GDPR report.",
+    )
 
 
 @router.post(
@@ -698,7 +740,12 @@ async def detect_flagship(
 
         # Serialize + offload the blocking, stateful fusion detection.
         result = await run_in_threadpool(
-            _run_flagship_detection, matrix, request.domain, request.explain
+            _run_flagship_detection,
+            matrix,
+            request.domain,
+            request.explain,
+            request.gdpr_report,
+            request.subject_id,
         )
 
         user_id = user.id if user else "anonymous"

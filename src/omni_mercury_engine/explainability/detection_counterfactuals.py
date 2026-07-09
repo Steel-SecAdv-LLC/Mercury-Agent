@@ -618,46 +618,61 @@ def make_tier_score_fn(
     ensemble: Any,
     series: np.ndarray[Any, Any],
     index: int,
-) -> Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
+    window_radius: int = 3,
+) -> tuple[Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]], np.ndarray[Any, Any], list[str]]:
     """Adapt a fitted tier ``StreamingScoreEnsemble`` to the counterfactual seam.
 
-    The tier's native contract is a 1-D series scored per point, so the
-    counterfactual feature space is the single value at ``index``: a candidate
-    ``(k, 1)`` matrix of replacement values is scored by substituting each into
-    the original series and re-running the fitted ensemble's real
-    :meth:`score` path (all members + calibration + combiner).
+    The tier's detectors are CONTEXTUAL (streaming / state-space members score
+    a point against its neighborhood), so the counterfactual feature space is
+    the window ``series[index-r .. index+r]`` rather than the single value: a
+    candidate ``(k, w)`` matrix of replacement windows is scored by
+    substituting each into the original series and re-running the fitted
+    ensemble's real :meth:`score` path (all members + calibration + combiner).
+    The greedy minimizer then prunes the window back to exactly the neighbors
+    that must change — a genuinely contextual explanation ("this detection
+    flips only if points 81–83 also come down").
 
     Args:
         ensemble: A fitted
             :class:`~omni_mercury_engine.detectors.detection_tier.StreamingScoreEnsemble`.
         series: The original 1-D series the detection came from.
         index: The point being explained.
+        window_radius: Neighborhood half-width (clamped to the series bounds).
 
     Returns:
-        Score function ``(k, 1) -> (k,)`` over candidate point values.
+        ``(score_fn, x_window, feature_names)`` — the score function
+        ``(k, w) -> (k,)``, the original window values, and per-position
+        names (``series[i]``).
 
     Raises:
-        ValueError: If ``series`` is not 1-D or ``index`` out of range.
+        ValueError: If ``series`` is not 1-D, ``index`` out of range, or
+            ``window_radius`` negative.
     """
     base = np.asarray(series, dtype=np.float64).reshape(-1)
     if base.size == 0:
         raise ValueError("series must be a non-empty 1-D array")
     if not 0 <= int(index) < base.size:
         raise ValueError(f"index {index} out of range for series of length {base.size}")
+    if window_radius < 0:
+        raise ValueError(f"window_radius must be >= 0, got {window_radius}")
     pos = int(index)
+    lo = max(0, pos - int(window_radius))
+    hi = min(base.size, pos + int(window_radius) + 1)
+    names = [f"series[{i}]" for i in range(lo, hi)]
+    x_window = base[lo:hi].copy()
 
     def _score(candidates: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         cands = np.atleast_2d(np.asarray(candidates, dtype=np.float64))
-        if cands.shape[1] != 1:
-            raise ValueError(f"tier candidates must have width 1, got {cands.shape[1]}")
+        if cands.shape[1] != hi - lo:
+            raise ValueError(f"tier candidates must have width {hi - lo}, got {cands.shape[1]}")
         out = np.empty(cands.shape[0], dtype=np.float64)
         for j in range(cands.shape[0]):
             modified = base.copy()
-            modified[pos] = cands[j, 0]
+            modified[lo:hi] = cands[j]
             out[j] = float(np.asarray(ensemble.score(modified), dtype=np.float64)[pos])
         return out
 
-    return _score
+    return _score, x_window, names
 
 
 def make_symbolic_score_fn(

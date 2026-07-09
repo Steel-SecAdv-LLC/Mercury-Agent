@@ -203,6 +203,17 @@ class MercuryMCPServer:
                                 "Optional domain for GOSNN threshold tuning " "(e.g. 'medical')."
                             ),
                         },
+                        "gdpr_report": {
+                            "type": "boolean",
+                            "description": (
+                                "Attach a GDPR Art. 22-style explanation report with "
+                                "Wachter counterfactuals (expensive; off by default)."
+                            ),
+                        },
+                        "subject_id": {
+                            "type": "string",
+                            "description": "Optional data-subject id recorded in the report.",
+                        },
                     },
                     "required": ["data"],
                 },
@@ -252,6 +263,30 @@ class MercuryMCPServer:
                         "include_attribution": {
                             "type": "boolean",
                             "description": "Also return the calibrated per-detector score matrix.",
+                        },
+                        "include_counterfactual": {
+                            "type": "boolean",
+                            "description": (
+                                "Also return a verified minimal counterfactual for one "
+                                "point (the replacement value that flips its decision, "
+                                "re-scored through the same fitted ensemble)."
+                            ),
+                        },
+                        "counterfactual_index": {
+                            "type": "integer",
+                            "description": (
+                                "Point to explain (default: highest-scoring flagged point)."
+                            ),
+                        },
+                        "counterfactual_method": {
+                            "type": "string",
+                            "enum": [
+                                "wachter",
+                                "dice",
+                                "growing_spheres",
+                                "prototype",
+                                "genetic",
+                            ],
                         },
                     },
                     "required": ["data"],
@@ -642,7 +677,13 @@ class MercuryMCPServer:
                 f"flagship fusion engine unavailable in this environment: {exc}"
             ) from exc
         try:
-            result = engine.detect_with_fusion(X, domain=domain)
+            gdpr_report = bool(args.get("gdpr_report", False))
+            subject_id = args.get("subject_id")
+            if subject_id is not None and not isinstance(subject_id, str):
+                raise ToolError("'subject_id' must be a string")
+            result = engine.detect_with_fusion(
+                X, domain=domain, gdpr_report=gdpr_report, subject_id=subject_id
+            )
         except EthicalConstraintViolationError as exc:
             # Fail closed and honestly: the detection was *refused* by a hard
             # ethical gate, not merely errored -- say which gate and why.
@@ -727,6 +768,13 @@ class MercuryMCPServer:
                     else None
                 ),
                 include_attribution=bool(args.get("include_attribution", False)),
+                include_counterfactual=bool(args.get("include_counterfactual", False)),
+                counterfactual_index=(
+                    int(args["counterfactual_index"])
+                    if args.get("counterfactual_index") is not None
+                    else None
+                ),
+                counterfactual_method=str(args.get("counterfactual_method", "prototype")),
             )
         except (ValueError, TypeError) as exc:
             raise ToolError(str(exc)) from exc

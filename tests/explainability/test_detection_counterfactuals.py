@@ -309,15 +309,16 @@ class TestTierAdapter:
         flags = np.asarray(ensemble.predict(series))
         assert flags.sum() > 0, "fixture burst must be flagged by the real tier"
         index = int(np.argmax(np.where(flags > 0, scores, -np.inf)))
-        score_fn = make_tier_score_fn(ensemble, series, index)
+        score_fn, x_window, names = make_tier_score_fn(ensemble, series, index)
         cf = explain_detection_counterfactual(
             score_fn,
-            np.array([series[index]]),
+            x_window,
             float(ensemble.threshold),
-            feature_names=[f"t[{index}]"],
+            feature_names=names,
             method="growing_spheres",
             seed=0,
-            # 1-D feature space: a handful of directions per sphere suffices,
+            # Windowed feature space over a piecewise-constant calibrated
+            # score: a sampling search is the structurally correct method,
             # and each evaluation is a full ensemble re-score of the series.
             n_samples=40,
             step_size=1.0,
@@ -325,20 +326,23 @@ class TestTierAdapter:
         )
         assert cf.flipped is True
         assert cf.minimal is True
-        assert cf.sparsity == 1  # the tier feature space is the single point value
-        assert cf.changed_features[0].name == f"t[{index}]"
+        # Contextual detection: the flip may legitimately require moving the
+        # burst neighbors, so sparsity is bounded by the window, not by 1.
+        assert 1 <= cf.sparsity <= len(names)
+        assert all(name in names for name in (c.name for c in cf.changed_features))
         # Independently re-score through the real ensemble.
         modified = np.asarray(series, dtype=float).copy()
-        modified[index] = float(cf.counterfactual_x[0])
+        lo = index - (len(names) - 1) // 2
+        modified[lo : lo + len(names)] = np.asarray(cf.counterfactual_x, dtype=float)
         assert float(ensemble.score(modified)[index]) <= float(ensemble.threshold)
 
     def test_adapter_rejects_bad_index_and_width(self, fitted: tuple) -> None:
         ensemble, series = fitted
         with pytest.raises(ValueError, match="out of range"):
             make_tier_score_fn(ensemble, series, index=10_000)
-        score_fn = make_tier_score_fn(ensemble, series, index=100)
-        with pytest.raises(ValueError, match="width 1"):
-            score_fn(np.ones((1, 2)))
+        score_fn, x_window, _names = make_tier_score_fn(ensemble, series, index=100)
+        with pytest.raises(ValueError, match="width"):
+            score_fn(np.ones((1, x_window.size + 3)))
 
 
 class TestSymbolicAdapter:

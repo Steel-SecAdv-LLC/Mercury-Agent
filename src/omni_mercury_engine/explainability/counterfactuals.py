@@ -850,6 +850,241 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
         return original + high * (candidate - original)
 
 
+class GeneticCounterfactual(CounterfactualGenerator):
+    """Genetic-algorithm counterfactual search (CounterfactualMethod.GENETIC).
+
+    A seeded, derivative-free evolutionary search: a population initialized
+    around the instance evolves through tournament selection, uniform
+    crossover, and per-feature gaussian mutation scaled to the generator's
+    ``feature_ranges``.  Fitness rewards crossing the decision boundary
+    toward the target class first, then proximity (Gower when feature
+    metadata is present, else L2) and sparsity.  Deterministic for a fixed
+    ``seed``; needs no gradients, so it works on piecewise-constant
+    detection scores where gradient methods stall.
+    """
+
+    def __init__(
+        self,
+        model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
+        feature_names: list[str] | None = None,
+        feature_constraints: list[FeatureConstraint] | None = None,
+        population_size: int = 60,
+        max_generations: int = 80,
+        tournament_size: int = 3,
+        mutation_rate: float = 0.35,
+        mutation_scale: float = 0.25,
+        crossover_rate: float = 0.7,
+        elitism: int = 2,
+        distance_weight: float = 0.3,
+        sparsity_weight: float = 0.05,
+        patience: int = 15,
+        seed: int | None = None,
+        *,
+        feature_types: Sequence[str] | None = None,
+        feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
+    ) -> None:
+        """Initialize the genetic counterfactual generator.
+
+        Args:
+            model: Model or prediction function.
+            feature_names: Feature names.
+            feature_constraints: Feature constraints (immutable features are
+                pinned; min/max bounds are enforced on every candidate).
+            population_size: Individuals per generation.
+            max_generations: Generation budget.
+            tournament_size: Tournament selection pressure.
+            mutation_rate: Per-feature mutation probability.
+            mutation_scale: Gaussian mutation sigma as a fraction of each
+                feature's range.
+            crossover_rate: Probability a child mixes two parents (uniform
+                mask) instead of cloning the tournament winner.
+            elitism: Top individuals copied unchanged each generation.
+            distance_weight: Fitness penalty per unit distance from the
+                instance (validity always dominates).
+            sparsity_weight: Fitness penalty per changed feature.
+            patience: Early stop after this many generations without
+                best-fitness improvement once a valid candidate exists.
+            seed: Deterministic seed (``None`` = OS entropy).
+            feature_types: Optional numeric/categorical labels (Gower).
+            feature_ranges: Optional per-feature scales for mutation and
+                range-normalized distance.
+        """
+        super().__init__(
+            model,
+            feature_names,
+            feature_constraints,
+            seed=seed,
+            feature_types=feature_types,
+            feature_ranges=feature_ranges,
+        )
+        if population_size < 4:
+            raise ValueError(f"population_size must be >= 4, got {population_size}")
+        if max_generations < 1:
+            raise ValueError(f"max_generations must be >= 1, got {max_generations}")
+        if not 0.0 <= mutation_rate <= 1.0:
+            raise ValueError(f"mutation_rate must be in [0, 1], got {mutation_rate}")
+        self._population_size = population_size
+        self._max_generations = max_generations
+        self._tournament_size = max(2, int(tournament_size))
+        self._mutation_rate = mutation_rate
+        self._mutation_scale = mutation_scale
+        self._crossover_rate = crossover_rate
+        self._elitism = max(0, int(elitism))
+        self._distance_weight = distance_weight
+        self._sparsity_weight = sparsity_weight
+        self._patience = max(1, int(patience))
+
+    def _bounds_and_mutable(
+        self, n_features: int
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Resolve per-feature (low, high, mutable) from the constraints."""
+        low = np.full(n_features, -np.inf)
+        high = np.full(n_features, np.inf)
+        mutable = np.ones(n_features, dtype=bool)
+        for constraint in self._constraints:
+            i = constraint.feature_idx
+            if not 0 <= i < n_features:
+                continue
+            if not constraint.is_mutable:
+                mutable[i] = False
+            if constraint.min_value is not None:
+                low[i] = constraint.min_value
+            if constraint.max_value is not None:
+                high[i] = constraint.max_value
+        return low, high, mutable
+
+    def _feature_scales(
+        self, n_features: int, original: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Per-feature mutation scales from ranges metadata (fallback |x|+1)."""
+        if self._feature_ranges is not None:
+            return np.asarray(self._feature_ranges, dtype=np.float64)
+        return np.abs(np.asarray(original, dtype=np.float64)) + 1.0
+
+    def _fitness(
+        self,
+        population: np.ndarray[Any, Any],
+        original: np.ndarray[Any, Any],
+        target_class: int,
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Vectorized fitness: validity margin first, then distance/sparsity."""
+        preds = np.asarray(self._predict(population), dtype=np.float64).reshape(-1)
+        margin = (preds - 0.5) if target_class == 1 else (0.5 - preds)
+        valid = margin >= 0.0
+        distances = np.array([self._compute_distance(original, ind) for ind in population])
+        sparsity = np.array(
+            [int(np.sum(~np.isclose(original, ind))) for ind in population],
+            dtype=np.float64,
+        )
+        # Validity dominates: invalid candidates score by boundary progress
+        # only; valid ones add a large constant then optimize cost.
+        fitness = np.where(
+            valid,
+            10.0 + margin - self._distance_weight * distances - self._sparsity_weight * sparsity,
+            margin,
+        )
+        return fitness, preds
+
+    def generate(
+        self,
+        instance: np.ndarray[Any, Any],
+        target_class: int | None = None,
+        n_counterfactuals: int = 1,
+    ) -> CounterfactualSet:
+        """Generate counterfactuals with the evolutionary search."""
+        if instance.ndim == 1:
+            instance = instance.reshape(1, -1)
+        original = instance[0].astype(np.float64).copy()
+        n_features = original.size
+        original_pred = float(self._predict(original.reshape(1, -1))[0])
+        if target_class is None:
+            target_class = 1 if original_pred < 0.5 else 0
+
+        low, high, mutable = self._bounds_and_mutable(n_features)
+        scales = self._feature_scales(n_features, original)
+
+        def _repair(pop: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            pop = np.clip(pop, low, high)
+            pop[:, ~mutable] = original[~mutable]
+            return pop
+
+        # Population: the instance itself plus jittered neighbors at growing
+        # scales, so at least some individuals land across nearby boundaries.
+        jitter = (
+            self._rng.normal(0.0, 1.0, size=(self._population_size, n_features))
+            * scales
+            * self._mutation_scale
+        )
+        ramp = np.linspace(0.25, 3.0, self._population_size).reshape(-1, 1)
+        population = _repair(original.reshape(1, -1) + jitter * ramp)
+        population[0] = original
+
+        best: np.ndarray[Any, Any] | None = None
+        best_fitness = -np.inf
+        stale = 0
+        for _generation in range(self._max_generations):
+            fitness, _preds = self._fitness(population, original, target_class)
+            order = np.argsort(-fitness)
+            if fitness[order[0]] > best_fitness + 1e-12:
+                best_fitness = float(fitness[order[0]])
+                best = population[order[0]].copy()
+                stale = 0
+            else:
+                stale += 1
+            if best_fitness >= 10.0 and stale >= self._patience:
+                break
+
+            elite = population[order[: self._elitism]]
+            children = []
+            while len(children) < self._population_size - self._elitism:
+                # Tournament selection for two parents.
+                idx_a = self._rng.choice(self._population_size, self._tournament_size)
+                idx_b = self._rng.choice(self._population_size, self._tournament_size)
+                parent_a = population[idx_a[np.argmax(fitness[idx_a])]]
+                parent_b = population[idx_b[np.argmax(fitness[idx_b])]]
+                if self._rng.random() < self._crossover_rate:
+                    mask = self._rng.random(n_features) < 0.5
+                    child = np.where(mask, parent_a, parent_b)
+                else:
+                    child = parent_a.copy()
+                mutate = self._rng.random(n_features) < self._mutation_rate
+                child = (
+                    child
+                    + mutate * self._rng.normal(0.0, self._mutation_scale, n_features) * scales
+                )
+                children.append(child)
+            population = _repair(np.vstack([elite, np.array(children)]))
+
+        counterfactuals = []
+        if best is not None:
+            cf_pred = float(self._predict(best.reshape(1, -1))[0])
+            is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                target_class == 0 and cf_pred < 0.5
+            )
+            changes = self._get_feature_changes(original, best)
+            counterfactuals.append(
+                Counterfactual(
+                    original=original,
+                    counterfactual=best,
+                    original_prediction=original_pred,
+                    counterfactual_prediction=cf_pred,
+                    feature_changes=changes,
+                    distance=self._compute_distance(original, best),
+                    validity=is_valid,
+                    sparsity=len(changes),
+                    feature_names=self._feature_names,
+                )
+            )
+
+        coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
+        return CounterfactualSet(
+            counterfactuals=counterfactuals,
+            method=CounterfactualMethod.GENETIC,
+            diversity_score=0.0,
+            coverage=coverage,
+        )
+
+
 class PrototypeCounterfactual(CounterfactualGenerator):
     """Prototype-based counterfactual generation.
 
@@ -1072,6 +1307,13 @@ def create_counterfactual_generator(
             model,
             training_data,
             training_labels,
+            feature_names,
+            feature_constraints,
+            **kwargs,
+        )
+    elif method == "genetic":
+        return GeneticCounterfactual(
+            model,
             feature_names,
             feature_constraints,
             **kwargs,

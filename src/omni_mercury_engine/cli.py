@@ -160,6 +160,28 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
     default=False,
     help="Also emit the calibrated per-detector score matrix (which detectors fired)",
 )
+@click.option(
+    "--counterfactual",
+    is_flag=True,
+    default=False,
+    help=(
+        "Also emit a verified minimal counterfactual for one point: the "
+        "replacement value that flips its decision, re-scored through the "
+        "same fitted ensemble"
+    ),
+)
+@click.option(
+    "--cf-index",
+    default=None,
+    type=int,
+    help="Point to explain (default: highest-scoring flagged point)",
+)
+@click.option(
+    "--cf-method",
+    default="prototype",
+    type=click.Choice(["wachter", "dice", "growing_spheres", "prototype", "genetic"]),
+    help="Counterfactual search method",
+)
 @click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
 def tier_detect(
     input: str,
@@ -169,6 +191,9 @@ def tier_detect(
     contamination: float,
     conformal_alpha: float | None,
     attribution: bool,
+    counterfactual: bool,
+    cf_index: int | None,
+    cf_method: str,
     output: str | None,
 ) -> None:
     """Run the streaming detector-tier ensemble on a 1-D series (torch-free).
@@ -192,6 +217,9 @@ def tier_detect(
         contamination=contamination,
         conformal_alpha=conformal_alpha,
         include_attribution=attribution,
+        include_counterfactual=counterfactual,
+        counterfactual_index=cf_index,
+        counterfactual_method=cf_method,
     )
 
     text = json.dumps(result, indent=2, default=str)
