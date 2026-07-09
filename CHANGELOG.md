@@ -27,6 +27,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Independent verification pass — CI red-to-green + fail-loud hardening
+
+An adversarial re-verification of this branch fixed every defect it surfaced
+at the root:
+
+- **CI failures fixed.** 16 mypy errors across 10 files (Optional detector
+  source fields, explicit re-exports via module `__all__`, unused ignores,
+  `no-any-return` sites); 3 ruff findings (TC003, F841, B017 narrowed to
+  `UnpicklingError`/`RuntimeError`); 10 bandit B614 findings — every new
+  `torch.load` is now hard-pinned to `weights_only=True` (house convention),
+  including the shipped-checkpoint loader which previously passed
+  `weights_only=False` explicitly.
+- **Scenario regeneration test made environment-honest.** numpy dispatches
+  transcendental kernels by CPU capability, so seeded regeneration is not
+  bit-stable across hardware (observed on CI). The slow-tier test now
+  compares regenerated content exactly for integers/strings and to last-ulp
+  float tolerance; the committed scenario files stay content-hash-pinned
+  (the gate itself is unchanged and deterministic).
+- **Fabricated all-clear paths removed.** `HeartMathGCMSSource` placeholder
+  spectra are now labelled `simulated=True` at confidence 0.0 (refused by the
+  seam without opt-in); `GeomageticCorrelator` reports `unknown` instead of
+  inventing quiet Kp 3.0/Dst −20 defaults; `VolcanicEruptionDetector.detect_live`
+  raises on an empty/name-filtered-out feed instead of reporting "normal";
+  DONKI and CO-OPS clients propagate failures instead of returning silent
+  empty successes; the USGS FDSN and NWPS parsers fail loud on payload
+  contract drift; legacy demo trainers require an explicit
+  `allow_synthetic_fallback=True` to touch synthetic data.
+- **Network smoke lane semantics fixed.** New `SourceUnreachableError` /
+  `FetchResult.unreachable` / `LiveDataError.unreachable` taxonomy: the
+  weekly lane now skips ONLY on transport-level unavailability and FAILS on
+  drift from a reachable service; `network-tests.yml` installs `[ml]` so the
+  five `detect_live` round-trips actually run (they silently skipped on
+  missing torch); the NWPS smoke passes the bbox the endpoint requires.
+- **Shipped-checkpoint integrity.** `load_shipped_checkpoint` now verifies
+  the artifact against the sidecar's pinned sha256 BEFORE deserializing and
+  the provenance sidecars ship in wheels via package-data; tamper and
+  merit-gate-refusal regression tests added.
+- **Gate hygiene.** `ci/hazard-regression` is now the literal job name (the
+  branch-protection context the docs reference); the PR trigger is unfiltered
+  so the required check can never wedge on "Expected"; `check()`'s
+  missing-domain violation branch is reachable (was dead behind a KeyError);
+  the vacuous `kp_g_bucket_accuracy` floor is reported-not-gated with the
+  measured degenerate-predictor numbers pinned in a test.
+- **F10/F16 follow-through.** The AMA adapter drops non-finite scalars loudly
+  (never clamps to 0.0); `reset_global_network` takes the construction lock;
+  the GOSNN accessor survives racing a concurrent first direct construction;
+  stream factories and `StreamingAnomalyPipeline` thread `broker=` through
+  (it was silently swallowed, making the F16 isolation seam unreachable).
+- **F5 follow-through.** Cache-key material is one canonical JSON document —
+  the old underscore-joined prefix let distinct `(name, version)` pairs
+  collide onto one cache file; upgrade note documented (one-time rebuild).
+- **New recorded-real fixtures.** NASA DONKI FLR/GST (2026-07-09 capture)
+  covering the previously untested corroboration path; the CO-OPS
+  water-level fixture is now exercised; the JPL Sentry fixture's duplicated
+  record was removed.
+- Live-ingestion client catalog documented in `docs/DATASOURCES.md`;
+  `.trivyignore` carries a time-boxed acceptance for CVE-2026-53615
+  (unfixed Debian util-linux base-image CVE published 2026-07-09).
+
 ### Hazard honesty wave — physics from observations, not untrained networks
 
 Every natural-hazard forecast surface was audited for fabricated signal.
@@ -73,9 +132,14 @@ real client via dependency injection (default = fully offline):
 - `FloodDetector`'s never-invoked untrained `TopographicRunoffPredictor` was
   removed; the physics runoff coefficient is the real path (DEPRECATION §6.10).
 - Earthquake, tsunami, meteor and solar-flare detectors joined
-  `DETECTOR_MANIFEST`. 195 offline-deterministic wiring tests on recorded
-  fixtures + a `network`-marked live smoke module
-  (`tests/test_live_wiring_network.py`; 11 live paths verified green).
+  `DETECTOR_MANIFEST`. 90 offline-deterministic wiring tests on recorded
+  fixtures across the three dedicated modules
+  (`tests/test_live_wiring_sources.py`, `tests/test_live_wiring_space.py`,
+  `tests/detectors/test_live_wiring_geological.py`) + a `network`-marked live
+  smoke module (`tests/test_live_wiring_network.py`; 11 live paths verified
+  green). The smoke lane skips only on transport-level unreachability
+  (`FetchResult.unreachable` / `LiveDataError.unreachable`) and FAILS on
+  payload or contract drift from a reachable service.
 
 ### Per-hazard skill metrics + regression gate (T2)
 

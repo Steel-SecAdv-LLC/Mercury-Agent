@@ -213,16 +213,21 @@ HAZARD_METRICS: dict[str, dict[str, Any]] = {
             # so a degenerate always-M predictor scores 27/28 within-one --
             # a floor there would be near-vacuous. Exact accuracy carries the
             # gate (always-M scores only 0.5 exact).
+            # kp_g_bucket_accuracy is REPORTED in the baseline but
+            # deliberately NOT gated (same rationale as flare within-one):
+            # the recorded week is quiet-dominated, so the degenerate
+            # always-G0 predictor scores 49/55 = 0.891 exact -- above the
+            # physics path's own 0.873 -- and on the six storm (Kp>=5)
+            # windows the Boyle path's exact-bucket skill (1/6) sits below
+            # even always-G1 (3/6). No bucket floor on this window set can
+            # certify skill; kp_mae carries the gate, with its ceiling
+            # test-pinned below both the always-zero and climatology-mean
+            # predictors.
             "kp_mae": {
                 "direction": "lower",
                 "margin_rel": MAE_MARGIN_REL,
                 "margin_min_abs": KP_MAE_MIN_ABS,
                 "aspirational": 1.0,
-            },
-            "kp_g_bucket_accuracy": {
-                "direction": "higher",
-                "margin_abs": RATE_MARGIN,
-                "aspirational": 0.95,
             },
         },
         "notes": {
@@ -617,7 +622,13 @@ def _floors_from(baseline: dict[str, Any]) -> dict[str, Any]:
     """
     out: dict[str, Any] = {"domains": {}}
     for domain, spec in HAZARD_METRICS.items():
-        base_metrics = baseline["domains"][domain]["metrics"]
+        base_domain = baseline["domains"].get(domain)
+        if base_domain is None:
+            # Leave the domain out; check() reports the loud
+            # "missing from baseline" violation for it (a KeyError here used
+            # to make that branch unreachable).
+            continue
+        base_metrics = base_domain["metrics"]
         bounds: dict[str, dict[str, float]] = {}
         for metric, mspec in spec["metrics"].items():
             measured = float(base_metrics[metric])
@@ -670,7 +681,7 @@ def check(measured: dict[str, Any] | None = None) -> list[str]:
                     f"pinned ({str(actual_sha)[:12]} != {pinned_sha[:12]}); review and "
                     "re-pin with --update"
                 )
-        for metric, bound in floors["domains"][domain].items():
+        for metric, bound in floors["domains"].get(domain, {}).items():
             value = meas_domain["metrics"].get(metric)
             if value is None:
                 violations.append(f"{domain}: metric {metric} missing from measured run")

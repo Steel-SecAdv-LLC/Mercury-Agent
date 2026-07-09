@@ -23,20 +23,12 @@ concurrency:
 
 on:
   pull_request:
+    # Deliberately UNFILTERED (mirrors fusion-regression.yml): this job is a
+    # required status check, and a path-filtered required check would leave
+    # PRs that skip it stuck on "Expected" forever. Running unfiltered also
+    # closes the gap where a hazard-skill regression caused by shared core
+    # code (core/, models/, integrations/) merges before the gate ever runs.
     branches: [main, develop]
-    # Only paths that can move the gated metrics: the detectors themselves,
-    # the metric primitives, the guard + its pinned scenario sets/baseline,
-    # and this workflow.
-    paths:
-      - "src/omni_mercury_engine/detectors/**"
-      - "src/omni_mercury_engine/space/**"
-      - "src/omni_mercury_engine/evaluation/**"
-      - "benchmarks/hazard_regression_guard.py"
-      - "benchmarks/hazard_domain_baseline.json"
-      - "benchmarks/hazard_scenarios/**"
-      - "tests/benchmarks/test_hazard_regression_guard.py"
-      - "tests/evaluation/test_hazard_metrics.py"
-      - ".github/workflows/hazard-regression.yml"
   push:
     branches: [main]
   workflow_dispatch:
@@ -50,7 +42,11 @@ env:
 
 jobs:
   hazard-regression:
-    name: Hazard Skill Floors (POD/FAR/CSI, lead time, Kp/flare, S-P distance)
+    # The literal job name IS the branch-protection status-check context;
+    # it matches the repo's other required gates (ci/red-team,
+    # ci/verifier-integration, ...). Renaming it silently drops the
+    # protection until an admin re-adds the new name.
+    name: ci/hazard-regression
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

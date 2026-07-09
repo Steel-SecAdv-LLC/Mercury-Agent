@@ -59,12 +59,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Mercury Agent with compliance + dev extras
+      - name: Install Mercury Agent with compliance + dev + ml extras
         run: |
           # Floor pip to >=26.1 to close CVE-2026-6357 (pip arbitrary
           # code execution via malicious wheel).
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[compliance,dev]"
+          # [ml] is required here: the hazard detect_live round-trip smokes
+          # (tests/test_live_wiring_network.py) importorskip torch, so
+          # without the ML stack the five detector round-trips silently
+          # skip every week and live-wiring drift goes unwatched.
+          pip install -e ".[compliance,dev,ml]"
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs the fail-closed _enforce_pqc_production_gate(),
