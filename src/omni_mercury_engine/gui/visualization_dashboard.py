@@ -691,6 +691,325 @@ class AnomalyVisualizer:
         return fig
 
 
+class HazardDiagnosticsVisualizer:
+    """Interactive Plotly panels for hazard detector diagnostics payloads.
+
+    Renders the REAL intermediate arrays the hazard detectors persist behind
+    their ``keep_diagnostics`` flag (see
+    :mod:`omni_mercury_engine.detectors.hazard_diagnostics`): earthquake
+    spectrograms, tornado Doppler velocity fields, wildfire thermal maps with
+    hotspot masks, hurricane wind/vorticity fields, and the 1-D
+    spectra/score-series payloads. Nothing is synthesized to fill a panel, and
+    no hurricane track cone exists to draw (the track model was removed as
+    uncomputed).
+    """
+
+    def __init__(
+        self,
+        config: ChartConfig | None = None,
+    ):
+        """Initialize the hazard visualizer.
+
+        Args:
+            config: Chart configuration
+        """
+        if not PLOTLY_AVAILABLE:
+            raise ImportError(
+                "Plotly is required for visualization. Install with: pip install plotly"
+            )
+
+        self.config = config or ChartConfig()
+
+    @staticmethod
+    def _coerce(diagnostics: Any) -> Any:
+        """Accept a HazardDiagnostics payload or its ``to_jsonable`` dict form."""
+        from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+
+        if isinstance(diagnostics, HazardDiagnostics):
+            return diagnostics
+        return HazardDiagnostics.from_jsonable(diagnostics)
+
+    def spectrogram_heatmap(self, diagnostics: Any) -> go.Figure:
+        """Earthquake spectrogram heatmap with P/S arrival marks.
+
+        Args:
+            diagnostics: An ``earthquake`` diagnostics payload.
+
+        Returns:
+            Plotly figure with the normalized log-power spectrogram (and the
+            STA/LTA arrival times marked when the series was captured).
+        """
+        diag = self._coerce(diagnostics)
+        if diag.hazard != "earthquake":
+            raise ValueError(f"spectrogram_heatmap draws earthquake payloads, got {diag.hazard!r}")
+        f = diag.arrays["spectrogram_freqs_hz"]
+        t = diag.arrays["spectrogram_times_s"]
+        sxx = diag.arrays["spectrogram_norm"]
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=sxx,
+                x=t,
+                y=f,
+                colorscale="Viridis",
+                colorbar={"title": "norm. log power"},
+            )
+        )
+        fs = float(diag.context.get("sampling_rate_hz", 1.0))
+        for key, label in (("p_arrival_index", "P arrival"), ("s_arrival_index", "S arrival")):
+            idx = diag.context.get(key)
+            if idx is not None:
+                fig.add_vline(x=idx / fs, line_dash="dash", annotation_text=label)
+        fig.update_layout(
+            title="Seismic spectrogram (normalized log power)",
+            xaxis_title="time (s)",
+            yaxis_title="frequency (Hz)",
+            template=self.config.theme,
+            width=self.config.width,
+            height=self.config.height,
+        )
+        return fig
+
+    def doppler_field_heatmap(self, diagnostics: Any) -> go.Figure:
+        """Tornado Doppler velocity field heatmap with the located couplet.
+
+        Args:
+            diagnostics: A ``tornado`` diagnostics payload.
+
+        Returns:
+            Plotly figure with the velocity field and the max adjacent-gate
+            shear (velocity couplet) marked when it was located.
+        """
+        diag = self._coerce(diagnostics)
+        if diag.hazard != "tornado":
+            raise ValueError(f"doppler_field_heatmap draws tornado payloads, got {diag.hazard!r}")
+        field = diag.arrays["doppler_velocity_field"]
+        vmax = float(np.max(np.abs(field))) or 1.0
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=field,
+                colorscale="RdBu",
+                reversescale=True,
+                zmin=-vmax,
+                zmax=vmax,
+                colorbar={"title": "radial velocity"},
+            )
+        )
+        row = diag.context.get("couplet_row")
+        col = diag.context.get("couplet_col")
+        if row is not None and col is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=[col, col + 1],
+                    y=[row, row],
+                    mode="markers+text",
+                    marker={"symbol": "x", "size": 12, "color": "black"},
+                    text=["couplet", ""],
+                    textposition="top center",
+                    showlegend=False,
+                )
+            )
+        fig.update_layout(
+            title="Doppler radial velocity field",
+            xaxis_title="range gate",
+            yaxis_title="sweep",
+            template=self.config.theme,
+            width=self.config.width,
+            height=self.config.height,
+        )
+        return fig
+
+    def thermal_map_heatmap(self, diagnostics: Any) -> go.Figure:
+        """Wildfire thermal map with hotspot ignition centroids.
+
+        Args:
+            diagnostics: A ``wildfire`` diagnostics payload.
+
+        Returns:
+            Plotly figure with the channel-max brightness-temperature map and
+            the pixel-space ignition centroids marked.
+        """
+        diag = self._coerce(diagnostics)
+        if diag.hazard != "wildfire":
+            raise ValueError(f"thermal_map_heatmap draws wildfire payloads, got {diag.hazard!r}")
+        thermal = diag.arrays["thermal_image_k"]
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=thermal,
+                colorscale="Inferno",
+                colorbar={"title": "brightness temp (K)"},
+            )
+        )
+        centroids = diag.arrays.get("ignition_centroids")
+        if centroids is not None and len(centroids):
+            fig.add_trace(
+                go.Scatter(
+                    x=centroids[:, 1],
+                    y=centroids[:, 0],
+                    mode="markers",
+                    marker={"symbol": "x", "size": 12, "color": "cyan"},
+                    name="ignition centroid (pixel space)",
+                )
+            )
+        threshold = diag.context.get("hotspot_threshold_k", "?")
+        fig.update_layout(
+            title=f"Thermal map with hotspots (> {threshold} K)",
+            xaxis_title="pixel column",
+            yaxis_title="pixel row",
+            yaxis={"autorange": "reversed"},
+            template=self.config.theme,
+            width=self.config.width,
+            height=self.config.height,
+        )
+        return fig
+
+    def wind_field_heatmap(self, diagnostics: Any) -> go.Figure:
+        """Hurricane wind-speed (and vorticity, when derived) heatmaps.
+
+        No track cone is drawn: the storm-track model was removed as
+        uncomputed and nothing is fabricated in its place.
+
+        Args:
+            diagnostics: A ``hurricane`` diagnostics payload.
+
+        Returns:
+            Plotly figure with the wind-speed field, plus the vorticity field
+            when u/v components were supplied to the detector.
+        """
+        diag = self._coerce(diagnostics)
+        if diag.hazard != "hurricane":
+            raise ValueError(f"wind_field_heatmap draws hurricane payloads, got {diag.hazard!r}")
+        speed = diag.arrays["wind_speed_field"]
+        vorticity = diag.arrays.get("vorticity_field")
+
+        if vorticity is not None:
+            fig = make_subplots(
+                rows=1, cols=2, subplot_titles=("Wind speed", "Vorticity (dv/dx - du/dy)")
+            )
+            fig.add_trace(
+                go.Heatmap(z=speed, colorscale="Viridis", colorbar={"x": 0.45}),
+                row=1,
+                col=1,
+            )
+            vmax = float(np.max(np.abs(vorticity))) or 1.0
+            fig.add_trace(
+                go.Heatmap(
+                    z=vorticity,
+                    colorscale="RdBu",
+                    reversescale=True,
+                    zmin=-vmax,
+                    zmax=vmax,
+                    colorbar={"x": 1.0},
+                ),
+                row=1,
+                col=2,
+            )
+        else:
+            fig = go.Figure(
+                go.Heatmap(z=speed, colorscale="Viridis", colorbar={"title": "wind speed"})
+            )
+        fig.update_layout(
+            title="Hurricane wind field",
+            template=self.config.theme,
+            width=self.config.width,
+            height=self.config.height,
+        )
+        return fig
+
+    def spectrum_panel(self, diagnostics: Any) -> go.Figure:
+        """1-D diagnostics panel (tsunami/schumann/meteor/volcanic/landslide).
+
+        Args:
+            diagnostics: A payload from one of the 1-D hazards.
+
+        Returns:
+            Plotly figure: FFT/harmonic spectra as lines, the meteor Doppler
+            profile as a line, volcanic attention as a line, and the landslide
+            failure-type distribution as bars.
+        """
+        diag = self._coerce(diagnostics)
+        fig = go.Figure()
+        if diag.hazard == "tsunami":
+            freqs = diag.arrays["fft_freqs_hz"]
+            power = diag.arrays["fft_power"]
+            positive = freqs > 0
+            fig.add_trace(go.Scatter(x=freqs[positive], y=power[positive], mode="lines"))
+            fig.update_yaxes(type="log")
+            fig.update_layout(
+                title="Oceanic waveform FFT power spectrum",
+                xaxis_title="frequency (Hz)",
+                yaxis_title="power",
+            )
+        elif diag.hazard == "schumann":
+            freqs = diag.arrays["frequencies_hz"]
+            power = diag.arrays["power_spectrum"]
+            band = freqs <= 45.0
+            fig.add_trace(go.Scatter(x=freqs[band], y=power[band], mode="lines"))
+            for harmonic in diag.context.get("schumann_harmonics_hz", []):
+                fig.add_vline(x=float(harmonic), line_dash="dot")
+            fig.update_layout(
+                title="Schumann harmonic power spectrum",
+                xaxis_title="frequency (Hz)",
+                yaxis_title="normalized power",
+            )
+        elif diag.hazard == "meteor":
+            profile = diag.arrays["doppler_shift_profile"]
+            fig.add_trace(go.Scatter(y=profile, mode="lines"))
+            fig.update_layout(
+                title="Radar Doppler shift profile",
+                xaxis_title="sample",
+                yaxis_title="first difference",
+            )
+        elif diag.hazard == "volcanic":
+            attention = diag.arrays["seismic_attention"]
+            fig.add_trace(go.Scatter(y=attention, mode="lines", name="attention"))
+            fig.update_layout(
+                title="Seismic swarm attention series",
+                xaxis_title="timestep",
+                yaxis_title="attention weight",
+            )
+        elif diag.hazard == "landslide":
+            probs = diag.arrays["failure_type_probs"]
+            labels = diag.context.get("failure_type_labels") or [str(i) for i in range(len(probs))]
+            fig.add_trace(go.Bar(x=labels, y=probs))
+            fig.update_layout(
+                title="Slope failure type distribution",
+                yaxis_title="probability",
+            )
+        else:
+            raise ValueError(
+                "spectrum_panel draws tsunami/schumann/meteor/volcanic/landslide payloads, "
+                f"got {diag.hazard!r}"
+            )
+        fig.update_layout(
+            template=self.config.theme,
+            width=self.config.width,
+            height=self.config.height,
+        )
+        return fig
+
+    def hazard_panel(self, diagnostics: Any) -> go.Figure:
+        """Dispatch any hazard diagnostics payload to its panel.
+
+        Args:
+            diagnostics: Any hazard diagnostics payload (or its dict form).
+
+        Returns:
+            The hazard-appropriate Plotly figure.
+        """
+        diag = self._coerce(diagnostics)
+        panels = {
+            "earthquake": self.spectrogram_heatmap,
+            "tornado": self.doppler_field_heatmap,
+            "wildfire": self.thermal_map_heatmap,
+            "hurricane": self.wind_field_heatmap,
+        }
+        panel = panels.get(diag.hazard, self.spectrum_panel)
+        return panel(diag)
+
+
 class DashboardBuilder:
     """Builder class for creating comprehensive anomaly detection dashboards."""
 
@@ -708,6 +1027,7 @@ class DashboardBuilder:
 
         self.config = config or DashboardConfig()
         self.visualizer = AnomalyVisualizer()
+        self.hazard_visualizer = HazardDiagnosticsVisualizer()
         self._figures: dict[str, go.Figure] = {}
 
     def add_time_series(
@@ -772,6 +1092,27 @@ class DashboardBuilder:
             labels,
             **kwargs,
         )
+        self._figures[name] = fig
+        return self
+
+    def add_hazard_panel(
+        self,
+        name: str,
+        diagnostics: Any,
+    ) -> DashboardBuilder:
+        """Add a hazard diagnostics panel (spectrogram/Doppler/thermal/wind/spectrum).
+
+        Args:
+            name: Panel name in the dashboard.
+            diagnostics: A hazard diagnostics payload
+                (:class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`
+                or its JSON dict form) as persisted by a detector run with
+                ``keep_diagnostics=True``.
+
+        Returns:
+            Self for chaining.
+        """
+        fig = self.hazard_visualizer.hazard_panel(diagnostics)
         self._figures[name] = fig
         return self
 
@@ -945,5 +1286,6 @@ __all__ = [
     "ChartType",
     "DashboardBuilder",
     "DashboardConfig",
+    "HazardDiagnosticsVisualizer",
     "create_quick_dashboard",
 ]
