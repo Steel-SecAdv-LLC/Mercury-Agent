@@ -33,6 +33,15 @@ from omni_mercury_engine.explainability.counterfactuals import (
     WachterCounterfactual,
     create_counterfactual_generator,
 )
+from omni_mercury_engine.explainability.detection_counterfactuals import (
+    DETECTION_COUNTERFACTUAL_METHODS,
+    ChangedFeature,
+    DetectionCounterfactual,
+    explain_detection_counterfactual,
+    make_statistical_score_fn,
+    make_symbolic_score_fn,
+    make_tier_score_fn,
+)
 from omni_mercury_engine.explainability.explainer import (
     AnomalyExplanation,
     GlobalAnomalyExplanation,
@@ -61,7 +70,9 @@ from omni_mercury_engine.explainability.shap import (
 )
 
 __all__ = [
+    "DETECTION_COUNTERFACTUAL_METHODS",
     "AnomalyExplanation",
+    "ChangedFeature",
     "ComplianceAuditRecord",
     "Counterfactual",
     "CounterfactualGenerator",
@@ -71,6 +82,8 @@ __all__ = [
     # GDPR Compliance
     "DecisionCategory",
     "DecisionInfo",
+    # Detection counterfactuals
+    "DetectionCounterfactual",
     "DiCECounterfactual",
     # Counterfactuals
     "DistanceMetric",
@@ -96,4 +109,8 @@ __all__ = [
     "WachterCounterfactual",
     "create_counterfactual_generator",
     "create_shap_explainer",
+    "explain_detection_counterfactual",
+    "make_statistical_score_fn",
+    "make_symbolic_score_fn",
+    "make_tier_score_fn",
 ]
