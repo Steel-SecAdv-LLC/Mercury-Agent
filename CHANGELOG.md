@@ -95,6 +95,26 @@ real client via dependency injection (default = fully offline):
   prove every floor sits strictly between the degenerate score and the
   measured baseline.
 
+### First real hazard checkpoint: solar_storm_geomag (T5)
+
+`ml/hazard_training/` + `scripts/train_hazard_checkpoints.py`: a
+reproducible, merit-gated training pipeline for the eleven
+`load_neural_weights()` hooks — seeded stages, sha256-pinned data caches,
+strictly ordered by-year temporal splits, provenance sidecars, and a hard
+merit gate (ship refuses unless the trained model beats the physics fallback
+on held-out years through the public detector API). Category b/c hooks fail
+loud with their exact real-data requirement (`--audit` prints the 11-hook
+table; docs/HAZARD_CHECKPOINT_TRAINING.md).
+
+**Shipped**: `solar_storm_geomag` — trained on 20 years of real NASA SPDF
+OMNI2 hourly solar wind + observed planetary Kp (2005–2024, GFZ Kp
+cross-checked). Held-out 2022–2024 (25,846 hours incl. the 2024-05 G5
+superstorm): Kp MAE 0.574 vs physics 1.054 (−45%), G-bucket accuracy 97.6%
+vs 94.8%, storm AUC 0.972 vs 0.845; the fixed-Kp5 recall/false-alarm
+trade-off is recorded honestly in the provenance sidecar.
+`SolarStormDetector.load_neural_weights()` now loads the shipped default
+with train/serve feature parity.
+
 ### Fixed — deferred correctness items (F5, F16, F10)
 
 - **F5** — `DatasetConfig.get_cache_key()` now includes `split_ratios`;
