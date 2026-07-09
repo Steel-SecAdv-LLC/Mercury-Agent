@@ -464,12 +464,15 @@ def _finalize(
 ) -> RuleGenome:
     """Construct a bound-respecting genome from a raw rule list (with repair).
 
-    Deduplication inside :class:`RuleGenome` can shrink the rule count, and
-    crossover can exceed ``max_rules``; this repairs both deterministically.
+    Crossover can exceed ``max_rules`` or (single-point, extreme cut points)
+    yield an empty child, and deduplication inside :class:`RuleGenome` can
+    shrink the rule count; this repairs all three deterministically.
     """
     if len(rules) > bounds.max_rules:
         keep = sorted(rng.choice(len(rules), size=bounds.max_rules, replace=False).tolist())
         rules = [rules[i] for i in keep]
+    while len(rules) < bounds.min_rules:
+        rules.append(_random_rule(stats, bounds, rng))
     genome = RuleGenome(rules=tuple(rules))
     attempts = 0
     while len(genome.rules) < bounds.min_rules:
