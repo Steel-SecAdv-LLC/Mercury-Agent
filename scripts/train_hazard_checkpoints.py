@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Train, evaluate, and ship hazard-detector checkpoints on real data.
+r"""Train, evaluate, and ship hazard-detector checkpoints on real data.
 
 Drives the :mod:`omni_mercury_engine.ml.hazard_training` pipeline per
 ``load_neural_weights()`` hook. Every stage is deterministic (seeded),

@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Deterministic scenario-set builder for the hazard regression guard.
+r"""Deterministic scenario-set builder for the hazard regression guard.
 
 Two kinds of committed scenario sets, honestly labelled in the manifest:
 
