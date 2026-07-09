@@ -265,7 +265,13 @@ class _FakeFusionEngine:
         self._raises = raises
         self.calls: list[tuple[tuple[int, ...], object]] = []
 
-    def detect_with_fusion(self, X: Any, domain: object = None) -> dict[str, Any]:
+    def detect_with_fusion(
+        self,
+        X: Any,
+        domain: object = None,
+        gdpr_report: bool = False,
+        subject_id: object = None,
+    ) -> dict[str, Any]:
         self.calls.append((tuple(X.shape), domain))
         if self._raises is not None:
             raise self._raises

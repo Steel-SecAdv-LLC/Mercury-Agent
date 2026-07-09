@@ -348,7 +348,13 @@ class TestDetectionRoutes:
         from omni_mercury_engine.api.routes import detection as det
         from omni_mercury_engine.engine import EthicalConstraintViolationError
 
-        def _blocked(matrix: Any, domain: Any, explain: Any) -> dict[str, Any]:
+        def _blocked(
+            matrix: Any,
+            domain: Any,
+            explain: Any,
+            gdpr_report: Any = False,
+            subject_id: Any = None,
+        ) -> dict[str, Any]:
             raise EthicalConstraintViolationError(
                 "blocked matrix", 0.10, 0.96, check="sigma_immutable"
             )
