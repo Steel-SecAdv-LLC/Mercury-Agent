@@ -14,12 +14,18 @@ from __future__ import annotations
 # regardless of which worker collects which test file first).
 import os
 import tempfile
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
 
-from omni_mercury_engine.datasets.base import DatasetConfig, DatasetRegistry, DatasetSplit
+from omni_mercury_engine.datasets.base import (
+    DatasetConfig,
+    DatasetLoader,
+    DatasetRegistry,
+    DatasetSplit,
+)
 from omni_mercury_engine.datasets.benchmarks import (
     BenchmarkResult,
     RealWorldBenchmarkSuite,
@@ -66,6 +72,135 @@ class TestDatasetConfig:
             config2 = DatasetConfig(name="test", data_dir=tmpdir, max_samples=100)
 
             assert config1.get_cache_key() != config2.get_cache_key()
+
+    def test_cache_key_includes_split_ratios(self) -> None:
+        """Configs differing only in split_ratios must produce different keys.
+
+        Regression: the cached ``.npz`` stores the already-split
+        train/val/test arrays, so a key that ignores ``split_ratios``
+        silently reuses a stale cache with the old split baked in.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config1 = DatasetConfig(name="test", data_dir=tmpdir, cache_dir=tmpdir)
+            config2 = DatasetConfig(
+                name="test",
+                data_dir=tmpdir,
+                cache_dir=tmpdir,
+                split_ratios=(0.5, 0.25, 0.25),
+            )
+
+            assert config1.get_cache_key() != config2.get_cache_key()
+
+    def test_cache_key_stable_for_identical_configs(self) -> None:
+        """Identical configs must produce identical keys (deterministic)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            kwargs: dict[str, Any] = {
+                "name": "test",
+                "data_dir": tmpdir,
+                "cache_dir": tmpdir,
+                "max_samples": 50,
+                "split_ratios": (0.6, 0.2, 0.2),
+                "preprocessing": {"normalize": True},
+            }
+            config1 = DatasetConfig(**kwargs)
+            config2 = DatasetConfig(**kwargs)
+
+            assert config1.get_cache_key() == config2.get_cache_key()
+
+    def test_cache_key_ignores_location_only_fields(self) -> None:
+        """data_dir/cache_dir affect location, not content: same key."""
+        with (
+            tempfile.TemporaryDirectory() as tmpdir1,
+            tempfile.TemporaryDirectory() as tmpdir2,
+        ):
+            config1 = DatasetConfig(name="test", data_dir=tmpdir1, cache_dir=tmpdir1)
+            config2 = DatasetConfig(name="test", data_dir=tmpdir2, cache_dir=tmpdir2)
+
+            assert config1.get_cache_key() == config2.get_cache_key()
+
+
+class _SplitProbeLoader(DatasetLoader):
+    """Minimal in-test loader with deterministic in-memory raw data.
+
+    Bypasses download and disk I/O so the cache-vs-split behavior of
+    ``DatasetLoader._load_and_cache`` can be probed in isolation.
+    """
+
+    DATASET_NAME = "split_probe"
+
+    def download(self) -> bool:
+        """Pretend the data is always available."""
+        return True
+
+    def _check_data_exists(self) -> bool:
+        """Raw data is generated in-memory, so it always exists."""
+        return True
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Return 100 deterministic samples with binary labels."""
+        rng = np.random.default_rng(0)
+        features = rng.normal(size=(100, 4))
+        labels = (rng.random(100) > 0.8).astype(np.int64)
+        return features, labels
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Pass features through unchanged."""
+        return data
+
+
+class TestSplitRatioCacheBehavior:
+    """Behavioral regression tests: split_ratios changes must miss the cache."""
+
+    def test_changing_split_ratios_does_not_reuse_stale_cache(self) -> None:
+        """Loading with a new split must rebuild, not reuse the old cache.
+
+        Regression for the silent-correctness bug where ``get_cache_key()``
+        omitted ``split_ratios``: the second load below used to hit the first
+        load's cache file and return a 70-sample train split despite
+        requesting a 50/25/25 split.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_a = DatasetConfig(
+                name="split_probe",
+                data_dir=os.path.join(tmpdir, "data"),
+                cache_dir=os.path.join(tmpdir, "cache"),
+                split_ratios=(0.7, 0.15, 0.15),
+            )
+            train_a, _ = _SplitProbeLoader(config_a).load(DatasetSplit.TRAIN)
+            assert len(train_a) == 70
+
+            config_b = DatasetConfig(
+                name="split_probe",
+                data_dir=os.path.join(tmpdir, "data"),
+                cache_dir=os.path.join(tmpdir, "cache"),
+                split_ratios=(0.5, 0.25, 0.25),
+            )
+            train_b, _ = _SplitProbeLoader(config_b).load(DatasetSplit.TRAIN)
+            # A stale-cache hit would return the 70-sample train split.
+            assert len(train_b) == 50
+
+            cache_files = sorted(
+                f.name for f in (Path(tmpdir) / "cache" / "split_probe").glob("*.npz")
+            )
+            assert len(cache_files) == 2, f"expected two distinct cache files, got {cache_files}"
+
+    def test_identical_split_ratios_reuse_cache(self) -> None:
+        """Same config must hit the existing cache (no spurious rebuild)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            def make_config() -> DatasetConfig:
+                return DatasetConfig(
+                    name="split_probe",
+                    data_dir=os.path.join(tmpdir, "data"),
+                    cache_dir=os.path.join(tmpdir, "cache"),
+                )
+
+            train_1, _ = _SplitProbeLoader(make_config()).load(DatasetSplit.TRAIN)
+            train_2, _ = _SplitProbeLoader(make_config()).load(DatasetSplit.TRAIN)
+
+            np.testing.assert_array_equal(train_1, train_2)
+            cache_files = list((Path(tmpdir) / "cache" / "split_probe").glob("*.npz"))
+            assert len(cache_files) == 1
 
 
 class TestMedicalDatasets:

@@ -260,9 +260,30 @@ class DatasetConfig:
                 logger.debug(f"Cannot create directory {dir_path}: {e}")
 
     def get_cache_key(self) -> str:
-        """Generate unique cache key for this configuration."""
+        """Generate unique cache key for this configuration.
+
+        The key covers every field that changes the *content* of the cache
+        artefact written by :meth:`DatasetLoader._load_and_cache` (a ``.npz``
+        holding the already-split train/val/test features and labels):
+        ``name``, ``version``, ``max_samples``, ``random_seed``,
+        ``preprocessing``, and ``split_ratios``. ``split_ratios`` must be part
+        of the key because the split is baked into the cached arrays — omitting
+        it would silently reuse a stale cache with the old split.
+
+        Deliberately excluded fields, because they do not alter the cached
+        bytes: ``data_dir`` and ``cache_dir`` (location of the data, not its
+        content), ``download`` (acquisition policy — the same raw data yields
+        the same arrays regardless of how it arrived), and ``credentials_path``
+        (access control for the same upstream source).
+
+        Returns:
+            16-hex-character deterministic key, stable across processes.
+        """
         key_data = f"{self.name}_{self.version}_{self.max_samples}_{self.random_seed}"
         key_data += json.dumps(self.preprocessing, sort_keys=True)
+        # json.dumps renders floats via repr (shortest round-trip form), which
+        # is deterministic across processes and platforms in Python 3.
+        key_data += json.dumps(list(self.split_ratios))
         # Using SHA3-256 for AMA Cryptography alignment
         # Note: This is non-cryptographic use for cache key generation
         return hashlib.sha3_256(key_data.encode()).hexdigest()[:16]
