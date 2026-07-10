@@ -502,19 +502,47 @@ class SchumannResonanceDetector:
         confidence = float(min(1.0, 0.6 * evidence + 0.4 * dev_term))
         return anomaly_type, confidence
 
-    def load_neural_weights(self, state_dict: dict[str, Any] | str) -> None:
+    def load_neural_weights(self, state_dict: dict[str, Any] | str | None = None) -> None:
         """Load trained weights for the CNN-LSTM analyser and enable it.
 
         Once trained weights exist (a labelled Schumann corpus is required to
         produce them honestly), this activates the learned classifier path in
         :meth:`detect_resonance_anomaly`.
 
+        Historically this hook loaded a bare ``state_dict`` (in memory or from
+        a path) directly into ``harmonic_analyzer`` with no dict-key wrapping,
+        unlike other hooks; that behavior is preserved. The training pipeline
+        (``ml/hazard_training/schumann_harmonics.py``) ships a *wrapped*
+        payload ``{"harmonic_analyzer": state_dict, "feature_spec": ...}``, so
+        an explicit-path load now accepts both shapes, and calling with no
+        argument loads the shipped ``schumann_sierra_nevada`` checkpoint
+        (provenance verified and logged by ``load_shipped_checkpoint``).
+
         Args:
-            state_dict: An in-memory ``state_dict`` or a path to a saved one.
+            state_dict: An in-memory ``state_dict``, a path to a saved one
+                (bare or wrapped payload), or None to load the shipped
+                ``schumann_sierra_nevada`` checkpoint.
+
+        Raises:
+            FileNotFoundError: ``state_dict`` is None and no checkpoint has
+                been shipped.
+            RuntimeError: The checkpoint is corrupt, fails its provenance
+                sha256 pin, or does not match the analyser architecture.
         """
-        loaded: Any = state_dict
-        if isinstance(state_dict, str):
-            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+        loaded: Any
+        if state_dict is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            payload, _provenance = load_shipped_checkpoint("schumann_sierra_nevada")
+            loaded = payload["harmonic_analyzer"]
+        else:
+            loaded = state_dict
+            if isinstance(state_dict, str):
+                loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+            if isinstance(loaded, dict) and "harmonic_analyzer" in loaded:
+                # Wrapped training-pipeline payload; a bare analyser state_dict
+                # only ever carries parameter names like "cnn_encoder.0.weight".
+                loaded = loaded["harmonic_analyzer"]
         self.harmonic_analyzer.load_state_dict(loaded)
         self.harmonic_analyzer.eval()
         self._neural_trained = True

@@ -89,7 +89,17 @@ class WildfirePredictionResult:
 
 
 class FireIgnitionDetector(nn.Module):
-    """Real-time fire ignition detection from satellite thermal data."""
+    """CNN scoring fire activity from satellite-derived thermal rasters.
+
+    The shipped ``wildfire_firms`` checkpoint trains this network for
+    NEXT-DAY fire activity forecasting: inputs are 3-channel 32x32-cell
+    (0.04-degree) rasters built from NASA FIRMS VIIRS detections over days
+    ``[t-6..t]`` (today's max brightness temperature in Kelvin, log1p 3-day
+    FRP sum, log1p 7-day detection count -- detection-derived fields, NOT
+    full thermal imagery), and the sigmoid output is the probability of any
+    confirmed vegetation-fire detection in the center 2x2 cells on day t+1.
+    See ``omni_mercury_engine.ml.hazard_training.wildfire_ignition``.
+    """
 
     def __init__(self, input_channels: int = 3) -> None:
         """Initialize the instance."""
@@ -603,27 +613,58 @@ class WildfireDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Input contract of a loaded trained checkpoint (see
+        # omni_mercury_engine.ml.hazard_training.wildfire_ignition): the
+        # shipped weights consume FIRMS-detection-derived rasters and emit a
+        # NEXT-DAY fire-activity probability. None until a checkpoint that
+        # declares a spec is loaded.
+        self._feature_spec: str | None = None
+
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the ignition detector (and optional CNN).
 
         Until this is called the networks are untrained and ignition detection
         runs on the deterministic thermal physics.
 
+        The shipped default (``wildfire_firms``) is trained for next-day fire
+        activity FORECASTING: its input is a 3-channel 32x32 raster of NASA
+        FIRMS VIIRS detection-derived fields from days <= t (today's max
+        brightness temperature, log1p 3-day FRP, log1p 7-day count), and its
+        confidence is the probability of a confirmed vegetation-fire detection
+        in the center 2x2 cells on day t+1 -- not a same-scene imagery
+        classification. The checkpoint's ``feature_spec`` records this
+        contract.
+
         Args:
             checkpoint_path: Path to a torch checkpoint containing an
-                ``ignition_detector`` (and optionally ``enhanced_cnn``) state dict.
+                ``ignition_detector`` (and optionally ``enhanced_cnn``) state
+                dict. ``None`` loads the shipped default checkpoint
+                (``wildfire_firms``), whose provenance sidecar is logged;
+                missing or corrupt files raise instead of degrading silently.
         """
         if self.ignition_detector is None:
             raise RuntimeError("ignition detection is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("wildfire_firms")
+            source = "shipped default 'wildfire_firms'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.ignition_detector.load_state_dict(checkpoint["ignition_detector"])
         if self.enhanced_cnn is not None and "enhanced_cnn" in checkpoint:
             self.enhanced_cnn.load_state_dict(checkpoint["enhanced_cnn"])
+        self._feature_spec = (
+            str(checkpoint["feature_spec"]) if "feature_spec" in checkpoint else None
+        )
         self._neural_trained = True
         self.logger.info(
-            "Wildfire neural weights loaded from %s; using learned detector", checkpoint_path
+            "Wildfire neural weights loaded from %s (feature spec: %s); " "using learned detector",
+            source,
+            self._feature_spec or "unspecified",
         )
 
     def _warn_untrained_once(self) -> None:

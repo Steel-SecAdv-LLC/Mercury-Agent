@@ -660,7 +660,7 @@ class TornadoDetector:
 
         return result
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the Doppler radar analyzer.
 
         Until this is called the network is untrained and mesocyclone detection
@@ -668,15 +668,28 @@ class TornadoDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``radar_analyzer`` state dict.
+                ``radar_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``tornado_nexrad``), whose provenance
+                sidecar is logged; missing or corrupt files raise instead of
+                degrading silently.
         """
         if self.radar_analyzer is None:
             raise RuntimeError("radar analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("tornado_nexrad")
+            source = "shipped default 'tornado_nexrad'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
         self._neural_trained = True
         self.logger.info(
-            "Tornado radar neural weights loaded from %s; using learned analyzer", checkpoint_path
+            "Tornado radar neural weights loaded from %s (feature spec: %s); "
+            "using learned analyzer",
+            source,
+            checkpoint.get("feature_spec", "unknown"),
         )
 
     def _warn_untrained_once(self) -> None:

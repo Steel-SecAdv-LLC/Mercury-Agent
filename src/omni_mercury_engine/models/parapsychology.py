@@ -1,43 +1,44 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Parapsychology Discipline Module.
+"""REG Statistical-Deviation Detection (parapsychology-research instrumentation).
 
-Scientific investigation of psi phenomena and consciousness anomalies for detecting
-statistical deviations from expected probability distributions that may indicate:
-- Precognition patterns (future-oriented information acquisition)
-- Telepathy indicators (mind-to-mind information transfer)
-- Psychokinesis anomalies (mind-matter interaction)
-- Remote viewing correlation patterns
-- Consciousness field effects (Global Consciousness Project approach)
-- Presentiment responses (pre-stimulus physiological changes)
+What this module MEASURES: deviation-from-chance in random event generator
+(REG) streams -- hardware-RNG trial sequences whose null distribution is
+known exactly (e.g. Global Consciousness Project egg trials: sums of 200
+XOR-whitened bits, Binomial(200, 0.5) under the null). The tools here are
+plain statistics (z-scores, chi-square variance tails, effect sizes) plus a
+trainable sequence model, and they answer exactly one question: *does this
+stream deviate from its chance expectation?* Full stop.
+
+Hypothesis under study (interpretation layer, one level up): the conjecture
+that mind or collective attention correlates with REG deviations is a
+genuinely studied research question -- PEAR laboratory (Princeton,
+1979-2007), the U.S. government's Stargate program, the Global
+Consciousness Project (1998-present), and the Koestler Parapsychology Unit
+(University of Edinburgh) all investigated it -- and it remains CONTESTED
+in mainstream science. This module asserts neither that psi is real nor
+that it is disproven; a detected deviation is a statistical event whose
+cause (hardware fault, environmental interference, analysis error, or the
+hypothesis under study) must be established separately. The project's
+pre-registered-null precedent is ``docs/PARAPSYCH_PREREGISTRATION.md``:
+analysis choices are fixed before data, and a faithful null is a valid,
+expected outcome.
+
+Fault-detection application (labels true by construction): the same
+deviation machinery doubles as a hardware-RNG health monitor. The shipped
+``reg_deviation_gcp`` checkpoint is trained on REAL measured GCP streams
+(null class) versus the SAME streams passed through known, recorded
+fault-injection channels (anomaly class) -- see
+:mod:`omni_mercury_engine.ml.hazard_training.consciousness_field` and
+:mod:`omni_mercury_engine.security.rng_health`.
 
 Key Features:
-- Statistical deviation analysis beyond chance (p < 0.05)
-- Random event generator (REG) variance monitoring
-- Physiological presentiment detection
-- Consciousness coherence measurement
-- Golden ratio patterns in psi manifestation
-- Neurosymbolic integration with meditation/consciousness states
-- O(n) complexity for real-time monitoring
-
-Scientific Foundation:
-- Rhine experiments (ESP cards, 1930s-1940s)
-- PEAR lab research (Princeton, 1979-2007)
-- Global Consciousness Project (1998-present)
-- Bem's presentiment studies (2011)
-- Meta-analyses showing small but significant effects (d ≈ 0.05-0.20)
-
-Research Approach:
-- Bayesian statistics for evidence assessment
-- Effect size measurement (Cohen's d)
-- Replication-focused methodology
-- Control for sensory leakage and recording errors
-- Preregistered analysis plans
-
-⚠️ SIMULATION-BASED & CONTROVERSIAL: Parapsychology remains contentious in mainstream
-science. This module provides statistical tools for objective anomaly detection in
-probability distributions. Extraordinary claims require extraordinary evidence.
-Use skeptical, rigorous methodology.
+- Statistical deviation analysis against exact chance baselines
+- REG mean-bias (Stouffer Z) and variance (chi-square) monitoring
+- ESP-trial and presentiment analysis kept for legacy research datasets
+- Effect sizes, confidence intervals, replication-focused recommendations
+- Anti-theater quarantine: the neural analyser abstains until trained
+  weights with provenance are loaded
 """
 
 from __future__ import annotations
@@ -89,10 +90,18 @@ class ParapsychologyResult:
 
 
 class ConsciousnessFieldAnalyzer(nn.Module):
-    """Neural network for consciousness field coherence analysis.
+    """Sequence model scoring REG windows for deviation-from-chance.
 
-    Inspired by Global Consciousness Project methodology with neural pattern recognition for
-    detecting deviations from randomness.
+    LSTM + attention over ``[batch, 100, 1]`` windows of a per-second REG
+    network composite (Stouffer-normalized, ~N(0,1) each second under the
+    null). The sigmoid head is trained as P(window deviates from chance) on
+    real Global Consciousness Project streams versus the same streams passed
+    through recorded fault-injection channels (checkpoint
+    ``reg_deviation_gcp``; labels true by mathematical construction).
+
+    The name is historical -- "consciousness field" is the hypothesis under
+    study (see the module docstring), not what the network measures: it
+    measures statistical deviation, whatever the cause.
     """
 
     def __init__(self, sequence_length: int = 100) -> None:
@@ -137,10 +146,19 @@ class ConsciousnessFieldAnalyzer(nn.Module):
 
 
 class ParapsychologyDetector:
-    """Parapsychology Anomaly Detector.
+    """REG statistical-deviation detector (parapsychology-research tooling).
 
-    Statistical analysis tool for detecting deviations from chance in psi experiments and
-    consciousness research using rigorous methodology.
+    Measures deviations from exact chance baselines in REG streams, ESP-trial
+    records and physiological series. It reports z-scores, p-values and
+    effect sizes -- never a cause: whether a deviation reflects a hardware
+    fault, an artifact, or the contested consciousness-field hypothesis
+    (PEAR / Stargate / GCP / Koestler; see the module docstring) is an
+    interpretation this detector deliberately does not make.
+
+    The neural path (:class:`ConsciousnessFieldAnalyzer`) stays quarantined
+    at the neutral 0.5 prior until trained weights are loaded --
+    ``load_neural_weights(None)`` loads the shipped ``reg_deviation_gcp``
+    fault-detection checkpoint with its provenance.
     """
 
     def __init__(
@@ -180,7 +198,7 @@ class ParapsychologyDetector:
             "omni_effect_size_sensitivity": 1.42 * self.golden_ratio,
             "omni_replication_confidence": 1.45 * self.golden_ratio,
             "omni_consciousness_coherence": 1.44 * self.golden_ratio,
-            "omni_temporal_precognition": 1.47 * self.golden_ratio,
+            "omni_reg_deviation_sensitivity": 1.47 * self.golden_ratio,
             "omni_information_transfer": 1.40 * self.golden_ratio,
             "omni_mind_matter_interaction": 1.43 * self.golden_ratio,
             "omni_presentiment_detection": 1.41 * self.golden_ratio,
@@ -447,14 +465,21 @@ class ParapsychologyDetector:
 
         return float(coherence[0].item())
 
-    def load_neural_weights(self, state_dict: dict[str, Any] | str) -> None:
-        """Load trained weights for the consciousness-field analyser and enable it.
+    def load_neural_weights(self, state_dict: dict[str, Any] | str | None = None) -> None:
+        """Load trained weights for the field analyser and enable it.
 
-        Activates the neural path in :meth:`_analyze_field_coherence`. Requires a
-        validated labelled corpus to produce honest weights.
+        Activates the neural path in :meth:`_analyze_field_coherence`. The
+        honest weight source is the hazard-training pipeline
+        (:mod:`omni_mercury_engine.ml.hazard_training.consciousness_field`),
+        whose labels are true by construction: real measured REG streams
+        versus the same streams through recorded fault channels.
 
         Args:
-            state_dict: An in-memory ``state_dict`` or a path to a saved one.
+            state_dict: A bare analyser ``state_dict``, a wrapped pipeline
+                payload (``{"field_analyzer": state_dict, ...}``), a path to
+                a saved checkpoint of either shape, or ``None`` to load the
+                shipped ``reg_deviation_gcp`` checkpoint (merit-gated, with
+                provenance sidecar).
         """
         if self.field_analyzer is None:
             raise RuntimeError(
@@ -462,8 +487,14 @@ class ParapsychologyDetector:
                 "(enable_consciousness_field=False); nothing to load."
             )
         loaded: Any = state_dict
-        if isinstance(state_dict, str):
-            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+        if loaded is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            loaded, _provenance = load_shipped_checkpoint("reg_deviation_gcp")
+        elif isinstance(loaded, str):
+            loaded = torch.load(loaded, map_location="cpu", weights_only=True)
+        if isinstance(loaded, dict) and "field_analyzer" in loaded:
+            loaded = loaded["field_analyzer"]  # wrapped pipeline payload
         self.field_analyzer.load_state_dict(loaded)
         self.field_analyzer.eval()
         self._neural_trained = True
@@ -633,7 +664,7 @@ def create_omni_psi_scalars() -> dict[str, float]:
         "omni_effect_size_sensitivity": 1.42 * phi,
         "omni_replication_confidence": 1.45 * phi,
         "omni_consciousness_coherence": 1.44 * phi,
-        "omni_temporal_precognition": 1.47 * phi,
+        "omni_reg_deviation_sensitivity": 1.47 * phi,
         "omni_information_transfer": 1.40 * phi,
         "omni_mind_matter_interaction": 1.43 * phi,
         "omni_presentiment_detection": 1.41 * phi,

@@ -565,24 +565,41 @@ class LandslideDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the slope-stability model.
 
         Until this is called the network is untrained and stability is assessed
         from the deterministic geotechnical physics.
 
+        Trained checkpoints define the ``slope_features`` input contract:
+        the shipped ``landslide_coolr`` checkpoint consumes the RAW 64-dim
+        ``landslide-coolr-v1`` vector (train-year standardization is folded
+        into its first encoder layer), documented dimension-by-dimension in
+        :mod:`omni_mercury_engine.ml.hazard_training.landslide_stability`.
+
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``stability_model`` state dict.
+                ``stability_model`` state dict. None loads the shipped
+                ``landslide_coolr`` default (sha256-verified against its
+                provenance sidecar; missing/corrupt files raise).
         """
         if self.stability_model is None:
             raise RuntimeError("slope-stability modelling is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("landslide_coolr")
+            source = "shipped default 'landslide_coolr'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.stability_model.load_state_dict(checkpoint["stability_model"])
         self._neural_trained = True
         self.logger.info(
-            "Landslide neural weights loaded from %s; using learned stability model",
-            checkpoint_path,
+            "Landslide neural weights loaded from %s (feature spec: %s); using learned "
+            "stability model",
+            source,
+            checkpoint.get("feature_spec", "unspecified"),
         )
 
     def _warn_untrained_once(self) -> None:

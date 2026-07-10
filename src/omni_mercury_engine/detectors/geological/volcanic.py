@@ -829,7 +829,7 @@ class VolcanicEruptionDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the eruption + seismic-swarm networks.
 
         Until this is called the networks are untrained and the detector runs on
@@ -837,17 +837,39 @@ class VolcanicEruptionDetector:
         Calling this with a genuine checkpoint flips ``_neural_trained`` on so the
         learned models drive the forecast.
 
+        SCOPE of the shipped default (``volcanic_avo_seismic``): trained ONLY
+        for the named Alaska/AVO-monitored volcanoes recorded in the
+        checkpoint's ``volcanoes`` list (see its provenance sidecar), from
+        their local AV-network seismic stations. It is NOT a universal
+        eruption forecaster; the ``fused_features`` input must follow the
+        checkpoint's ``feature_spec`` (``volcano-seismic-v1``: standardized
+        with the shipped ``feature_mean``/``feature_std``).
+
         Args:
             checkpoint_path: Path to a torch checkpoint with ``eruption_model``
-                (and optionally ``seismic_detector``) state dicts.
+                (and optionally ``seismic_detector``) state dicts. ``None``
+                loads the shipped default checkpoint (``volcanic_avo_seismic``),
+                whose provenance sidecar is logged; missing or corrupt files
+                raise instead of degrading silently.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("volcanic_avo_seismic")
+            source = "shipped default 'volcanic_avo_seismic'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.eruption_model.load_state_dict(checkpoint["eruption_model"])
         if self.seismic_detector is not None and "seismic_detector" in checkpoint:
             self.seismic_detector.load_state_dict(checkpoint["seismic_detector"])
         self._neural_trained = True
         self.logger.info(
-            "Volcanic neural weights loaded from %s; using learned forecast", checkpoint_path
+            "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s); "
+            "using learned forecast",
+            source,
+            checkpoint.get("feature_spec", "unknown"),
+            ", ".join(checkpoint.get("volcanoes", [])) or "unspecified",
         )
 
     def _warn_untrained_once(self) -> None:

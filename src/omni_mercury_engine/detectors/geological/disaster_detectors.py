@@ -31,8 +31,6 @@ Research sources:
 - USGS Earthquake Hazards Program
 - NASA Space Weather Prediction Center
 - Pacific Tsunami Warning Center
-
-Performance: Synaptic integration with GOSNN for ethical gating
 """
 
 from __future__ import annotations
@@ -521,6 +519,16 @@ class TsunamiDetector:
 
     Integrates with 3R Resonance mechanism for frequency-domain anomaly detection in oceanic sensor
     data.
+
+    A trained checkpoint for the :class:`WaveformFFTAnalyzer` ships as
+    ``tsunami_dart`` (see
+    :mod:`omni_mercury_engine.ml.hazard_training.tsunami_waveform`): it is
+    trained on real NOAA NDBC DART bottom-pressure records labeled with NCEI
+    HazEL tsunami arrivals. Its input contract is a detided 96-sample
+    15-minute window (24 h of water-column-height residual, metres;
+    ``sampling_rate=1/900`` Hz), and :meth:`load_neural_weights` with no
+    argument loads it with provenance logging. Until weights are loaded the
+    deterministic amplitude + resonance physics path stays in charge.
     """
 
     def __init__(
@@ -575,11 +583,17 @@ class TsunamiDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Input contract metadata of a loaded trained checkpoint (see
+        # load_neural_weights); None until a checkpoint that declares it loads.
+        self._feature_spec: str | None = None
+        self._window_samples: int | None = None
+        self._sampling_period_s: float | None = None
+
         self.tsunami_frequencies = [0.001, 0.005, 0.01, 0.02]
 
         logger.info(f"TsunamiDetector initialized: threshold={detection_threshold}")
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the waveform analyzer.
 
         Until this is called the network is untrained and detection runs on the
@@ -587,13 +601,38 @@ class TsunamiDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``waveform_analyzer`` state dict.
+                ``waveform_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``tsunami_dart``), whose provenance
+                sidecar is logged; missing or corrupt files raise instead of
+                degrading silently.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("tsunami_dart")
+            source = "shipped default 'tsunami_dart'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.waveform_analyzer.load_state_dict(checkpoint["waveform_analyzer"])
+        # Input contract carried by trained checkpoints (see
+        # omni_mercury_engine.ml.hazard_training.tsunami_waveform): detided
+        # fixed-length windows at a fixed sampling period. None when an
+        # explicit checkpoint predates the feature-spec convention.
+        self._feature_spec = (
+            str(checkpoint["feature_spec"]) if "feature_spec" in checkpoint else None
+        )
+        self._window_samples = (
+            int(checkpoint["window_samples"]) if "window_samples" in checkpoint else None
+        )
+        self._sampling_period_s = (
+            float(checkpoint["sampling_period_s"]) if "sampling_period_s" in checkpoint else None
+        )
         self._neural_trained = True
         logger.info(
-            "Tsunami neural weights loaded from %s; using learned analyzer", checkpoint_path
+            "Tsunami neural weights loaded from %s (feature spec: %s); using learned analyzer",
+            source,
+            self._feature_spec or "unspecified",
         )
 
     def _warn_untrained_once(self) -> None:
@@ -962,7 +1001,7 @@ class EarthquakeDetector:
 
         logger.info(f"EarthquakeDetector initialized: threshold={detection_threshold}")
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the seismic analyzer.
 
         Until this is called the network is untrained and detection runs on the
@@ -970,14 +1009,23 @@ class EarthquakeDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``seismic_analyzer`` state dict.
+                ``seismic_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``seismic_stead``, trained on real STEAD
+                waveforms -- see its provenance sidecar, which is logged at
+                load time); missing or corrupt files raise instead of
+                degrading silently.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("seismic_stead")
+            source = "shipped default 'seismic_stead'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
         self._neural_trained = True
-        logger.info(
-            "Earthquake neural weights loaded from %s; using learned analyzer", checkpoint_path
-        )
+        logger.info("Earthquake neural weights loaded from %s; using learned analyzer", source)
 
     def _warn_untrained_once(self) -> None:
         """Emit a single WARNING that the untrained NN is bypassed for physics."""

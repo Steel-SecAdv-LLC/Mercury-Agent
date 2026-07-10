@@ -547,15 +547,20 @@ class DisasterPrecursorDetector:
                     schumann_result.risk_score, seismic_correlation["correlation"]
                 )
 
-        if self.enable_earthquake and "em_features" in precursor_data:
+        if self.enable_earthquake and seismicity_features is not None:
             if self._neural_trained:
-                eq_prediction = self._predict_earthquake(precursor_data["em_features"])
-                result.estimated_magnitude = eq_prediction["magnitude"]
-                result.time_to_event_hours = eq_prediction["time_to_event_hours"]
-                result.confidence = max(result.confidence, eq_prediction["confidence"])
+                eq_forecast = self._predict_earthquake(seismicity_features)
+                # Probability framing only: confidence carries P(M>=5.0, 30 d).
+                # estimated_magnitude / time_to_event_hours are deliberately
+                # NOT populated from the neural model -- the review forbids
+                # magnitude and time-to-event claims for specific events.
+                result.confidence = max(result.confidence, eq_forecast["event_probability"])
+                if eq_forecast["event_probability"] >= 0.5:
+                    result.precursor_detected = True
+                    result.disaster_type = "earthquake"
             else:
                 # Fail honest: an untrained network must not fabricate a
-                # magnitude. Detection still proceeds from the real correlations.
+                # forecast. Detection still proceeds from the real correlations.
                 self._warn_untrained_once()
 
         if self.enable_tsunami and result.disaster_type == "earthquake":
@@ -573,33 +578,54 @@ class DisasterPrecursorDetector:
 
         return result
 
-    def _predict_earthquake(self, em_features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict earthquake magnitude from EM features (trained network only).
+    def _predict_earthquake(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Forecast P(M>=5.0 within 30 days in a 0.5-degree cell).
+
+        Consumes a ``seismicity-catalog-v1`` feature vector (real USGS
+        catalog statistics; see
+        ``omni_mercury_engine.ml.hazard_training.earthquake_precursor``),
+        standardized with the loaded checkpoint's training-years statistics.
+
+        Returns a dict with:
+
+        * ``event_probability`` (also mirrored as ``confidence``) -- PRIMARY:
+          the probabilistic 30-day M>=5.0 rate forecast. Skill is expected to
+          be dominated by aftershock/foreshock clustering (honest ETAS-style
+          skill), not novel precursor detection.
+        * ``diagnostic_max_magnitude`` / ``diagnostic_days_to_m4`` --
+          DIAGNOSTIC regressions of observables (window max magnitude;
+          days to first in-cell M>=4). Per the literature review these are
+          NEVER predictions of a specific future event's magnitude or timing
+          and must not populate ``estimated_magnitude``/
+          ``time_to_event_hours``.
 
         Raises:
             RuntimeError: If called before :meth:`load_neural_weights` -- an
-                untrained network's magnitude would be fabrication.
+                untrained network's output would be fabrication.
         """
         if not self._neural_trained:
             raise RuntimeError(
                 "EarthquakePrecursorAnalyzer is untrained; refusing to fabricate "
-                "a magnitude. Call load_neural_weights() first."
+                "a forecast. Call load_neural_weights() first."
             )
-        features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
-
         if self.earthquake_analyzer is None:
             raise RuntimeError("Earthquake analyzer not initialized")
+
+        vec = np.asarray(features, dtype=np.float32)
+        if self._feature_mean is not None and self._feature_std is not None:
+            vec = (vec - self._feature_mean) / self._feature_std
+        features_tensor = torch.tensor(vec, dtype=torch.float32).unsqueeze(0)
+
         self.earthquake_analyzer.eval()
         with torch.no_grad():
             magnitude, time_to_event, confidence = self.earthquake_analyzer(features_tensor)
 
-        magnitude_richter = float(magnitude[0].item()) * 9.0
-        time_hours = float(time_to_event[0].item()) * 72.0
-
+        probability = float(confidence[0].item())
         return {
-            "magnitude": magnitude_richter,
-            "time_to_event_hours": time_hours,
-            "confidence": float(confidence[0].item()),
+            "event_probability": probability,
+            "confidence": probability,
+            "diagnostic_max_magnitude": float(magnitude[0].item()) * 9.0,
+            "diagnostic_days_to_m4": float(time_to_event[0].item()) * 30.0,
         }
 
     def _estimate_time_to_event(self, risk_score: float, correlation: float) -> float:
