@@ -133,7 +133,17 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
             "detector's STA/LTA + band-resonance physics fallback through the "
             "public predict_earthquake API with deployed-rule recall/FAR "
             "non-regression constraints; 'physics wins, not shipped' is a "
-            "valid recorded outcome."
+            "valid recorded outcome -- and is the CURRENT one (2026-07-10, "
+            "seismic-stead-v1 spectrogram CNN): the learned analyzer wins "
+            "held-out AUC (0.9828 vs 0.9227, seeded bootstrap 95% CI "
+            "[0.055, 0.065] excludes zero) and detection recall (0.995 vs "
+            "0.442 at the deployed rule; low-SNR-tercile recall 0.986 vs "
+            "0.103 -- the spectrogram CNN's scientific payoff), but its "
+            "deployed-rule false-alarm rate (3.70%) exceeds the "
+            "ultra-conservative STA/LTA trigger's (2.84%) on the 2017-2020 "
+            "test years, so the gate refused the ship and the abstaining "
+            "physics fallback stays in charge. Honest record: "
+            "artifacts/hazard_training/seismic_stead.eval.json."
         ),
         pipeline_module="omni_mercury_engine.ml.hazard_training.seismic_wave",
         checkpoint_name="seismic_stead",

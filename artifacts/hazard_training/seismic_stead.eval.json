@@ -1,0 +1,147 @@
+{
+  "constraints": [
+    {
+      "description": "detection recall at the deployed alert rule (physics at its 0.96 default, learned at the validated threshold carried in the checkpoint) must not regress below physics",
+      "higher_is_better": true,
+      "metric": "detection_recall_op"
+    },
+    {
+      "description": "false-alarm rate on noise traces at the deployed alert rule must not exceed physics",
+      "higher_is_better": false,
+      "metric": "false_alarm_rate_op"
+    }
+  ],
+  "extras": {
+    "auc_diff_bootstrap": {
+      "ci95_high": 0.06527487439575962,
+      "ci95_low": 0.05462989741578276,
+      "mean": 0.05996986926190228,
+      "method": "seeded paired bootstrap over test traces; difference = learned AUC - physics AUC per resample",
+      "n_resamples": 1000,
+      "seed": [
+        20260709,
+        2
+      ]
+    },
+    "bytes_streamed_hdf5": 2038111449,
+    "comparison": "identical held-out STEAD Z waveforms through EarthquakeDetector.predict_earthquake, physics fallback vs loaded candidate checkpoint",
+    "magnitude_scale_note": "learned magnitudes are clamped to [2, 6] by the detector's mag*4+2 scaling of the [0,1]-trained head; 58% of STEAD magnitudes are below M2, so the learned MAE carries that floor",
+    "median_inference_latency_ms": {
+      "learned": 77.86723000003803,
+      "n_runs": 100,
+      "physics": 155.91031849999126,
+      "torch_num_threads": 2
+    },
+    "n_test_earthquake": 5000,
+    "n_test_noise": 5000,
+    "operating_point": {
+      "detection_threshold": 0.96,
+      "far_ceiling": 0.0,
+      "physics_detection_threshold": 0.96,
+      "policy": "confidence > tau (sigmoid + 0.2*resonance, detector semantics); tau maximizes val CSI subject to val recall >= max(physics val recall + 0.02, 0.60) AND val FAR <= 0.8 * physics val FAR; when physics posts zero val FAR that ceiling is unsatisfiable, so the fallback keeps the lowest-FAR tau meeting the recall floor (recall_floor_met records the branch) and the merit gate decides FAR on test",
+      "recall_floor": 0.6,
+      "recall_floor_met": false,
+      "val_csi": 0.9962509372656836,
+      "val_far": 0.00025,
+      "val_far_physics": 0.0,
+      "val_recall": 0.9965,
+      "val_recall_physics": 0.4795
+    },
+    "parameter_count": 294148,
+    "physics_magnitude_abstention": "the physics fallback emits estimated_magnitude=None by design (an uncalibrated single station has no honest Richter estimate), so physics magnitude_mae is NaN; magnitude_mae is a SECONDARY metric and does not enter the merit gate",
+    "snr_stratified": {
+      "n_positives_without_snr": 0,
+      "note": "terciles over the test earthquakes' catalog snr_db; recall at each path's deployed rule, AUC vs the full noise pool -- low SNR is where the spectrogram CNN should beat the STA/LTA trigger",
+      "strata": {
+        "high": {
+          "learned_auc": 0.9835079231692677,
+          "learned_recall_op": 0.9993997599039616,
+          "n_earthquakes": 1666,
+          "physics_auc": 0.9685831932773109,
+          "physics_recall_op": 0.7947178871548619,
+          "snr_db_range": [
+            28.5,
+            83.29999542236328
+          ]
+        },
+        "low": {
+          "learned_auc": 0.9819262089552239,
+          "learned_recall_op": 0.986268656716418,
+          "n_earthquakes": 1675,
+          "physics_auc": 0.8554924179104477,
+          "physics_recall_op": 0.10268656716417911,
+          "snr_db_range": [
+            -7.433332920074463,
+            18.100000381469727
+          ]
+        },
+        "mid": {
+          "learned_auc": 0.9829232067510548,
+          "learned_recall_op": 0.9993972272453285,
+          "n_earthquakes": 1659,
+          "physics_auc": 0.944628511151296,
+          "physics_recall_op": 0.42917420132610007,
+          "snr_db_range": [
+            18.133333206176758,
+            28.46666717529297
+          ]
+        }
+      },
+      "tercile_edges_db": [
+        18.100000381469727,
+        28.46666717529297
+      ]
+    },
+    "test_earthquake_snr_db_mean": {
+      "mean": 24.890606683693825,
+      "n": 5000.0,
+      "p25": 15.666666030883789,
+      "p5": 7.766666412353516,
+      "p50": 23.03333282470703,
+      "p75": 32.03333282470703,
+      "p95": 48.43333435058594
+    },
+    "test_years_observed": [
+      2017,
+      2018,
+      2020
+    ]
+  },
+  "failed_constraints": [
+    {
+      "description": "false-alarm rate on noise traces at the deployed alert rule must not exceed physics",
+      "higher_is_better": false,
+      "learned": 0.037,
+      "metric": "false_alarm_rate_op",
+      "physics": 0.0284
+    }
+  ],
+  "higher_is_better": true,
+  "hook": "seismic_stead",
+  "learned": {
+    "auc": 0.98278404,
+    "detection_recall_op": 0.995,
+    "false_alarm_rate_op": 0.037,
+    "magnitude_mae": 0.7896925851210952,
+    "p_wave_accuracy": 0.9761,
+    "s_wave_accuracy": 0.9759
+  },
+  "learned_beats_physics": false,
+  "n_test_samples": 10000,
+  "physics": {
+    "auc": 0.92274962,
+    "detection_recall_op": 0.4416,
+    "false_alarm_rate_op": 0.0284,
+    "magnitude_mae": NaN,
+    "p_wave_accuracy": 0.8458,
+    "s_wave_accuracy": 0.6801
+  },
+  "primary_metric": "auc",
+  "primary_metric_wins": true,
+  "test_years": [
+    2017,
+    2018,
+    2019,
+    2020
+  ]
+}
