@@ -135,12 +135,16 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="hurricane_wind",
         detector="detectors.geological.hurricane_detector.HurricaneDetector",
         architecture="WindPatternAnalyzer (CNN+LSTM over wind fields)",
-        category="b",
+        category="a",
         data_requirement=(
-            "Gridded reanalysis wind fields (ERA5, cds.climate.copernicus.eu — "
-            "requires a CDS API key) labeled with IBTrACS best-track cyclone "
-            "positions/intensities."
+            "ERA5 10 m u/v wind patch sequences streamed as raw zarr-2 chunk "
+            "GETs from the public ARCO-ERA5 mirror (storage.googleapis.com, "
+            "no CDS key required) labeled with IBTrACS v04r01 best-track "
+            "positions, USA_WIND intensities, and USA_SSHS classes "
+            "(www.ncei.noaa.gov, public)."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.hurricane_wind",
+        checkpoint_name="hurricane_era5",
     ),
     "landslide_stability": HookEntry(
         name="landslide_stability",
