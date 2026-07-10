@@ -665,7 +665,9 @@ class MercuryMCPServer:
         # Import the gate exception before the try so the fail-closed refusal
         # (a blocked detection) is surfaced distinctly from an internal fault.
         try:
-            from omni_mercury_engine.engine import EthicalConstraintViolationError
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
         except Exception as exc:  # pragma: no cover - slim-install path
             raise ToolError(
                 f"flagship fusion engine unavailable in this environment: {exc}"

@@ -66,13 +66,14 @@ def _run_flagship_detection(
             engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
             engine.load_default_fusion_checkpoint()
             _flagship_engine = engine
-        return _flagship_engine.detect_with_fusion(
+        result: dict[str, Any] = _flagship_engine.detect_with_fusion(
             matrix,
             domain=domain,
             explain=explain,
             gdpr_report=gdpr_report,
             subject_id=subject_id,
         )
+        return result
 
 
 class NeurosymbolicRequest(BaseModel):
@@ -725,7 +726,9 @@ async def detect_flagship(
     # Import the gate exception up front so the fail-closed refusal maps to a
     # distinct 403 rather than being swallowed by the generic 500 handler.
     try:
-        from omni_mercury_engine.engine import EthicalConstraintViolationError
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
     except ImportError as e:
         logger.error("Flagship fusion engine unavailable: %s", e)
         raise HTTPException(
