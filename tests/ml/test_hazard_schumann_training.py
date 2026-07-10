@@ -29,7 +29,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-torch = pytest.importorskip("torch")
+pytest.importorskip("torch")
+
+import torch
 
 from omni_mercury_engine.ml.hazard_training.schumann_harmonics import (
     ANOMALY_CLASSES,
@@ -77,12 +79,16 @@ def disturbed_hour() -> dict[str, np.ndarray]:
 
 
 class TestFixtureIntegrity:
-    def test_windows_shape_and_dtype(self, quiet_hour, disturbed_hour) -> None:
+    def test_windows_shape_and_dtype(
+        self, quiet_hour: dict[str, np.ndarray], disturbed_hour: dict[str, np.ndarray]
+    ) -> None:
         for fx in (quiet_hour, disturbed_hour):
             assert fx["windows"].shape == (WINDOWS_PER_HOUR, WINDOW_SAMPLES)
             assert fx["windows"].dtype == np.int16
 
-    def test_labels_and_era(self, quiet_hour, disturbed_hour) -> None:
+    def test_labels_and_era(
+        self, quiet_hour: dict[str, np.ndarray], disturbed_hour: dict[str, np.ndarray]
+    ) -> None:
         assert not bool(quiet_hour["disturbed"])
         assert bool(disturbed_hour["disturbed"])
         assert float(quiet_hour["kp"]) <= 2.0
@@ -174,7 +180,9 @@ class TestRemoteZipReader:
         with pytest.raises((RuntimeError, zlib.error)):
             reader.read_member(name)
 
-    def test_int16_decode_round_trip(self, real_bytes: bytes, quiet_hour) -> None:
+    def test_int16_decode_round_trip(
+        self, real_bytes: bytes, quiet_hour: dict[str, np.ndarray]
+    ) -> None:
         decoded = np.frombuffer(real_bytes, dtype="<i2").reshape(WINDOWS_PER_HOUR, WINDOW_SAMPLES)
         assert np.array_equal(decoded, quiet_hour["windows"])
 
@@ -193,7 +201,9 @@ class TestSpectrumParity:
         assert PREFIX_SAMPLES == (WINDOWS_PER_HOUR - 1) * WINDOW_STRIDE + WINDOW_SAMPLES
         assert PREFIX_BYTES == 2 * PREFIX_SAMPLES
 
-    def test_parity_with_detector_private_pipeline(self, disturbed_hour) -> None:
+    def test_parity_with_detector_private_pipeline(
+        self, disturbed_hour: dict[str, np.ndarray]
+    ) -> None:
         det = SchumannResonanceDetector(sampling_rate=FS_HZ)
         for window in disturbed_hour["windows"][:4]:
             signal = condition_signal(window)
@@ -202,7 +212,7 @@ class TestSpectrumParity:
             theirs = torch.tensor(power[:SPECTRUM_BINS], dtype=torch.float32)
             assert torch.equal(torch.from_numpy(ours), theirs)
 
-    def test_parity_through_public_api_diagnostics(self, quiet_hour) -> None:
+    def test_parity_through_public_api_diagnostics(self, quiet_hour: dict[str, np.ndarray]) -> None:
         det = SchumannResonanceDetector(sampling_rate=FS_HZ, keep_diagnostics=True)
         signal = condition_signal(quiet_hour["windows"][0])
         result = det.detect_resonance_anomaly(signal)
@@ -211,7 +221,7 @@ class TestSpectrumParity:
         ours = compute_detector_spectrum(signal)
         assert np.array_equal(ours, api_spectrum[:SPECTRUM_BINS].astype(np.float32))
 
-    def test_conditioning_is_demean_only(self, quiet_hour) -> None:
+    def test_conditioning_is_demean_only(self, quiet_hour: dict[str, np.ndarray]) -> None:
         window = quiet_hour["windows"][0]
         signal = condition_signal(window)
         assert signal.dtype == np.float64
@@ -280,7 +290,10 @@ class TestLabelRuleDeterminism:
         t0 = _parse_member_time("2016/1601/smplGRTU1_sensor_0_1601010203")
         assert t0 is not None and t0.year == 2016
         b = int(t0.timestamp()) // 10800
-        near = lambda kp: dict.fromkeys((b - 1, b, b + 1), kp)  # noqa: E731
+
+        def near(kp: float) -> dict[int, float]:
+            return dict.fromkeys((b - 1, b, b + 1), kp)
+
         assert _label_hour(t0, near(6.0))[0] == "disturbed"
         assert _label_hour(t0, near(1.667))[0] == "quiet"
         assert _label_hour(t0, near(3.0))[0] == "intermediate"
@@ -299,7 +312,10 @@ class TestLoadNeuralWeightsCompat:
 
     def _fresh_state(self) -> dict[str, torch.Tensor]:
         torch.manual_seed(11)
-        return SchumannHarmonicAnalyzer(spectrum_size=SPECTRUM_BINS).state_dict()
+        state: dict[str, torch.Tensor] = SchumannHarmonicAnalyzer(
+            spectrum_size=SPECTRUM_BINS
+        ).state_dict()
+        return state
 
     def test_bare_in_memory(self) -> None:
         det = SchumannResonanceDetector(sampling_rate=FS_HZ)
@@ -362,7 +378,9 @@ class TestOperatingPointConsumption:
         torch.save(payload, path)
         return path
 
-    def test_operating_point_drives_learned_decision(self, tmp_path: Path, disturbed_hour) -> None:
+    def test_operating_point_drives_learned_decision(
+        self, tmp_path: Path, disturbed_hour: dict[str, np.ndarray]
+    ) -> None:
         """tau just below/above the emitted confidence must flip the decision."""
         det = SchumannResonanceDetector(sampling_rate=FS_HZ)
         det.load_neural_weights(
@@ -402,7 +420,7 @@ class TestOperatingPointConsumption:
             assert det._operating_point is None
 
     def test_payload_without_operating_point_keeps_physics_decision(
-        self, tmp_path: Path, quiet_hour
+        self, tmp_path: Path, quiet_hour: dict[str, np.ndarray]
     ) -> None:
         """Pre-convention payloads and bare state_dicts keep the old decision."""
         physics = SchumannResonanceDetector(sampling_rate=FS_HZ)
@@ -437,7 +455,9 @@ class TestDifferentialPhysicsVsShipped:
         assert provenance is not None
         assert provenance["evaluation"]["learned_beats_physics"] is True
 
-    def test_differential_on_real_windows(self, quiet_hour, disturbed_hour) -> None:
+    def test_differential_on_real_windows(
+        self, quiet_hour: dict[str, np.ndarray], disturbed_hour: dict[str, np.ndarray]
+    ) -> None:
         physics = SchumannResonanceDetector(sampling_rate=FS_HZ)
         learned = SchumannResonanceDetector(sampling_rate=FS_HZ)
         learned.load_neural_weights()

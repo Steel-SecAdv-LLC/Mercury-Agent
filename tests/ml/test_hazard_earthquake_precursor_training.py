@@ -90,7 +90,7 @@ class TestNoLookahead:
     def test_post_epoch_events_never_change_features(self, catalog: ep.Catalog) -> None:
         """Property: features depend only on catalog data strictly before t."""
         ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
-        ix, iy = int(ix[0]), int(iy[0])
+        ix, iy = int(ix[0]), int(iy[0])  # type: ignore[assignment]
         t_epoch = _day(2019, 7, 1)  # before the July 4/6 mainshocks
 
         full = ep.CatalogIndex(catalog)
@@ -224,8 +224,8 @@ class TestStackedRJFeatures:
 
     def test_rj_prob_feature_matches_causal_baseline_formula(self, index: ep.CatalogIndex) -> None:
         """Dim 32 is exactly 1 - exp(-(causal mu + in-cell RJ 30-d count))."""
-        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
-        ix, iy = int(ix[0]), int(iy[0])
+        ix_arr, iy_arr = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix_arr[0]), int(iy_arr[0])
         t = _day(2019, 7, 10)  # inside the Ridgecrest aftershock sequence
         vec = ep.build_feature_vector(index, ix, iy, t)
         cell = index.cell(ix, iy)
@@ -240,8 +240,8 @@ class TestStackedRJFeatures:
 
     def test_rj_features_have_no_lookahead(self, catalog: ep.Catalog) -> None:
         """Dims 32-35 must not see the label window or anything after t."""
-        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
-        ix, iy = int(ix[0]), int(iy[0])
+        ix_arr, iy_arr = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix_arr[0]), int(iy_arr[0])
         t_epoch = _day(2019, 7, 1)  # before the July 4 M6.4 / July 6 M7.1
         full = ep.CatalogIndex(catalog)
         pre_mask = catalog.t_days < t_epoch
@@ -268,8 +268,8 @@ class TestStackedRJFeatures:
 
     def test_causal_mu_counts_only_pre_epoch_m5(self, index: ep.CatalogIndex) -> None:
         """The trailing mu uses M>=5 events strictly before t (Laplace +0.5)."""
-        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
-        ix, iy = int(ix[0]), int(iy[0])
+        ix_arr, iy_arr = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix_arr[0]), int(iy_arr[0])
         t_before = _day(2019, 7, 1)
         mu_before = ep.causal_background_mu(index, ix, iy, t_before)
         # Fixture holds no pre-July-2019 M>=5 in the cell: bare prior only.
@@ -393,7 +393,7 @@ class TestDetectorContract:
 class TestShippedCheckpointDifferential:
     """Physics-vs-shipped differential on real fixture cases."""
 
-    def _detector(self):  # type: ignore[no-untyped-def]
+    def _detector(self):
         from omni_mercury_engine.space.disaster_precursor_detector import (
             DisasterPrecursorDetector,
         )
@@ -406,8 +406,8 @@ class TestShippedCheckpointDifferential:
         det = self._detector()
         assert det._neural_trained is True
         assert det._feature_spec == ep.FEATURE_SPEC_VERSION
-        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
-        ix, iy = int(ix[0]), int(iy[0])
+        ix_arr, iy_arr = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix_arr[0]), int(iy_arr[0])
         hot = ep.build_feature_vector(index, ix, iy, _day(2019, 7, 10))
         quiet = ep.build_feature_vector(index, ix, iy, _day(2019, 6, 20))
         p_hot = det.detect_disaster_precursor({"seismicity_features": hot}).confidence

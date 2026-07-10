@@ -25,7 +25,7 @@ import datetime as dt
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -45,7 +45,7 @@ PROVENANCE = FIXTURE_DIR / "provenance.json"
 @pytest.fixture(scope="session")
 def provenance() -> dict[str, Any]:
     """Fixture provenance sidecar (station metadata incl. real sensitivity)."""
-    return json.loads(PROVENANCE.read_text())
+    return cast("dict[str, Any]", json.loads(PROVENANCE.read_text()))
 
 
 @pytest.fixture(scope="session")
@@ -231,7 +231,8 @@ class TestBuildDatasetCausality:
         for day, cls, lead in self.DAYS:
             cache = ve._day_record_cache_path(ctx, "SSBA", "BHZ", dt.date.fromisoformat(day))
             cache.parent.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(cache, **{k: np.asarray(v) for k, v in day_record.items()})
+            arrays = {k: np.asarray(v) for k, v in day_record.items()}
+            np.savez_compressed(cache, **arrays)  # type: ignore[arg-type]
             plan.append(
                 {
                     "volcano": "Shishaldin",
@@ -281,7 +282,7 @@ class TestBuildDatasetCausality:
         perturbed["minute_rsam"] = perturbed["minute_rsam"] * 100.0
         perturbed["rsam_24h"] = perturbed["rsam_24h"] * 100.0
         cache.unlink()
-        np.savez_compressed(cache, **perturbed)
+        np.savez_compressed(cache, **perturbed)  # type: ignore[arg-type]
         after = ve.build_dataset(ctx)
         earlier = [i for i, m in enumerate(before.meta) if m["day"] != last_day.isoformat()]
         np.testing.assert_array_equal(before.features[earlier], after.features[earlier])

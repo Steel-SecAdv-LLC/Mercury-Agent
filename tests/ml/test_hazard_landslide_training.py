@@ -19,6 +19,7 @@ import datetime as dt
 import itertools
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -27,6 +28,9 @@ torch = pytest.importorskip("torch")
 
 from omni_mercury_engine.ml.hazard_training import landslide_stability as ls
 from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "hazard_training" / "landslide"
 
@@ -228,7 +232,7 @@ class TestOperatingPointConsumption:
         return payload
 
     @staticmethod
-    def _detector() -> object:
+    def _detector() -> LandslideDetector:
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 
         return LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)

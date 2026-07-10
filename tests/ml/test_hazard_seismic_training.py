@@ -360,7 +360,7 @@ class TestOperatingPointConsumption:
 
         detector = EarthquakeDetector()
         ckpt = self._checkpoint(tmp_path / "bad_op.pt", {"detection_threshold": bad})
-        with pytest.raises(ValueError, match="not a\\s+probability"):
+        with pytest.raises(ValueError, match=r"not a\s+probability"):
             detector.load_neural_weights(ckpt)
         assert detector._neural_trained is False
         assert detector._operating_point is None

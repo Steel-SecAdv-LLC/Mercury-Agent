@@ -248,8 +248,10 @@ class TestDetectorContract:
         det = ParapsychologyDetector(enable_consciousness_field=True)
         det.load_neural_weights(None)  # shipped reg_deviation_gcp
 
-        learned_null, learned_fault = [], []
-        physics_null, physics_fault = [], []
+        learned_null: list[float] = []
+        learned_fault: list[float] = []
+        physics_null: list[float] = []
+        physics_fault: list[float] = []
         for s in starts[:12]:
             window = day.egg_sums[s : s + 100]
             rng = np.random.default_rng([13, int(s)])

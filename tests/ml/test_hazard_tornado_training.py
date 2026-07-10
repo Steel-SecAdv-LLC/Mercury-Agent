@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -86,7 +87,7 @@ class TestSpcTimeConversion:
 class TestSectorGeometry:
     """Extraction geometry against the committed real decoded sweep block."""
 
-    def test_extraction_reproduces_committed_sector(self, moore: dict) -> None:
+    def test_extraction_reproduces_committed_sector(self, moore: dict[str, Any]) -> None:
         window = tr.extract_sector(
             moore["az_deg"],
             moore["vel"],
@@ -102,7 +103,7 @@ class TestSectorGeometry:
         # generation time (NaN positions included).
         np.testing.assert_array_equal(window, moore["expected_sector"])
 
-    def test_geometry_recomputed_from_coordinates(self, moore: dict) -> None:
+    def test_geometry_recomputed_from_coordinates(self, moore: dict[str, Any]) -> None:
         """Bearing/range stored in the fixture come from the site/report coords."""
         bearing = tr.initial_bearing_deg(
             float(moore["radar_lat"]),
@@ -121,7 +122,7 @@ class TestSectorGeometry:
         # KTLX -> Moore: ~32 km to the west; sanity against public geography.
         assert 25.0 < dist < 40.0
 
-    def test_out_of_coverage_returns_none_not_padding(self, moore: dict) -> None:
+    def test_out_of_coverage_returns_none_not_padding(self, moore: dict[str, Any]) -> None:
         """Ranges outside the sweep's gate coverage must refuse, not zero-pad."""
         for bad_range in (1.0, 5000.0):
             assert (
@@ -136,7 +137,7 @@ class TestSectorGeometry:
                 is None
             )
 
-    def test_fixture_is_real_velocity_data(self, moore: dict) -> None:
+    def test_fixture_is_real_velocity_data(self, moore: dict[str, Any]) -> None:
         """Raw archive m/s: Nyquist-bounded magnitudes and censored (NaN) gates."""
         sector = moore["expected_sector"]
         finite = sector[np.isfinite(sector)]
@@ -148,14 +149,14 @@ class TestSectorGeometry:
 class TestNaNHandling:
     """NaN gates must map to 0.0 exactly as the deployed detector does."""
 
-    def test_couplet_v_rot_nan_parity(self, moore: dict) -> None:
+    def test_couplet_v_rot_nan_parity(self, moore: dict[str, Any]) -> None:
         sector = moore["expected_sector"]
         zero_filled = np.where(np.isfinite(sector), sector, 0.0).astype(np.float32)
         assert np.isfinite(zero_filled).all()
         assert tr.couplet_v_rot(sector) == tr.couplet_v_rot(zero_filled)
         assert tr.couplet_v_rot(sector) == pytest.approx(float(moore["expected_v_rot"]))
 
-    def test_detector_physics_parity_via_public_api(self, moore: dict) -> None:
+    def test_detector_physics_parity_via_public_api(self, moore: dict[str, Any]) -> None:
         """couplet_v_rot mirrors the detector's deployed physics byte-for-byte."""
         from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
 
@@ -237,7 +238,7 @@ class TestShippedTornadoCheckpoint:
         assert evaluation["learned"]["auc"] > evaluation["physics"]["auc"]
         assert all(src["sha256"] for src in provenance["data_sources"])
 
-    def test_differential_physics_vs_learned(self, moore: dict) -> None:
+    def test_differential_physics_vs_learned(self, moore: dict[str, Any]) -> None:
         """Identical real input through both deployed paths."""
         sector = moore["expected_sector"]
         window = np.where(np.isfinite(sector), sector, 0.0).astype(np.float32)
