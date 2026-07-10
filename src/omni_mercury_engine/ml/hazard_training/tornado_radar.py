@@ -47,15 +47,20 @@ Sample construction (the (rays, gates) array IS ``weather_data
   jittered) median severe-report time; up to three random-azimuth /
   random-range sectors per volume.
 * **Same-day marginal negatives**: sectors re-extracted from the POSITIVE
-  volumes at seeded random azimuth/range whose center lies >= 150 km from
-  every tornado report (any rating) of that UTC day. Deviation from the
-  original plan, documented: the plan called for separate scans >= 2 h from
-  every report, but reusing the already-downloaded tornadic volume is both
-  the stronger hard negative (an ongoing outbreak elsewhere on the radar)
-  and what keeps total downloads under the 6-GiB cap; the honesty of the 0
-  label rests on the 150-km spatial exclusion against every same-day report.
-  Residual label noise (unreported circulations, EF0-only areas) is inherent
-  to SPC ground truth and is documented rather than filtered.
+  volumes at seeded random azimuth/range whose center lies >= 100 km from
+  every tornado report (any rating) of that UTC day. Two documented
+  deviations from the original plan: (1) the plan called for separate scans
+  >= 2 h from every report, but reusing the already-downloaded tornadic
+  volume is both the stronger hard negative (an ongoing outbreak elsewhere
+  on the radar) and what keeps total downloads under the 6-GiB cap; (2) the
+  planned 150-km exclusion radius rejects essentially every draw once the
+  sector range is capped at 140 km (a report near the radar excludes the
+  whole disk), so the radius is 100 km -- still more than five sector
+  lengths (a sector spans ~16 km of range by +/-15 deg of azimuth) and far
+  outside the report's parent storm at the same scan time. The honesty of
+  the 0 label rests on that spatial exclusion against every same-day
+  report. Residual label noise (unreported circulations, EF0-only areas)
+  is inherent to SPC ground truth and is documented rather than filtered.
 
 All samples (both classes) must have >= 30% finite gates so the task is
 echo-vs-echo discrimination, not echo-vs-void; reports beyond usable echo
@@ -165,7 +170,11 @@ MARGINAL_SECTORS_PER_POSITIVE = 1
 MARGINAL_ATTEMPTS = 24
 QUIET_ATTEMPTS = 10
 QUIET_TORNADO_EXCLUSION_KM = 300.0
-MARGINAL_EXCLUSION_KM = 150.0
+#: Same-day marginal negatives: minimum distance from the sector CENTER to
+#: every tornado report of that UTC day. See the module docstring for why
+#: this is 100 km rather than the planned 150 km (a 150-km exclusion is
+#: geometrically infeasible against the <=140-km sector-range band).
+MARGINAL_EXCLUSION_KM = 100.0
 STORM_PROXIMITY_KM = 120.0
 MIN_STORM_REPORTS = 2
 MAX_DOWNLOAD_BYTES = 6 * 2**30
