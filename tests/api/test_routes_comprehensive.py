@@ -160,10 +160,11 @@ class TestModelRoutes:
 class TestModelStoragePathConfinement:
     """Regression tests for the model-storage path-traversal class of bug.
 
-    The model directory is addressed by a hash of the (request-supplied) id, so
-    uploaded bytes must always land under the configured storage root and no
-    identifier — however adversarial — can escape it. These tests guard against
-    a future refactor reintroducing the CodeQL ``py/path-injection`` finding.
+    Request-supplied ids are validated and the storage directory is addressed by
+    a hash of the id, so non-canonical ids are rejected outright and uploaded
+    bytes always land under the configured storage root. These tests guard
+    against a future refactor reintroducing the CodeQL ``py/path-injection``
+    finding.
     """
 
     def test_version_upload_lands_under_storage_root(self, tmp_path: Any) -> None:
@@ -191,17 +192,37 @@ class TestModelStoragePathConfinement:
         assert str(written).startswith(str(root) + os.sep)
         assert written.read_bytes() == b"weight-bytes"
 
-    def test_adversarial_model_id_cannot_escape_root(self, tmp_path: Any) -> None:
-        """Traversal-style identifiers resolve to a confined, separator-free dir."""
+    def test_adversarial_model_id_is_rejected(self, tmp_path: Any) -> None:
+        """Non-canonical / traversal-style identifiers are rejected with 400."""
+        from fastapi import HTTPException
+
         from omni_mercury_engine.api.routes.models import ModelRegistry
 
         registry = ModelRegistry(storage_path=str(tmp_path))
-        root = tmp_path.resolve()
-        for evil in ["../../etc/passwd", "..", "a/b/c", "/abs/path", "x" * 500, ""]:
-            resolved = registry._model_dir(evil).resolve()
-            assert str(resolved).startswith(str(root) + os.sep)
-            key = registry._dir_key(evil)
-            assert "/" not in key and "\\" not in key and ".." not in key
+        for evil in [
+            "../../etc/passwd",
+            "..",
+            "a/b/c",
+            "/abs/path",
+            "x" * 500,
+            "",
+            "0123456789ABCDEF",  # uppercase — not the canonical lowercase form
+            "0123456789abcde",  # too short
+        ]:
+            with pytest.raises(HTTPException) as exc_info:
+                registry._model_dir(evil)
+            assert exc_info.value.status_code == 400
+
+    def test_canonical_model_id_resolves_under_root(self, tmp_path: Any) -> None:
+        """A registered model's directory resolves inside the storage root."""
+        from omni_mercury_engine.api.routes.models import ModelRegistry, ModelType
+
+        registry = ModelRegistry(storage_path=str(tmp_path))
+        model = registry.register_model(
+            name="confine-test", model_type=ModelType.FUSION, owner_id="u1"
+        )
+        resolved = registry._model_dir(model.model_id).resolve()
+        assert str(resolved).startswith(str(tmp_path.resolve()) + os.sep)
 
     def test_delete_removes_only_the_model_dir(self, tmp_path: Any) -> None:
         """Deleting a model removes its directory but leaves the root intact."""

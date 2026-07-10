@@ -25,6 +25,7 @@ Designed for humanitarian missing persons applications.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -536,8 +537,10 @@ class AgeProgressionEngine:
             # cascade directory itself, not just the ``data`` module.
             haarcascades_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
             if cascade_factory is not None and haarcascades_dir is not None:
+                # ``os.path.join`` normalizes the separator: ``haarcascades_dir``
+                # is not guaranteed to carry a trailing slash across builds.
                 face_cascade = cascade_factory(
-                    haarcascades_dir + "haarcascade_frontalface_default.xml"
+                    os.path.join(haarcascades_dir, "haarcascade_frontalface_default.xml")
                 )
                 # A missing/unreadable cascade XML yields an empty classifier
                 # rather than raising; run the fallback only when it loaded.
