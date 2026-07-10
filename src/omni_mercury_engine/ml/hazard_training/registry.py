@@ -214,7 +214,21 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
             "not allowlisted here) labeled with SPC WCM tornado reports "
             "(www.spc.noaa.gov), SPC wind/hail reports for storm-day hard "
             "negatives, and the NCEI HOMR WSR-88D site table for "
-            "range/azimuth geometry."
+            "range/azimuth geometry. Both models are scored through the public "
+            "TornadoDetector.predict_tornado API on identical held-out "
+            "sectors; the deployed learned rule carries a validation-selected "
+            "mesocyclone operating point (meso_prob >= tau) consumed "
+            "decision-only by load_neural_weights, and the merit gate demands a "
+            "primary held-out AUC win plus deployed-rule recall/false-alarm "
+            "non-regression against the velocity-couplet physics. 'Physics "
+            "wins, not shipped' is a valid recorded outcome -- but is NOT the "
+            "current one (2026-07-10, tornado-nexrad-v1): the learned LSTM won "
+            "held-out 2022-2023 AUC 0.8099 vs 0.6866 with mesocyclone recall "
+            "0.35 vs 0.225 and false-alarm rate 0.034 vs 0.138 (both "
+            "constraints passing; the paired-bootstrap 95% CI on the AUC delta "
+            "[-0.002, 0.245] marginally includes zero and is recorded in the "
+            "eval for transparency -- the gate is a point-estimate primary "
+            "win), so tornado_nexrad shipped."
         ),
         pipeline_module="omni_mercury_engine.ml.hazard_training.tornado_radar",
         checkpoint_name="tornado_nexrad",

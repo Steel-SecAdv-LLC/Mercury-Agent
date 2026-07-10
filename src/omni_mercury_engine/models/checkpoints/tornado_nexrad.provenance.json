@@ -1,0 +1,1734 @@
+{
+  "checkpoint": "tornado_nexrad.pt",
+  "checkpoint_sha256": "13e2151beb84c41b2157c15f440058134b02ea64f8c62bb42e4bbaf0d387ed2e",
+  "created_utc": "2026-07-10T20:02:55+00:00",
+  "data_sources": [
+    {
+      "description": "SPC WCM tornado reports 1950-2023 (labels; CST times)",
+      "sha256": "fa616e2f829c553acc7b60f5130a3ac498198e0b9d69e37a0e1289df71dc5fcc",
+      "url": "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+    },
+    {
+      "description": "SPC WCM wind reports (negative-day storm-presence check only)",
+      "sha256": "92b4804c35f6e81401d4caaf20d022c3464f9dd45b293344e4ff6fbd678e8840",
+      "url": "https://www.spc.noaa.gov/wcm/data/1955-2023_wind.csv.zip"
+    },
+    {
+      "description": "SPC WCM hail reports (negative-day storm-presence check only)",
+      "sha256": "b578d6a5c3a53b7bd61917c9a443dfa97a4bf83953a12fe36ef4b5b6a6da9143",
+      "url": "https://www.spc.noaa.gov/wcm/data/1955-2023_hail.csv.zip"
+    },
+    {
+      "description": "NCEI HOMR WSR-88D site table (radar lat/lon geometry)",
+      "sha256": "bbbc8d95ab49bdc97641f4e55b27fa6988fe85c1680685f982b52bb1070b3e16",
+      "url": "https://www.ncei.noaa.gov/access/homr/file/nexrad-stations.txt"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_284965",
+      "sha256": "73ecb505f55d45895e5b645d469368d8e863ecaf71f3942313d2645c4d7e21f2",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/02/25/KOHX/KOHX20110225_041521_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_305379 negm_pos_2011_305379_9",
+      "sha256": "f8babfe2d188df5278ff58ad291bb6090f81e6c2776aa9067a3eaed892ba6834",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/04/KLVX/KLVX20110404_173912_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_283213 negm_pos_2011_283213_0",
+      "sha256": "18fdde5ae8f1b924e8231db139e6e5be4c56e9c815fe2e33aa5c21cddde303f1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/10/KDMX/KDMX20110410_012657_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_293745 negm_pos_2011_293745_11",
+      "sha256": "ecaf3af354986c96a9c53f26adeb8e18a4d2810d788aaa14f826079d943d8c0d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/10/KGRB/KGRB20110410_233202_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_301141 negm_pos_2011_301141_0",
+      "sha256": "8475235ea84e6c93191a59c0faa1d95614ac5439e60d02eaa93215cec0aca612",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/11/KFWS/KFWS20110411_071121_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_302836",
+      "sha256": "61467f5788eb853cd62fce92e37709e7c1cfaba23c70c1997ac7aedef75a95bf",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/15/KSRX/KSRX20110415_023613_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_304137",
+      "sha256": "275821eab7cbaa839b657ff49d02f04375e1f98ea79acd3f0e70671773e35634",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/16/KCAE/KCAE20110416_210410_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_297254",
+      "sha256": "2cdf74f412a14742994ac6191215c5fd677048d16ac9a88e23a15fe4244afc70",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/16/KRAX/KRAX20110416_193135_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_296306",
+      "sha256": "ff70fd666620d6e5d6ee8b9ab9d6c108fabbff0264edd8b35d74edd36236bf8d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/16/KRAX/KRAX20110416_213109_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_312133",
+      "sha256": "2d93fe9156543442387d65eb0f43019115b20f4ad0676bdfe4f927a054cdefd9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/27/KBMX/KBMX20110427_111657_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_301943",
+      "sha256": "28272dc8430f4c7bf5843ae016819106445b416b747f03eff53d5a899b350f24",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/27/KBMX/KBMX20110427_193816_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_308253",
+      "sha256": "09708cac0d1de923005442c0cb04e425de57acc6818ee48fbbcaff2f5683b2ac",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/27/KDGX/KDGX20110427_063814_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_302252",
+      "sha256": "eac2fcfd57a5dc749503800d855e2aff7c3c8087f74077a088a279bcb104fee1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/27/KHTX/KHTX20110427_162934_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_302432",
+      "sha256": "25f8ae4f861ba854c4711cb2b251a4c11201a05f337f826a3a9d68c4331e26da",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/04/28/KBGM/KBGM20110428_052202_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_310047",
+      "sha256": "aef48e56a3504a841ecf87f64d9db6fd6ceacb38dac658cd6b4674b721037dfa",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/05/22/KINX/KINX20110522_234036_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_315869",
+      "sha256": "549794a85627aa0443e182e85892f28699cd78bce512457bd9639c7510d3d814",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/05/24/KTLX/KTLX20110524_222648_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_306758 negm_pos_2011_306758_0",
+      "sha256": "c774453fa43049f091392f75d5b8b4c291d7050e87dab5c98c3448214a34d5be",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/05/25/KLOT/KLOT20110525_140309_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KCAE_20110606_1 negq_KCAE_20110606_11",
+      "sha256": "0215e6f3419c32b7e8a99abcf93bcda27bb12f2aeaae241def549be94723c1fc",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/06/06/KCAE/KCAE20110606_001532_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_327486 negm_pos_2011_327486_0",
+      "sha256": "4e32465c4727f4c6f1628537959f42e5f782ef85f221bb93e74747782a1a452a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/06/21/KMKX/KMKX20110621_203650_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLNX_20110627_0 negq_KLNX_20110627_1 negq_KLNX_20110627_2 negq_KLNX_20110627_3 negq_KLNX_20110627_4",
+      "sha256": "f0e3b518db470ef85fd34bc4ba1bf807e62d3ebc6c2fad362d7f79039595d807",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/06/27/KLNX/KLNX20110627_031126_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KINX_20110724_0 negq_KINX_20110724_1 negq_KINX_20110724_2 negq_KINX_20110724_3 negq_KINX_20110724_5",
+      "sha256": "ba48b0d3c2655503b2516394b9ba960fbeeaf296011ea926efbd14d1ccbf1c10",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/07/24/KINX/KINX20110724_210452_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_335920",
+      "sha256": "df1011e8cca764e6be259a13ba3efb25781ba36171f6aabb144e127bb61d3f11",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/08/12/KLNX/KLNX20110812_010347_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDMX_20110823_0 negq_KDMX_20110823_1 negq_KDMX_20110823_2 negq_KDMX_20110823_4 negq_KDMX_20110823_5",
+      "sha256": "cde902a8f2872bac5da96f49dbd09a6c9d6779ec784afe7e7579cfc90922bd32",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/08/23/KDMX/KDMX20110823_102524_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2011_347147",
+      "sha256": "c947d69b496f8967ccfa91d5e080c0732ad85e60c83d3c96f58f585e2d20b175",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2011/09/04/KMOB/KMOB20110904_060228_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_360515 negm_pos_2012_360515_9",
+      "sha256": "c4f76b02496d7e8a583223df51749530ce758795c31c504693aaedb7673c322b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/11/KGSP/KGSP20120111_230131_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_356848",
+      "sha256": "f7f106de39665a0e51630e2b2246f480564c60edd46bc5f6e99ab44dba7f0db2",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/17/KLIX/KLIX20120117_220240_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_362778",
+      "sha256": "b35d591eb01e46b91aa2bd66e96ea91c83e5f9c3f4c8097d9ded979fb44acf0b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/23/KBMX/KBMX20120123_085918_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KGRK_20120124_5 negq_KGRK_20120124_6",
+      "sha256": "c8f47d5e17ae6f2bdc1b97ecfdcb3de5003db5fb0a5a004c25721261b35b7685",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/24/KGRK/KGRK20120124_170655_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_361941 negm_pos_2012_361941_5",
+      "sha256": "8d074695bb0f3d56cfed144a2d378fc00ce9708fee559d965564e93dad3d3edf",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/25/KGRK/KGRK20120125_124150_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_355657",
+      "sha256": "8c1928d0787a4cec87132ea0ef4cb7ff94eac97c093c6269851603902e23c95e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/01/25/KLCH/KLCH20120125_185849_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_359709",
+      "sha256": "aacd8aa69dfde3e3d960fcc816d8bc3e9deb2889f0421b4493c5d5ada3a89b35",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/02/29/KPAH/KPAH20120229_100139_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_363341",
+      "sha256": "23972aeb4f0578a8eb68781f32a01fc051e54e2d63a6ad8d7c07ad9db4946d88",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/02/29/KSGF/KSGF20120229_064219_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_359087 negm_pos_2012_359087_8",
+      "sha256": "df16cc45358a528e66ea333d91ea89df4c5b197e6b08fac0ebb965b7f897d735",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/02/29/KTWX/KTWX20120229_030204_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_364384",
+      "sha256": "00ee50441c2d79ef3455e69a429c3f2c4d9167668b2031044c4f5f35c5df35e9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/03/19/KLNX/KLNX20120319_021104_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_366409",
+      "sha256": "dc579d68e37a65a1d51fb719dd94939adb575da72a2d91cd763ceeb18f2a173b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/04/15/KICT/KICT20120415_010238_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_366714 negm_pos_2012_366714_9",
+      "sha256": "8c2b62dc42421d7b9f5bc46f18d68455cdf5df7c84f49c3598ff7b74acd171f7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/04/15/KOAX/KOAX20120415_051701_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_378953",
+      "sha256": "821a09d45ac083fc1d0d32bbeaa999890b5490f4baaca71b2a9899fbe868e4ad",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/05/01/KVNX/KVNX20120501_011458_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_395043 negm_pos_2012_395043_1",
+      "sha256": "9347308dfbf52fdd66f80fce7d01e53fb01cd08667a17583b0a5f5f405d4f456",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/05/26/KDDC/KDDC20120526_022217_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_380991 negm_pos_2012_380991_5",
+      "sha256": "ddcb64a341019c91779ea33bef153d1b1426f49e51be4f49e7212b6b166ba7a8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/05/30/KMHX/KMHX20120530_143408_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDDC_20120601_0 negq_KDDC_20120601_3 negq_KDDC_20120601_5 negq_KDDC_20120601_6 negq_KDDC_20120601_7",
+      "sha256": "0a3dbe4a395c1894482a7466b255a4bed89667f6c10bc3f621c2606df3556739",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/06/01/KDDC/KDDC20120601_224829_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_387851 negm_pos_2012_387851_14",
+      "sha256": "10eb24becd10235fc8394738254767b1a3b32572db16c58a98e4bf245353188d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/06/08/KFTG/KFTG20120608_004536_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLCH_20120703_0 negq_KLCH_20120703_2 negq_KLCH_20120703_5 negq_KLCH_20120703_7 negq_KLCH_20120703_8",
+      "sha256": "c410983281919300462f22cbda6373742c529f8d728ba2c7710e5d87083655d8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/07/03/KLCH/KLCH20120703_221112_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_410069 negm_pos_2012_410069_2",
+      "sha256": "3b2ddf711a4c2ce0f68eee6072c6637eea55f4a4ca37af18ef9b91e5f41d0ed5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/08/29/KLIX/KLIX20120829_221836_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_396962",
+      "sha256": "fa83751e524afd0dbd0b4e15a3745bc990e9bc4059ade431e7a489c8407e6819",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/08/30/KEVX/KEVX20120830_074419_V04.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KPAH_20120908_0 negq_KPAH_20120908_1 negq_KPAH_20120908_2 negq_KPAH_20120908_3 negq_KPAH_20120908_5",
+      "sha256": "d06f97b2c000747dbf7cfef1b7422f4287d558740fe3c585823231861280ea73",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/09/08/KPAH/KPAH20120908_013448_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_423975",
+      "sha256": "dccc9f3bcb2e0027b932a8d6a85e75ef2e4c63afb09ba6b763529b8457101b71",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/12/25/KLIX/KLIX20121225_202933_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_425359 negm_pos_2012_425359_1",
+      "sha256": "2c0d5ae4035411c1b0888184557d7d46b42235f6cef037f1604aabbc59961144",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/12/26/KBMX/KBMX20121226_042827_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2012_422369 negm_pos_2012_422369_5",
+      "sha256": "91df02f60a2251c986cea1a0d5f0cca83a0de4c0d0dbc0a3fb6d0d0d563077bb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2012/12/26/KMOB/KMOB20121226_012208_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_422504 negm_pos_2013_422504_1",
+      "sha256": "f51ea8fa60adf8c605d5c8c2c7d2ab3fb9d621c96bcd779b0469bf257344cc0d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/01/12/KVWX/KVWX20130112_211606_V03.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_428321",
+      "sha256": "e465d97fca7e0afdbbfd6b14f7a1f8de860645418bc585947158452355066450",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/01/30/KOHX/KOHX20130130_082748_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_424853",
+      "sha256": "2db10248969358ac49204ec0f77eb2a6b5a0e4ec91f9ab79c1330f5f4ddd40fd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/01/30/KPAH/KPAH20130130_031121_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_435001 negm_pos_2013_435001_1",
+      "sha256": "8b810a9c0eb0a566ab037a64e4fb41c899f081fd574c9ec6c90b7d78d24596c9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/02/11/KMOB/KMOB20130211_011416_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_440394 negm_pos_2013_440394_1",
+      "sha256": "fcd572776626016c7b0991a24cf3257d0bd5869ebbd6b863bd3c88ca79397333",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/05/16/KSHV/KSHV20130516_193503_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KMRX_20130519_0 negq_KMRX_20130519_1 negq_KMRX_20130519_5 negq_KMRX_20130519_6 negq_KMRX_20130519_9",
+      "sha256": "8aa99dc2489879aeb63cb07f08676c067f23e174a085fc70deb329d5b80aec68",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/05/19/KMRX/KMRX20130519_181044_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_441426 negm_pos_2013_441426_3",
+      "sha256": "3092cfca765dac37985780cf1a8a018620b93f495b510748b046a2c28c1bdeb5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/05/19/KTWX/KTWX20130519_222842_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_452529 negm_pos_2013_452529_2",
+      "sha256": "7bd807873215a02d407e94cb78d2caf5f1573964687662e7a5384a26ccb4de39",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/05/21/KLSX/KLSX20130521_031416_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_444342 negm_pos_2013_444342_9",
+      "sha256": "69ff17208d1905b74cc83348b4656781f04247e9fea6edac06214cb9e4825bb5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/05/31/KLZK/KLZK20130531_055045_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_453073 negm_pos_2013_453073_9",
+      "sha256": "33d4e84f02ce7c92f43f4a4fdbab8535e5d2d8196f603bcf83bb623d7f2a1788",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/01/KILX/KILX20130601_030423_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_455321 negm_pos_2013_455321_1",
+      "sha256": "e4688788d183fd201a4524beab34d57accc5a21821897c05383f261330f268c3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/01/KSRX/KSRX20130601_065210_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KBGM_20130602_6 negq_KBGM_20130602_7 negq_KBGM_20130602_11",
+      "sha256": "54f1e55766d128ea91dad9d4606b89430d35d1defcdfc4e3ea389f308963a0fb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/02/KBGM/KBGM20130602_154707_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_446149 negm_pos_2013_446149_1",
+      "sha256": "100f132311db0859d8561197cb8261ce7ac1293f6edd476a2dc84bfaacc991fa",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/12/KDMX/KDMX20130612_213157_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_453001 negm_pos_2013_453001_19",
+      "sha256": "8bb3290a37215136e2e1a3f2a9f4318ef896f2bde24e15b954a92de0ea5abab9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/13/KMRX/KMRX20130613_195551_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_448757",
+      "sha256": "e50b32b2452fb0ab9e54a4e6add557039a55914f4e4e2996faf239dee38d4cb3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/06/22/KCYS/KCYS20130622_225057_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_459294 negm_pos_2013_459294_5",
+      "sha256": "250227373c7337bc7a26ce661705fd2bbc34f2393d4c5ab34e94e4269987d616",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/07/22/KMVX/KMVX20130722_063330_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_457425 negm_pos_2013_457425_8",
+      "sha256": "7a5baf909c06f314a5b9323b97504dff9f357d1208c904d22597eabf1b3e5a30",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/07/27/KBGM/KBGM20130727_221143_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLZK_20130801_3 negq_KLZK_20130801_5 negq_KLZK_20130801_6 negq_KLZK_20130801_7 negq_KLZK_20130801_8",
+      "sha256": "566e7a0b9e8fef79ba5dbb56cad52c08d86772f123f61a38d6875bb66ecf0b62",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/08/01/KLZK/KLZK20130801_012310_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_459677 negm_pos_2013_459677_2",
+      "sha256": "92a7dab482a4d4dd3251c6814f526992c2d039757d91566e936fb4247de6cbbe",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/08/07/KGRB/KGRB20130807_052235_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KOAX_20130807_1",
+      "sha256": "8de5fcc58d295a1f25c8f2ad6e2ba792a2769a845abc410ceacda6a90fb02f79",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/08/07/KOAX/KOAX20130807_005526_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_475785 negm_pos_2013_475785_6",
+      "sha256": "94aa5a70f61d6e11d46149ce24a27b7435c43ade9b3deefaadccbe80d7e41496",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/10/04/KFSD/KFSD20131004_232418_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_472673 negm_pos_2013_472673_6",
+      "sha256": "17f167f9a8077629f7516d328adefa833873ff32bde81de445e45f0ec1583c60",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/10/04/KOAX/KOAX20131004_030848_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_484033 negm_pos_2013_484033_12",
+      "sha256": "80234a7867c98f781c1f612aa8cb30e5311518506267350f98d70cb19a413974",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/11/17/KLOT/KLOT20131117_185937_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2013_482451 negm_pos_2013_482451_21",
+      "sha256": "bb98f0d8d0954dd44c87af40f965aaab763e1b91467cf8944dc693776547992f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2013/11/17/KLSX/KLSX20131117_181323_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_503087 negm_pos_2014_503087_23",
+      "sha256": "6c79badaded7722ff3f21345b147f0708d5b24a3b5929ec9f06e783c53f95133",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/02/20/KLSX/KLSX20140220_202454_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_490278",
+      "sha256": "4738c68090180a8b45c79f8da6455c4a1395053b8be0e7376299553c06b977cc",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/02/21/KHTX/KHTX20140221_025515_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_490188",
+      "sha256": "9ce99ff0389341a3058c01b5ca78ce683ad62e697d6cc72e471ca4ecb2d1894d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/02/21/KHTX/KHTX20140221_040716_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDGX_20140303_0 negq_KDGX_20140303_1 negq_KDGX_20140303_2 negq_KDGX_20140303_3 negq_KDGX_20140303_4",
+      "sha256": "25a5e9991b4fb800b8c54ed3cce6b6e1eeccf3ae091c3c2725bb47aff5362045",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/03/03/KDGX/KDGX20140303_055529_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_507164 negm_pos_2014_507164_9",
+      "sha256": "31c6192be8d9fe18589c8125995fd40d3d6ad72895b00498817f6c5c161877bb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/04/07/KDGX/KDGX20140407_070144_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_505634",
+      "sha256": "d42e652eb79a846d92db096572281c7d6448b69e905e51d4d33f62a1e7919751",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/04/25/KMHX/KMHX20140425_232627_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_515067 negm_pos_2014_515067_6",
+      "sha256": "78586e90e62c743305681f08588bb89ff69a85cc682cb8825466976f7d3b3c6c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/04/30/KEVX/KEVX20140430_064227_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_506419 negm_pos_2014_506419_1",
+      "sha256": "9cc8048db48f6d77494c2f76763d93f4116e8b331d5e2057832ba5c51cae45f9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/05/11/KEAX/KEAX20140511_002510_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KEVX_20140512_0 negq_KEVX_20140512_1 negq_KEVX_20140512_6 negq_KEVX_20140512_7 negq_KEVX_20140512_11",
+      "sha256": "bb64ff142a796795b50e324dd48f928aad9e7ac5e9560d358bc6689e398c2b01",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/05/12/KEVX/KEVX20140512_194436_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_513755 negm_pos_2014_513755_5",
+      "sha256": "e1b273b4df99ee1fbd51a4a68e821e726126002f216e4d401895bf1c1b49eef5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/05/22/KENX/KENX20140522_193311_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_510483",
+      "sha256": "4319cee5eb2a97dfb0134c742d51d51f574e0966b3f7413d38d5bf67a3e8679d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/05/KRLX/KRLX20140605_013129_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_526567 negm_pos_2014_526567_9",
+      "sha256": "135b8864bbdb1a7ec922f3dd16d8d2416d29b34ce6c7fc8388c2c4603733d0e4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/10/KHTX/KHTX20140610_184156_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_518049 negm_pos_2014_518049_6",
+      "sha256": "9b321e80c2f60bd6db98df6b37ec1accc87aa07bc6be319861fde8d6a1399306",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/17/KDMX/KDMX20140617_005047_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLSX_20140621_1 negq_KLSX_20140621_2 negq_KLSX_20140621_3 negq_KLSX_20140621_6 negq_KLSX_20140621_8",
+      "sha256": "a1baef9313e9b29baa907752d4bdd9d3875945d7e4c20fee8a5958b0bfa9b438",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/21/KLSX/KLSX20140621_222937_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_517238 negm_pos_2014_517238_3",
+      "sha256": "fcdc6f68ae5ae14f4c6d35e824018cfbedd6894edc497c229a603222ddc76633",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/27/KMPX/KMPX20140627_200307_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_516316",
+      "sha256": "f9c6a50dcc98f0071e2fa85117961ad5efe0cad0e4c0e7e1aca7e79cfab5f762",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/30/KDMX/KDMX20140630_174226_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_531395 negm_pos_2014_531395_3",
+      "sha256": "c2a82c99567207f358a84555b378d5f30a14011954aad1c6c1b6d327aa3c1b65",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/06/30/KMKX/KMKX20140630_042912_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_531494 negm_pos_2014_531494_13",
+      "sha256": "ab63ed3423afc13af0128d83b2c811412311816c0d714e872607a22860ad7ca7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/07/01/KLOT/KLOT20140701_033529_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KEAX_20140806_0 negq_KEAX_20140806_1 negq_KEAX_20140806_2 negq_KEAX_20140806_7 negq_KEAX_20140806_10",
+      "sha256": "fb1f14478684ac9025f745b75c88ba0e35cda1db9a2a6456378b1c020b09778f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/08/06/KEAX/KEAX20140806_230017_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_542342 negm_pos_2014_542342_0",
+      "sha256": "3ecf4eb7d0f92873e79e6dcea16bc7898d79394a0d67587ebfd67075978e2768",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/09/02/KLSX/KLSX20140902_034150_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_544766 negm_pos_2014_544766_9",
+      "sha256": "952adef226039d771ee02cff110fea2019c0bf6f6eb46c98737233e122ab5b2d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/10/07/KJKL/KJKL20141007_205302_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_541929",
+      "sha256": "b66e781963a789f9e7c7d2c95a2a995797bbb579c7c5ac6bf964e6a600288a29",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/10/13/KVWX/KVWX20141013_210713_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_550467 negm_pos_2014_550467_2",
+      "sha256": "d4733f4952cae5051b8e5f1624b429ead67f6ba292e683fb97f934d3a065de19",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/11/23/KMXX/KMXX20141123_203825_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2014_547863 negm_pos_2014_547863_2",
+      "sha256": "2893058ad0c2d19f641aa00b475d0a50735376e7d77fbb60f453b1c04e8992ba",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2014/12/29/KVAX/KVAX20141229_162650_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_549313 negm_pos_2015_549313_0",
+      "sha256": "793a1acfe82e55bfa8e0435ea58f86254e7e357a57fdf1c919040fbd332494ce",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/01/03/KDGX/KDGX20150103_223323_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_573132 negm_pos_2015_573132_0",
+      "sha256": "e173fdd46e3a73d462a931e04d7cc30a588fbf178280e7934a20ac1efc53ee4d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/04/04/KHTX/KHTX20150404_020533_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_560771 negm_pos_2015_560771_0",
+      "sha256": "e1a9b854e0dd7eede710e4cbd776275c704c5010677dc2061a7f1a548e647347",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/04/10/KSHV/KSHV20150410_000949_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_574704 negm_pos_2015_574704_0",
+      "sha256": "436fa9aa6d5a39aac9dd8fa6cdb00759a5586fd714b24c94e3bd78008a07880a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/04/19/KJGX/KJGX20150419_153712_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_569578 negm_pos_2015_569578_0",
+      "sha256": "1a969c11980609f7bf0e8166438fe6290798af31a9ba8d3e68d4d18295f3bd2d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/04/26/KHPX/KHPX20150426_021329_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLSX_20150510_1 negq_KLSX_20150510_2 negq_KLSX_20150510_5 negq_KLSX_20150510_8 negq_KLSX_20150510_9",
+      "sha256": "7c217f0972734604966cabfda4d088b88f2c6dec7830afdc46c21e240fe6797a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/10/KLSX/KLSX20150510_215842_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_566774 negm_pos_2015_566774_2",
+      "sha256": "7d653b3caf792c47bf319f223ce93ebbce40e688fe5ff79101554d3a46103c5c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/11/KSHV/KSHV20150511_063252_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_571435 negm_pos_2015_571435_2",
+      "sha256": "43237d54d07484a2ca4f3e27f56e2de190ad1fa9bcda279aefb90c16a8c8e49b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/24/KDVN/KDVN20150524_224242_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_576176",
+      "sha256": "0b95ca8c8d72fc680168d1af66c9d938355ecf40490b3c0ed07c080b75904437",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/25/KGRK/KGRK20150525_190623_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_568158",
+      "sha256": "9b7e8fd4ab492ef8ec9b97a9e69b0e22aef55dcc54c3f787d2a0d1f8f8fbd6d3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/26/KILN/KILN20150526_211713_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_581929 negm_pos_2015_581929_0",
+      "sha256": "e17f572249c822d28293060a1c54d445e6c060f9c52409f50ec8c47df7ee3a11",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/05/27/KAMA/KAMA20150527_230010_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KHPX_20150608_2 negq_KHPX_20150608_3 negq_KHPX_20150608_6 negq_KHPX_20150608_9 negq_KHPX_20150608_10",
+      "sha256": "2d02275d3e6463df0bcca874884fad2d81165cd7eca02b042d24aee4293b1045",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/08/KHPX/KHPX20150608_192146_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_589985 negm_pos_2015_589985_7",
+      "sha256": "fa5993ab553fec6ce5b0e04b32e05974e5ae274d452d9509bf20b2a4c998073d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/13/KLSX/KLSX20150613_234512_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_573550",
+      "sha256": "65c8125188564c6f66f47a98ebf51a8dbeddb0bc51f15d11036d52d26b3c6394",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/23/KDTX/KDTX20150623_052954_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_590445 negm_pos_2015_590445_16",
+      "sha256": "fc350aa3c8f9d7a45b8d1d1146df4edd4dee38686e5bed82103488934432439f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/23/KDVN/KDVN20150623_001235_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_590633 negm_pos_2015_590633_11",
+      "sha256": "dd794cbb5ff6ddc38cd1d1f2766b39c53d15e819e32922f4a8c731962f1b2dd5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/23/KLOT/KLOT20150623_012124_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_583156 negm_pos_2015_583156_2",
+      "sha256": "f0695a90fb673ac955adb075cd561e55c9c6825032519fafdf3696e3428c95c8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/06/27/KLWX/KLWX20150627_203340_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_597339 negm_pos_2015_597339_13",
+      "sha256": "1e743feb77c2e87e026d8014f9202151a1bfe05b1cfcd0b0bc4a3864bcf88f4c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/07/14/KIND/KIND20150714_012352_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KILN_20150719_1 negq_KILN_20150719_4 negq_KILN_20150719_9",
+      "sha256": "d801eae824d1a44fd5d33905f0a2f7fc56473a117b3ded0d5805e260e2d2cfa6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/07/19/KILN/KILN20150719_175316_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDMX_20150727_1 negq_KDMX_20150727_2 negq_KDMX_20150727_4 negq_KDMX_20150727_5 negq_KDMX_20150727_6",
+      "sha256": "375670429bbffdc7bbed41aa6d9f97e148cc5cb31d7665e53092b65879b81af9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/07/27/KDMX/KDMX20150727_175327_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_609081 negm_pos_2015_609081_2",
+      "sha256": "a7b4b91337275aad2830020120b57703f1d06a9d2054badd3d2c354f9c0f02d0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/11/11/KDMX/KDMX20151111_205906_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_611645 negm_pos_2015_611645_20",
+      "sha256": "41543e5df041a55883cd607fcf0d35480020987070b80fb22ec58b0fcb885599",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/12/23/KLZK/KLZK20151223_141835_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_612000",
+      "sha256": "ce9f1d046a9aa4334343ce8115cbd0466ebdabda6e7afbada97bf341e88f75cc",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/12/23/KNQA/KNQA20151223_224345_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2015_609767 negm_pos_2015_609767_22",
+      "sha256": "00c38867df148d4c053848ee3168160a1c4ba478d9707b5150017b5fcfff0485",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2015/12/23/KPAH/KPAH20151223_172241_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613503 negm_pos_2016_613503_9",
+      "sha256": "cf375f91bb4e3bc147bbaf52b003688922c97a2fa2063a3059a24c0105741e05",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/01/21/KDGX/KDGX20160121_222644_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613519 negm_pos_2016_613519_2",
+      "sha256": "afd07dc248aacb04a6eac47dedef708686a1f973222d33588aaa9e02561ab838",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/02/03/KDGX/KDGX20160203_003721_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613530",
+      "sha256": "33fe39f99606628f7b27b3122de1dfa9cfa316d9eab0156b1e8fefc9e5383221",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/02/15/KDGX/KDGX20160215_184650_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613541 negm_pos_2016_613541_2",
+      "sha256": "1e84da90316a2f13654f7f5c3b8ab361c12a92988bf99a86d78a8715336b2bd5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/02/16/KMXX/KMXX20160216_005513_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613554",
+      "sha256": "00a52188056d7f9ac02842c936c96a0b1cd2572dfb0cc878c87161784e60a18a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/02/23/KLIX/KLIX20160223_184146_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613650 negm_pos_2016_613650_0",
+      "sha256": "b0c59a12795ab68753cb204c8f94d553089825c316d4a008296f6e055a0a859c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/03/15/KDVN/KDVN20160315_233943_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613656 negm_pos_2016_613656_12",
+      "sha256": "200f2e7510b04212af6271687f54623eecf50d76b20c1c53a050a7fb051e3ed3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/03/16/KDVN/KDVN20160316_005119_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613698 negm_pos_2016_613698_0",
+      "sha256": "0c2319b27d2931365b913f24f41269092749fb33c58bcb3be0940116a612963f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/04/01/KBMX/KBMX20160401_024053_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613770",
+      "sha256": "4f5a9367d2b6d322853068637344af273e7e66d476bf77cf20b189d5aea8d9da",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/04/27/KINX/KINX20160427_025722_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613836 negm_pos_2016_613836_8",
+      "sha256": "b38549d325144c4ca2c7ae8036832f0fa9032865d3ccf2e52d744d8d238d87cb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/04/30/KSHV/KSHV20160430_053152_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KFFC_20160519_4 negq_KFFC_20160519_5 negq_KFFC_20160519_8 negq_KFFC_20160519_11",
+      "sha256": "54a73b47af2be3f428e1a734a78d6e90fc96995b06e9afd9fe7de480cbc582f4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/05/19/KFFC/KFFC20160519_205745_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613932 negm_pos_2016_613932_1",
+      "sha256": "9ecdbfe65a953cda7a7fb701229b6d758a65d120fb21b8c9c1471518c89d8f03",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/05/23/KAMA/KAMA20160523_000642_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613933 negm_pos_2016_613933_1",
+      "sha256": "7781cc8b636444db098c852bcd982aa1131f23a6036e791e94105d1b18d0eba3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/05/23/KDDC/KDDC20160523_001220_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_613985",
+      "sha256": "2a68639bbdc3d563364a33daf7c6acf85f4ea5fc9b7da6652a151868c15e0b8f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/05/25/KDDC/KDDC20160525_001527_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614055 negm_pos_2016_614055_13",
+      "sha256": "d6c789fe5524b48bc903f78b464a092ce3368a4e0c2bf2a65822d93f5c1d2a16",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/05/31/KCRP/KCRP20160531_232731_V06.gz"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KFFC_20160601_3 negq_KFFC_20160601_5 negq_KFFC_20160601_10 negq_KFFC_20160601_11",
+      "sha256": "f543d825c6db9ad30e8231ff3f35d99779f0bdf8f924a14b28b7454635297aa4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/06/01/KFFC/KFFC20160601_200058_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KSHV_20160618_1 negq_KSHV_20160618_2 negq_KSHV_20160618_6 negq_KSHV_20160618_8",
+      "sha256": "a30ff6d774011fb9cf83e6829ea92d2f9db21b5feb1ce3ac875a2603ad0fd4d0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/06/18/KSHV/KSHV20160618_164938_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614150 negm_pos_2016_614150_10",
+      "sha256": "7fd616f0bbb16b44ab29eab59a092b055a063dcb15f80d91045ac17928a01b7c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/07/04/KJKL/KJKL20160704_202725_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDDC_20160706_0 negq_KDDC_20160706_2 negq_KDDC_20160706_3 negq_KDDC_20160706_4 negq_KDDC_20160706_7",
+      "sha256": "58e8c1740c4aa95d7598e0e3c0284a2c6a6f0b61bd6b5acd5c20ed16a97c52e3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/07/06/KDDC/KDDC20160706_042307_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614191 negm_pos_2016_614191_0",
+      "sha256": "12099dd5b02fd1b131c5c22697a288956a911be85f30edd0bb6c9e6cd1de9327",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/07/10/KDGX/KDGX20160710_231430_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614193 negm_pos_2016_614193_13",
+      "sha256": "f22a146ef1e02c0888aead840198ac185ff542c29808b63bd941b88b9c2b7c35",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/07/11/KMPX/KMPX20160711_225008_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614376 negm_pos_2016_614376_12",
+      "sha256": "f4b66e06624f18b92f3d19517a59deb9e52d648c8bda2fb5822296c80b7e21c1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/09/18/KMAF/KMAF20160918_001246_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614449",
+      "sha256": "4ce7e96b058dd1132d8131827a88d48233e29c398dc1ed71e21a388619f9affb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/11/30/KFFC/KFFC20161130_200414_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2016_614417",
+      "sha256": "b6d4a72a72e7d07433e8676d2965f6c778cae7ec37626339f65b11aeb54b71a0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2016/11/30/KGWX/KGWX20161130_010522_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614500 negm_pos_2017_614500_1",
+      "sha256": "810edc5316e7c455ee2440300f0b6eec4173c827d7bd0d0a26d560ef15ff16d5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/01/03/KEOX/KEOX20170103_021551_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614529 negm_pos_2017_614529_0",
+      "sha256": "0acddd7a722f5b0a24c2c9c9c984da63a235c7d47fff472dcbcefcb09cf114fc",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/01/21/KMXX/KMXX20170121_135252_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614596",
+      "sha256": "ce2d955b29229a01cae519dd9c77615eb894246f71468939f53d2056bc44eeb6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/01/22/KMXX/KMXX20170122_195910_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614622 negm_pos_2017_614622_7",
+      "sha256": "413e73d794f995cfe102e62e17de2a62481064f74ac51a75e77c6cee554212c4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/02/08/KJAX/KJAX20170208_033713_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLVX_20170228_2 negq_KLVX_20170228_3 negq_KLVX_20170228_4 negq_KLVX_20170228_6 negq_KLVX_20170228_7",
+      "sha256": "1d9439672b0b0a924a119a78146e2ca8584c71757e357f918254286268332d3d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/02/28/KLVX/KLVX20170228_120142_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614699",
+      "sha256": "52d3594b3cb8ba259ba8af1a78097ba41233b0d58ca17e8cf5d55cc8ed5b60b8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/03/01/KLVX/KLVX20170301_110422_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614772",
+      "sha256": "bbc602fd3ba4175e3c31b7e2c6099e4b6ad4a6f351f304aa7e7a1bd1816e6246",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/03/07/KILX/KILX20170307_060139_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614778",
+      "sha256": "1ed17ca6289437d3cdf0b08b4f199ab7f60b6dada77f04bce78a28d8c86d14f5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/03/07/KILX/KILX20170307_071300_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614768",
+      "sha256": "a9a86c75e5a85d8a7dc91871865a44b6f0ff9f67733b2634987a169ee82c5fc1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/03/07/KLSX/KLSX20170307_051928_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614871 negm_pos_2017_614871_2",
+      "sha256": "6d75d13f4c7299db776e828f252aca4fd9c302fd675aed28ffb509a93a5da2d2",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/04/02/KLCH/KLCH20170402_144709_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_614885",
+      "sha256": "233219d99fd6ba02126289596be34d9e2e81a2b808df569771802296303b61e7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/04/02/KPOE/KPOE20170402_212302_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615100 negm_pos_2017_615100_3",
+      "sha256": "44f215bafab30148e992959b435926ac53694d07f6f6a2dd7cc477ea5e9f96f6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/05/04/KCLX/KCLX20170504_214850_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615117",
+      "sha256": "7954ad21323d0ef1d975840d17382141b72bf9c4b0b3209e97b37cc9ff6cc786",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/05/05/KAKQ/KAKQ20170505_111032_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615108 negm_pos_2017_615108_0",
+      "sha256": "745089daf87ff9a64f7356e9b5cdb7959b0ff93ef802aeb5e0005f9f061e02c6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/05/05/KCAE/KCAE20170505_020845_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KBGM_20170601_8 negq_KBGM_20170601_11",
+      "sha256": "81c6c40e9724c1584912ed770da1b025318f7148a8e73106e6bdb581f49d1f27",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/06/01/KBGM/KBGM20170601_002722_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615480 negm_pos_2017_615480_6",
+      "sha256": "9b10928ec34a68cd4160d77b4118166bdd2fdd159883c9c39b5169d65e044eab",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/06/23/KLVX/KLVX20170623_220221_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KEOX_20170715_0 negq_KEOX_20170715_1 negq_KEOX_20170715_2 negq_KEOX_20170715_5 negq_KEOX_20170715_7",
+      "sha256": "648f2f4362555f16c1b068e85009f82c98fb3e739bff58ab91e627ee87ee16f4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/07/15/KEOX/KEOX20170715_200945_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615589 negm_pos_2017_615589_5",
+      "sha256": "57abd34130370d866005455f7dec20c171d6c5fa5e1e24444796d8bb4bb150d6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/07/22/KDVN/KDVN20170722_001642_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615663 negm_pos_2017_615663_5",
+      "sha256": "5e1d1069dbe59e86e8b6c222ab6093c64927a35337d2b695b1656f18997d178b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/08/22/KBGM/KBGM20170822_205807_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615736 negm_pos_2017_615736_1",
+      "sha256": "c0c9135659776a71410dc5d71207d0dc51881cb6b95151fe23080d6019700557",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/09/10/KMLB/KMLB20170910_214521_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLCH_20171022_1 negq_KLCH_20171022_2 negq_KLCH_20171022_3 negq_KLCH_20171022_4 negq_KLCH_20171022_7",
+      "sha256": "9916988da470b1c3d5c3cb49bd34f85458ae7f73d6f1116bb8c0db87e1c536e9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/10/22/KLCH/KLCH20171022_134433_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615826 negm_pos_2017_615826_10",
+      "sha256": "50ab52b872bc4f64490f7c5b562600027e16cf850172c18571914a6945fb0e62",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/10/23/KGSP/KGSP20171023_191214_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615893 negm_pos_2017_615893_13",
+      "sha256": "b4f7a5315124dd835a0d588e1ca9680e56d288091adb402ee95644971a8657a6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/12/20/KLCH/KLCH20171220_073647_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2017_615891 negm_pos_2017_615891_2",
+      "sha256": "50d992ce4e0ee7d506dd81c88a0836a62b82b269ea53ba9dbef3abbc2e9abb7c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2017/12/20/KSHV/KSHV20171220_013137_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_615963 negm_pos_2018_615963_19",
+      "sha256": "503f6602657caca9aeaf89228d44e7ecb29986e61b27a3b0027ed38820773fb8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/03/06/KDGX/KDGX20180306_000647_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_615981 negm_pos_2018_615981_4",
+      "sha256": "1e96f3dd8beb0319de71a63cda50b61ff1e3217d8066e62a36e4632a793b7a74",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/03/19/KGWX/KGWX20180319_231455_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_615983 negm_pos_2018_615983_2",
+      "sha256": "a9050d400dc5b2a16040ad7aea422f74bf63e5db19c2985e92a5a73b9b5b6f49",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/03/19/KHTX/KHTX20180319_233256_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616028 negm_pos_2018_616028_0",
+      "sha256": "fb10e405901d98b2d347522a61e6bbf75f3a1a9f70ebbfad5cde2ff3a60d6bdb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/03/KNQA/KNQA20180403_230339_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616063 negm_pos_2018_616063_1",
+      "sha256": "c5e33369a0e59d3f7a707857c6a9f3896f49c22fc5c37766abb98dfd603cab5e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/13/KSHV/KSHV20180413_233106_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDMX_20180414_0 negq_KDMX_20180414_7 negq_KDMX_20180414_8 negq_KDMX_20180414_9",
+      "sha256": "8a9f575875ae3dd3b31bbfc0885740fe940f93118765b30d0a44ac1ad6ec13bf",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/14/KDMX/KDMX20180414_004400_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616099 negm_pos_2018_616099_12",
+      "sha256": "149090a3b196450d36a31bbff5b91a9018fedb67a760643a4041514feac0f066",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/14/KPOE/KPOE20180414_110512_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616144",
+      "sha256": "6c2d3a9f3698f894e892178d948ff53a8799dd6faf09ecaa03575c20743b01ff",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/22/KEVX/KEVX20180422_211519_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616139 negm_pos_2018_616139_10",
+      "sha256": "4ef3b14ce80240cede82d3ad404d61ac08d0e8dcb9746132f60cfec35754146d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/04/22/KMXX/KMXX20180422_190756_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616244 negm_pos_2018_616244_2",
+      "sha256": "c78d4f05a16895e8ae4d9cb6f92c7b978988588244afc1f6e2976dcb246dd59e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/05/20/KFCX/KFCX20180520_013502_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KFWS_20180607_3 negq_KFWS_20180607_5 negq_KFWS_20180607_10",
+      "sha256": "18c4cf519e5a5f0747182e618719c0102c5388ecf5a0db0c22ac07c733717be4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/06/07/KFWS/KFWS20180607_223833_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616464 negm_pos_2018_616464_0",
+      "sha256": "e69ce4d7791fe4de79b1a31c5867b2bf73117a217b59eee915fcbfe1adca9375",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/06/29/KUDX/KUDX20180629_220343_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KSGF_20180719_0 negq_KSGF_20180719_2 negq_KSGF_20180719_3 negq_KSGF_20180719_10",
+      "sha256": "f48f8a061c554253aa2e167084807eb109949030e88a744d73b221bcd2651b50",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/07/19/KSGF/KSGF20180719_233900_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KSGF_20180810_0 negq_KSGF_20180810_1 negq_KSGF_20180810_5 negq_KSGF_20180810_7 negq_KSGF_20180810_8",
+      "sha256": "eac3cd6080b6b9585eb18ee6bad83b197e2d547e495ead24f32e1a6d1cf27af9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/08/10/KSGF/KSGF20180810_221339_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616644 negm_pos_2018_616644_2",
+      "sha256": "31a7e27d4fbb6d602819990ae8505d3f3ee628a8eb888099b52a2c7ec291c121",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/08/29/KAPX/KAPX20180829_011621_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616673 negm_pos_2018_616673_6",
+      "sha256": "8caa625e980ce4382475193093827de5a421db757f12bceeec2ca572aca35403",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/09/14/KMHX/KMHX20180914_155823_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616722 negm_pos_2018_616722_2",
+      "sha256": "6151be809762c738057a235711e4558a25491ae1fc3619f7d36ba3afefce06b3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/09/20/KMPX/KMPX20180920_232304_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616807",
+      "sha256": "ea7ffa32efc74f491284f07d4d370af805fe9d59bec3e77d26ad9b14b64eb207",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/10/09/KDMX/KDMX20181009_220953_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616832 negm_pos_2018_616832_4",
+      "sha256": "fb4c30ddcfe392fa7e56183fbc49c3f52a7dbc671ec3d64f58e88784984608f7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/10/13/KFWS/KFWS20181013_180258_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616891",
+      "sha256": "2a6d39c991c4d21b084736baea59602c3f0ca77518072407a35ceabb272bd4ff",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/11/01/KLIX/KLIX20181101_083845_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616913 negm_pos_2018_616913_7",
+      "sha256": "c64315e816dc0c373a5322ddeac2e4803a55c20d96571f73d5b38f1c6ddaeae9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/11/02/KFCX/KFCX20181102_231426_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616971",
+      "sha256": "6c18e68ce2dfcdf2ff76fa63f9c2f81410b114084b9e757525d1faa55d3af7f0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/12/01/KILX/KILX20181201_204112_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616963 negm_pos_2018_616963_1",
+      "sha256": "7b9ba2ca23abdf2b2635dabd11e84b097c5642633914bc806af1f0327673d343",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/12/01/KSGF/KSGF20181201_064729_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2018_616996",
+      "sha256": "a6372402d1f3fac0b6be6094999dacb21b38ab41c64c5163773f67981d105aee",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2018/12/02/KILX/KILX20181202_011524_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617112 negm_pos_2019_617112_8",
+      "sha256": "fe3112a8b0b2d58b09106a89fc398447749c6579436afb093bcff80c7fef84a3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/03/04/KTLH/KTLH20190304_001628_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617150",
+      "sha256": "b9f6aeb37ee13d41344c163aa6a7c5ac4a01a3818679223af678dea30c40026a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/03/14/KBMX/KBMX20190314_210852_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617213",
+      "sha256": "4e1cbab50570c60e4a947da1a00ffe9c927f394f5b7935f4864e7caceee93ce0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/04/13/KDGX/KDGX20190413_220850_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617282",
+      "sha256": "b859d30635daea052c16d5ca0e5a27a60f4a44d72097bfc0c047f040d2ac6e1b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/04/18/KDGX/KDGX20190418_181128_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617289",
+      "sha256": "e7fa1196db514abda14cc36d818f3fe498b7ae312250c38d973988704d5eb4e6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/04/18/KDGX/KDGX20190418_194959_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617359 negm_pos_2019_617359_1",
+      "sha256": "cbaccf28bb4f64f5337c6408967a871ea9f20c8f6890f955154beacbb74b0615",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/04/19/KCCX/KCCX20190419_233051_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617440",
+      "sha256": "1006654f1c98325094a9b48886a26ec4c65cbf49e6dfb3ad11c47dc1305059fd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/01/KSGF/KSGF20190501_013637_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617514 negm_pos_2019_617514_0",
+      "sha256": "d0339cbce49445454f312121b662377c7733a9edb80d3cdecc82f9ff48b19a28",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/06/KVNX/KVNX20190506_045257_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617742 negm_pos_2019_617742_14",
+      "sha256": "1e46cb0356823886ac9a13c03dc5c9530ac6b3bca7e2d2ba500ba500e7976bc5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/23/KSGF/KSGF20190523_064815_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617780",
+      "sha256": "e7941a65d4827e599fd63e00075359c32bb2df8bdf03036ec78dadd864675585",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/25/KLBB/KLBB20190525_224211_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617774 negm_pos_2019_617774_2",
+      "sha256": "c432285201bc543e5be9e78746a2b0cf6237ccf1835c458305ff7aeb42ad625d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/25/KMVX/KMVX20190525_002935_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617795 negm_pos_2019_617795_1",
+      "sha256": "254eaab5d9a26cc31bed6ef072f217dba3efe89e422f01561a7eb74a0d5c72a6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/26/KILX/KILX20190526_042033_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617898 negm_pos_2019_617898_5",
+      "sha256": "81f339b36138d1f653600226e76b8fcf51e579d70c0da521dbe4c8f38373f644",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/05/28/KILN/KILN20190528_045929_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_617985",
+      "sha256": "b1cf3905b543fbc7da11d453ce358294b4e7262c58743e347d21ea135a8aec20",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/06/06/KLCH/KLCH20190606_073010_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618127 negm_pos_2019_618127_10",
+      "sha256": "dab5013dcacf53b0d77b948b0735e029920f80b130fb00ce34dbce1d3b47b661",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/06/24/KILN/KILN20190624_215517_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLBB_20190625_1 negq_KLBB_20190625_2 negq_KLBB_20190625_4 negq_KLBB_20190625_5 negq_KLBB_20190625_9",
+      "sha256": "e4e0aa184e860cb49d86524956107a522b2e5495b4a2c83b609bdd1db00d06a1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/06/25/KLBB/KLBB20190625_005636_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KSGF_20190710_0 negq_KSGF_20190710_1 negq_KSGF_20190710_2 negq_KSGF_20190710_3 negq_KSGF_20190710_4",
+      "sha256": "6d5ecb450881ff9226fb473399489e2128614faa285a4b52568b409cab4e8d47",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/07/10/KSGF/KSGF20190710_172900_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618216 negm_pos_2019_618216_15",
+      "sha256": "d75d5e14bb5d79ab9c9c2adfc1a3200f371127e3d539990adb75c1c739971b3a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/07/20/KGRB/KGRB20190720_161209_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618275 negm_pos_2019_618275_7",
+      "sha256": "9ed0d9a435da6d9456aae24cb63622161a9e88b11b8d8a9663636e6a65f7376d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/08/13/KILX/KILX20190813_020714_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KSGF_20190826_2 negq_KSGF_20190826_8",
+      "sha256": "44602177cf04beeeb8efcab7799660476bcee5ca02d0e0be6288eb23fe4a27b7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/08/26/KSGF/KSGF20190826_201022_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618448",
+      "sha256": "9f32f4c3137ce4fd18da267d7e53081d425c5704cb172fe80839df195fc05980",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/10/21/KNQA/KNQA20191021_104823_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618443 negm_pos_2019_618443_5",
+      "sha256": "a345ec0a6637eb5aa932e9d8a516c0d430e52f1f0d53f1634d2601158bbcb471",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/10/21/KSGF/KSGF20191021_071041_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KLCH_20191029_0 negq_KLCH_20191029_4 negq_KLCH_20191029_5 negq_KLCH_20191029_6 negq_KLCH_20191029_8",
+      "sha256": "1a5ec0a83a0818f9e4d2d3e4c12cf4163a6ededed3814095257f30f39956ba3e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/10/29/KLCH/KLCH20191029_212749_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2019_618504 negm_pos_2019_618504_8",
+      "sha256": "af4c62c3e1f4d2bafbec5912319fe2df4bb3fb4300dcf3ce90feb0ad03f95bc3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2019/12/16/KDGX/KDGX20191216_224205_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618601",
+      "sha256": "889dfea1c3203fc28fb035ff3dfeaa6e22f9038cf3640ad1c184f90d03546835",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/01/11/KHPX/KHPX20200111_131147_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618565",
+      "sha256": "c9984f5a67b88410ff8ec41c212d776f1a69c21e8c7eba4a98716a404c776b4f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/01/11/KPAH/KPAH20200111_065257_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618584",
+      "sha256": "83f58a1e6d73bd41731134a0c75531d37be5e2dcc892506c178088e944ad07e7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/01/11/KPAH/KPAH20200111_103811_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618645 negm_pos_2020_618645_14",
+      "sha256": "2cd999a71c35ab59240a6727adba50d39063ba51f71de8332109092fc43e755b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/02/06/KBMX/KBMX20200206_080023_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618642 negm_pos_2020_618642_0",
+      "sha256": "98d5d5ca5a7e2d534faf26289af432982cec139f866a4353ac737960879765c0",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/02/06/KOHX/KOHX20200206_015311_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618715 negm_pos_2020_618715_3",
+      "sha256": "669b3a8a232ce1622bcd0e8ca6b0fdbc9ae877b2f7c8832db79106041d5f796c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/03/24/KGWX/KGWX20200324_222409_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618746",
+      "sha256": "5813fd93eb7df26ce6298011a2e394cedb2f9a49fe6be5f5b1bccc5cadea81f9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/03/31/KEOX/KEOX20200331_163610_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618831 negm_pos_2020_618831_2",
+      "sha256": "39aaa8134019baa1f21bcd2d162a289b0a4c14b802a3a7f438ac16dead718778",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/12/KHTX/KHTX20200412_231012_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618893",
+      "sha256": "df4513522f3a7a9260cfdb5f9170b600df1f0e58dee0af965c5e2c6f45f350f7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/13/KCLX/KCLX20200413_104227_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618896",
+      "sha256": "55965ad47c558541f9c1f8e946f9b0930de23fd5ed5906c4c24dd712f2b1836c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/13/KCLX/KCLX20200413_104928_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618835 negm_pos_2020_618835_0",
+      "sha256": "4b69e3d69b6c96419114b03d1b0d4869433157bb7e42b6546a70d645a1dae2a4",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/13/KGWX/KGWX20200413_011141_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618878",
+      "sha256": "3482319abbbaf58a35489bc8fcb1d4cb0324b4f15fef2e01a3eabb24d7278e2c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/13/KJGX/KJGX20200413_085512_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618887 negm_pos_2020_618887_5",
+      "sha256": "3bf6495764aadc388cfae2f0a4deb8dc127219a02d532e8451f919a06dcf8ddc",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/13/KVAX/KVAX20200413_100129_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618945",
+      "sha256": "d4f9c62a6f4138cfc6f3f5e05d2397d4ec5da55ed74bf2aec7032a7fa50ff9eb",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/20/KMOB/KMOB20200420_044727_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_618949 negm_pos_2020_618949_14",
+      "sha256": "4b198b022e9f85bc9c54894d3fadc53f2b74a019ef30ab2bced3a71aa8a29d04",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/04/20/KTBW/KTBW20200420_133424_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_619073 negm_pos_2020_619073_3",
+      "sha256": "7bc5dee8d729eaf52f388d0a361a1cdbbe5432e89efc184ce7e99e1790965ce2",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/05/21/KRAX/KRAX20200521_195246_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KVAX_20200623_6 negq_KVAX_20200623_9 negq_KVAX_20200623_10",
+      "sha256": "5eebfaff854b7a0496a98dbc0fc446fa18471d7e2f0193c41904ef88e62ff784",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/06/23/KVAX/KVAX20200623_173246_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_619218",
+      "sha256": "ac48756154dd2ed3ca8a5e98b44677e300eca2a36aa411314a2d7a6f765b25ac",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/06/24/KMOB/KMOB20200624_173125_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KVAX_20200730_0 negq_KVAX_20200730_5 negq_KVAX_20200730_6 negq_KVAX_20200730_8 negq_KVAX_20200730_9",
+      "sha256": "bdeddd98cde2158adc1667d50df0b4d2327861e393e2b57a6ad0977f503ba7b1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/07/30/KVAX/KVAX20200730_194504_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KJGX_20200830_0 negq_KJGX_20200830_3 negq_KJGX_20200830_5 negq_KJGX_20200830_7 negq_KJGX_20200830_8",
+      "sha256": "bb589fd0b1f2b59308e14b56bc8f70f6ddbfb41e54591cac268e201c18fe6371",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/08/30/KJGX/KJGX20200830_213740_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_619533 negm_pos_2020_619533_2",
+      "sha256": "9153e073420fcdd9006d316fcbfea0bbc81687721fafa96045f8fc4806cc05f2",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/09/17/KCLX/KCLX20200917_065437_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KRAX_20200929_0 negq_KRAX_20200929_1 negq_KRAX_20200929_2 negq_KRAX_20200929_3 negq_KRAX_20200929_5",
+      "sha256": "b55e1cbab678ecf6811aa27c3b2faf4f5fdb818166f6f0df1d09ab51ec8d9683",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/09/29/KRAX/KRAX20200929_220518_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_619579 negm_pos_2020_619579_15",
+      "sha256": "fc01e13f2437e712ecb4aaec8acd6c6dae5b6976a1da3211d04151db9f40db7e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/11/10/KDVN/KDVN20201110_205908_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2020_619594 negm_pos_2020_619594_17",
+      "sha256": "cd9a0109bebf409bed9ca2b7e44375382e2c04c0f02ad2e88eb9c31961a9a296",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2020/11/30/KDOX/KDOX20201130_193426_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_619682",
+      "sha256": "0f84d8561a36bc5e8ddbf7e0c56eab62daa412e7e62413fb9d0ad7d827d1ee66",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/03/17/KDGX/KDGX20210317_170032_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KARX_20210427_0 negq_KARX_20210427_1 negq_KARX_20210427_3 negq_KARX_20210427_5 negq_KARX_20210427_6",
+      "sha256": "6dc861e551f20f3222cd0d7220cef7ed620e66dd96f6ad4741f207c87cfcf85a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/04/27/KARX/KARX20210427_063042_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KDDC_20210503_0 negq_KDDC_20210503_1 negq_KDDC_20210503_3 negq_KDDC_20210503_9 negq_KDDC_20210503_11",
+      "sha256": "e9523620eca0f969a9aaafa8762a182cfc31847a7dc7384d8cf3ce86cb491467",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/05/03/KDDC/KDDC20210503_010547_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_619953 negm_pos_2021_619953_17",
+      "sha256": "7246d7329d3aef301164bf05ff3a599ad24f78a250e7c05d6a356b7ebb0467fd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/05/04/KCCX/KCCX20210504_185113_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_619921",
+      "sha256": "61d4e0f885fbbd53cc8dbd3404b8d1ef9eef0d036b7e2899dc4ab62ff55dc469",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/05/04/KFWS/KFWS20210504_014141_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620134 negm_pos_2021_620134_14",
+      "sha256": "0ed0877b2c504ff3ff0d4e85b318b42b0764878196c762bbae3884fd3e87b6df",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/06/03/KLTX/KLTX20210603_234351_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KPBZ_20210613_1 negq_KPBZ_20210613_3 negq_KPBZ_20210613_4 negq_KPBZ_20210613_8 negq_KPBZ_20210613_10",
+      "sha256": "e2daeceef8b86a86b0ed210f1b6ef7ae124d2080f28e27f9a5bd7fe9e0734565",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/06/13/KPBZ/KPBZ20210613_222416_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620167 negm_pos_2021_620167_0",
+      "sha256": "910ddb3347c1486294fed8c75cae200cb0b140a358c08ec3a598f5c9730b2177",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/06/18/KILX/KILX20210618_164822_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620195",
+      "sha256": "0178b0dc0c56567ce02086e27efd3e3688961c7cfb6de864ef1361ccdf0078f6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/06/21/KIWX/KIWX20210621_060625_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620233 negm_pos_2021_620233_3",
+      "sha256": "4a6ec84491dc5ca7b559e2993c57bd2b25743ee174c9810183f6d1c6445b66ca",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/07/02/KLWX/KLWX20210702_010035_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620326",
+      "sha256": "4024210e89e879d0d6dce07345d7a70bba673a2d4652a067e5016ca6a8be97d7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/07/29/KMKX/KMKX20210729_063923_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620334",
+      "sha256": "d93c4149798b244de26ae3829ef9700fb889e526d3be8983c5245079c801a14d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/07/29/KPBZ/KPBZ20210729_205947_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620355 negm_pos_2021_620355_6",
+      "sha256": "3d5693e266c7256fd2d41e8c73af8ca632fe605e60be10e152414c03240b919a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/07/30/KDIX/KDIX20210730_010435_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620400 negm_pos_2021_620400_9",
+      "sha256": "eb70eaf42ca3e77902f62cc56fcef484b4bc36e270634dd9b31e47446dec91ed",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/08/11/KARX/KARX20210811_185638_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KIWX_20211012_0 negq_KIWX_20211012_1 negq_KIWX_20211012_2 negq_KIWX_20211012_3 negq_KIWX_20211012_5",
+      "sha256": "7d25e76b3bae5e79455887f529243eb44f060322e226b6e311e08bdc8959ea41",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/10/12/KIWX/KIWX20211012_013042_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620589",
+      "sha256": "d78d944d6f6f039f2ee79a05defe99a47698a228f3a2cce61d408ca54557d296",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/10/13/KDDC/KDDC20211013_022242_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620630 negm_pos_2021_620630_2",
+      "sha256": "a609db2204a47d66fb8546ba887c1437e157f12c1b8ed2b4b0fe775c0d8ffb55",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/10/16/KCCX/KCCX20211016_120801_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620667 negm_pos_2021_620667_2",
+      "sha256": "bf98b004c43130b2bd06a303c0266c6feeb89f55bf5c13ceaef98d192a511f62",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/10/26/KFCX/KFCX20211026_000206_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620758 negm_pos_2021_620758_12",
+      "sha256": "a5be9c332282244b4255a9d3e74506ef8bbae5a41464f339998c435583d00d9a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/12/11/KLVX/KLVX20211211_060716_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620742",
+      "sha256": "3a26e8fde18da36d7295dd297d986cb188df3b074c808aaf23a444b2cf49118d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/12/11/KNQA/KNQA20211211_023037_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620806 pos_2021_620805",
+      "sha256": "14eae313d9c5e367fbf037d123516e9490374f27e1c4e0f4c6f231e0ff0b8fb6",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/12/15/KOAX/KOAX20211215_210117_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620812",
+      "sha256": "bd5de8d24cd64646e0ecb41ba1701679fc395e8e9fa8e277052b555e6ed5e8e5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/12/15/KOAX/KOAX20211215_214106_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2021_620803",
+      "sha256": "73f935369500dce530b22a49ca35b588fb521c89e0a31993d94c65b910ced69e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2021/12/15/KUEX/KUEX20211215_202523_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621034 negm_pos_2022_621034_7",
+      "sha256": "5358633bb942c86544d15ff20e09c916c7e64337cfa333b4da16916bde141ed1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/16/KTBW/KTBW20220316_182429_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621106 negm_pos_2022_621106_2",
+      "sha256": "031f5244281d29fa33bc0b9eec73ced2dfddaa7bb373a4efab4b6d92dad0bbdd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/22/KGWX/KGWX20220322_200142_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621077 negm_pos_2022_621077_7",
+      "sha256": "c1de4c45d3eb84aea70b46c091ec3b0a78951f1435711cb61aa0a474bb96f9bd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/22/KSHV/KSHV20220322_043217_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621163 negm_pos_2022_621163_0",
+      "sha256": "1cca125d279c1e1074aee33e5d9a3ff2c621b61554924ec52f9b1bd2339ddbfe",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/30/KGWX/KGWX20220330_222523_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621188 negm_pos_2022_621188_5",
+      "sha256": "95c442ea9525a367143aa8941205448ce6d03753a5e0cf1f3658ff897addb935",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/31/KGWX/KGWX20220331_020336_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621182",
+      "sha256": "68862993d2f94adaae2f7c8005d2c257c9a8c1d9c42da85479198ea4f3973746",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/31/KMOB/KMOB20220331_013940_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621210",
+      "sha256": "22fb607a8508e56a90a2371f6f1e899a97f4844fd8339a095bf5a1b0fcd52093",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/03/31/KMOB/KMOB20220331_053059_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621281",
+      "sha256": "4d62033b189f3db778ef54e472ec7b66b893c3f9b8b4447e803c89535a3325e9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/04/05/KJGX/KJGX20220405_211530_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621347",
+      "sha256": "87ec4a7beb7c03ef9975bf350a1c0c1b9b74e6c56c29bace39d6151cb1a4fdc7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/04/13/KDGX/KDGX20220413_211644_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621324",
+      "sha256": "ae18640a67a6908aae42c99a41626e48ae5809c8828a2cb5fe7c9c5c8e1f1789",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/04/13/KOAX/KOAX20220413_012523_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KFSD_20220422_0 negq_KFSD_20220422_1 negq_KFSD_20220422_3 negq_KFSD_20220422_4 negq_KFSD_20220422_5",
+      "sha256": "0a15435f64aaefbdc47912f9ead9bb77d532d05a3119c076e060e357d6867d3c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/04/22/KFSD/KFSD20220422_105114_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621419",
+      "sha256": "aba94ff1e7832999663fa54b56859eabcd45a5d0ea94ccc8d8babb27f9c4afd7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/04/30/KOAX/KOAX20220430_010450_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621476 negm_pos_2022_621476_1",
+      "sha256": "df05e9d50e194b4541fabc73d91bab1e4bb655abdea522bd1165f1e5232fd875",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/05/KSRX/KSRX20220505_070803_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621518 negm_pos_2022_621518_6",
+      "sha256": "02451e6f8399030a58b86684bc0d8748c226006ca9bfc07acef2d58741250076",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/12/KFSD/KFSD20220512_230124_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KOAX_20220518_0 negq_KOAX_20220518_6 negq_KOAX_20220518_9 negq_KOAX_20220518_10 negq_KOAX_20220518_11",
+      "sha256": "dcc66473f691dc90aea92b409f0c5ca7afe40bfb0daafe167e4611d6042e9ea7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/18/KOAX/KOAX20220518_061654_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621562",
+      "sha256": "023808758fd2578df86029ef8177d01cdefe5cf791b3c69258e7767f519e0487",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/19/KLSX/KLSX20220519_201831_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KGWX_20220524_1 negq_KGWX_20220524_3 negq_KGWX_20220524_4 negq_KGWX_20220524_6 negq_KGWX_20220524_7",
+      "sha256": "3142449ab71319a966c67b64a3a5fb5b5578294c00ac1d390045dbe6c71f98bd",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/24/KGWX/KGWX20220524_220646_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621613 negm_pos_2022_621613_2",
+      "sha256": "152ca7c1c865f0fb651b5f4e598b209f7e01725c699db4a121e9e26eeed9608c",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/26/KJKL/KJKL20220526_234907_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621630",
+      "sha256": "c660cf843d8f4a6f3e46e82a2c4cf4f301abf249044a1f3bb5122dd56a9fdd3a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/05/30/KFSD/KFSD20220530_070214_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621675 negm_pos_2022_621675_12",
+      "sha256": "d17dae971bec44e50192e63190ae353c70aeb2ed6026fc210529656129944f61",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/06/01/KFDR/KFDR20220601_033006_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621704 negm_pos_2022_621704_1",
+      "sha256": "ca9cffed721ba8acc90b99ae3ffdbb1df168160b59ca3176bc7d9231d9299e69",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/06/08/KEAX/KEAX20220608_061047_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KJKL_20220622_3 negq_KJKL_20220622_6 negq_KJKL_20220622_10",
+      "sha256": "e69aaf630c8eb9f45ae1d5a795359555fb2b920a6c115e9677a7f054b844a191",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/06/22/KJKL/KJKL20220622_222752_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621973 negm_pos_2022_621973_1",
+      "sha256": "9bb6db268fbd7b7fbb2caf1ebd40bfd324714b377bd28ddb44d1054bff4fbb9a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/11/04/KSRX/KSRX20221104_235758_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2022_621999 negm_pos_2022_621999_2",
+      "sha256": "5216f21888c449a9dd3e622df6a0b9a012afe476209f88c634eca0814a2e9921",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2022/11/29/KDGX/KDGX20221129_231014_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622101",
+      "sha256": "0a58ee35d29312a98d3c9319ef83f852d4032ddf983fad6603f34c63a604b13e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/01/03/KBMX/KBMX20230103_171859_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622102 negm_pos_2023_622102_10",
+      "sha256": "27e6d59c4e8079b289134fd085ae8ddb89f48de4330d44ead94ac98ca6fa6fef",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/01/03/KBMX/KBMX20230103_180745_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622141",
+      "sha256": "d669005ad171a3faf7e2a5e5742b5dce83ab01fb550f2a63e7907b1747772ab3",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/01/12/KGWX/KGWX20230112_123118_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622188",
+      "sha256": "2c2770e7af92cf8ac3b9a9238334f95bdc1a14ac86b211d9311893ec73cb0d8a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/01/22/KTLH/KTLH20230122_174249_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622241 negm_pos_2023_622241_11",
+      "sha256": "89b0b5b75e879c1ab1a7d49826efb53fc2a9b9b4bd11ccda0bb4166ddd94866d",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/02/27/KFDR/KFDR20230227_012134_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KIWX_20230322_2 negq_KIWX_20230322_3 negq_KIWX_20230322_4 negq_KIWX_20230322_5 negq_KIWX_20230322_6",
+      "sha256": "f6289c8814d513d6200df43cc3eddb26531168e228cb7bdc2828cc3518e0bf88",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/03/22/KIWX/KIWX20230322_214454_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622325",
+      "sha256": "a960c2ea4b07e386b206114e4ac38a151865d069cf83573a378a90a6042120f1",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/03/25/KHTX/KHTX20230325_041412_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622363",
+      "sha256": "575c31a44418029b61d03efd4d0697e79f6504f18d9ee69853a3f8342fe619e5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/03/31/KDVN/KDVN20230331_214533_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622369",
+      "sha256": "ae9fc3d9cf6fbc0ce59476aac8183355c46c75910e276b91412efedba679ad5e",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/03/31/KDVN/KDVN20230331_220458_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622389",
+      "sha256": "bdee140dc95aa262489115454c5f47fe788ba760cc01eba51cc64d55b08effb5",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/03/31/KDVN/KDVN20230331_233537_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622487",
+      "sha256": "78f8f5d6142ed618c44979b3a476b7e4012ca2aa9f5f507c0d1ac351e01baf55",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/04/01/KDOX/KDOX20230401_215907_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622411 negm_pos_2023_622411_4",
+      "sha256": "15861af8a3939c61eb1badf8c496294df50b44a68ac2d6ec6553c634d778e3b8",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/04/01/KMKX/KMKX20230401_004403_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622480 negm_pos_2023_622480_1",
+      "sha256": "347783113da66a1ce8cb0f5477bc05a0ecfef1a505f04a45e93109e31e28fda7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/04/01/KOHX/KOHX20230401_063855_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622622 negm_pos_2023_622622_0",
+      "sha256": "b6b600d5689abfb6b6216a2a1fa5f004076ea472173cf44a2cb05aa255007980",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/04/30/KTBW/KTBW20230430_103324_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622643",
+      "sha256": "9117717a9c0efc02d3b4195078991e1239a8a998e5351421b987a7e3a1f93aec",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/05/07/KLVX/KLVX20230507_125247_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KILX_20230514_0 negq_KILX_20230514_1 negq_KILX_20230514_6 negq_KILX_20230514_8",
+      "sha256": "3f0a1000a709708c8c217233328d1564df761a47db26ed937271ce23bee4f67a",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/05/14/KILX/KILX20230514_220028_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KTLH_20230610_2 negq_KTLH_20230610_4 negq_KTLH_20230610_5 negq_KTLH_20230610_6 negq_KTLH_20230610_7",
+      "sha256": "019ee3ffb75e8a6ab067cdac2fbba73f08612c7483262eda0362412ebc6ec846",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/06/10/KTLH/KTLH20230610_210947_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_622881 negm_pos_2023_622881_18",
+      "sha256": "bfd16ca19b3ace4ff8a01d2e991d195d98a7eaef175fd8d406927595e7b9c3d7",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/06/16/KMOB/KMOB20230616_130209_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_623032 negm_pos_2023_623032_20",
+      "sha256": "7d200419a9518fe92b8191fcd794b9811fdba81a3b97f77614a6845c6f29f2ba",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/06/29/KILX/KILX20230629_171224_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_623152 negm_pos_2023_623152_2",
+      "sha256": "a943e72d5e358431b03904275079107f453e254d7d8754b3f60ded86306c1d75",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/07/29/KIWX/KIWX20230729_065549_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_623181 negm_pos_2023_623181_15",
+      "sha256": "1c7b312f36f9b337f641ffb75960d1a9817fb42253d8961699358d0f3ee383d9",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/08/07/KLVX/KLVX20230807_042515_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_623234 negm_pos_2023_623234_1",
+      "sha256": "f64b820cd0c953a080dc0cc66cc5b8e4c899bd076feb0a2cdae3d5ecec49832f",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/08/12/KILN/KILN20230812_164508_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; negq_KMOB_20230815_1 negq_KMOB_20230815_2 negq_KMOB_20230815_11",
+      "sha256": "e9968b0440e033d0ff7b214d5451fd29a6422ed3abbcc1cc8268766bf1352a56",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/08/15/KMOB/KMOB20230815_224547_V06"
+    },
+    {
+      "description": "NEXRAD Level-II volume; pos_2023_623282 negm_pos_2023_623282_8",
+      "sha256": "f9697a7a5579675aa9e42a03fd32ca9a64372e13ecdc89af0404a9de750f198b",
+      "url": "https://unidata-nexrad-level2.s3.amazonaws.com/2023/08/25/KCLE/KCLE20230825_041358_V06"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "mesocyclone recall at the deployed decision (meso_prob >= checkpoint-carried tau vs v_rot >= 15 m/s) must not regress below physics",
+        "higher_is_better": true,
+        "metric": "meso_recall_deployed"
+      },
+      {
+        "description": "false-alarm rate at the deployed decision must not exceed physics",
+        "higher_is_better": false,
+        "metric": "meso_far_deployed"
+      }
+    ],
+    "extras": {
+      "auc_delta_bootstrap": {
+        "ci95_high": 0.24473060344827574,
+        "ci95_low": -0.0024030172413792915,
+        "method": "stratified paired bootstrap over test windows (class counts preserved; percentile interval)",
+        "n_resamples": 1000,
+        "observed_delta": 0.12327586206896546,
+        "seed": 20260709
+      },
+      "comparison": "identical held-out (61, 64) m/s windows through TornadoDetector.predict_tornado, physics fallback vs loaded checkpoint",
+      "dataset_year_counts": {
+        "2011": 43,
+        "2012": 47,
+        "2013": 51,
+        "2014": 54,
+        "2015": 54,
+        "2016": 51,
+        "2017": 50,
+        "2018": 51,
+        "2019": 49,
+        "2020": 49,
+        "2021": 49,
+        "2022": 50,
+        "2023": 48
+      },
+      "ef_stratified_recall_deployed": {
+        "ef1": {
+          "learned": 0.35294117647058826,
+          "n": 34,
+          "physics": 0.17647058823529413
+        },
+        "ef2_plus": {
+          "learned": 0.3333333333333333,
+          "n": 6,
+          "physics": 0.5
+        }
+      },
+      "fetch_counts": {
+        "budget_exhausted": false,
+        "marginal_negatives": 160,
+        "positives": 260,
+        "quiet_negatives": 226,
+        "volume_bytes_downloaded": 3945724623,
+        "volumes_downloaded": 330
+      },
+      "learned_parameter_count": 637251,
+      "median_inference_latency_ms": {
+        "learned": 2.5056024999798865,
+        "physics": 0.5349584999976287
+      },
+      "metric_choice": "primary auc is over the deployed-outputs score rotation_velocity_ms + 100*mesocyclone_detected: the composite result.confidence quantizes to {0, 0.5} for radar-only input (see auc_composite_confidence), and for the physics path the combined score is a strictly monotone transform of its rotational velocity (detection IS v_rot >= 15), so physics AUC equals its continuous-ranking AUC",
+      "operating_point": "learned mesocyclone decision uses the validation-selected threshold carried by the checkpoint (see payload['operating_point']); physics decision is its fixed v_rot >= 15 m/s rule -- each path is scored on its own deployed rule",
+      "operating_point_record": {
+        "far_ceiling": 0.041379310344827586,
+        "meso_prob_threshold": 0.8953932283911854,
+        "policy": "mesocyclone_detected = meso_prob >= tau; tau maximizes val CSI subject to val recall >= max(physics val recall, 0.5) AND val FAR <= 0.8 * physics val FAR",
+        "recall_floor": 0.5,
+        "recall_floor_met": true,
+        "val_csi": 0.4878048780487805,
+        "val_far": 0.017241379310344827,
+        "val_far_physics": 0.05172413793103448,
+        "val_recall": 0.5,
+        "val_recall_physics": 0.175
+      },
+      "rotation_mae_note": "physics rotation_mae_pos_ms is 0 by construction (its deployed output IS the reference observable); reported for the learned model as a regression-quality measure, not gated",
+      "sites_used_test": [
+        "KBMX",
+        "KCLE",
+        "KDGX",
+        "KDOX",
+        "KDVN",
+        "KEAX",
+        "KFDR",
+        "KFSD",
+        "KGWX",
+        "KHTX",
+        "KILN",
+        "KILX",
+        "KIWX",
+        "KJGX",
+        "KJKL",
+        "KLSX",
+        "KLVX",
+        "KMKX",
+        "KMOB",
+        "KOAX",
+        "KOHX",
+        "KSHV",
+        "KSRX",
+        "KTBW",
+        "KTLH"
+      ],
+      "test_ef_distribution": {
+        "-1": 58,
+        "1": 34,
+        "2": 5,
+        "3": 1
+      },
+      "test_kind_counts": {
+        "marginal_negative": 23,
+        "positive": 40,
+        "quiet_negative": 35
+      },
+      "volume_bytes_fetched": 3945724623,
+      "volumes_fetched": 330
+    },
+    "failed_constraints": [],
+    "higher_is_better": true,
+    "hook": "tornado_radar",
+    "learned": {
+      "auc": 0.8099137931034482,
+      "auc_composite_confidence": 0.6577586206896552,
+      "auc_rotation_only": 0.8051724137931034,
+      "meso_csi_deployed": 0.3333333333333333,
+      "meso_far_deployed": 0.034482758620689655,
+      "meso_recall_deployed": 0.35,
+      "rotation_mae_pos_ms": 4.568979733996093
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 98,
+    "physics": {
+      "auc": 0.6866379310344828,
+      "auc_composite_confidence": 0.5435344827586207,
+      "auc_rotation_only": 0.6866379310344828,
+      "meso_csi_deployed": 0.1875,
+      "meso_far_deployed": 0.13793103448275862,
+      "meso_recall_deployed": 0.225,
+      "rotation_mae_pos_ms": 0.0
+    },
+    "primary_metric": "auc",
+    "primary_metric_wins": true,
+    "test_years": [
+      2022,
+      2023
+    ]
+  },
+  "git_commit": "0d8418d3be54e88a4ee0a9a96c04391a4d9b93de",
+  "hook": "tornado_radar",
+  "seed": 20260709
+}

@@ -1112,8 +1112,15 @@ def _select_operating_point(
     0.60) AND false-alarm rate <= 0.8 * physics val FAR (both mirror the ship
     gate's secondary constraints, with headroom for the val->test shift the
     gate does not forgive); among feasible thresholds pick the one maximizing
-    CSI (ties -> higher threshold, fewer false alarms). Physics recall/FAR on
-    validation come from the exact parity helpers
+    CSI (ties -> higher threshold, fewer false alarms). When physics is
+    perfectly precise on validation (FAR = 0) the ``0.8 * FAR`` ceiling
+    collapses to an unsatisfiable zero -- the deployed confidence saturates at
+    1.0, so the worst noise trace ties the real events and no threshold both
+    detects earthquakes and posts zero false alarms; the fallback then keeps
+    the lowest-FAR threshold that still clears the recall floor (a real
+    deployable rule, ``recall_floor_met=False`` recording the branch) and lets
+    the merit gate adjudicate FAR honestly on the held-out test years. Physics
+    recall/FAR on validation come from the exact parity helpers
     (:func:`_physics_confidence_parity`); the evaluate stage still measures
     both paths through the public detector API on the held-out TEST years.
 
@@ -1129,9 +1136,9 @@ def _select_operating_point(
         recall/FAR/CSI for both the learned rule and physics).
 
     Raises:
-        RuntimeError: When validation has a single class, or when not even
-            the FAR ceiling is satisfiable (a doomed operating point must not
-            be recorded).
+        RuntimeError: When validation has a single class, or when not even the
+            recall floor is reachable at any threshold (a classifier head that
+            cannot drive an alert decision must not be recorded).
     """
     raw = _load_subset(ctx, "val")
     labels = raw["label"].astype(bool)
@@ -1183,6 +1190,16 @@ def _select_operating_point(
         )
     )
     best: dict[str, Any] | None = None
+    # Fallback for the perfectly-precise-physics regime. When physics posts
+    # zero validation false alarms, ``0.8 * physics_far`` collapses to an
+    # unsatisfiable zero: the detector caps the deployed confidence
+    # (``eq_prob + 0.2 * resonance``) at 1.0, so the worst noise trace ties the
+    # real events and NO threshold both detects earthquakes and posts zero
+    # false alarms. Recording a recall-0 threshold would be a broken alert rule
+    # (and would fail load_neural_weights' 0<tau<1 guard anyway), so the
+    # fallback keeps the lowest-FAR threshold that still clears the recall floor
+    # (ties -> higher CSI, then higher tau) and lets the merit gate adjudicate
+    # FAR honestly on the held-out test years.
     fallback: dict[str, Any] | None = None
     for tau in taus:
         recall, far, csi = _rule_metrics(float(tau))
@@ -1192,11 +1209,16 @@ def _select_operating_point(
             "val_far": far,
             "val_csi": csi,
         }
-        # Fallback if no threshold satisfies both floors: the best-recall
-        # point that at least respects the FAR ceiling (a recall-maximizing
-        # fallback that blows the ceiling would be selecting a point the
-        # ship gate is guaranteed to refuse).
-        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+        if recall >= recall_floor and (
+            fallback is None
+            or far < fallback["val_far"]
+            or (far == fallback["val_far"] and csi > fallback["val_csi"])
+            or (
+                far == fallback["val_far"]
+                and csi == fallback["val_csi"]
+                and entry["detection_threshold"] > fallback["detection_threshold"]
+            )
+        ):
             fallback = entry
         if (
             recall >= recall_floor
@@ -1212,9 +1234,9 @@ def _select_operating_point(
     chosen = best if best is not None else fallback
     if chosen is None:
         raise RuntimeError(
-            "no learned threshold satisfies even the false-alarm ceiling on "
-            "validation; the classifier head is not usable for alert "
-            "decisions -- refusing to record a doomed operating point"
+            "no learned threshold reaches the recall floor on validation; the "
+            "classifier head cannot drive an earthquake alert decision -- "
+            "refusing to record a doomed operating point"
         )
     logger.info(
         "operating point: threshold %.6f (val recall %.4f / FAR %.4f / CSI %.4f; "
