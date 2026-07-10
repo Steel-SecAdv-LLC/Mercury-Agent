@@ -480,16 +480,22 @@ def _select_operating_point(
 ) -> dict[str, Any]:
     """Choose the storm-onset threshold for the storm-probability head.
 
-    Policy (recall-floor, documented for owner ratification): on the
-    VALIDATION years only, require the dual-rule decision
-    ``(kp_pred >= 5) OR (storm_prob >= tau)`` to reach a storm recall of at
-    least ``max(physics validation recall, 0.55)``; among feasible thresholds
-    pick the one maximizing CSI (ties -> higher tau, i.e. fewer false
-    alarms). This exists because the MSE-trained Kp point estimate regresses
-    toward the mean on a ~3%-storm dataset, so thresholding it at Kp>=5
-    halves recall versus physics even though its ranking (AUC) is far
-    better; the BCE-trained storm head carries that ranking and must drive
-    the onset decision.
+    Policy (documented for owner ratification): on the VALIDATION years
+    only, require the dual-rule decision ``(kp_pred >= 5) OR
+    (storm_prob >= tau)`` to reach a storm recall of at least
+    ``max(physics validation recall, 0.55)`` AND a false-alarm rate of at
+    most ``0.8 * physics validation FAR`` (the 20% headroom guards the
+    val->test distribution shift the ship gate's hard FAR constraint does
+    not forgive); among feasible thresholds pick the one maximizing CSI
+    (ties -> higher tau, i.e. fewer false alarms). Both selection targets
+    mirror the ship gate's secondary constraints — an operating point chosen
+    against only one of them can win recall while regressing FAR by a
+    rounding error and be refused (the first candidate did exactly that:
+    test FAR 3.183% vs physics 3.139%). This machinery exists because the
+    MSE-trained Kp point estimate regresses toward the mean on a ~3%-storm
+    dataset, so thresholding it at Kp>=5 halves recall versus physics even
+    though its ranking (AUC) is far better; the BCE-trained storm head
+    carries that ranking and must drive the onset decision.
 
     Returns:
         Operating-point record stored in the checkpoint payload and the
@@ -516,6 +522,7 @@ def _select_operating_point(
     physics_far = float(np.mean(phys_detect[~storm_true]))
 
     recall_floor = max(physics_recall, 0.55)
+    far_ceiling = 0.8 * physics_far
     kp_detect = kp_pred >= 5.0
 
     def _dual_metrics(tau: float) -> tuple[float, float, float]:
@@ -539,23 +546,38 @@ def _select_operating_point(
             "val_far": far,
             "val_csi": csi,
         }
-        if fallback is None or recall > fallback["val_recall"]:
+        # Fallback if no threshold satisfies both floors: the most
+        # conservative feasible-on-FAR point with the best recall (a
+        # recall-maximizing fallback that blows the FAR ceiling would be
+        # selecting a point the ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
             fallback = entry
-        if recall >= recall_floor and (
-            best is None
-            or csi > best["val_csi"]
-            or (csi == best["val_csi"] and tau > best["storm_prob_threshold"])
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["storm_prob_threshold"])
+            )
         ):
             best = entry
     floor_met = best is not None
     chosen = best if best is not None else fallback
-    assert chosen is not None  # storm_prob is non-empty
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the storm head is not usable for onset decisions -- refusing to "
+            "record a doomed operating point"
+        )
     return {
         **chosen,
         "policy": "dual-rule (kp_pred>=5 OR storm_prob>=tau); tau maximizes val CSI "
-        "subject to val recall >= max(physics val recall, 0.55)",
+        "subject to val recall >= max(physics val recall, 0.55) AND "
+        "val FAR <= 0.8 * physics val FAR",
         "recall_floor": recall_floor,
         "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
         "val_recall_physics": physics_recall,
         "val_far_physics": physics_far,
     }

@@ -700,6 +700,15 @@ class TrustedEndpoints:
             # start dates + VEI — volcanic-eruption training labels; the
             # volcano.si.edu apex host serves the human site only).
             "webservices.volcano.si.edu",
+            # ArcGIS Online mirror of the NASA Global Landslide Catalog /
+            # COOLR points (updated through 2025). The official COOLR
+            # FeatureServer host maps.nccs.nasa.gov (allowlisted above) is
+            # blocked by this environment's egress proxy, so the training
+            # pipeline falls back to this public AGOL-hosted mirror.
+            "services1.arcgis.com",
+            # UN OCHA Humanitarian Data Exchange — static snapshot of the
+            # NASA Global Landslide Catalog (label-source fallback).
+            "data.humdata.org",
         }
     )
 

@@ -139,9 +139,16 @@ ml = [
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
     # Range requests; numcodecs (Blosc) decodes ARCO-ERA5 zarr chunks fetched
-    # as plain allowlisted GETs (no zarr/gcsfs client needed).
+    # as plain allowlisted GETs (no zarr/gcsfs client needed); netCDF4 reads
+    # CHIRPS daily rainfall (landslide covariates); metpy decodes NEXRAD
+    # Level-II volumes (tornado radar); obspy decodes FDSN miniSEED
+    # (volcano seismic RSAM features). All are imported lazily inside
+    # pipeline stages, never at detector import time.
     "h5py>=3.10",
     "numcodecs>=0.12",
+    "netCDF4>=1.6",
+    "metpy>=1.5",
+    "obspy>=1.4",
 ]
 
 # Native acceleration lane — activates the numba @jit fast paths that are
