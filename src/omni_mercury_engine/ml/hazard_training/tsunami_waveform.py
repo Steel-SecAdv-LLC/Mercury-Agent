@@ -149,6 +149,12 @@ EVENT_EXCLUSION_DAYS = 3.0
 STATION_COORD_TOLERANCE_KM = 150.0
 #: Tidal constituent periods (hours): M2, S2, K1, O1.
 TIDE_PERIODS_H = (12.4206012, 12.0, 23.9344697, 25.8193417)
+#: Validation recall floor for operating-point selection: a threshold that
+#: merely matches a near-zero physics recall would be technically
+#: non-regressing but operationally useless (see _select_operating_point).
+OPERATING_POINT_RECALL_FLOOR = 0.5
+#: Solar's ratified 20% FAR headroom against val->test distribution shift.
+OPERATING_POINT_FAR_HEADROOM = 0.8
 
 _STATION_RE = re.compile(r"D(\d{5})")
 _INDEX_FILE_RE = re.compile(r'href="(\d{5})t(\d{4})\.txt\.gz"')
@@ -900,13 +906,17 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
       conv layer's default initialization -- which assumes unit-variance
       inputs -- is rescaled once by 1/std of the TRAIN windows. This is
       ordinary input standardization expressed inside the shipped weights.
-    * **Validation-calibrated operating point.** The detector's deployed
-      decision is ``confidence > 0.96``. After early stopping the classifier
-      logit is affinely recalibrated (monotone -- ranking/AUC unchanged) so
-      that the 0.96 crossing sits at a threshold chosen on the VALIDATION
-      years only: zero validation false alarms (physics' validation FAR is
-      0) with the best achievable validation recall. Mirrors the ratified
-      solar-storm operating-point policy; test years are never consulted.
+    * **Validation-selected operating point carried by the checkpoint.**
+      The learned path's deployed decision is ``confidence > tau`` where
+      ``tau`` ships inside the checkpoint payload as
+      ``operating_point["detection_threshold"]`` and is selected on the
+      VALIDATION years only, against the same recall/false-alarm/CSI
+      targets the ship gate enforces (see :func:`_select_operating_point`).
+      Mirrors the ratified solar-storm operating-point policy; the weights
+      are untouched (selection is post-hoc on validation outputs) and test
+      years are never consulted. ``TsunamiDetector.load_neural_weights``
+      validates and applies the threshold; the physics path keeps the
+      constructor's 0.96.
 
     Returns:
         Training record (epochs run, best validation AUC, sample counts,
@@ -995,7 +1005,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     if best_state is None:
         raise RuntimeError("training produced no finite validation AUC; refusing to save")
     model.load_state_dict(best_state)
-    operating_point = _calibrate_operating_point(model, ds, val_mask)
+    operating_point = _select_operating_point(model, ds, val_mask)
 
     record = {
         "seed": ctx.seed,
@@ -1016,55 +1026,64 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "window_samples": WINDOW_SAMPLES,
         "sampling_period_s": SAMPLE_PERIOD_S,
         "detide": DETIDE_METHOD,
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
 
 
-def _calibrate_operating_point(
-    model: Any, ds: TsunamiDataset, val_mask: np.ndarray
-) -> dict[str, Any]:
-    """Recalibrate the classifier so the deployed 0.96 point is val-chosen.
+def _select_operating_point(model: Any, ds: TsunamiDataset, val_mask: np.ndarray) -> dict[str, Any]:
+    """Choose the learned path's detection threshold on the validation years.
 
     Policy (documented for owner ratification, mirroring the ratified
-    solar-storm dual-rule machinery): on the VALIDATION years only, run the
-    physics detector through the public API to get its recall / false-alarm
-    rate at the deployed ``confidence > 0.96`` decision and the per-window
-    resonance score (identical for both paths -- it is a deterministic
-    function of the window). Candidate raw-logit thresholds are the
-    midpoints between consecutive sorted validation logits; a threshold is
-    feasible when the calibrated learned decision -- ``min(1, sigmoid(a *
-    (logit - t) + logit(0.96)) + 0.3 * resonance) > 0.96`` -- yields ZERO
-    validation false alarms (physics' validation FAR is the ceiling and it
-    is 0 here; an unmeasurable ceiling must not pass silently). Among
-    feasible thresholds the one with the highest validation recall wins
-    (ties -> larger threshold, i.e. more conservative). The affine map is
-    then folded into the final linear layer: monotone in the logit, so the
-    ranking and AUC the merit gate's primary metric measures are unchanged.
-
-    The steepness ``a`` maps the median above-threshold validation positive
-    to probability 0.995, keeping the calibrated probabilities spread (a
-    saturated 0/1 output would destroy the confidence ranking).
+    solar-storm operating-point machinery): on the VALIDATION years only,
+    run the physics detector through the public API to get its recall /
+    false-alarm rate at its deployed ``confidence > 0.96`` decision and the
+    per-window resonance score (identical for both paths -- it is a
+    deterministic function of the window). The learned confidence is
+    computed exactly as the detector computes it, ``min(1, p + 0.3 *
+    resonance)``. A candidate threshold ``tau`` is feasible when the
+    learned decision ``confidence > tau`` reaches a validation recall of at
+    least ``max(physics validation recall, OPERATING_POINT_RECALL_FLOOR)``
+    (the floor keeps a
+    technically-non-regressing but operationally useless threshold from
+    being selected when physics itself detects little on validation) AND a
+    validation false-alarm rate of at most
+    :data:`OPERATING_POINT_FAR_HEADROOM` ``* physics validation FAR``
+    (solar's ratified 20% headroom against val->test shift; with physics'
+    validation FAR of 0 this demands zero validation false alarms). Among
+    feasible thresholds the one maximizing validation CSI wins (ties ->
+    higher tau, i.e. fewer alarms). If no threshold meets both targets, the
+    FAR-feasible threshold with the best recall is recorded instead
+    (``recall_floor_met`` False) -- the ship gate, not this selection, is
+    the final arbiter. The chosen threshold is part of the ratified
+    deployed rule: it ships in the checkpoint payload as
+    ``operating_point`` and ``TsunamiDetector`` applies it to the learned
+    path's ``tsunami_detected`` decision. The model weights are never
+    touched, so the ranking/AUC the merit gate's primary metric measures
+    are exactly those of the trained network.
 
     Args:
-        model: Trained WaveformFFTAnalyzer (modified in place).
+        model: Trained WaveformFFTAnalyzer (never modified).
         ds: The built dataset.
         val_mask: Boolean validation mask over ``ds`` rows.
 
     Returns:
-        Operating-point record (policy, threshold, steepness, validation
-        recall/FAR for learned and physics).
+        Operating-point record (policy, detection threshold, validation
+        recall/FAR/CSI for the learned rule and physics).
 
     Raises:
-        RuntimeError: If validation lacks a class or no calibration achieves
-            zero validation false alarms.
+        RuntimeError: If validation lacks a class or no threshold satisfies
+            even the FAR ceiling.
     """
     from omni_mercury_engine.detectors.geological.disaster_detectors import TsunamiDetector
 
     val_idx = np.flatnonzero(val_mask)
     y_val = ds.labels[val_idx].astype(bool)
     if not y_val.any() or y_val.all():
-        raise RuntimeError("validation years contain a single class; cannot calibrate honestly")
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an " "operating point honestly"
+        )
 
     physics_det = TsunamiDetector(sampling_rate=1.0 / SAMPLE_PERIOD_S)
     resonance = np.zeros(val_idx.size)
@@ -1084,65 +1103,72 @@ def _calibrate_operating_point(
                 for i in range(0, val_idx.size, 512)
             ]
         ).numpy()
-    prob = np.clip(prob.astype(np.float64), 1e-9, 1 - 1e-9)
-    logit = np.log(prob) - np.log1p(-prob)
-    logit_96 = float(np.log(0.96 / 0.04))
-    logit_995 = float(np.log(0.995 / 0.005))
+    conf = np.minimum(1.0, prob.astype(np.float64) + 0.3 * resonance)
 
-    ordered = np.sort(np.unique(logit))
-    candidates = [(ordered[i] + ordered[i + 1]) / 2.0 for i in range(len(ordered) - 1)]
-    candidates.append(float(ordered[-1] + 1.0))
+    recall_floor = max(physics_recall, OPERATING_POINT_RECALL_FLOOR)
+    far_ceiling = OPERATING_POINT_FAR_HEADROOM * physics_far
+
+    def _learned_metrics(tau: float) -> tuple[float, float, float]:
+        detect = conf > tau
+        tp = float(np.sum(detect & y_val))
+        fn = float(np.sum(~detect & y_val))
+        fp = float(np.sum(detect & ~y_val))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~y_val)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    taus = np.unique(np.quantile(conf, np.linspace(0.0, 1.0, 513)))
+    # The detector validates 0 < tau < 1 on load; degenerate endpoints are
+    # not deployable decision rules.
+    taus = taus[(taus > 0.0) & (taus < 1.0)]
     best: dict[str, Any] | None = None
-    for t in candidates:
-        above = logit[y_val] > t
-        if not above.any():
-            continue
-        spread = float(np.median(logit[y_val][above]) - t)
-        a = float(np.clip((logit_995 - logit_96) / max(spread, 1e-9), 1.0, 1e6))
-        conf = np.minimum(
-            1.0, 1.0 / (1.0 + np.exp(-(a * (logit - t) + logit_96))) + 0.3 * resonance
-        )
-        detected = conf > 0.96
-        far = float(detected[~y_val].mean())
-        # Solar's ratified 20% FAR headroom against val->test shift; with
-        # physics' validation FAR of 0 this demands zero validation alarms.
-        if far > 0.8 * physics_far + 1e-12:
-            continue
-        recall = float(detected[y_val].mean())
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _learned_metrics(float(tau))
+        entry = {
+            "detection_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no threshold satisfies both targets: the most
+        # conservative feasible-on-FAR point with the best recall (a
+        # recall-maximizing fallback that blows the FAR ceiling would be
+        # selecting a point the ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
         if (
-            best is None
-            or recall > best["val_recall"]
-            or (recall == best["val_recall"] and t > best["logit_threshold"])
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["detection_threshold"])
+            )
         ):
-            best = {
-                "logit_threshold": float(t),
-                "steepness": a,
-                "val_recall": recall,
-                "val_far": far,
-            }
-    if best is None:
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
         raise RuntimeError(
-            "no calibration achieves zero validation false alarms at the deployed 0.96 "
-            "point; refusing to ship an operating point physics already beats"
+            "no detection threshold satisfies even the FAR ceiling on validation; "
+            "the classifier head is not usable for detection decisions -- refusing "
+            "to record a doomed operating point"
         )
-
-    final: torch.nn.Linear = model.classifier[3]
-    with torch.no_grad():
-        final.weight.mul_(best["steepness"])
-        final.bias.mul_(best["steepness"])
-        final.bias.add_(-best["steepness"] * best["logit_threshold"] + logit_96)
-
     record = {
-        "policy": (
-            "validation-years-only affine logit recalibration; zero validation false "
-            "alarms at confidence>0.96 (physics validation FAR is the ceiling), best "
-            "validation recall among feasible thresholds"
-        ),
-        "physics_val_recall": physics_recall,
-        "physics_val_far": physics_far,
-        **best,
+        **chosen,
+        "policy": "learned tsunami_detected is confidence>tau; tau maximizes val CSI "
+        "subject to val recall >= max(physics val recall, "
+        f"{OPERATING_POINT_RECALL_FLOOR}) AND val FAR <= "
+        f"{OPERATING_POINT_FAR_HEADROOM} * physics val FAR",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
     }
-    logger.info("operating point calibrated: %s", json.dumps(record, sort_keys=True))
+    logger.info("operating point selected: %s", json.dumps(record, sort_keys=True))
     return record
 
 
@@ -1156,24 +1182,30 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
 
     Both paths see the *identical* held-out test windows (detided residuals,
     exactly what the dataset builder produces): physics is a fresh detector
-    with no weights loaded (deterministic amplitude + resonance fallback),
-    learned is a fresh detector after ``load_neural_weights`` on the
-    candidate checkpoint. Primary metric: window-ranking AUC from
-    ``result.confidence`` (higher is better). Secondary non-regression
-    constraints at the detector's deployed ``confidence > 0.96`` decision:
-    detection recall, false-alarm rate, and per-(station, event) recall must
-    not regress below physics (parity allowed).
+    with no weights loaded (deterministic amplitude + resonance fallback,
+    deployed decision ``confidence > 0.96``), learned is a fresh detector
+    after ``load_neural_weights`` on the candidate checkpoint (deployed
+    decision ``confidence > tau`` with the checkpoint's ratified operating
+    point). Primary metric: window-ranking AUC from ``result.confidence``
+    (higher is better). Secondary non-regression constraints, each scored
+    on the path's OWN deployed decision rule -- that is what actually
+    ships: detection recall (higher), false-alarm rate (lower),
+    per-(station, event) recall (higher), and wave-height MAE (lower).
+    Both paths report the record's measured peak deviation as the wave
+    height (a measurement is never replaced by a worse model estimate), so
+    the MAE constraint guards that measurement contract; the NN head's own
+    MAE is recorded in extras as a diagnostic.
 
-    ``wave_height_mae_m`` is reported but deliberately NOT a constraint: the
-    physics path's "estimate" is the window's own peak detided deviation --
-    i.e. the direct DART measurement of the amplitude, which HazEL's
-    ``runupHt`` is itself derived from -- so parity is structurally
-    unreachable for a regression head and the amplitude measurement remains
-    available to operators regardless of which path scored the window.
+    Extras additionally carry a seeded 1000-resample bootstrap 95% CI on
+    the AUC difference over test windows, the model parameter count, the
+    median single-window inference latency (100 runs), and the
+    per-(station, event) hit table.
 
     Returns:
         The evaluation outcome, persisted next to the candidate.
     """
+    import time
+
     from omni_mercury_engine.detectors.geological.disaster_detectors import TsunamiDetector
 
     ds = build_dataset(ctx)
@@ -1189,12 +1221,15 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = TsunamiDetector(sampling_rate=1.0 / SAMPLE_PERIOD_S)
     learned_det = TsunamiDetector(sampling_rate=1.0 / SAMPLE_PERIOD_S)
     learned_det.load_neural_weights(str(cand_path))
+    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = payload.get("operating_point")
 
     labels = ds.labels[test_idx]
     results: dict[str, dict[str, list[float]]] = {
         "physics": {"conf": [], "det": [], "height": []},
         "learned": {"conf": [], "det": [], "height": []},
     }
+    nn_heights: list[float] = []
     for i in test_idx:
         window = ds.windows[i]
         for name, det in (("physics", physics_det), ("learned", learned_det)):
@@ -1204,6 +1239,12 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             results[name]["conf"].append(float(out.confidence))
             results[name]["det"].append(float(out.tsunami_detected))
             results[name]["height"].append(float(out.estimated_wave_height_m))
+            if name == "learned":
+                nn_heights.append(
+                    float(out.nn_wave_height_m)
+                    if out.nn_wave_height_m is not None
+                    else float("nan")
+                )
 
     pos = labels == 1.0
     neg = ~pos
@@ -1220,12 +1261,71 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 hit_events.add((str(ds.stations[i]), int(ds.event_ids[i])))
         return {
             "auc": binary_auc(labels, conf),
-            "detection_recall_at_0.96": float(detected[pos].mean()),
-            "false_alarm_rate_at_0.96": float(detected[neg].mean()),
+            "detection_recall_op": float(detected[pos].mean()),
+            "false_alarm_rate_op": float(detected[neg].mean()),
             "wave_height_mae_m": float(np.mean(np.abs(est_height[pos] - heights_true[pos]))),
             "event_recall": float(len(hit_events) / len(pos_keys)) if pos_keys else float("nan"),
         }
 
+    # Seeded bootstrap 95% CI on the AUC difference (learned - physics) over
+    # the test windows: 1000 resamples with replacement; resamples that lose
+    # a class (astronomically unlikely at this prevalence) are skipped.
+    rng = np.random.default_rng(ctx.seed)
+    conf_learned = np.asarray(results["learned"]["conf"])
+    conf_physics = np.asarray(results["physics"]["conf"])
+    n_resamples = 1000
+    diffs: list[float] = []
+    for _ in range(n_resamples):
+        idx = rng.integers(0, test_idx.size, size=test_idx.size)
+        auc_l = binary_auc(labels[idx], conf_learned[idx])
+        auc_p = binary_auc(labels[idx], conf_physics[idx])
+        if np.isfinite(auc_l) and np.isfinite(auc_p):
+            diffs.append(float(auc_l - auc_p))
+    diffs_arr = np.asarray(diffs)
+    auc_diff_ci = {
+        "n_resamples": n_resamples,
+        "n_valid": int(diffs_arr.size),
+        "seed": ctx.seed,
+        "mean": float(diffs_arr.mean()),
+        "ci95_low": float(np.percentile(diffs_arr, 2.5)),
+        "ci95_high": float(np.percentile(diffs_arr, 97.5)),
+    }
+
+    # Median single-window inference latency through the public API (both
+    # detectors are warm from the evaluation loop above).
+    def _median_latency_ms(det: TsunamiDetector) -> float:
+        window = ds.windows[test_idx[0]]
+        times = []
+        for _ in range(100):
+            t0 = time.perf_counter()
+            det.predict_tsunami(window)
+            times.append((time.perf_counter() - t0) * 1000.0)
+        return float(np.median(times))
+
+    # Per-(station, event) hit table under each path's deployed rule.
+    learned_flags = np.asarray(results["learned"]["det"]) > 0.5
+    physics_flags = np.asarray(results["physics"]["det"]) > 0.5
+    hit_table: dict[tuple[str, int], dict[str, Any]] = {}
+    for row, i in enumerate(test_idx):
+        if not pos[row]:
+            continue
+        key = (str(ds.stations[i]), int(ds.event_ids[i]))
+        entry = hit_table.setdefault(
+            key,
+            {
+                "station": key[0],
+                "event_id": key[1],
+                "n_windows": 0,
+                "learned_detected": False,
+                "physics_detected": False,
+            },
+        )
+        entry["n_windows"] += 1
+        entry["learned_detected"] = bool(entry["learned_detected"] or learned_flags[row])
+        entry["physics_detected"] = bool(entry["physics_detected"] or physics_flags[row])
+    per_event_hits = [hit_table[k] for k in sorted(hit_table)]
+
+    nn_heights_arr = np.asarray(nn_heights)
     outcome = EvaluationOutcome(
         hook=HOOK_NAME,
         primary_metric="auc",
@@ -1236,22 +1336,32 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         test_years=SPLIT.test_years,
         constraints=[
             {
-                "metric": "detection_recall_at_0.96",
+                "metric": "detection_recall_op",
                 "higher_is_better": True,
-                "description": "detection recall at the detector's deployed 0.96 "
-                "confidence threshold must not regress below physics",
+                "description": "window detection recall at each path's deployed decision "
+                "rule must not regress below physics (the first candidate had zero "
+                "learned recall at the fixed 0.96 point)",
             },
             {
-                "metric": "false_alarm_rate_at_0.96",
+                "metric": "false_alarm_rate_op",
                 "higher_is_better": False,
-                "description": "false-alarm rate at the deployed 0.96 threshold must "
-                "not exceed physics",
+                "description": "false-alarm rate at each path's deployed decision rule "
+                "must not exceed physics",
             },
             {
                 "metric": "event_recall",
                 "higher_is_better": True,
                 "description": "fraction of held-out (station, event) arrivals with any "
-                "window detected at 0.96 must not regress below physics",
+                "window detected under the deployed rule must not regress below physics",
+            },
+            {
+                "metric": "wave_height_mae_m",
+                "higher_is_better": False,
+                "description": "reported wave-height MAE must not exceed physics; both "
+                "paths report the record's measured peak deviation (a measurement is "
+                "never replaced by a worse model estimate), so this guards the "
+                "measurement contract; the NN head is diagnostic-only "
+                "(nn_wave_height_mae_m_diagnostic in extras)",
             },
         ],
         extras={
@@ -1264,6 +1374,30 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "TsunamiDetector.predict_tsunami (sampling_rate=1/900 Hz), physics fallback "
                 "vs loaded candidate checkpoint"
             ),
+            "operating_point": operating_point,
+            "deployed_rules": (
+                "physics: confidence>0.96 (constructor default); learned: confidence>"
+                "tau from the checkpoint's validation-selected operating point -- each "
+                "path is scored on its own deployed decision rule"
+            ),
+            "wave_height_policy": (
+                "estimated_wave_height_m is the record's measured peak deviation on "
+                "BOTH paths; the NN wave-height head is diagnostic-only "
+                "(result.nn_wave_height_m)"
+            ),
+            "nn_wave_height_mae_m_diagnostic": float(
+                np.mean(np.abs(nn_heights_arr[pos] - heights_true[pos]))
+            ),
+            "auc_diff_bootstrap_ci95": auc_diff_ci,
+            "model_parameter_count": int(
+                sum(p.numel() for p in learned_det.waveform_analyzer.parameters())
+            ),
+            "median_inference_latency_ms": {
+                "learned": _median_latency_ms(learned_det),
+                "physics": _median_latency_ms(physics_det),
+                "n_runs": 100,
+            },
+            "per_event_hits": per_event_hits,
         },
     )
     save_evaluation(ctx.data_dir, outcome)

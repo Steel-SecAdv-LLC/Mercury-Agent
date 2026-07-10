@@ -15,9 +15,15 @@ D21419 (see ``provenance.json``).
 
 Covers: DART parsing (sentinels, mode handling, exact-grid-slot event-mode
 fill), deterministic detiding on a real tidal window, window gap rejection,
-arrival-time resolution, temporal-split wiring, and the differential
-physics-vs-shipped-checkpoint comparison through the public detector API
-(skipped while no ``tsunami_dart`` checkpoint has been shipped).
+arrival-time resolution, temporal-split wiring, checkpoint operating-point
+consumption (the validation-selected threshold governs the learned path's
+``tsunami_detected`` decision; nonsensical thresholds refuse to load;
+checkpoints without one keep the constructor threshold), the
+measured-wave-height contract (``estimated_wave_height_m`` is the record's
+peak deviation on both paths; the NN head is diagnostic-only), and the
+differential physics-vs-shipped-checkpoint comparison through the public
+detector API (skipped while no ``tsunami_dart`` checkpoint has been
+shipped).
 """
 
 from __future__ import annotations
@@ -51,6 +57,40 @@ def _fixture_rows(path: Path) -> list[list[str]]:
     """Raw measurement rows (tokenized) of a fixture, headers skipped."""
     with gzip.open(path, "rt") as fh:
         return [line.split() for line in fh if not line.startswith("#")]
+
+
+def _tohoku_residual() -> np.ndarray:
+    """The real detided Tohoku arrival window from the March fixture."""
+    grid = tw.parse_dart_file(FIXTURE_MAR, "21419", 2011)
+    anchor = tw._slot_of(TOHOKU_ARRIVAL_UTC, 2011)
+    residual = tw.extract_residual_window(grid.values, anchor - 4 * tw.SLOTS_PER_HOUR)
+    assert residual is not None
+    return residual
+
+
+def _write_checkpoint(path: Path, operating_point: dict[str, float] | None) -> Path:
+    """Write a contract-complete checkpoint with seeded (untrained) weights.
+
+    The operating-point machinery is decision plumbing: it must govern the
+    ``tsunami_detected`` decision for ANY loaded weights, so hermetic seeded
+    weights are sufficient (no candidate/shipped artifact required).
+    """
+    from omni_mercury_engine.detectors.geological.disaster_detectors import (
+        WaveformFFTAnalyzer,
+    )
+
+    torch.manual_seed(20260709)
+    payload: dict[str, object] = {
+        "waveform_analyzer": WaveformFFTAnalyzer().state_dict(),
+        "feature_spec": tw.FEATURE_SPEC_VERSION,
+        "window_samples": tw.WINDOW_SAMPLES,
+        "sampling_period_s": tw.SAMPLE_PERIOD_S,
+        "detide": tw.DETIDE_METHOD,
+    }
+    if operating_point is not None:
+        payload["operating_point"] = operating_point
+    torch.save(payload, path)
+    return path
 
 
 class TestDartParsing:
@@ -188,6 +228,99 @@ class TestTemporalSplitWiring:
         assert test.tolist() == [False, False, False, True, True]
 
 
+class TestOperatingPointConsumption:
+    """The checkpoint's ratified threshold governs the learned decision.
+
+    Mirrors the solar-storm dual-rule operating-point tests: the
+    validation-selected tau carried by the checkpoint is part of the
+    deployed rule, so loading it must (a) validate it, (b) apply it to the
+    learned path's ``tsunami_detected`` decision without touching the
+    confidence estimate, and (c) leave the constructor threshold in charge
+    for checkpoints that predate the convention.
+    """
+
+    def test_operating_point_drives_learned_decision(self, tmp_path: Path) -> None:
+        """tau just below/above the emitted confidence must flip detection."""
+        residual = _tohoku_residual()
+        detector = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
+        detector.load_neural_weights(
+            str(_write_checkpoint(tmp_path / "op.pt", {"detection_threshold": 0.5}))
+        )
+        assert detector._operating_point == {"detection_threshold": 0.5}
+
+        base = detector.predict_tsunami(residual)
+        conf = float(base.confidence)
+        assert 0.0 < conf < 1.0, "sigmoid + bounded resonance keeps confidence interior"
+
+        detector._operating_point = {"detection_threshold": max(conf - 1e-6, 1e-9)}
+        below = detector.predict_tsunami(residual)
+        assert below.tsunami_detected is True
+        assert below.confidence == pytest.approx(
+            conf
+        ), "the operating point changes the DECISION, never the confidence estimate"
+
+        detector._operating_point = {"detection_threshold": conf + (1.0 - conf) / 2.0}
+        above = detector.predict_tsunami(residual)
+        assert above.tsunami_detected is False
+        assert above.confidence == pytest.approx(conf)
+
+        # Without an operating point the constructor threshold governs.
+        detector._operating_point = None
+        default = detector.predict_tsunami(residual)
+        assert default.tsunami_detected is (conf > detector.detection_threshold)
+
+    def test_operating_point_threshold_validated_on_load(self, tmp_path: Path) -> None:
+        """A checkpoint carrying a nonsensical tau must refuse to load."""
+        detector = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
+        bad = _write_checkpoint(tmp_path / "bad_op.pt", {"detection_threshold": 1.5})
+        with pytest.raises(ValueError, match=r"not a\s+probability"):
+            detector.load_neural_weights(str(bad))
+        zero = _write_checkpoint(tmp_path / "zero_op.pt", {"detection_threshold": 0.0})
+        with pytest.raises(ValueError, match=r"not a\s+probability"):
+            detector.load_neural_weights(str(zero))
+
+    def test_checkpoint_without_operating_point_keeps_constructor_rule(
+        self, tmp_path: Path
+    ) -> None:
+        """Explicit-path backward compat: pre-convention checkpoints load."""
+        detector = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
+        detector.load_neural_weights(str(_write_checkpoint(tmp_path / "old.pt", None)))
+        assert detector._neural_trained is True
+        assert detector._operating_point is None
+        out = detector.predict_tsunami(_tohoku_residual())
+        assert out.tsunami_detected is (out.confidence > detector.detection_threshold)
+
+
+class TestMeasuredWaveHeight:
+    """estimated_wave_height_m is a MEASUREMENT on both paths.
+
+    The peak sea-level deviation from the median baseline is what the DART
+    record itself shows; the NN wave-height head (held-out MAE ~4x the
+    measurement's) is surfaced only as the diagnostic ``nn_wave_height_m``.
+    """
+
+    def test_learned_path_reports_measured_peak_deviation(self, tmp_path: Path) -> None:
+        residual = _tohoku_residual()
+        measured = float(np.max(np.abs(residual - np.median(residual))))
+
+        detector = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
+        detector.load_neural_weights(
+            str(_write_checkpoint(tmp_path / "ckpt.pt", {"detection_threshold": 0.5}))
+        )
+        out = detector.predict_tsunami(residual)
+        assert out.estimated_wave_height_m == pytest.approx(measured, rel=1e-6)
+        assert out.nn_wave_height_m is not None, "NN estimate kept as a diagnostic"
+        assert np.isfinite(out.nn_wave_height_m) and out.nn_wave_height_m >= 0.0
+
+    def test_physics_path_reports_same_measurement_without_nn_diagnostic(self) -> None:
+        residual = _tohoku_residual()
+        measured = float(np.max(np.abs(residual - np.median(residual))))
+        physics = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
+        out = physics.predict_tsunami(residual)
+        assert out.estimated_wave_height_m == pytest.approx(measured, rel=1e-6)
+        assert out.nn_wave_height_m is None
+
+
 class TestShippedCheckpointDifferential:
     """Learned vs physics through the public API on a real positive window."""
 
@@ -226,3 +359,5 @@ class TestShippedCheckpointDifferential:
         assert payload["window_samples"] == tw.WINDOW_SAMPLES
         assert payload["sampling_period_s"] == tw.SAMPLE_PERIOD_S
         assert payload["detide"] == tw.DETIDE_METHOD
+        # A shipped checkpoint must carry the ratified deployed rule.
+        assert 0.0 < float(payload["operating_point"]["detection_threshold"]) < 1.0
