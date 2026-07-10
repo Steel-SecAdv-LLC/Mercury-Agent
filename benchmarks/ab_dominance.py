@@ -13,10 +13,11 @@ Metrics tracked:
 - Lyapunov Stability (lambda >= 0.25)
 - Training Speedup (target: 2-3x with advanced optimizers)
 
-Expected Results:
+Hypotheses under test (the harness reports the measured outcome for each):
 - weighted fusion should achieve F1 >= 0.92 (vs 0.797 baseline)
 - weighted fusion should reduce FP by 5-15%
-- weighted fusion should converge 25-28% faster (lambda=0.25 vs 0.18)
+- weighted fusion should converge faster (lambda=0.25 vs 0.18); the measured
+  convergence_speedup ratio is what this harness reports
 - Both should maintain Lyapunov stability
 """
 

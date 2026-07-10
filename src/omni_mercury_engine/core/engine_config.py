@@ -178,7 +178,7 @@ class ThreeRConfig(BaseModel):
         default=3,
         ge=1,
         le=10,
-        description="Maximum recursion depth (reduced from 5 for 40% faster refactoring).",
+        description="Maximum recursion depth (reduced from 5 to shorten refactoring cycles).",
     )
     sampling_rate: float = Field(
         default=1.0,
@@ -194,7 +194,10 @@ class ThreeRConfig(BaseModel):
         default=0.25,
         ge=0.01,
         le=1.0,
-        description="Lyapunov convergence rate (elevated from 0.18 for 25% faster convergence).",
+        description=(
+            "Lyapunov convergence rate (elevated from 0.18; see benchmarks/ab_dominance.py "
+            "for the measured comparison)."
+        ),
     )
     lyapunov_epsilon: float = Field(
         default=1.0,
@@ -220,7 +223,7 @@ class EfficiencyConfig(BaseModel):
     # Torch optimizations
     enable_torch_compile: bool = Field(
         default=True,
-        description="Enable torch.compile() for 2x speedup in fusion network.",
+        description="Enable torch.compile() for the fusion network.",
     )
     torch_compile_mode: str = Field(
         default="reduce-overhead",

@@ -11,7 +11,8 @@ Capabilities gained through AMA v2.0:
 - AES-256-GCM authenticated encryption
 - 6-layer crypto packages (hash + HMAC + Ed25519 + ML-DSA-65 + HKDF + RFC 3161)
 - Ethical HKDF context binding
-- Cython-accelerated math (18-37x speedup when native C library is built)
+- Cython-accelerated math when the native C library is built (speedup measured
+  by benchmarks/crypto_backend_benchmark.py; see artifacts/crypto_backend_benchmark.json)
 
 Security Levels:
 - CLASSICAL: Ed25519/RSA (fast, widely supported)

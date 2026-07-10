@@ -24,8 +24,6 @@ Research sources:
 - IUCN Red List
 - Coral Reef Watch
 - Ocean Biodiversity Information System (OBIS)
-
-Performance: 35% improved ecosystem health assessment via multi-modal fusion
 """
 
 from __future__ import annotations

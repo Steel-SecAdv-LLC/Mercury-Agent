@@ -2148,12 +2148,12 @@ autonomy = compute_ethical_autonomy(
 </details>
 
 <details>
-<summary><strong>Advanced Optimizers</strong> - 2-3x Training Speedup</summary>
+<summary><strong>Advanced Optimizers</strong> - Synthetic-Gradient, DTP & AMAV Training</summary>
 
 The **OmniFusionModel** now supports advanced optimizers for accelerated training:
 
 **Optimizer Types:**
-- **SyntheticGradient**: Decoupled layer updates for 2-3x speedup
+- **SyntheticGradient**: Decoupled layer updates enabling layer-wise parallelism
 - **DifferenceTargetPropagation (DTP)**: Biologically plausible learning
 - **AuxiliaryMaxVariance (AMAV)**: Multi-task loss with variance maximization
 

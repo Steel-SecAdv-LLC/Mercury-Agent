@@ -136,6 +136,12 @@ ml = [
     # pinned 2.1.0 needs them.  Bump all three sites together.
     "mypy==2.1.0",
     "types-requests==2.33.0.20260518",
+    # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
+    # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
+    # Range requests; numcodecs (Blosc) decodes ARCO-ERA5 zarr chunks fetched
+    # as plain allowlisted GETs (no zarr/gcsfs client needed).
+    "h5py>=3.10",
+    "numcodecs>=0.12",
 ]
 
 # Native acceleration lane — activates the numba @jit fast paths that are

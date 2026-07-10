@@ -25,8 +25,6 @@ Research sources:
 
 ⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
 weather services (NWS, SPC). Always defer to official tornado warnings.
-
-Performance: Enhanced detection via FFT resonance + recursive feature extraction
 """
 
 from __future__ import annotations

@@ -33,8 +33,6 @@ Research sources:
 - USGS Landslide Hazards Program
 - NASA Landslide Viewer
 - Swiss Federal Institute for Snow and Avalanche Research (SLF)
-
-Performance: 30% faster alerts via multi-modal sensor fusion
 """
 
 from __future__ import annotations

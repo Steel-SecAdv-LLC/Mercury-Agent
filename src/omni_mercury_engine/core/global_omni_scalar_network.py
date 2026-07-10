@@ -74,7 +74,8 @@ from omni_mercury_engine.core.centralized_constants import (
 # P2: Now references centralized constant
 PHI: float = MATH.GOLDEN_RATIO
 
-# Lyapunov stability constant (elevated from 0.18 for 25% faster convergence)
+# Lyapunov stability constant (elevated from 0.18; see benchmarks/ab_dominance.py
+# for the measured comparison)
 # P2: Now references centralized constant
 LAMBDA_LYAPUNOV: float = LYAPUNOV.LAMBDA_CONVERGENCE
 

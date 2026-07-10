@@ -672,6 +672,34 @@ class TrustedEndpoints:
             # engineering domain; used by ``datasets/ucr_archive.py``
             # MBA/CWRU loader.
             "engineering.case.edu",
+            # SeisBench data repository mirrors (GFZ Potsdam backup mirror and
+            # DESY/HIFIS primary, both on port 443) — STEAD labeled seismic
+            # waveform corpus for the seismic-wave analyzer training pipeline.
+            # Both support HTTP Range so trace subsets stream without pulling
+            # the full 85 GB HDF5.
+            "seisbench.gfz.de",
+            "hifis-storage.desy.de",
+            # SCEDC (Southern California Earthquake Data Center) on AWS Open
+            # Data — per-event miniSEED bundles + phase picks (seismic-wave
+            # training supplement; anonymous public bucket).
+            "scedc-pds.s3.amazonaws.com",
+            # Google Cloud Storage public-data JSON/object API. Used for the
+            # ARCO-ERA5 reanalysis zarr store (gcp-public-data-arco-era5:
+            # hurricane-wind training features) and the NEXRAD Level-II
+            # mirror (gcp-public-data-nexrad-l2). Anonymous read-only GETs;
+            # the AWS noaa-nexrad-level2 bucket denies anonymous requests
+            # from this environment, these mirrors do not.
+            "storage.googleapis.com",
+            # Unidata NEXRAD Level-II S3 mirror (tornado-radar training;
+            # anonymous public bucket, unlike the primary NOAA bucket).
+            "unidata-nexrad-level2.s3.amazonaws.com",
+            # UCSB Climate Hazards Center CHIRPS rainfall archive
+            # (landslide-stability training: antecedent-rainfall covariates).
+            "data.chc.ucsb.edu",
+            # Smithsonian GVP web services (WFS eruption/event catalog with
+            # start dates + VEI — volcanic-eruption training labels; the
+            # volcano.si.edu apex host serves the human site only).
+            "webservices.volcano.si.edu",
         }
     )
 

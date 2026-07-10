@@ -20,8 +20,6 @@ Research sources:
 - NOAA/NASA GOES fire detection
 - USFS wildfire science
 - FIRMS (Fire Information for Resource Management System)
-
-Performance: 20-30% faster detection via multi-scale thermal fusion
 """
 
 from __future__ import annotations
