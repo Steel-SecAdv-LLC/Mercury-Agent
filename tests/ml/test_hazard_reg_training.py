@@ -177,6 +177,51 @@ class TestSplitAndScore:
         assert fault_score > null_score + 5.0  # decades of -log10 p apart
 
 
+class TestEvaluationHelpers:
+    """Power-at-FAR and the seeded bootstrap CI on the AUC difference."""
+
+    def test_power_at_far_semantics(self) -> None:
+        """Threshold sits at the (1 - FAR) null quantile; power counts above it."""
+        rng = np.random.default_rng(21)
+        null_scores = rng.normal(0.0, 1.0, 1000)
+        fault_scores = rng.normal(4.0, 1.0, 1000)  # ~4 sigma separated
+        scores = np.concatenate([null_scores, fault_scores])
+        y = np.concatenate([np.zeros(1000), np.ones(1000)])
+        power, realized_far = cf._power_at_far(scores, y, far=0.01)
+        assert realized_far <= 0.01 + 1e-9
+        assert power > 0.8  # 4 sigma separation clears a ~2.3 sigma threshold
+
+    def test_power_at_far_degenerate_scores(self) -> None:
+        """Constant scores give zero power (strictly-above rule), not 100%."""
+        scores = np.ones(200)
+        y = np.concatenate([np.zeros(100), np.ones(100)])
+        power, realized_far = cf._power_at_far(scores, y, far=0.01)
+        assert power == 0.0 and realized_far == 0.0
+
+    def test_bootstrap_auc_diff_is_seed_deterministic(self) -> None:
+        rng = np.random.default_rng(33)
+        y = np.concatenate([np.zeros(150), np.ones(150)])
+        learned = rng.normal(y * 2.0, 1.0)
+        physics = rng.normal(y * 0.5, 1.0)
+        a = cf._bootstrap_auc_diff(y, learned, physics, seed=7, n_boot=200)
+        b = cf._bootstrap_auc_diff(y, learned, physics, seed=7, n_boot=200)
+        c = cf._bootstrap_auc_diff(y, learned, physics, seed=8, n_boot=200)
+        assert a == b
+        assert (a["ci95_low"], a["ci95_high"]) != (c["ci95_low"], c["ci95_high"])
+
+    def test_bootstrap_auc_diff_sign_convention(self) -> None:
+        """A clearly better learned score gives a positive CI excluding zero."""
+        rng = np.random.default_rng(34)
+        y = np.concatenate([np.zeros(200), np.ones(200)])
+        learned = y + rng.normal(0.0, 0.2, 400)  # near-perfect separation
+        physics = rng.normal(0.0, 1.0, 400)  # uninformative
+        out = cf._bootstrap_auc_diff(y, learned, physics, seed=9, n_boot=200)
+        assert out["point_estimate"] > 0.3
+        assert out["ci95_low"] > 0.0
+        assert out["ci_excludes_zero"] is True
+        assert out["ci95_low"] <= out["point_estimate"] <= out["ci95_high"]
+
+
 class TestDetectorContract:
     """load_neural_weights handles wrapped payloads and the shipped file."""
 

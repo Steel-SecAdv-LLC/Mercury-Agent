@@ -823,6 +823,52 @@ def closed_form_score(window: np.ndarray) -> float:
     return float(-log_p_comb / np.log(10.0))
 
 
+def _bootstrap_auc_diff(
+    y: np.ndarray,
+    learned_scores: np.ndarray,
+    physics_scores: np.ndarray,
+    *,
+    seed: int,
+    n_boot: int = 1000,
+) -> dict[str, Any]:
+    """Seeded case-resampling bootstrap CI on the AUC difference.
+
+    Resamples the identical held-out samples with replacement ``n_boot``
+    times and reports the 2.5/97.5 percentile interval of
+    ``AUC(learned) - AUC(physics)`` (POSITIVE = learned better; the primary
+    metric is higher-is-better). Both scores are resampled jointly on the
+    same indices, so the CI is on the paired difference. Deterministic given
+    ``seed``; recorded verbatim into extras.
+
+    Returns:
+        Dict with the point estimate, CI bounds, resample count, seed, and
+        whether the CI excludes zero.
+    """
+    yy = np.asarray(y, dtype=np.float64)
+    ls = np.asarray(learned_scores, dtype=np.float64)
+    ps = np.asarray(physics_scores, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    n = yy.size
+    diffs = np.empty(n_boot, dtype=np.float64)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        diffs[b] = binary_auc(yy[idx], ls[idx]) - binary_auc(yy[idx], ps[idx])
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    return {
+        "point_estimate": float(binary_auc(yy, ls) - binary_auc(yy, ps)),
+        "ci95_low": float(lo),
+        "ci95_high": float(hi),
+        "n_resamples": int(n_boot),
+        "seed": int(seed),
+        "ci_excludes_zero": bool(hi < 0.0 or lo > 0.0),
+        "note": (
+            "AUC(learned) - AUC(physics) on the mixed fault families "
+            "(positive = learned better), paired case-resampling bootstrap "
+            "over the identical held-out windows"
+        ),
+    }
+
+
 def _power_at_far(scores: np.ndarray, y: np.ndarray, far: float = 0.01) -> tuple[float, float]:
     """Empirical detection power at a fixed false-alarm rate.
 
@@ -852,7 +898,9 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     is this documented closed-form baseline, not a neural fallback).
 
     Primary metric: ``fault_auc`` on the mixed fault set (higher is better).
-    The power-vs-fault-parameter table lands in ``extras``.
+    Extras add the power-vs-fault-parameter table, a seeded 1000-resample
+    bootstrap 95% CI on the AUC difference, the parameter count, and the
+    median per-window inference latency through the public API.
     """
     from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 
@@ -869,11 +917,17 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
 
     detector = ParapsychologyDetector(enable_consciousness_field=True)
     detector.load_neural_weights(str(cand_path))
+    assert detector.field_analyzer is not None  # loaded above; narrows the Optional
+    n_parameters = int(sum(p.numel() for p in detector.field_analyzer.parameters()))
 
     learned_scores = np.empty(len(y))
     physics_scores = np.empty(len(y))
+    latency_s = np.empty(len(y), dtype=np.float64)
     for i in range(len(y)):
-        result = detector.detect_psi_anomaly({"reg_output": x[i].astype(np.float64)})
+        window = x[i].astype(np.float64)
+        t0 = time.perf_counter()
+        result = detector.detect_psi_anomaly({"reg_output": window})
+        latency_s[i] = time.perf_counter() - t0
         if result.coherence_score is None:
             raise RuntimeError("public API returned no coherence score with loaded weights")
         learned_scores[i] = float(result.coherence_score)
@@ -940,6 +994,17 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "learned": _family_table(learned_scores),
                 "physics": _family_table(physics_scores),
             },
+            "auc_diff_bootstrap": _bootstrap_auc_diff(
+                y, learned_scores, physics_scores, seed=ctx.seed
+            ),
+            "parameter_count": n_parameters,
+            "median_inference_latency_ms": float(np.median(latency_s) * 1e3),
+            "latency_note": (
+                "per-window wall time of the full public "
+                "detect_psi_anomaly call (closed-form statistics + neural "
+                "head), single process, torch.set_num_threads(2); median "
+                "reported in ms"
+            ),
             "eggs_per_window": {
                 "mean": float(ds.eggs_mean[test_mask].mean()),
                 "min": float(ds.eggs_mean[test_mask].min()),

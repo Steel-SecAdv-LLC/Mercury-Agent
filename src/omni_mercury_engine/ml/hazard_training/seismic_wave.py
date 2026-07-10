@@ -51,6 +51,18 @@ Truncated 30 s window variants (first 3000 samples, only when the real
 P pick is inside and the real S pick is beyond the cut -- no padding, no
 fabrication) teach the s_wave head that P-without-S exists; matching noise
 truncations keep window length uninformative for the classifier.
+
+Deployed decision rule: the detector alerts on ``confidence >
+detection_threshold``. The default 0.96 is calibrated for the physics
+fallback's confidence scale (``clip((peak STA/LTA - 2.5) / 7.5)`` plus the
+0.2 band-resonance bump); the learned sigmoid lives on its own scale, so the
+train stage selects the learned alert threshold on the VALIDATION year
+(:func:`_select_operating_point`, mirroring ``solar_storm``) and carries it
+in the checkpoint payload. ``EarthquakeDetector.load_neural_weights``
+validates and applies it -- alert decision only, never the confidence
+estimate. The merit gate then enforces recall/false-alarm non-regression at
+each path's own deployed rule as secondary constraints beside the primary
+AUC comparison.
 """
 
 from __future__ import annotations
@@ -120,6 +132,12 @@ _Z_BYTES = WINDOW_SAMPLES * 4
 TRUNC_SAMPLES = 3000
 _TRUNC_P_MAX = 2800.0
 _TRUNC_S_MIN = 3200.0
+
+#: The detector's default alert threshold (``EarthquakeDetector.__init__``),
+#: calibrated for the physics confidence scale. Physics is always scored at
+#: this deployed threshold; the learned path is scored at the validated
+#: threshold carried in its checkpoint payload (see module docstring).
+PHYSICS_DETECTION_THRESHOLD = 0.96
 
 SPLIT = TemporalSplit(
     train_years=tuple(range(1984, 2016)),
@@ -368,6 +386,75 @@ def detector_spectrogram(trace: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     sxx_log = np.log10(sxx + 1e-10)
     sxx_norm = (sxx_log - sxx_log.mean()) / (sxx_log.std() + 1e-10)
     return sxx_norm.astype(np.float32)
+
+
+def _peak_sta_lta_parity(trace: np.ndarray[Any, Any]) -> float:
+    """Peak STA/LTA trigger ratio (vectorized parity with the detector).
+
+    Mirrors ``EarthquakeDetector._peak_sta_lta`` -- 0.5 s short-term / 5 s
+    long-term sliding means of ``|x|``, ratio maximized over the identical
+    index range -- via cumulative sums (the detector's per-sample ``np.mean``
+    loop costs ~76 ms/trace, ~1000x this). Only floating-point summation
+    order differs (measured <2e-7 relative). Used solely for operating-point
+    selection on VALIDATION years; the evaluate stage measures physics
+    through the public detector API.
+
+    Args:
+        trace: 1-D waveform sampled at :data:`SAMPLING_RATE_HZ`.
+
+    Returns:
+        Peak STA/LTA ratio, or 0.0 when the record is shorter than one
+        STA+LTA window (the detector's convention).
+    """
+    x = np.abs(np.asarray(trace, dtype=np.float64))
+    sta_len = int(0.5 * SAMPLING_RATE_HZ)
+    lta_len = int(5.0 * SAMPLING_RATE_HZ)
+    if len(x) < lta_len + sta_len:
+        return 0.0
+    csum = np.concatenate(([0.0], np.cumsum(x)))
+    idx = np.arange(lta_len, len(x) - sta_len)
+    sta = (csum[idx + sta_len] - csum[idx]) / sta_len
+    lta = (csum[idx] - csum[idx - lta_len]) / lta_len
+    return float(np.max(sta / (lta + 1e-10)))
+
+
+def _resonance_score_parity(trace: np.ndarray[Any, Any]) -> float:
+    """Seismic-band resonance score (parity with the detector).
+
+    Mirrors ``EarthquakeDetector._compute_resonance_score`` on the raw
+    (unnormalized) spectrogram exactly as ``predict_earthquake`` computes it:
+    +0.33 for each of the 0.1-1 / 1-5 / 5-20 Hz bands whose mean power
+    exceeds 1.5x the overall mean, capped at 1.0. The trace is passed to
+    ``scipy.signal.spectrogram`` unconverted, as the detector does.
+    """
+    trace = np.asarray(trace)
+    freqs, _t, sxx = _scipy_signal.spectrogram(
+        trace,
+        fs=SAMPLING_RATE_HZ,
+        nperseg=min(256, len(trace) // 4),
+        noverlap=min(128, len(trace) // 8),
+    )
+    power_by_freq = sxx.mean(axis=1)
+    total_power = power_by_freq.mean() + 1e-10
+    score = 0.0
+    for low, high in ((0.1, 1.0), (1.0, 5.0), (5.0, 20.0)):
+        mask = (freqs >= low) & (freqs <= high)
+        if mask.any() and power_by_freq[mask].mean() / total_power > 1.5:
+            score += 0.33
+    return min(1.0, score)
+
+
+def _physics_confidence_parity(trace: np.ndarray[Any, Any]) -> tuple[float, float]:
+    """Return ``(physics confidence, resonance score)`` for one waveform.
+
+    Replicates the physics path of ``EarthquakeDetector.predict_earthquake``:
+    ``min(1, clip((peak STA/LTA - 2.5) / 7.5, 0, 1) + 0.2 * resonance)``.
+    The resonance score is returned as well because the learned path shares
+    the identical ``+ 0.2 * resonance`` confidence bump.
+    """
+    resonance = _resonance_score_parity(trace)
+    trigger = float(np.clip((_peak_sta_lta_parity(trace) - 2.5) / 7.5, 0.0, 1.0))
+    return min(1.0, trigger + resonance * 0.2), resonance
 
 
 # ---------------------------------------------------------------------------
@@ -1010,6 +1097,150 @@ def _val_auc(model: Any, val: dict[str, torch.Tensor], batch_size: int = 256) ->
     return binary_auc(val["label"].numpy(), np.concatenate(scores))
 
 
+def _select_operating_point(
+    model: Any, ctx: PipelineContext, val: dict[str, torch.Tensor]
+) -> dict[str, Any]:
+    """Choose the learned alert threshold on the VALIDATION year.
+
+    Policy (mirrors ``solar_storm._select_operating_point``, documented for
+    owner ratification): the deployed alert is ``confidence >
+    detection_threshold``, where the learned confidence is the sigmoid
+    classifier output plus the detector's ``0.2 * resonance`` bump (capped at
+    1). The default 0.96 was calibrated for the physics STA/LTA confidence
+    scale, not the sigmoid's, so the threshold is selected on the VALIDATION
+    year only: require detection recall >= max(physics val recall + 0.02,
+    0.60) AND false-alarm rate <= 0.8 * physics val FAR (both mirror the ship
+    gate's secondary constraints, with headroom for the val->test shift the
+    gate does not forgive); among feasible thresholds pick the one maximizing
+    CSI (ties -> higher threshold, fewer false alarms). Physics recall/FAR on
+    validation come from the exact parity helpers
+    (:func:`_physics_confidence_parity`); the evaluate stage still measures
+    both paths through the public detector API on the held-out TEST years.
+
+    Args:
+        model: Trained ``SeismicWaveAnalyzer`` (best validation state).
+        ctx: Pipeline context (locates the cached validation waveforms).
+        val: Validation tensors from :func:`_group_tensors` (row-aligned with
+            the cached ``val`` subset).
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar (threshold, policy, and the validation-year
+        recall/FAR/CSI for both the learned rule and physics).
+
+    Raises:
+        RuntimeError: When validation has a single class, or when not even
+            the FAR ceiling is satisfiable (a doomed operating point must not
+            be recorded).
+    """
+    raw = _load_subset(ctx, "val")
+    labels = raw["label"].astype(bool)
+    if not labels.any() or labels.all():
+        raise RuntimeError(
+            "validation year contains a single class; cannot select an operating point honestly"
+        )
+    if len(labels) != int(val["spec"].shape[0]):
+        raise RuntimeError(
+            "validation tensor/waveform row mismatch; refusing to select an operating point"
+        )
+
+    model.eval()
+    probs = []
+    with torch.no_grad():
+        for start in range(0, val["spec"].shape[0], 256):
+            eq_prob, _, _, _ = model(val["spec"][start : start + 256])
+            probs.append(eq_prob.reshape(-1).numpy().astype(np.float64))
+    eq_prob_all = np.concatenate(probs)
+
+    physics_conf = np.empty(len(labels), dtype=np.float64)
+    resonance = np.empty(len(labels), dtype=np.float64)
+    for i, trace in enumerate(raw["z"]):
+        physics_conf[i], resonance[i] = _physics_confidence_parity(trace)
+    learned_conf = np.minimum(1.0, eq_prob_all + resonance * 0.2)
+
+    phys_detect = physics_conf > PHYSICS_DETECTION_THRESHOLD
+    physics_recall = float(np.mean(phys_detect[labels]))
+    physics_far = float(np.mean(phys_detect[~labels]))
+    recall_floor = max(physics_recall + 0.02, 0.60)
+    far_ceiling = 0.8 * physics_far
+
+    def _rule_metrics(tau: float) -> tuple[float, float, float]:
+        detect = learned_conf > tau
+        tp = float(np.sum(detect & labels))
+        fn = float(np.sum(~detect & labels))
+        fp = float(np.sum(detect & ~labels))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~labels)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    taus = np.unique(
+        np.concatenate(
+            [
+                np.quantile(learned_conf, np.linspace(0.0, 1.0, 513)),
+                [PHYSICS_DETECTION_THRESHOLD],  # keep 0.96 selectable if it is right
+            ]
+        )
+    )
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _rule_metrics(float(tau))
+        entry = {
+            "detection_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no threshold satisfies both floors: the best-recall
+        # point that at least respects the FAR ceiling (a recall-maximizing
+        # fallback that blows the ceiling would be selecting a point the
+        # ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["detection_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no learned threshold satisfies even the false-alarm ceiling on "
+            "validation; the classifier head is not usable for alert "
+            "decisions -- refusing to record a doomed operating point"
+        )
+    logger.info(
+        "operating point: threshold %.6f (val recall %.4f / FAR %.4f / CSI %.4f; "
+        "physics recall %.4f / FAR %.4f at %.2f)",
+        chosen["detection_threshold"],
+        chosen["val_recall"],
+        chosen["val_far"],
+        chosen["val_csi"],
+        physics_recall,
+        physics_far,
+        PHYSICS_DETECTION_THRESHOLD,
+    )
+    return {
+        **chosen,
+        "policy": "confidence > tau (sigmoid + 0.2*resonance, detector semantics); tau "
+        "maximizes val CSI subject to val recall >= max(physics val recall + 0.02, 0.60) "
+        "AND val FAR <= 0.8 * physics val FAR",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+        "physics_detection_threshold": PHYSICS_DETECTION_THRESHOLD,
+    }
+
+
 def train(ctx: PipelineContext) -> dict[str, Any]:
     """Train the detector's own SeismicWaveAnalyzer with early stopping.
 
@@ -1091,9 +1322,12 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         raise RuntimeError("training produced no finite validation AUC; refusing to save")
     model.load_state_dict(best_state)
 
+    operating_point = _select_operating_point(model, ctx, val)
+
     record = {
         "seed": ctx.seed,
         "epochs_run": epochs_run,
+        "max_epochs": ctx.max_epochs,
         "best_val_auc": float(best_auc),
         "n_train": n_train,
         "n_train_truncated": ds.train_trunc.n,
@@ -1101,6 +1335,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "train_years": list(SPLIT.train_years),
         "val_years": list(SPLIT.val_years),
         "train_earthquake_fraction": pos_frac,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "seismic_analyzer": model.state_dict(),
@@ -1108,6 +1343,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "sampling_rate_hz": SAMPLING_RATE_HZ,
         "window_samples": WINDOW_SAMPLES,
         "component": "Z",
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
@@ -1156,6 +1392,24 @@ def _eval_worker(chunk: np.ndarray[Any, Any]) -> dict[str, list[float]]:
     return out
 
 
+def _median_latency_ms(detector: Any, traces: np.ndarray[Any, Any], n_runs: int = 100) -> float:
+    """Median wall-clock latency of ``predict_earthquake`` on single traces.
+
+    Cycles through ``traces`` for ``n_runs`` timed calls after a short
+    warm-up, so the figure reflects steady-state single-trace inference (the
+    deployed usage pattern), not batch throughput.
+    """
+    for i in range(5):
+        detector.predict_earthquake(traces[i % len(traces)])
+    times = np.empty(n_runs, dtype=np.float64)
+    for i in range(n_runs):
+        trace = traces[i % len(traces)]
+        t0 = time.perf_counter()
+        detector.predict_earthquake(trace)
+        times[i] = (time.perf_counter() - t0) * 1e3
+    return float(np.median(times))
+
+
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     """Compare learned vs physics through the public detector API.
 
@@ -1163,8 +1417,15 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     trace (years 2017+). Physics is a fresh :class:`EarthquakeDetector` with
     no weights (STA/LTA trigger + band resonance, magnitude abstained);
     learned is an identical detector after ``load_neural_weights`` on the
-    candidate checkpoint. Primary metric: classification AUC of the public
-    ``confidence`` field (higher is better).
+    candidate checkpoint (which also applies the checkpoint's validated
+    alert threshold). Primary metric: classification AUC of the public
+    ``confidence`` field (higher is better). Secondary NON-REGRESSION
+    constraints at each path's own deployed alert rule: detection recall
+    (higher) and false-alarm rate (lower). Extras record a seeded 1000-
+    resample bootstrap 95% CI on the AUC difference, parameter count, median
+    single-trace latency, and SNR-stratified recall/AUC (the scientific
+    value-add: showing WHERE the CNN beats STA/LTA); ``magnitude_mae`` stays
+    a SECONDARY metric (physics abstains -> NaN) outside the constraint set.
 
     Returns:
         The evaluation outcome (persisted next to the candidate).
@@ -1174,6 +1435,9 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     cand_path, _ = candidate_paths(ctx.data_dir, HOOK_NAME)
     if not cand_path.exists():
         raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
+    cand_payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = cand_payload.get("operating_point")
+    parameter_count = int(sum(v.numel() for v in cand_payload["seismic_analyzer"].values()))
 
     test = _load_subset(ctx, "test")
     n_test = len(test["label"])
@@ -1220,12 +1484,76 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         finite_err = mag_err[np.isfinite(mag_err)]
         return {
             "auc": binary_auc(label, conf),
-            "recall_at_0.96": float(det[is_eq].mean()),
-            "false_alarm_rate_at_0.96": float(det[~is_eq].mean()),
+            # Each path is scored at its OWN deployed alert rule: physics at
+            # the 0.96 default, learned at the validated threshold its
+            # checkpoint carries (applied by load_neural_weights).
+            "detection_recall_op": float(det[is_eq].mean()),
+            "false_alarm_rate_op": float(det[~is_eq].mean()),
             "p_wave_accuracy": float((collected[f"{path_label}_p"] == p_present).mean()),
             "s_wave_accuracy": float((collected[f"{path_label}_s"] == s_present).mean()),
             "magnitude_mae": (float(finite_err.mean()) if finite_err.size else float("nan")),
         }
+
+    is_eq_mask = label == 1.0
+
+    # Seeded paired bootstrap on the AUC difference (1000 resamples): the
+    # primary-metric win must be shown to be resolvable, not a tie broken by
+    # sampling luck.
+    boot_rng = np.random.default_rng([ctx.seed, 2])
+    n_resamples = 1000
+    auc_diffs = np.empty(n_resamples, dtype=np.float64)
+    for b in range(n_resamples):
+        idx = boot_rng.integers(0, n_test, n_test)
+        auc_diffs[b] = binary_auc(label[idx], collected["learned_conf"][idx]) - binary_auc(
+            label[idx], collected["physics_conf"][idx]
+        )
+    ci_low, ci_high = np.percentile(auc_diffs, [2.5, 97.5])
+
+    # SNR-stratified recall/AUC: terciles of the earthquake traces' catalog
+    # SNR (mean of the per-component trace_snr_db values). Low-SNR events are
+    # where a spectrogram CNN should beat the STA/LTA trigger.
+    snr = test["snr_db"][:n_test].astype(np.float64)
+    pos_idx = np.flatnonzero(is_eq_mask & np.isfinite(snr))
+    edges = np.percentile(snr[pos_idx], [100.0 / 3.0, 200.0 / 3.0])
+    strata: dict[str, Any] = {}
+    for name, lo, hi in (
+        ("low", -np.inf, edges[0]),
+        ("mid", edges[0], edges[1]),
+        ("high", edges[1], np.inf),
+    ):
+        in_stratum = pos_idx[(snr[pos_idx] > lo) & (snr[pos_idx] <= hi)]
+        stratum_and_noise = np.concatenate([in_stratum, np.flatnonzero(~is_eq_mask)])
+        strata[name] = {
+            "snr_db_range": [
+                float(snr[in_stratum].min()) if in_stratum.size else None,
+                float(snr[in_stratum].max()) if in_stratum.size else None,
+            ],
+            "n_earthquakes": int(in_stratum.size),
+            "learned_recall_op": float(collected["learned_det"][in_stratum].mean()),
+            "physics_recall_op": float(collected["physics_det"][in_stratum].mean()),
+            "learned_auc": binary_auc(
+                label[stratum_and_noise], collected["learned_conf"][stratum_and_noise]
+            ),
+            "physics_auc": binary_auc(
+                label[stratum_and_noise], collected["physics_conf"][stratum_and_noise]
+            ),
+        }
+
+    # Median single-trace inference latency through the public API (the
+    # deployed usage pattern), measured in this parent process AFTER the
+    # worker pool has finished.
+    from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
+
+    latency_physics_det = EarthquakeDetector()
+    latency_learned_det = EarthquakeDetector()
+    latency_learned_det.load_neural_weights(str(cand_path))
+    latency_traces = z[: min(100, n_test)]
+    latency = {
+        "learned": _median_latency_ms(latency_learned_det, latency_traces),
+        "physics": _median_latency_ms(latency_physics_det, latency_traces),
+        "n_runs": 100,
+        "torch_num_threads": torch.get_num_threads(),
+    }
 
     manifest_file = _manifest_path(ctx)
     manifest = json.loads(manifest_file.read_text()) if manifest_file.exists() else {}
@@ -1238,6 +1566,21 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         physics=_metrics("physics"),
         n_test_samples=int(n_test),
         test_years=SPLIT.test_years,
+        constraints=[
+            {
+                "metric": "detection_recall_op",
+                "higher_is_better": True,
+                "description": "detection recall at the deployed alert rule (physics at "
+                "its 0.96 default, learned at the validated threshold carried in the "
+                "checkpoint) must not regress below physics",
+            },
+            {
+                "metric": "false_alarm_rate_op",
+                "higher_is_better": False,
+                "description": "false-alarm rate on noise traces at the deployed alert "
+                "rule must not exceed physics",
+            },
+        ],
         extras={
             "n_test_earthquake": int(label.sum()),
             "n_test_noise": int((1.0 - label).sum()),
@@ -1246,6 +1589,26 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 test["snr_db"][:n_test][label == 1.0].astype(np.float64)
             ),
             "bytes_streamed_hdf5": manifest.get("bytes_streamed_hdf5"),
+            "operating_point": operating_point,
+            "parameter_count": parameter_count,
+            "auc_diff_bootstrap": {
+                "mean": float(auc_diffs.mean()),
+                "ci95_low": float(ci_low),
+                "ci95_high": float(ci_high),
+                "n_resamples": n_resamples,
+                "seed": [ctx.seed, 2],
+                "method": "seeded paired bootstrap over test traces; "
+                "difference = learned AUC - physics AUC per resample",
+            },
+            "median_inference_latency_ms": latency,
+            "snr_stratified": {
+                "tercile_edges_db": [float(edges[0]), float(edges[1])],
+                "n_positives_without_snr": int(is_eq_mask.sum() - pos_idx.size),
+                "strata": strata,
+                "note": "terciles over the test earthquakes' catalog snr_db; recall at "
+                "each path's deployed rule, AUC vs the full noise pool -- low SNR is "
+                "where the spectrogram CNN should beat the STA/LTA trigger",
+            },
             "physics_magnitude_abstention": (
                 "the physics fallback emits estimated_magnitude=None by design "
                 "(an uncalibrated single station has no honest Richter estimate), "

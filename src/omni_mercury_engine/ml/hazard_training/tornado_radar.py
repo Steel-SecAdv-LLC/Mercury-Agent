@@ -44,7 +44,7 @@ Sample construction (the (rays, gates) array IS ``weather_data
 * **Quiet-day negatives**: same radars, days with at least two SPC wind/hail
   reports within 120 km (storms genuinely present) but NO tornado report of
   any rating within 300 km that UTC day; the scan nearest the (seeded,
-  jittered) median severe-report time; up to three random-azimuth /
+  jittered) median severe-report time; up to five random-azimuth /
   random-range sectors per volume.
 * **Same-day marginal negatives**: sectors re-extracted from the POSITIVE
   volumes at seeded random azimuth/range whose center lies >= 100 km from
@@ -87,6 +87,13 @@ AUC is computed on a deployed-outputs-only score documented in
 mesocyclone_detected``. For the physics path this is a strictly monotone
 transform of its rotational velocity (detection IS ``v_rot >= 15``), so
 physics AUC equals the AUC of its continuous ranking -- no handicap.
+
+The learned decision threshold is NOT the architecture's built-in 0.5: the
+class-weighted BCE shifts the head's probability scale, so the deployed
+``meso_prob >= tau`` rule is selected on the VALIDATION years
+(:func:`_select_operating_point`, mirroring the solar-storm hook), carried
+in the checkpoint payload as ``payload['operating_point']``, and
+consumed/validated by ``TornadoDetector.load_neural_weights``.
 """
 
 from __future__ import annotations
@@ -96,6 +103,7 @@ import json
 import logging
 import re
 import struct
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -160,12 +168,17 @@ SCAN_BEFORE_S = 20 * 60
 SCAN_AFTER_S = 5 * 60
 MIN_FINITE_FRACTION = 0.30
 
-POSITIVES_PER_YEAR = 28
+#: Originally planned at 28/year; shrunk to 20/year after measuring the
+#: mirror (modern storm-day volumes run 10-26 MB) so the whole 2011-2023
+#: fetch fits the 4-GiB download budget. A smaller real dataset beats a
+#: padded or truncated one; the manifest records the final counts.
+POSITIVES_PER_YEAR = 20
 #: Quiet-day volumes are the only negatives that cost fresh downloads, so
 #: the byte budget is spent on more sectors per volume rather than more
-#: volumes (2016+ uncompressed SAILS volumes run 15-25 MB each).
-QUIET_VOLUMES_PER_YEAR = 6
-QUIET_SECTORS_PER_VOLUME = 4
+#: volumes (2016+ uncompressed SAILS volumes run 15-25 MB each). Shrunk
+#: from 6x4 to 4x5 sectors/year under the same 4-GiB budget.
+QUIET_VOLUMES_PER_YEAR = 4
+QUIET_SECTORS_PER_VOLUME = 5
 MARGINAL_SECTORS_PER_POSITIVE = 1
 #: Seeded draws per volume when hunting an acceptable random sector. Outbreak
 #: days reject most draws on the report-exclusion rule, so the hunt needs
@@ -181,7 +194,7 @@ QUIET_TORNADO_EXCLUSION_KM = 300.0
 MARGINAL_EXCLUSION_KM = 100.0
 STORM_PROXIMITY_KM = 120.0
 MIN_STORM_REPORTS = 2
-MAX_DOWNLOAD_BYTES = 6 * 2**30
+MAX_DOWNLOAD_BYTES = 4 * 2**30
 
 _EARTH_RADIUS_KM = 6371.0
 _KEY_TIME_RE = re.compile(r"([A-Z]{4})(\d{8})_(\d{6})")
@@ -628,20 +641,34 @@ def _save_sector(
 
 
 class _DownloadBudget:
-    """Loud accounting against the volume-download byte cap."""
+    """Loud accounting against the volume-download byte cap.
+
+    Crossing the cap flips :attr:`exhausted` instead of raising: the
+    collectors stop SELECTING further volumes, everything already extracted
+    is kept, and the manifest records the truncation. Raising here would
+    throw away hours of already-downloaded real data over the last volume;
+    a smaller real dataset (reported honestly) beats a dead pipeline. The
+    volume that crossed the cap is still used -- its bytes are already
+    spent and counted.
+    """
 
     def __init__(self, cap_bytes: int) -> None:
         self.cap = cap_bytes
         self.bytes = 0
         self.volumes = 0
+        self.exhausted = False
 
     def add(self, path: Path) -> None:
         self.bytes += path.stat().st_size
         self.volumes += 1
-        if self.bytes > self.cap:
-            raise RuntimeError(
-                f"volume download budget exceeded ({self.bytes} > {self.cap} bytes); "
-                "refusing to keep pulling -- lower the per-year quotas"
+        if self.bytes > self.cap and not self.exhausted:
+            self.exhausted = True
+            logger.warning(
+                "volume download budget exhausted (%d > %d bytes); "
+                "stopping further volume selection -- the manifest records "
+                "the shrunken counts",
+                self.bytes,
+                self.cap,
             )
 
 
@@ -682,11 +709,14 @@ def _collect_positive_samples(
     samples: list[dict[str, Any]] = []
     marginal: list[dict[str, Any]] = []
     for year in SPLIT.all_years:
+        if budget.exhausted:
+            logger.warning("positives for %d+ skipped: download budget exhausted", year)
+            break
         pool = sorted(by_year.get(year, []), key=lambda r: r["om"])
         order = rng.permutation(len(pool))
         taken = 0
         for pi in order:
-            if taken >= POSITIVES_PER_YEAR:
+            if taken >= POSITIVES_PER_YEAR or budget.exhausted:
                 break
             rep = pool[int(pi)]
             cands = _candidate_sites(sites, rep["slat"], rep["slon"])
@@ -878,6 +908,9 @@ def _collect_quiet_negatives(
 
     samples: list[dict[str, Any]] = []
     for year in SPLIT.all_years:
+        if budget.exhausted:
+            logger.warning("quiet negatives for %d+ skipped: download budget exhausted", year)
+            break
         year_sites = sorted(set(positive_sites.get(year, [])))
         if not year_sites:
             continue
@@ -904,7 +937,7 @@ def _collect_quiet_negatives(
         order = rng.permutation(len(candidates))
         taken_volumes = 0
         for ci in order:
-            if taken_volumes >= QUIET_VOLUMES_PER_YEAR:
+            if taken_volumes >= QUIET_VOLUMES_PER_YEAR or budget.exhausted:
                 break
             site, day, times = candidates[int(ci)]
             target = times[len(times) // 2] + _dt.timedelta(minutes=float(rng.uniform(-30.0, 30.0)))
@@ -1102,6 +1135,14 @@ def fetch(ctx: PipelineContext) -> dict[str, Any]:
             "quiet_negatives": len(quiet),
             "volumes_downloaded": budget.volumes,
             "volume_bytes_downloaded": budget.bytes,
+            "budget_exhausted": budget.exhausted,
+        },
+        "quotas": {
+            "positives_per_year": POSITIVES_PER_YEAR,
+            "quiet_volumes_per_year": QUIET_VOLUMES_PER_YEAR,
+            "quiet_sectors_per_volume": QUIET_SECTORS_PER_VOLUME,
+            "marginal_sectors_per_positive": MARGINAL_SECTORS_PER_POSITIVE,
+            "download_cap_bytes": MAX_DOWNLOAD_BYTES,
         },
         "sites_used": sorted({str(s["site"]) for s in samples}),
     }
@@ -1321,6 +1362,8 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         raise RuntimeError("training produced no finite validation AUC; refusing to save")
     model.load_state_dict(best_state)
 
+    operating_point = _select_operating_point(model, ds, x_val=x_val, val_mask=val_mask)
+
     record = {
         "seed": ctx.seed,
         "epochs_run": epochs_run,
@@ -1332,6 +1375,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "train_positive_fraction": n_pos / max(float(x_train.shape[0]), 1.0),
         "bce_pos_weight": pos_weight,
         "rotation_target": "couplet_v_rot(window)/50 on positives (observed kinematics)",
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "radar_analyzer": model.state_dict(),
@@ -1340,9 +1384,126 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "sector_rays": SECTOR_RAYS,
         "sweep": "lowest VEL",
         "units": "m/s",
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
+
+
+def _select_operating_point(
+    model: Any,
+    ds: TornadoRadarDataset,
+    *,
+    x_val: torch.Tensor,
+    val_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Choose the deployed mesocyclone-probability threshold on validation.
+
+    Policy (mirrors ``solar_storm._select_operating_point``, documented for
+    owner ratification): the deployed learned decision is
+    ``meso_prob >= tau``. The detector's built-in default is 0.5, but the
+    class-weighted BCE (pos_weight = train neg/pos ratio) deliberately
+    shifts the head's probability scale, so 0.5 is a training artifact,
+    not a calibrated decision rule. On the VALIDATION years only, require
+    recall of at least ``max(physics validation recall, 0.5)`` AND a
+    false-alarm rate of at most ``0.8 * physics validation FAR`` (the 20%
+    headroom guards the val->test distribution shift the ship gate's hard
+    FAR constraint does not forgive); among feasible thresholds pick the
+    one maximizing CSI (ties -> higher tau, i.e. fewer false alarms).
+    Physics on the same validation windows is the deployed
+    velocity-couplet rule ``couplet_v_rot(window) >= 15 m/s`` --
+    byte-identical to ``TornadoDetector._analyze_radar_physics`` on these
+    NaN->0 windows (that observable is ``ds.v_rot``).
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar (threshold, policy, and the validation-year
+        recall/FAR/CSI for both the learned rule and physics).
+
+    Raises:
+        RuntimeError: If validation lacks a class, or no threshold
+            satisfies even the FAR ceiling (a doomed operating point must
+            not be recorded).
+    """
+    labels_val = ds.labels[val_mask].astype(bool)
+    if not labels_val.any() or labels_val.all():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an operating point honestly"
+        )
+
+    model.eval()
+    with torch.no_grad():
+        meso_prob_t, _, _ = model(x_val)
+    meso_prob = meso_prob_t.squeeze(-1).numpy().astype(np.float64)
+
+    phys_detect = ds.v_rot[val_mask] >= 15.0
+    physics_recall = float(np.mean(phys_detect[labels_val]))
+    physics_far = float(np.mean(phys_detect[~labels_val]))
+    recall_floor = max(physics_recall, 0.5)
+    far_ceiling = 0.8 * physics_far
+
+    def _rule_metrics(tau: float) -> tuple[float, float, float]:
+        detect = meso_prob >= tau
+        tp = float(np.sum(detect & labels_val))
+        fn = float(np.sum(~detect & labels_val))
+        fp = float(np.sum(detect & ~labels_val))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~labels_val)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    # Candidate grid: the head's own validation quantiles, plus the 0.5
+    # default (so "keep the default" is always considered) and 1.0 (sigmoid
+    # output is strictly < 1, so tau=1 means "never detect" -- the honest
+    # last-resort point when even one detection breaks the FAR ceiling).
+    taus = np.unique(
+        np.concatenate([np.quantile(meso_prob, np.linspace(0.0, 1.0, 513)), [0.5, 1.0]])
+    )
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _rule_metrics(float(tau))
+        entry = {
+            "meso_prob_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no threshold satisfies both floors: the most
+        # conservative feasible-on-FAR point with the best recall (a
+        # recall-maximizing fallback that blows the FAR ceiling would be
+        # selecting a point the ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["meso_prob_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the mesocyclone head is not usable for deployed decisions -- "
+            "refusing to record a doomed operating point"
+        )
+    return {
+        **chosen,
+        "policy": "mesocyclone_detected = meso_prob >= tau; tau maximizes val CSI "
+        "subject to val recall >= max(physics val recall, 0.5) AND "
+        "val FAR <= 0.8 * physics val FAR",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1353,6 +1514,57 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
 #: well under 100 m/s, so adding 100 on detection keeps the physics score a
 #: strictly monotone transform of its rotational velocity (identical AUC).
 _DECISION_BONUS = 100.0
+
+#: Seeded bootstrap resamples for the 95% CI on the AUC difference.
+_BOOTSTRAP_RESAMPLES = 1000
+
+
+def _bootstrap_auc_delta_ci(
+    labels: np.ndarray,
+    learned_score: np.ndarray,
+    physics_score: np.ndarray,
+    *,
+    seed: int,
+    n_resamples: int = _BOOTSTRAP_RESAMPLES,
+) -> dict[str, Any]:
+    """Seeded stratified paired bootstrap 95% CI on AUC(learned) - AUC(physics).
+
+    Paired: each resample scores BOTH models on the same resampled windows,
+    so the interval is on the difference, not two marginal intervals.
+    Stratified: positives and negatives are resampled separately with their
+    class counts preserved, so every resampled AUC is defined (no
+    single-class resamples to silently drop).
+
+    Args:
+        labels: 0/1 test labels.
+        learned_score: Learned deployed score per test window.
+        physics_score: Physics deployed score per test window.
+        seed: Bootstrap RNG seed (recorded in the returned record).
+        n_resamples: Number of resamples.
+
+    Returns:
+        Record with the observed delta, 95% CI bounds, and method notes.
+    """
+    rng = np.random.default_rng(seed)
+    pos_idx = np.flatnonzero(labels == 1.0)
+    neg_idx = np.flatnonzero(labels != 1.0)
+    deltas = np.empty(n_resamples, dtype=np.float64)
+    for b in range(n_resamples):
+        pi = rng.choice(pos_idx, size=pos_idx.size, replace=True)
+        ni = rng.choice(neg_idx, size=neg_idx.size, replace=True)
+        idx = np.concatenate([pi, ni])
+        deltas[b] = binary_auc(labels[idx], learned_score[idx]) - binary_auc(
+            labels[idx], physics_score[idx]
+        )
+    return {
+        "observed_delta": binary_auc(labels, learned_score) - binary_auc(labels, physics_score),
+        "ci95_low": float(np.quantile(deltas, 0.025)),
+        "ci95_high": float(np.quantile(deltas, 0.975)),
+        "n_resamples": int(n_resamples),
+        "seed": int(seed),
+        "method": "stratified paired bootstrap over test windows "
+        "(class counts preserved; percentile interval)",
+    }
 
 
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
@@ -1399,14 +1611,16 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     previous_level = det_logger.level
     det_logger.setLevel(logging.WARNING)  # silence per-call INFO; restored below
     results: dict[str, dict[str, list[float]]] = {
-        "physics": {"rotation": [], "detected": [], "confidence": []},
-        "learned": {"rotation": [], "detected": [], "confidence": []},
+        "physics": {"rotation": [], "detected": [], "confidence": [], "latency_s": []},
+        "learned": {"rotation": [], "detected": [], "confidence": [], "latency_s": []},
     }
     try:
         for i in test_idx:
             case = {"radar_sequence": ds.sequences[i]}
             for label, det in (("physics", physics_det), ("learned", learned_det)):
+                t0 = time.perf_counter()
                 out = det.predict_tornado(case)
+                results[label]["latency_s"].append(time.perf_counter() - t0)
                 if not np.isfinite(out.rotation_velocity_ms):
                     raise RuntimeError(f"{label} path returned non-finite rotation for case {i}")
                 results[label]["rotation"].append(float(out.rotation_velocity_ms))
@@ -1417,17 +1631,25 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
 
     pos = labels == 1.0
     v_rot_ref = ds.v_rot[test_idx]
+    detected_arr = {
+        label: np.asarray(results[label]["detected"], dtype=bool)
+        for label in ("physics", "learned")
+    }
+    score_arr = {
+        label: np.asarray(results[label]["rotation"])
+        + _DECISION_BONUS * detected_arr[label].astype(np.float64)
+        for label in ("physics", "learned")
+    }
 
     def _metrics(label: str) -> dict[str, float]:
         rotation = np.asarray(results[label]["rotation"])
-        detected = np.asarray(results[label]["detected"], dtype=bool)
+        detected = detected_arr[label]
         confidence = np.asarray(results[label]["confidence"])
-        score = rotation + _DECISION_BONUS * detected.astype(np.float64)
         tp = float(np.sum(detected & pos))
         fn = float(np.sum(~detected & pos))
         fp = float(np.sum(detected & ~pos))
         return {
-            "auc": binary_auc(labels, score),
+            "auc": binary_auc(labels, score_arr[label]),
             "auc_rotation_only": binary_auc(labels, rotation),
             "auc_composite_confidence": binary_auc(labels, confidence),
             "meso_recall_deployed": float(tp / max(tp + fn, 1.0)),
@@ -1435,6 +1657,19 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "meso_csi_deployed": float(tp / max(tp + fn + fp, 1.0)),
             "rotation_mae_pos_ms": float(np.mean(np.abs(rotation[pos] - v_rot_ref[pos]))),
         }
+
+    def _ef_stratified_recall() -> dict[str, dict[str, Any]]:
+        """Deployed-rule recall stratified by EF rating (EF1 vs EF2+)."""
+        ef_pos = ds.ef[test_idx]
+        strata = {"ef1": pos & (ef_pos == 1), "ef2_plus": pos & (ef_pos >= 2)}
+        table: dict[str, dict[str, Any]] = {}
+        for name, mask in strata.items():
+            n = int(mask.sum())
+            row: dict[str, Any] = {"n": n}
+            for label in ("physics", "learned"):
+                row[label] = float(np.mean(detected_arr[label][mask])) if n else float("nan")
+            table[name] = row
+        return table
 
     kind_counts: dict[str, int] = {}
     for i in test_idx:
@@ -1446,6 +1681,9 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         manifest_counts = json.loads(manifest_path.read_text()).get("counts", {})
 
     year_counts = {int(y): int(np.sum(ds.years == y)) for y in np.unique(ds.years)}
+    cand_payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    assert learned_det.radar_analyzer is not None  # constructed with enable_radar=True
+    learned_param_count = int(sum(p.numel() for p in learned_det.radar_analyzer.parameters()))
     outcome = EvaluationOutcome(
         hook=HOOK_NAME,
         primary_metric="auc",
@@ -1466,12 +1704,28 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "rotation_mae_note": "physics rotation_mae_pos_ms is 0 by construction "
             "(its deployed output IS the reference observable); reported for the "
             "learned model as a regression-quality measure, not gated",
+            "operating_point": "learned mesocyclone decision uses the "
+            "validation-selected threshold carried by the checkpoint (see "
+            "payload['operating_point']); physics decision is its fixed "
+            "v_rot >= 15 m/s rule -- each path is scored on its own deployed rule",
+            "operating_point_record": cand_payload.get("operating_point"),
+            "auc_delta_bootstrap": _bootstrap_auc_delta_ci(
+                labels, score_arr["learned"], score_arr["physics"], seed=ctx.seed
+            ),
+            "learned_parameter_count": learned_param_count,
+            "median_inference_latency_ms": {
+                label: float(np.median(results[label]["latency_s"]) * 1e3)
+                for label in ("physics", "learned")
+            },
+            "ef_stratified_recall_deployed": _ef_stratified_recall(),
             "test_kind_counts": kind_counts,
             "test_ef_distribution": {
                 str(int(v)): int(np.sum(ef_test == v)) for v in np.unique(ef_test)
             },
             "dataset_year_counts": year_counts,
             "fetch_counts": manifest_counts,
+            "volumes_fetched": manifest_counts.get("volumes_downloaded"),
+            "volume_bytes_fetched": manifest_counts.get("volume_bytes_downloaded"),
             "sites_used_test": sorted({ds.sites[int(i)] for i in test_idx}),
         },
         constraints=[
@@ -1479,7 +1733,8 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "metric": "meso_recall_deployed",
                 "higher_is_better": True,
                 "description": "mesocyclone recall at the deployed decision "
-                "(meso_prob > 0.5 vs v_rot >= 15 m/s) must not regress below physics",
+                "(meso_prob >= checkpoint-carried tau vs v_rot >= 15 m/s) must not "
+                "regress below physics",
             },
             {
                 "metric": "meso_far_deployed",

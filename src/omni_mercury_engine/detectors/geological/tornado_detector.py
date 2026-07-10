@@ -512,6 +512,15 @@ class TornadoDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Ratified mesocyclone operating point carried by trained checkpoints
+        # (see ml.hazard_training.tornado_radar._select_operating_point): the
+        # class-weighted BCE shifts the classifier head's probability scale,
+        # so the deployed decision threshold is selected on the validation
+        # years and shipped with the weights. None until a checkpoint that
+        # declares one is loaded (then meso_prob >= tau replaces the 0.5
+        # default).
+        self._meso_prob_threshold: float | None = None
+
         self.recursion_engine = RecursionEngine(max_depth=5)
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
         self.refactoring_engine = RefactoringEngine()
@@ -666,12 +675,21 @@ class TornadoDetector:
         Until this is called the network is untrained and mesocyclone detection
         runs on the deterministic velocity-couplet physics.
 
+        Checkpoints may carry a validation-selected mesocyclone operating
+        point (``payload['operating_point']['meso_prob_threshold']``); it is
+        validated here (must be a finite probability in (0, 1)) and replaces
+        the 0.5 default in :meth:`_analyze_radar`.
+
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
                 ``radar_analyzer`` state dict. ``None`` loads the shipped
                 default checkpoint (``tornado_nexrad``), whose provenance
                 sidecar is logged; missing or corrupt files raise instead of
                 degrading silently.
+
+        Raises:
+            ValueError: If a carried operating-point threshold is not a
+                finite probability strictly inside (0, 1).
         """
         if self.radar_analyzer is None:
             raise RuntimeError("radar analysis is disabled on this detector")
@@ -684,12 +702,26 @@ class TornadoDetector:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
         self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["meso_prob_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating point threshold {tau} is not a "
+                    "probability; refusing a nonsensical mesocyclone rule"
+                )
+            self._meso_prob_threshold = tau
         self._neural_trained = True
         self.logger.info(
-            "Tornado radar neural weights loaded from %s (feature spec: %s); "
+            "Tornado radar neural weights loaded from %s (feature spec: %s%s); "
             "using learned analyzer",
             source,
             checkpoint.get("feature_spec", "unknown"),
+            (
+                f", mesocyclone operating point tau={self._meso_prob_threshold:.4f}"
+                if self._meso_prob_threshold is not None
+                else ", no operating point (default 0.5 threshold)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -735,7 +767,10 @@ class TornadoDetector:
         with torch.no_grad():
             meso_prob, rotation_vel, attention = self.radar_analyzer(seq_tensor)
 
-        mesocyclone_detected = float(meso_prob[0].item()) > 0.5
+        # Checkpoint-carried operating point (validation-selected) when
+        # present; the architecture's 0.5 default otherwise.
+        threshold = self._meso_prob_threshold if self._meso_prob_threshold is not None else 0.5
+        mesocyclone_detected = float(meso_prob[0].item()) >= threshold
 
         radar_result = {
             "mesocyclone_detected": mesocyclone_detected,

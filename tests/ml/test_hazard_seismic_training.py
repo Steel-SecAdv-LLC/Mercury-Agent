@@ -31,14 +31,19 @@ import pytest
 torch = pytest.importorskip("torch")
 h5py = pytest.importorskip("h5py")
 
+from omni_mercury_engine.ml.hazard_training.common import EvaluationOutcome
 from omni_mercury_engine.ml.hazard_training.seismic_wave import (
+    PHYSICS_DETECTION_THRESHOLD,
     SPLIT,
     TRUNC_SAMPLES,
     WINDOW_SAMPLES,
     BlockCachedRangeReader,
     detector_spectrogram,
 )
-from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+from omni_mercury_engine.models.checkpoint_paths import (
+    load_shipped_checkpoint,
+    shipped_checkpoint_path,
+)
 
 FIXTURE = (
     Path(__file__).resolve().parents[1]
@@ -292,3 +297,151 @@ class TestDetectorCheckpointWiring:
             assert res_l.estimated_magnitude is not None
             assert np.isfinite(res_l.estimated_magnitude)
         assert confidences["physics"] != confidences["learned"]
+
+    def test_shipped_checkpoint_operating_point_is_ratified_and_consumed(self) -> None:
+        """The shipped payload's alert threshold governs the default load.
+
+        Skips cleanly when nothing has been shipped (the merit gate may
+        legitimately refuse).
+        """
+        if not shipped_checkpoint_path("seismic_stead").exists():
+            pytest.skip("no shipped seismic_stead checkpoint (merit gate may have refused)")
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        payload, provenance = load_shipped_checkpoint("seismic_stead")
+        op = payload.get("operating_point")
+        assert op is not None, "shipped checkpoint must carry its ratified operating point"
+        tau = float(op["detection_threshold"])
+        assert 0.0 < tau < 1.0
+        assert provenance is not None
+        assert provenance["evaluation"]["learned_beats_physics"] is True
+        detector = EarthquakeDetector()
+        detector.load_neural_weights()  # no path -> shipped default
+        assert detector._operating_point == {"detection_threshold": tau}
+        # The constructor threshold (physics rule) is never overwritten.
+        assert detector.detection_threshold == PHYSICS_DETECTION_THRESHOLD
+
+
+class TestOperatingPointConsumption:
+    """The checkpoint's ratified alert threshold: consumed, validated, alert-only."""
+
+    def _checkpoint(self, path: Path, operating_point: dict[str, float] | None) -> str:
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            SeismicWaveAnalyzer,
+        )
+
+        torch.manual_seed(20260709)  # deterministic weights across calls
+        payload: dict[str, object] = {"seismic_analyzer": SeismicWaveAnalyzer().state_dict()}
+        if operating_point is not None:
+            payload["operating_point"] = operating_point
+        torch.save(payload, path)
+        return str(path)
+
+    def test_threshold_consumed_on_load(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        detector = EarthquakeDetector()
+        assert detector._operating_point is None
+        ckpt = self._checkpoint(tmp_path / "op.pt", {"detection_threshold": 0.5})
+        detector.load_neural_weights(ckpt)
+        assert detector._operating_point == {"detection_threshold": 0.5}
+        # Alert rule only: the constructor threshold (physics rule) is untouched.
+        assert detector.detection_threshold == PHYSICS_DETECTION_THRESHOLD
+
+    @pytest.mark.parametrize("bad", [1.5, 0.0, 1.0, -0.2, float("nan"), float("inf")])
+    def test_invalid_threshold_refuses_to_load(self, tmp_path: Path, bad: float) -> None:
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        detector = EarthquakeDetector()
+        ckpt = self._checkpoint(tmp_path / "bad_op.pt", {"detection_threshold": bad})
+        with pytest.raises(ValueError, match="not a\\s+probability"):
+            detector.load_neural_weights(ckpt)
+        assert detector._neural_trained is False
+        assert detector._operating_point is None
+
+    def test_checkpoint_without_operating_point_keeps_constructor_rule(
+        self, tmp_path: Path
+    ) -> None:
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        detector = EarthquakeDetector()
+        detector.load_neural_weights(self._checkpoint(tmp_path / "no_op.pt", None))
+        assert detector._neural_trained is True
+        assert detector._operating_point is None
+
+    def test_operating_point_changes_alert_decision_only(
+        self, tmp_path: Path, stead_fixture: dict[str, np.ndarray]
+    ) -> None:
+        """Identical weights, different thresholds: same confidence, own alerts."""
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+        )
+
+        trace = stead_fixture["z"][0]
+        results = {}
+        for tau in (0.05, 0.95):
+            detector = EarthquakeDetector()
+            detector.load_neural_weights(
+                self._checkpoint(tmp_path / f"op_{tau}.pt", {"detection_threshold": tau})
+            )
+            res = detector.predict_earthquake(trace)
+            # The deployed rule is exactly confidence > tau, nothing else.
+            assert res.earthquake_detected == (res.confidence > tau)
+            results[tau] = res
+        assert results[0.05].confidence == results[0.95].confidence
+
+
+class TestMagnitudeIsInformational:
+    """magnitude_mae is a SECONDARY metric: reported, never a gate constraint."""
+
+    def _outcome(self, constraints: list[dict[str, object]]) -> EvaluationOutcome:
+        return EvaluationOutcome(
+            hook="seismic_stead",
+            primary_metric="auc",
+            higher_is_better=True,
+            learned={
+                "auc": 0.99,
+                "detection_recall_op": 0.9,
+                "false_alarm_rate_op": 0.001,
+                "magnitude_mae": 0.6,
+            },
+            physics={
+                "auc": 0.9,
+                "detection_recall_op": 0.5,
+                "false_alarm_rate_op": 0.002,
+                # The physics fallback abstains from magnitude by design.
+                "magnitude_mae": float("nan"),
+            },
+            n_test_samples=10,
+            test_years=(2017,),
+            constraints=constraints,
+        )
+
+    def _gate_constraints(self) -> list[dict[str, object]]:
+        return [
+            {"metric": "detection_recall_op", "higher_is_better": True, "description": "d"},
+            {"metric": "false_alarm_rate_op", "higher_is_better": False, "description": "d"},
+        ]
+
+    def test_nan_physics_magnitude_does_not_block_shipping(self) -> None:
+        outcome = self._outcome(self._gate_constraints())
+        assert outcome.learned_beats_physics is True
+        assert outcome.failed_constraints == []
+
+    def test_magnitude_as_constraint_would_refuse(self) -> None:
+        """Documents WHY magnitude must stay informational: physics abstains
+        (NaN), and the gate treats a non-finite constraint as failed."""
+        constraints = self._gate_constraints() + [
+            {"metric": "magnitude_mae", "higher_is_better": False, "description": "d"}
+        ]
+        outcome = self._outcome(constraints)
+        assert outcome.learned_beats_physics is False
+        assert [c["metric"] for c in outcome.failed_constraints] == ["magnitude_mae"]
