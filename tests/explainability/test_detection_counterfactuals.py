@@ -11,10 +11,12 @@ detections.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
-from omni_mercury_engine.explainability.detection_counterfactuals import (
+from omni_mercury_engine.explainability.detection_counterfactuals import (  # type: ignore[import-not-found,unused-ignore]
     DETECTION_COUNTERFACTUAL_METHODS,
     DetectionCounterfactual,
     explain_detection_counterfactual,
@@ -237,7 +239,7 @@ class TestFailLoud:
 
 class TestStatisticalAdapter:
     @pytest.fixture(scope="class")
-    def fitted(self) -> tuple:
+    def fitted(self) -> tuple[Any, ...]:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         rng = np.random.default_rng(0)
@@ -249,14 +251,14 @@ class TestStatisticalAdapter:
         result = detector.detect(context)
         return detector, context, result
 
-    def test_adapter_scores_match_real_detect_path(self, fitted: tuple) -> None:
+    def test_adapter_scores_match_real_detect_path(self, fitted: tuple[Any, ...]) -> None:
         detector, context, result = fitted
         score_fn = make_statistical_score_fn(detector, context, row_index=5)
         # Scoring the unchanged row must reproduce the real detection score.
         rescored = float(score_fn(context[5].reshape(1, -1))[0])
         assert rescored == pytest.approx(float(result["scores"][5]))
 
-    def test_counterfactual_flips_real_statistical_detection(self, fitted: tuple) -> None:
+    def test_counterfactual_flips_real_statistical_detection(self, fitted: tuple[Any, ...]) -> None:
         detector, context, result = fitted
         assert bool(result["is_anomaly"][5]), "fixture row must be a real detection"
         threshold = float(result["threshold"])
@@ -270,7 +272,7 @@ class TestStatisticalAdapter:
         assert cf.score_after <= threshold
         assert 1 <= cf.sparsity <= context.shape[1]
 
-    def test_adapter_rejects_bad_shapes(self, fitted: tuple) -> None:
+    def test_adapter_rejects_bad_shapes(self, fitted: tuple[Any, ...]) -> None:
         detector, context, _ = fitted
         with pytest.raises(ValueError, match="row_index"):
             make_statistical_score_fn(detector, context, row_index=999)
@@ -283,7 +285,7 @@ class TestStatisticalAdapter:
 
 class TestTierAdapter:
     @pytest.fixture(scope="class")
-    def fitted(self) -> tuple:
+    def fitted(self) -> tuple[Any, ...]:
         from omni_mercury_engine.detectors.detection_tier import (
             StreamingScoreEnsemble,
             build_tier_detectors,
@@ -299,7 +301,7 @@ class TestTierAdapter:
         ensemble.fit(series, labels=labels)
         return ensemble, series
 
-    def test_counterfactual_flips_real_tier_detection(self, fitted: tuple) -> None:
+    def test_counterfactual_flips_real_tier_detection(self, fitted: tuple[Any, ...]) -> None:
         # ``growing_spheres``: the tier's calibrated score is piecewise
         # constant in the point value (ECDF/rank calibration), so a sampling
         # search is the structurally correct method -- gradient-based Wachter
@@ -336,7 +338,7 @@ class TestTierAdapter:
         modified[lo : lo + len(names)] = np.asarray(cf.counterfactual_x, dtype=float)
         assert float(ensemble.score(modified)[index]) <= float(ensemble.threshold)
 
-    def test_adapter_rejects_bad_index_and_width(self, fitted: tuple) -> None:
+    def test_adapter_rejects_bad_index_and_width(self, fitted: tuple[Any, ...]) -> None:
         ensemble, series = fitted
         with pytest.raises(ValueError, match="out of range"):
             make_tier_score_fn(ensemble, series, index=10_000)

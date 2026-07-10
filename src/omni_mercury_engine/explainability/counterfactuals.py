@@ -28,6 +28,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class NonFiniteScoreError(ValueError):
+    """A model/score function produced a non-finite value for a candidate.
+
+    Raised by score wrappers that refuse to hand NaN/Inf to a counterfactual
+    search. The gradient-based searches (Wachter, DiCE) catch EXACTLY this
+    type inside their objectives and convert it into a large finite
+    infeasibility penalty, so an unscorable region repels the optimizer
+    instead of aborting the whole search -- while every other contract
+    violation (wrong shape, non-numeric) still propagates loudly.
+    """
+
+
 class DistanceMetric(Enum):
     """Distance metrics for counterfactual generation."""
 
@@ -326,6 +338,17 @@ class CounterfactualGenerator(ABC):
             return float(np.sum(np.abs(diff)))
         raise ValueError(f"unhandled distance metric: {metric!r}")
 
+    def _proximity_metric(self) -> DistanceMetric:
+        """Metric for proximity scoring: Gower iff feature metadata exists.
+
+        Generators that document "Gower when feature metadata is present,
+        else L2" resolve the choice here so the fitness path and the reported
+        distance stay consistent.
+        """
+        if self._feature_types is not None or self._feature_ranges is not None:
+            return DistanceMetric.GOWER
+        return DistanceMetric.L2
+
     def _get_feature_changes(
         self,
         original: np.ndarray[Any, Any],
@@ -453,7 +476,14 @@ class WachterCounterfactual(CounterfactualGenerator):
         """Optimize to find counterfactual."""
 
         def objective(x: np.ndarray[Any, Any]) -> float:
-            pred = self._predict(x.reshape(1, -1))[0]
+            try:
+                pred = float(self._predict(x.reshape(1, -1))[0])
+            except NonFiniteScoreError:
+                return 1e9 + float(np.sum((x - original) ** 2))
+            if not np.isfinite(pred):
+                # Same finite infeasibility barrier as DiCE: an unscorable
+                # region must repel L-BFGS, not NaN-poison it.
+                return 1e9 + float(np.sum((x - original) ** 2))
             pred_loss = (pred - target_pred) ** 2
             dist_loss = self._lambda * np.sum((x - original) ** 2)
             return float(pred_loss + dist_loss)
@@ -472,7 +502,14 @@ class WachterCounterfactual(CounterfactualGenerator):
             if result.success:
                 return result.x
         except Exception as e:
-            logger.warning(f"Optimization failed: {e}")
+            # An honest search failure: real detectors raise data-dependent
+            # errors on extreme candidates (e.g. np.histogram over an
+            # all-NaN intermediate). The failure is logged with its type and
+            # the search returns no counterfactual -- downstream validity is
+            # always re-scored, so a failed search can never be recorded as
+            # a success. (NonFiniteScoreError never reaches here: the
+            # objective converts it into the finite infeasibility barrier.)
+            logger.warning(f"Optimization failed ({type(e).__name__}): {e}")
 
         return None
 
@@ -636,7 +673,13 @@ class DiCECounterfactual(CounterfactualGenerator):
             proximity_loss = 0.0
 
             for cf in cfs:
-                pred = float(self._predict(cf.reshape(1, -1))[0])
+                try:
+                    pred = float(self._predict(cf.reshape(1, -1))[0])
+                except NonFiniteScoreError:
+                    # A fail-loud score wrapper (e.g. the detection seam's
+                    # _CountingScoreFn) raises instead of returning NaN;
+                    # treat that identically to a raw non-finite value.
+                    return 1e9 + float(np.sum((cf - original) ** 2))
                 if not np.isfinite(pred):
                     # Infeasibility barrier: a region where the model cannot
                     # score (sub-detector overflow on extreme inputs) must
@@ -672,7 +715,12 @@ class DiCECounterfactual(CounterfactualGenerator):
             return cfs
 
         except Exception as e:
-            logger.warning(f"DiCE optimization failed: {e}")
+            # Honest search failure (see Wachter._optimize): logged with its
+            # type; the returned init points are re-scored downstream, so an
+            # aborted search records validity=False rather than a fabricated
+            # success. NonFiniteScoreError is absorbed by the objective's
+            # finite infeasibility barrier before reaching here.
+            logger.warning(f"DiCE optimization failed ({type(e).__name__}): {e}")
             return init_points
 
     def _compute_pairwise_diversity(self, points: list[np.ndarray[Any, Any]]) -> float:
@@ -977,7 +1025,13 @@ class GeneticCounterfactual(CounterfactualGenerator):
         preds = np.asarray(self._predict(population), dtype=np.float64).reshape(-1)
         margin = (preds - 0.5) if target_class == 1 else (0.5 - preds)
         valid = margin >= 0.0
-        distances = np.array([self._compute_distance(original, ind) for ind in population])
+        # Gower proximity when feature metadata is present (per the class
+        # docstring); plain L2 otherwise. Previously this always used L2,
+        # silently ignoring the metadata.
+        metric = self._proximity_metric()
+        distances = np.array(
+            [self._compute_distance(original, ind, metric=metric) for ind in population]
+        )
         sparsity = np.array(
             [int(np.sum(~np.isclose(original, ind))) for ind in population],
             dtype=np.float64,
@@ -1041,7 +1095,7 @@ class GeneticCounterfactual(CounterfactualGenerator):
                 break
 
             elite = population[order[: self._elitism]]
-            children = []
+            children: list[np.ndarray[Any, Any]] = []
             while len(children) < self._population_size - self._elitism:
                 # Tournament selection for two parents.
                 idx_a = self._rng.choice(self._population_size, self._tournament_size)
@@ -1075,7 +1129,9 @@ class GeneticCounterfactual(CounterfactualGenerator):
                     original_prediction=original_pred,
                     counterfactual_prediction=cf_pred,
                     feature_changes=changes,
-                    distance=self._compute_distance(original, best),
+                    distance=self._compute_distance(
+                        original, best, metric=self._proximity_metric()
+                    ),
                     validity=is_valid,
                     sparsity=len(changes),
                     feature_names=self._feature_names,

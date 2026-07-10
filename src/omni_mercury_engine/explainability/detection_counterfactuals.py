@@ -43,6 +43,7 @@ import numpy as np
 from omni_mercury_engine.explainability.counterfactuals import (
     Counterfactual,
     FeatureConstraint,
+    NonFiniteScoreError,
     create_counterfactual_generator,
 )
 
@@ -183,7 +184,10 @@ class _CountingScoreFn:
                 f"{batch.shape[0]} candidates"
             )
         if not np.all(np.isfinite(scores)):
-            raise ValueError("detector_score_fn returned non-finite scores")
+            # NonFiniteScoreError (a ValueError) lets the gradient searches'
+            # infeasibility barrier catch EXACTLY this case and repel the
+            # optimizer, while every other contract violation still aborts.
+            raise NonFiniteScoreError("detector_score_fn returned non-finite scores")
         self.n_evals += int(batch.shape[0])
         return scores
 
