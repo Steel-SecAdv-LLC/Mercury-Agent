@@ -603,7 +603,8 @@ class TrustedEndpoints:
             # validation; the loader itself targets the forecast host.
             "archive-api.open-meteo.com",
             "api.open-meteo.com",
-            # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects)
+            # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects,
+            # fireball archive — meteor loader)
             "ssd-api.jpl.nasa.gov",
             # NASA SPDF OMNI2 hourly solar-wind/IMF/Kp archive (hazard
             # checkpoint training: geomagnetic-storm predictor features+labels)
@@ -617,6 +618,12 @@ class TrustedEndpoints:
             # ``service.iris.edu`` 307-redirects here and SafeHTTPClient
             # refuses redirects, so the final host is allowlisted directly.
             "service.earthscope.org",
+            # NASA Open APIs (DONKI space weather, NeoWs close approaches —
+            # space_weather + meteor loaders)
+            "api.nasa.gov",
+            # USGS Geomagnetism web service (per-observatory minute
+            # magnetometer data — space_weather loader / GIC detection)
+            "geomag.usgs.gov",
             # Code/Data Repositories
             "raw.githubusercontent.com",
             "github.com",  # ADBench tabular anomaly-detection benchmarks

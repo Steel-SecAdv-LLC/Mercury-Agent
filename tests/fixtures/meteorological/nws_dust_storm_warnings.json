@@ -1,0 +1,649 @@
+{
+    "@context": [
+        "https://geojson.org/geojson-ld/geojson-context.jsonld",
+        {
+            "@version": "1.1",
+            "wx": "https://api.weather.gov/ontology#",
+            "@vocab": "https://api.weather.gov/ontology#"
+        }
+    ],
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b49966a1d7c3d7d44f31136c58dd6a84dad16a37.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -106.01,
+                            37
+                        ],
+                        [
+                            -106.04,
+                            37.88
+                        ],
+                        [
+                            -105.9,
+                            38.26
+                        ],
+                        [
+                            -105.52,
+                            37.76
+                        ],
+                        [
+                            -105.21,
+                            37.22
+                        ],
+                        [
+                            -105.2,
+                            37
+                        ],
+                        [
+                            -106.01,
+                            37
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b49966a1d7c3d7d44f31136c58dd6a84dad16a37.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.b49966a1d7c3d7d44f31136c58dd6a84dad16a37.001.1",
+                "areaDesc": "Alamosa, CO; Conejos, CO; Costilla, CO; Huerfano, CO; Saguache, CO",
+                "geocode": {
+                    "SAME": [
+                        "008003",
+                        "008021",
+                        "008023",
+                        "008055",
+                        "008109"
+                    ],
+                    "UGC": [
+                        "COC003",
+                        "COC021",
+                        "COC023",
+                        "COC055",
+                        "COC109"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/COC003",
+                    "https://api.weather.gov/zones/county/COC021",
+                    "https://api.weather.gov/zones/county/COC023",
+                    "https://api.weather.gov/zones/county/COC055",
+                    "https://api.weather.gov/zones/county/COC109"
+                ],
+                "references": [],
+                "sent": "2026-07-08T16:44:00-06:00",
+                "effective": "2026-07-08T16:44:00-06:00",
+                "onset": "2026-07-08T16:44:00-06:00",
+                "expires": "2026-07-08T16:50:00-06:00",
+                "ends": "2026-07-08T16:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Likely",
+                "urgency": "Expected",
+                "event": "Dust Storm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Pueblo CO",
+                "headline": "Dust Storm Warning issued July 8 at 4:44PM MDT until July 8 at 4:45PM MDT by NWS Pueblo CO",
+                "description": "Strong winds and blowing dust which prompted the warning have\nweakened. Therefore, the dust storm warning will be allowed to\nexpire.",
+                "instruction": null,
+                "response": "Avoid",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "DSWPUB"
+                    ],
+                    "WMOidentifier": [
+                        "WOUS45 KPUB 082244"
+                    ],
+                    "NWSheadline": [
+                        "THE DUST STORM WARNING FOR ALAMOSA...WEST CENTRAL HUERFANO... COSTILLA...SOUTHEASTERN SAGUACHE AND EASTERN CONEJOS COUNTIES WILL EXPIRE AT 445 PM MDT"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-08T22:40:00-00:00...storm...312DEG...49KT...36.97,-105.14"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.EXP.KPUB.DS.W.0008.000000T0000Z-260708T2245Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T16:45:00-06:00"
+                    ],
+                    "expiredReferences": [
+                        "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.d55d5718f36efb0c9dc69695ef631383f42276aa.001.1,2026-07-08T15:46:00-06:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "DSW"
+                    ],
+                    "NationalWeatherService": [
+                        "DSW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d55d5718f36efb0c9dc69695ef631383f42276aa.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -106.01,
+                            37
+                        ],
+                        [
+                            -106.04,
+                            37.88
+                        ],
+                        [
+                            -105.9,
+                            38.26
+                        ],
+                        [
+                            -105.52,
+                            37.76
+                        ],
+                        [
+                            -105.21,
+                            37.22
+                        ],
+                        [
+                            -105.2,
+                            37
+                        ],
+                        [
+                            -106.01,
+                            37
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d55d5718f36efb0c9dc69695ef631383f42276aa.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.d55d5718f36efb0c9dc69695ef631383f42276aa.001.1",
+                "areaDesc": "Alamosa, CO; Conejos, CO; Costilla, CO; Huerfano, CO; Saguache, CO",
+                "geocode": {
+                    "SAME": [
+                        "008003",
+                        "008021",
+                        "008023",
+                        "008055",
+                        "008109"
+                    ],
+                    "UGC": [
+                        "COC003",
+                        "COC021",
+                        "COC023",
+                        "COC055",
+                        "COC109"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/COC003",
+                    "https://api.weather.gov/zones/county/COC021",
+                    "https://api.weather.gov/zones/county/COC023",
+                    "https://api.weather.gov/zones/county/COC055",
+                    "https://api.weather.gov/zones/county/COC109"
+                ],
+                "references": [],
+                "sent": "2026-07-08T15:46:00-06:00",
+                "effective": "2026-07-08T15:46:00-06:00",
+                "onset": "2026-07-08T15:46:00-06:00",
+                "expires": "2026-07-08T16:45:00-06:00",
+                "ends": "2026-07-08T16:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Likely",
+                "urgency": "Expected",
+                "event": "Dust Storm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Pueblo CO",
+                "headline": "Dust Storm Warning issued July 8 at 3:46PM MDT until July 8 at 4:45PM MDT by NWS Pueblo CO",
+                "description": "The National Weather Service in Pueblo has issued a\n\n* Dust Storm Warning for...\nAlamosa County in southeastern Colorado...\nWest central Huerfano County in southeastern Colorado...\nCostilla County in south central Colorado...\nSoutheastern Saguache County in central Colorado...\nEastern Conejos County in south central Colorado...\n\n* Until 445 PM MDT.\n\n* At 344 PM MDT, widespread blowing dust due to thundertorm outflows\nwas over the eastern half of the San Luis Valley, with visibility\nnear Alamosa reported to be less than a quarter mile.\n\nHAZARD...Less than a quarter mile visibility with winds 50 to 60\nmph.\n\nSOURCE...Trained weather spotters.\n\nIMPACT...Dangerous life-threatening travel.\n\nLocations impacted include... Alamosa, San Luis Valley Airport,\nManassa, Sanford, La Jara, Antonito, San Luis, Romeo,\nBlanca, Crestone, Moffat, Hooper, Great Sand Dunes, San\nPablo, Alamosa East, Mesita, Fort Garland, Sanchez\nReservoir, San Luis Lake, and San Acacio.",
+                "instruction": "Dust storms lead to dangerous driving conditions with visibility\nreduced to near zero. If driving, avoid dust storms if possible. If\ncaught in one, pull off the road, turn off your lights and keep your\nfoot off the brake.",
+                "response": "Avoid",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "DSWPUB"
+                    ],
+                    "WMOidentifier": [
+                        "WOUS45 KPUB 082146"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-08T21:44:00-00:00...storm...312DEG...49KT...37.46,-105.82"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KPUB.DS.W.0008.260708T2146Z-260708T2245Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-08T16:45:00-06:00"
+                    ],
+                    "WEAHandling": [
+                        "Imminent Threat"
+                    ],
+                    "CMAMtext": [
+                        "NWS: DUST STORM WARNING til 4:45 PM MDT. Be ready for a sudden drop to zero visibility."
+                    ],
+                    "CMAMlongtext": [
+                        "National Weather Service: DUST STORM WARNING for this area until 4:45 PM MDT. Be ready for sudden drop to zero visibility. Pull Aside, Stay Alive! When visibility drops, pull far off the road and put your vehicle in park. Turn the lights off and keep your foot off the brake. Infants, the elderly and those with respiratory issues urged to take precautions."
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "DSW"
+                    ],
+                    "NationalWeatherService": [
+                        "DSW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.b49966a1d7c3d7d44f31136c58dd6a84dad16a37.001.1",
+                "replacedAt": "2026-07-08T16:44:00-06:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.528160932e49e8687fd56cb825c9d873b67efb46.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -108.84,
+                            32.34
+                        ],
+                        [
+                            -108.83,
+                            32.24
+                        ],
+                        [
+                            -108.95,
+                            32.2
+                        ],
+                        [
+                            -108.96,
+                            32.28
+                        ],
+                        [
+                            -108.84,
+                            32.34
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.528160932e49e8687fd56cb825c9d873b67efb46.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.528160932e49e8687fd56cb825c9d873b67efb46.001.1",
+                "areaDesc": "Hidalgo, NM",
+                "geocode": {
+                    "SAME": [
+                        "035023"
+                    ],
+                    "UGC": [
+                        "NMC023"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NMC023"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.de0be945936d1bcc17a11e9c0dc5b65a59b2cb6d.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.de0be945936d1bcc17a11e9c0dc5b65a59b2cb6d.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-06T19:01:00-06:00"
+                    }
+                ],
+                "sent": "2026-07-06T19:18:00-06:00",
+                "effective": "2026-07-06T19:18:00-06:00",
+                "onset": "2026-07-06T19:18:00-06:00",
+                "expires": "2026-07-06T19:33:33-06:00",
+                "ends": "2026-07-06T19:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Dust Storm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS El Paso Tx/Santa Teresa NM",
+                "headline": "The Dust Storm Warning has been cancelled.",
+                "description": "The Dust Storm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "DSWEPZ"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS54 KEPZ 070118"
+                    ],
+                    "NWSheadline": [
+                        "THE DUST STORM WARNING FOR WEST CENTRAL HIDALGO COUNTY IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-07T01:12:00-00:00...storm...180DEG...0KT...32.25,-108.92"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KEPZ.DS.W.0013.000000T0000Z-260707T0145Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-06T19:45:00-06:00"
+                    ],
+                    "WEAHandling": [
+                        "Imminent Threat"
+                    ],
+                    "CMAMtext": [
+                        "NWS: DUST STORM WARNING til 7:45 PM MDT. Be ready for a sudden drop to zero visibility."
+                    ],
+                    "CMAMlongtext": [
+                        "National Weather Service: DUST STORM WARNING for this area until 7:45 PM MDT. Be ready for sudden drop to zero visibility. Pull Aside, Stay Alive! When visibility drops, pull far off the road and put your vehicle in park. Turn the lights off and keep your foot off the brake. Infants, the elderly and those with respiratory issues urged to take precautions."
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "DSW"
+                    ],
+                    "NationalWeatherService": [
+                        "DSW"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.de0be945936d1bcc17a11e9c0dc5b65a59b2cb6d.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -108.84,
+                            32.34
+                        ],
+                        [
+                            -108.83,
+                            32.24
+                        ],
+                        [
+                            -108.95,
+                            32.2
+                        ],
+                        [
+                            -108.96,
+                            32.28
+                        ],
+                        [
+                            -108.84,
+                            32.34
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.de0be945936d1bcc17a11e9c0dc5b65a59b2cb6d.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.de0be945936d1bcc17a11e9c0dc5b65a59b2cb6d.001.1",
+                "areaDesc": "Hidalgo, NM",
+                "geocode": {
+                    "SAME": [
+                        "035023"
+                    ],
+                    "UGC": [
+                        "NMC023"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NMC023"
+                ],
+                "references": [],
+                "sent": "2026-07-06T19:01:00-06:00",
+                "effective": "2026-07-06T19:01:00-06:00",
+                "onset": "2026-07-06T19:01:00-06:00",
+                "expires": "2026-07-06T19:45:00-06:00",
+                "ends": "2026-07-06T19:45:00-06:00",
+                "status": "Actual",
+                "messageType": "Alert",
+                "category": "Met",
+                "severity": "Severe",
+                "certainty": "Likely",
+                "urgency": "Expected",
+                "event": "Dust Storm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS El Paso Tx/Santa Teresa NM",
+                "headline": "Dust Storm Warning issued July 6 at 7:01PM MDT until July 6 at 7:45PM MDT by NWS El Paso Tx/Santa Teresa NM",
+                "description": "The National Weather Service in El Paso has issued a\n\n* Dust Storm Warning for...\nWest central Hidalgo County in southwestern New Mexico...\n\n* Until 745 PM MDT.\n\n* At 700 PM MDT, an area of blowing dust was over Road Forks.\n\nHAZARD...Less than a quarter mile visibility with strong winds up\nto 45 mph.\n\nSOURCE...Department of Transportation traffic cameras.\n\nIMPACT...Dangerous life-threatening travel.\n\nLocations impacted include...\nRoad Forks and Lordsburg Playa.",
+                "instruction": "Dust storms lead to dangerous driving conditions with visibility\nreduced to near zero. If driving, avoid dust storms if possible. If\ncaught in one, pull off the road, turn off your lights and keep your\nfoot off the brake.\n\nMotorists should not drive into a dust storm. PULL ASIDE STAY ALIVE!",
+                "response": "Avoid",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "DSWEPZ"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS54 KEPZ 070101"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-07T01:00:00-00:00...storm...180DEG...0KT...32.25,-108.92"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.NEW.KEPZ.DS.W.0013.260707T0101Z-260707T0145Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-06T19:45:00-06:00"
+                    ],
+                    "WEAHandling": [
+                        "Imminent Threat"
+                    ],
+                    "CMAMtext": [
+                        "NWS: DUST STORM WARNING til 7:45 PM MDT. Be ready for a sudden drop to zero visibility."
+                    ],
+                    "CMAMlongtext": [
+                        "National Weather Service: DUST STORM WARNING for this area until 7:45 PM MDT. Be ready for sudden drop to zero visibility. Pull Aside, Stay Alive! When visibility drops, pull far off the road and put your vehicle in park. Turn the lights off and keep your foot off the brake. Infants, the elderly and those with respiratory issues urged to take precautions."
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "DSW"
+                    ],
+                    "NationalWeatherService": [
+                        "DSW"
+                    ]
+                },
+                "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.528160932e49e8687fd56cb825c9d873b67efb46.001.1",
+                "replacedAt": "2026-07-06T19:18:00-06:00"
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7d4c50891d23621bd7d577180b76514f54dd002d.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -109.05,
+                            32.3
+                        ],
+                        [
+                            -108.71,
+                            32.4
+                        ],
+                        [
+                            -108.54,
+                            32.37
+                        ],
+                        [
+                            -108.54,
+                            32.2
+                        ],
+                        [
+                            -109.05,
+                            32.14
+                        ],
+                        [
+                            -109.05,
+                            32.3
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.7d4c50891d23621bd7d577180b76514f54dd002d.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.7d4c50891d23621bd7d577180b76514f54dd002d.001.1",
+                "areaDesc": "Hidalgo, NM",
+                "geocode": {
+                    "SAME": [
+                        "035023"
+                    ],
+                    "UGC": [
+                        "NMC023"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/county/NMC023"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6e6b9dc495e2efedc577af4e81c0ea4b5427bf21.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.6e6b9dc495e2efedc577af4e81c0ea4b5427bf21.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-07-06T18:24:00-06:00"
+                    }
+                ],
+                "sent": "2026-07-06T18:59:00-06:00",
+                "effective": "2026-07-06T18:59:00-06:00",
+                "onset": "2026-07-06T18:59:00-06:00",
+                "expires": "2026-07-06T19:14:06-06:00",
+                "ends": "2026-07-06T19:30:00-06:00",
+                "status": "Actual",
+                "messageType": "Cancel",
+                "category": "Met",
+                "severity": "Minor",
+                "certainty": "Observed",
+                "urgency": "Past",
+                "event": "Dust Storm Warning",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS El Paso Tx/Santa Teresa NM",
+                "headline": "The Dust Storm Warning has been cancelled.",
+                "description": "The Dust Storm Warning has been cancelled and is no longer in effect.",
+                "instruction": null,
+                "response": "AllClear",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "DSWEPZ"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS54 KEPZ 070059"
+                    ],
+                    "NWSheadline": [
+                        "THE DUST STORM WARNING FOR WEST CENTRAL HIDALGO COUNTY IS CANCELLED"
+                    ],
+                    "eventMotionDescription": [
+                        "2026-07-07T00:54:00-00:00...storm...180DEG...0KT...32.34,-108.69"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM"
+                    ],
+                    "EAS-ORG": [
+                        "WXR"
+                    ],
+                    "VTEC": [
+                        "/O.CAN.KEPZ.DS.W.0012.000000T0000Z-260707T0130Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-07-06T19:30:00-06:00"
+                    ],
+                    "WEAHandling": [
+                        "Imminent Threat"
+                    ],
+                    "CMAMtext": [
+                        "NWS: DUST STORM WARNING til 7:30 PM MDT. Be ready for a sudden drop to zero visibility."
+                    ],
+                    "CMAMlongtext": [
+                        "National Weather Service: DUST STORM WARNING for this area until 7:30 PM MDT. Be ready for sudden drop to zero visibility. Pull Aside, Stay Alive! When visibility drops, pull far off the road and put your vehicle in park. Turn the lights off and keep your foot off the brake. Infants, the elderly and those with respiratory issues urged to take precautions."
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "DSW"
+                    ],
+                    "NationalWeatherService": [
+                        "DSW"
+                    ]
+                }
+            }
+        }
+    ],
+    "title": "Dust Storm Warning events",
+    "updated": "2026-07-08T22:44:34+00:00",
+    "pagination": {
+        "next": "https://api.weather.gov/alerts?event%5B0%5D=Dust%20Storm%20Warning&limit=5&cursor=eyJ0IjoxNzgzMzg1OTQwLCJpIjoidXJuOm9pZDoyLjQ5LjAuMS44NDAuMC43ZDRjNTA4OTFkMjM2MjFiZDdkNTc3MTgwYjc2NTE0ZjU0ZGQwMDJkLjAwMS4xIn0%3D"
+    }
+}

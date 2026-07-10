@@ -317,6 +317,185 @@ install the mocked commit was never awaited and the test failed spuriously;
 and the `.coveragerc` comment naming the CI coverage floors was trued to the
 current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
+### Independent verification pass — reproduced results + fail-loud hardening
+
+An adversarial re-verification of this branch reproduced the two headline
+research claims and fixed every defect it surfaced:
+
+- **Both committed research results reproduce exactly** and their artifacts
+  now carry provenance commits that exist in this repository (the previous
+  artifacts recorded a dirty-tree commit hash that was never pushed):
+  rule evolution held-out test F1 0.5439 vs consensus 0.4119 (+0.1320);
+  counterfactual validation wachter/prototype/genetic 1.00 flip / 1.00
+  verified minimality, dice/growing_spheres honest 0.00 on the piecewise
+  regime.
+- **Wildfire hotspot count is spatial.** `fire_perimeter_km2` and
+  `thermal_hotspots` now derive from the 2-D hotspot mask; the previous
+  channel-summed exceedance count inflated the ground-area estimate up to
+  C-fold for pixels hot in several bands (regression test with a
+  3-band-hot block).
+- **Counterfactual searches harden honestly.** New `NonFiniteScoreError`
+  lets the detection seam's fail-loud score wrapper participate in the
+  Wachter/DiCE finite infeasibility barrier (previously the barrier was
+  unreachable through the seam: the wrapper's ValueError aborted the whole
+  search); optimizer failures are logged with their exception type; the
+  genetic generator's proximity term actually uses Gower distance when
+  feature metadata is present (the docstring claimed it; the code always
+  used L2). GENETIC and GOWER gained their first executing tests.
+- **Real-data GA tests run in every offline lane** via the committed
+  recorded-real ADBench Pima fixture (they previously skipped on any fresh
+  checkout); the committed champion `evolved_rule_graph.json` is loaded and
+  scored through the deployed `SymbolicConstraintModule` by tests.
+- **T4 detectors are discoverable.** All fifteen T4 detectors and all four
+  cascades joined `DETECTOR_MANIFEST` (hail, winter_storm, derecho,
+  dust_storm, avalanche, rockfall, subsidence, cme_arrival, sep_storm,
+  ionospheric_scintillation, gic, surge_flood_cascade, eq_tsunami_cascade,
+  fire_debris_flow_cascade, solar_gic_cascade) — they were library-only,
+  invisible to auto-discovery and every manifest-driven surface.
+  `DroughtLoader`/`HeatwaveLoader` are exported from `loaders/__init__`.
+- **Benchmark gate vacuity closed.** `run_all_benchmarks.py` now counts a
+  crashed, data-less, or loader-missing GATED domain as a gate failure —
+  a benchmark that never measured its AUC could previously exit 0.
+- **Surface tests are unconditional.** The counterfactual HTTP tests
+  deterministically disable the rate limiter (walking the built middleware
+  chain) instead of escaping through `status in (200, 429)`; the 403
+  ethical-gate branch asserts the refusal shape.
+- The dead `flood` branch of `build_hazard_geojson` was removed honestly
+  (flood emits no diagnostics payload; validation rejects it upstream);
+  the EHF core gained Nairn & Fawcett worked-example tests; the surge
+  cascade gained a recorded-real CO-OPS observed/predicted fixture test
+  (The Battery, 2026-07-09); the orphaned mis-shaped
+  `swpc_planetary_kp_recent.json` fixture was removed; two pre-existing
+  lint errors (F821 `Path` in tests/test_cli.py, SIM117 in the hail loader
+  tests) were fixed.
+- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the honest
+  Schumann 1-D-spectrum / no-track-cone / no-flood-GeoJSON scope notes) and
+  `docs/COUNTERFACTUALS_AND_RULE_EVOLUTION.md` (reproduction commands).
+- **Typed test debt cleared for real.** The tests-lane mypy debt on this
+  branch (176 errors across 36 test files) was fixed preferring real
+  annotations over ignores, and re-verified under *true-tree* package
+  resolution (`MYPYPATH=src`, mirroring CI) — which surfaced and fixed 11
+  further latent errors a stale editable install had masked.
+  `AvalancheDetector.assess_new_snow_loading` / `assess_temperature_gradient`
+  now return typed `TypedDict` contracts instead of `dict[str, object]`
+  (dropping two `type: ignore[arg-type]` casts on the prediction path).
+
+### Hazard visualization & diagnostics (T3)
+
+The intermediate arrays hazard detectors compute were persisted (opt-in
+`keep_diagnostics=True`) instead of discarded — earthquake spectrograms +
+STA/LTA series, tsunami FFT spectra, tornado Doppler fields, hurricane
+wind/vorticity fields, wildfire thermal/hotspot masks (with
+`ignition_locations` / fire area now actually populated from the mask — the
+declared-but-never-filled fields were a real bug), volcanic spectra, meteor
+Doppler profiles, Schumann harmonic spectra. `detectors/hazard_visuals.py`
+renders them deterministically (PNG via Agg, RFC 7946 GeoJSON for zonal
+outputs), exposed as `mercury-agent hazard-viz`, `POST
+/api/v1/hazard/visualize`, the `mercury_hazard_visualize` MCP tool, and new
+hazard panels in the visualization dashboard. Hurricane track cones are NOT
+rendered — no track model exists; only real computed fields are drawn.
+
+### New hazard domains (T4): 15 detectors + 4 cascades + 5 loaders
+
+All physics literature-anchored, untrained-network-free, with citations in
+docstrings and worked-example tests:
+
+- **Space weather**: CME arrival (Gopalswamy ESA + Vršnak drag-based model),
+  SEP radiation storms (NOAA S-scale over GOES integral proton flux),
+  ionospheric scintillation (real S4/σφ computation + labelled climatological
+  risk), GIC-to-grid (dB/dt metrics + plane-wave geoelectric proxy), and the
+  solar→GIC cascade (DONKI flare/CME → arrival window → Kp watch → measured
+  dB/dt escalation state machine).
+- **Meteorological**: drought (SPI/McKee, Thornthwaite PET + SPEI, USDM
+  D0–D4), heatwave (CTX90pct + Excess Heat Factor + full NWS Rothfusz heat
+  index), atmospheric river (trapezoidal IVT + Ralph 2019 AR1–AR5 scale),
+  lightning (Schultz 2009 2-σ lightning jump), hail (SPC SHIP), winter/ice
+  storm (partial thickness, Stull wet-bulb, FRAM-style accretion, blizzard
+  criteria), derecho (Johns & Hirt / Corfidi criteria with great-circle
+  swath math), dust storm (WMO visibility classes, Fécan friction-velocity
+  threshold, haboob gust-front signature), and the hurricane→surge→flood
+  cascade (real CO-OPS observed-minus-predicted surge residual + NWPS gauge
+  gates).
+- **Geophysical**: subsidence/sinkhole precursors over InSAR-style series
+  (Theil–Sen velocity, model-comparison acceleration, clustering), avalanche
+  (SK38 skier-stability, critical loading, TG metamorphism, EAWS levels),
+  rockfall (freeze–thaw cycling, Fukuzono inverse-velocity failure
+  forecasting), plus the earthquake→tsunami cascade (PTWC-style screening on
+  real USGS events incl. the recorded Tōhoku fixture) and wildfire→debris
+  flow (the published USGS Staley et al. 2017 M1 coefficients + Cannon I-D
+  thresholds).
+- **Board**: SpaceWeatherLoader (USGS geomag minute data + DONKI GST observed
+  Kp), MeteorLoader (JPL CNEOS fireballs ≥1 kt + NeoWs), DroughtLoader /
+  HeatwaveLoader (NCEI GSOM/GSOD station archives), HailLoader (SPC reports)
+  — all with provenance-registry entries and measured-not-invented AUC gates
+  in `run_all_benchmarks.py` (space_weather 0.9647→gate 0.85, meteor
+  0.7705→0.60, heatwave 0.6757→0.63, drought 0.5728→0.54, hail 0.6132→0.55).
+
+### Counterfactual anomaly reasoning on the detection path
+
+- Verified minimal counterfactuals as first-class detection explanations:
+  correctness and minimality are re-scored through the REAL detection paths
+  (never the search method's own claim). Tier detections explain a flagged
+  point over its contextual window with candidates anchored at real normal
+  windows from the same series; exposed via `tier-detect --counterfactual`,
+  `POST /detect/tier {include_counterfactual}`, and `mercury_tier_detect`.
+- The engine's dormant `gdpr_report` explanation path (Wachter
+  counterfactuals) is finally reachable: `POST /detect/flagship
+  {gdpr_report, subject_id}` + `mercury_detect_fusion`.
+- `CounterfactualMethod.GENETIC` and `DistanceMetric.GOWER` implemented for
+  real (they were bare enum values): a seeded evolutionary search and the
+  standard mixed-type distance, selectable everywhere with unit tests.
+
+### Genetic rule evolution grounded in held-out detection F1
+
+`ml/rule_evolution.py`: a deterministic GA over the neuro-symbolic rule
+graph (evolved predicates resolve into the existing `Rule`/`RuleGraph`
+representation and are scored by the same deployed
+`SymbolicConstraintModule` path — no train/serve skew). Fitness is mean
+held-out VALIDATION F1 across pre-registered real ADBench datasets with the
+hand-written consensus graph seeded into the population; the TEST split is
+touched exactly once. Result (`benchmarks/rule_evolution_results.json`):
+evolved graph beats the consensus baseline on held-out test F1, mean 0.5439
+vs 0.4119 (+0.1320; cardio +0.296, thyroid +0.227, WBC tie, Pima +0.005),
+AUC better on all four. The champion ships as a schema-versioned artifact
+loadable via `resolve_rule_graph("evolved:…")` with a serve-path
+reproduction check.
+
+### Detection interconnect + analysis extraction
+
+Detection is now reachable through one consistent contract on every surface
+(CLI / HTTP / MCP), and two attribution analyses that previously had no runtime
+entry point are exposed. Each change is additive — no existing endpoint changed
+behaviour — and carries tests.
+
+- **Detector-tier ensemble has a real entry point.**
+  `detectors.detection_tier.run_tier_ensemble()` builds → fits → scores the
+  torch-free streaming / statistical / state-space tier in one call (calibrated
+  per-point scores, flags, cross-detector uncertainty, optional distribution-free
+  conformal false-positive control). Wired to `mercury-agent tier-detect`, the
+  `POST /api/v1/detect/tier` route, and the `mercury_tier_detect` MCP tool.
+- **The flagship neuro-symbolic fusion engine is unified across surfaces.** The
+  full `OmniMercuryEngine` path (trained fusion network + GOSNN scalar
+  integration + the σ_Immutable hard ethical gate) — previously reachable only
+  from `mercury-agent detect -d fusion` — is now `POST /api/v1/detect/flagship`
+  and the `mercury_detect_fusion` MCP tool. HTTP builds the (non-thread-safe)
+  engine once and serializes detections through a lock via a threadpool; an
+  ethical-gate refusal fails closed as **HTTP 403** (never a silent allow).
+- **Graph-based root-cause localization is exposed** (`localize_root_cause`,
+  over the tier's `RootCauseGraphDetector`): given a multivariate anomaly it
+  ranks which node (sensor / service / channel) most likely originated it, with
+  optional node labels. Reachable via `mercury-agent rca`,
+  `POST /api/v1/detect/rca`, and the `mercury_localize_root_cause` MCP tool.
+- **Per-detector attribution for the tier** (`include_attribution=True` /
+  `tier-detect --attribution`): returns the calibrated per-detector score matrix
+  so callers see *which* members drove each flag, not just the blend.
+- **`GET /export/metrics` now serves CSV and JSON-Lines in addition to JSON**,
+  and its JSON summary is enriched (score percentiles, per-method breakdowns,
+  and time-series buckets via a `bucket` param). The multi-format export is a
+  deliberate capability for the STEM / medical / meteorological / space
+  researchers Mercury serves — collecting event and request data in a tabular
+  format is an advantage, not a footgun to reject.
+
 ### Fixed — `CachedBenevolenceScorer` threshold setter (drop-in fidelity)
 
 `CachedBenevolenceScorer` (the LRU wrapper the engine now places on its ethics

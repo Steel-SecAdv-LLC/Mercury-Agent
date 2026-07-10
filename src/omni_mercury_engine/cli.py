@@ -123,6 +123,340 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         click.echo(json.dumps(results, indent=2, default=str))
 
 
+@main.command("tier-detect")
+@click.option(
+    "--input", "-i", required=True, help="Input data file (.csv/.npy/.json); a 1-D series"
+)
+@click.option(
+    "--labels",
+    "-l",
+    default=None,
+    help="Optional 0/1 labels file (enables supervised stacking / BMA)",
+)
+@click.option(
+    "--method",
+    "-m",
+    default=None,
+    type=click.Choice(["stacking", "bma", "average", "consensus"]),
+    help="Ensemble combiner (default: stacking with labels, else average)",
+)
+@click.option(
+    "--subset",
+    default=None,
+    help="Comma-separated detector names (default: the full streaming tier)",
+)
+@click.option(
+    "--contamination", "-c", default=0.05, type=float, help="Expected anomaly fraction [0,1]"
+)
+@click.option(
+    "--conformal-alpha",
+    default=None,
+    type=float,
+    help="Distribution-free false-positive rate (e.g. 0.05); adds conformal flags",
+)
+@click.option(
+    "--attribution",
+    is_flag=True,
+    default=False,
+    help="Also emit the calibrated per-detector score matrix (which detectors fired)",
+)
+@click.option(
+    "--counterfactual",
+    is_flag=True,
+    default=False,
+    help=(
+        "Also emit a verified minimal counterfactual for one point: the "
+        "replacement value that flips its decision, re-scored through the "
+        "same fitted ensemble"
+    ),
+)
+@click.option(
+    "--cf-index",
+    default=None,
+    type=int,
+    help="Point to explain (default: highest-scoring flagged point)",
+)
+@click.option(
+    "--cf-method",
+    default="prototype",
+    type=click.Choice(["wachter", "dice", "growing_spheres", "prototype", "genetic"]),
+    help="Counterfactual search method",
+)
+@click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
+def tier_detect(
+    input: str,
+    labels: str | None,
+    method: str | None,
+    subset: str | None,
+    contamination: float,
+    conformal_alpha: float | None,
+    attribution: bool,
+    counterfactual: bool,
+    cf_index: int | None,
+    cf_method: str,
+    output: str | None,
+) -> None:
+    """Run the streaming detector-tier ensemble on a 1-D series (torch-free).
+
+    Exposes the statistical / state-space / streaming detector tier's calibrated
+    ensemble — per-point anomaly probabilities, flags, cross-detector
+    uncertainty, optional distribution-free (conformal) false-positive control,
+    and optional per-detector attribution — without requiring the [ml] extra.
+    """
+    from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+
+    series = np.asarray(_load_data(input), dtype=float).ravel()
+    y = _load_labels(labels) if labels else None
+    subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
+
+    result = run_tier_ensemble(
+        series,
+        labels=y,
+        subset=subset_names,
+        method=method,
+        contamination=contamination,
+        conformal_alpha=conformal_alpha,
+        include_attribution=attribution,
+        include_counterfactual=counterfactual,
+        counterfactual_index=cf_index,
+        counterfactual_method=cf_method,
+    )
+
+    text = json.dumps(result, indent=2, default=str)
+    if output:
+        Path(output).write_text(text)
+        click.echo(f"Wrote tier detection result to {output}", err=True)
+    else:
+        click.echo(text)
+
+
+@main.command("rca")
+@click.option(
+    "--input",
+    "-i",
+    required=True,
+    help="Observations file (.csv/.npy/.json); rows x nodes, last row is the anomaly",
+)
+@click.option(
+    "--train",
+    default=None,
+    help="Optional normal-behaviour rows for the per-node baselines (default: --input)",
+)
+@click.option(
+    "--adjacency",
+    default=None,
+    help="Optional (n_nodes x n_nodes) causal adjacency (default: inferred from correlations)",
+)
+@click.option("--top-k", "-k", default=None, type=int, help="Return only the top-K root causes")
+@click.option("--node-names", default=None, help="Comma-separated node labels (one per column)")
+@click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
+def rca(
+    input: str,
+    train: str | None,
+    adjacency: str | None,
+    top_k: int | None,
+    node_names: str | None,
+    output: str | None,
+) -> None:
+    """Attribute a multivariate anomaly to its root-cause nodes (torch-free).
+
+    Runs the tier's graph-based root-cause analysis: a reverse personalised
+    random walk over a causal / service adjacency ranks which node (sensor,
+    service, channel) most likely originated the anomaly in the final row.
+    """
+    from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+
+    observations = np.asarray(_load_data(input), dtype=float)
+    train_rows = np.asarray(_load_data(train), dtype=float) if train else None
+    adj = np.asarray(_load_data(adjacency), dtype=float) if adjacency else None
+    names = [s.strip() for s in node_names.split(",")] if node_names else None
+
+    result = localize_root_cause(
+        observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
+    )
+
+    text = json.dumps(result, indent=2, default=str)
+    if output:
+        Path(output).write_text(text)
+        click.echo(f"Wrote root-cause analysis to {output}", err=True)
+    else:
+        click.echo(text)
+
+
+_HAZARD_CHOICES = (
+    "earthquake",
+    "tsunami",
+    "meteor",
+    "wildfire",
+    "tornado",
+    "hurricane",
+    "volcanic",
+    "landslide",
+    "schumann",
+)
+
+
+@main.command("hazard-viz")
+@click.option(
+    "--input",
+    "-i",
+    "input_path",
+    default=None,
+    help="Diagnostics payload file (.npz from HazardDiagnostics.to_npz, or its .json form)",
+)
+@click.option(
+    "--detector",
+    "-d",
+    "hazard",
+    default=None,
+    type=click.Choice(_HAZARD_CHOICES),
+    help="Run this hazard detector on --data (instead of loading a prior payload)",
+)
+@click.option(
+    "--data",
+    "data_path",
+    default=None,
+    help=(
+        "Detector input file (.csv/.npy/.json single array, or .npz with named arrays "
+        "such as wind_u/wind_v)"
+    ),
+)
+@click.option(
+    "--format",
+    "-f",
+    "fmt",
+    default="png",
+    type=click.Choice(["png", "geojson"]),
+    help="Artifact format",
+)
+@click.option("--output", "-o", required=True, help="Output artifact path")
+@click.option(
+    "--geotransform",
+    default=None,
+    help=(
+        "JSON file with origin_lon/origin_lat/deg_per_pixel_lon/deg_per_pixel_lat "
+        "(required for --format geojson; pixel coordinates are never presented as lat/lon)"
+    ),
+)
+@click.option("--sampling-rate", default=None, type=float, help="Sampling rate in Hz")
+@click.option("--pixel-size-km", default=None, type=float, help="Wildfire ground resolution")
+@click.option("--grid-spacing-m", default=None, type=float, help="Hurricane wind-grid spacing")
+def hazard_viz(
+    input_path: str | None,
+    hazard: str | None,
+    data_path: str | None,
+    fmt: str,
+    output: str,
+    geotransform: str | None,
+    sampling_rate: float | None,
+    pixel_size_km: float | None,
+    grid_spacing_m: float | None,
+) -> None:
+    """Render a hazard detector's persisted diagnostics to PNG or GeoJSON.
+
+    Renders the REAL intermediate arrays the hazard detectors compute
+    (spectrograms, STA/LTA series, Doppler velocity fields, thermal hotspot
+    masks, wind/vorticity fields, harmonic spectra) -- either from a prior
+    diagnostics payload (--input) or by running a detector on raw input
+    (--detector + --data). GeoJSON output (wildfire ignition hotspots) needs a
+    --geotransform: the detectors work in pixel space and coordinates are
+    never fabricated.
+    """
+    from omni_mercury_engine.detectors.hazard_diagnostics import (
+        HazardDiagnostics,
+        run_hazard_detector,
+    )
+    from omni_mercury_engine.detectors.hazard_visuals import (
+        build_hazard_geojson,
+        render_hazard_png,
+    )
+
+    if (input_path is None) == (hazard is None):
+        raise click.UsageError("provide exactly one of --input (payload) or --detector (run)")
+
+    if input_path is not None:
+        path = Path(input_path)
+        if path.suffix == ".npz":
+            diagnostics = HazardDiagnostics.from_npz(path)
+        elif path.suffix == ".json":
+            with open(path) as fh:
+                diagnostics = HazardDiagnostics.from_jsonable(json.load(fh))
+        else:
+            raise click.UsageError(
+                f"unsupported diagnostics file format {path.suffix!r} (use .npz or .json)"
+            )
+    else:
+        if data_path is None:
+            raise click.UsageError("--detector requires --data with the detector input")
+        assert hazard is not None
+        arrays = _load_hazard_arrays(data_path, hazard)
+        params: dict[str, Any] = {}
+        if sampling_rate is not None:
+            params["sampling_rate_hz"] = sampling_rate
+        if pixel_size_km is not None:
+            params["pixel_size_km"] = pixel_size_km
+        if grid_spacing_m is not None:
+            params["grid_spacing_m"] = grid_spacing_m
+        try:
+            diagnostics = run_hazard_detector(hazard, arrays, params=params)
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+
+    out = Path(output)
+    if fmt == "geojson":
+        gt: dict[str, float] | None = None
+        if geotransform is not None:
+            with open(geotransform) as fh:
+                gt = json.load(fh)
+        try:
+            feature_collection = build_hazard_geojson(diagnostics, geotransform=gt)
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+        out.write_text(json.dumps(feature_collection, indent=2))
+        click.echo(
+            f"Wrote GeoJSON ({len(feature_collection['features'])} features) to {out}", err=True
+        )
+    else:
+        try:
+            png = render_hazard_png(diagnostics)
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+        out.write_bytes(png)
+        click.echo(f"Wrote {diagnostics.hazard} PNG ({len(png)} bytes) to {out}", err=True)
+
+
+def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
+    """Load detector input arrays for ``hazard-viz --detector`` runs.
+
+    ``.npz`` archives contribute every named member (e.g. ``wind_u``/``wind_v``).
+    Single-array files (.csv/.npy/.json) map to the hazard's primary input
+    array name. 1-D series stay 1-D (no reshape).
+
+    Args:
+        data_path: Input file path.
+        hazard: The hazard the arrays feed (selects the primary array name).
+
+    Returns:
+        Named arrays for :func:`run_hazard_detector`.
+    """
+    from omni_mercury_engine.detectors.hazard_diagnostics import PRIMARY_INPUT_ARRAY
+
+    path = Path(data_path)
+    if path.suffix == ".npz":
+        with np.load(path, allow_pickle=False) as archive:
+            return {name: np.array(archive[name]) for name in archive.files}
+    if path.suffix == ".npy":
+        return {PRIMARY_INPUT_ARRAY[hazard]: np.load(path, allow_pickle=False)}
+    if path.suffix == ".csv":
+        return {PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(path, delimiter=",")}
+    if path.suffix == ".json":
+        with open(path) as fh:
+            return {PRIMARY_INPUT_ARRAY[hazard]: np.asarray(json.load(fh), dtype=float)}
+    raise click.UsageError(
+        f"unsupported data file format {path.suffix!r} (use .npz, .npy, .csv, or .json)"
+    )
+
+
 @main.command()
 @click.option("--reference", "-r", required=True, help="Reference face image")
 @click.option("--test", "-t", help="Test face image to match")

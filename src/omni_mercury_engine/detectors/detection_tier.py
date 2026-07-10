@@ -48,6 +48,8 @@ from omni_mercury_engine.detectors._calibration import bound_finite, finite_scor
 from omni_mercury_engine.detectors.detection_config import DetectionConfig
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import torch
 
     from omni_mercury_engine.core.base import BaseDetector
@@ -65,7 +67,9 @@ __all__ = [
     "build_tier_detectors",
     "conformal_flags",
     "conformal_threshold",
+    "localize_root_cause",
     "rca_localize",
+    "run_tier_ensemble",
     "store_tier_features",
 ]
 
@@ -237,20 +241,24 @@ class _PlattCalibrator(_ScoreCalibrator):
 
 
 def build_tier_detectors(
-    subset: list[str] | tuple[str, ...] | None = None,
+    subset: Sequence[str] | None = None,
 ) -> dict[str, BaseDetector]:
     """Instantiate tier detectors, resolving module/class from the manifest.
 
     Args:
         subset: Optional detector names to build (defaults to the full
-            :data:`STREAMING_TIER`). Unknown names raise ``KeyError`` so a typo
-            fails loudly rather than silently dropping a detector.
+            :data:`STREAMING_TIER`). Unknown names raise ``ValueError`` so a
+            typo fails loudly rather than silently dropping a detector —
+            ``ValueError`` (not ``KeyError``) because an unknown name is an
+            invalid argument *value*, and the HTTP/MCP surfaces route
+            ``ValueError`` to a client error (400 / ToolError) instead of an
+            internal 500.
 
     Returns:
         Mapping ``name -> detector instance``, insertion-ordered by ``subset``.
 
     Raises:
-        KeyError: If a requested name is not a registered tier detector.
+        ValueError: If a requested name is not a registered tier detector.
     """
     from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 
@@ -259,7 +267,10 @@ def build_tier_detectors(
     built: dict[str, BaseDetector] = {}
     for name in names:
         if name not in manifest:
-            raise KeyError(f"'{name}' is not a registered detector")
+            raise ValueError(
+                f"'{name}' is not a registered detector; "
+                f"known tier detectors: {', '.join(sorted(STREAMING_TIER))}"
+            )
         entry = manifest[name]
         module = __import__(entry.module_path, fromlist=[entry.class_name])
         cls = getattr(module, entry.class_name)
@@ -639,6 +650,23 @@ class StreamingScoreEnsemble:
             raise RuntimeError("call fit() before ensemble_uncertainty()")
         return self._calibrate(self._score_matrix(_to_1d_series(series))).std(axis=1)
 
+    def per_detector_scores(
+        self, series: np.ndarray[Any, Any] | torch.Tensor
+    ) -> tuple[list[str], np.ndarray[Any, Any]]:
+        """Return each member's *calibrated* per-point score (the attribution view).
+
+        Unlike :meth:`score` (which collapses the members into one number), this
+        exposes the ``(n_points, n_detectors)`` calibrated ``[0, 1]`` matrix that
+        the combiner sees, alongside the ordered member names. It answers "which
+        detector(s) drove this flag" -- a spectral-residual spike, a changepoint,
+        an extreme-value exceedance -- which is what an analyst extracts after a
+        point is flagged.
+        """
+        if not self._fitted:
+            raise RuntimeError("call fit() before per_detector_scores()")
+        matrix = self._calibrate(self._score_matrix(_to_1d_series(series)))
+        return list(self._names), matrix
+
     def bma_weights(self) -> dict[str, tuple[float, float]]:
         """BMA weight ± bootstrap-uncertainty per detector (``{}`` if not BMA)."""
         if self.method != "bma":
@@ -707,6 +735,175 @@ def conformal_flags(
     return np.asarray(scores, dtype=np.float64).ravel() > threshold
 
 
+def run_tier_ensemble(
+    series: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any] | None = None,
+    *,
+    subset: Sequence[str] | None = None,
+    method: str | None = None,
+    contamination: float = 0.05,
+    calibration: str | None = None,
+    conformal_alpha: float | None = None,
+    include_attribution: bool = False,
+    include_counterfactual: bool = False,
+    counterfactual_index: int | None = None,
+    counterfactual_method: str = "prototype",
+) -> dict[str, Any]:
+    """Build → fit → score the streaming detector-tier ensemble in one call.
+
+    A single, torch-free runtime entrypoint for the streaming / statistical /
+    state-space detector tier's calibrated ensemble
+    (:class:`StreamingScoreEnsemble` over :func:`build_tier_detectors`). It is
+    what the ``mercury-agent tier-detect`` CLI command and the
+    ``/api/v1/detect/tier`` route call, so the tier -- previously reachable only
+    by hand-assembling the pieces -- has a real, tested surface.
+
+    Args:
+        series: 1-D anomaly series (the tier's native temporal contract).
+        labels: Optional per-point 0/1 labels. When present the members are fit
+            on the normal points only and the default combiner is ``stacking``;
+            without labels the default is the label-free ``average``.
+        subset: Detector names to include (default: the full ``STREAMING_TIER``).
+        method: Combiner override (``stacking`` / ``bma`` / ``average`` /
+            ``consensus``).
+        contamination: Expected anomaly fraction for threshold calibration.
+        calibration: Per-detector score transform (``rank`` / ``ecdf`` /
+            ``isotonic`` / ``platt`` / ``none``); ``None`` resolves from config.
+        conformal_alpha: When set, also returns flags with a distribution-free
+            false-positive guarantee (FPR ``<= alpha``). The known-normal
+            calibration stream is the label-0 subset when labels are given, else
+            the observed scores (an in-sample proxy under exchangeability).
+        include_attribution: When ``True``, also return the calibrated
+            per-detector score matrix (``detector_names`` +
+            ``per_detector_scores``, ``n_points`` × ``n_detectors``) so a caller
+            can see *which* members drove each point -- the detector-level
+            attribution behind the blended score.
+        include_counterfactual: When ``True``, also return a verified minimal
+            counterfactual for one point (``counterfactual`` key): the
+            replacement value at that point that flips its decision, found and
+            re-scored through this same fitted ensemble (see
+            :mod:`omni_mercury_engine.explainability.detection_counterfactuals`).
+        counterfactual_index: Point to explain; default is the highest-scoring
+            flagged point (or the global argmax when nothing is flagged).
+        counterfactual_method: Search method. The ``prototype`` default
+            anchors candidates at REAL normal windows observed elsewhere in
+            the same series (the tier's calibrated score is piecewise
+            constant, so gradient methods stall, and blind sampling rarely
+            shrinks a whole burst window at once — real normal neighborhoods
+            are the honest, robust anchors). Also ``growing_spheres`` /
+            ``dice`` / ``genetic`` / ``wachter``.
+
+    Returns:
+        A JSON-serialisable dict: ``method``, ``members``, ``threshold``,
+        per-point ``scores`` (calibrated ``[0, 1]``), ``flags`` (0/1),
+        ``uncertainty`` (cross-detector disagreement), ``n_points``,
+        ``n_flagged``; ``bma_weights`` when ``method="bma"``; the
+        ``conformal_*`` fields when ``conformal_alpha`` is set; and
+        ``detector_names`` + ``per_detector_scores`` when
+        ``include_attribution`` is set.
+    """
+    detectors = build_tier_detectors(subset)
+    resolved_method = method or ("stacking" if labels is not None else "average")
+    ensemble = StreamingScoreEnsemble(
+        detectors,
+        method=resolved_method,
+        contamination=contamination,
+        calibration=calibration,
+    )
+    ensemble.fit(series, labels=labels)
+
+    scores = np.asarray(ensemble.score(series), dtype=float)
+    flags = np.asarray(ensemble.predict(series), dtype=int)
+    uncertainty = np.asarray(ensemble.ensemble_uncertainty(series), dtype=float)
+
+    result: dict[str, Any] = {
+        "method": resolved_method,
+        "members": list(detectors.keys()),
+        "threshold": float(ensemble.threshold),
+        "scores": scores.tolist(),
+        "flags": flags.tolist(),
+        "uncertainty": uncertainty.tolist(),
+        "n_points": int(scores.size),
+        "n_flagged": int(flags.sum()),
+    }
+    if resolved_method == "bma":
+        result["bma_weights"] = ensemble.bma_weights()
+
+    if include_attribution:
+        detector_names, calibrated = ensemble.per_detector_scores(series)
+        result["detector_names"] = detector_names
+        result["per_detector_scores"] = np.asarray(calibrated, dtype=float).tolist()
+
+    if include_counterfactual:
+        from omni_mercury_engine.explainability.detection_counterfactuals import (
+            explain_detection_counterfactual,
+            make_tier_score_fn,
+        )
+
+        if counterfactual_index is not None:
+            cf_index = int(counterfactual_index)
+        elif flags.any():
+            flagged_idx = np.flatnonzero(flags)
+            cf_index = int(flagged_idx[np.argmax(scores[flagged_idx])])
+        else:
+            cf_index = int(np.argmax(scores))
+        score_fn, x_window, cf_names = make_tier_score_fn(ensemble, series, cf_index)
+        # Candidate anchors: every same-width window of THIS series, labeled
+        # by whether it touches a flagged point. The prototype method then
+        # proposes real observed-normal neighborhoods and the greedy
+        # minimizer prunes back to exactly the values that must change.
+        arr = np.asarray(series, dtype=float).ravel()
+        width = x_window.size
+        window_view = np.lib.stride_tricks.sliding_window_view(arr, width)
+        flag_arr = np.asarray(flags, dtype=bool)
+        window_flagged = np.array(
+            [bool(flag_arr[i : i + width].any()) for i in range(window_view.shape[0])],
+            dtype=int,
+        )
+        # Every candidate evaluation re-scores the WHOLE series through the
+        # full fitted ensemble, so the search budget must stay bounded; these
+        # per-method budgets flip the fixture-scale detections in seconds and
+        # are overridable only through the library API (the surface options
+        # deliberately expose method choice, not budget knobs).
+        budgets: dict[str, dict[str, Any]] = {
+            "growing_spheres": {"n_samples": 40, "step_size": 1.0, "max_iterations": 25},
+            "wachter": {"max_iterations": 150},
+            "dice": {"max_iterations": 60},
+            "genetic": {"population_size": 24, "max_generations": 20},
+            "prototype": {},
+        }
+        budget: dict[str, Any] = budgets.get(counterfactual_method, {})
+        cf = explain_detection_counterfactual(
+            score_fn,
+            x_window,
+            threshold=float(ensemble.threshold),
+            feature_names=cf_names,
+            method=counterfactual_method,
+            n_restarts=1,
+            max_pair_evals=40,
+            training_data=window_view.copy(),
+            training_labels=window_flagged,
+            **budget,
+        )
+        result["counterfactual"] = {"index": cf_index, **cf.to_dict()}
+
+    if conformal_alpha is not None:
+        if labels is not None:
+            lab = np.asarray(labels).astype(int).ravel()
+            calibration_scores = scores[lab == 0] if (lab == 0).any() else scores
+        else:
+            calibration_scores = scores
+        cflags = conformal_flags(scores, calibration_scores, alpha=conformal_alpha)
+        result["conformal_alpha"] = float(conformal_alpha)
+        result["conformal_threshold"] = float(
+            conformal_threshold(calibration_scores, alpha=conformal_alpha)
+        )
+        result["conformal_flags"] = cflags.astype(int).tolist()
+        result["n_conformal_flagged"] = int(cflags.sum())
+
+    return result
+
+
 def rca_localize(
     observations: np.ndarray[Any, Any] | torch.Tensor,
     adjacency: np.ndarray[Any, Any] | None = None,
@@ -739,6 +936,73 @@ def rca_localize(
     detector.fit(observations if train is None else train)
     ranked = detector.rank_root_causes(observations)
     return ranked if top_k is None else ranked[:top_k]
+
+
+def localize_root_cause(
+    observations: np.ndarray[Any, Any] | Sequence[Sequence[float]],
+    *,
+    adjacency: np.ndarray[Any, Any] | Sequence[Sequence[float]] | None = None,
+    train: np.ndarray[Any, Any] | Sequence[Sequence[float]] | None = None,
+    top_k: int | None = None,
+    node_names: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Attribute a multivariate anomaly to its most likely root-cause nodes.
+
+    A single, JSON-serialisable runtime entrypoint over :func:`rca_localize`
+    (the tier's graph-based root-cause attribution -- a reverse personalised
+    random walk over a causal / service adjacency, per
+    :class:`~omni_mercury_engine.detectors.rca.RootCauseGraphDetector`). It is
+    what the ``mercury-agent rca`` CLI, the ``/api/v1/detect/rca`` route, and the
+    ``mercury_localize_root_cause`` MCP tool call, so this analysis -- previously
+    reachable only by hand-assembling the detector -- has one tested surface.
+
+    Args:
+        observations: ``(n_rows, n_nodes)`` signal; the last row is the anomaly
+            being localised (each column is a node / sensor / service).
+        adjacency: Optional ``(n_nodes, n_nodes)`` non-negative causal adjacency
+            (``A[i, j] > 0`` => ``i`` influences ``j``); inferred from training
+            correlations when omitted.
+        train: Optional normal-behaviour rows for the per-node baselines
+            (defaults to ``observations`` itself).
+        top_k: Return only the ``top_k`` highest-attribution nodes when given.
+        node_names: Optional labels (one per node) attached to each ranked entry
+            so callers see meaningful names, not bare indices.
+
+    Returns:
+        ``{"n_nodes", "n_rows", "ranked": [{"node", "attribution"[, "name"]}...],
+        "top_root_cause"}`` -- ranked descending by attribution.
+
+    Raises:
+        ValueError: If ``observations`` is not 2-D, or ``node_names`` length does
+            not match the node count.
+    """
+    obs = np.asarray(observations, dtype=float)
+    if obs.ndim != 2:
+        raise ValueError("observations must be 2-D (rows x nodes)")
+    n_nodes = int(obs.shape[1])
+    names: list[str] | None = None
+    if node_names is not None:
+        names = list(node_names)
+        if len(names) != n_nodes:
+            raise ValueError(f"node_names length {len(names)} != n_nodes {n_nodes}")
+    adj = np.asarray(adjacency, dtype=float) if adjacency is not None else None
+    tr = np.asarray(train, dtype=float) if train is not None else None
+
+    ranked = rca_localize(obs, adjacency=adj, train=tr, top_k=top_k)
+
+    def _entry(idx: int, attribution: float) -> dict[str, Any]:
+        entry: dict[str, Any] = {"node": int(idx), "attribution": round(float(attribution), 6)}
+        if names is not None:
+            entry["name"] = names[int(idx)]
+        return entry
+
+    ranked_out = [_entry(i, a) for i, a in ranked]
+    return {
+        "n_nodes": n_nodes,
+        "n_rows": int(obs.shape[0]),
+        "ranked": ranked_out,
+        "top_root_cause": ranked_out[0] if ranked_out else None,
+    }
 
 
 class TierStreamingScorer:

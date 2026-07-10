@@ -33,8 +33,14 @@ from typing import Any
 
 import numpy as np
 import torch
+from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
+
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+
+# Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
+HOTSPOT_THRESHOLD_K = 350.0
 
 
 class FireRiskLevel(Enum):
@@ -49,7 +55,17 @@ class FireRiskLevel(Enum):
 
 @dataclass
 class WildfirePredictionResult:
-    """Wildfire prediction results."""
+    """Wildfire prediction results.
+
+    Coordinate honesty: ``ignition_locations`` are PIXEL-SPACE ``(row, col)``
+    centroids of connected hotspot regions in the supplied thermal image. The
+    detector has no geotransform, so it never fabricates lat/lon; callers that
+    know the image georeferencing map pixels to WGS84 themselves (see
+    ``build_hazard_geojson``). ``fire_perimeter_km2`` is the hotspot-area
+    estimate ``hotspot_pixel_count * pixel_size_km**2`` and is populated only
+    when the caller supplies ``pixel_size_km`` in the wildfire data -- otherwise
+    it stays ``None`` rather than inventing a ground resolution.
+    """
 
     fire_detected: bool
     confidence: float
@@ -69,6 +85,9 @@ class WildfirePredictionResult:
     evacuation_zones: list[str] = field(default_factory=list)
     containment_strategy: list[str] = field(default_factory=list)
     early_warning_actions: list[str] = field(default_factory=list)
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class FireIgnitionDetector(nn.Module):
@@ -545,13 +564,28 @@ class WildfireDetector:
         enable_ndvi_processing: bool = True,
         enable_resonance: bool = True,
         enable_enhanced_cnn: bool = True,
+        keep_diagnostics: bool = False,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            enable_ignition_detection: Enable thermal-CNN ignition detection.
+            enable_spread_modeling: Enable weather-driven spread modeling.
+            enable_ndvi_processing: Enable NDVI fuel-load processing.
+            enable_resonance: Enable smoke-pattern resonance analysis.
+            enable_enhanced_cnn: Enable the multi-channel wildfire CNN.
+            keep_diagnostics: When True, each prediction result carries the
+                thermal array, the boolean hotspot mask, and the hotspot pixel
+                coordinates the ignition path computed (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
+        """
         self.enable_ignition = enable_ignition_detection
         self.enable_spread = enable_spread_modeling
         self.enable_ndvi = enable_ndvi_processing
         self.enable_resonance = enable_resonance
         self.enable_enhanced_cnn = enable_enhanced_cnn
+        self.keep_diagnostics = keep_diagnostics
 
         self.ignition_detector = FireIgnitionDetector() if self.enable_ignition else None
         self.spread_model = FireSpreadModel() if self.enable_spread else None
@@ -626,6 +660,41 @@ class WildfireDetector:
             result.confidence = ignition_result["confidence"]
             result.thermal_hotspots = ignition_result["hotspot_count"]
 
+            # Populate the (previously never-filled) ignition fields from the
+            # REAL hotspot mask: pixel-space (row, col) component centroids, and
+            # the hotspot-area estimate only when a ground resolution is known.
+            # (.get: tolerate an ignition path that computed no pixel geometry.)
+            centroids = ignition_result.get("ignition_centroids", ())
+            result.ignition_locations = [(float(r), float(c)) for r, c in centroids]
+            pixel_size_km = wildfire_data.get("pixel_size_km")
+            if pixel_size_km is not None:
+                result.fire_perimeter_km2 = float(
+                    ignition_result["hotspot_count"] * float(pixel_size_km) ** 2
+                )
+
+            # Capture only when the ignition path actually produced the spatial
+            # intermediates; diagnostics stay honestly absent otherwise instead
+            # of crashing or fabricating empty arrays.
+            if self.keep_diagnostics and "hotspot_mask" in ignition_result:
+                context: dict[str, Any] = {
+                    "hotspot_threshold_k": HOTSPOT_THRESHOLD_K,
+                    "hotspot_count": int(ignition_result["hotspot_count"]),
+                    "coordinate_space": "pixel",
+                }
+                if pixel_size_km is not None:
+                    context["pixel_size_km"] = float(pixel_size_km)
+                result.diagnostics = HazardDiagnostics(
+                    hazard="wildfire",
+                    arrays={
+                        "thermal_image_k": ignition_result["thermal_image_k"],
+                        "hotspot_mask": ignition_result["hotspot_mask"],
+                        "ignition_pixels": ignition_result["ignition_pixels"],
+                        "ignition_centroids": ignition_result["ignition_centroids"],
+                        "ignition_component_sizes": ignition_result["ignition_component_sizes"],
+                    },
+                    context=context,
+                )
+
         if self.enable_spread and "weather_data" in wildfire_data and self.spread_model is not None:
             spread_result = self.spread_model.predict_spread(
                 wildfire_data.get("fire_data", {}), wildfire_data["weather_data"]
@@ -639,19 +708,38 @@ class WildfireDetector:
         return result
 
     def _detect_ignition(self, thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Detect fire ignition.
+        """Detect fire ignition and locate hotspot pixels.
 
         Uses the trained CNN only when real weights have been loaded
         (:meth:`load_neural_weights`); otherwise falls back to the deterministic
         brightness-temperature physics so an untrained network can never
-        fabricate (or mask) a fire.
+        fabricate (or mask) a fire. Both paths emit the same REAL per-pixel
+        intermediates.
+
+        Args:
+            thermal_image: Brightness-temperature image in Kelvin, ``(H, W)`` or
+                ``(C, H, W)``.
+
+        Returns:
+            Dict with the fire decision plus the REAL per-pixel intermediates:
+            ``thermal_image_k`` (channel-max 2-D Kelvin map), ``hotspot_mask``
+            (2-D bool, > :data:`HOTSPOT_THRESHOLD_K` in any channel),
+            ``ignition_pixels`` (K, 2) int (row, col), ``ignition_centroids``
+            (C, 2) connected-component centroids, and
+            ``ignition_component_sizes`` (C,) pixel counts.
         """
+        empty = {
+            "fire_detected": False,
+            "confidence": 0.0,
+            "hotspot_count": 0,
+            "thermal_image_k": np.zeros((0, 0)),
+            "hotspot_mask": np.zeros((0, 0), dtype=bool),
+            "ignition_pixels": np.zeros((0, 2), dtype=np.intp),
+            "ignition_centroids": np.zeros((0, 2)),
+            "ignition_component_sizes": np.zeros((0,), dtype=np.intp),
+        }
         if self.ignition_detector is None:
-            return {
-                "fire_detected": False,
-                "confidence": 0.0,
-                "hotspot_count": 0,
-            }
+            return empty
 
         if not self._neural_trained:
             self._warn_untrained_once()
@@ -669,12 +757,43 @@ class WildfireDetector:
             fire_prob = self.ignition_detector(thermal_tensor)
 
         fire_detected = float(fire_prob[0].item()) > 0.6
-        hotspot_count = int(np.sum(thermal_image > 350)) if thermal_image.size > 0 else 0
+
+        # Spatial hotspot mask over the (1, C, H, W) array: a pixel is a hotspot
+        # candidate when ANY channel exceeds the threshold; the 2-D thermal map
+        # is the channel-max brightness temperature.
+        thermal_2d = np.asarray(thermal_image, dtype=float).max(axis=(0, 1))
+        hotspot_mask = np.asarray(thermal_image > HOTSPOT_THRESHOLD_K).any(axis=(0, 1))
+        ignition_pixels = np.argwhere(hotspot_mask)
+        # SPATIAL hotspot pixel count from the mask. A channel-summed
+        # exceedance count (the previous formula) counts one pixel up to C
+        # times when several bands exceed the threshold, which inflated the
+        # ground-area estimate fire_perimeter_km2 = count * pixel_size_km^2.
+        hotspot_count = int(hotspot_mask.sum())
+
+        # Connected hotspot regions (8-connectivity) -> one ignition location
+        # per region: its pixel-space centroid, with the region's pixel count.
+        if hotspot_mask.any():
+            labels, n_components = ndimage.label(hotspot_mask, structure=np.ones((3, 3)))
+            component_ids = list(range(1, n_components + 1))
+            centroids = np.asarray(
+                ndimage.center_of_mass(hotspot_mask, labels, component_ids), dtype=float
+            ).reshape(-1, 2)
+            sizes = np.asarray(
+                ndimage.sum_labels(hotspot_mask, labels, component_ids), dtype=np.intp
+            )
+        else:
+            centroids = np.zeros((0, 2))
+            sizes = np.zeros((0,), dtype=np.intp)
 
         return {
             "fire_detected": fire_detected,
             "confidence": float(fire_prob[0].item()),
             "hotspot_count": hotspot_count,
+            "thermal_image_k": thermal_2d,
+            "hotspot_mask": hotspot_mask,
+            "ignition_pixels": ignition_pixels,
+            "ignition_centroids": centroids,
+            "ignition_component_sizes": sizes,
         }
 
     @staticmethod
@@ -687,27 +806,84 @@ class WildfireDetector:
         median + 4·MAD-scale). Confidence grows with both the peak temperature
         above 330 K and the fraction of hot pixels. Deterministic: identical
         input → identical output.
+
+        Emits the same REAL per-pixel intermediates as the CNN path (channel-max
+        Kelvin map, any-channel hotspot mask, hotspot pixels, connected-region
+        centroids and sizes) so the ignition fields and the keep_diagnostics
+        capture work identically on the physics fallback.
         """
         arr = np.asarray(thermal_image, dtype=float)
-        arr = arr[np.isfinite(arr)] if arr.size else arr
-        if arr.size == 0:
-            return {"fire_detected": False, "confidence": 0.0, "hotspot_count": 0}
-        max_temp = float(np.max(arr))
-        background = float(np.median(arr))
-        mad = float(np.median(np.abs(arr - background)))
-        scale = 1.4826 * mad if mad > 0 else max(float(np.std(arr)), 1.0)
+        values = arr[np.isfinite(arr)] if arr.size else arr.ravel()
+        empty_arrays: dict[str, np.ndarray[Any, Any]] = {
+            "thermal_image_k": np.zeros((0, 0)),
+            "hotspot_mask": np.zeros((0, 0), dtype=bool),
+            "ignition_pixels": np.zeros((0, 2), dtype=np.intp),
+            "ignition_centroids": np.zeros((0, 2)),
+            "ignition_component_sizes": np.zeros((0,), dtype=np.intp),
+        }
+        if values.size == 0:
+            return {
+                "fire_detected": False,
+                "confidence": 0.0,
+                "hotspot_count": 0,
+                **empty_arrays,
+            }
+        max_temp = float(np.max(values))
+        background = float(np.median(values))
+        mad = float(np.median(np.abs(values - background)))
+        scale = 1.4826 * mad if mad > 0 else max(float(np.std(values)), 1.0)
         contextual = max_temp > 330.0 and (max_temp - background) > 4.0 * scale
         absolute = max_temp > 360.0
         fire_detected = absolute or contextual
-        hotspot_count = int(np.sum(arr > 350.0))
         temp_severity = float(np.clip((max_temp - 330.0) / 60.0, 0.0, 1.0))
-        hot_fraction = float(np.clip(np.mean(arr > 350.0) * 20.0, 0.0, 1.0))
+        hot_fraction = float(np.clip(np.mean(values > HOTSPOT_THRESHOLD_K) * 20.0, 0.0, 1.0))
         confidence = float(1.0 - (1.0 - temp_severity) * (1.0 - hot_fraction))
+
+        # Spatial intermediates, mirroring the CNN path: the 2-D thermal map is
+        # the channel-max brightness temperature and a pixel is a hotspot when
+        # ANY channel exceeds the threshold. Non-2-D inputs (bare series) carry
+        # no pixel geometry, so the spatial arrays stay honestly empty.
+        thermal_2d = empty_arrays["thermal_image_k"]
+        hotspot_mask = empty_arrays["hotspot_mask"]
+        if arr.ndim >= 2:
+            stacked = arr.reshape(-1, *arr.shape[-2:])
+            thermal_2d = stacked.max(axis=0)
+            hotspot_mask = np.asarray((stacked > HOTSPOT_THRESHOLD_K).any(axis=0))
+        ignition_pixels = np.argwhere(hotspot_mask)
+        # SPATIAL hotspot pixel count from the mask (a pixel hot in several
+        # bands is still ONE ground pixel; a channel-summed exceedance count
+        # inflated fire_perimeter_km2 by up to a factor of C). A bare 1-D
+        # series has no pixel geometry, so the flat exceedance count is the
+        # only meaningful number there.
+        hotspot_count = (
+            int(hotspot_mask.sum()) if arr.ndim >= 2 else int(np.sum(values > HOTSPOT_THRESHOLD_K))
+        )
+
+        # Connected hotspot regions (8-connectivity) -> one ignition location
+        # per region: its pixel-space centroid, with the region's pixel count.
+        if hotspot_mask.any():
+            labels, n_components = ndimage.label(hotspot_mask, structure=np.ones((3, 3)))
+            component_ids = list(range(1, n_components + 1))
+            centroids = np.asarray(
+                ndimage.center_of_mass(hotspot_mask, labels, component_ids), dtype=float
+            ).reshape(-1, 2)
+            sizes = np.asarray(
+                ndimage.sum_labels(hotspot_mask, labels, component_ids), dtype=np.intp
+            )
+        else:
+            centroids = np.zeros((0, 2))
+            sizes = np.zeros((0,), dtype=np.intp)
+
         return {
             "fire_detected": fire_detected,
             "confidence": confidence if fire_detected else min(confidence, 0.5),
             "hotspot_count": hotspot_count,
             "method": "physics_brightness_temperature",
+            "thermal_image_k": thermal_2d,
+            "hotspot_mask": hotspot_mask,
+            "ignition_pixels": ignition_pixels,
+            "ignition_centroids": centroids,
+            "ignition_component_sizes": sizes,
         }
 
     def _assess_fire_risk(

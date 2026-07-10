@@ -46,6 +46,7 @@ from omni_mercury_engine.core.three_r_mechanism import (
     RefactoringEngine,
     ResonanceEngine,
 )
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
@@ -109,6 +110,12 @@ class HurricanePredictionResult:
 
     warning_actions: list[str] = field(default_factory=list)
     evacuation_zones: list[str] = field(default_factory=list)
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    # Carries the wind speed field, u/v components, and the finite-difference
+    # vorticity field. There is deliberately NO track cone: the storm-track
+    # model was removed as uncomputed, and none is fabricated here.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class SeaSurfaceTemperatureAnalyzer:
@@ -382,14 +389,33 @@ class HurricaneDetector:
         enable_recursion: bool = True,
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
+        keep_diagnostics: bool = False,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            enable_sst: Enable sea-surface-temperature analysis.
+            enable_wind: Enable the wind-pattern analyzer components.
+            enable_pressure: Enable central-pressure tracking.
+            enable_resonance: Enable resonance frequency amplification.
+            enable_recursion: Enable recursive multi-scale feature extraction.
+            enable_refactoring: Enable the 3R refactoring engine.
+            rng: Deterministic RNG for reproducibility.
+            keep_diagnostics: When True and ``wind_field`` data is supplied, each
+                prediction result carries the wind speed field and (when u/v
+                components are given) the finite-difference relative-vorticity
+                field plus circulation metrics (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Detection scalars stay pressure/SST-driven either way. Default
+                False keeps memory behavior unchanged.
+        """
         self.enable_sst = enable_sst
         self.enable_wind = enable_wind
         self.enable_pressure = enable_pressure
         self.enable_resonance = enable_resonance
         self.enable_recursion = enable_recursion
         self.enable_refactoring = enable_refactoring
+        self.keep_diagnostics = keep_diagnostics
         self._rng = rng or get_global_rng()
 
         self.sst_analyzer = SeaSurfaceTemperatureAnalyzer() if enable_sst else None
@@ -527,6 +553,12 @@ class HurricaneDetector:
             # The refactoring engine expects callable functions, not string data
             pass
 
+        if self.keep_diagnostics and self.enable_wind and "wind_field" in cyclone_data:
+            # Rebuilds the speed/vorticity fields directly from the caller's own
+            # wind field (independent of the detection path above), failing loud
+            # on malformed u/v rather than capturing anything imputed.
+            result.diagnostics = self._build_wind_diagnostics(cyclone_data["wind_field"])
+
         result.cyclone_detected = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)
         result.category = self._classify_category(result.max_wind_speed_kt)
@@ -545,8 +577,10 @@ class HurricaneDetector:
 
         return result
 
-    def _analyze_wind_field(self, wind_field: dict[str, Any]) -> dict[str, Any]:
-        """Deterministic cyclone kinematics from an observed u/v wind field.
+    def _analyze_wind_field(
+        self, wind_field: dict[str, Any] | np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
+        """Deterministic cyclone kinematics from an observed wind field.
 
         Previously the supplied wind data was silently ignored (the untrained
         WindPatternAnalyzer was never called). This computes the two standard
@@ -560,13 +594,26 @@ class HurricaneDetector:
         Args:
             wind_field: ``{"u": 2-D array, "v": 2-D array}`` wind components in
                 m/s, plus optional ``grid_spacing_m`` (defaults to 4000 m, a
-                typical analysis-grid resolution).
+                typical analysis-grid resolution). A bare array is treated as a
+                wind-speed field in m/s: it can still raise the observed maximum
+                wind, but no vorticity is derivable from speed alone and none is
+                imputed.
 
         Returns:
             ``max_wind_speed_kt``, ``max_relative_vorticity_s1``, and
             ``closed_circulation``. Deterministic; missing/1-D components yield
             zero vorticity rather than anything imputed.
         """
+        if not isinstance(wind_field, dict):
+            speed_ms = np.asarray(wind_field, dtype=float)
+            return {
+                "max_wind_speed_kt": (
+                    float(np.nanmax(speed_ms) * 1.9438) if speed_ms.size else 0.0
+                ),
+                "max_relative_vorticity_s1": 0.0,
+                "closed_circulation": False,
+            }
+
         u = np.asarray(wind_field.get("u", []), dtype=float)
         v = np.asarray(wind_field.get("v", []), dtype=float)
         spacing = float(wind_field.get("grid_spacing_m", 4000.0))
@@ -593,6 +640,67 @@ class HurricaneDetector:
             "max_relative_vorticity_s1": max_vorticity,
             "closed_circulation": max_vorticity >= 2e-3,
         }
+
+    @staticmethod
+    def _build_wind_diagnostics(wind_field: Any) -> HazardDiagnostics:
+        """Compute the wind-speed and vorticity fields from a supplied wind field.
+
+        Everything here is a deterministic derivation of the caller's own field:
+        speed is ``hypot(u, v)`` and relative vorticity is the central
+        finite-difference curl ``dv/dx - du/dy`` (``numpy.gradient`` with the
+        supplied grid spacing). No storm track is produced -- the track model
+        was removed as uncomputed and nothing is fabricated in its place.
+
+        Args:
+            wind_field: Either a mapping with 2-D ``u`` and ``v`` component
+                arrays (m/s) plus optional ``grid_spacing_m``, or a single 2-D
+                array treated as a wind-speed field (no vorticity is derivable
+                from speed alone, and none is emitted).
+
+        Returns:
+            The hurricane :class:`HazardDiagnostics` payload.
+
+        Raises:
+            ValueError: If the field is not 2-D or u/v shapes disagree.
+        """
+        arrays: dict[str, np.ndarray[Any, Any]] = {}
+        context: dict[str, Any] = {}
+
+        if isinstance(wind_field, dict):
+            if "u" not in wind_field or "v" not in wind_field:
+                raise ValueError("wind_field mapping requires 'u' and 'v' 2-D component arrays")
+            u = np.asarray(wind_field["u"], dtype=float)
+            v = np.asarray(wind_field["v"], dtype=float)
+            if u.ndim != 2 or u.shape != v.shape:
+                raise ValueError(
+                    f"wind_field u/v must be matching 2-D arrays, got {u.shape} and {v.shape}"
+                )
+            spacing = float(wind_field.get("grid_spacing_m", 1.0))
+            if spacing <= 0:
+                raise ValueError("wind_field grid_spacing_m must be positive")
+            speed = np.hypot(u, v)
+            # Relative vorticity: dv/dx - du/dy. Rows are y, columns are x.
+            dv_dx = np.gradient(v, spacing, axis=1)
+            du_dy = np.gradient(u, spacing, axis=0)
+            vorticity = dv_dx - du_dy
+            arrays["wind_u"] = u
+            arrays["wind_v"] = v
+            arrays["vorticity_field"] = vorticity
+            context["grid_spacing_m"] = spacing
+            context["max_abs_vorticity"] = float(np.max(np.abs(vorticity)))
+            context["mean_vorticity"] = float(np.mean(vorticity))
+        else:
+            speed = np.asarray(wind_field, dtype=float)
+            if speed.ndim != 2:
+                raise ValueError(f"wind_field must be a 2-D speed field, got ndim={speed.ndim}")
+            context["note"] = (
+                "speed-only field supplied; vorticity requires u/v components and is not emitted"
+            )
+
+        arrays["wind_speed_field"] = speed
+        context["max_wind_speed"] = float(np.max(speed)) if speed.size else 0.0
+        context["mean_wind_speed"] = float(np.mean(speed)) if speed.size else 0.0
+        return HazardDiagnostics(hazard="hurricane", arrays=arrays, context=context)
 
     def _classify_category(self, max_wind_kt: float) -> str:
         """Classify cyclone using Saffir-Simpson scale."""

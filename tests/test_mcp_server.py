@@ -257,6 +257,174 @@ class TestToolCalls:
         assert result["isError"] is True
 
 
+class _FakeFusionEngine:
+    """A stand-in for OmniMercuryEngine to drive the fusion tool torch-free."""
+
+    def __init__(self, result: dict[str, Any] | None = None, raises: Exception | None = None):
+        self._result = result or {}
+        self._raises = raises
+        self.calls: list[tuple[tuple[int, ...], object]] = []
+
+    def detect_with_fusion(
+        self,
+        X: Any,
+        domain: object = None,
+        gdpr_report: bool = False,
+        subject_id: object = None,
+    ) -> dict[str, Any]:
+        self.calls.append((tuple(X.shape), domain))
+        if self._raises is not None:
+            raise self._raises
+        return self._result
+
+
+class TestDetectionInterconnectTools:
+    """The flagship-fusion and detector-tier tools are first-class MCP tools.
+
+    Together with the CLI (`detect -d fusion`, `tier-detect`) and HTTP
+    (`/detect/flagship`, `/detect/tier`) these unify Mercury's detection across
+    every surface -- an MCP client reaches the SAME engines, not stand-ins.
+    """
+
+    def test_new_detection_tools_are_advertised(self) -> None:
+        names = {t["name"] for t in MercuryMCPServer().manifest()}
+        assert {"mercury_detect_fusion", "mercury_tier_detect"} <= names
+
+    def test_detect_fusion_returns_calibrated_decision(self) -> None:
+        engine = _FakeFusionEngine(
+            result={
+                "anomaly_prob": 0.87,
+                "is_anomaly": True,
+                "class_prediction": 3,
+                "severity": 0.42,
+                "threshold_used": 0.5,
+                "detector_importance": {"statistical": 0.6, "temporal": 0.4},
+                "gosnn_metadata": {
+                    "ethical_gate_passed": True,
+                    "sigma_immutable_score": 0.98,
+                    "sigma_immutable_threshold": 0.96,
+                    "sigma_immutable_backend": "torch",
+                },
+                "mode": "fusion",
+            }
+        )
+        # ``engine=`` postdates the sibling-worktree editable install the dev
+        # venv may expose; ``unused-ignore`` keeps a correct tree (CI) clean.
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
+        rng = np.random.default_rng(0)
+        result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 5)).tolist()})
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["anomaly_prob"] == 0.87
+        assert payload["is_anomaly"] is True
+        assert payload["ethical_gate"]["passed"] is True
+        assert payload["ethical_gate"]["sigma_immutable_score"] == 0.98
+        assert engine.calls and engine.calls[0][0] == (30, 5)
+
+    def test_detect_fusion_blocked_by_ethical_gate_is_error(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+
+        engine = _FakeFusionEngine(
+            raises=EthicalConstraintViolationError("blocked", 0.1, 0.96, check="sigma_immutable")
+        )
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
+        rng = np.random.default_rng(1)
+        result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(20, 4)).tolist()})
+        # Fail closed: the refusal surfaces as a clean isError naming the gate.
+        assert result["isError"] is True
+        text = result["content"][0]["text"].lower()
+        assert "ethical gate" in text and "sigma_immutable" in text
+
+    def test_detect_fusion_bad_matrix_is_error(self) -> None:
+        server = MercuryMCPServer(  # type: ignore[call-arg, unused-ignore]
+            engine=_FakeFusionEngine()
+        )
+        result = _call(server, "mercury_detect_fusion", {"data": [1.0, 2.0, 3.0]})  # 1-D
+        assert result["isError"] is True
+        assert "2-d" in result["content"][0]["text"].lower()
+
+    def test_tier_detect_flags_injected_burst(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(0)
+        series = rng.normal(0, 1, 200)
+        series[100:108] += 7.0
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {
+                "data": series.tolist(),
+                "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                "conformal_alpha": 0.05,
+            },
+        )
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["n_points"] == 200
+        flagged = {i for i, f in enumerate(payload["conformal_flags"]) if f}
+        assert flagged & set(range(95, 115))
+
+    def test_tier_detect_stacking_without_labels_is_error(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(2)
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {"data": rng.normal(0, 1, 60).tolist(), "method": "stacking"},
+        )
+        assert result["isError"] is True
+
+    def test_tier_detect_unknown_detector_is_clean_tool_error(self) -> None:
+        """A typo in ``subset`` yields a clean ToolError naming the detector
+        (review finding): the builder raises ValueError, which the tool maps
+        to isError with the message — never an opaque 'internal tool error'."""
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(2)
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]},
+        )
+        assert result["isError"] is True
+        assert "not_a_detector" in result["content"][0]["text"]
+
+    def test_localize_root_cause_ranks_the_chain(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(0)
+        base = rng.normal(0, 1, (300, 4))
+        base[:, 1] += 0.8 * base[:, 0]
+        base[:, 2] += 0.8 * base[:, 1]
+        obs = base.copy()
+        obs[-1, 0] += 8.0
+        obs[-1, 1] += 6.0
+        obs[-1, 2] += 4.0
+        result = _call(
+            server,
+            "mercury_localize_root_cause",
+            {"observations": obs.tolist(), "train": base[:-1].tolist(), "top_k": 3},
+        )
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["n_nodes"] == 4
+        assert len(payload["ranked"]) == 3
+        assert payload["top_root_cause"]["node"] in {0, 1, 2}  # a chain node, not the independent 3
+
+    def test_localize_root_cause_bad_input_is_error(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(server, "mercury_localize_root_cause", {"observations": [1.0, 2.0, 3.0]})
+        assert result["isError"] is True
+
+    def test_detect_fusion_real_engine_end_to_end(self) -> None:
+        """No injection: the tool builds the real flagship engine and scores a matrix."""
+        pytest.importorskip("torch")
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(0)
+        result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 5)).tolist()})
+        assert result["isError"] is False, result["content"][0]["text"]
+        payload = json.loads(result["content"][0]["text"])
+        assert 0.0 <= float(payload["anomaly_prob"]) <= 1.0
+        assert "ethical_gate" in payload
+
+
 class TestStdioLoop:
     def test_serve_stdio_roundtrip(self) -> None:
         server = MercuryMCPServer()

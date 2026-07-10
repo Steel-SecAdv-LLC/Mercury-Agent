@@ -102,6 +102,7 @@ class DetectorCategory(Enum):
     # Advanced Physics-Inspired categories (v1.4.0)
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
+    METEOROLOGICAL = "meteorological"  # Hydro-climate hazards (drought, heatwave, AR, lightning)
 
 
 class DetectorProtocol(Protocol):
@@ -624,6 +625,167 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.GEOLOGICAL,
         "Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry",
         tags=["disaster", "space", "live-wiring"],
+    ),
+    # -- Meteorological / hydro-climate detectors -----------------------------
+    DetectorManifestEntry(
+        "drought",
+        "omni_mercury_engine.detectors.meteorological.drought_detector",
+        "DroughtDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "SPI/SPEI drought index detector (McKee et al. 1993; Vicente-Serrano et al. 2010)",
+        feature_dim=20,
+        tags=["disaster", "weather", "drought", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "heatwave",
+        "omni_mercury_engine.detectors.meteorological.heatwave_detector",
+        "HeatwaveDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "Percentile-climatology heatwave detector with Excess Heat Factor "
+        "(Perkins & Alexander 2013; Nairn & Fawcett 2015)",
+        feature_dim=20,
+        tags=["disaster", "weather", "heatwave", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "atmospheric_river",
+        "omni_mercury_engine.detectors.meteorological.atmospheric_river_detector",
+        "AtmosphericRiverDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "IVT computation and Ralph et al. (2019) AR-scale classification",
+        feature_dim=20,
+        tags=["disaster", "weather", "atmospheric-river", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "lightning",
+        "omni_mercury_engine.detectors.meteorological.lightning_detector",
+        "LightningDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "2-sigma lightning jump severe-weather precursor (Schultz et al. 2009)",
+        feature_dim=20,
+        tags=["disaster", "weather", "lightning", "hydro-climate"],
+    ),
+    # -- Severe-storm / winter detectors --------------------------------------
+    DetectorManifestEntry(
+        "hail",
+        "omni_mercury_engine.detectors.meteorological.hail_detector",
+        "HailDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "SHIP significant-hail parameter detector (SPC formulation)",
+        tags=["disaster", "weather", "hail", "severe-storm"],
+    ),
+    DetectorManifestEntry(
+        "winter_storm",
+        "omni_mercury_engine.detectors.meteorological.winter_storm_detector",
+        "WinterStormDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "Winter/ice-storm detector (precip-type + FRAM ice accretion)",
+        tags=["disaster", "weather", "winter-storm", "severe-storm"],
+    ),
+    DetectorManifestEntry(
+        "derecho",
+        "omni_mercury_engine.detectors.meteorological.derecho_detector",
+        "DerechoDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "Derecho swath detector (Johns & Hirt 1987 criteria)",
+        tags=["disaster", "weather", "derecho", "severe-storm"],
+    ),
+    DetectorManifestEntry(
+        "dust_storm",
+        "omni_mercury_engine.detectors.meteorological.dust_storm_detector",
+        "DustStormDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "Dust-storm/haboob detector (emission potential + visibility class)",
+        tags=["disaster", "weather", "dust-storm", "severe-storm"],
+    ),
+    DetectorManifestEntry(
+        "surge_flood_cascade",
+        "omni_mercury_engine.detectors.meteorological.surge_flood_cascade",
+        "SurgeFloodCascade",
+        DetectorCategory.METEOROLOGICAL,
+        "Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual)",
+        tags=["disaster", "weather", "cascade", "surge", "flood"],
+    ),
+    # -- Geophysical detectors -------------------------------------------------
+    DetectorManifestEntry(
+        "avalanche",
+        "omni_mercury_engine.detectors.geological.avalanche_detector",
+        "AvalancheDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Snowpack stability / SK38 skier-stability avalanche detector",
+        tags=["disaster", "geological", "avalanche"],
+    ),
+    DetectorManifestEntry(
+        "rockfall",
+        "omni_mercury_engine.detectors.geological.rockfall_detector",
+        "RockfallDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Rockfall detector with Fukuzono inverse-velocity failure forecasting",
+        tags=["disaster", "geological", "rockfall"],
+    ),
+    DetectorManifestEntry(
+        "subsidence",
+        "omni_mercury_engine.detectors.geological.subsidence_detector",
+        "SubsidenceDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Subsidence/sinkhole detector over InSAR-style displacement series",
+        tags=["disaster", "geological", "subsidence", "insar"],
+    ),
+    DetectorManifestEntry(
+        "eq_tsunami_cascade",
+        "omni_mercury_engine.detectors.geological.eq_tsunami_cascade",
+        "EqTsunamiCascadeDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Earthquake -> tsunami cascade (PTWC-style screening on real events)",
+        tags=["disaster", "geological", "cascade", "tsunami"],
+    ),
+    DetectorManifestEntry(
+        "fire_debris_flow_cascade",
+        "omni_mercury_engine.detectors.geological.fire_debris_flow_cascade",
+        "FireDebrisFlowCascadeDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D)",
+        tags=["disaster", "geological", "cascade", "debris-flow"],
+    ),
+    # -- Space-weather detectors (T4) ------------------------------------------
+    DetectorManifestEntry(
+        "cme_arrival",
+        "omni_mercury_engine.space.cme_arrival_detector",
+        "CMEArrivalDetector",
+        DetectorCategory.SPACE,
+        "CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed)",
+        tags=["disaster", "space-weather", "cme"],
+    ),
+    DetectorManifestEntry(
+        "sep_storm",
+        "omni_mercury_engine.space.sep_storm_detector",
+        "SEPStormDetector",
+        DetectorCategory.SPACE,
+        "Solar energetic-particle / NOAA S-scale radiation-storm detector",
+        tags=["disaster", "space-weather", "sep", "radiation"],
+    ),
+    DetectorManifestEntry(
+        "ionospheric_scintillation",
+        "omni_mercury_engine.space.ionospheric_scintillation_detector",
+        "IonosphericScintillationDetector",
+        DetectorCategory.SPACE,
+        "GNSS ionospheric scintillation detector (S4 / sigma-phi indices)",
+        tags=["disaster", "space-weather", "gnss", "scintillation"],
+    ),
+    DetectorManifestEntry(
+        "gic",
+        "omni_mercury_engine.space.gic_detector",
+        "GICDetector",
+        DetectorCategory.SPACE,
+        "Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy)",
+        tags=["disaster", "space-weather", "gic", "grid"],
+    ),
+    DetectorManifestEntry(
+        "solar_gic_cascade",
+        "omni_mercury_engine.space.solar_gic_cascade",
+        "SolarGICCascadeDetector",
+        DetectorCategory.SPACE,
+        "Solar eruption -> geomagnetic storm -> GIC grid-impact cascade",
+        tags=["disaster", "space-weather", "cascade", "gic"],
     ),
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(

@@ -218,7 +218,9 @@ class TestHurricanePredictionResult:
 
     def test_full_initialization(self) -> None:
         """Test full initialization with all fields."""
-        result = HurricanePredictionResult(
+        # landfall_probability et al. exist on this branch; the sibling branch
+        # mypy resolves removed them from the dataclass.
+        result = HurricanePredictionResult(  # type: ignore[call-arg, unused-ignore]
             cyclone_detected=True,
             confidence=0.92,
             category="category_4",

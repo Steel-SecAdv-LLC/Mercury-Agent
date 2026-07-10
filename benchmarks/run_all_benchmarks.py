@@ -41,6 +41,10 @@ AUC_GATES: dict[str, float] = {
     "hurricane": 0.60,
     "tornado": 0.60,
     "flood": 0.60,
+    # Measured 2026-07-09 (deterministic across repeat runs): mean AUC 0.6132
+    # over the three SPC archive events (vivian_2010 0.750, texas_2016 0.502,
+    # colorado_2017 0.588). Gate set below the measured mean with margin.
+    "hail": 0.55,
     "wildfire": 0.60,
     "volcanic": 0.60,
     "landslide": 0.60,
@@ -51,6 +55,18 @@ AUC_GATES: dict[str, float] = {
     "marine": 0.60,
     "network_security": 0.75,  # Higher bar — already at 0.972
     "fema": 0.60,
+    # Measured 2026-07-09 on live DONKI/SWPC + NeoWs/CNEOS data (5 events each):
+    # space_weather mean AUC 0.9647 (std 0.0172, min 0.9429) -> gate 0.85;
+    # meteor mean AUC 0.7705 (std 0.1418, min 0.5582) -> gate 0.60 on the mean.
+    "space_weather": 0.85,
+    "meteor": 0.60,
+    # Measured 2026-07-09 on the 2-event live catalogs (regression floors set
+    # just under measured, mirroring the guard pattern — not aspirations):
+    # drought mean AUC 0.5728 (min 0.5424) -> gate 0.54; near-random today,
+    # the gate protects the real labeled pipeline from regressing to chance.
+    # heatwave mean AUC 0.6757 (min 0.6598) -> gate 0.63.
+    "drought": 0.54,
+    "heatwave": 0.63,
 }
 
 
@@ -78,6 +94,7 @@ def _get_loader(domain: str) -> Any:
         "hurricane": "HurricaneLoader",
         "tornado": "TornadoLoader",
         "flood": "FloodLoader",
+        "hail": "HailLoader",
         "wildfire": "WildfireLoader",
         "volcanic": "VolcanicLoader",
         "landslide": "LandslideLoader",
@@ -88,6 +105,10 @@ def _get_loader(domain: str) -> Any:
         "marine": "MarineLoader",
         "network_security": "NetworkSecurityLoader",
         "fema": "FEMALoader",
+        "space_weather": "SpaceWeatherLoader",
+        "meteor": "MeteorLoader",
+        "drought": "DroughtLoader",
+        "heatwave": "HeatwaveLoader",
     }
 
     class_name = class_name_map.get(domain)
@@ -147,16 +168,30 @@ def run_all(
                         mean_auc,
                         gate,
                     )
+            elif fail_on_gate:
+                # A gated domain that produced no AUC cannot be allowed to
+                # pass the gate by not being measured.
+                gate_failures.append(f"{domain}: benchmark produced no mean AUC to gate")
+                logger.warning("GATE FAILURE: %s produced no mean AUC", domain)
 
+        # A crashed or data-less GATED benchmark must not read as a pass:
+        # its AUC gate never ran, which is exactly the silent-vacuity failure
+        # mode the gates exist to prevent.
         except SystemExit:
             logger.warning("%s benchmark exited (no data available)", domain)
             unified["domains"][domain] = {"status": "no_data"}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: no data available; AUC gate never ran")
         except ImportError as exc:
             logger.error("Loader not found for %s: %s", domain, exc)
             unified["domains"][domain] = {"status": "loader_not_found", "error": str(exc)}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: loader not found; AUC gate never ran")
         except Exception as exc:
             logger.error("Benchmark failed for %s: %s", domain, exc)
             unified["domains"][domain] = {"status": "error", "error": str(exc)}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: benchmark crashed ({exc}); AUC gate never ran")
 
     elapsed = time.monotonic() - start
 

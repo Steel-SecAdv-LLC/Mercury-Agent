@@ -153,6 +153,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = ``gauge_height_ft >= NWS_flood_stage`` on feature[0].",
     ),
+    "hail_loader.HailLoader": (
+        "statistical",
+        "Labels = ``mag >= 2.0`` in (SPC significant-hail diameter) and feature[0] "
+        "is the same ``mag`` (hail size) column.",
+    ),
     "landslide_loader.LandslideLoader": (
         "statistical",
         "Labels = (fatality_count > 0) OR (size_code >= large); both are scored features.",
@@ -165,6 +170,28 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = WARNING alert OR RED color code; both ``alert_level_numeric`` "
         "and ``color_code_numeric`` are scored features.",
+    ),
+    "space_weather_loader.SpaceWeatherLoader": (
+        "statistical",
+        "Labels = 3-hour windows with DONKI GST observed planetary Kp >= 5 (G1); "
+        "Kp is a thresholded index derived from the same ground-magnetometer "
+        "disturbance physics the dB/dt features score.",
+    ),
+    "meteor_loader.MeteorLoader": (
+        "statistical",
+        "Fireball labels = CNEOS impact energy >= 1 kt on the scored log-energy "
+        "feature; NEO labels = JPL PHA designation (MOID <= 0.05 au AND H <= 22), "
+        "a threshold rule on the scored H/geometry features.",
+    ),
+    "drought_loader.DroughtLoader": (
+        "statistical",
+        "Labels = SPI-6 <= -1.3 (USDM D2) where the SPI is derived from the same "
+        "monthly PRCP series that is feature[0] and its rolling sums.",
+    ),
+    "heatwave_loader.HeatwaveLoader": (
+        "statistical",
+        "Labels = membership in >= 3-day runs of Tmax > calendar-day 90th "
+        "percentile; the same Tmax series is feature[0].",
     ),
 }
 

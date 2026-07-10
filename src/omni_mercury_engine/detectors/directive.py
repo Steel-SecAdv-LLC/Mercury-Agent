@@ -518,7 +518,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         convergence_diffs = np.linalg.norm(data - self.baseline_pattern, axis=1)
 
-        normalized_diffs = convergence_diffs / (np.linalg.norm(self.baseline_pattern) + 1e-6)  # type: ignore[arg-type, unused-ignore]
+        normalized_diffs = convergence_diffs / (np.linalg.norm(self.baseline_pattern) + 1e-6)  # type: ignore[arg-type, operator, unused-ignore]
 
         # Soft normalization: x / (threshold + x) approaches 1 asymptotically
         # Preserves ordering while keeping scores in [0, 1) range

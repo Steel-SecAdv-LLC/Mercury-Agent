@@ -2677,12 +2677,22 @@ class MercuryAnomalyDetector(BaseDetector):
 
     @staticmethod
     def _otsu_threshold(s: np.ndarray[Any, Any]) -> float:
-        """Otsu between-class-variance threshold on a 256-bin score histogram."""
-        lo = float(s.min())
-        hi = float(s.max())
+        """Otsu between-class-variance threshold on a 256-bin score histogram.
+
+        Non-finite scores (a sub-detector overflowing on pathological input)
+        are excluded from the histogram: a NaN/inf here used to cast to a
+        negative bin index and crash ``np.bincount`` — the threshold is a
+        statistic of the observed finite scores, and the non-finite points
+        themselves are handled by the detector's nan_policy, not by Otsu.
+        """
+        finite = s[np.isfinite(s)]
+        if finite.size == 0:
+            return float("inf")  # nothing observable to threshold on
+        lo = float(finite.min())
+        hi = float(finite.max())
         if hi - lo < 1e-12:
             return hi
-        norm = ((s - lo) / (hi - lo) * 255).astype(int)
+        norm = np.clip(((finite - lo) / (hi - lo) * 255).astype(int), 0, 255)
         hist = np.bincount(norm, minlength=256).astype(float)
         total = hist.sum()
         sum_total = float(np.dot(np.arange(256), hist))

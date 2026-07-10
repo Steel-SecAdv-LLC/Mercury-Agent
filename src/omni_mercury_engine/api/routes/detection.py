@@ -9,10 +9,12 @@ Provides univariate, multivariate, and advanced detection methods.
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
@@ -21,6 +23,57 @@ from omni_mercury_engine.api.routes.export import record_detection
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
+
+# ---------------------------------------------------------------------------
+# Flagship fusion engine -- one process-wide instance, serialized.
+#
+# ``/detect/flagship`` invokes the full OmniMercuryEngine fusion path (trained
+# fusion network + GOSNN scalar integration + the sigma_Immutable ethical gate),
+# the same engine ``mercury-agent detect -d fusion`` runs. That engine is NOT
+# safe to drive from multiple worker threads at once: the first call auto-fits
+# the base detectors (a fit race), and the path reads/writes the process-global
+# GOSNN singleton (cross-request scalar bleed). FastAPI runs a sync detection in
+# a threadpool, so we build the engine once, lazily, and serialize every
+# detection through a single lock. Correctness over throughput -- this is the
+# flagship decision path, not a high-QPS lane. The lazy build also means a slim
+# (no-torch) install degrades to a clean 503 on first call instead of failing at
+# import time.
+# ---------------------------------------------------------------------------
+_flagship_lock = threading.Lock()
+_flagship_engine: Any = None
+
+
+def _run_flagship_detection(
+    matrix: np.ndarray[Any, Any],
+    domain: str | None,
+    explain: bool,
+    gdpr_report: bool = False,
+    subject_id: str | None = None,
+) -> dict[str, Any]:
+    """Build (once) and run the flagship fusion engine under the serialization lock.
+
+    Runs in a worker thread via :func:`run_in_threadpool`. Holding
+    ``_flagship_lock`` across both the one-time build and every detection makes
+    the shared engine safe against the auto-fit race and the GOSNN-singleton
+    scalar bleed described above. Any :class:`EthicalConstraintViolationError`
+    propagates to the caller, which maps it to HTTP 403.
+    """
+    global _flagship_engine
+    with _flagship_lock:
+        if _flagship_engine is None:
+            from omni_mercury_engine.engine import OmniMercuryEngine
+
+            engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+            engine.load_default_fusion_checkpoint()
+            _flagship_engine = engine
+        result: dict[str, Any] = _flagship_engine.detect_with_fusion(
+            matrix,
+            domain=domain,
+            explain=explain,
+            gdpr_report=gdpr_report,
+            subject_id=subject_id,
+        )
+        return result
 
 
 class NeurosymbolicRequest(BaseModel):
@@ -502,3 +555,313 @@ async def detect_three_r(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
         )
+
+
+class TierDetectRequest(BaseModel):
+    """Request for the streaming detector-tier ensemble."""
+
+    data: list[float] = Field(
+        ...,
+        min_length=8,
+        description="1-D anomaly series (the tier's native temporal contract)",
+    )
+    labels: list[int] | None = Field(
+        default=None,
+        description="Optional per-point 0/1 labels (enables supervised stacking/BMA)",
+    )
+    subset: list[str] | None = Field(
+        default=None,
+        description="Detector names to include (default: the full streaming tier)",
+    )
+    method: str | None = Field(
+        default=None,
+        description="Combiner: stacking | bma | average | consensus (default: auto)",
+    )
+    contamination: float = Field(default=0.05, ge=0.0, le=0.5, description="Anomaly fraction")
+    conformal_alpha: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description="Distribution-free false-positive rate; adds conformal flags",
+    )
+    include_counterfactual: bool = Field(
+        default=False,
+        description=(
+            "Attach a verified minimal counterfactual for one point: the "
+            "replacement value that flips its decision, re-scored through the "
+            "same fitted ensemble (off by default)."
+        ),
+    )
+    counterfactual_index: int | None = Field(
+        default=None,
+        description="Point to explain (default: highest-scoring flagged point).",
+    )
+    counterfactual_method: str = Field(
+        default="prototype",
+        pattern="^(wachter|dice|growing_spheres|prototype|genetic)$",
+        description="Counterfactual search method.",
+    )
+    include_attribution: bool = Field(
+        default=False,
+        description="Also return the calibrated per-detector score matrix (which detectors fired)",
+    )
+
+
+@router.post(
+    "/tier",
+    summary="Streaming Detector-Tier Ensemble",
+    description="""
+Run the streaming / statistical / state-space detector-tier calibrated ensemble.
+
+Returns per-point calibrated anomaly probabilities, flags at the calibrated
+threshold, cross-detector uncertainty, and (when ``conformal_alpha`` is set)
+flags with a distribution-free false-positive guarantee. Torch-free.
+""",
+)
+async def detect_tier(
+    request: TierDetectRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Run the detector-tier ensemble on a 1-D series."""
+    try:
+        from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+
+        series = np.asarray(request.data, dtype=float).ravel()
+        labels = None if request.labels is None else np.asarray(request.labels, dtype=int)
+        subset = tuple(request.subset) if request.subset else None
+
+        result = run_tier_ensemble(
+            series,
+            labels=labels,
+            subset=subset,
+            method=request.method,
+            contamination=request.contamination,
+            conformal_alpha=request.conformal_alpha,
+            include_attribution=request.include_attribution,
+            include_counterfactual=request.include_counterfactual,
+            counterfactual_index=request.counterfactual_index,
+            counterfactual_method=request.counterfactual_method,
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="detector_tier",
+            data=request.data,
+            results={
+                "n_flagged": result["n_flagged"],
+                "n_points": result["n_points"],
+                "threshold": result["threshold"],
+                "combiner": result["method"],
+                "max_score": max(result["scores"]) if result["scores"] else 0.0,
+            },
+        )
+        return result
+
+    except ValueError as e:
+        # Bad request: unknown detector name, stacking-without-labels, bad alpha.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error("Tier detection failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during tier detection.",
+        )
+
+
+class FlagshipDetectRequest(BaseModel):
+    """Request for the flagship neuro-symbolic fusion engine."""
+
+    data: list[list[float]] = Field(
+        ...,
+        min_length=1,
+        description="Rows of equal-length numeric feature vectors (a feature matrix).",
+    )
+    domain: str | None = Field(
+        default=None,
+        description="Optional domain for GOSNN threshold tuning (e.g. 'medical').",
+    )
+    explain: bool = Field(
+        default=False,
+        description=(
+            "Attach an Integrated-Gradients attribution of this decision "
+            "(expensive; off by default)."
+        ),
+    )
+    gdpr_report: bool = Field(
+        default=False,
+        description=(
+            "Attach a GDPR Art. 22-style explanation report with Wachter "
+            "counterfactuals from the engine's explainability pipeline "
+            "(expensive; off by default)."
+        ),
+    )
+    subject_id: str | None = Field(
+        default=None,
+        description="Optional data-subject identifier recorded in the GDPR report.",
+    )
+
+
+@router.post(
+    "/flagship",
+    summary="Flagship Neuro-Symbolic Fusion Detection",
+    description="""
+Run Mercury's flagship anomaly detector: the full ``OmniMercuryEngine`` fusion
+path -- the trained neural fusion network, GOSNN scalar integration, and the
+``σ_Immutable`` second hard ethical gate -- loaded from the shipped default
+fusion checkpoint. This is the same engine ``mercury-agent detect -d fusion``
+runs, now reachable over HTTP.
+
+Distinct from ``/detect/fusion`` (a lightweight statistical weighted ensemble):
+this endpoint returns a *calibrated* anomaly probability, the decision, severity,
+per-detector importances, and the ethical-gate metadata. A detection the ethical
+gate refuses returns **HTTP 403** (fail-closed), never a silent allow.
+""",
+)
+async def detect_flagship(
+    request: FlagshipDetectRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Run the flagship neuro-symbolic fusion engine on a feature matrix."""
+    # Import the gate exception up front so the fail-closed refusal maps to a
+    # distinct 403 rather than being swallowed by the generic 500 handler.
+    try:
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+    except ImportError as e:
+        logger.error("Flagship fusion engine unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The flagship fusion engine is not available in this environment.",
+        ) from e
+
+    try:
+        matrix = np.asarray(request.data, dtype=float)
+        if matrix.ndim != 2:
+            raise ValueError("'data' must be a 2-D feature matrix")
+
+        # Serialize + offload the blocking, stateful fusion detection.
+        # Annotated: run_in_threadpool is Any-typed under some Python/stub
+        # combinations (CI's 3.12 lane), and the route declares dict[str, Any].
+        result: dict[str, Any] = await run_in_threadpool(
+            _run_flagship_detection,
+            matrix,
+            request.domain,
+            request.explain,
+            request.gdpr_report,
+            request.subject_id,
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="flagship_fusion",
+            data=request.data,
+            results={
+                "anomalies": [bool(result.get("is_anomaly", False))],
+                "scores": [float(result.get("anomaly_prob", 0.0))],
+                "summary": {
+                    "anomaly_prob": float(result.get("anomaly_prob", 0.0)),
+                    "severity": float(result.get("severity", 0.0)),
+                    "class_prediction": result.get("class_prediction"),
+                },
+            },
+        )
+        return result
+
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the flagship refused this input at a hard ethical gate.
+        logger.warning("Flagship detection blocked by ethical gate '%s'", e.check)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Detection blocked by the '{e.check}' ethical gate.",
+        ) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except ImportError as e:
+        logger.error("Flagship fusion engine unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The flagship fusion engine is not available in this environment.",
+        ) from e
+    except Exception as e:
+        logger.error("Flagship detection failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during flagship detection.",
+        ) from e
+
+
+class RootCauseRequest(BaseModel):
+    """Request for multivariate root-cause localization."""
+
+    observations: list[list[float]] = Field(
+        ...,
+        min_length=1,
+        description="Rows x nodes; the last row is the anomaly to localise.",
+    )
+    adjacency: list[list[float]] | None = Field(
+        default=None,
+        description="Optional (n_nodes x n_nodes) non-negative causal adjacency.",
+    )
+    train: list[list[float]] | None = Field(
+        default=None,
+        description="Optional normal-behaviour rows for the per-node baselines.",
+    )
+    top_k: int | None = Field(default=None, ge=1, description="Return only the top-K root causes.")
+    node_names: list[str] | None = Field(
+        default=None, description="Optional labels (one per node)."
+    )
+
+
+@router.post(
+    "/rca",
+    summary="Root-Cause Localization",
+    description="""
+Attribute a multivariate anomaly to its most likely root-cause nodes.
+
+Runs the tier's graph-based root-cause analysis (a reverse personalised random
+walk over a causal / service adjacency): given ``(n_rows x n_nodes)``
+observations whose last row is anomalous, it ranks which node (sensor, service,
+channel) most likely originated the fault. Torch-free. The same analysis behind
+``mercury-agent rca`` and the ``mercury_localize_root_cause`` MCP tool.
+""",
+)
+async def detect_rca(
+    request: RootCauseRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Localise the root cause of a multivariate anomaly."""
+    try:
+        from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+
+        result = localize_root_cause(
+            request.observations,
+            adjacency=request.adjacency,
+            train=request.train,
+            top_k=request.top_k,
+            node_names=request.node_names,
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="root_cause",
+            data=request.observations,
+            results={
+                "n_nodes": result["n_nodes"],
+                "top_root_cause": result["top_root_cause"],
+            },
+        )
+        return result
+
+    except ValueError as e:
+        # Bad request: non-2-D observations, mismatched node_names length.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except Exception as e:
+        logger.error("Root-cause localization failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during root-cause localization.",
+        ) from e

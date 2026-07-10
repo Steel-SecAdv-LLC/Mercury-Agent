@@ -379,7 +379,9 @@ class TestFloodDetector3RIntegration:
     @pytest.fixture
     def flood_detector(self):
         """Create FloodDetector with all 3R engines enabled."""
-        return FloodDetector(
+        # enable_runoff exists on this branch; the sibling branch mypy resolves
+        # removed the runoff predictor and its flag.
+        return FloodDetector(  # type: ignore[call-arg, unused-ignore]
             enable_precipitation=True,
             enable_river_gauge=True,
             enable_soil=True,

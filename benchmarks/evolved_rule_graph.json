@@ -1,0 +1,262 @@
+{
+  "channel_names": [
+    "affective",
+    "astrophysical",
+    "consciousness",
+    "dimensional",
+    "directive",
+    "multiverse",
+    "neural",
+    "neurosymbolic",
+    "quantum",
+    "spatial",
+    "statistical",
+    "temporal"
+  ],
+  "graph_name": "evolved_consensus_v1",
+  "kind": "mercury.evolved_rule_graph",
+  "num_channels": 12,
+  "provenance": {
+    "baseline_val_fitness": 0.5799813644955362,
+    "best_val_fitness": 0.7107429392446635,
+    "channel_semantics": "OmniMercuryEngine._extract_consensus_scores channels",
+    "commit": "323a04d029cc2a1cf4c5c126b43033c6f7921870",
+    "complexity_penalty": 0.0001,
+    "created_utc": "2026-07-10T03:15:34.931007+00:00",
+    "datasets": [
+      "cardio",
+      "thyroid",
+      "WBC",
+      "Pima"
+    ],
+    "generations_budget": 30,
+    "generations_run": 30,
+    "patience": 10,
+    "population": 40,
+    "seed": 0,
+    "val_fitness_history": [
+      {
+        "best_fitness": 0.655673260738052,
+        "best_val_f1": 0.656373260738052,
+        "generation": 0,
+        "mean_fitness": 0.28964386537516373
+      },
+      {
+        "best_fitness": 0.655673260738052,
+        "best_val_f1": 0.656373260738052,
+        "generation": 1,
+        "mean_fitness": 0.3851654779766007
+      },
+      {
+        "best_fitness": 0.6776135397692774,
+        "best_val_f1": 0.6791135397692774,
+        "generation": 2,
+        "mean_fitness": 0.4860917843979811
+      },
+      {
+        "best_fitness": 0.6781616791248276,
+        "best_val_f1": 0.6794616791248276,
+        "generation": 3,
+        "mean_fitness": 0.5486824097656715
+      },
+      {
+        "best_fitness": 0.6781616791248276,
+        "best_val_f1": 0.6794616791248276,
+        "generation": 4,
+        "mean_fitness": 0.5717255718770269
+      },
+      {
+        "best_fitness": 0.6781616791248276,
+        "best_val_f1": 0.6794616791248276,
+        "generation": 5,
+        "mean_fitness": 0.5925935702855467
+      },
+      {
+        "best_fitness": 0.6781616791248276,
+        "best_val_f1": 0.6794616791248276,
+        "generation": 6,
+        "mean_fitness": 0.6108607586892898
+      },
+      {
+        "best_fitness": 0.6892255117642434,
+        "best_val_f1": 0.6900255117642434,
+        "generation": 7,
+        "mean_fitness": 0.6179838560985466
+      },
+      {
+        "best_fitness": 0.691048593565131,
+        "best_val_f1": 0.6918485935651311,
+        "generation": 8,
+        "mean_fitness": 0.6191984146309599
+      },
+      {
+        "best_fitness": 0.691048593565131,
+        "best_val_f1": 0.6918485935651311,
+        "generation": 9,
+        "mean_fitness": 0.6105266685683292
+      },
+      {
+        "best_fitness": 0.6952249093546048,
+        "best_val_f1": 0.6961249093546048,
+        "generation": 10,
+        "mean_fitness": 0.6023064921391079
+      },
+      {
+        "best_fitness": 0.7038674091323277,
+        "best_val_f1": 0.7046674091323277,
+        "generation": 11,
+        "mean_fitness": 0.5995736638997322
+      },
+      {
+        "best_fitness": 0.7038674091323277,
+        "best_val_f1": 0.7046674091323277,
+        "generation": 12,
+        "mean_fitness": 0.610786034320245
+      },
+      {
+        "best_fitness": 0.7051305862675885,
+        "best_val_f1": 0.7058305862675885,
+        "generation": 13,
+        "mean_fitness": 0.6190307988899997
+      },
+      {
+        "best_fitness": 0.7094915055178698,
+        "best_val_f1": 0.7106915055178697,
+        "generation": 14,
+        "mean_fitness": 0.6020497927431088
+      },
+      {
+        "best_fitness": 0.7094915055178698,
+        "best_val_f1": 0.7106915055178697,
+        "generation": 15,
+        "mean_fitness": 0.617929744801275
+      },
+      {
+        "best_fitness": 0.7094915055178698,
+        "best_val_f1": 0.7106915055178697,
+        "generation": 16,
+        "mean_fitness": 0.6226933021270595
+      },
+      {
+        "best_fitness": 0.7094915055178698,
+        "best_val_f1": 0.7106915055178697,
+        "generation": 17,
+        "mean_fitness": 0.6064823021326881
+      },
+      {
+        "best_fitness": 0.7102429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 18,
+        "mean_fitness": 0.6310997042535199
+      },
+      {
+        "best_fitness": 0.7102429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 19,
+        "mean_fitness": 0.6254375507331704
+      },
+      {
+        "best_fitness": 0.7102429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 20,
+        "mean_fitness": 0.6095093707398436
+      },
+      {
+        "best_fitness": 0.7102429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 21,
+        "mean_fitness": 0.6063193289291929
+      },
+      {
+        "best_fitness": 0.7102429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 22,
+        "mean_fitness": 0.6505394981382857
+      },
+      {
+        "best_fitness": 0.7103429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 23,
+        "mean_fitness": 0.6521689736769952
+      },
+      {
+        "best_fitness": 0.7103429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 24,
+        "mean_fitness": 0.5963533609241225
+      },
+      {
+        "best_fitness": 0.7107429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 25,
+        "mean_fitness": 0.628191431456826
+      },
+      {
+        "best_fitness": 0.7107429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 26,
+        "mean_fitness": 0.6421964059089325
+      },
+      {
+        "best_fitness": 0.7107429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 27,
+        "mean_fitness": 0.6382950567076264
+      },
+      {
+        "best_fitness": 0.7107429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 28,
+        "mean_fitness": 0.6218088044768468
+      },
+      {
+        "best_fitness": 0.7107429392446635,
+        "best_val_f1": 0.7114429392446635,
+        "generation": 29,
+        "mean_fitness": 0.6339647387452622
+      }
+    ]
+  },
+  "rules": [
+    {
+      "atoms": [
+        {
+          "channel": 1,
+          "kind": "threshold",
+          "op": "<=",
+          "threshold": 0.209181
+        }
+      ],
+      "consequent": "Anomalous"
+    },
+    {
+      "atoms": [
+        {
+          "channel": 2,
+          "kind": "threshold",
+          "op": "<=",
+          "threshold": 0.028015
+        }
+      ],
+      "consequent": "NotAnomalous"
+    },
+    {
+      "atoms": [
+        {
+          "channel": 3,
+          "kind": "threshold",
+          "op": "<=",
+          "threshold": 0.137591
+        },
+        {
+          "channel": 11,
+          "kind": "threshold",
+          "op": ">=",
+          "threshold": 0.631114
+        }
+      ],
+      "consequent": "Anomalous"
+    }
+  ],
+  "schema_version": 1
+}

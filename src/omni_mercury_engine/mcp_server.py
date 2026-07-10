@@ -100,10 +100,12 @@ class MercuryMCPServer:
         *,
         benevolence_scorer: Any | None = None,
         assistant: Any | None = None,
+        engine: Any | None = None,
     ) -> None:
         """Initialize the server; capabilities are injectable for testing."""
         self._scorer = benevolence_scorer
         self._assistant = assistant
+        self._engine = engine
         self._initialized = False
         self._tools: dict[str, ToolSpec] = {}
         self._register_tools()
@@ -126,6 +128,27 @@ class MercuryMCPServer:
 
             self._assistant = GeneralAssistant(benevolence_scorer=self._benevolence())
         return self._assistant
+
+    def _fusion_engine(self) -> Any:
+        """The flagship OmniMercuryEngine (fusion mode), built once and cached.
+
+        This is the SAME neuro-symbolic fusion path the ``mercury-agent detect
+        -d fusion`` CLI runs -- trained fusion network + GOSNN scalar
+        integration + the σ_Immutable second hard ethical gate -- so an MCP
+        client reaches Mercury's flagship detector, not a reduced statistical
+        stand-in. ``require_explicit_fit=False`` mirrors the CLI: there is no
+        train/test split here, so the engine relies on the shipped default
+        fusion checkpoint (loaded below) plus the auto-fit-on-first-batch path
+        for the base detectors. The stdio server is single-threaded, so one
+        cached engine is safe without locking.
+        """
+        if self._engine is None:
+            from omni_mercury_engine.engine import OmniMercuryEngine
+
+            engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+            engine.load_default_fusion_checkpoint()
+            self._engine = engine
+        return self._engine
 
     # -- tool registry -----------------------------------------------------
 
@@ -151,6 +174,244 @@ class MercuryMCPServer:
                     "required": ["data"],
                 },
                 handler=self._tool_detect_anomaly,
+            ),
+            ToolSpec(
+                name="mercury_detect_fusion",
+                description=(
+                    "Flagship neuro-symbolic anomaly detection over a numeric feature "
+                    "matrix using Mercury's full OmniMercuryEngine fusion path: the "
+                    "trained fusion network, GOSNN scalar integration, and the "
+                    "sigma_Immutable hard ethical gate (the same engine the "
+                    "'mercury-agent detect -d fusion' CLI runs, loaded from the shipped "
+                    "default checkpoint). Returns a calibrated anomaly probability, the "
+                    "decision, severity, per-detector importances, and the ethical-gate "
+                    "metadata. Requires the ML stack; returns a clear error on a slim "
+                    "install, and is *blocked* (never silently allowed) if the ethical "
+                    "gate refuses the input."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "array",
+                            "description": "Rows of equal-length numeric feature vectors.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "domain": {
+                            "type": "string",
+                            "description": (
+                                "Optional domain for GOSNN threshold tuning " "(e.g. 'medical')."
+                            ),
+                        },
+                        "gdpr_report": {
+                            "type": "boolean",
+                            "description": (
+                                "Attach a GDPR Art. 22-style explanation report with "
+                                "Wachter counterfactuals (expensive; off by default)."
+                            ),
+                        },
+                        "subject_id": {
+                            "type": "string",
+                            "description": "Optional data-subject id recorded in the report.",
+                        },
+                    },
+                    "required": ["data"],
+                },
+                handler=self._tool_detect_fusion,
+            ),
+            ToolSpec(
+                name="mercury_tier_detect",
+                description=(
+                    "Streaming detector-tier ensemble over a 1-D numeric series "
+                    "(torch-free, no ML extra required): the calibrated statistical / "
+                    "state-space / streaming tier. Returns per-point calibrated anomaly "
+                    "probabilities, flags at the calibrated threshold, cross-detector "
+                    "uncertainty, and -- when 'conformal_alpha' is set -- flags with a "
+                    "distribution-free false-positive guarantee (FPR <= alpha). The same "
+                    "runner behind 'mercury-agent tier-detect' and 'POST /detect/tier'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "array",
+                            "description": "A 1-D numeric anomaly series.",
+                            "items": {"type": "number"},
+                            "minItems": 8,
+                        },
+                        "labels": {
+                            "type": "array",
+                            "description": "Optional per-point 0/1 labels (enables stacking/BMA).",
+                            "items": {"type": "integer"},
+                        },
+                        "subset": {
+                            "type": "array",
+                            "description": "Detector names to include (default: the full tier).",
+                            "items": {"type": "string"},
+                        },
+                        "method": {
+                            "type": "string",
+                            "enum": ["stacking", "bma", "average", "consensus"],
+                        },
+                        "contamination": {"type": "number", "minimum": 0.0, "maximum": 0.5},
+                        "conformal_alpha": {
+                            "type": "number",
+                            "exclusiveMinimum": 0.0,
+                            "exclusiveMaximum": 1.0,
+                            "description": "Distribution-free FP rate; adds conformal flags.",
+                        },
+                        "include_attribution": {
+                            "type": "boolean",
+                            "description": "Also return the calibrated per-detector score matrix.",
+                        },
+                        "include_counterfactual": {
+                            "type": "boolean",
+                            "description": (
+                                "Also return a verified minimal counterfactual for one "
+                                "point (the replacement value that flips its decision, "
+                                "re-scored through the same fitted ensemble)."
+                            ),
+                        },
+                        "counterfactual_index": {
+                            "type": "integer",
+                            "description": (
+                                "Point to explain (default: highest-scoring flagged point)."
+                            ),
+                        },
+                        "counterfactual_method": {
+                            "type": "string",
+                            "enum": [
+                                "wachter",
+                                "dice",
+                                "growing_spheres",
+                                "prototype",
+                                "genetic",
+                            ],
+                        },
+                    },
+                    "required": ["data"],
+                },
+                handler=self._tool_tier_detect,
+            ),
+            ToolSpec(
+                name="mercury_localize_root_cause",
+                description=(
+                    "Attribute a multivariate anomaly to its most likely root-cause "
+                    "nodes (torch-free). Runs the tier's graph-based root-cause analysis "
+                    "-- a reverse personalised random walk over a causal / service "
+                    "adjacency -- over an (n_rows x n_nodes) observation matrix whose "
+                    "last row is anomalous, ranking which node (sensor, service, channel) "
+                    "originated the fault. The same analysis behind 'mercury-agent rca' "
+                    "and 'POST /detect/rca'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "observations": {
+                            "type": "array",
+                            "description": "Rows x nodes; the last row is the anomaly.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "adjacency": {
+                            "type": "array",
+                            "description": "Optional (n_nodes x n_nodes) causal adjacency.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "train": {
+                            "type": "array",
+                            "description": "Optional normal-behaviour rows for baselines.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Return only the top-K root causes.",
+                        },
+                        "node_names": {
+                            "type": "array",
+                            "description": "Optional labels, one per node.",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": ["observations"],
+                },
+                handler=self._tool_localize_root_cause,
+            ),
+            ToolSpec(
+                name="mercury_hazard_visualize",
+                description=(
+                    "Render a hazard detector's persisted intermediate arrays into an "
+                    "artifact: a deterministic PNG (base64) or an RFC 7946 GeoJSON "
+                    "FeatureCollection. Supply either a prior 'diagnostics' payload (as "
+                    "returned by a detector run with keep_diagnostics=True) or 'hazard' + "
+                    "'arrays' raw detector input to run that detector server-side. PNG "
+                    "panels draw only what the detectors genuinely compute: earthquake "
+                    "spectrogram + STA/LTA arrivals, tornado Doppler field + located "
+                    "velocity couplet, wildfire thermal map + hotspot mask, hurricane "
+                    "wind/vorticity fields (no track cone -- the track model was removed "
+                    "as uncomputed), and tsunami/schumann/meteor spectra plus "
+                    "volcanic/landslide score series. GeoJSON is derivable only from "
+                    "wildfire hotspots and requires a caller-supplied 'geotransform' "
+                    "(pixel-space coordinates are never presented as lat/lon). The same "
+                    "rendering behind 'mercury-agent hazard-viz' and "
+                    "'POST /hazard/visualize'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "hazard": {
+                            "type": "string",
+                            "enum": [
+                                "earthquake",
+                                "tsunami",
+                                "meteor",
+                                "wildfire",
+                                "tornado",
+                                "hurricane",
+                                "volcanic",
+                                "landslide",
+                                "schumann",
+                            ],
+                            "description": "Detector to run on 'arrays' (raw-input mode).",
+                        },
+                        "format": {
+                            "type": "string",
+                            "enum": ["png", "geojson"],
+                            "description": "Artifact format (default png).",
+                        },
+                        "diagnostics": {
+                            "type": "object",
+                            "description": (
+                                "A prior HazardDiagnostics payload "
+                                "(hazard/arrays/context JSON form)."
+                            ),
+                        },
+                        "arrays": {
+                            "type": "object",
+                            "description": (
+                                "Raw detector input arrays (nested numeric lists) keyed "
+                                "by name, e.g. {'series': [...]} or "
+                                "{'wind_u': [[...]], 'wind_v': [[...]]}."
+                            ),
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": (
+                                "Detector parameters: sampling_rate_hz, pixel_size_km, "
+                                "grid_spacing_m."
+                            ),
+                        },
+                        "geotransform": {
+                            "type": "object",
+                            "description": (
+                                "Pixel->WGS84 mapping (origin_lon, origin_lat, "
+                                "deg_per_pixel_lon, deg_per_pixel_lat); REQUIRED for "
+                                "geojson output."
+                            ),
+                        },
+                    },
+                },
+                handler=self._tool_hazard_visualize,
             ),
             ToolSpec(
                 name="mercury_score_ethics",
@@ -358,15 +619,7 @@ class MercuryMCPServer:
     def _tool_detect_anomaly(args: dict[str, Any]) -> str:
         import numpy as np
 
-        rows = args.get("data")
-        if not isinstance(rows, list) or not rows:
-            raise ToolError("'data' must be a non-empty array of numeric rows")
-        try:
-            X = np.asarray(rows, dtype=float)
-        except (ValueError, TypeError) as exc:
-            raise ToolError(f"'data' is not a numeric matrix: {exc}") from exc
-        if X.ndim != 2:
-            raise ToolError("'data' must be 2-D (rows of equal-length feature vectors)")
+        X = MercuryMCPServer._coerce_matrix(args.get("data"))
         try:
             from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         except Exception as exc:  # pragma: no cover - slim-install path
@@ -386,6 +639,268 @@ class MercuryMCPServer:
                 "is_anomaly": [bool(f) for f in flags],
                 "n_anomalies": int(flags.sum()),
                 "note": "unsupervised batch scoring (fit on the supplied batch)",
+            }
+        )
+
+    @staticmethod
+    def _coerce_matrix(rows: Any) -> Any:
+        """Validate ``args['data']`` as a 2-D numeric matrix (shared by detect tools)."""
+        import numpy as np
+
+        if not isinstance(rows, list) or not rows:
+            raise ToolError("'data' must be a non-empty array of numeric rows")
+        try:
+            X = np.asarray(rows, dtype=float)
+        except (ValueError, TypeError) as exc:
+            raise ToolError(f"'data' is not a numeric matrix: {exc}") from exc
+        if X.ndim != 2:
+            raise ToolError("'data' must be 2-D (rows of equal-length feature vectors)")
+        return X
+
+    def _tool_detect_fusion(self, args: dict[str, Any]) -> str:
+        X = self._coerce_matrix(args.get("data"))
+        domain = args.get("domain")
+        if domain is not None and not isinstance(domain, str):
+            raise ToolError("'domain' must be a string")
+        # Import the gate exception before the try so the fail-closed refusal
+        # (a blocked detection) is surfaced distinctly from an internal fault.
+        try:
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(
+                f"flagship fusion engine unavailable in this environment: {exc}"
+            ) from exc
+        try:
+            engine = self._fusion_engine()
+        except Exception as exc:  # pragma: no cover - slim-install path (torch/checkpoint)
+            raise ToolError(
+                f"flagship fusion engine unavailable in this environment: {exc}"
+            ) from exc
+        try:
+            gdpr_report = bool(args.get("gdpr_report", False))
+            subject_id = args.get("subject_id")
+            if subject_id is not None and not isinstance(subject_id, str):
+                raise ToolError("'subject_id' must be a string")
+            result = engine.detect_with_fusion(
+                X, domain=domain, gdpr_report=gdpr_report, subject_id=subject_id
+            )
+        except EthicalConstraintViolationError as exc:
+            # Fail closed and honestly: the detection was *refused* by a hard
+            # ethical gate, not merely errored -- say which gate and why.
+            raise ToolError(
+                f"flagship detection blocked by the '{exc.check}' ethical gate: {exc}"
+            ) from exc
+        gosnn = result.get("gosnn_metadata", {})
+        if not isinstance(gosnn, dict):
+            gosnn = {}
+        return json.dumps(
+            {
+                "n": int(X.shape[0]),
+                "anomaly_prob": round(float(result.get("anomaly_prob", 0.0)), 6),
+                "is_anomaly": bool(result.get("is_anomaly", False)),
+                "class_prediction": result.get("class_prediction"),
+                "severity": round(float(result.get("severity", 0.0)), 6),
+                "threshold_used": (
+                    round(float(result["threshold_used"]), 6)
+                    if result.get("threshold_used") is not None
+                    else None
+                ),
+                "detector_importance": {
+                    k: round(float(v), 6)
+                    for k, v in (result.get("detector_importance") or {}).items()
+                },
+                "ethical_gate": {
+                    "passed": bool(gosnn.get("ethical_gate_passed", True)),
+                    "sigma_immutable_score": (
+                        round(float(gosnn["sigma_immutable_score"]), 6)
+                        if gosnn.get("sigma_immutable_score") is not None
+                        else None
+                    ),
+                    "sigma_immutable_threshold": (
+                        round(float(gosnn["sigma_immutable_threshold"]), 6)
+                        if gosnn.get("sigma_immutable_threshold") is not None
+                        else None
+                    ),
+                    "backend": gosnn.get("sigma_immutable_backend"),
+                },
+                "mode": result.get("mode", "fusion"),
+                "note": "flagship neuro-symbolic fusion (trained checkpoint + GOSNN + sigma_Immutable)",
+            }
+        )
+
+    @staticmethod
+    def _tool_tier_detect(args: dict[str, Any]) -> str:
+        import numpy as np
+
+        raw = args.get("data")
+        if not isinstance(raw, list) or not raw:
+            raise ToolError("'data' must be a non-empty numeric array")
+        try:
+            series = np.asarray(raw, dtype=float).ravel()
+        except (ValueError, TypeError) as exc:
+            raise ToolError(f"'data' is not a numeric series: {exc}") from exc
+        labels_raw = args.get("labels")
+        labels = None
+        if labels_raw is not None:
+            try:
+                labels = np.asarray(labels_raw, dtype=int).ravel()
+            except (ValueError, TypeError) as exc:
+                raise ToolError(f"'labels' is not an integer array: {exc}") from exc
+        subset = args.get("subset")
+        if subset is not None and (
+            not isinstance(subset, list) or not all(isinstance(s, str) for s in subset)
+        ):
+            raise ToolError("'subset' must be an array of detector-name strings")
+        try:
+            from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"detector-tier stack unavailable in this environment: {exc}") from exc
+        try:
+            result = run_tier_ensemble(
+                series,
+                labels=labels,
+                subset=tuple(subset) if subset else None,
+                method=args.get("method"),
+                contamination=float(args.get("contamination", 0.05)),
+                conformal_alpha=(
+                    float(args["conformal_alpha"])
+                    if args.get("conformal_alpha") is not None
+                    else None
+                ),
+                include_attribution=bool(args.get("include_attribution", False)),
+                include_counterfactual=bool(args.get("include_counterfactual", False)),
+                counterfactual_index=(
+                    int(args["counterfactual_index"])
+                    if args.get("counterfactual_index") is not None
+                    else None
+                ),
+                counterfactual_method=str(args.get("counterfactual_method", "prototype")),
+            )
+        except (ValueError, TypeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return json.dumps(result)
+
+    @staticmethod
+    def _tool_localize_root_cause(args: dict[str, Any]) -> str:
+        obs = MercuryMCPServer._coerce_matrix(args.get("observations"))
+        adjacency = args.get("adjacency")
+        train = args.get("train")
+        node_names = args.get("node_names")
+        if node_names is not None and (
+            not isinstance(node_names, list) or not all(isinstance(s, str) for s in node_names)
+        ):
+            raise ToolError("'node_names' must be an array of strings")
+        top_k = args.get("top_k")
+        if top_k is not None and not isinstance(top_k, int):
+            raise ToolError("'top_k' must be an integer")
+        try:
+            from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"root-cause stack unavailable in this environment: {exc}") from exc
+        try:
+            result = localize_root_cause(
+                obs,
+                adjacency=adjacency,
+                train=train,
+                top_k=top_k,
+                node_names=node_names,
+            )
+        except (ValueError, TypeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return json.dumps(result)
+
+    @staticmethod
+    def _tool_hazard_visualize(args: dict[str, Any]) -> str:
+        import base64
+
+        import numpy as np
+
+        try:
+            from omni_mercury_engine.detectors.hazard_diagnostics import (
+                HazardDiagnostics,
+                run_hazard_detector,
+            )
+            from omni_mercury_engine.detectors.hazard_visuals import (
+                build_hazard_geojson,
+                render_hazard_png,
+            )
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(
+                f"hazard visualization stack unavailable in this environment: {exc}"
+            ) from exc
+
+        fmt = args.get("format", "png")
+        if fmt not in ("png", "geojson"):
+            raise ToolError("'format' must be 'png' or 'geojson'")
+
+        diagnostics_arg = args.get("diagnostics")
+        arrays_arg = args.get("arrays")
+        if diagnostics_arg is not None and arrays_arg is not None:
+            raise ToolError("provide either 'diagnostics' or 'arrays', not both")
+
+        if diagnostics_arg is not None:
+            if not isinstance(diagnostics_arg, dict):
+                raise ToolError("'diagnostics' must be an object")
+            try:
+                diagnostics = HazardDiagnostics.from_jsonable(diagnostics_arg)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+        else:
+            hazard = args.get("hazard")
+            if not isinstance(hazard, str):
+                raise ToolError(
+                    "provide a prior 'diagnostics' payload, or 'hazard' + 'arrays' to "
+                    "run a detector"
+                )
+            if not isinstance(arrays_arg, dict) or not arrays_arg:
+                raise ToolError("'arrays' must be a non-empty object of numeric arrays")
+            arrays = {}
+            for name, value in arrays_arg.items():
+                try:
+                    arrays[name] = np.asarray(value, dtype=float)
+                except (ValueError, TypeError) as exc:
+                    raise ToolError(f"input array {name!r} is not numeric: {exc}") from exc
+            params = args.get("params") or {}
+            if not isinstance(params, dict):
+                raise ToolError("'params' must be an object")
+            try:
+                diagnostics = run_hazard_detector(hazard, arrays, params=params)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            except ImportError as exc:  # pragma: no cover - slim-install path
+                raise ToolError(str(exc)) from exc
+
+        if fmt == "geojson":
+            geotransform = args.get("geotransform")
+            if geotransform is not None and not isinstance(geotransform, dict):
+                raise ToolError("'geotransform' must be an object")
+            try:
+                feature_collection = build_hazard_geojson(diagnostics, geotransform=geotransform)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            return json.dumps(
+                {
+                    "hazard": diagnostics.hazard,
+                    "format": "geojson",
+                    "geojson": feature_collection,
+                    "n_features": len(feature_collection["features"]),
+                }
+            )
+
+        try:
+            png = render_hazard_png(diagnostics)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        except ImportError as exc:  # pragma: no cover - slim-install path
+            raise ToolError(str(exc)) from exc
+        return json.dumps(
+            {
+                "hazard": diagnostics.hazard,
+                "format": "png",
+                "png_base64": base64.b64encode(png).decode("ascii"),
+                "size_bytes": len(png),
             }
         )
 

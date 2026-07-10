@@ -274,6 +274,149 @@ class TestDetectionRoutes:
         assert "weights" in result
         assert "harmonic_analysis" in result
 
+    def test_tier_detection(self, client: Any) -> None:
+        """The detector-tier ensemble is reachable over HTTP and flags a burst."""
+        rng = np.random.default_rng(0)
+        series = rng.normal(0, 1, 200).tolist()
+        for i in range(100, 108):
+            series[i] += 7.0
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={
+                "request": {
+                    "data": series,
+                    "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                    "conformal_alpha": 0.05,
+                }
+            },
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["n_points"] == 200
+        assert set(result).issuperset(
+            {"scores", "flags", "uncertainty", "threshold", "conformal_flags"}
+        )
+        # Conformal flags concentrate near the injected burst.
+        flagged = {i for i, f in enumerate(result["conformal_flags"]) if f}
+        assert flagged & set(range(95, 115))
+
+    def test_tier_detection_bad_request(self, client: Any) -> None:
+        """stacking without labels is a 400 (surfaced ValueError), not a 500."""
+        rng = np.random.default_rng(1)
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "method": "stacking"}},
+        )
+        assert response.status_code == 400
+
+    def test_tier_detection_unknown_detector_is_400_not_500(self, client: Any) -> None:
+        """A typo in ``subset`` is a client error (review finding): the builder
+        raises ValueError for unknown names, so the surface answers 400 with
+        the name in the detail — never an opaque internal 500."""
+        rng = np.random.default_rng(1)
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]}},
+        )
+        assert response.status_code == 400
+        assert "not_a_detector" in response.json()["detail"]
+
+    def test_flagship_detection(self, client: Any) -> None:
+        """The flagship OmniMercuryEngine fusion path is reachable over HTTP.
+
+        This is the same neuro-symbolic engine the ``detect -d fusion`` CLI runs
+        (trained checkpoint + GOSNN + σ_Immutable gate), unified onto HTTP -- not
+        the lightweight statistical ``/fusion``.
+        """
+        pytest.importorskip("torch")
+        rng = np.random.default_rng(0)
+        matrix = rng.normal(size=(30, 5)).tolist()
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": matrix}},
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        # The calibrated flagship contract, distinct from /fusion's fused_score.
+        assert set(result).issuperset(
+            {"anomaly_prob", "is_anomaly", "severity", "detector_importance", "gosnn_metadata"}
+        )
+        assert 0.0 <= float(result["anomaly_prob"]) <= 1.0
+        assert "sigma_immutable_score" in result["gosnn_metadata"]
+
+    def test_flagship_detection_bad_shape(self, client: Any) -> None:
+        """A 1-D series is rejected by the 2-D matrix contract (422)."""
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": [1.0, 2.0, 3.0]}},
+        )
+        assert response.status_code == 422
+
+    def test_flagship_blocked_by_ethical_gate_returns_403(
+        self, client: Any, monkeypatch: Any
+    ) -> None:
+        """A detection the hard ethical gate refuses is a 403 fail-closed, never a silent allow."""
+        pytest.importorskip("torch")
+        from omni_mercury_engine.api.routes import detection as det
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+
+        def _blocked(
+            matrix: Any,
+            domain: Any,
+            explain: Any,
+            gdpr_report: Any = False,
+            subject_id: Any = None,
+        ) -> dict[str, Any]:
+            raise EthicalConstraintViolationError(
+                "blocked matrix", 0.10, 0.96, check="sigma_immutable"
+            )
+
+        monkeypatch.setattr(det, "_run_flagship_detection", _blocked)
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": [[1.0, 2.0], [3.0, 4.0]]}},
+        )
+        assert response.status_code == 403
+        assert "sigma_immutable" in response.json()["detail"]
+
+    def test_root_cause_localization(self, client: Any) -> None:
+        """Graph-based root-cause attribution is reachable over HTTP."""
+        rng = np.random.default_rng(0)
+        base = rng.normal(0, 1, (300, 4))
+        base[:, 1] += 0.8 * base[:, 0]
+        base[:, 2] += 0.8 * base[:, 1]
+        obs = base.copy()
+        obs[-1, 0] += 8.0
+        obs[-1, 1] += 6.0
+        obs[-1, 2] += 4.0
+        response = client.post(
+            "/api/v1/detect/rca",
+            json={
+                "request": {
+                    "observations": obs.tolist(),
+                    "train": base[:-1].tolist(),
+                    "node_names": ["pump", "valve", "tank", "aux"],
+                }
+            },
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["n_nodes"] == 4
+        by_node = {e["node"]: e["attribution"] for e in result["ranked"]}
+        # The independent node 3 ranks lowest; the top cause carries a label.
+        assert by_node[3] == min(by_node.values())
+        assert result["top_root_cause"]["name"] in {"pump", "valve", "tank"}
+
+    def test_root_cause_bad_shape(self, client: Any) -> None:
+        """A 1-D observation array is rejected by the rows x nodes contract (422)."""
+        response = client.post(
+            "/api/v1/detect/rca",
+            json={"request": {"observations": [1.0, 2.0, 3.0]}},
+        )
+        assert response.status_code == 422
+
 
 # =============================================================================
 # Batch Routes Tests
@@ -450,17 +593,87 @@ class TestExportRoutes:
             data = response.json()
             assert "total_detections" in data
 
-    def test_export_metrics_rejects_non_json_format(self, client: Any, auth_headers: Any) -> None:
-        """Metrics is a JSON summary; a csv request must 400, not silently return JSON (F17)."""
+    def test_export_metrics_csv(self, client: Any, auth_headers: Any) -> None:
+        """Metrics export honours format=csv with tidy metric,value rows (F17)."""
         response = client.get(
             "/api/v1/export/metrics",
             headers=auth_headers,
             params={"format": "csv"},
         )
-        # 400 for the unsupported format (429 possible under rate-limit ordering).
-        assert response.status_code in (400, 429)
-        if response.status_code == 400:
-            assert "not supported" in response.json()["detail"]
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            assert "text/csv" in response.headers["content-type"]
+            body = response.text
+            # Empty stores still emit a valid header row.
+            assert body == "" or "metric" in body.splitlines()[0]
+
+    def test_export_metrics_jsonl(self, client: Any, auth_headers: Any) -> None:
+        """Metrics export honours format=jsonl (F17)."""
+        response = client.get(
+            "/api/v1/export/metrics",
+            headers=auth_headers,
+            params={"format": "jsonl"},
+        )
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            assert "ndjson" in response.headers["content-type"]
+
+    def test_export_metrics_json_is_rich(self, client: Any, auth_headers: Any) -> None:
+        """The JSON summary carries the enriched surfaces researchers consume."""
+        response = client.get("/api/v1/export/metrics", headers=auth_headers)
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            data = response.json()
+            for key in (
+                "total_detections",
+                "score_percentiles",
+                "method_breakdown",
+                "time_series",
+            ):
+                assert key in data
+
+    def test_metrics_period_prefers_requested_bounds(self) -> None:
+        """Period semantics are consistent whether or not the range has data
+        (review finding): requested bounds win; observed min/max only fill a
+        bound the caller left open."""
+        from datetime import datetime
+
+        from omni_mercury_engine.api.routes.export import (
+            DetectionRecord,
+            _compute_metrics_summary,
+        )
+
+        def _rec(ts: datetime) -> DetectionRecord:
+            return DetectionRecord(
+                detection_id="d",
+                timestamp=ts,
+                user_id="u",
+                method="zscore",
+                data_hash="h",
+                anomaly_count=1,
+                max_score=0.9,
+                is_batch=False,
+                sensitivity=0.5,
+            )
+
+        records = [_rec(datetime(2026, 7, 5, 12)), _rec(datetime(2026, 7, 6, 12))]
+        wide_start, wide_end = datetime(2026, 7, 1), datetime(2026, 7, 9)
+
+        both = _compute_metrics_summary(records, wide_start, wide_end, "hour")
+        assert both["period"]["start"] == wide_start.isoformat()
+        assert both["period"]["end"] == wide_end.isoformat()
+
+        open_ended = _compute_metrics_summary(records, wide_start, None, "hour")
+        assert open_ended["period"]["start"] == wide_start.isoformat()
+        assert open_ended["period"]["end"] == datetime(2026, 7, 6, 12).isoformat()
+
+        unbounded = _compute_metrics_summary(records, None, None, "hour")
+        assert unbounded["period"]["start"] == datetime(2026, 7, 5, 12).isoformat()
+        assert unbounded["period"]["end"] == datetime(2026, 7, 6, 12).isoformat()
+
+        empty = _compute_metrics_summary([], wide_start, wide_end, "hour")
+        assert empty["period"]["start"] == wide_start.isoformat()
+        assert empty["period"]["end"] == wide_end.isoformat()
 
 
 # =============================================================================

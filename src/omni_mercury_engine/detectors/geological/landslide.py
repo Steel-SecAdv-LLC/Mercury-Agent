@@ -1,14 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Landslide & Avalanche Detector - Slope Instability Analysis.
+"""Landslide Detector - Soil Slope Instability Analysis.
 
-Comprehensive slope failure detection for humanitarian early warning:
+Comprehensive soil slope failure detection for humanitarian early warning:
 - Slope stability monitoring (rainfall-triggered, seismic-triggered)
 - Debris flow prediction
-- Snow avalanche forecasting
 - Soil saturation analysis
 - Ground displacement tracking
 - Multi-hazard cascade detection (earthquake → landslide → dam failure)
+
+Scope note (avalanche carve-out):
+    Snow avalanche forecasting no longer lives here. Snowpack failure is
+    governed by weak-layer shear strength, skier/overburden stress and snow
+    metamorphism — not by the soil mechanics this module models — so the
+    dedicated snow-stability physics (SK38 skier stability index, critical
+    new-snow loading, temperature-gradient metamorphism, rain-on-snow) is in
+    :mod:`omni_mercury_engine.detectors.geological.avalanche_detector`.
+    ``LandslideType.SNOW_AVALANCHE`` is retained only as a legacy class label
+    of the neural type classifier; new avalanche assessments must use
+    :class:`~omni_mercury_engine.detectors.geological.avalanche_detector.
+    AvalancheDetector`.
 
 Integrations:
 - Weather data (rainfall intensity, snowmelt)
@@ -37,6 +48,8 @@ import numpy as np
 import torch
 from scipy import signal
 from torch import nn
+
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 
 
 class LandslideRiskLevel(Enum):
@@ -86,6 +99,12 @@ class LandslidePredictionResult:
     evacuation_zones: list[str] = field(default_factory=list)
     early_warning_actions: list[str] = field(default_factory=list)
     cascade_risks: list[str] = field(default_factory=list)
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    # NOTE: the landslide detector computes no zonal/geographic output (its
+    # evacuation zones are string labels); the diagnostics carry the failure
+    # TYPE probability distribution the argmax previously discarded.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class RainfallTriggerModel:
@@ -504,13 +523,28 @@ class LandslideDetector:
         enable_stability_model: bool = True,
         enable_ml_ensemble: bool = True,
         enable_recursion: bool = True,
+        keep_diagnostics: bool = False,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            enable_rainfall_trigger: Enable rainfall intensity-duration triggers.
+            enable_seismic_trigger: Enable earthquake-induced trigger analysis.
+            enable_stability_model: Enable the neural slope-stability model.
+            enable_ml_ensemble: Enable the SVM/RF ensemble classifier.
+            enable_recursion: Enable multi-scale recursion analysis.
+            keep_diagnostics: When True and slope features are supplied, each
+                prediction result carries the failure-type softmax distribution
+                the argmax previously discarded (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
+        """
         self.enable_rainfall = enable_rainfall_trigger
         self.enable_seismic = enable_seismic_trigger
         self.enable_stability = enable_stability_model
         self.enable_ml_ensemble = enable_ml_ensemble
         self.enable_recursion = enable_recursion
+        self.keep_diagnostics = keep_diagnostics
 
         self.rainfall_model = RainfallTriggerModel() if enable_rainfall_trigger else None
         self.seismic_model = SeismicTriggerModel() if enable_seismic_trigger else None
@@ -642,6 +676,19 @@ class LandslideDetector:
             result.slope_failure_probability = stability_result["failure_probability"]
             result.landslide_type = stability_result["landslide_type"]
             result.confidence = max(result.confidence, stability_result["failure_probability"])
+            # Only the (trained) NN path produces a failure-type softmax; the
+            # physics path emits no "type_probs" key, so the .get() guard keeps
+            # keep_diagnostics from crashing there and diagnostics stay honestly
+            # absent (None) rather than fabricated.
+            if self.keep_diagnostics and stability_result.get("type_probs") is not None:
+                result.diagnostics = HazardDiagnostics(
+                    hazard="landslide",
+                    arrays={"failure_type_probs": stability_result["type_probs"]},
+                    context={
+                        "failure_type_labels": stability_result["type_labels"],
+                        "failure_probability": float(stability_result["failure_probability"]),
+                    },
+                )
 
         result.landslide_imminent = (
             triggers_detected >= 1 and result.slope_failure_probability > 0.6
@@ -656,8 +703,21 @@ class LandslideDetector:
 
     def _assess_slope_stability(self, slope_features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Assess slope stability using ML model."""
+        landslide_types = [
+            "debris_flow",
+            "rock_slide",
+            "earth_flow",
+            "snow_avalanche",
+            "mud_flow",
+            "rotational_slide",
+        ]
         if self.stability_model is None:
-            return {"failure_probability": 0.0, "landslide_type": "debris_flow"}
+            return {
+                "failure_probability": 0.0,
+                "landslide_type": "debris_flow",
+                "type_probs": None,
+                "type_labels": landslide_types,
+            }
 
         features_tensor = torch.tensor(slope_features, dtype=torch.float32).unsqueeze(0)
 
@@ -670,19 +730,15 @@ class LandslideDetector:
         type_probs = torch.softmax(type_logits[0], dim=0)
         type_idx = int(torch.argmax(type_probs).item())
 
-        landslide_types = [
-            "debris_flow",
-            "rock_slide",
-            "earth_flow",
-            "snow_avalanche",
-            "mud_flow",
-            "rotational_slide",
-        ]
         landslide_type = landslide_types[type_idx]
 
         return {
             "failure_probability": failure_probability,
             "landslide_type": landslide_type,
+            # The full softmax distribution over failure types -- previously
+            # reduced to its argmax and discarded.
+            "type_probs": type_probs.cpu().numpy().astype(float),
+            "type_labels": landslide_types,
         }
 
     @staticmethod

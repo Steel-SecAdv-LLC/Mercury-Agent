@@ -23,9 +23,21 @@ import numpy as np
 from scipy.optimize import minimize
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
 logger = logging.getLogger(__name__)
+
+
+class NonFiniteScoreError(ValueError):
+    """A model/score function produced a non-finite value for a candidate.
+
+    Raised by score wrappers that refuse to hand NaN/Inf to a counterfactual
+    search. The gradient-based searches (Wachter, DiCE) catch EXACTLY this
+    type inside their objectives and convert it into a large finite
+    infeasibility penalty, so an unscorable region repels the optimizer
+    instead of aborting the whole search -- while every other contract
+    violation (wrong shape, non-numeric) still propagates loudly.
+    """
 
 
 class DistanceMetric(Enum):
@@ -35,6 +47,114 @@ class DistanceMetric(Enum):
     L2 = auto()
     MAD = auto()
     GOWER = auto()
+
+
+#: Feature-type labels accepted by :func:`gower_distance` and the generators'
+#: ``feature_types`` parameter.
+FEATURE_TYPE_NUMERIC = "numeric"
+FEATURE_TYPE_CATEGORICAL = "categorical"
+_VALID_FEATURE_TYPES = frozenset({FEATURE_TYPE_NUMERIC, FEATURE_TYPE_CATEGORICAL})
+
+
+def _validate_feature_metadata(
+    feature_types: Sequence[str] | None,
+    feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None,
+    n_features: int | None = None,
+) -> tuple[list[str] | None, np.ndarray[Any, Any] | None]:
+    """Validate mixed-type feature metadata shared by Gower and the generators.
+
+    Args:
+        feature_types: Optional per-feature labels, each ``"numeric"`` or
+            ``"categorical"``.
+        feature_ranges: Optional per-feature positive scales used to
+            range-normalize numeric differences.
+        n_features: Expected feature count, when known.
+
+    Returns:
+        ``(types, ranges)`` normalized to ``list[str]`` / ``float64`` array
+        (or ``None`` where absent).
+
+    Raises:
+        ValueError: On an unknown type label, a non-positive/non-finite
+            range, or a length mismatch.
+    """
+    types: list[str] | None = None
+    if feature_types is not None:
+        types = [str(t).strip().lower() for t in feature_types]
+        unknown = sorted(set(types) - _VALID_FEATURE_TYPES)
+        if unknown:
+            raise ValueError(
+                f"invalid feature_types {unknown}; expected one of "
+                f"{sorted(_VALID_FEATURE_TYPES)} per feature"
+            )
+        if n_features is not None and len(types) != n_features:
+            raise ValueError(f"feature_types length {len(types)} != n_features {n_features}")
+
+    ranges: np.ndarray[Any, Any] | None = None
+    if feature_ranges is not None:
+        ranges = np.asarray(feature_ranges, dtype=np.float64).reshape(-1)
+        if not np.all(np.isfinite(ranges)) or np.any(ranges <= 0.0):
+            raise ValueError("feature_ranges must be positive and finite")
+        if n_features is not None and ranges.size != n_features:
+            raise ValueError(f"feature_ranges length {ranges.size} != n_features {n_features}")
+        if types is not None and ranges.size != len(types):
+            raise ValueError(
+                f"feature_ranges length {ranges.size} != feature_types length {len(types)}"
+            )
+    return types, ranges
+
+
+def gower_distance(
+    x1: np.ndarray[Any, Any] | Sequence[float],
+    x2: np.ndarray[Any, Any] | Sequence[float],
+    feature_types: Sequence[str] | None = None,
+    feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
+) -> float:
+    """Gower distance for mixed numeric / categorical feature vectors.
+
+    Per feature ``i`` the dissimilarity is
+
+    * numeric: ``|x1_i - x2_i| / range_i`` (range-normalized L1), and
+    * categorical: ``0`` when the encoded values match, else ``1``,
+
+    and the distance is the mean over features (Gower, 1971).
+
+    Args:
+        x1: First vector.
+        x2: Second vector (same length).
+        feature_types: Per-feature ``"numeric"`` / ``"categorical"`` labels.
+            When absent, every feature is treated as numeric (documented
+            fallback for callers without type metadata).
+        feature_ranges: Per-feature positive scales for the numeric terms.
+            When absent, numeric terms fall back to plain ``|diff|`` (range
+            1.0); pass the observed value ranges for the canonical Gower
+            normalization.  In-range inputs then yield per-feature terms in
+            ``[0, 1]``; out-of-range inputs are NOT clipped, so a candidate
+            outside the observed range honestly scores > 1.
+
+    Returns:
+        The Gower distance (mean per-feature dissimilarity).
+
+    Raises:
+        ValueError: If the vectors differ in length or the metadata is
+            invalid / mismatched.
+    """
+    a = np.asarray(x1, dtype=np.float64).reshape(-1)
+    b = np.asarray(x2, dtype=np.float64).reshape(-1)
+    if a.size != b.size:
+        raise ValueError(f"vector lengths differ: {a.size} != {b.size}")
+    if a.size == 0:
+        raise ValueError("vectors must be non-empty")
+    types, ranges = _validate_feature_metadata(feature_types, feature_ranges, n_features=a.size)
+
+    scale = ranges if ranges is not None else np.ones(a.size, dtype=np.float64)
+    per_feature = np.abs(a - b) / scale
+    if types is not None:
+        categorical = np.array([t == FEATURE_TYPE_CATEGORICAL for t in types], dtype=bool)
+        if categorical.any():
+            mismatch = (~np.isclose(a, b, rtol=1e-09, atol=1e-12)).astype(np.float64)
+            per_feature = np.where(categorical, mismatch, per_feature)
+    return float(per_feature.mean())
 
 
 class CounterfactualMethod(Enum):
@@ -133,6 +253,9 @@ class CounterfactualGenerator(ABC):
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         seed: int | None = None,
+        *,
+        feature_types: Sequence[str] | None = None,
+        feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
     ) -> None:
         """Initialize counterfactual generator.
 
@@ -144,6 +267,12 @@ class CounterfactualGenerator(ABC):
                 with all subclasses for initial-point sampling, growing-
                 spheres directions and DiCE candidate selection.  ``None``
                 (default) uses OS entropy.
+            feature_types: Optional per-feature ``"numeric"`` /
+                ``"categorical"`` labels for mixed-type (Gower) distance.
+                When absent, every feature is treated as numeric.
+            feature_ranges: Optional per-feature positive scales used to
+                range-normalize numeric differences (Gower / the genetic
+                search).  When absent, numeric terms use range 1.0.
         """
         self._rng: np.random.Generator = np.random.default_rng(seed)
         if callable(model):
@@ -159,6 +288,10 @@ class CounterfactualGenerator(ABC):
 
         self._feature_names = feature_names
         self._constraints = feature_constraints or []
+        n_features = len(feature_names) if feature_names is not None else None
+        self._feature_types, self._feature_ranges = _validate_feature_metadata(
+            feature_types, feature_ranges, n_features=n_features
+        )
 
     @abstractmethod
     def generate(
@@ -177,7 +310,21 @@ class CounterfactualGenerator(ABC):
         metric: DistanceMetric = DistanceMetric.L2,
         feature_weights: np.ndarray[Any, Any] | None = None,
     ) -> float:
-        """Compute distance between two instances."""
+        """Compute distance between two instances.
+
+        ``GOWER`` uses the generator's ``feature_types`` / ``feature_ranges``
+        metadata (all-numeric / range 1.0 when absent, as documented on
+        :func:`gower_distance`); ``feature_weights`` applies to the
+        elementwise-difference metrics only.
+        """
+        if metric == DistanceMetric.GOWER:
+            return gower_distance(
+                x1,
+                x2,
+                feature_types=self._feature_types,
+                feature_ranges=self._feature_ranges,
+            )
+
         diff = x1 - x2
 
         if feature_weights is not None:
@@ -189,8 +336,18 @@ class CounterfactualGenerator(ABC):
             return float(np.sqrt(np.sum(diff**2)))
         elif metric == DistanceMetric.MAD:
             return float(np.sum(np.abs(diff)))
-        else:
-            return float(np.sqrt(np.sum(diff**2)))
+        raise ValueError(f"unhandled distance metric: {metric!r}")
+
+    def _proximity_metric(self) -> DistanceMetric:
+        """Metric for proximity scoring: Gower iff feature metadata exists.
+
+        Generators that document "Gower when feature metadata is present,
+        else L2" resolve the choice here so the fitness path and the reported
+        distance stay consistent.
+        """
+        if self._feature_types is not None or self._feature_ranges is not None:
+            return DistanceMetric.GOWER
+        return DistanceMetric.L2
 
     def _get_feature_changes(
         self,
@@ -221,6 +378,7 @@ class WachterCounterfactual(CounterfactualGenerator):
         lambda_param: float = 0.1,
         max_iterations: int = 1000,
         tolerance: float = 1e-6,
+        init_scale: float = 0.1,
         seed: int | None = None,
     ) -> None:
         """Initialize Wachter counterfactual generator.
@@ -232,6 +390,11 @@ class WachterCounterfactual(CounterfactualGenerator):
             lambda_param: Trade-off between proximity and validity
             max_iterations: Maximum optimization iterations
             tolerance: Convergence tolerance
+            init_scale: Standard deviation of the seeded Gaussian jitter
+                around the instance used for the ``i``-th restart
+                (``init_scale * (i + 1)``).  Larger values let restarts
+                start beyond flat / saturated score plateaus where the
+                gradient carries no signal.
             seed: Optional seed forwarded to the base
                 ``BaseCounterfactualGenerator`` ``Generator`` driving
                 gradient-step jitter and tie-breaking.  ``None``
@@ -241,6 +404,7 @@ class WachterCounterfactual(CounterfactualGenerator):
         self._lambda = lambda_param
         self._max_iter = max_iterations
         self._tolerance = tolerance
+        self._init_scale = float(init_scale)
 
     def generate(
         self,
@@ -262,7 +426,9 @@ class WachterCounterfactual(CounterfactualGenerator):
 
         counterfactuals = []
         for i in range(n_counterfactuals):
-            init_point = original + self._rng.standard_normal(len(original)) * 0.1 * (i + 1)
+            init_point = original + self._rng.standard_normal(len(original)) * self._init_scale * (
+                i + 1
+            )
 
             cf = self._optimize(original, init_point, target_pred)
 
@@ -310,7 +476,14 @@ class WachterCounterfactual(CounterfactualGenerator):
         """Optimize to find counterfactual."""
 
         def objective(x: np.ndarray[Any, Any]) -> float:
-            pred = self._predict(x.reshape(1, -1))[0]
+            try:
+                pred = float(self._predict(x.reshape(1, -1))[0])
+            except NonFiniteScoreError:
+                return 1e9 + float(np.sum((x - original) ** 2))
+            if not np.isfinite(pred):
+                # Same finite infeasibility barrier as DiCE: an unscorable
+                # region must repel L-BFGS, not NaN-poison it.
+                return 1e9 + float(np.sum((x - original) ** 2))
             pred_loss = (pred - target_pred) ** 2
             dist_loss = self._lambda * np.sum((x - original) ** 2)
             return float(pred_loss + dist_loss)
@@ -329,7 +502,14 @@ class WachterCounterfactual(CounterfactualGenerator):
             if result.success:
                 return result.x
         except Exception as e:
-            logger.warning(f"Optimization failed: {e}")
+            # An honest search failure: real detectors raise data-dependent
+            # errors on extreme candidates (e.g. np.histogram over an
+            # all-NaN intermediate). The failure is logged with its type and
+            # the search returns no counterfactual -- downstream validity is
+            # always re-scored, so a failed search can never be recorded as
+            # a success. (NonFiniteScoreError never reaches here: the
+            # objective converts it into the finite infeasibility barrier.)
+            logger.warning(f"Optimization failed ({type(e).__name__}): {e}")
 
         return None
 
@@ -385,6 +565,7 @@ class DiCECounterfactual(CounterfactualGenerator):
         proximity_weight: float = 0.5,
         diversity_weight: float = 1.0,
         max_iterations: int = 500,
+        init_scale: float = 0.1,
         seed: int | None = None,
     ) -> None:
         """Initialize DiCE counterfactual generator.
@@ -396,6 +577,10 @@ class DiCECounterfactual(CounterfactualGenerator):
             proximity_weight: Weight for proximity loss
             diversity_weight: Weight for diversity loss
             max_iterations: Maximum optimization iterations
+            init_scale: Standard deviation of the seeded Gaussian jitter
+                around the instance used for the ``i``-th diverse start
+                (``init_scale * (i + 1)``); larger values escape flat
+                score plateaus.
             seed: Optional seed forwarded to the base
                 ``BaseCounterfactualGenerator`` ``Generator`` driving
                 diverse-counterfactual sampling.  ``None`` (default)
@@ -405,6 +590,7 @@ class DiCECounterfactual(CounterfactualGenerator):
         self._proximity_weight = proximity_weight
         self._diversity_weight = diversity_weight
         self._max_iter = max_iterations
+        self._init_scale = float(init_scale)
 
     def generate(
         self,
@@ -475,7 +661,8 @@ class DiCECounterfactual(CounterfactualGenerator):
         target_pred = float(target_class)
 
         init_points = [
-            original + self._rng.standard_normal(n_features) * 0.1 * (i + 1) for i in range(n_cfs)
+            original + self._rng.standard_normal(n_features) * self._init_scale * (i + 1)
+            for i in range(n_cfs)
         ]
         init_flat = np.concatenate(init_points)
 
@@ -486,7 +673,19 @@ class DiCECounterfactual(CounterfactualGenerator):
             proximity_loss = 0.0
 
             for cf in cfs:
-                pred = self._predict(cf.reshape(1, -1))[0]
+                try:
+                    pred = float(self._predict(cf.reshape(1, -1))[0])
+                except NonFiniteScoreError:
+                    # A fail-loud score wrapper (e.g. the detection seam's
+                    # _CountingScoreFn) raises instead of returning NaN;
+                    # treat that identically to a raw non-finite value.
+                    return 1e9 + float(np.sum((cf - original) ** 2))
+                if not np.isfinite(pred):
+                    # Infeasibility barrier: a region where the model cannot
+                    # score (sub-detector overflow on extreme inputs) must
+                    # repel the search with a large FINITE penalty — a NaN
+                    # propagating into L-BFGS aborts the whole optimization.
+                    return 1e9 + float(np.sum((cf - original) ** 2))
                 validity_loss += (pred - target_pred) ** 2
                 proximity_loss += np.sum((cf - original) ** 2)
 
@@ -516,7 +715,12 @@ class DiCECounterfactual(CounterfactualGenerator):
             return cfs
 
         except Exception as e:
-            logger.warning(f"DiCE optimization failed: {e}")
+            # Honest search failure (see Wachter._optimize): logged with its
+            # type; the returned init points are re-scored downstream, so an
+            # aborted search records validity=False rather than a fabricated
+            # success. NonFiniteScoreError is absorbed by the objective's
+            # finite infeasibility barrier before reaching here.
+            logger.warning(f"DiCE optimization failed ({type(e).__name__}): {e}")
             return init_points
 
     def _compute_pairwise_diversity(self, points: list[np.ndarray[Any, Any]]) -> float:
@@ -698,6 +902,252 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
                 low = mid
 
         return original + high * (candidate - original)
+
+
+class GeneticCounterfactual(CounterfactualGenerator):
+    """Genetic-algorithm counterfactual search (CounterfactualMethod.GENETIC).
+
+    A seeded, derivative-free evolutionary search: a population initialized
+    around the instance evolves through tournament selection, uniform
+    crossover, and per-feature gaussian mutation scaled to the generator's
+    ``feature_ranges``.  Fitness rewards crossing the decision boundary
+    toward the target class first, then proximity (Gower when feature
+    metadata is present, else L2) and sparsity.  Deterministic for a fixed
+    ``seed``; needs no gradients, so it works on piecewise-constant
+    detection scores where gradient methods stall.
+    """
+
+    def __init__(
+        self,
+        model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
+        feature_names: list[str] | None = None,
+        feature_constraints: list[FeatureConstraint] | None = None,
+        population_size: int = 60,
+        max_generations: int = 80,
+        tournament_size: int = 3,
+        mutation_rate: float = 0.35,
+        mutation_scale: float = 0.25,
+        crossover_rate: float = 0.7,
+        elitism: int = 2,
+        distance_weight: float = 0.3,
+        sparsity_weight: float = 0.05,
+        patience: int = 15,
+        seed: int | None = None,
+        *,
+        feature_types: Sequence[str] | None = None,
+        feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
+    ) -> None:
+        """Initialize the genetic counterfactual generator.
+
+        Args:
+            model: Model or prediction function.
+            feature_names: Feature names.
+            feature_constraints: Feature constraints (immutable features are
+                pinned; min/max bounds are enforced on every candidate).
+            population_size: Individuals per generation.
+            max_generations: Generation budget.
+            tournament_size: Tournament selection pressure.
+            mutation_rate: Per-feature mutation probability.
+            mutation_scale: Gaussian mutation sigma as a fraction of each
+                feature's range.
+            crossover_rate: Probability a child mixes two parents (uniform
+                mask) instead of cloning the tournament winner.
+            elitism: Top individuals copied unchanged each generation.
+            distance_weight: Fitness penalty per unit distance from the
+                instance (validity always dominates).
+            sparsity_weight: Fitness penalty per changed feature.
+            patience: Early stop after this many generations without
+                best-fitness improvement once a valid candidate exists.
+            seed: Deterministic seed (``None`` = OS entropy).
+            feature_types: Optional numeric/categorical labels (Gower).
+            feature_ranges: Optional per-feature scales for mutation and
+                range-normalized distance.
+        """
+        super().__init__(
+            model,
+            feature_names,
+            feature_constraints,
+            seed=seed,
+            feature_types=feature_types,
+            feature_ranges=feature_ranges,
+        )
+        if population_size < 4:
+            raise ValueError(f"population_size must be >= 4, got {population_size}")
+        if max_generations < 1:
+            raise ValueError(f"max_generations must be >= 1, got {max_generations}")
+        if not 0.0 <= mutation_rate <= 1.0:
+            raise ValueError(f"mutation_rate must be in [0, 1], got {mutation_rate}")
+        self._population_size = population_size
+        self._max_generations = max_generations
+        self._tournament_size = max(2, int(tournament_size))
+        self._mutation_rate = mutation_rate
+        self._mutation_scale = mutation_scale
+        self._crossover_rate = crossover_rate
+        self._elitism = max(0, int(elitism))
+        self._distance_weight = distance_weight
+        self._sparsity_weight = sparsity_weight
+        self._patience = max(1, int(patience))
+
+    def _bounds_and_mutable(
+        self, n_features: int
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Resolve per-feature (low, high, mutable) from the constraints."""
+        low = np.full(n_features, -np.inf)
+        high = np.full(n_features, np.inf)
+        mutable = np.ones(n_features, dtype=bool)
+        for constraint in self._constraints:
+            i = constraint.feature_idx
+            if not 0 <= i < n_features:
+                continue
+            if not constraint.is_mutable:
+                mutable[i] = False
+            if constraint.min_value is not None:
+                low[i] = constraint.min_value
+            if constraint.max_value is not None:
+                high[i] = constraint.max_value
+        return low, high, mutable
+
+    def _feature_scales(
+        self, n_features: int, original: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Per-feature mutation scales from ranges metadata (fallback |x|+1)."""
+        if self._feature_ranges is not None:
+            return np.asarray(self._feature_ranges, dtype=np.float64)
+        return np.abs(np.asarray(original, dtype=np.float64)) + 1.0
+
+    def _fitness(
+        self,
+        population: np.ndarray[Any, Any],
+        original: np.ndarray[Any, Any],
+        target_class: int,
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Vectorized fitness: validity margin first, then distance/sparsity."""
+        preds = np.asarray(self._predict(population), dtype=np.float64).reshape(-1)
+        margin = (preds - 0.5) if target_class == 1 else (0.5 - preds)
+        valid = margin >= 0.0
+        # Gower proximity when feature metadata is present (per the class
+        # docstring); plain L2 otherwise. Previously this always used L2,
+        # silently ignoring the metadata.
+        metric = self._proximity_metric()
+        distances = np.array(
+            [self._compute_distance(original, ind, metric=metric) for ind in population]
+        )
+        sparsity = np.array(
+            [int(np.sum(~np.isclose(original, ind))) for ind in population],
+            dtype=np.float64,
+        )
+        # Validity dominates: invalid candidates score by boundary progress
+        # only; valid ones add a large constant then optimize cost.
+        fitness = np.where(
+            valid,
+            10.0 + margin - self._distance_weight * distances - self._sparsity_weight * sparsity,
+            margin,
+        )
+        return fitness, preds
+
+    def generate(
+        self,
+        instance: np.ndarray[Any, Any],
+        target_class: int | None = None,
+        n_counterfactuals: int = 1,
+    ) -> CounterfactualSet:
+        """Generate counterfactuals with the evolutionary search."""
+        if instance.ndim == 1:
+            instance = instance.reshape(1, -1)
+        original = instance[0].astype(np.float64).copy()
+        n_features = original.size
+        original_pred = float(self._predict(original.reshape(1, -1))[0])
+        if target_class is None:
+            target_class = 1 if original_pred < 0.5 else 0
+
+        low, high, mutable = self._bounds_and_mutable(n_features)
+        scales = self._feature_scales(n_features, original)
+
+        def _repair(pop: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            pop = np.clip(pop, low, high)
+            pop[:, ~mutable] = original[~mutable]
+            return pop
+
+        # Population: the instance itself plus jittered neighbors at growing
+        # scales, so at least some individuals land across nearby boundaries.
+        jitter = (
+            self._rng.normal(0.0, 1.0, size=(self._population_size, n_features))
+            * scales
+            * self._mutation_scale
+        )
+        ramp = np.linspace(0.25, 3.0, self._population_size).reshape(-1, 1)
+        population = _repair(original.reshape(1, -1) + jitter * ramp)
+        population[0] = original
+
+        best: np.ndarray[Any, Any] | None = None
+        best_fitness = -np.inf
+        stale = 0
+        for _generation in range(self._max_generations):
+            fitness, _preds = self._fitness(population, original, target_class)
+            order = np.argsort(-fitness)
+            if fitness[order[0]] > best_fitness + 1e-12:
+                best_fitness = float(fitness[order[0]])
+                best = population[order[0]].copy()
+                stale = 0
+            else:
+                stale += 1
+            if best_fitness >= 10.0 and stale >= self._patience:
+                break
+
+            elite = population[order[: self._elitism]]
+            children: list[np.ndarray[Any, Any]] = []
+            while len(children) < self._population_size - self._elitism:
+                # Tournament selection for two parents.
+                idx_a = self._rng.choice(self._population_size, self._tournament_size)
+                idx_b = self._rng.choice(self._population_size, self._tournament_size)
+                parent_a = population[idx_a[np.argmax(fitness[idx_a])]]
+                parent_b = population[idx_b[np.argmax(fitness[idx_b])]]
+                if self._rng.random() < self._crossover_rate:
+                    mask = self._rng.random(n_features) < 0.5
+                    child = np.where(mask, parent_a, parent_b)
+                else:
+                    child = parent_a.copy()
+                mutate = self._rng.random(n_features) < self._mutation_rate
+                child = (
+                    child
+                    + mutate * self._rng.normal(0.0, self._mutation_scale, n_features) * scales
+                )
+                children.append(child)
+            population = _repair(np.vstack([elite, np.array(children)]))
+
+        counterfactuals = []
+        if best is not None:
+            cf_pred = float(self._predict(best.reshape(1, -1))[0])
+            is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                target_class == 0 and cf_pred < 0.5
+            )
+            changes = self._get_feature_changes(original, best)
+            counterfactuals.append(
+                Counterfactual(
+                    original=original,
+                    counterfactual=best,
+                    original_prediction=original_pred,
+                    counterfactual_prediction=cf_pred,
+                    feature_changes=changes,
+                    distance=self._compute_distance(
+                        original, best, metric=self._proximity_metric()
+                    ),
+                    validity=is_valid,
+                    sparsity=len(changes),
+                    feature_names=self._feature_names,
+                )
+            )
+
+        coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
+        return CounterfactualSet(
+            original=original,
+            counterfactuals=counterfactuals,
+            original_prediction=original_pred,
+            target_class=target_class,
+            diversity_score=0.0,
+            coverage_score=coverage,
+            metadata={"method": CounterfactualMethod.GENETIC.name.lower()},
+        )
 
 
 class PrototypeCounterfactual(CounterfactualGenerator):
@@ -922,6 +1372,13 @@ def create_counterfactual_generator(
             model,
             training_data,
             training_labels,
+            feature_names,
+            feature_constraints,
+            **kwargs,
+        )
+    elif method == "genetic":
+        return GeneticCounterfactual(
+            model,
             feature_names,
             feature_constraints,
             **kwargs,

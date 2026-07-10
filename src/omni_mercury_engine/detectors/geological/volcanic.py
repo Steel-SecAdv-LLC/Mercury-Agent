@@ -50,6 +50,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -105,6 +106,9 @@ class VolcanicPredictionResult:
     source_id: str | None = None
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
+
+    # Populated only when the detector was built with keep_diagnostics=True.
+    diagnostics: HazardDiagnostics | None = None
 
 
 class SeismicSwarmDetector(nn.Module):
@@ -760,6 +764,7 @@ class VolcanicEruptionDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
         data_source: USGSVolcanoSource | None = None,
+        keep_diagnostics: bool = False,
     ):
         """Initialize volcanic eruption detector.
 
@@ -780,7 +785,14 @@ class VolcanicEruptionDetector:
             enable_refactoring: Enable 3R Refactoring for adaptive optimization
             rng: Deterministic RNG for reproducibility
             data_source: Optional USGS HANS volcano-status client.
+            keep_diagnostics: When True and a seismic sequence is supplied, each
+                prediction result carries the per-timestep swarm attention
+                series (previously discarded) and the HMM state-belief vector
+                (see
+                :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
+                Default False keeps memory behavior unchanged.
         """
+        self.keep_diagnostics = keep_diagnostics
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
         self.enable_gas = enable_gas
@@ -1007,6 +1019,9 @@ class VolcanicEruptionDetector:
         # Binary observations for HMM: [seismic, thermal, gas, deformation]
         hmm_observations = np.array([False, False, False, False])
 
+        seismic_series: np.ndarray[Any, Any] | None = None
+        seismic_series_name = "seismic_attention"
+        swarm_probability: float | None = None
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
             result.seismic_swarm_detected = seismic_result["swarm_detected"]
@@ -1015,6 +1030,19 @@ class VolcanicEruptionDetector:
             if seismic_result["swarm_detected"]:
                 indicators_detected += 1
                 result.confidence = max(result.confidence, seismic_result["confidence"])
+            if self.keep_diagnostics:
+                if seismic_result["attention_weights"]:
+                    # Persist the per-timestep swarm attention series (the score
+                    # series the trained LSTM computed and previously threw away).
+                    seismic_series = np.asarray(seismic_result["attention_weights"], dtype=float)
+                    swarm_probability = float(seismic_result["confidence"])
+                elif np.asarray(seismic_result.get("robust_z_series", [])).size:
+                    # Physics path: persist the robust z-score series the swarm
+                    # decision was actually computed from. Honestly named — it
+                    # is not attention, and none exists on this path.
+                    seismic_series = np.asarray(seismic_result["robust_z_series"], dtype=float)
+                    seismic_series_name = "seismic_robust_z"
+                    swarm_probability = float(seismic_result["confidence"])
 
         if (
             self.enable_thermal
@@ -1100,6 +1128,17 @@ class VolcanicEruptionDetector:
             }
             self.refactoring_optimizer.record_prediction(prediction_record)
 
+        if self.keep_diagnostics and seismic_series is not None:
+            arrays: dict[str, np.ndarray[Any, Any]] = {seismic_series_name: seismic_series}
+            context: dict[str, Any] = {"swarm_probability": swarm_probability}
+            if self.enable_hmm and self.state_hmm is not None:
+                arrays["hmm_state_belief"] = np.asarray(self.state_hmm.state_belief, dtype=float)
+                context["hmm_state_names"] = list(self.state_hmm.state_names)
+                context["hmm_state"] = hmm_state_info.get("current_state")
+            result.diagnostics = HazardDiagnostics(
+                hazard="volcanic", arrays=arrays, context=context
+            )
+
         result.alert_level = self._determine_alert_level(indicators_detected, result.confidence)
         result.hazard_zones = self._identify_hazard_zones(result)
         result.early_warning_actions = self._generate_early_warning(result)
@@ -1158,7 +1197,8 @@ class VolcanicEruptionDetector:
         median = float(np.median(arr))
         mad = float(np.median(np.abs(arr - median)))
         scale = 1.4826 * mad if mad > 0 else (float(np.std(arr)) or 1.0)
-        exceed_fraction = float(np.mean(np.abs(arr - median) / scale > 3.0))
+        robust_z = np.abs(arr - median) / scale
+        exceed_fraction = float(np.mean(robust_z > 3.0))
         # 10% of the record exceeding 3 robust-sigma saturates confidence; a
         # swarm is flagged once a small but non-trivial fraction is elevated.
         confidence = float(min(exceed_fraction / 0.10, 1.0))
@@ -1167,6 +1207,10 @@ class VolcanicEruptionDetector:
             "swarm_detected": swarm_detected,
             "confidence": confidence,
             "attention_weights": [],
+            # The per-sample robust z series the decision is computed from
+            # (the exceed fraction over this series IS the detection) — the
+            # physics path's honestly-named diagnostics series.
+            "robust_z_series": robust_z,
             "method": "physics",
         }
 

@@ -429,3 +429,31 @@ class TestAutoCalibration:
         # With calibration, should have some anomalies detected
         n_anomalies = np.sum(result["is_anomaly"])
         assert n_anomalies > 0  # Should detect at least some
+
+
+class TestOtsuThresholdNonFinite:
+    """Otsu must exclude non-finite scores instead of crashing bincount.
+
+    Regression: a NaN/inf score cast to a negative 256-bin index and
+    ``np.bincount`` raised "'list' argument must have no negative elements"
+    — surfaced by counterfactual search proposing extreme candidate rows
+    that overflowed a sub-detector's score.
+    """
+
+    def test_non_finite_scores_are_excluded(self) -> None:
+        import numpy as np
+
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+        scores = np.array([0.1, 0.5, np.nan, 0.9, np.inf, -np.inf, 0.2])
+        thr = MercuryAnomalyDetector._otsu_threshold(scores)
+        assert np.isfinite(thr)
+        assert 0.1 <= thr <= 0.9
+
+    def test_all_non_finite_returns_conservative_threshold(self) -> None:
+        import numpy as np
+
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+        thr = MercuryAnomalyDetector._otsu_threshold(np.array([np.nan, np.inf]))
+        assert thr == float("inf"), "nothing observable -> flag nothing via Otsu"
