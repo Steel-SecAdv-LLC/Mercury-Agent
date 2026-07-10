@@ -19,7 +19,10 @@ from typing import Any
 import numpy as np
 import pytest
 
-from omni_mercury_engine.space.solar_gic_cascade import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``solar_gic_cascade``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.space.solar_gic_cascade import (  # type: ignore[import-not-found,unused-ignore]
     CascadeInputs,
     CascadeStage,
     SolarGICCascadeDetector,
@@ -103,7 +106,7 @@ class TestStageTransitionsOnRealEvent:
         assert watch.satisfied
         # Real evidence: the May 8 X1.0 flare and Earth-directed CMEs.
         flare_ids = {d.get("flare_id") for d in watch.datapoints if d["type"] == "flare"}
-        assert any("2024-05-08" in fid for fid in flare_ids)
+        assert any(fid is not None and "2024-05-08" in fid for fid in flare_ids)
         cme_ids = {d.get("cme_id") for d in watch.datapoints if d["type"] == "cme"}
         assert "2024-05-08T05:36:00-CME-001" in cme_ids
         assert not warning.satisfied

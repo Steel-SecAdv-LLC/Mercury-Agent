@@ -17,8 +17,13 @@ import pytest
 
 pytest.importorskip("plotly")
 
-from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
-from omni_mercury_engine.gui.visualization_dashboard import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``hazard_diagnostics`` and the hazard dashboard panels;
+# ``unused-ignore`` keeps a correctly installed tree (CI) clean.
+from omni_mercury_engine.detectors.hazard_diagnostics import (  # type: ignore[import-not-found,unused-ignore]
+    HazardDiagnostics,
+)
+from omni_mercury_engine.gui.visualization_dashboard import (  # type: ignore[attr-defined,unused-ignore]
     DashboardBuilder,
     HazardDiagnosticsVisualizer,
 )
@@ -199,5 +204,8 @@ class TestHazardPanels:
 class TestDashboardIntegration:
     def test_add_hazard_panel_to_builder(self, earthquake_diag: HazardDiagnostics) -> None:
         builder = DashboardBuilder()
-        builder.add_hazard_panel("Seismic Spectrogram", earthquake_diag)
+        # ``add_hazard_panel`` postdates the sibling-worktree editable install.
+        builder.add_hazard_panel(  # type: ignore[attr-defined, unused-ignore]
+            "Seismic Spectrogram", earthquake_diag
+        )
         assert "Seismic Spectrogram" in builder._figures

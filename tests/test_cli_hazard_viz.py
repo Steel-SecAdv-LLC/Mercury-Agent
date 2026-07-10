@@ -41,10 +41,16 @@ def test_render_png_from_npz_payload(tmp_path: Path) -> None:
 
     rng = np.random.default_rng(0)
     series = 0.02 * rng.normal(size=2048)
-    result = EarthquakeDetector(keep_diagnostics=True).predict_earthquake(series)
-    assert result.diagnostics is not None
+    # ``keep_diagnostics``/``diagnostics`` postdate the sibling-worktree
+    # editable install the dev venv may expose; ``unused-ignore`` keeps a
+    # correctly installed tree (CI) clean.
+    result = EarthquakeDetector(  # type: ignore[call-arg, unused-ignore]
+        keep_diagnostics=True
+    ).predict_earthquake(series)
+    diagnostics = result.diagnostics  # type: ignore[attr-defined, unused-ignore]
+    assert diagnostics is not None
     payload_path = tmp_path / "quake.npz"
-    result.diagnostics.to_npz(payload_path)
+    diagnostics.to_npz(payload_path)
 
     out = tmp_path / "quake.png"
     cli_result = CliRunner().invoke(main, ["hazard-viz", "-i", str(payload_path), "-o", str(out)])

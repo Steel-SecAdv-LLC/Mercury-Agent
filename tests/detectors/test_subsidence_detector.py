@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.subsidence_detector import (
+from omni_mercury_engine.detectors.geological.subsidence_detector import (  # type: ignore[import-not-found,unused-ignore]
     SEVERITY_BOUNDS_MM_YR,
     SubsidenceDetector,
     SubsidencePredictionResult,

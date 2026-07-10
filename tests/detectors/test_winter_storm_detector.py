@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Winter / ice-storm detector: partial thickness, Stull wet bulb, FRAM-like
-accretion, SPIA tiers, NWS blizzard criteria, and winter-alert wiring.
+"""Winter / ice-storm detector: partial thickness, Stull wet bulb, FRAM-like accretion, SPIA tiers, NWS blizzard criteria, and winter-alert wiring.
 
 Formulation anchors:
 * Partial-thickness thresholds (1300 m / 1540 m / 1560 m) per the
@@ -29,7 +28,7 @@ import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.detectors.meteorological.winter_storm_detector import (
+from omni_mercury_engine.detectors.meteorological.winter_storm_detector import (  # type: ignore[import-not-found,unused-ignore]
     PrecipType,
     WinterStormDetector,
 )

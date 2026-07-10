@@ -20,11 +20,11 @@ import numpy as np
 import pytest
 
 from omni_mercury_engine.loaders import label_provenance
-from omni_mercury_engine.loaders.meteor_loader import (
+from omni_mercury_engine.loaders.meteor_loader import (  # type: ignore[import-not-found,unused-ignore]
     FIREBALL_ANOMALY_THRESHOLD_KT,
     MeteorLoader,
 )
-from omni_mercury_engine.loaders.space_weather_loader import (
+from omni_mercury_engine.loaders.space_weather_loader import (  # type: ignore[import-not-found,unused-ignore]
     KP_STORM_THRESHOLD,
     SpaceWeatherLoader,
 )
@@ -83,7 +83,7 @@ def sw_loader(tmp_path: Path) -> SpaceWeatherLoader:
             y=[50.0, 51.0, 300.0, 49.0, 50.0, 50.5],
         )
 
-    loader._fetch_json = fake_fetch_json  # type: ignore[method-assign]
+    loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
     return loader
 
 
@@ -119,7 +119,7 @@ class TestSpaceWeatherLoader:
 
     def test_empty_geomag_fails_loud(self, tmp_path: Path) -> None:
         loader = SpaceWeatherLoader(cache_dir=tmp_path)
-        loader._fetch_json = lambda url, params=None: (  # type: ignore[method-assign]
+        loader._fetch_json = lambda url, params=None: (  # type: ignore[method-assign, unused-ignore]
             [] if "DONKI" in url else {"times": [], "values": []}
         )
         with pytest.raises(ValueError, match="refusing to fabricate"):
@@ -141,7 +141,7 @@ class TestMeteorLoader:
                 return _fixture("jpl_fireball_2012_2013.json")
             return _fixture("neows_feed_2019_07_20.json")
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign]
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
         return loader
 
     def test_catalog_and_contract(self, tmp_path: Path) -> None:
@@ -181,7 +181,7 @@ class TestMeteorLoader:
 
     def test_empty_archive_fails_loud(self, tmp_path: Path) -> None:
         loader = MeteorLoader(cache_dir=tmp_path)
-        loader._fetch_json = lambda url, params=None: {  # type: ignore[method-assign]
+        loader._fetch_json = lambda url, params=None: {  # type: ignore[method-assign, unused-ignore]
             "signature": {},
             "count": 0,
             "data": [],

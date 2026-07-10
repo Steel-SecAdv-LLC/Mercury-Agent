@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.rockfall_detector import (
+from omni_mercury_engine.detectors.geological.rockfall_detector import (  # type: ignore[import-not-found,unused-ignore]
     FREEZE_THAW_FREQUENCY_MULTIPLIER,
     HIGH_RAIN_FREQUENCY_MULTIPLIER,
     RAIN_INTENSITY_THRESHOLD_MM_H,
@@ -59,6 +59,7 @@ class TestInverseVelocityFukuzono:
         assert iv.forecast_valid
         assert iv.r_squared > 0.99
         assert iv.slope < 0.0
+        assert iv.failure_time is not None
         assert iv.failure_time == pytest.approx(10.0, abs=0.2)
         assert iv.failure_window is not None
         lo, hi = iv.failure_window

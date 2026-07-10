@@ -308,7 +308,9 @@ class TestDetectionInterconnectTools:
                 "mode": "fusion",
             }
         )
-        server = MercuryMCPServer(engine=engine)
+        # ``engine=`` postdates the sibling-worktree editable install the dev
+        # venv may expose; ``unused-ignore`` keeps a correct tree (CI) clean.
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
         rng = np.random.default_rng(0)
         result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 5)).tolist()})
         assert result["isError"] is False
@@ -325,7 +327,7 @@ class TestDetectionInterconnectTools:
         engine = _FakeFusionEngine(
             raises=EthicalConstraintViolationError("blocked", 0.1, 0.96, check="sigma_immutable")
         )
-        server = MercuryMCPServer(engine=engine)
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
         rng = np.random.default_rng(1)
         result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(20, 4)).tolist()})
         # Fail closed: the refusal surfaces as a clean isError naming the gate.
@@ -334,7 +336,9 @@ class TestDetectionInterconnectTools:
         assert "ethical gate" in text and "sigma_immutable" in text
 
     def test_detect_fusion_bad_matrix_is_error(self) -> None:
-        server = MercuryMCPServer(engine=_FakeFusionEngine())
+        server = MercuryMCPServer(  # type: ignore[call-arg, unused-ignore]
+            engine=_FakeFusionEngine()
+        )
         result = _call(server, "mercury_detect_fusion", {"data": [1.0, 2.0, 3.0]})  # 1-D
         assert result["isError"] is True
         assert "2-d" in result["content"][0]["text"].lower()

@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.detection_tier import (
+from omni_mercury_engine.detectors.detection_tier import (  # type: ignore[attr-defined,unused-ignore]
     localize_root_cause,
     run_tier_ensemble,
 )

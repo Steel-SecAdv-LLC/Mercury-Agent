@@ -16,7 +16,10 @@ import math
 import numpy as np
 import pytest
 
-from omni_mercury_engine.space.ionospheric_scintillation_detector import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``ionospheric_scintillation_detector``; ``unused-ignore`` keeps
+# a correctly installed tree (CI) clean.
+from omni_mercury_engine.space.ionospheric_scintillation_detector import (  # type: ignore[import-not-found,unused-ignore]
     IonosphericScintillationDetector,
     classify_scintillation,
     compute_s4,

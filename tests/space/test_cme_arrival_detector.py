@@ -14,10 +14,14 @@ import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from omni_mercury_engine.space.cme_arrival_detector import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``cme_arrival_detector``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.space.cme_arrival_detector import (  # type: ignore[import-not-found,unused-ignore]
     AU_KM,
     DONKI_R0_KM,
     CMEArrivalDetector,
@@ -30,9 +34,10 @@ from omni_mercury_engine.space.cme_arrival_detector import (
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "space_weather"
 
 
-def _load_fixture(name: str) -> dict:
+def _load_fixture(name: str) -> dict[str, Any]:
     with open(FIXTURE_DIR / name) as fh:
-        return json.load(fh)
+        payload: dict[str, Any] = json.load(fh)
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +214,7 @@ class TestPrediction:
 
     def test_miss_geometry_drops_confidence(self) -> None:
         detector = CMEArrivalDetector()
-        base = {
+        base: dict[str, Any] = {
             "speed_km_s": 1000.0,
             "half_angle_deg": 30.0,
             "time_21_5": datetime(2024, 5, 8, 12, 0, tzinfo=UTC),

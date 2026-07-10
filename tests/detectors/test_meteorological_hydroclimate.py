@@ -18,11 +18,18 @@ import itertools
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.meteorological.atmospheric_river_detector import (
+from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    HurricanePredictionResult,
+)
+
+# The dev venv's editable install may point at a sibling worktree that
+# predates these hydro-climate modules; ``unused-ignore`` keeps a
+# correctly installed tree (CI) clean.
+from omni_mercury_engine.detectors.meteorological.atmospheric_river_detector import (  # type: ignore[import-not-found,unused-ignore]
     AtmosphericRiverDetector,
     compute_ivt,
 )
-from omni_mercury_engine.detectors.meteorological.drought_detector import (
+from omni_mercury_engine.detectors.meteorological.drought_detector import (  # type: ignore[import-not-found,unused-ignore]
     DroughtCategory,
     DroughtDetector,
     classify_usdm,
@@ -30,14 +37,14 @@ from omni_mercury_engine.detectors.meteorological.drought_detector import (
     fit_gamma_thom,
     thornthwaite_pet,
 )
-from omni_mercury_engine.detectors.meteorological.heatwave_detector import (
+from omni_mercury_engine.detectors.meteorological.heatwave_detector import (  # type: ignore[import-not-found,unused-ignore]
     HeatwaveDetector,
     heat_index_f,
 )
-from omni_mercury_engine.detectors.meteorological.lightning_detector import (
+from omni_mercury_engine.detectors.meteorological.lightning_detector import (  # type: ignore[import-not-found,unused-ignore]
     LightningDetector,
 )
-from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (
+from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (  # type: ignore[import-not-found,unused-ignore]
     CascadeStage,
     SurgeFloodCascade,
 )
@@ -244,6 +251,53 @@ class TestHeatwaveDetector:
         with pytest.raises(ValueError, match="year"):
             detector.fit_baseline(dates, np.full(200, 20.0))
 
+    def test_ehf_matches_nairn_fawcett_hand_calculation(self) -> None:
+        """EHF worked example straight from the Nairn & Fawcett (2015) form.
+
+        30 acclimatisation days of DMT 20degC then a 3-day 30degC period,
+        with T95 = 22degC:
+
+            EHI_sig  = mean(30,30,30) - 22           =  8.0
+            EHI_accl = 30 - mean(30 days of 20)      = 10.0
+            EHF      = 8.0 * max(1, 10.0)            = 80.0
+
+        (Previously the EHF core had no direct test coverage at all.)
+        """
+        detector = HeatwaveDetector()
+        dates = np.array(
+            [dt.date(2021, 6, 1) + dt.timedelta(days=i) for i in range(33)], dtype=object
+        )
+        dmt = np.full(33, 20.0)
+        dmt[30:33] = 30.0
+        ehf = detector._compute_ehf(dates, dmt, t95=22.0)
+        assert ehf[30] == pytest.approx(80.0)
+        # Only index 30 has both a 30-day history and a full 3-day window.
+        assert np.isnan(ehf[:30]).all() and np.isnan(ehf[31:]).all()
+
+    def test_ehf_acclimatisation_floor_is_one(self) -> None:
+        """The max(1, EHI_accl) floor: a pre-acclimatised population never
+        DEFLATES the significance term (Nairn & Fawcett 2015, eq. 3)."""
+        detector = HeatwaveDetector()
+        dates = np.array(
+            [dt.date(2021, 6, 1) + dt.timedelta(days=i) for i in range(33)], dtype=object
+        )
+        dmt = np.full(33, 29.5)  # already-hot month: EHI_accl = 0.5 < 1
+        dmt[30:33] = 30.0
+        ehf = detector._compute_ehf(dates, dmt, t95=22.0)
+        # EHI_sig = 8.0; accl term floors at 1 -> EHF = 8.0, not 4.0.
+        assert ehf[30] == pytest.approx(8.0)
+
+    def test_ehf_negative_when_below_t95(self) -> None:
+        """A 3-day period below T95 must yield a negative EHF (no heatwave)."""
+        detector = HeatwaveDetector()
+        dates = np.array(
+            [dt.date(2021, 6, 1) + dt.timedelta(days=i) for i in range(33)], dtype=object
+        )
+        dmt = np.full(33, 20.0)
+        dmt[30:33] = 21.0  # above history (accl 1.0) but below T95 22.0
+        ehf = detector._compute_ehf(dates, dmt, t95=22.0)
+        assert ehf[30] == pytest.approx(-1.0)
+
 
 # =============================================================================
 # Atmospheric river
@@ -310,7 +364,7 @@ class TestRalphScale:
 
 
 class TestLightningJump:
-    def _flash_series(self, rates_per_2min: list[int]) -> np.ndarray:  # type: ignore[type-arg]
+    def _flash_series(self, rates_per_2min: list[int]) -> np.ndarray:
         """Constructed flash times realizing the given per-bin counts."""
         times: list[float] = []
         for i, count in enumerate(rates_per_2min):
@@ -370,11 +424,7 @@ def _coops_payload(values: list[float], key: str) -> dict[str, object]:
     return {key: rows}
 
 
-def _hurricane_result(category: str = "category_2") -> object:
-    from omni_mercury_engine.detectors.geological.hurricane_detector import (
-        HurricanePredictionResult,
-    )
-
+def _hurricane_result(category: str = "category_2") -> HurricanePredictionResult:
     return HurricanePredictionResult(
         cyclone_detected=True,
         confidence=0.9,
@@ -441,6 +491,34 @@ class TestSurgeFloodCascade:
         cascade.update_hurricane_evidence(_hurricane_result())
         cascade.reset()
         assert cascade.evaluate().stage is CascadeStage.QUIET
+
+    def test_surge_residual_on_recorded_real_coops_series(self) -> None:
+        """The residual computes on REAL recorded CO-OPS payloads.
+
+        Fixtures: station 8518750 (The Battery, NY) water_level +
+        predictions products for the same 24 h window, recorded 2026-07-09
+        from the live datagetter API. Regression: every surge test
+        previously ran on synthetic hand-built payloads only, so a change
+        in the real payload contract would never have surfaced here.
+        """
+        import json as _json
+        from pathlib import Path as _Path
+
+        fixtures = _Path(__file__).parents[1] / "fixtures" / "coops"
+        observed = _json.loads((fixtures / "observed_8518750.json").read_text())
+        predicted = _json.loads((fixtures / "predicted_8518750.json").read_text())
+
+        cascade = SurgeFloodCascade()
+        series = cascade.compute_surge_residual(observed, predicted)
+        # 6-minute cadence over a shared 24 h window: substantial overlap.
+        assert len(series.timestamps) > 200
+        assert np.all(np.isfinite(series.residual_m))
+        np.testing.assert_allclose(series.residual_m, series.observed_m - series.predicted_m)
+        assert series.max_residual_m == pytest.approx(float(np.max(series.residual_m)))
+        # A calm day at The Battery: the anomaly stays well under storm-surge
+        # magnitudes, but is a genuinely non-constant real series.
+        assert float(np.abs(series.residual_m).max()) < 2.0
+        assert float(np.std(series.observed_m)) > 0.0
 
     def test_bad_threshold_rejected(self) -> None:
         with pytest.raises(ValueError, match="surge_threshold_m"):

@@ -19,13 +19,22 @@ the network (the live paths are covered by
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from omni_mercury_engine.loaders.hail_loader import HailLoader
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``hail_loader``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.loaders.hail_loader import (  # type: ignore[import-not-found,unused-ignore]
+    HailLoader,
+)
 from omni_mercury_engine.loaders.label_provenance import (
     LABEL_PROVENANCE_REGISTRY,
     audit_label_provenance,
@@ -45,14 +54,14 @@ _EVENT_EXPECTATIONS = [
 ]
 
 
-def _archive_subset_df(*_args, **_kwargs) -> pd.DataFrame:
+def _archive_subset_df(*_args: Any, **_kwargs: Any) -> pd.DataFrame:
     """Serve the recorded archive subset in place of the zipped download."""
     df = pd.read_csv(_ARCHIVE_SUBSET, low_memory=False)
     return df
 
 
 @pytest.fixture
-def loader(tmp_path: Path) -> HailLoader:
+def loader(tmp_path: Path) -> Iterator[HailLoader]:
     """HailLoader with an isolated cache dir and archive HTTP patched out."""
     ld = HailLoader(cache_dir=tmp_path)
     patcher = patch.object(HailLoader, "_fetch_csv", side_effect=_archive_subset_df)
@@ -188,9 +197,11 @@ class TestRealtimeParser:
             b"Time,F_Scale,Location,County,State,Lat,Lon,Comments\n"
             b"1200,UNK,X,Y,KS,38.0,-98.0,c\n"
         )
-        with patch.object(HailLoader, "_fetch_url", return_value=tornado_only):
-            with pytest.raises(ValueError, match="no hail section"):
-                ld.fetch_realtime()
+        with (
+            patch.object(HailLoader, "_fetch_url", return_value=tornado_only),
+            pytest.raises(ValueError, match="no hail section"),
+        ):
+            ld.fetch_realtime()
 
 
 class TestProvenanceMetadata:

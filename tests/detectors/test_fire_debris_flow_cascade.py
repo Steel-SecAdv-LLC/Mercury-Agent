@@ -22,11 +22,15 @@ from __future__ import annotations
 
 import itertools
 import math
+from typing import TypedDict
 
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.fire_debris_flow_cascade import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``fire_debris_flow_cascade``; ``unused-ignore`` keeps a
+# correctly installed tree (CI) clean.
+from omni_mercury_engine.detectors.geological.fire_debris_flow_cascade import (  # type: ignore[import-not-found,unused-ignore]
     CANNON_ID_THRESHOLDS,
     GARTNER_2014,
     M1_COEFFICIENTS,
@@ -37,8 +41,18 @@ from omni_mercury_engine.detectors.geological.fire_debris_flow_cascade import (
     staley_m1_threshold_intensity,
 )
 
+
 # Documented severely-burned steep SoCal basin profile used across tests.
-SEVERE_BASIN = {"t_proportion": 0.6, "dnbr_mean": 350.0, "kf_factor": 0.25}
+# TypedDict so ``**SEVERE_BASIN`` unpacks type-safely into the M1 helpers'
+# float-typed basin parameters (a plain dict[str, float] could also bind
+# ``duration_min: int``, which mypy rejects).
+class _BasinProfile(TypedDict):
+    t_proportion: float
+    dnbr_mean: float
+    kf_factor: float
+
+
+SEVERE_BASIN: _BasinProfile = {"t_proportion": 0.6, "dnbr_mean": 350.0, "kf_factor": 0.25}
 
 
 class TestPublishedCoefficients:

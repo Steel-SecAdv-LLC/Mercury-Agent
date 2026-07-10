@@ -346,7 +346,9 @@ class TestDetectionRoutes:
         """A detection the hard ethical gate refuses is a 403 fail-closed, never a silent allow."""
         pytest.importorskip("torch")
         from omni_mercury_engine.api.routes import detection as det
-        from omni_mercury_engine.engine import EthicalConstraintViolationError
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
 
         def _blocked(
             matrix: Any,

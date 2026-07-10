@@ -23,12 +23,16 @@ from __future__ import annotations
 import csv
 import datetime as dt
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.detectors.meteorological.derecho_detector import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``derecho_detector``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.detectors.meteorological.derecho_detector import (  # type: ignore[import-not-found,unused-ignore]
     DerechoDetector,
     WindReport,
 )
@@ -46,7 +50,7 @@ _WINDOW_START = dt.datetime(2012, 6, 29, 16, 0, tzinfo=dt.UTC)
 _WINDOW_END = dt.datetime(2012, 6, 30, 7, 0, tzinfo=dt.UTC)
 
 
-def _load_june2012_wind_reports() -> list[dict]:
+def _load_june2012_wind_reports() -> list[dict[str, Any]]:
     """Parse the recorded SPC daily-report CSV into the derecho wind chain.
 
     The SPC file concatenates tornado / wind / hail sections, each headed
@@ -57,7 +61,7 @@ def _load_june2012_wind_reports() -> list[dict]:
     text = (FIXTURE_DIR / "spc_storm_reports_20120629.csv").read_text()
     base = dt.datetime(2012, 6, 29, tzinfo=dt.UTC)
     section = None
-    reports: list[dict] = []
+    reports: list[dict[str, Any]] = []
     for line in text.strip().split("\n"):
         if line.startswith("Time,"):
             section = "wind" if ",Speed," in line else "other"
@@ -84,7 +88,7 @@ def detector() -> DerechoDetector:
 
 
 @pytest.fixture(scope="module")
-def june2012_reports() -> list[dict]:
+def june2012_reports() -> list[dict[str, Any]]:
     """The real June 29, 2012 derecho wind-report chain."""
     reports = _load_june2012_wind_reports()
     assert len(reports) > 500, "fixture parse should yield the full corridor chain"
@@ -95,7 +99,7 @@ class TestJune2012Derecho:
     """The canonical progressive derecho must satisfy every criterion."""
 
     def test_classified_as_progressive_derecho(
-        self, detector: DerechoDetector, june2012_reports: list[dict]
+        self, detector: DerechoDetector, june2012_reports: list[dict[str, Any]]
     ) -> None:
         result = detector.evaluate(june2012_reports)
         assert result.is_derecho
@@ -103,7 +107,7 @@ class TestJune2012Derecho:
         assert all(result.criteria.values()), result.criteria
 
     def test_swath_dimensions_match_published_scale(
-        self, detector: DerechoDetector, june2012_reports: list[dict]
+        self, detector: DerechoDetector, june2012_reports: list[dict[str, Any]]
     ) -> None:
         """Published: ~700 mi (1130 km) swath crossed in ~12 h."""
         result = detector.evaluate(june2012_reports)
@@ -114,7 +118,7 @@ class TestJune2012Derecho:
         assert 60.0 <= result.geometry.axis_bearing_deg <= 140.0
 
     def test_intensity_anchors_from_measured_gusts(
-        self, detector: DerechoDetector, june2012_reports: list[dict]
+        self, detector: DerechoDetector, june2012_reports: list[dict[str, Any]]
     ) -> None:
         """The chain carries dozens of measured gusts >= 33 m/s (74 mph),
         including the published 91 mph Fort Wayne IN gust, mutually
@@ -127,7 +131,7 @@ class TestJune2012Derecho:
         assert max(gusts) <= 45.0  # sanity: strongest report that day was 93 mph
 
     def test_continuity_and_progression(
-        self, detector: DerechoDetector, june2012_reports: list[dict]
+        self, detector: DerechoDetector, june2012_reports: list[dict[str, Any]]
     ) -> None:
         result = detector.evaluate(june2012_reports)
         assert result.max_report_gap_h <= 3.0
@@ -142,7 +146,7 @@ class TestJune2012Derecho:
         text = (FIXTURE_DIR / "spc_storm_reports_20120629.csv").read_text()
         base = dt.datetime(2012, 6, 29, tzinfo=dt.UTC)
         section = None
-        segment: list[dict] = []
+        segment: list[dict[str, Any]] = []
         for line in text.strip().split("\n"):
             if line.startswith("Time,"):
                 section = "wind" if ",Speed," in line else "other"
@@ -221,7 +225,7 @@ class TestCriteriaBranches:
         gust_ms: float = 35.0,
         total_hours: float = 10.0,
         cross_offsets_deg: tuple[float, ...] = (0.0, 0.6, -0.6, 0.9, -0.9),
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Eastward-progressing report chain (constructed unit input)."""
         reports = []
         for i in range(n):
@@ -337,14 +341,16 @@ class TestBowEchoPrecursor:
         with pytest.raises(ValueError):
             detector.bow_echo_precursor(float("nan"), 0.0, 10.0, 0.0)
         with pytest.raises(ValueError):
-            detector.bow_echo_precursor(None, 0.0, 10.0, 0.0)  # type: ignore[arg-type]
+            # None deliberately violates the float annotation (fail-loud check).
+            missing_u: Any = None
+            detector.bow_echo_precursor(missing_u, 0.0, 10.0, 0.0)
 
 
 class TestExtractFeatures:
     """Fusion feature interface."""
 
     def test_report_series_path(
-        self, detector: DerechoDetector, june2012_reports: list[dict]
+        self, detector: DerechoDetector, june2012_reports: list[dict[str, Any]]
     ) -> None:
         features = detector.extract_features(june2012_reports)
         assert isinstance(features, torch.Tensor)

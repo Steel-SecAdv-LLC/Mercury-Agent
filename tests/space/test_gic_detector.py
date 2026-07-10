@@ -19,7 +19,11 @@ import numpy as np
 import pytest
 
 from omni_mercury_engine.data_sources.base import DataPoint, DataSourceType
-from omni_mercury_engine.space.gic_detector import (
+
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``gic_detector``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.space.gic_detector import (  # type: ignore[import-not-found,unused-ignore]
     MU0,
     GICDetector,
     classify_dbdt_risk,

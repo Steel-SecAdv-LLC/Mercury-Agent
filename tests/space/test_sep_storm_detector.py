@@ -12,11 +12,16 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from omni_mercury_engine.data_sources.space_weather import SWPCProduct
-from omni_mercury_engine.space.sep_storm_detector import (
+
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``sep_storm_detector``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.space.sep_storm_detector import (  # type: ignore[import-not-found,unused-ignore]
     SEPStormDetector,
     assess_flare_connectivity,
     classify_s_scale,
@@ -206,16 +211,17 @@ class TestConnectivity:
 
 class TestSWPCIngestion:
     @pytest.fixture(scope="class")
-    def fixture_payload(self) -> dict:
+    def fixture_payload(self) -> dict[str, Any]:
         with open(FIXTURE_DIR / "swpc_integral_protons_recent.json") as fh:
-            return json.load(fh)
+            payload: dict[str, Any] = json.load(fh)
+        return payload
 
-    def test_fixture_provenance(self, fixture_payload: dict) -> None:
+    def test_fixture_provenance(self, fixture_payload: dict[str, Any]) -> None:
         prov = fixture_payload["_provenance"]
         assert "integral-protons-7-day.json" in prov["source_url"]
         assert "SUBSET" in prov["note"]
 
-    def test_assess_real_quiet_fixture(self, fixture_payload: dict) -> None:
+    def test_assess_real_quiet_fixture(self, fixture_payload: dict[str, Any]) -> None:
         """Recorded quiet-sun fixture: sub-pfu flux, no onset, S0."""
         detector = SEPStormDetector()
         result = detector.assess_from_swpc(fixture_payload["data"])
@@ -240,15 +246,20 @@ class TestSWPCIngestion:
 
     def test_swpc_product_enum_and_routing(self) -> None:
         """The verified real product path is wired into SWPCProduct."""
-        assert SWPCProduct.INTEGRAL_PROTONS.value == "primary/integral-protons-7-day.json"
+        # The sibling-worktree editable install predates ``INTEGRAL_PROTONS``;
+        # ``unused-ignore`` keeps a correctly installed tree (CI) clean.
+        product = SWPCProduct.INTEGRAL_PROTONS  # type: ignore[attr-defined,unused-ignore]
+        assert product.value == "primary/integral-protons-7-day.json"
 
-    def test_swpc_source_parses_fixture_rows(self, fixture_payload: dict) -> None:
+    def test_swpc_source_parses_fixture_rows(self, fixture_payload: dict[str, Any]) -> None:
         """NOAASWPCSource parses the recorded product into DataPoints."""
         from omni_mercury_engine.data_sources.base import DataSourceType
         from omni_mercury_engine.data_sources.space_weather import NOAASWPCSource
 
-        source = NOAASWPCSource(products=[SWPCProduct.INTEGRAL_PROTONS])
-        points = source._parse_product_data(SWPCProduct.INTEGRAL_PROTONS, fixture_payload["data"])
+        # Same sibling-worktree caveat as above for ``INTEGRAL_PROTONS``.
+        product = SWPCProduct.INTEGRAL_PROTONS  # type: ignore[attr-defined,unused-ignore]
+        source = NOAASWPCSource(products=[product])
+        points = source._parse_product_data(product, fixture_payload["data"])
         assert len(points) == len(fixture_payload["data"])
         assert all(p.source_type is DataSourceType.SOLAR_ENERGETIC_PARTICLE for p in points)
         energies = {p.data["energy"] for p in points}

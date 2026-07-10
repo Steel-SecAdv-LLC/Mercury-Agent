@@ -17,13 +17,19 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.detectors.meteorological.hail_detector import HailDetector
-from omni_mercury_engine.detectors.meteorological.severe_storm_alerts import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates these severe-storm modules; ``unused-ignore`` keeps a
+# correctly installed tree (CI) clean.
+from omni_mercury_engine.detectors.meteorological.hail_detector import (  # type: ignore[import-not-found,unused-ignore]
+    HailDetector,
+)
+from omni_mercury_engine.detectors.meteorological.severe_storm_alerts import (  # type: ignore[import-not-found,unused-ignore]
     filter_alerts_by_event,
     normalize_alert_records,
     parse_max_hail_size_in,
@@ -52,10 +58,11 @@ def detector() -> HailDetector:
 
 
 @pytest.fixture(scope="module")
-def svr_alerts() -> dict:
+def svr_alerts() -> dict[str, Any]:
     """Recorded real Severe Thunderstorm Warning FeatureCollection."""
     with open(FIXTURE_DIR / "nws_severe_thunderstorm_warnings.json") as f:
-        return json.load(f)
+        alerts: dict[str, Any] = json.load(f)
+    return alerts
 
 
 class TestShipFormulation:
@@ -189,7 +196,9 @@ class TestAssess:
         with pytest.raises(ValueError, match="freezing_level_m"):
             detector.assess(data)
 
-    def test_assess_with_recorded_alerts(self, detector: HailDetector, svr_alerts: dict) -> None:
+    def test_assess_with_recorded_alerts(
+        self, detector: HailDetector, svr_alerts: dict[str, Any]
+    ) -> None:
         result = detector.assess({**STRONG_ENV, "nws_alerts": svr_alerts})
         assert result.nws_cross_check is not None
         assert result.nws_cross_check["n_warnings"] == 25
@@ -198,7 +207,9 @@ class TestAssess:
 class TestNWSCrossCheck:
     """Wiring against the recorded real Severe Thunderstorm Warning feed."""
 
-    def test_counts_and_max_hail_size(self, detector: HailDetector, svr_alerts: dict) -> None:
+    def test_counts_and_max_hail_size(
+        self, detector: HailDetector, svr_alerts: dict[str, Any]
+    ) -> None:
         """The recorded feed has 25 warnings, largest tagged hail 1.00 in."""
         result = detector.cross_check_nws_alerts(svr_alerts)
         assert result["n_warnings"] == 25
@@ -208,7 +219,7 @@ class TestNWSCrossCheck:
         assert "RADAR INDICATED" in result["hail_threat_tags"]
 
     def test_accepts_feature_list_and_property_dicts(
-        self, detector: HailDetector, svr_alerts: dict
+        self, detector: HailDetector, svr_alerts: dict[str, Any]
     ) -> None:
         """FeatureCollection, feature list, and flat property dicts agree."""
         from_collection = detector.cross_check_nws_alerts(svr_alerts)
@@ -222,7 +233,7 @@ class TestNWSCrossCheck:
         """NWSWeatherAlertsSource DataPoints expose a .data property dict."""
 
         class _FakeDataPoint:
-            def __init__(self, data: dict) -> None:
+            def __init__(self, data: dict[str, Any]) -> None:
                 self.data = data
 
         points = [
@@ -265,13 +276,13 @@ class TestAlertParsers:
         }
         assert parse_max_hail_size_in(record) == pytest.approx(1.75)
 
-    def test_parse_wind_gust_from_recorded_feed(self, svr_alerts: dict) -> None:
+    def test_parse_wind_gust_from_recorded_feed(self, svr_alerts: dict[str, Any]) -> None:
         records = normalize_alert_records(svr_alerts)
         gusts = [g for g in (parse_max_wind_gust_mph(r) for r in records) if g is not None]
         assert gusts, "recorded feed should carry maxWindGust tags"
         assert all(20.0 <= g <= 120.0 for g in gusts)
 
-    def test_threat_tag_and_filter(self, svr_alerts: dict) -> None:
+    def test_threat_tag_and_filter(self, svr_alerts: dict[str, Any]) -> None:
         records = normalize_alert_records(svr_alerts)
         warnings = filter_alerts_by_event(records, ["Severe Thunderstorm Warning"])
         assert len(warnings) == 25

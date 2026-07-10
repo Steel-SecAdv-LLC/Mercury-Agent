@@ -19,8 +19,12 @@ import pandas as pd
 import pytest
 
 from omni_mercury_engine.loaders import label_provenance
-from omni_mercury_engine.loaders.drought_loader import DroughtLoader
-from omni_mercury_engine.loaders.heatwave_loader import HeatwaveLoader
+from omni_mercury_engine.loaders.drought_loader import (  # type: ignore[import-not-found,unused-ignore]
+    DroughtLoader,
+)
+from omni_mercury_engine.loaders.heatwave_loader import (  # type: ignore[import-not-found,unused-ignore]
+    HeatwaveLoader,
+)
 
 RNG = np.random.default_rng(7)
 
@@ -69,7 +73,13 @@ class TestDroughtLoader:
 
     def test_fetch_and_labels_align(self, tmp_path: Path) -> None:
         loader = DroughtLoader(cache_dir=tmp_path)
-        loader._fetch_csv = lambda url, dtype=None: _gsom_csv()  # type: ignore[method-assign]
+
+        def fake_fetch_csv(
+            url: str, params: dict[str, str] | None = None, **kwargs: Any
+        ) -> pd.DataFrame:
+            return _gsom_csv()
+
+        loader._fetch_csv = fake_fetch_csv  # type: ignore[method-assign, unused-ignore]
         event_id = "texas_2011"
         df = loader.fetch_historical(event_id)
         assert not df.empty
@@ -96,7 +106,9 @@ class TestHeatwaveLoader:
     def test_fetch_and_labels_align(self, tmp_path: Path) -> None:
         loader = HeatwaveLoader(cache_dir=tmp_path)
 
-        def fake_fetch_csv(url: str, dtype: Any = None) -> pd.DataFrame:
+        def fake_fetch_csv(
+            url: str, params: dict[str, str] | None = None, **kwargs: Any
+        ) -> pd.DataFrame:
             year = int(Path(url).stem.split("-")[-1]) if "-" in Path(url).stem else 2011
             # GSOD archive URLs end in <year>/<station>.csv — recover the year.
             for token in url.split("/"):
@@ -104,7 +116,7 @@ class TestHeatwaveLoader:
                     year = int(token)
             return _gsod_csv(year)
 
-        loader._fetch_csv = fake_fetch_csv  # type: ignore[method-assign]
+        loader._fetch_csv = fake_fetch_csv  # type: ignore[method-assign, unused-ignore]
         event_id = "texas_2011"
         df = loader.fetch_historical(event_id)
         assert not df.empty
@@ -116,7 +128,13 @@ class TestHeatwaveLoader:
 
     def test_empty_station_payload_fails_loud(self, tmp_path: Path) -> None:
         loader = HeatwaveLoader(cache_dir=tmp_path)
-        loader._fetch_csv = lambda url, dtype=None: pd.DataFrame()  # type: ignore[method-assign]
+
+        def fake_fetch_csv(
+            url: str, params: dict[str, str] | None = None, **kwargs: Any
+        ) -> pd.DataFrame:
+            return pd.DataFrame()
+
+        loader._fetch_csv = fake_fetch_csv  # type: ignore[method-assign, unused-ignore]
         with pytest.raises((ValueError, KeyError)):
             loader.fetch_historical("texas_2011")
 

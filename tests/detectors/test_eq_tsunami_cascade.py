@@ -24,11 +24,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.eq_tsunami_cascade import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``eq_tsunami_cascade``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.detectors.geological.eq_tsunami_cascade import (  # type: ignore[import-not-found,unused-ignore]
     DART_DETECTION_THRESHOLD_M,
     EXPANDING_WARNING_MIN_MAGNITUDE,
     INFO_BULLETIN_MIN_MAGNITUDE,
@@ -42,14 +46,16 @@ from omni_mercury_engine.detectors.geological.eq_tsunami_cascade import (
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "geological"
 
 
-def _tohoku_feature() -> dict:
+def _tohoku_feature() -> dict[str, Any]:
     data = json.loads((FIXTURES / "usgs_tohoku_2011_event.json").read_text())
     assert data["metadata"]["count"] == 1
-    return data["features"][0]
+    feature: dict[str, Any] = data["features"][0]
+    return feature
 
 
-def _catalog_2011() -> dict:
-    return json.loads((FIXTURES / "usgs_m7plus_2011_catalog.json").read_text())
+def _catalog_2011() -> dict[str, Any]:
+    catalog: dict[str, Any] = json.loads((FIXTURES / "usgs_m7plus_2011_catalog.json").read_text())
+    return catalog
 
 
 def _tide_series(
@@ -63,7 +69,7 @@ def _tide_series(
         onset = int(n * 0.85)
         wave_t = t[onset:] - t[onset]
         series[onset:] += tsunami_amplitude_m * np.sin(2.0 * np.pi * wave_t / (20.0 * 60.0))
-    return series
+    return np.asarray(series)
 
 
 class TestPublishedCriteria:

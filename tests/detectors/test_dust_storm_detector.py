@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Dust-storm detector: WMO visibility classes, Shao-Lu / Fecan friction
-velocity, haboob gust-front signature, and NWS dust-alert wiring.
+"""Dust-storm detector: WMO visibility classes, Shao-Lu / Fecan friction velocity, haboob gust-front signature, and NWS dust-alert wiring.
 
 Formulation anchors:
 * WMO SDS visibility classes (< 200 m severe dust storm, < 1000 m dust
@@ -24,12 +23,16 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.detectors.meteorological.dust_storm_detector import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``dust_storm_detector``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.detectors.meteorological.dust_storm_detector import (  # type: ignore[import-not-found,unused-ignore]
     DustEventClass,
     DustStormDetector,
 )
@@ -44,10 +47,11 @@ def detector() -> DustStormDetector:
 
 
 @pytest.fixture(scope="module")
-def dust_alerts() -> dict:
+def dust_alerts() -> dict[str, Any]:
     """Recorded real Dust Storm Warning FeatureCollection."""
     with open(FIXTURE_DIR / "nws_dust_storm_warnings.json") as f:
-        return json.load(f)
+        payload: dict[str, Any] = json.load(f)
+    return payload
 
 
 class TestVisibilityClassification:
@@ -233,7 +237,7 @@ class TestHaboobSignature:
     """Gust-front (density current) signature in obs time series."""
 
     @staticmethod
-    def _gust_front_series() -> dict:
+    def _gust_front_series() -> dict[str, Any]:
         """Constructed unit input: a textbook outflow passage at t=30 min
         (pre-frontal desert afternoon, then pressure jump, temperature
         crash, wind veer + surge; magnitudes within the Idso et al. 1972
@@ -313,7 +317,7 @@ class TestHaboobSignature:
 class TestNWSDustWiring:
     """Wiring against the recorded real Dust Storm Warning feed."""
 
-    def test_recorded_feed(self, detector: DustStormDetector, dust_alerts: dict) -> None:
+    def test_recorded_feed(self, detector: DustStormDetector, dust_alerts: dict[str, Any]) -> None:
         result = detector.cross_check_nws_alerts(dust_alerts)
         assert result["n_dust_alerts"] == 5
         assert result["dust_storm_warned"] is True
