@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -46,7 +46,26 @@ from omni_mercury_engine.core.three_r_mechanism import (
     RefactoringEngine,
     ResonanceEngine,
 )
+from omni_mercury_engine.data_sources.base import DataSourceType
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveFetch,
+    fetch_live_datapoints,
+    require_live_client,
+)
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.data_sources.earth_science import NWSWeatherAlertsSource
+
+#: NWS CAP certainty -> confidence that the hazard is real, per the CAP 1.2
+#: certainty vocabulary (Observed > Likely > Possible > Unlikely > Unknown).
+_NWS_CERTAINTY_CONFIDENCE = {
+    "observed": 0.95,
+    "likely": 0.75,
+    "possible": 0.45,
+    "unlikely": 0.1,
+    "unknown": 0.3,
+}
 
 
 class TornadoIntensity(Enum):
@@ -98,6 +117,10 @@ class TornadoPredictionResult:
 
     warning_actions: list[str] = field(default_factory=list)
     shelter_recommendations: list[str] = field(default_factory=list)
+
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
 
 
 class DopplerRadarAnalyzer(nn.Module):
@@ -433,8 +456,17 @@ class TornadoDetector:
         enable_recursion: bool = True,
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
+        data_source: NWSWeatherAlertsSource | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional NWS weather-alerts client via ``data_source`` (dependency
+        injection; default None = fully offline). :meth:`fetch_live_data`
+        exposes a provenance-checked fetch and :meth:`detect_live` assesses
+        the real active tornado warning/watch state -- official NWS alert
+        metadata is never turned into synthetic radar or CAPE values.
+        """
         self.enable_radar = enable_radar
         self.enable_atmospheric = enable_atmospheric
         self.enable_pressure = enable_pressure
@@ -449,9 +481,22 @@ class TornadoDetector:
         self.resonance_analyzer = ResonancePatternAnalyzer() if enable_resonance else None
         self.recursive_extractor = RecursiveFeatureExtractor() if enable_recursion else None
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # DopplerRadarAnalyzer LSTM ships with random weights and no labelled
+        # mesocyclone corpus exists to train it. Until real weights are loaded
+        # via load_neural_weights(), its probability/rotation outputs are noise,
+        # so _analyze_radar derives both from the OBSERVED Doppler velocity
+        # field instead: the rotational (couplet) velocity is
+        # (Vmax - Vmin) / 2 -- the standard mesocyclone strength measure -- and
+        # detection follows the operational threshold (~15 m/s).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.recursion_engine = RecursionEngine(max_depth=5)
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
         self.refactoring_engine = RefactoringEngine()
+
+        self._alerts_source = data_source
 
         self.logger = logging.getLogger(__name__)
 
@@ -591,8 +636,48 @@ class TornadoDetector:
 
         return result
 
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the Doppler radar analyzer.
+
+        Until this is called the network is untrained and mesocyclone detection
+        runs on the deterministic velocity-couplet physics.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``radar_analyzer`` state dict.
+        """
+        if self.radar_analyzer is None:
+            raise RuntimeError("radar analysis is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
+        self._neural_trained = True
+        self.logger.info(
+            "Tornado radar neural weights loaded from %s; using learned analyzer", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "TornadoDetector's DopplerRadarAnalyzer is untrained (no checkpoint "
+                "loaded); detecting mesocyclones from the Doppler velocity-couplet "
+                "physics instead of the NN. Call load_neural_weights() once a "
+                "trained checkpoint exists."
+            )
+            self._warned_untrained = True
+
     def _analyze_radar(self, radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze Doppler radar data for mesocyclone signatures."""
+        """Analyze Doppler radar data for mesocyclone signatures.
+
+        Uses the trained LSTM only when real weights have been loaded
+        (:meth:`load_neural_weights`); otherwise falls back to the deterministic
+        velocity-couplet physics so an untrained network can never fabricate (or
+        mask) a mesocyclone.
+        """
+        if not self._neural_trained:
+            self._warn_untrained_once()
+            return self._analyze_radar_physics(radar_sequence)
+
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
             seq_tensor = seq_tensor.unsqueeze(0)
@@ -609,6 +694,151 @@ class TornadoDetector:
             "confidence": float(meso_prob[0].item()),
             "rotation_velocity": float(rotation_vel[0].item()) * 50,
         }
+
+    @staticmethod
+    def _analyze_radar_physics(radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Deterministic mesocyclone detection from the Doppler velocity couplet.
+
+        A mesocyclone appears in Doppler velocity data as a couplet of inbound /
+        outbound velocities; its strength is the rotational velocity
+        ``V_rot = (V_max - V_min) / 2``. Operational (WSR-88D-style) practice
+        flags a mesocyclone at roughly ``V_rot >= 15 m/s``. The rotational
+        velocity is taken per time step and the median over the sequence is used
+        so a single noisy frame can neither trigger nor mask a detection.
+        Deterministic: identical input → identical output.
+        """
+        arr = np.asarray(radar_sequence, dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        finite = np.where(np.isfinite(arr), arr, 0.0)
+        # V_rot per frame over the leading (time) axis, then the median.
+        per_frame = [(np.max(frame) - np.min(frame)) / 2.0 for frame in finite]
+        v_rot = float(np.median(per_frame)) if per_frame else 0.0
+        # 15 m/s = operational mesocyclone threshold; 30 m/s saturates (strong).
+        confidence = float(np.clip((v_rot - 5.0) / 25.0, 0.0, 1.0))
+        return {
+            "mesocyclone_detected": v_rot >= 15.0,
+            "confidence": confidence,
+            "rotation_velocity": v_rot,
+            "method": "physics_velocity_couplet",
+        }
+
+    def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+        """Fetch live NWS weather alerts through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources (NWS alerts
+                are a real feed, so this normally stays False).
+            **kwargs: Passed to the client fetch.
+
+        Returns:
+            Provenance-checked LiveFetch of WEATHER_ALERT data points.
+
+        Raises:
+            LiveDataError: No alerts client injected, or the fetch failed.
+        """
+        client = require_live_client(self._alerts_source, "TornadoDetector", "NWS weather-alerts")
+        return fetch_live_datapoints(
+            client,
+            allow_simulated=allow_simulated,
+            source_types=[DataSourceType.WEATHER_ALERT],
+            **kwargs,
+        )
+
+    def detect_live(
+        self, *, allow_simulated: bool = False, **fetch_kwargs: Any
+    ) -> TornadoPredictionResult:
+        """Assess the live tornado threat from active official NWS alerts.
+
+        This is an ALERT-STATE assessment: it reports what the National
+        Weather Service has actually issued (tornado warnings/watches and
+        severe-thunderstorm warnings), with confidence taken from the CAP
+        certainty field of the most severe tornado product. Radar, CAPE,
+        helicity and pressure fields stay at their absent defaults -- alert
+        text is never converted into synthetic measurements.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources.
+            **fetch_kwargs: Extra client fetch parameters.
+
+        Returns:
+            TornadoPredictionResult with ``source_id`` / ``data_provenance`` /
+            ``live_context`` populated from the real alert state.
+
+        Raises:
+            LiveDataError: No alerts client injected, or the fetch failed.
+        """
+        fetch = self.fetch_live_data(allow_simulated=allow_simulated, **fetch_kwargs)
+
+        warnings: list[Any] = []
+        watches: list[Any] = []
+        severe_tstorm: list[Any] = []
+        for dp in fetch.data_points:
+            event = str(dp.data.get("event", "")).lower()
+            if event == "tornado warning":
+                warnings.append(dp)
+            elif event == "tornado watch":
+                watches.append(dp)
+            elif event == "severe thunderstorm warning":
+                severe_tstorm.append(dp)
+
+        live_context: dict[str, Any] = {
+            "tornado_warnings": len(warnings),
+            "tornado_watches": len(watches),
+            "severe_thunderstorm_warnings": len(severe_tstorm),
+            "total_alerts": len(fetch.data_points),
+            "warned_areas": [str(dp.data.get("area_desc", ""))[:120] for dp in warnings[:10]],
+        }
+
+        # Alert-state mapping: an active Tornado Warning is an NWS statement
+        # that a tornado is occurring or imminent; a Watch means conditions
+        # are favorable. Threat vocabulary matches _determine_threat_level.
+        if warnings:
+            strongest = max(
+                warnings,
+                key=lambda dp: _NWS_CERTAINTY_CONFIDENCE.get(
+                    str(dp.data.get("certainty", "unknown")).lower(), 0.3
+                ),
+            )
+            certainty = str(strongest.data.get("certainty", "unknown")).lower()
+            confidence = _NWS_CERTAINTY_CONFIDENCE.get(certainty, 0.3)
+            tornado_likely = certainty in ("observed", "likely")
+            threat_level = "high"
+            intensity = "warned_unrated"  # NWS warnings carry no EF rating pre-event.
+            actions = [
+                a
+                for a in (str(strongest.data.get("instruction", "")).strip(),)
+                if a  # Real NWS instruction text, when present.
+            ]
+        elif watches:
+            confidence = 0.4
+            tornado_likely = False
+            threat_level = "moderate"
+            intensity = "watch_conditions"
+            actions = ["Tornado Watch in effect: monitor conditions and be ready to shelter."]
+        elif severe_tstorm:
+            confidence = 0.2
+            tornado_likely = False
+            threat_level = "slight"
+            intensity = "no_tornado"
+            actions = []
+        else:
+            confidence = 0.0
+            tornado_likely = False
+            threat_level = "none"
+            intensity = "no_tornado"
+            actions = []
+
+        return TornadoPredictionResult(
+            tornado_likely=tornado_likely,
+            confidence=confidence,
+            threat_level=threat_level,
+            estimated_intensity=intensity,
+            warning_actions=actions,
+            source_id=fetch.source_id,
+            data_provenance=fetch.data_provenance,
+            live_context=live_context,
+        )
 
     def _determine_threat_level(self, indicators: float, result: TornadoPredictionResult) -> str:
         """Determine tornado threat level."""

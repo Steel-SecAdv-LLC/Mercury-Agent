@@ -443,3 +443,44 @@ If you add or remove a loader from the unreachable-11 set, update
 `tests/datasets/test_unreachable_loaders_offline.py`.  The harness
 includes a coverage-drift assertion (`test_harness_covers_eleven_loaders`)
 that fails the build if these get out of sync.
+
+## Live hazard ingestion clients (T1e)
+
+Every hazard detector's optional live path goes through one uniform,
+provenance-checked seam: `data_sources/live_ingestion.py`
+(`fetch_live_datapoints`). The seam **fails loud** (`LiveDataError`) on any
+fetch failure, refuses sources that label their points
+`metadata["simulated"] = True` unless the caller passes
+`allow_simulated=True` (`SimulatedDataError`), and stamps
+`data_provenance` (`"live"` / `"simulated"`) plus `live_context` onto every
+detector result. Transport-level failures (DNS/timeout/5xx/breaker/429)
+carry `unreachable=True` end-to-end (`FetchResult.unreachable`,
+`LiveDataError.unreachable`) so consumers can distinguish "service down"
+from "service drifted".
+
+| Client | Module | Upstream | Wired detector(s) | Recorded fixture |
+|---|---|---|---|---|
+| `USGSEarthquakeSource` | `data_sources/earth_science.py` | USGS FDSN event service | `EarthquakeDetector.detect_live`, `TsunamiDetector` | `usgs_earthquakes.json` |
+| `USGSVolcanoSource` | `data_sources/earth_science.py` | USGS HANS (real API; the simulated `US_VOLCANOES` table was removed, DEPRECATION §6.9) | `VolcanicEruptionDetector.detect_live` | `hans_monitored.json`, `hans_elevated.json` |
+| `NWSWeatherAlertsSource` | `data_sources/earth_science.py` | NWS CAP active alerts | `TornadoDetector.detect_live`, `FloodDetector.detect_live` | `nws_alerts_tornado.json`, `nws_alerts_flood.json` |
+| `NOAANWPSSource` | `data_sources/earth_science.py` | NOAA NWPS v1 river gauges (requires a `bbox`) | `FloodDetector.detect_live` | `nwps_gauges.json` |
+| `NOAACOOPSSource` | `data_sources/earth_science.py` | NOAA CO-OPS tides & currents | coastal water-level context | `coops_water_level.json` |
+| `NOAASWPCSource` | `data_sources/space_weather.py` | NOAA SWPC products (Kp, X-ray, solar wind) | `SolarFlareDetector.detect_live`, `SolarStormDetector.predict_live` | `swpc_kp.json`, `swpc_xray.json`, `swpc_solar_wind.json` |
+| `NASADONKISource` | `data_sources/space_weather.py` | NASA DONKI FLR/GST events | `SolarFlareDetector.detect_live` corroboration context | `donki_flr.json`, `donki_gst.json` |
+| `NASANeoWsSource` | `data_sources/space_weather.py` | NASA NeoWs close approaches | `MeteorDetector.predict_meteor` | `neows_feed.json` |
+| `JPLFireballSource` | `data_sources/jpl_ssd.py` | JPL CNEOS fireball API | `MeteorDetector.predict_meteor` | `jpl_fireball.json` |
+| `JPLSentrySource` | `data_sources/jpl_ssd.py` | JPL Sentry impact risk | `MeteorDetector.predict_meteor` | `jpl_sentry.json` |
+| `BGSELFStationSource` | `data_sources/geomagnetic.py` | BGS ELF (instrument mode: caller-supplied raw samples; simulated mode is labelled and refused without opt-in) | `SchumannResonanceDetector` | n/a (instrument/simulated modes) |
+| `HeartMathGCMSSource` | `data_sources/geomagnetic.py` | none (no public machine-readable API — emits *labelled placeholder* spectra only; see class HONESTY CONTRACT) | none (refused by the seam without `allow_simulated=True`) | n/a |
+
+Test lanes:
+
+* **Offline (every CI run):** `tests/test_live_wiring_sources.py`,
+  `tests/test_live_wiring_space.py`,
+  `tests/detectors/test_live_wiring_geological.py` replay the recorded
+  fixtures in `tests/fixtures/live_wiring/` (captured from the real APIs;
+  capture dates in each test module docstring).
+* **Network (weekly `network-tests.yml` lane / on demand):**
+  `MERCURY_NETWORK_TESTS=1 pytest tests/test_live_wiring_network.py -m network`.
+  Skips **only** on genuine transport-level unreachability; any error from a
+  reachable service (schema/endpoint drift) FAILS the lane.

@@ -605,6 +605,18 @@ class TrustedEndpoints:
             "api.open-meteo.com",
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects)
             "ssd-api.jpl.nasa.gov",
+            # NASA SPDF OMNI2 hourly solar-wind/IMF/Kp archive (hazard
+            # checkpoint training: geomagnetic-storm predictor features+labels)
+            "spdf.gsfc.nasa.gov",
+            # GFZ Potsdam definitive planetary Kp index (label cross-check for
+            # the OMNI2-derived Kp used by hazard checkpoint training).
+            # ``kp.gfz-potsdam.de`` 301-redirects to this host.
+            "kp.gfz.de",
+            # EarthScope (formerly IRIS) FDSN web services -- real seismic
+            # waveforms for the seismic-wave analyzer training pipeline.
+            # ``service.iris.edu`` 307-redirects here and SafeHTTPClient
+            # refuses redirects, so the final host is allowlisted directly.
+            "service.earthscope.org",
             # Code/Data Repositories
             "raw.githubusercontent.com",
             "github.com",  # ADBench tabular anomaly-detection benchmarks

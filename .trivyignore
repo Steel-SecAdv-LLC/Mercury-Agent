@@ -106,3 +106,19 @@ CVE-2026-54371 exp:2026-09-28
 # CVE are gone from the image. The blocking Trivy gate (ignore-unfixed:
 # false) re-verifies this on every build: were the package to reappear,
 # the gate would fail rather than silently pass.
+
+# util-linux family (bsdutils 1:2.41-5, libblkid1, liblastlog2-2, libmount1,
+# libsmartcols1, libuuid1, login, mount, util-linux 2.41-5) —
+# CVE-2026-53615, published 2026-07-09: integer overflow/wraparound in
+# libblkid's MS-DOS partition-table parser (libblkid/src/partitions/dos.c).
+# Debian trixie status "open", no fixed version published (Trivy reports no
+# fix; nothing for the runtime stage's `apt-get upgrade` to pull). The parse
+# path triggers only when a *privileged* caller probes an attacker-crafted
+# block device / disk image with libblkid; Mercury's container runs as
+# non-root UID 1000 with SUID/SGID stripped, never probes block devices, and
+# exposes no path where request input reaches blkid. util-linux and its
+# libraries are Debian "essential" (mount/login back the base image and
+# libuuid/libblkid back CPython + coreutils), so elimination is not viable
+# without breaking the image's own toolchain. Time-boxed acceptance pending
+# an upstream fix; re-review forced at expiry (90-day cadence).
+CVE-2026-53615 exp:2026-10-07

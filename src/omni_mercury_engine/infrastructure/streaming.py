@@ -312,15 +312,131 @@ class StreamConsumer(ABC):
 # =============================================================================
 # In-Memory Implementation (for testing)
 # =============================================================================
+class InMemoryStreamBroker:
+    """In-memory message broker backing the ``memory`` streaming backend.
+
+    Owns the per-topic message log and the lock that guards appends —
+    topics are *broker*-scoped, mirroring the pub/sub semantics of a real
+    Kafka/Redis deployment where producers and consumers rendezvous on a
+    broker, not on a class object. Two producers attached to distinct
+    brokers are therefore fully isolated from each other.
+
+    This replaces the previous design where the topic dict lived as a
+    class attribute on :class:`InMemoryStreamProducer`: that state
+    outlived every producer instance, leaked across tests, and made two
+    isolated in-memory pipelines in one process impossible.
+
+    The internal ``asyncio.Lock`` is created per broker in ``__init__``.
+    Since Python 3.10, ``asyncio.Lock`` binds to an event loop lazily (on
+    first contended acquire), so constructing a broker outside a running
+    loop is safe; a per-broker lock also avoids the old import-time class
+    lock that was shared across every event loop for the process's life.
+    """
+
+    def __init__(self) -> None:
+        """Initialize an empty broker."""
+        self._streams: dict[str, list[StreamMessage]] = {}
+        self._lock = asyncio.Lock()
+
+    async def append(
+        self,
+        topic: str,
+        value: dict[str, Any],
+        key: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> StreamMessage:
+        """Append a message to a topic, assigning the next offset atomically.
+
+        Args:
+            topic: Target topic name (created on first append).
+            value: Message payload.
+            key: Optional message key.
+            headers: Optional message headers.
+
+        Returns:
+            The stored :class:`StreamMessage` with its broker-assigned offset.
+        """
+        async with self._lock:
+            log = self._streams.setdefault(topic, [])
+            message = StreamMessage(
+                topic=topic,
+                key=key,
+                value=value,
+                headers=headers or {},
+                offset=len(log),
+            )
+            log.append(message)
+            return message
+
+    def get_messages(self, topic: str) -> list[StreamMessage]:
+        """Return a snapshot of all messages currently stored for a topic.
+
+        Args:
+            topic: Topic name to read.
+
+        Returns:
+            A copy of the topic's message list (empty if the topic does not
+            exist). Mutating the returned list does not affect broker state.
+        """
+        return list(self._streams.get(topic, ()))
+
+    def clear(self) -> None:
+        """Remove all topics and messages from this broker."""
+        self._streams.clear()
+
+
+# Module-level default broker: producers and consumers that are not given an
+# explicit broker all share this one, preserving the out-of-the-box
+# produce-in-one-place / consume-in-another semantic.
+_default_broker = InMemoryStreamBroker()
+
+
+def get_default_broker() -> InMemoryStreamBroker:
+    """Return the process-wide default in-memory broker.
+
+    Returns:
+        The shared :class:`InMemoryStreamBroker` used by producers and
+        consumers constructed without an explicit ``broker`` argument.
+    """
+    return _default_broker
+
+
+def reset_default_broker() -> InMemoryStreamBroker:
+    """Clear the default broker's state (primarily for test isolation).
+
+    The broker instance is cleared in place rather than replaced, so
+    producers and consumers that already captured the default broker keep
+    pointing at the same (now empty) broker — no stale aliases.
+
+    Returns:
+        The (cleared) default broker.
+    """
+    _default_broker.clear()
+    return _default_broker
+
+
 class InMemoryStreamProducer(StreamProducer):
-    """In-memory producer for testing and development."""
+    """In-memory producer for testing and development.
 
-    _streams: dict[str, list[StreamMessage]] = {}
-    _lock: asyncio.Lock = asyncio.Lock()
+    Messages are appended to an :class:`InMemoryStreamBroker`. By default
+    all producers and consumers share the module-level default broker;
+    pass an explicit ``broker`` to isolate pipelines from each other.
+    """
 
-    def __init__(self, config: StreamConfig | None = None):
-        """Initialize the instance."""
+    def __init__(
+        self,
+        config: StreamConfig | None = None,
+        broker: InMemoryStreamBroker | None = None,
+    ):
+        """Initialize the instance.
+
+        Args:
+            config: Optional stream configuration.
+            broker: Broker to publish to. Defaults to the shared default
+                broker returned by :func:`get_default_broker`.
+        """
         self.config = config or StreamConfig()
+        self.broker = broker if broker is not None else get_default_broker()
         self._connected = False
 
     async def connect(self) -> None:
@@ -340,21 +456,10 @@ class InMemoryStreamProducer(StreamProducer):
         key: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> bool:
-        """Send message to in-memory stream."""
-        async with self._lock:
-            if topic not in self._streams:
-                self._streams[topic] = []
-
-            message = StreamMessage(
-                topic=topic,
-                key=key,
-                value=value,
-                headers=headers or {},
-                offset=len(self._streams[topic]),
-            )
-            self._streams[topic].append(message)
-            logger.debug(f"InMemory: Sent message to topic '{topic}'")
-            return True
+        """Send message to this producer's broker."""
+        await self.broker.append(topic, value, key=key, headers=headers)
+        logger.debug(f"InMemory: Sent message to topic '{topic}'")
+        return True
 
     async def send_batch(
         self,
@@ -374,22 +479,51 @@ class InMemoryStreamProducer(StreamProducer):
 
     @classmethod
     def get_messages(cls, topic: str) -> list[StreamMessage]:
-        """Get all messages from a topic (for testing)."""
-        return cls._streams.get(topic, [])
+        """Get all messages from a topic on the *default* broker.
+
+        Back-compat shim: delegates to :func:`get_default_broker`.
+        Messages published through a producer constructed with an explicit
+        ``broker`` are not visible here — read them via
+        ``producer.broker.get_messages(topic)`` instead.
+        """
+        return get_default_broker().get_messages(topic)
 
     @classmethod
     def clear(cls) -> None:
-        """Clear all streams (for testing)."""
-        cls._streams.clear()
+        """Clear all streams on the *default* broker.
+
+        Back-compat shim: delegates to :func:`reset_default_broker`.
+        Brokers passed explicitly to producers/consumers are unaffected —
+        clear those via ``broker.clear()``.
+        """
+        reset_default_broker()
 
 
 class InMemoryStreamConsumer(StreamConsumer):
-    """In-memory consumer for testing and development."""
+    """In-memory consumer for testing and development.
 
-    def __init__(self, config: StreamConfig | None = None, group_id: str = "default"):
-        """Initialize the instance."""
+    Reads from an :class:`InMemoryStreamBroker`. By default all producers
+    and consumers share the module-level default broker; pass an explicit
+    ``broker`` to isolate pipelines from each other.
+    """
+
+    def __init__(
+        self,
+        config: StreamConfig | None = None,
+        group_id: str = "default",
+        broker: InMemoryStreamBroker | None = None,
+    ):
+        """Initialize the instance.
+
+        Args:
+            config: Optional stream configuration.
+            group_id: Consumer group identifier.
+            broker: Broker to consume from. Defaults to the shared default
+                broker returned by :func:`get_default_broker`.
+        """
         self.config = config or StreamConfig()
         self.group_id = group_id
+        self.broker = broker if broker is not None else get_default_broker()
         self._subscribed_topics: list[str] = []
         self._offsets: dict[str, int] = {}
         self._connected = False
@@ -419,7 +553,7 @@ class InMemoryStreamConsumer(StreamConsumer):
         start = time.time()
         while (time.time() - start) * 1000 < timeout_ms:
             for topic in self._subscribed_topics:
-                messages = InMemoryStreamProducer._streams.get(topic, [])
+                messages = self.broker.get_messages(topic)
                 offset = self._offsets.get(topic, 0)
 
                 if offset < len(messages):
@@ -731,9 +865,14 @@ class KafkaStreamConsumer(StreamConsumer):
             )
             return
 
-        try:
-            from aiokafka import TopicPartition
+        # Import OUTSIDE the try: a connected consumer guarantees aiokafka is
+        # importable (connect() imports it and raises loudly otherwise), so a
+        # failure here is an environment defect that must surface as
+        # ImportError — not be logged as "commit failed" while the consumer
+        # group's offset cursor silently stops advancing.
+        from aiokafka import TopicPartition
 
+        try:
             tp = TopicPartition(message.topic, message.partition)
             await self._consumer.commit({tp: message.offset + 1})
         except Exception as e:
@@ -1064,6 +1203,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
+        broker: InMemoryStreamBroker | None = None,
         **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
@@ -1071,10 +1211,18 @@ class StreamProducerFactory:
         Args:
             backend: "kafka", "redis", or "memory"
             config: Optional StreamConfig
+            broker: Memory backend only — the isolated
+                :class:`InMemoryStreamBroker` the producer publishes to
+                (defaults to the shared default broker). Previously this
+                kwarg was silently swallowed, making the F16 isolation seam
+                unreachable through the factory.
             **kwargs: Backend-specific configuration overrides
 
         Returns:
             StreamProducer instance
+
+        Raises:
+            ValueError: ``broker`` was passed for a non-memory backend.
         """
         if isinstance(backend, str):
             backend = StreamingBackend(backend.lower())
@@ -1086,12 +1234,17 @@ class StreamProducerFactory:
             if hasattr(config, key):
                 setattr(config, key, value)
 
+        if broker is not None and backend != StreamingBackend.MEMORY:
+            raise ValueError(
+                f"broker= applies to the memory backend only (got backend={backend.value!r})"
+            )
+
         if backend == StreamingBackend.KAFKA:
             return KafkaStreamProducer(config)
         elif backend == StreamingBackend.REDIS:
             return RedisStreamProducer(config)
         else:
-            return InMemoryStreamProducer(config)
+            return InMemoryStreamProducer(config, broker=broker)
 
 
 class StreamConsumerFactory:
@@ -1102,6 +1255,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
+        broker: InMemoryStreamBroker | None = None,
         **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
@@ -1110,10 +1264,18 @@ class StreamConsumerFactory:
             backend: "kafka", "redis", or "memory"
             config: Optional StreamConfig
             group_id: Consumer group ID for load balancing
+            broker: Memory backend only — the isolated
+                :class:`InMemoryStreamBroker` the consumer reads from
+                (defaults to the shared default broker). Previously this
+                kwarg was silently swallowed, making the F16 isolation seam
+                unreachable through the factory.
             **kwargs: Backend-specific configuration overrides
 
         Returns:
             StreamConsumer instance
+
+        Raises:
+            ValueError: ``broker`` was passed for a non-memory backend.
         """
         if isinstance(backend, str):
             backend = StreamingBackend(backend.lower())
@@ -1125,12 +1287,17 @@ class StreamConsumerFactory:
             if hasattr(config, key):
                 setattr(config, key, value)
 
+        if broker is not None and backend != StreamingBackend.MEMORY:
+            raise ValueError(
+                f"broker= applies to the memory backend only (got backend={backend.value!r})"
+            )
+
         if backend == StreamingBackend.KAFKA:
             return KafkaStreamConsumer(config, group_id=group_id)
         elif backend == StreamingBackend.REDIS:
             return RedisStreamConsumer(config, group_id=group_id)
         else:
-            return InMemoryStreamConsumer(config, group_id=group_id)
+            return InMemoryStreamConsumer(config, group_id=group_id, broker=broker)
 
 
 # =============================================================================
@@ -1165,8 +1332,21 @@ class StreamingAnomalyPipeline:
         config: StreamConfig | None = None,
         detector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         group_id: str = "mercury-pipeline",
+        broker: InMemoryStreamBroker | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            input_topic: Topic the pipeline consumes raw messages from.
+            output_topic: Topic anomaly results are published to.
+            backend: "kafka", "redis", or "memory".
+            config: Optional stream configuration.
+            detector: Callable applied to each message payload.
+            group_id: Consumer group id.
+            broker: Memory backend only — isolates this pipeline's topics on
+                its own :class:`InMemoryStreamBroker` instead of the shared
+                default broker.
+        """
         self.input_topic = input_topic
         self.output_topic = output_topic
         self.detector = detector or self._default_detector
@@ -1183,11 +1363,13 @@ class StreamingAnomalyPipeline:
         self._producer = StreamProducerFactory.create(
             backend=self.config.backend,
             config=self.config,
+            broker=broker,
         )
         self._consumer = StreamConsumerFactory.create(
             backend=self.config.backend,
             config=self.config,
             group_id=self.group_id,
+            broker=broker,
         )
 
         self._running = False
@@ -1199,6 +1381,7 @@ class StreamingAnomalyPipeline:
             "messages_processed": 0,
             "messages_per_second": 0.0,
             "anomalies_detected": 0,
+            "anomalies_published": 0,
             "anomaly_rate": 0.0,
             "errors": 0,
             "error_rate": 0.0,
@@ -1233,6 +1416,7 @@ class StreamingAnomalyPipeline:
                 "serialization_errors": 0,
                 "connection_errors": 0,
                 "timeout_errors": 0,
+                "publish_failures": 0,
             },
             # Time tracking
             "start_time": None,
@@ -1405,6 +1589,42 @@ class StreamingAnomalyPipeline:
                         self._stats["errors"] / self._stats["messages_processed"]
                     )
 
+    async def _publish_anomaly(self, result: dict[str, Any], message: StreamMessage) -> bool:
+        """Publish an anomaly result; report whether the input offset may commit.
+
+        ``StreamProducer.send`` returns ``False`` (it does not raise) when the
+        producer's circuit breaker is open or the broker send fails. Committing
+        the *input* offset after a failed publish would permanently lose the
+        alert: the source message is acked while nothing was ever written to the
+        output topic. So on failure we surface a visible metric + error log and
+        return ``False`` — the caller then skips the commit, keeping the commit
+        cursor from advancing so a restart re-delivers from the last committed
+        offset (at-least-once semantics for the alert path).
+
+        Returns:
+            ``True`` if the publish succeeded and the input offset may be
+            committed; ``False`` if it failed and the commit must be skipped.
+        """
+        published = await self._producer.send(
+            self.output_topic,
+            result,
+            key=message.key,
+        )
+        self._stats["anomalies_detected"] += 1
+        if published:
+            self._stats["anomalies_published"] += 1
+            return True
+
+        self._stats["errors"] += 1
+        self._stats["error_breakdown"]["publish_failures"] += 1
+        logger.error(
+            "Anomaly publish to %s failed (producer rejected / circuit open); "
+            "not committing input offset %s to avoid alert loss",
+            self.output_topic,
+            message.offset,
+        )
+        return False
+
     async def _run(self) -> None:
         """Main processing loop with comprehensive observability."""
         while self._running:
@@ -1444,18 +1664,16 @@ class StreamingAnomalyPipeline:
                         score_stats["sum"] += score
                         score_stats["avg"] = score_stats["sum"] / n
 
-                        # Publish if anomaly detected
+                        # Publish if anomaly detected. A failed publish must not
+                        # ack the input offset (that would silently lose the
+                        # alert), so it vetoes the commit below.
+                        commit_offset = True
                         if result.get("is_anomaly") or score > 0.5:
                             result["source_topic"] = message.topic
                             result["source_timestamp"] = message.timestamp.isoformat()
                             result["detection_latency_ms"] = round(detection_latency_ms, 3)
 
-                            await self._producer.send(
-                                self.output_topic,
-                                result,
-                                key=message.key,
-                            )
-                            self._stats["anomalies_detected"] += 1
+                            commit_offset = await self._publish_anomaly(result, message)
 
                         # Update end-to-end latency
                         e2e_latency_ms = (time.perf_counter() - process_start) * 1000
@@ -1466,8 +1684,11 @@ class StreamingAnomalyPipeline:
                             e2e_stats["avg"] + (e2e_latency_ms - e2e_stats["avg"]) / n
                         )
 
-                        # Commit after processing
-                        await self._consumer.commit(message)
+                        # Commit after processing — unless an anomaly publish
+                        # failed, in which case leaving the offset uncommitted
+                        # lets a restart re-deliver the unpublished alert.
+                        if commit_offset:
+                            await self._consumer.commit(message)
 
                         # Periodically update percentiles and throughput (every 100 messages)
                         if n % 100 == 0:
@@ -1523,6 +1744,7 @@ class StreamingAnomalyPipeline:
 __all__ = [
     "CircuitBreaker",
     "CircuitState",
+    "InMemoryStreamBroker",
     "InMemoryStreamConsumer",
     "InMemoryStreamProducer",
     "KafkaStreamConsumer",
@@ -1537,4 +1759,6 @@ __all__ = [
     "StreamProducerFactory",
     "StreamingAnomalyPipeline",
     "StreamingBackend",
+    "get_default_broker",
+    "reset_default_broker",
 ]

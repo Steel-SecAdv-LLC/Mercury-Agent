@@ -341,6 +341,12 @@ class FetchResult:
     cached: bool = False
     fetch_time_ms: float = 0.0
     rate_limited: bool = False
+    #: True when the failure was transport-level (the service could not be
+    #: reached at all: DNS/connection/TLS/timeout, retry-exhausted 5xx, OPEN
+    #: circuit breaker, rate-limit refusal). False for payload/schema errors
+    #: from a *reachable* service -- callers such as the weekly network-smoke
+    #: lane must treat those as drift, never as unavailability.
+    unreachable: bool = False
 
 
 class DataSourceError(Exception):
@@ -358,6 +364,19 @@ class DataSourceError(Exception):
         self.source_id = source_id
         self.status_code = status_code
         self.retryable = retryable
+
+
+class SourceUnreachableError(DataSourceError):
+    """The upstream service could not be reached (transport-level failure).
+
+    Raised only when connectivity itself failed: DNS/connection/TLS errors,
+    timeouts, retry exhaustion on 5xx responses, an OPEN circuit breaker, or
+    a rate-limit refusal (local limiter or upstream HTTP 429). Payload and
+    schema problems from a *reachable* service stay plain
+    :class:`DataSourceError` so that consumers -- e.g. the weekly network
+    smoke lane -- can distinguish "service down" (acceptable to skip) from
+    "service drifted" (a real failure that must not be masked as a skip).
+    """
 
 
 T = TypeVar("T", bound="DataSourceBase")
@@ -551,7 +570,7 @@ class DataSourceBase(ABC):
                     self._circuit_breaker._success_count = 0
                     logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
                 else:
-                    raise DataSourceError(
+                    raise SourceUnreachableError(
                         f"Circuit breaker is OPEN for {self.source_id}. "
                         f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
                         source_id=self.source_id,
@@ -599,12 +618,17 @@ class DataSourceBase(ABC):
                     self._circuit_breaker._record_failure()
 
                 if e.response.status_code < 500:
-                    # Client error - don't retry
-                    raise DataSourceError(
+                    # Client error - don't retry. HTTP 429 is a transient
+                    # upstream throttle (unreachable-class); other 4xx from a
+                    # reachable service indicate endpoint/contract drift.
+                    error_cls = (
+                        SourceUnreachableError if e.response.status_code == 429 else DataSourceError
+                    )
+                    raise error_cls(
                         f"HTTP {e.response.status_code}: {e.response.text[:200]}",
                         source_id=self.source_id,
                         status_code=e.response.status_code,
-                        retryable=False,
+                        retryable=e.response.status_code == 429,
                     ) from e
 
                 if attempt < self.config.retry_attempts:
@@ -632,7 +656,7 @@ class DataSourceBase(ABC):
                     await asyncio.sleep(delay)
                     delay = min(delay * self.config.retry_backoff, 60.0)
 
-        raise DataSourceError(
+        raise SourceUnreachableError(
             f"Request failed after {self.config.retry_attempts} attempts: {last_error}",
             source_id=self.source_id,
             retryable=True,
@@ -652,7 +676,7 @@ class DataSourceBase(ABC):
                     self._circuit_breaker._success_count = 0
                     logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
                 else:
-                    raise DataSourceError(
+                    raise SourceUnreachableError(
                         f"Circuit breaker is OPEN for {self.source_id}. "
                         f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
                         source_id=self.source_id,
@@ -700,11 +724,16 @@ class DataSourceBase(ABC):
                     self._circuit_breaker._record_failure()
 
                 if e.response.status_code < 500:
-                    raise DataSourceError(
+                    # See the async variant above: 429 = transient throttle
+                    # (unreachable-class); other 4xx = contract drift.
+                    error_cls = (
+                        SourceUnreachableError if e.response.status_code == 429 else DataSourceError
+                    )
+                    raise error_cls(
                         f"HTTP {e.response.status_code}: {e.response.text[:200]}",
                         source_id=self.source_id,
                         status_code=e.response.status_code,
-                        retryable=False,
+                        retryable=e.response.status_code == 429,
                     ) from e
 
                 if attempt < self.config.retry_attempts:
@@ -732,7 +761,7 @@ class DataSourceBase(ABC):
                     time.sleep(delay)
                     delay = min(delay * self.config.retry_backoff, 60.0)
 
-        raise DataSourceError(
+        raise SourceUnreachableError(
             f"Request failed after {self.config.retry_attempts} attempts: {last_error}",
             source_id=self.source_id,
             retryable=True,
@@ -754,7 +783,7 @@ class DataSourceBase(ABC):
             ):
                 wait_time = 3600 - (current_time - self._hour_start_time)
                 logger.warning(f"{self.source_id}: Rate limit reached, waiting {wait_time:.0f}s")
-                raise DataSourceError(
+                raise SourceUnreachableError(
                     f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
                     source_id=self.source_id,
                     retryable=True,
@@ -780,7 +809,7 @@ class DataSourceBase(ABC):
                 self.config.rate_limit.requests_per_hour > 0
                 and self._request_count_hour >= self.config.rate_limit.requests_per_hour
             ):
-                raise DataSourceError(
+                raise SourceUnreachableError(
                     f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
                     source_id=self.source_id,
                     retryable=True,
@@ -901,6 +930,7 @@ class DataSourceBase(ABC):
                 error=str(e),
                 fetch_time_ms=(time.time() - fetch_start) * 1000,
                 rate_limited="Rate limit" in str(e),
+                unreachable=isinstance(e, SourceUnreachableError),
             )
 
         except Exception as e:

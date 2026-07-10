@@ -1,6 +1,6 @@
 # Fusion Capacity Strategy
 
-Applies to Mercury Agent **v2.0.x**.
+Applies to Mercury Agent **v2.1.x**.
 
 This document holds the strategic production rationale for Mercury's shipped
 fusion-network width. Raw sweep artifacts and reproduction commands remain in

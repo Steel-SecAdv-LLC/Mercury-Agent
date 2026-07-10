@@ -202,7 +202,13 @@ class EWMATimingMonitor:
                     omni_scalars={
                         "omni_crypto_timing_deviation": deviation,
                         "omni_crypto_timing_severity": severity,
-                        "omni_crypto_operation_count": float(stats.sample_count),
+                        # Metric-only ("omni_diag_") channel: a raw operation
+                        # counter grows without bound over process life and is
+                        # a diagnostic measurement, not a normalized signal —
+                        # it must never enter the σ_Immutable operational
+                        # vector (same defect class as the raw posture
+                        # timestamps, F10).
+                        "omni_diag_crypto_operation_count": float(stats.sample_count),
                     },
                 )
 
@@ -268,7 +274,22 @@ class MercuryGuardianAdapter:
         PostureEvaluator ← GOSNN security scalars ──┘
                 ↓
         Posture decisions → GOSNN ScalarGroup.SECURITY
+
+    Lifecycle: the adapter registers scalars into the process-global GOSNN
+    under the component names in :data:`_GOSNN_COMPONENT_NAMES`.  Call
+    :meth:`close` (or use the adapter as a context manager) when the
+    adapter is retired so its SECURITY-group registrations are removed
+    from the singleton instead of persisting for process life.
     """
+
+    #: GOSNN component names this adapter registers under; ``close()``
+    #: unregisters exactly these.
+    _GOSNN_COMPONENT_NAMES: tuple[str, ...] = (
+        "ama_cryptography_pqc",
+        "ama_adaptive_posture",
+        "ama_posture_rotation",
+        "ama_posture_algorithm",
+    )
 
     def __init__(
         self,
@@ -290,15 +311,43 @@ class MercuryGuardianAdapter:
         self._dilithium_keypair: DilithiumKeyPair | None = None
         self._kyber_keypair: KyberKeyPair | None = None
 
-        # AMA Adaptive Posture — bidirectional GOSNN integration
+        # AMA Adaptive Posture — bidirectional GOSNN integration.
+        #
+        # Wire the controller to Mercury's real AMA key-rotation machinery so a
+        # ROTATE_KEYS decision actually rotates through the shared
+        # KeyRotationManager (BIP32 material via HDKeyDerivation), instead of
+        # being handed None and silently no-op'ing. Best-effort: if the key
+        # manager cannot be constructed the controller still evaluates posture
+        # and fires callbacks, it just cannot execute a rotation.
+        rotation_manager: Any = None
+        hd_derivation: Any = None
+        try:
+            from omni_mercury_engine.api.auth import get_auth_key_manager
+
+            key_manager = get_auth_key_manager()
+            rotation_manager = key_manager.rotation_manager
+            hd_derivation = key_manager.hd_derivation
+        except Exception as exc:
+            logger.warning(
+                "AMA key manager unavailable; adaptive-posture ROTATE_KEYS will "
+                "not be able to rotate real key material: %s",
+                exc,
+            )
+
         self._posture_evaluator = PostureEvaluator()
         self._posture_controller = CryptoPostureController(
             monitor=self.timing_monitor,
             evaluator=self._posture_evaluator,
             on_rotation=self._on_posture_rotation,
             on_algorithm_switch=self._on_posture_algorithm_switch,
+            rotation_manager=rotation_manager,
+            hd_derivation=hd_derivation,
         )
         self._last_posture_evaluation: PostureEvaluation | None = None
+        # Consecutive posture-evaluation failures. When the evaluator is
+        # failing we must NOT keep reporting NOMINAL (a falsely reassuring
+        # "healthy crypto posture" during an attack); get_status surfaces this.
+        self._posture_eval_failures = 0
 
     def is_available(self) -> bool:
         """Check if AMA Cryptography PQC is available."""
@@ -313,7 +362,11 @@ class MercuryGuardianAdapter:
         poison downstream attention/optimizer math.  This helper:
 
         * Coerces values to ``float`` when possible.
-        * Replaces ``NaN``/``+Inf``/``-Inf`` with ``0.0``.
+        * Drops ``NaN``/``+Inf``/``-Inf`` values loudly — never clamps them
+          to ``0.0``, because a fabricated zero registered into the SECURITY
+          scalar group is indistinguishable from a measured quiet reading
+          downstream (the F10 never-clamp principle; GOSNN's own σ-gate
+          validation applies the same exclusion rule).
         * Drops keys whose values cannot be coerced to ``float`` (with a log).
 
         Defensive only — callers should still validate inputs upstream.
@@ -338,11 +391,13 @@ class MercuryGuardianAdapter:
                 continue
             if not math.isfinite(fvalue):
                 logger.warning(
-                    "Sanitizing non-finite scalar %r (value=%s) to 0.0 before GOSNN registration",
+                    "Dropping non-finite scalar %r (value=%s) before GOSNN "
+                    "registration: never clamped to 0.0 — a fabricated zero in "
+                    "the SECURITY group would read as a measured quiet value",
                     key,
                     fvalue,
                 )
-                fvalue = 0.0
+                continue
             clean[key] = fvalue
         return clean
 
@@ -357,12 +412,30 @@ class MercuryGuardianAdapter:
             "timing_monitor_enabled": self.timing_monitor is not None,
             "gosnn_synapse_enabled": self.gosnn_synapse_enabled,
             "anomaly_count": len(self.anomaly_history),
-            "posture_threat_level": (
-                self._last_posture_evaluation.threat_level.name
-                if self._last_posture_evaluation
-                else ThreatLevel.NOMINAL.name
-            ),
+            "posture_threat_level": self._reported_posture_level(),
+            "posture_evaluation_healthy": self._posture_eval_failures == 0,
+            "posture_eval_consecutive_failures": self._posture_eval_failures,
         }
+
+    def _reported_posture_level(self) -> str:
+        """Posture level for status, honest about a broken evaluator.
+
+        * Evaluator actively failing (consecutive failures since the last
+          success) → ``UNKNOWN`` — a stale last-good evaluation must not
+          keep reporting a reassuring level while the thing that would
+          detect a threat is itself down. ``_posture_eval_failures`` resets
+          to 0 on every success, so a non-zero count always means "failing
+          right now", and the failure counters in the status payload carry
+          the detail.
+        * Otherwise, a successful evaluation → its threat level.
+        * Never evaluated, no failures → ``NOMINAL`` (genuine quiescent
+          baseline).
+        """
+        if self._posture_eval_failures > 0:
+            return "UNKNOWN"
+        if self._last_posture_evaluation is not None:
+            return str(self._last_posture_evaluation.threat_level.name)
+        return str(ThreatLevel.NOMINAL.name)
 
     def _record_anomaly(self, anomaly: CryptoAnomaly) -> None:
         """Record anomaly, trigger GOSNN synapse, and evaluate posture."""
@@ -417,14 +490,17 @@ class MercuryGuardianAdapter:
 
             gosnn = GlobalOmniScalarNetwork()
 
-            # Gather GOSNN security + ethical scalars for context
-            security_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.SECURITY, {}))
-            ethical_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.ETHICAL, {}))
+            # Gather GOSNN security + ethical scalars for context.
+            # ``get_group_scalars`` snapshots under the registry lock, so a
+            # concurrent registration cannot tear the read.
+            security_scalars = gosnn.get_group_scalars(ScalarGroup.SECURITY)
+            ethical_scalars = gosnn.get_group_scalars(ScalarGroup.ETHICAL)
 
             # Build a synthetic monitor report from full system context
             report = self._build_posture_report(security_scalars, ethical_scalars)
             evaluation = self._posture_evaluator.evaluate(report)
             self._last_posture_evaluation = evaluation
+            self._posture_eval_failures = 0
 
             # Register posture decisions back into GOSNN as SECURITY scalars.
             # Mappings are module-level (THREAT_LEVEL_MAP / ACTION_MAP) so
@@ -458,7 +534,15 @@ class MercuryGuardianAdapter:
         except ImportError:
             logger.debug("GOSNN not available for posture evaluation")
         except Exception as e:
-            logger.warning(f"Posture evaluation from GOSNN failed: {e}")
+            # A failing evaluator must degrade the reported posture, not leave
+            # it silently pinned at the last value (or NOMINAL). Count the
+            # failure so get_status can surface an UNKNOWN/degraded posture.
+            self._posture_eval_failures += 1
+            logger.warning(
+                "Posture evaluation from GOSNN failed (%d consecutive): %s",
+                self._posture_eval_failures,
+                e,
+            )
 
     def _build_posture_report(
         self,
@@ -523,13 +607,24 @@ class MercuryGuardianAdapter:
                     component_name="ama_posture_rotation",
                     scalars={
                         "omni_posture_key_rotation_triggered": 1.0,
-                        "omni_posture_rotation_timestamp": time.time(),
+                        # Metric-only ("omni_diag_") channel: a raw unix
+                        # timestamp (~1.7e9) registered as an operational
+                        # SECURITY scalar leaked into the σ_Immutable gate
+                        # input of unrelated detect_with_fusion calls later
+                        # in the process, collapsing the ethical score to
+                        # 0.0 and forcing a spurious fail-closed
+                        # EthicalConstraintViolationError (F10). Diagnostic
+                        # timestamps stay discoverable in scalar_groups but
+                        # never enter the gate vector.
+                        "omni_diag_posture_rotation_timestamp": time.time(),
                     },
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_key_rotation"},
                 )
-            except (ImportError, Exception) as e:
-                logger.debug(f"Could not register rotation event to GOSNN: {e}")
+            except Exception as e:
+                # A key-rotation event is a security-audit signal: surface a
+                # failure to record it at WARNING, not below the default level.
+                logger.warning("Could not register key-rotation event to GOSNN: %s", e)
 
     def _on_posture_algorithm_switch(self, new_algorithm: str) -> None:
         """Callback from CryptoPostureController when algorithm switch occurs."""
@@ -546,13 +641,18 @@ class MercuryGuardianAdapter:
                     component_name="ama_posture_algorithm",
                     scalars={
                         "omni_posture_algorithm_switch_triggered": 1.0,
-                        "omni_posture_switch_timestamp": time.time(),
+                        # Metric-only ("omni_diag_") channel — raw unix
+                        # timestamp; see _on_posture_rotation for the F10
+                        # rationale.
+                        "omni_diag_posture_switch_timestamp": time.time(),
                     },
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_algorithm_switch", "new_algorithm": new_algorithm},
                 )
-            except (ImportError, Exception) as e:
-                logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
+            except Exception as e:
+                # Algorithm-switch is a security-audit signal: surface a failure
+                # to record it at WARNING, not below the default level.
+                logger.warning("Could not register algorithm-switch event to GOSNN: %s", e)
 
     def evaluate_posture(self) -> PostureEvaluation:
         """Manually trigger a posture evaluation cycle.
@@ -947,6 +1047,41 @@ class MercuryGuardianAdapter:
             scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence
 
         return scalars
+
+    def close(self) -> None:
+        """Retire the adapter: remove its GOSNN scalar registrations.
+
+        Unregisters every component name this adapter registers under
+        (:data:`_GOSNN_COMPONENT_NAMES`) so its SECURITY-group scalars do
+        not persist in the process-global GOSNN after the adapter is done
+        (the cross-request scalar-bleed defect, F10).  Idempotent: closing
+        twice, or closing an adapter that never registered anything, is a
+        no-op.  If the GOSNN singleton was never constructed there is
+        nothing to clean up and none is created just to be cleaned.
+        """
+        try:
+            from omni_mercury_engine.core.global_omni_scalar_network import (
+                GlobalOmniScalarNetwork,
+            )
+        except ImportError:
+            logger.debug("GOSNN not available at close(); nothing to unregister")
+            return
+
+        if GlobalOmniScalarNetwork._instance is None:
+            return
+
+        gosnn = GlobalOmniScalarNetwork()
+        removed = [name for name in self._GOSNN_COMPONENT_NAMES if gosnn.unregister_scalars(name)]
+        if removed:
+            logger.debug("MercuryGuardianAdapter.close(): unregistered %s from GOSNN", removed)
+
+    def __enter__(self) -> MercuryGuardianAdapter:
+        """Enter a ``with`` block; returns the adapter itself."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        """Exit a ``with`` block by calling :meth:`close`."""
+        self.close()
 
 
 def create_ama_cryptography_adapter(

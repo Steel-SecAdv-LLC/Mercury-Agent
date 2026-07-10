@@ -41,10 +41,20 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.fft import fft, fftfreq
+
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveDataError,
+    fetch_live_datapoints,
+    require_live_client,
+)
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.data_sources.geomagnetic import BGSELFStationSource
+    from omni_mercury_engine.data_sources.live_ingestion import LiveFetch
 
 try:
     import torch
@@ -83,6 +93,11 @@ class SchumannAnomalyResult:
 
     recommendations: list[str] = field(default_factory=list)
     ancient_correlation: dict[str, Any] | None = None
+
+    # Live-ingestion provenance (populated only by detect_live()).
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
 
 
 class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
@@ -193,13 +208,26 @@ class SchumannResonanceDetector:
         sampling_rate: float = 100.0,
         enable_ancient_correlation: bool = True,
         golden_ratio_thresholds: bool = True,
+        data_source: BGSELFStationSource | None = None,
     ):
         """Initialize Schumann resonance detector.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional BGS ELF client via ``data_source`` (dependency injection;
+        default None = fully offline). :meth:`fetch_live_data` exposes a
+        provenance-checked fetch and :meth:`detect_live` runs the detector's
+        own FFT pipeline over the ELF record carried by the fetched
+        DataPoint, stamping ``source_id`` / ``data_provenance`` /
+        ``live_context`` on the result. Because the BGS client labels its
+        no-instrument output ``metadata["simulated"]=True``, consuming it
+        without caller-supplied ``raw_samples`` requires an explicit
+        ``allow_simulated=True``.
 
         Args:
             sampling_rate: ELF data sampling rate (Hz)
             enable_ancient_correlation: Correlate with ancient solar/lunar cycles
             golden_ratio_thresholds: Use φ-optimized detection thresholds
+            data_source: Optional BGS ELF station client for the live path.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -210,6 +238,7 @@ class SchumannResonanceDetector:
         self.sampling_rate = sampling_rate
         self.enable_ancient_correlation = enable_ancient_correlation
         self.golden_ratio = 1.618 if golden_ratio_thresholds else 1.0
+        self._elf_source = data_source
 
         self.schumann_frequencies = [7.83, 14.3, 20.8, 27.3, 33.8]
 
@@ -663,6 +692,97 @@ class SchumannResonanceDetector:
             )
 
         return correlations
+
+    def fetch_live_data(
+        self,
+        *,
+        allow_simulated: bool = False,
+        raw_samples: np.ndarray[Any, Any] | None = None,
+    ) -> LiveFetch:
+        """Fetch Schumann-resonance data points through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in required when the client has no
+                instrument record and therefore emits labelled-simulated data.
+            raw_samples: Optional raw ELF record from the caller's instrument;
+                when supplied the client runs its real Welch DSP over it and
+                the fetch is live (never cached -- each record is distinct).
+
+        Returns:
+            Provenance-checked LiveFetch.
+
+        Raises:
+            LiveDataError: No client injected, or the fetch failed.
+            SimulatedDataError: Simulated data without the explicit opt-in.
+        """
+        client = require_live_client(self._elf_source, "SchumannResonanceDetector", "BGS ELF")
+        return fetch_live_datapoints(
+            client,
+            allow_simulated=allow_simulated,
+            raw_samples=raw_samples,
+            sampling_rate_hz=self.sampling_rate,
+            # Never serve a cached point for a caller-supplied record; and a
+            # simulated point is regenerated deterministically anyway.
+            use_cache=raw_samples is None,
+        )
+
+    def detect_live(
+        self,
+        raw_samples: np.ndarray[Any, Any] | None = None,
+        *,
+        allow_simulated: bool = False,
+        temporal_history: list[np.ndarray[Any, Any]] | None = None,
+    ) -> SchumannAnomalyResult:
+        """Run anomaly detection on a live/instrument ELF record.
+
+        Maps the fetched DataPoint onto the existing
+        :meth:`detect_resonance_anomaly` input contract: the client's data
+        point carries the exact ELF record its Welch powers were computed
+        from (``data["elf_record"]``), and this detector runs its own FFT
+        pipeline over that record. No waveform is ever invented -- with no
+        instrument record the client's record is labelled simulated and this
+        method refuses it unless ``allow_simulated=True``.
+
+        Args:
+            raw_samples: Optional raw ELF record from the caller's instrument.
+            allow_simulated: Explicit opt-in for the labelled-simulated path.
+            temporal_history: Optional historical ELF records.
+
+        Returns:
+            SchumannAnomalyResult with ``source_id`` / ``data_provenance`` /
+            ``live_context`` populated.
+
+        Raises:
+            LiveDataError: No client injected, the fetch failed, or the data
+                point carried no ELF record.
+            SimulatedDataError: Simulated data without the explicit opt-in.
+        """
+        fetch = self.fetch_live_data(allow_simulated=allow_simulated, raw_samples=raw_samples)
+        if not fetch.data_points:
+            raise LiveDataError(f"{fetch.source_id}: fetch returned no data points")
+        point = max(fetch.data_points, key=lambda dp: dp.timestamp)
+
+        record = point.data.get("elf_record")
+        if record is None:
+            raise LiveDataError(
+                f"{fetch.source_id}: data point carries no ELF record; refusing to "
+                f"invent a waveform from summary powers."
+            )
+        signal = np.asarray(record, dtype=float)
+
+        result = self.detect_resonance_anomaly(
+            signal, temporal_history=temporal_history, metadata=dict(point.metadata)
+        )
+        result.source_id = fetch.source_id
+        result.data_provenance = fetch.data_provenance
+        result.live_context = {
+            "station": point.data.get("station"),
+            "welch_power_spectrum": point.data.get("power_spectrum"),
+            "sampling_rate_hz": point.data.get("sampling_rate_hz"),
+            "n_samples": point.data.get("n_samples"),
+            "record_provenance": point.metadata.get("data_provenance"),
+        }
+        return result
 
     def extract_features(self, data: np.ndarray[Any, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration."""

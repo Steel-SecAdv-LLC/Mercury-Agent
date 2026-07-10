@@ -1,0 +1,119 @@
+{
+  "domains": {
+    "earthquake": {
+      "label_source": "constructed",
+      "metrics": {
+        "csi": 1.0,
+        "far": 0.0,
+        "hss": 1.0,
+        "pod": 1.0,
+        "sp_distance_mae_km": 0.324,
+        "sp_distance_n": 14.0
+      },
+      "scenario_files": {
+        "earthquake_scenarios.npz": "bef8586ec21fb0c19e9a8bb53021dcbcbb60be26c814fe4fc59957ec3368fb7f"
+      }
+    },
+    "flood": {
+      "label_source": "constructed",
+      "metrics": {
+        "csi": 1.0,
+        "far": 0.0,
+        "hss": 1.0,
+        "mean_lead_time_hours": 6.833333,
+        "pod": 1.0
+      },
+      "scenario_files": {
+        "flood_scenarios.json": "8b3b966aa8537a96e1ea2b8390e5bb911ae7ab738b4b19904cd124a67fdb5ace"
+      }
+    },
+    "hurricane": {
+      "label_source": "constructed",
+      "metrics": {
+        "csi": 1.0,
+        "far": 0.0,
+        "hss": 1.0,
+        "pod": 1.0
+      },
+      "scenario_files": {
+        "hurricane_scenarios.npz": "00eb21d7220cdcd579261ef25716fa620215711900b070a27e6b2f17a3a07ad9"
+      }
+    },
+    "solar": {
+      "label_source": "measured",
+      "metrics": {
+        "flare_class_exact_accuracy": 1.0,
+        "flare_class_within_one_accuracy": 1.0,
+        "kp_g_bucket_accuracy": 0.872727,
+        "kp_mae": 1.089151
+      },
+      "scenario_files": {
+        "solar_flare_windows.json": "6d90e8d38eb27edabb008f24ad43a19fcf8d9626013437bafa18f059b7feabee",
+        "solar_kp_windows.json": "0ed63b55cca68a6fa2b8682ebe95ea89d04e2395024271e0bd9ee3ca482eba12"
+      }
+    },
+    "tornado": {
+      "label_source": "constructed",
+      "metrics": {
+        "csi": 1.0,
+        "far": 0.0,
+        "hss": 1.0,
+        "mean_lead_time_min": 6.833333,
+        "pod": 1.0
+      },
+      "scenario_files": {
+        "tornado_scenarios.npz": "971768226ffbf213a8dcd5014a7620af75664c3e1f420cd1900a12e86654366e"
+      }
+    },
+    "tsunami": {
+      "label_source": "constructed",
+      "metrics": {
+        "csi": 1.0,
+        "far": 0.0,
+        "hss": 1.0,
+        "pod": 1.0
+      },
+      "scenario_files": {
+        "tsunami_scenarios.npz": "ccdbfc790c0478aaf1182599f2e41cb2f3e58322ba4cfa85feb830aad13465ef"
+      }
+    },
+    "volcano": {
+      "label_source": "constructed",
+      "metrics": {
+        "alert_exact_accuracy": 1.0,
+        "alert_within_one_accuracy": 1.0
+      },
+      "scenario_files": {
+        "volcano_scenarios.json": "7bc8bf50acd50f5f63da0c43f29caf66952a51135658782197da6fb88609181f"
+      }
+    }
+  },
+  "metadata": {
+    "commit": "d983c0d54a6849235af5350e3ce4b512f5a2d7e5",
+    "guard": "benchmarks/hazard_regression_guard.py",
+    "honesty_tripwires": [
+      "earthquake: estimated_magnitude must stay None while untrained",
+      "hurricane: removed track fields must not regrow without a track model",
+      "solar: kp_index must not be None on the offline Boyle physics path"
+    ],
+    "margins": {
+      "justification": "Evaluation is bit-deterministic, so margins define tolerated degradation, not numerical drift: 0.05 absolute on rate metrics (< one scenario flip on every guarded set); 15% relative on lead times (< one pick-step delay); 15% relative + small min-abs on MAE metrics (min-abs prevents a near-zero measurement pinning a zero-width ceiling).",
+      "kp_mae_min_abs": 0.1,
+      "lead_rel": 0.15,
+      "mae_rel": 0.15,
+      "rate_abs": 0.05,
+      "sp_distance_mae_min_abs": 0.25
+    },
+    "numpy": "2.4.6",
+    "purpose": "Deterministic regression guard for the hazard detectors' physics paths (post honesty-wave). Offline: committed, hash-pinned scenario sets only. Real recorded SWPC data for solar; seeded constructed physics scenarios elsewhere (see hazard_scenarios/manifest.json for per-set provenance).",
+    "python": "3.11.15",
+    "scenario_manifest": "benchmarks/hazard_scenarios/manifest.json",
+    "scenario_seeds": {
+      "earthquake": 4208,
+      "hurricane": 4210,
+      "tornado": 4207,
+      "tsunami": 4209,
+      "volcano": 4211
+    }
+  }
+}

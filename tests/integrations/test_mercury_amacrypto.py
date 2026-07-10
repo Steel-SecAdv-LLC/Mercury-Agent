@@ -19,6 +19,9 @@ from typing import Any
 import numpy as np
 import pytest
 
+# GOSNN singleton isolation is handled globally by the autouse
+# ``_isolate_gosnn_singleton`` fixture in tests/conftest.py.
+
 # =============================================================================
 # MercuryGuardianAdapter Tests
 # =============================================================================

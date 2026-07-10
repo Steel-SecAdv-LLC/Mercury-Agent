@@ -339,10 +339,17 @@ class GOSNN3RIntegration:
         ):
             return
 
-        # Collect scalar group scores
+        # Collect scalar group scores from the OPERATIONAL view.
+        # ``_operational_scalars_for`` snapshots under the GOSNN registry
+        # lock (iterating the live dict raced concurrent registrations) and
+        # applies the metric-only + gross-outlier filters: the per-group
+        # mean below is normalized "assuming scalars are around 1.0-1.5",
+        # which only holds for the operational band — a diagnostic entry
+        # such as a raw unix timestamp (~1.7e9) registered into SECURITY
+        # would otherwise pin w_O through a single corrupted mean (F10).
         group_scores = {}
         for group in ScalarGroup:
-            scalars = self.gosnn.scalar_groups.get(group, {})
+            scalars = self.gosnn._operational_scalars_for(group)
             if scalars:
                 values = np.array(list(scalars.values()))
                 group_scores[group] = float(np.mean(values))

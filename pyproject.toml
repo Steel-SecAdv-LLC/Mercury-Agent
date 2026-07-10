@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent"
-version = "2.0.0"
+version = "2.1.0"
 description = "Mercury Agent: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -445,6 +445,11 @@ namespaces = false
 omni_mercury_engine = [
     "py.typed",
     "models/checkpoints/*.pt",
+    # Provenance sidecars travel WITH their checkpoints: a non-editable
+    # install without them would silently degrade the shipped-checkpoint
+    # provenance guarantee (load_shipped_checkpoint verifies the .pt against
+    # the sidecar's pinned sha256 and logs the training provenance).
+    "models/checkpoints/*.provenance.json",
     "security/sigma_immutable_corpus.json",
     "security/sigma_immutable_corpus.sig.json",
     "security/sigma_immutable_weights.pt",
@@ -614,8 +619,6 @@ module = [
     # Machine learning frameworks
     "mamba_ssm",
     "mamba_ssm.*",
-    "stable_baselines3",
-    "stable_baselines3.*",
     "numba",
     "numba.*",
     # Explainability libraries
@@ -681,6 +684,12 @@ module = [
     "weapons_gate_adversarial",
     "cal_core",
     "meaning_level_model_double",
+    # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
+    # and ``hazard_scenarios/generate_scenarios.py`` import these siblings via
+    # sys.path manipulation (same first-party-outside-src pattern as above).
+    "hazard_scenarios",
+    "hazard_scenarios.*",
+    "scenario_io",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent

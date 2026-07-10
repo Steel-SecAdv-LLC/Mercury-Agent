@@ -38,6 +38,7 @@ from omni_mercury_engine.data_sources.base import (
     DataPoint,
     DataSourceBase,
     DataSourceConfig,
+    DataSourceError,
     DataSourceType,
     RateLimitConfig,
 )
@@ -555,6 +556,17 @@ class HeartMathGCMSSource(DataSourceBase):
     - Sites: California, Saudi Arabia, Lithuania, New Zealand, South Africa, Canada
     - Hourly power calculations with 24-hour moving average
 
+    HONESTY CONTRACT: HeartMath GCMS publishes its spectrograms as web
+    imagery only — there is no public machine-readable API — so this source
+    cannot fetch real per-mode power values. Every point it emits therefore
+    carries a fixed, clearly-invented placeholder spectrum and is labelled
+    ``metadata["simulated"] = True`` with ``confidence=0.0``, which the
+    live-ingestion seam refuses unless the consumer explicitly passes
+    ``allow_simulated=True`` (see
+    :mod:`omni_mercury_engine.data_sources.live_ingestion`). For real
+    Schumann-resonance measurements use :class:`BGSELFStationSource`
+    instrument mode with raw ELF samples.
+
     Example:
         >>> source = HeartMathGCMSSource()
         >>> result = await source.fetch(sites=[HeartMathSite.CALIFORNIA])
@@ -596,6 +608,7 @@ class HeartMathGCMSSource(DataSourceBase):
         super().__init__(base_config)
 
         self._sites = sites or list(HeartMathSite)
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -632,12 +645,26 @@ class HeartMathGCMSSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch Schumann resonance data from HeartMath GCMS.
+        """Emit labelled placeholder Schumann-resonance points (no real API).
 
-        Note: The actual HeartMath GCMS API may require specific access.
-        This implementation provides structured data format.
+        HeartMath GCMS has no public machine-readable endpoint, so nothing
+        here is measured: the per-mode power spectrum is a fixed placeholder
+        (``10 / mode``). Every point is labelled
+        ``metadata["simulated"] = True`` with ``confidence=0.0`` so the
+        live-ingestion seam refuses it without an explicit
+        ``allow_simulated=True`` opt-in — this source can never masquerade
+        as a live feed (see the class HONESTY CONTRACT).
         """
         data_points: list[DataPoint] = []
+
+        if not self._warned_simulated:
+            logger.warning(
+                "HeartMath GCMS has no public machine-readable API; emitting "
+                "PLACEHOLDER spectra labelled metadata['simulated']=True with "
+                "confidence=0.0. Consumers must opt in with allow_simulated=True; "
+                "use BGSELFStationSource instrument mode for real measurements."
+            )
+            self._warned_simulated = True
 
         for site in self._sites:
             site_info = self.SITE_COORDS.get(site)
@@ -646,8 +673,6 @@ class HeartMathGCMSSource(DataSourceBase):
 
             name, lat, lon = site_info
 
-            # Generate Schumann resonance data structure
-            # In production, this would fetch from the actual API
             schumann_data: dict[str, Any] = {
                 "site": site.value,
                 "site_name": name,
@@ -655,14 +680,16 @@ class HeartMathGCMSSource(DataSourceBase):
                 "schumann_frequencies_hz": self.SCHUMANN_FREQUENCIES,
                 "fundamental_frequency": 7.83,
                 "update_interval": "hourly",
-                "note": "Schumann resonance spectrogram data",
+                "note": (
+                    "PLACEHOLDER Schumann spectrum (no public HeartMath API); "
+                    "simulated=True, not a measurement"
+                ),
             }
 
-            # Simulated power for each resonance mode
-            # In production, this comes from FFT of magnetometer data
+            # Fixed placeholder power per resonance mode — deliberately not
+            # randomised so it can never be mistaken for a measurement.
             power_data: dict[str, float] = {}
             for i, freq in enumerate(self.SCHUMANN_FREQUENCIES):
-                # Power typically decreases with harmonic number
                 power_data[f"mode_{i+1}_{freq}Hz"] = 10.0 / (i + 1)
 
             schumann_data["power_spectrum"] = power_data
@@ -675,16 +702,18 @@ class HeartMathGCMSSource(DataSourceBase):
                     timestamp=datetime.now(UTC),
                     data=schumann_data,
                     location=(lat, lon, 0.0),
-                    alert_level=self._calculate_coherence_level(power_data),
-                    confidence=0.8,
+                    alert_level=AlertLevel.NONE,
+                    confidence=0.0,
                     metadata={
                         "network": "HeartMath GCI",
                         "measurement_type": "schumann_resonance",
+                        "simulated": True,
+                        "data_provenance": "simulated",
                     },
                 )
             )
 
-        logger.info(f"HeartMath GCMS: Created {len(data_points)} site entries")
+        logger.info(f"HeartMath GCMS: Created {len(data_points)} labelled-simulated site entries")
         return data_points
 
 
@@ -701,9 +730,29 @@ class BGSELFStationSource(DataSourceBase):
     - Ionospheric Alfvén Resonances (IARs)
     - Requires FFT processing for resonance extraction
 
+    HONESTY CONTRACT: real BGS ELF spectrogram feeds require instrument /
+    research-agreement access (https://geomag.bgs.ac.uk/research/IARs.html has
+    no public machine-readable endpoint), so this source does NOT fake an HTTP
+    feed. Two modes exist and both are labelled explicitly:
+
+    - **Instrument mode** — the caller supplies raw ELF samples via
+      ``fetch(raw_samples=..., sampling_rate_hz=...)``. The real Welch-PSD
+      helpers (:meth:`_welch_power_estimate` / :meth:`_extract_schumann_resonances`)
+      extract the Schumann mode powers from the supplied record; emitted data
+      points carry ``metadata["simulated"] = False`` and
+      ``metadata["data_provenance"] = "instrument"``.
+    - **Simulated mode** — with no raw samples, a deterministic synthetic ELF
+      record (damped Schumann-mode sinusoids + seeded noise) is generated and
+      the SAME real Welch DSP is run over it, so the processing chain is real
+      even though the feed is not. Every emitted data point carries
+      ``metadata["simulated"] = True`` and a warning is logged; downstream
+      live-ingestion refuses simulated points unless the consumer passes an
+      explicit ``allow_simulated=True``
+      (see :mod:`omni_mercury_engine.data_sources.live_ingestion`).
+
     Example:
         >>> source = BGSELFStationSource()
-        >>> result = await source.fetch()
+        >>> result = await source.fetch(raw_samples=my_elf_record, sampling_rate_hz=100.0)
     """
 
     DEFAULT_BASE_URL = "https://geomag.bgs.ac.uk/"
@@ -731,6 +780,7 @@ class BGSELFStationSource(DataSourceBase):
         base_config.cache = CacheConfig(ttl_seconds=3600)
 
         super().__init__(base_config)
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -835,22 +885,98 @@ class BGSELFStationSource(DataSourceBase):
 
         return AlertLevel.NONE
 
+    # Simulated-record shape: ~20 s at 100 Hz covers >150 cycles of the 7.83 Hz
+    # fundamental and gives the 256-sample Welch window 8 full segments.
+    _SIM_N_SAMPLES = 2048
+    _SIM_SAMPLING_HZ = 100.0
+    _SIM_SEED = 783  # deterministic: same simulated record on every fetch
+
+    def _simulated_elf_record(self) -> np.ndarray[Any, Any]:
+        """Deterministic synthetic ELF record (EXPLICITLY SIMULATED).
+
+        Sum of amplitude-decaying sinusoids at the six Schumann mode
+        frequencies plus seeded Gaussian noise. This is a labelled simulation
+        of the Earth-ionosphere cavity signal shape — NOT a real measurement —
+        used only so the real Welch DSP chain has something to process when no
+        instrument record is supplied.
+
+        Returns:
+            Synthetic ELF record of ``_SIM_N_SAMPLES`` samples at
+            ``_SIM_SAMPLING_HZ``.
+        """
+        rng = np.random.default_rng(self._SIM_SEED)
+        t = np.arange(self._SIM_N_SAMPLES) / self._SIM_SAMPLING_HZ
+        record = np.zeros_like(t)
+        for i, freq in enumerate(self.SCHUMANN_RESONANCES.values()):
+            record += (1.0 / (i + 1)) * np.sin(2.0 * np.pi * freq * t)
+        record += 0.1 * rng.standard_normal(self._SIM_N_SAMPLES)
+        return record
+
     async def _fetch_impl(
         self,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        raw_samples: np.ndarray[Any, Any] | None = None,
+        sampling_rate_hz: float | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch ELF/Schumann resonance data from BGS.
+        """Extract Schumann resonance powers from an ELF record.
 
-        Note: Actual BGS data access may require specific protocols.
-        This implementation demonstrates the data structure and processing.
+        Real BGS ELF feeds require instrument access; there is no public HTTP
+        endpoint, so nothing is fetched over the network. When ``raw_samples``
+        is supplied the real Welch-PSD helpers process it (instrument mode);
+        otherwise a deterministic synthetic record is processed and every
+        output is labelled ``metadata["simulated"] = True`` (simulated mode).
+
+        Args:
+            start_time: Unused (kept for the DataSourceBase contract).
+            end_time: Unused (kept for the DataSourceBase contract).
+            raw_samples: Optional raw ELF record from a caller's instrument.
+            sampling_rate_hz: Sampling rate of ``raw_samples`` (default 100.0).
+            **kwargs: Unused source-specific parameters.
+
+        Returns:
+            One SCHUMANN_RESONANCE data point with Welch-extracted mode powers.
+
+        Raises:
+            DataSourceError: If ``raw_samples`` is supplied but unusable
+                (non-finite or shorter than one Welch window).
         """
-        # In production, fetch raw spectrogram data
-        # Here we create a representative data structure
+        fs = float(sampling_rate_hz or self._SIM_SAMPLING_HZ)
 
-        # Simulated resonance powers (would come from FFT of raw data)
-        powers = {name: 10.0 / (i + 1) for i, name in enumerate(self.SCHUMANN_RESONANCES)}
+        if raw_samples is not None:
+            record = np.asarray(raw_samples, dtype=float).ravel()
+            if record.size < 256:
+                raise DataSourceError(
+                    f"BGS ELF: raw_samples too short for Welch estimation "
+                    f"({record.size} < 256 samples)",
+                    source_id=self.source_id,
+                    retryable=False,
+                )
+            if not np.all(np.isfinite(record)):
+                raise DataSourceError(
+                    "BGS ELF: raw_samples contain non-finite values",
+                    source_id=self.source_id,
+                    retryable=False,
+                )
+            simulated = False
+            provenance = "instrument"
+        else:
+            if not self._warned_simulated:
+                logger.warning(
+                    "BGS ELF: no raw_samples supplied and real BGS ELF feeds require "
+                    "instrument access -- emitting an EXPLICITLY SIMULATED record "
+                    "(metadata['simulated']=True). Consumers must opt in with "
+                    "allow_simulated=True."
+                )
+                self._warned_simulated = True
+            record = self._simulated_elf_record()
+            fs = self._SIM_SAMPLING_HZ
+            simulated = True
+            provenance = "simulated"
+
+        # Real DSP on both paths: Welch power estimation with Hann windowing.
+        powers = self._extract_schumann_resonances(record, fs=fs)
 
         data_point = DataPoint(
             source_id=self.source_id,
@@ -863,18 +989,24 @@ class BGSELFStationSource(DataSourceBase):
                 "power_spectrum": powers,
                 "fundamental_frequency_hz": 7.83,
                 "processing_method": "Welch with Hann window",
+                "sampling_rate_hz": fs,
+                "n_samples": int(record.size),
+                # The processed record is included so consumers can run their
+                # own spectral pipeline on exactly what was analysed here.
+                "elf_record": record.tolist(),
                 "frequency_range_hz": "0-50",
                 "iar_detected": False,  # Ionospheric Alfvén Resonances
-                "note": "Schumann resonance extraction from ELF data",
             },
             location=(55.317, -3.200, 0.0),  # Eskdalemuir coordinates
             alert_level=self._calculate_resonance_quality(powers),
-            confidence=0.75,
+            confidence=0.75 if not simulated else 0.0,
             metadata={
                 "source": "BGS",
                 "measurement_type": "elf_spectrogram",
+                "simulated": simulated,
+                "data_provenance": provenance,
             },
         )
 
-        logger.info("BGS ELF: Fetched Schumann resonance data")
+        logger.info("BGS ELF: extracted Schumann resonance powers (%s)", provenance)
         return [data_point]

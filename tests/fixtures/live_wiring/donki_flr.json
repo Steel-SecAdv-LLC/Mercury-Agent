@@ -1,0 +1,1669 @@
+[
+ {
+  "flrID": "2026-06-09T19:02:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-09T19:02Z",
+  "peakTime": "2026-06-09T19:18Z",
+  "endTime": "2026-06-09T19:25Z",
+  "classType": "C2.3",
+  "sourceLocation": "S21W19",
+  "activeRegionNum": 14461,
+  "note": "",
+  "submissionTime": "2026-06-10T00:37Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46753/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-09T21:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-10T23:30:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-10T23:30Z",
+  "peakTime": "2026-06-11T00:02Z",
+  "endTime": "2026-06-11T00:37Z",
+  "classType": "C6.7",
+  "sourceLocation": "N09E39",
+  "activeRegionNum": 14465,
+  "note": "",
+  "submissionTime": "2026-06-11T01:59Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46774/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-11T00:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-11T08:22:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-11T08:22Z",
+  "peakTime": "2026-06-11T08:28Z",
+  "endTime": "2026-06-11T08:32Z",
+  "classType": "C9.0",
+  "sourceLocation": "N10E34",
+  "activeRegionNum": 14465,
+  "note": "",
+  "submissionTime": "2026-06-12T01:01Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46800/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-11T09:48:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-13T12:40:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-13T12:40Z",
+  "peakTime": "2026-06-13T13:09Z",
+  "endTime": "2026-06-13T13:46Z",
+  "classType": "C2.5",
+  "sourceLocation": "S21W68",
+  "activeRegionNum": 14461,
+  "note": "",
+  "submissionTime": "2026-06-13T16:19Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46836/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-13T13:26:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-20T01:26:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-20T01:26Z",
+  "peakTime": "2026-06-20T01:51Z",
+  "endTime": "2026-06-20T02:04Z",
+  "classType": "M1.3",
+  "sourceLocation": "S12E70",
+  "activeRegionNum": 14472,
+  "note": "",
+  "submissionTime": "2026-06-20T02:11Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46934/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-20T02:12:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-20T14:50:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-20T14:50Z",
+  "peakTime": "2026-06-20T15:00Z",
+  "endTime": "2026-06-20T15:05Z",
+  "classType": "M1.0",
+  "sourceLocation": "S10E80",
+  "activeRegionNum": 14473,
+  "note": "",
+  "submissionTime": "2026-06-20T19:47Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46947/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-21T02:25:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-21T02:25Z",
+  "peakTime": "2026-06-21T02:46Z",
+  "endTime": "2026-06-21T02:58Z",
+  "classType": "M2.6",
+  "sourceLocation": "S08E67",
+  "activeRegionNum": 14473,
+  "note": "",
+  "submissionTime": "2026-06-21T12:33Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46954/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-21T03:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-21T19:17:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-21T19:17Z",
+  "peakTime": "2026-06-21T19:29Z",
+  "endTime": "2026-06-21T19:35Z",
+  "classType": "M6.8",
+  "sourceLocation": "S09E57",
+  "activeRegionNum": 14473,
+  "note": "",
+  "submissionTime": "2026-06-21T19:43Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/46965/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-21T20:00:00-CME-001"
+   }
+  ],
+  "sentNotifications": [
+   {
+    "messageID": "20260621-AL-001",
+    "messageIssueTime": "2026-06-21T19:31Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/46966/1"
+   },
+   {
+    "messageID": "20260621-AL-002",
+    "messageIssueTime": "2026-06-21T19:38Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/46967/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-06-29T21:13:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-29T21:13Z",
+  "peakTime": "2026-06-29T21:40Z",
+  "endTime": "2026-06-29T21:52Z",
+  "classType": "M1.4",
+  "sourceLocation": "N16W04",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-06-29T22:08Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47174/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-29T22:24:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-30T00:39:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-30T00:39Z",
+  "peakTime": "2026-06-30T01:16Z",
+  "endTime": "2026-06-30T01:36Z",
+  "classType": "M1.3",
+  "sourceLocation": "S07W48",
+  "activeRegionNum": 14475,
+  "note": "",
+  "submissionTime": "2026-06-30T01:51Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47182/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-06-30T12:37:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-30T12:37Z",
+  "peakTime": "2026-06-30T12:57Z",
+  "endTime": "2026-06-30T13:23Z",
+  "classType": "M5.8",
+  "sourceLocation": "S08W56",
+  "activeRegionNum": 14475,
+  "note": "",
+  "submissionTime": "2026-06-30T13:42Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47186/-1",
+  "linkedEvents": null,
+  "sentNotifications": [
+   {
+    "messageID": "20260630-AL-003",
+    "messageIssueTime": "2026-06-30T12:52Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47187/1"
+   },
+   {
+    "messageID": "20260630-AL-004",
+    "messageIssueTime": "2026-06-30T13:06Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47188/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-06-30T20:34:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-06-30T20:34Z",
+  "peakTime": "2026-06-30T20:50Z",
+  "endTime": "2026-06-30T21:00Z",
+  "classType": "X1.1",
+  "sourceLocation": "N17W18",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-06-30T21:07Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47196/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-30T21:45:00-CME-001"
+   }
+  ],
+  "sentNotifications": [
+   {
+    "messageID": "20260630-AL-006",
+    "messageIssueTime": "2026-06-30T20:50Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47197/1"
+   },
+   {
+    "messageID": "20260630-AL-007",
+    "messageIssueTime": "2026-06-30T20:58Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47198/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-01T06:19:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T06:19Z",
+  "peakTime": "2026-07-01T06:27Z",
+  "endTime": "2026-07-01T06:30Z",
+  "classType": "M1.1",
+  "sourceLocation": "N19W23",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T11:20Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47206/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T06:37:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T06:37Z",
+  "peakTime": "2026-07-01T06:43Z",
+  "endTime": "2026-07-01T06:47Z",
+  "classType": "M1.0",
+  "sourceLocation": "N20W23",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T11:22Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47207/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T07:28:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T07:28Z",
+  "peakTime": "2026-07-01T07:35Z",
+  "endTime": "2026-07-01T07:38Z",
+  "classType": "M1.5",
+  "sourceLocation": "N20W24",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T11:23Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47208/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T08:07:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T08:07Z",
+  "peakTime": "2026-07-01T08:17Z",
+  "endTime": "2026-07-01T08:20Z",
+  "classType": "M2.5",
+  "sourceLocation": "N20W24",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T11:25Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47209/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T10:04:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T10:04Z",
+  "peakTime": "2026-07-01T10:08Z",
+  "endTime": "2026-07-01T10:11Z",
+  "classType": "M1.3",
+  "sourceLocation": "N19W26",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T11:26Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47210/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T10:54:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T10:54Z",
+  "peakTime": "2026-07-01T11:25Z",
+  "endTime": "2026-07-01T11:30Z",
+  "classType": "M1.0",
+  "sourceLocation": "N13W33",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T16:01Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47211/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-01T12:12:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T11:53:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T11:53Z",
+  "peakTime": "2026-07-01T11:55Z",
+  "endTime": "2026-07-01T11:58Z",
+  "classType": "M1.1",
+  "sourceLocation": "N19W27",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T16:01Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47212/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T12:41:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T12:41Z",
+  "peakTime": "2026-07-01T12:44Z",
+  "endTime": "2026-07-01T12:47Z",
+  "classType": "M1.2",
+  "sourceLocation": "N19W27",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T16:02Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47216/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T14:22:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T14:22Z",
+  "peakTime": "2026-07-01T14:31Z",
+  "endTime": "2026-07-01T14:36Z",
+  "classType": "M1.1",
+  "sourceLocation": "N16W32",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T16:10Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47218/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T14:39:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T14:39Z",
+  "peakTime": "2026-07-01T14:54Z",
+  "endTime": "2026-07-01T15:12Z",
+  "classType": "M2.6",
+  "sourceLocation": "N16W32",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T15:17Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47223/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-01T16:23:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T15:24:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T15:24Z",
+  "peakTime": "2026-07-01T15:27Z",
+  "endTime": "2026-07-01T15:31Z",
+  "classType": "M1.1",
+  "sourceLocation": "S18W39",
+  "activeRegionNum": 14480,
+  "note": "",
+  "submissionTime": "2026-07-01T16:31Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47229/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T18:44:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T18:44Z",
+  "peakTime": "2026-07-01T19:43Z",
+  "endTime": "2026-07-01T19:55Z",
+  "classType": "M3.5",
+  "sourceLocation": "N15W32",
+  "activeRegionNum": 14479,
+  "note": "Simultaneous flaring is also observed from Active Region 14480 (S14W38) peaking around 2026-07-01T19:35Z.",
+  "submissionTime": "2026-07-02T17:29Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47235/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-01T21:12:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T20:15:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T20:15Z",
+  "peakTime": "2026-07-01T20:17Z",
+  "endTime": "2026-07-01T20:19Z",
+  "classType": "M1.0",
+  "sourceLocation": "S09W74",
+  "activeRegionNum": 14475,
+  "note": "",
+  "submissionTime": "2026-07-01T20:44Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47236/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T20:19:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T20:19Z",
+  "peakTime": "2026-07-01T20:22Z",
+  "endTime": "2026-07-01T20:28Z",
+  "classType": "M1.8",
+  "sourceLocation": "N20W33",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-01T20:45Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47237/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-01T22:57:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T22:57Z",
+  "peakTime": "2026-07-01T23:09Z",
+  "endTime": "2026-07-01T23:13Z",
+  "classType": "M8.5",
+  "sourceLocation": "S10W23",
+  "activeRegionNum": 14478,
+  "note": "",
+  "submissionTime": "2026-07-01T23:21Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47238/-1",
+  "linkedEvents": null,
+  "sentNotifications": [
+   {
+    "messageID": "20260701-AL-003",
+    "messageIssueTime": "2026-07-01T23:11Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47239/1"
+   },
+   {
+    "messageID": "20260701-AL-004",
+    "messageIssueTime": "2026-07-01T23:21Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47240/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-01T23:49:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-01T23:49Z",
+  "peakTime": "2026-07-02T00:02Z",
+  "endTime": "2026-07-02T00:16Z",
+  "classType": "M1.1",
+  "sourceLocation": "S05W19",
+  "activeRegionNum": 14478,
+  "note": "",
+  "submissionTime": "2026-07-02T00:24Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47243/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-02T01:37:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-02T01:37Z",
+  "peakTime": "2026-07-02T01:56Z",
+  "endTime": "2026-07-02T02:04Z",
+  "classType": "M4.2",
+  "sourceLocation": "N17W35",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-02T02:09Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47254/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-02T02:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-02T10:21:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-02T10:21Z",
+  "peakTime": "2026-07-02T10:26Z",
+  "endTime": "2026-07-02T10:28Z",
+  "classType": "M2.8",
+  "sourceLocation": "N17W43",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-02T11:36Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47257/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-02T23:03:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-02T23:03Z",
+  "peakTime": "2026-07-02T23:12Z",
+  "endTime": "2026-07-02T23:16Z",
+  "classType": "M1.2",
+  "sourceLocation": "N19W47",
+  "activeRegionNum": 14479,
+  "note": "Simultaneous flaring from Active Region 14479 (N19W47) and Active Region 14478 (S06W34)",
+  "submissionTime": "2026-07-03T00:11Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47277/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-03T13:03:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T13:03Z",
+  "peakTime": "2026-07-03T13:13Z",
+  "endTime": "2026-07-03T13:16Z",
+  "classType": "M1.4",
+  "sourceLocation": "S16W63",
+  "activeRegionNum": 14480,
+  "note": "",
+  "submissionTime": "2026-07-03T14:38Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47280/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-03T17:49:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T17:49Z",
+  "peakTime": "2026-07-03T18:11Z",
+  "endTime": "2026-07-03T18:32Z",
+  "classType": "M6.7",
+  "sourceLocation": "N15W58",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-03T18:50Z",
+  "versionId": 3,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47281/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-03T18:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": [
+   {
+    "messageID": "20260703-AL-002",
+    "messageIssueTime": "2026-07-03T18:11Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47282/1"
+   },
+   {
+    "messageID": "20260703-AL-003",
+    "messageIssueTime": "2026-07-03T18:23Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47283/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-03T18:57:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T18:57Z",
+  "peakTime": "2026-07-03T18:59Z",
+  "endTime": "2026-07-03T19:03Z",
+  "classType": "M6.3",
+  "sourceLocation": "S07W53",
+  "activeRegionNum": 14478,
+  "note": "",
+  "submissionTime": "2026-07-03T19:09Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47288/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-03T20:00:00-CME-001"
+   }
+  ],
+  "sentNotifications": [
+   {
+    "messageID": "20260703-AL-004",
+    "messageIssueTime": "2026-07-03T19:02Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47289/1"
+   },
+   {
+    "messageID": "20260703-AL-005",
+    "messageIssueTime": "2026-07-03T19:09Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47290/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-03T19:28:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T19:28Z",
+  "peakTime": "2026-07-03T19:31Z",
+  "endTime": "2026-07-03T19:34Z",
+  "classType": "M1.1",
+  "sourceLocation": "N15W67",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-03T21:21Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47293/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-03T19:59:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T19:59Z",
+  "peakTime": "2026-07-03T20:08Z",
+  "endTime": "2026-07-03T20:19Z",
+  "classType": "M1.5",
+  "sourceLocation": "N15W68",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-03T20:24Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47292/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-03T23:50:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-03T23:50Z",
+  "peakTime": "2026-07-04T00:00Z",
+  "endTime": "2026-07-04T00:05Z",
+  "classType": "M2.0",
+  "sourceLocation": "S17W70",
+  "activeRegionNum": 14480,
+  "note": "",
+  "submissionTime": "2026-07-04T00:12Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47306/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T00:13:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T00:13Z",
+  "peakTime": "2026-07-04T00:23Z",
+  "endTime": "2026-07-04T00:32Z",
+  "classType": "M2.3",
+  "sourceLocation": "N15W70",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T00:42Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47307/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T00:59:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T00:59Z",
+  "peakTime": "2026-07-04T01:13Z",
+  "endTime": "2026-07-04T01:21Z",
+  "classType": "M2.1",
+  "sourceLocation": "N15W70",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T01:28Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47308/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T01:52:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T01:52Z",
+  "peakTime": "2026-07-04T02:01Z",
+  "endTime": "2026-07-04T02:08Z",
+  "classType": "M1.2",
+  "sourceLocation": "N15W72",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T02:16Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47310/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T03:21:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T03:21Z",
+  "peakTime": "2026-07-04T03:32Z",
+  "endTime": "2026-07-04T03:40Z",
+  "classType": "M3.7",
+  "sourceLocation": "N17W70",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T19:46Z",
+  "versionId": 4,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47316/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T03:40:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T03:40Z",
+  "peakTime": "2026-07-04T03:42Z",
+  "endTime": "2026-07-04T03:43Z",
+  "classType": "M4.0",
+  "sourceLocation": "N17W70",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T19:43Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47317/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T05:04:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T05:04Z",
+  "peakTime": "2026-07-04T05:15Z",
+  "endTime": "2026-07-04T05:22Z",
+  "classType": "M1.3",
+  "sourceLocation": "N17W71",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T12:48Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47318/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T07:48:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T07:48Z",
+  "peakTime": "2026-07-04T08:07Z",
+  "endTime": "2026-07-04T08:14Z",
+  "classType": "M1.8",
+  "sourceLocation": "N17W71",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T12:49Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47319/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T08:41:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T08:41Z",
+  "peakTime": "2026-07-04T08:52Z",
+  "endTime": "2026-07-04T08:56Z",
+  "classType": "M1.0",
+  "sourceLocation": "N17W71",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T12:51Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47320/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T11:04:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T11:04Z",
+  "peakTime": "2026-07-04T11:12Z",
+  "endTime": "2026-07-04T11:19Z",
+  "classType": "M3.2",
+  "sourceLocation": "N17W72",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T12:53Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47321/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T13:41:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T13:41Z",
+  "peakTime": "2026-07-04T13:51Z",
+  "endTime": "2026-07-04T13:58Z",
+  "classType": "M3.2",
+  "sourceLocation": "N17W74",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T15:01Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47322/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T16:02:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T16:02Z",
+  "peakTime": "2026-07-04T16:06Z",
+  "endTime": "2026-07-04T16:11Z",
+  "classType": "M1.1",
+  "sourceLocation": "N17W74",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T16:43Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47324/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T18:36:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T18:36Z",
+  "peakTime": "2026-07-04T18:48Z",
+  "endTime": "2026-07-04T19:03Z",
+  "classType": "M1.9",
+  "sourceLocation": "N17W76",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T19:31Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47325/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T19:23:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T19:23Z",
+  "peakTime": "2026-07-04T19:36Z",
+  "endTime": "2026-07-04T19:40Z",
+  "classType": "M1.5",
+  "sourceLocation": "S06W65",
+  "activeRegionNum": 14478,
+  "note": "",
+  "submissionTime": "2026-07-04T19:53Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47329/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-04T21:30:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T20:29:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T20:29Z",
+  "peakTime": "2026-07-04T20:41Z",
+  "endTime": "2026-07-04T20:47Z",
+  "classType": "X1.3",
+  "sourceLocation": "S10E85",
+  "activeRegionNum": 14482,
+  "note": "Previously attributed to AR 14479 (N15W77), which appears to have a simultaneous flare starting slightly earlier as seen in SDO AIA 131 imagery.",
+  "submissionTime": "2026-07-05T00:25Z",
+  "versionId": 5,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47331/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-04T22:15:00-CME-001"
+   }
+  ],
+  "sentNotifications": [
+   {
+    "messageID": "20260704-AL-005",
+    "messageIssueTime": "2026-07-04T20:44Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47332/1"
+   },
+   {
+    "messageID": "20260704-AL-006",
+    "messageIssueTime": "2026-07-04T20:50Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47333/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-04T21:12:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T21:12Z",
+  "peakTime": "2026-07-04T21:15Z",
+  "endTime": "2026-07-04T21:17Z",
+  "classType": "M2.0",
+  "sourceLocation": "N15W78",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T22:04Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47336/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T22:16:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T22:16Z",
+  "peakTime": "2026-07-04T22:24Z",
+  "endTime": "2026-07-04T22:29Z",
+  "classType": "M1.1",
+  "sourceLocation": "N15W78",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-04T22:38Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47338/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-04T23:45:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-04T23:45Z",
+  "peakTime": "2026-07-04T23:49Z",
+  "endTime": "2026-07-04T23:52Z",
+  "classType": "M1.0",
+  "sourceLocation": "N15W78",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T01:31Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47343/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T00:24:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T00:24Z",
+  "peakTime": "2026-07-05T00:31Z",
+  "endTime": "2026-07-05T00:36Z",
+  "classType": "M1.3",
+  "sourceLocation": "N15W80",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T00:44Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47347/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T04:19:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T04:19Z",
+  "peakTime": "2026-07-05T04:32Z",
+  "endTime": "2026-07-05T04:39Z",
+  "classType": "M1.3",
+  "sourceLocation": "S18W85",
+  "activeRegionNum": 14480,
+  "note": "",
+  "submissionTime": "2026-07-05T12:31Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47353/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T04:41:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T04:41Z",
+  "peakTime": "2026-07-05T04:47Z",
+  "endTime": "2026-07-05T04:52Z",
+  "classType": "M1.0",
+  "sourceLocation": "N15W82",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T12:33Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47354/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T05:21:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T05:21Z",
+  "peakTime": "2026-07-05T05:39Z",
+  "endTime": "2026-07-05T05:49Z",
+  "classType": "M2.7",
+  "sourceLocation": "N15W82",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T12:35Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47355/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T07:21:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T07:21Z",
+  "peakTime": "2026-07-05T07:26Z",
+  "endTime": "2026-07-05T07:31Z",
+  "classType": "C9.9",
+  "sourceLocation": "N15W95",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T19:16Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47369/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-05T07:36:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T10:56:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T10:56Z",
+  "peakTime": "2026-07-05T11:00Z",
+  "endTime": "2026-07-05T11:02Z",
+  "classType": "M1.4",
+  "sourceLocation": "N15W85",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T12:39Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47356/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T11:12:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T11:12Z",
+  "peakTime": "2026-07-05T11:16Z",
+  "endTime": "2026-07-05T11:24Z",
+  "classType": "M1.6",
+  "sourceLocation": "N15W85",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T12:59Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47357/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T16:21:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T16:21Z",
+  "peakTime": "2026-07-05T16:32Z",
+  "endTime": "2026-07-05T16:41Z",
+  "classType": "M1.4",
+  "sourceLocation": "N16W88",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T18:26Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47362/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-05T17:00:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T16:41:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T16:41Z",
+  "peakTime": "2026-07-05T16:45Z",
+  "endTime": "2026-07-05T16:48Z",
+  "classType": "M1.4",
+  "sourceLocation": "N16W88",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T18:27Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47363/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T17:51:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T17:51Z",
+  "peakTime": "2026-07-05T17:57Z",
+  "endTime": "2026-07-05T18:02Z",
+  "classType": "M5.3",
+  "sourceLocation": "N16W89",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T18:15Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47359/-1",
+  "linkedEvents": null,
+  "sentNotifications": [
+   {
+    "messageID": "20260705-AL-001",
+    "messageIssueTime": "2026-07-05T18:00Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47360/1"
+   },
+   {
+    "messageID": "20260705-AL-002",
+    "messageIssueTime": "2026-07-05T18:16Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47361/1"
+   }
+  ]
+ },
+ {
+  "flrID": "2026-07-05T18:56:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T18:56Z",
+  "peakTime": "2026-07-05T19:07Z",
+  "endTime": "2026-07-05T19:11Z",
+  "classType": "M1.4",
+  "sourceLocation": "N16W90",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T19:23Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47370/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-05T21:14:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-05T21:14Z",
+  "peakTime": "2026-07-05T21:22Z",
+  "endTime": "2026-07-05T21:38Z",
+  "classType": "M1.0",
+  "sourceLocation": "N16W91",
+  "activeRegionNum": 14479,
+  "note": "",
+  "submissionTime": "2026-07-05T21:51Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47382/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-06T04:55:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-06T04:55Z",
+  "peakTime": "2026-07-06T05:11Z",
+  "endTime": "2026-07-06T05:30Z",
+  "classType": "C6.1",
+  "sourceLocation": "N16W90",
+  "activeRegionNum": 14479,
+  "note": "Occulted flare on the west limb from the point of view of GOES.",
+  "submissionTime": "2026-07-06T12:50Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47401/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-06T07:12:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-07T14:09:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-07T14:09Z",
+  "peakTime": "2026-07-07T14:19Z",
+  "endTime": "2026-07-07T14:22Z",
+  "classType": "M4.0",
+  "sourceLocation": "S11E50",
+  "activeRegionNum": 14482,
+  "note": "",
+  "submissionTime": "2026-07-07T14:30Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47428/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-07T15:12:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-08T17:49:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-08T17:49Z",
+  "peakTime": "2026-07-08T17:56Z",
+  "endTime": "2026-07-08T18:01Z",
+  "classType": "M1.5",
+  "sourceLocation": "S09E30",
+  "activeRegionNum": 14482,
+  "note": "",
+  "submissionTime": "2026-07-09T11:12Z",
+  "versionId": 2,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47465/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-09T02:17:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-09T02:17Z",
+  "peakTime": "2026-07-09T02:27Z",
+  "endTime": "2026-07-09T02:29Z",
+  "classType": "M1.1",
+  "sourceLocation": "S10E30",
+  "activeRegionNum": 14482,
+  "note": "",
+  "submissionTime": "2026-07-09T11:14Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47468/-1",
+  "linkedEvents": null,
+  "sentNotifications": null
+ },
+ {
+  "flrID": "2026-07-09T06:51:00-FLR-001",
+  "catalog": "M2M_CATALOG",
+  "instruments": [
+   {
+    "displayName": "GOES-P: EXIS 1.0-8.0"
+   }
+  ],
+  "beginTime": "2026-07-09T06:51Z",
+  "peakTime": "2026-07-09T07:13Z",
+  "endTime": "2026-07-09T07:35Z",
+  "classType": "C2.7",
+  "sourceLocation": "S10W31",
+  "activeRegionNum": 14485,
+  "note": "",
+  "submissionTime": "2026-07-09T14:06Z",
+  "versionId": 1,
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/FLR/47472/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-07-09T07:53:00-CME-001"
+   }
+  ],
+  "sentNotifications": null
+ }
+]

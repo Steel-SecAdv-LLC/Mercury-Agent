@@ -13,7 +13,7 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 2.0.x   | **Current**          | :white_check_mark: |
+| 2.1.x   | **Current**          | :white_check_mark: |
 | 1.7.x   | Previous (EOL on next minor) | Critical CVEs only |
 | < 1.7   | End-of-life          | :x:              |
 
@@ -426,5 +426,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-07-02*
-*Version: 2.0.0*
+*Last Updated: 2026-07-08*
+*Version: 2.1.0*

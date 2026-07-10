@@ -6,7 +6,7 @@ Comprehensive flood detection for humanitarian early warning:
 - Precipitation accumulation analysis
 - River gauge monitoring
 - Soil saturation models
-- Topographic runoff prediction
+- Soil-saturation runoff analysis
 - Refactoring engine for dynamic model optimization
 - Cross-domain fusion with hurricane/tornado detectors
 
@@ -34,18 +34,30 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
-from torch import nn
 
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine as CoreRefactoringEngine,
     ResonanceEngine,
 )
+from omni_mercury_engine.data_sources.base import DataSourceType
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveDataError,
+    LiveFetch,
+    fetch_live_datapoints,
+    require_live_client,
+)
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.data_sources.earth_science import (
+        NOAANWPSSource,
+        NWSWeatherAlertsSource,
+    )
 
 
 class FloodSeverity(Enum):
@@ -101,6 +113,10 @@ class FloodPredictionResult:
     warning_actions: list[str] = field(default_factory=list)
     evacuation_routes: list[str] = field(default_factory=list)
     shelter_locations: list[str] = field(default_factory=list)
+
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
 
 
 class PrecipitationAnalyzer:
@@ -278,65 +294,6 @@ class SoilSaturationModel:
         }
 
 
-class TopographicRunoffPredictor(nn.Module):
-    """Neural network for topographic runoff prediction.
-
-    Uses terrain features to predict water flow patterns.
-    """
-
-    def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
-        """Initialize the instance."""
-        super().__init__()
-
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-        )
-
-        self.runoff_predictor = nn.Sequential(
-            nn.Linear(hidden_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-        self.time_to_peak_predictor = nn.Sequential(
-            nn.Linear(hidden_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.ReLU(),
-        )
-
-        self.discharge_predictor = nn.Sequential(
-            nn.Linear(hidden_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.ReLU(),
-        )
-
-    def forward(
-        self, terrain_features: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Predict runoff characteristics from terrain features.
-
-        Args:
-            terrain_features: Terrain and watershed features
-
-        Returns:
-            Tuple of (runoff_coefficient, time_to_peak, peak_discharge)
-        """
-        encoded = self.encoder(terrain_features)
-
-        runoff = self.runoff_predictor(encoded)
-        time_to_peak = self.time_to_peak_predictor(encoded) * 48  # Scale to hours
-        discharge = self.discharge_predictor(encoded) * 100000  # Scale to CFS
-
-        return runoff, time_to_peak, discharge
-
-
 class FloodPredictionOptimizer:
     """Dynamic model optimization engine for flood prediction.
 
@@ -440,8 +397,8 @@ class FloodDetector:
     """Comprehensive flood detection system.
 
     Integrates precipitation analysis, river gauge monitoring, soil saturation
-    modeling, topographic runoff prediction, and 3R mechanism for multi-parameter
-    flood prediction.
+    modeling (including its physics-based runoff coefficient), and the 3R
+    mechanism for multi-parameter flood prediction.
 
     Deep 3R Integration:
     - RecursionEngine: Hierarchical multi-scale feature extraction
@@ -455,17 +412,26 @@ class FloodDetector:
         enable_precipitation: bool = True,
         enable_river_gauge: bool = True,
         enable_soil: bool = True,
-        enable_runoff: bool = True,
         enable_refactoring: bool = True,
         enable_recursion: bool = True,
         enable_resonance: bool = True,
         rng: DeterministicRNG | None = None,
+        gauge_source: NOAANWPSSource | None = None,
+        alerts_source: NWSWeatherAlertsSource | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional NWPS river-gauge client via ``gauge_source`` and/or an NWS
+        weather-alerts client via ``alerts_source`` (dependency injection;
+        default None = fully offline). :meth:`fetch_live_data` exposes a
+        provenance-checked fetch and :meth:`detect_live` assesses the real
+        observed gauge stages and active flood alerts -- official readings
+        are never turned into synthetic precipitation or soil values.
+        """
         self.enable_precipitation = enable_precipitation
         self.enable_river_gauge = enable_river_gauge
         self.enable_soil = enable_soil
-        self.enable_runoff = enable_runoff
         self.enable_refactoring = enable_refactoring
         self.enable_recursion = enable_recursion
         self.enable_resonance = enable_resonance
@@ -474,8 +440,10 @@ class FloodDetector:
         self.precip_analyzer = PrecipitationAnalyzer() if enable_precipitation else None
         self.gauge_monitor = RiverGaugeMonitor() if enable_river_gauge else None
         self.soil_model = SoilSaturationModel() if enable_soil else None
-        self.runoff_predictor = TopographicRunoffPredictor() if enable_runoff else None
         self.prediction_optimizer = FloodPredictionOptimizer() if enable_refactoring else None
+
+        self._gauge_source = gauge_source
+        self._alerts_source = alerts_source
 
         self.recursion_engine = RecursionEngine(max_depth=5)
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
@@ -491,7 +459,6 @@ class FloodDetector:
                 - precip_data: Precipitation measurements and forecasts
                 - gauge_data: River gauge measurements
                 - soil_data: Soil moisture and characteristics
-                - terrain_features: Topographic features for runoff
                 - observed_data: Observed conditions for model refinement
                 - metadata: Location info, timestamps
 
@@ -609,6 +576,144 @@ class FloodDetector:
             f"stage={result.river_stage_ft:.1f}ft, confidence={result.confidence:.2f}"
         )
 
+        return result
+
+    def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+        """Fetch live NWPS river-gauge readings through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources (NWPS is a
+                real feed, so this normally stays False).
+            **kwargs: Passed to the client fetch.
+
+        Returns:
+            Provenance-checked LiveFetch of FLOOD data points.
+
+        Raises:
+            LiveDataError: No gauge client injected, or the fetch failed.
+        """
+        client = require_live_client(self._gauge_source, "FloodDetector", "NWPS river-gauge")
+        return fetch_live_datapoints(
+            client,
+            allow_simulated=allow_simulated,
+            source_types=[DataSourceType.FLOOD],
+            **kwargs,
+        )
+
+    def detect_live(
+        self, *, allow_simulated: bool = False, **fetch_kwargs: Any
+    ) -> FloodPredictionResult:
+        """Assess the live flood state from real gauge stages and NWS alerts.
+
+        This is an OBSERVED-STATE assessment: severity is taken from the NWPS
+        flood category of the worst gauge (the same major/moderate/minor
+        vocabulary ``_determine_severity`` uses), the stage/forecast values on
+        the result are that gauge's actual readings, and active NWS flood
+        alerts corroborate. Precipitation and soil fields stay at their
+        absent defaults -- gauge metadata is never converted into synthetic
+        measurements. At least one of the two clients must be injected.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources.
+            **fetch_kwargs: Extra client fetch parameters.
+
+        Returns:
+            FloodPredictionResult with ``source_id`` / ``data_provenance`` /
+            ``live_context`` populated from the real observed state.
+
+        Raises:
+            LiveDataError: No client injected, or every wired fetch failed.
+        """
+        category_rank = {"major": 4, "moderate": 3, "minor": 2, "action": 1}
+        live_context: dict[str, Any] = {}
+        source_ids: list[str] = []
+        provenance: list[str] = []
+
+        worst_rank = 0
+        worst_gauge: dict[str, Any] | None = None
+        if self._gauge_source is not None:
+            fetch = self.fetch_live_data(allow_simulated=allow_simulated, **fetch_kwargs)
+            source_ids.append(fetch.source_id)
+            provenance.append(fetch.data_provenance)
+            categories: dict[str, int] = {}
+            for dp in fetch.data_points:
+                cat = str(dp.data.get("flood_category") or "").lower()
+                categories[cat or "unknown"] = categories.get(cat or "unknown", 0) + 1
+                rank = category_rank.get(cat, 0)
+                if rank > worst_rank or worst_gauge is None:
+                    worst_rank = rank
+                    worst_gauge = dp.data
+            live_context["gauge_count"] = len(fetch.data_points)
+            live_context["gauge_categories"] = categories
+            if worst_gauge is not None:
+                live_context["worst_gauge"] = {
+                    "gauge_id": worst_gauge.get("gauge_id"),
+                    "name": worst_gauge.get("name"),
+                    "flood_category": worst_gauge.get("flood_category"),
+                    "forecast_flood_category": worst_gauge.get("forecast_flood_category"),
+                }
+
+        flood_alerts = 0
+        if self._alerts_source is not None:
+            alert_fetch = fetch_live_datapoints(
+                self._alerts_source,
+                allow_simulated=allow_simulated,
+                source_types=[DataSourceType.WEATHER_ALERT],
+            )
+            source_ids.append(alert_fetch.source_id)
+            provenance.append(alert_fetch.data_provenance)
+            flood_events = [
+                dp
+                for dp in alert_fetch.data_points
+                if "flood" in str(dp.data.get("event", "")).lower()
+            ]
+            flood_alerts = len(flood_events)
+            live_context["flood_alerts"] = flood_alerts
+            live_context["flood_alert_events"] = sorted(
+                {str(dp.data.get("event", "")) for dp in flood_events}
+            )[:10]
+
+        if not source_ids:
+            raise LiveDataError(
+                "FloodDetector: no gauge_source or alerts_source injected; construct "
+                "the detector with a data_sources client instance to enable the "
+                "optional live path."
+            )
+
+        rank_to_severity = {4: "major", 3: "moderate", 2: "minor", 1: "minor", 0: "no_flood"}
+        severity = rank_to_severity[worst_rank]
+        flood_likely = worst_rank >= 2 or flood_alerts > 0
+        if worst_rank == 0 and flood_alerts > 0:
+            severity = "minor"  # Alert-corroborated but no gauge above action stage.
+
+        # Confidence reflects observation quality: gauges are direct
+        # measurements; alerts are official statements.
+        if worst_rank >= 2:
+            confidence = 0.9
+        elif flood_alerts > 0:
+            confidence = 0.7
+        else:
+            confidence = 0.0
+
+        result = FloodPredictionResult(
+            flood_likely=flood_likely,
+            confidence=confidence,
+            severity=severity,
+            flood_type="riverine" if worst_rank >= 1 else "none",
+            source_id="+".join(source_ids),
+            data_provenance=("simulated" if any(p == "simulated" for p in provenance) else "live"),
+            live_context=live_context,
+        )
+        if worst_gauge is not None:
+            observed = worst_gauge.get("observed_value")
+            forecast = worst_gauge.get("forecast_value")
+            if observed is not None:
+                result.river_stage_ft = float(observed)
+            if forecast is not None and observed is not None:
+                if float(forecast) > float(observed) + 0.1:
+                    result.stage_trend = "rising"
+                elif float(forecast) < float(observed) - 0.1:
+                    result.stage_trend = "falling"
         return result
 
     def _determine_severity(self, indicators: float, result: FloodPredictionResult) -> str:

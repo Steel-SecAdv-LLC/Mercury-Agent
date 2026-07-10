@@ -101,6 +101,35 @@ class TestGateFailsClosedWhenBackendIncomplete:
         assert friendly in str(exc_info.value)
 
 
+class TestFipsPostEnforcement:
+    """The gate consults AMA's FIPS 140-3 POST verdict, not just the flags."""
+
+    def test_operational_backend_passes(self) -> None:
+        from omni_mercury_engine._pqc_gate import _enforce_fips_post
+
+        # The build under test is OPERATIONAL; the check is silent.
+        assert ama_cryptography.module_status() == "OPERATIONAL"
+        _enforce_fips_post()
+
+    def test_post_failure_fails_gate_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A non-OPERATIONAL module (POST locked out) must refuse to start.
+
+        Regression: the gate checked only the *_AVAILABLE flags + version, so a
+        build whose known-answer self-tests failed — but still exposed the flags
+        — passed Mercury's import gate and ran on a non-validated backend.
+        """
+        from ama_cryptography.exceptions import CryptoModuleError
+
+        def _locked_out() -> None:
+            raise CryptoModuleError("Module locked out by FIPS POST failure (test)")
+
+        monkeypatch.setattr(ama_cryptography, "check_operational", _locked_out)
+        monkeypatch.setattr(ama_cryptography, "module_status", lambda: "ERROR")
+
+        with pytest.raises(RuntimeError, match=r"FIPS 140-3.*not OPERATIONAL"):
+            _enforce_pqc_production_gate()
+
+
 class TestAmaVersionEnforcement:
     """The gate pins AMA Cryptography to exactly ``_AMA_REQUIRED_VERSION`` (3.3.0)."""
 

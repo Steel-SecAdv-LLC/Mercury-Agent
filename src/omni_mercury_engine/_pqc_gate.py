@@ -137,7 +137,48 @@ def _enforce_pqc_production_gate() -> None:
             f"{_PQC_BUILD_RECOVERY_HINT}"
         )
 
+    _enforce_fips_post()
     _enforce_ama_version()
+
+
+def _enforce_fips_post() -> None:
+    """Fail closed unless AMA's FIPS 140-3 power-on self-tests are OPERATIONAL.
+
+    The algorithm-availability flags above report that a backend *exists*, not
+    that its known-answer tests passed at import. AMA runs its POST at load and
+    exposes :func:`ama_cryptography.check_operational`, which raises when the
+    module is locked out by a POST failure (state ``ERROR``/``SELF_TEST``).
+    Without this call a build whose self-tests failed — but that still exposed
+    the three ``*_AVAILABLE`` flags — would pass Mercury's import gate and run
+    on a cryptographically non-validated backend. Consulting AMA's own POST
+    verdict closes that gap and keeps the two views of backend health aligned.
+    """
+    try:
+        import ama_cryptography
+    except ImportError:  # pragma: no cover - pqc_backends already imported above
+        return
+
+    check_operational = getattr(ama_cryptography, "check_operational", None)
+    if check_operational is None:
+        # Older AMA without the POST surface: the version gate below still
+        # floors the release, so absence of the introspection API is not fatal.
+        return
+
+    try:
+        check_operational()
+    except Exception as exc:
+        status = ""
+        module_status = getattr(ama_cryptography, "module_status", None)
+        if module_status is not None:
+            try:
+                status = f" (module_status={module_status()})"
+            except Exception:  # pragma: no cover - status read is best-effort
+                status = ""
+        raise RuntimeError(
+            "AMA/PQC is mandatory for Mercury, but AMA Cryptography's FIPS 140-3 "
+            f"power-on self-tests are not OPERATIONAL{status}: {exc}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        ) from exc
 
 
 def _release_tuple(value: str) -> tuple[int, ...]:

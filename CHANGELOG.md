@@ -27,6 +27,296 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Independent verification pass — CI red-to-green + fail-loud hardening
+
+An adversarial re-verification of this branch fixed every defect it surfaced
+at the root:
+
+- **CI failures fixed.** 16 mypy errors across 10 files (Optional detector
+  source fields, explicit re-exports via module `__all__`, unused ignores,
+  `no-any-return` sites); 3 ruff findings (TC003, F841, B017 narrowed to
+  `UnpicklingError`/`RuntimeError`); 10 bandit B614 findings — every new
+  `torch.load` is now hard-pinned to `weights_only=True` (house convention),
+  including the shipped-checkpoint loader which previously passed
+  `weights_only=False` explicitly.
+- **Review findings resolved without weakening.** (1) A stale last-good
+  posture evaluation no longer masks an actively failing evaluator:
+  ``_reported_posture_level()`` reports ``UNKNOWN`` whenever consecutive
+  evaluation failures exist, even when a prior success is cached
+  (strictly more conservative; regression test added). (2) The JWT dev
+  fallback key's lazy initialization is now lock-guarded (double-checked)
+  so racing threads can never observe two different per-process keys
+  (8-thread barrier test). (3) A concatenated docstring in
+  ``detectors/directive.py`` and a split log literal in
+  ``space/disaster_precursor_detector.py`` were repaired (no behavior
+  change).
+- **caplog isolation hardened for the full-suite lane.** The autouse
+  conftest guard that restored ``omni_mercury_engine``'s ``propagate`` flag
+  now also forces/restores the logger's *level* and *disabled* flag: a test
+  leaving the package logger raised to ERROR silently dropped WARNING
+  records before caplog's root handler, reproducing the order-dependent
+  full-suite failures of the CICIDS synthetic-fallback warning test and
+  the feedback-loop reason-code test under xdist scheduling (reproduced
+  locally with a level-polluting probe, then proven fixed).
+- **Label-provenance gate no longer audits test fixtures.**
+  `datasets/label_provenance.py::discover_loaders()` now carries the same
+  documented test-module exemption as its `loaders/` sibling: the F5
+  cache-vs-split probe loader (a test-local fixture) tripped the full-suite
+  ML lane because `__subclasses__` sweeps see any test module imported
+  earlier in the same process. The probe also declares its manufactured
+  labels honestly (`LABEL_SOURCE = "statistical"`).
+- **Scenario regeneration test made environment-honest.** numpy dispatches
+  transcendental kernels by CPU capability, so seeded regeneration is not
+  bit-stable across hardware (observed on CI). The slow-tier test now
+  compares regenerated content exactly for integers/strings and to last-ulp
+  float tolerance; the committed scenario files stay content-hash-pinned
+  (the gate itself is unchanged and deterministic).
+- **Fabricated all-clear paths removed.** `HeartMathGCMSSource` placeholder
+  spectra are now labelled `simulated=True` at confidence 0.0 (refused by the
+  seam without opt-in); `GeomageticCorrelator` reports `unknown` instead of
+  inventing quiet Kp 3.0/Dst −20 defaults; `VolcanicEruptionDetector.detect_live`
+  raises on an empty/name-filtered-out feed instead of reporting "normal";
+  DONKI and CO-OPS clients propagate failures instead of returning silent
+  empty successes; the USGS FDSN and NWPS parsers fail loud on payload
+  contract drift; legacy demo trainers require an explicit
+  `allow_synthetic_fallback=True` to touch synthetic data.
+- **Network smoke lane semantics fixed.** New `SourceUnreachableError` /
+  `FetchResult.unreachable` / `LiveDataError.unreachable` taxonomy: the
+  weekly lane now skips ONLY on transport-level unavailability and FAILS on
+  drift from a reachable service; `network-tests.yml` installs `[ml]` so the
+  five `detect_live` round-trips actually run (they silently skipped on
+  missing torch); the NWPS smoke passes the bbox the endpoint requires.
+- **Shipped-checkpoint integrity.** `load_shipped_checkpoint` now verifies
+  the artifact against the sidecar's pinned sha256 BEFORE deserializing and
+  the provenance sidecars ship in wheels via package-data; tamper and
+  merit-gate-refusal regression tests added.
+- **Gate hygiene.** `ci/hazard-regression` is now the literal job name (the
+  branch-protection context the docs reference); the PR trigger is unfiltered
+  so the required check can never wedge on "Expected"; `check()`'s
+  missing-domain violation branch is reachable (was dead behind a KeyError);
+  the vacuous `kp_g_bucket_accuracy` floor is reported-not-gated with the
+  measured degenerate-predictor numbers pinned in a test.
+- **F10/F16 follow-through.** The AMA adapter drops non-finite scalars loudly
+  (never clamps to 0.0); `reset_global_network` takes the construction lock;
+  the GOSNN accessor survives racing a concurrent first direct construction;
+  stream factories and `StreamingAnomalyPipeline` thread `broker=` through
+  (it was silently swallowed, making the F16 isolation seam unreachable).
+- **F5 follow-through.** Cache-key material is one canonical JSON document —
+  the old underscore-joined prefix let distinct `(name, version)` pairs
+  collide onto one cache file; upgrade note documented (one-time rebuild).
+- **New recorded-real fixtures.** NASA DONKI FLR/GST (2026-07-09 capture)
+  covering the previously untested corroboration path; the CO-OPS
+  water-level fixture is now exercised; the JPL Sentry fixture's duplicated
+  record was removed.
+- Live-ingestion client catalog documented in `docs/DATASOURCES.md`;
+  `.trivyignore` carries a time-boxed acceptance for CVE-2026-53615
+  (unfixed Debian util-linux base-image CVE published 2026-07-09).
+
+### Hazard honesty wave — physics from observations, not untrained networks
+
+Every natural-hazard forecast surface was audited for fabricated signal.
+Untrained neural networks (random weights, no labelled corpus) no longer
+produce eruption probabilities, storm Kp forecasts, tsunami confidences,
+tornado rotation values, or earthquake magnitudes. Each detector now runs a
+deterministic physics core computed from the OBSERVED inputs, with a guarded
+`load_neural_weights()` hook that flips to the learned path only when a real
+checkpoint is loaded:
+
+- **Volcanic** — noisy-OR evidence fusion over observed gas flux, InSAR
+  deformation, thermal radiance and seismic statistics + median/MAD swarm
+  detection (was: `randn(128)` through an untrained forecast net).
+- **Space cluster** — Boyle-index geomagnetic storm physics with NOAA G-scale
+  classification; earthquake-precursor magnitude is `None` until a trained
+  model exists (was: untrained-net output × 9.0 presented as magnitude).
+- **Tsunami + earthquake** — observed peak-vs-baseline wave analysis;
+  unconditional STA/LTA triggering with real P/S arrival picks and S–P
+  distance; magnitude honestly `undetermined`.
+- **Tornado / wildfire / landslide / hurricane** — Doppler-couplet rotation,
+  VIIRS/MODIS brightness-temperature ignition, geotechnical slope stability,
+  and vorticity/max-wind from the previously ignored wind field; the dead
+  uncomputed hurricane track/landfall fields were removed.
+
+### Hazard live-data wiring (T1e)
+
+One uniform, provenance-checked live-ingestion seam
+(`data_sources/live_ingestion.py`) now connects every hazard detector to its
+real client via dependency injection (default = fully offline):
+
+- Earthquake/tsunami → USGS FDSN catalog; volcano → the **real USGS HANS
+  public API** (the simulated `US_VOLCANOES` table that emitted fabricated
+  all-clear alerts is gone, DEPRECATION §6.9); tornado/flood → NWS CAP alerts
+  + NWPS river gauges; solar → NOAA SWPC + NASA DONKI; Schumann → BGS ELF
+  client whose simulation is now explicitly labelled and refused without an
+  `allow_simulated=True` opt-in; meteor → NASA NeoWs + new real JPL
+  fireball/Sentry clients (`data_sources/jpl_ssd.py`) replacing the private
+  in-detector HTTP loaders (DEPRECATION §6.8).
+- The duplicate geological `SolarFlareDetector` (hand-authored per-HMM-state
+  Kp/Dst lookup tables — invented indices presented as predictions) was
+  removed; the canonical space-cluster class populates storm fields only from
+  an observed planetary Kp with the documented NOAA G-scale / Loewe & Prölss
+  (1997) Dst mapping (DEPRECATION §6.7).
+- `FloodDetector`'s never-invoked untrained `TopographicRunoffPredictor` was
+  removed; the physics runoff coefficient is the real path (DEPRECATION §6.10).
+- Earthquake, tsunami, meteor and solar-flare detectors joined
+  `DETECTOR_MANIFEST`. 90 offline-deterministic wiring tests on recorded
+  fixtures across the three dedicated modules
+  (`tests/test_live_wiring_sources.py`, `tests/test_live_wiring_space.py`,
+  `tests/detectors/test_live_wiring_geological.py`) + a `network`-marked live
+  smoke module (`tests/test_live_wiring_network.py`; 11 live paths verified
+  green). The smoke lane skips only on transport-level unreachability
+  (`FetchResult.unreachable` / `LiveDataError.unreachable`) and FAILS on
+  payload or contract drift from a reachable service.
+
+### Per-hazard skill metrics + regression gate (T2)
+
+- `evaluation/hazard_metrics.py`: POD / FAR / CSI / frequency bias / HSS,
+  lead-time, magnitude MAE/bias, haversine location error, VEI and ordinal
+  alert-level accuracy, flare-class and Kp skill — literature-standard
+  definitions with strict validation.
+- `benchmarks/hazard_regression_guard.py` + committed
+  `hazard_domain_baseline.json`: measured baselines with provenance (commit,
+  seeds, scenario hashes) over seven guarded domains (tornado, flood,
+  hurricane, earthquake, tsunami, volcano, solar) on committed scenario sets
+  (real recorded SWPC/GOES windows + seeded detector-contract scenarios);
+  floors derived as measured − margin; `--check` fails CI on regression via
+  the new `ci/hazard-regression` lane
+  (`.github/workflows/hazard-regression.yml`). Hurricane track error is
+  explicitly excluded until a track model exists. Non-vacuous floor tests
+  prove every floor sits strictly between the degenerate score and the
+  measured baseline.
+
+### First real hazard checkpoint: solar_storm_geomag (T5)
+
+`ml/hazard_training/` + `scripts/train_hazard_checkpoints.py`: a
+reproducible, merit-gated training pipeline for the eleven
+`load_neural_weights()` hooks — seeded stages, sha256-pinned data caches,
+strictly ordered by-year temporal splits, provenance sidecars, and a hard
+merit gate (ship refuses unless the trained model beats the physics fallback
+on held-out years through the public detector API). Category b/c hooks fail
+loud with their exact real-data requirement (`--audit` prints the 11-hook
+table; docs/HAZARD_CHECKPOINT_TRAINING.md).
+
+**Shipped**: `solar_storm_geomag` — trained on 20 years of real NASA SPDF
+OMNI2 hourly solar wind + observed planetary Kp (2005–2024, GFZ Kp
+cross-checked). Held-out 2022–2024 (25,846 hours incl. the 2024-05 G5
+superstorm): Kp MAE 0.574 vs physics 1.054 (−45%), G-bucket accuracy 97.6%
+vs 94.8%, storm AUC 0.972 vs 0.845; the fixed-Kp5 recall/false-alarm
+trade-off is recorded honestly in the provenance sidecar.
+`SolarStormDetector.load_neural_weights()` now loads the shipped default
+with train/serve feature parity.
+
+### Fixed — deferred correctness items (F5, F16, F10)
+
+- **F5** — `DatasetConfig.get_cache_key()` now includes `split_ratios`;
+  changing the split can no longer silently reuse a stale `.npz` cache whose
+  train/val/test split was baked with the old ratios. Behavioral regression
+  test proves the second load re-splits.
+- **F16** — in-memory stream state moved off the producer CLASS onto an
+  explicit `InMemoryStreamBroker` (instance state, broker-scoped topics,
+  default broker + reset seam). Two pipelines can no longer bleed messages
+  through the class object, and tests no longer depend on remembering manual
+  `.clear()` calls.
+- **F10** — permanent GOSNN singleton product fix: the scalar registry is now
+  lock-guarded with per-component ownership and `unregister_scalars()` /
+  context-manager scoping; operational scalars feeding the σ_Immutable gate
+  are validated (non-finite or grossly out-of-range values are excluded with
+  a loud once-per-scalar warning, never clamped); the adapter's raw
+  unix-timestamp posture scalar moved to the new `omni_diag_` metric-only
+  channel — a real key rotation no longer collapses an unrelated
+  `detect_with_fusion` to a spurious fail-closed σ=0.0; and re-constructing
+  the singleton with materially different config raises loudly instead of
+  silently ignoring the new configuration.
+
+### Security & robustness hardening (real-backend audit pass)
+
+A deliberate audit + fix pass built and tested end-to-end against the real AMA
+Cryptography v3.3.0 native backend (KATs green). Each fix carries regression
+tests; no behavior was suppressed or cosmetically patched.
+
+**Security — cryptography**
+
+- **Replaced a cryptographically broken "quantum-resistant" encryptor with real
+  AMA ML-KEM-1024 + AES-256-GCM.** `security/encryption.py`'s
+  `QuantumResistantEncryption` (exported as `SecureDataHandler`) used zero-noise
+  LWE (secret key recoverable by Gaussian elimination), a repeating-XOR
+  keystream, and a non-constant-time signature compare. It is now a proper
+  KEM-DEM over `MercuryCrypto` (Kyber-1024 encapsulation + AES-256-GCM AEAD);
+  `sign_data` uses native HMAC with constant-time verification. Public API
+  preserved.
+- **Replaced the hard-coded JWT dev fallback key with an ephemeral per-process
+  key** (CWE-798). A deployment that forgot both `MERCURY_ENV` and
+  `JWT_SECRET_KEY` signed admin tokens with a constant published in source.
+  The fallback is now a per-process random key: unforgeable from source, and
+  non-portable so a misconfigured multi-replica deploy fails visibly instead of
+  silently accepting forged tokens.
+- **PQC import gate now consults AMA's FIPS 140-3 power-on self-test.** The gate
+  checked algorithm flags + version but not the POST verdict, so a build whose
+  self-tests failed could still start. It now fails closed unless
+  `ama_cryptography.check_operational()` reports OPERATIONAL.
+- **`MercuryCrypto.verify_crypto_package`** exposed — Mercury could seal 6-layer
+  AMA packages but had no way to verify them.
+- **Audit hash-chain key derived from AMA HD key management** (`audit_sign`)
+  instead of a per-process random key, so audit chains verify across
+  workers/replicas/restarts when `AMA_MASTER_SEED` is set.
+- **Adaptive-posture controller wired to real AMA key rotation** — it was
+  constructed with `rotation_manager=None`, so a ROTATE_KEYS decision was a
+  no-op; it now drives the real `KeyRotationManager`.
+
+**Robustness — fail-loud / fail-closed**
+
+- **Streaming pipeline no longer loses alerts on a failed publish**: a failed
+  `send()` now vetoes the input-offset commit (at-least-once) and increments a
+  visible `publish_failures` metric, instead of committing and dropping the
+  detected anomaly. The Kafka `commit()` dependency import was hoisted so a
+  missing `aiokafka` surfaces loudly rather than being logged as "commit failed".
+- **Integration adapters (HTTP, OpenTelemetry) stop reporting connected/
+  delivered when the transport dependency is missing** — they now fail loud and
+  no longer leak a session on a failed health probe.
+- **`RealTimeThreatDetector` fails closed when blind** — it no longer marks
+  itself fitted with zero working sub-detectors, nor reports "LOW / no threat"
+  when every sub-detector errors at inference.
+- **Crypto posture reports `UNKNOWN` (not a falsely-reassuring `NOMINAL`) when
+  the evaluator is failing**, with `posture_evaluation_healthy` /
+  `posture_eval_consecutive_failures` surfaced.
+- **A failed nano detection sub-score is excluded from the fusion blend** rather
+  than averaged in as a spurious `0.0` that depressed the fused anomaly score.
+- **A configured fail-closed `nan_policy` is honoured** even when
+  `DetectionConfig.resolve` fails on an unrelated key (was silently reverting to
+  the permissive env default).
+- **Ground-truth labels are never fabricated** — `NetworkSecurityLoader` raises
+  instead of returning an all-normal label vector when labels can't be derived.
+- **Oracle checkpoint-restore failures are surfaced** (`restore_failed` in the
+  Oracle metadata + WARNING) instead of leaving the detector silently scoring
+  without its Oracle component.
+- Several swallowed security-audit events and silent degradations were elevated
+  from DEBUG to WARNING.
+
+**API / CLI**
+
+- **`mercury-agent detect --threshold` now governs the fusion decision** (it was
+  parsed and ignored); out-of-range values are rejected and the statistical
+  path reports it as inapplicable.
+- **`GET /export/metrics` rejects a non-JSON `format`** with 400 instead of
+  silently returning JSON.
+
+### Removed
+
+- **`ml/ppo_trainer.py`** — dead in every supported install (no `stable_baselines3`
+  extra, no `gymnasium`), broken even with SB3 hand-installed, and its surviving
+  paths fabricated training results. No runtime caller, no tests. See
+  DEPRECATION.md §6.6.
+
+## [2.1.0] - 2026-07-08
+
+Feature-additive over 2.0.0 — the detector-tier surface below is new public
+API, so this cut is a SemVer **minor**, not a patch. Release hygiene included
+in this cut: `tests/infrastructure/test_streaming.py::test_commit_int_offset_commits_next`
+now skips when `aiokafka` (the `[streaming]` extra) is absent — its int-offset
+commit path imports `aiokafka.TopicPartition` at call time, so on a base
+install the mocked commit was never awaited and the test failed spuriously;
+and the `.coveragerc` comment naming the CI coverage floors was trued to the
+current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
+
 ### Fixed — `CachedBenevolenceScorer` threshold setter (drop-in fidelity)
 
 `CachedBenevolenceScorer` (the LRU wrapper the engine now places on its ethics
@@ -5228,7 +5518,8 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0

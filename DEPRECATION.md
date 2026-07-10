@@ -4,7 +4,7 @@
 |----------|-------|
 | Document Version | 1.2 |
 | Last Updated | 2026-05-20 |
-| Applies to | Mercury Agent v2.0.x |
+| Applies to | Mercury Agent v2.1.x |
 
 This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
 
@@ -51,6 +51,11 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |
 | `strict_ethics=False` engine flag | _no replacement_ | **Removed in v1.7** - dual hard gates are non-negotiable (see §6) |
 | `result["gosnn_metadata"]["fallback_mode"] is True` path | `EthicalConstraintViolationError(check="gosnn_unavailable")` | **Removed in v1.7** - σ_Immutable second hard gate (see §6) |
+| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v2.1** - correctness exception (see §6) |
+| Geological `SolarFlareDetector` duplicate + `GeomagneticHMM` | Canonical `space.solar_storm_detector.SolarFlareDetector` (re-exported from `detectors.geological`) | **Removed in v2.1** - correctness exception (see §6.7) |
+| `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
+| `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
+| `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
 
 ---
 
@@ -301,15 +306,17 @@ indicator_system = IndicatorSystem(enable_auto_deprecation=False)
 
 ---
 
-## 6. v1.7 Removals (security/correctness exceptions)
+## 6. Removals (security/correctness exceptions)
 
 The five-criteria preservation policy at the top of this document is the
-default. Four surfaces were **removed** in the v1.7 development cycle
-because preservation was incompatible with the project's hard ethical
-gate contract or with documented SSRF / DNS-rebinding defence.  Each
-entry below records the criterion that overrode preservation, the
-replacement surface, and the in-tree regression test that pins the new
-behaviour.
+default. The surfaces below were **removed** because preservation was
+incompatible with the project's hard ethical gate contract, with
+documented SSRF / DNS-rebinding defence, or with the fail-loud
+correctness doctrine (stub collaborators must hard-fail rather than
+silently degrade).  Each entry records the criterion that overrode
+preservation, the replacement surface, and the in-tree regression test
+that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
+development cycle; §6.6 in v2.1.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -381,6 +388,114 @@ threat detection, audit logging) and governance frameworks live in
 `compliance/`. A repository-wide `git grep` confirmed no external call
 sites at the time of relocation; no backwards-compatibility shim was
 added. New code must use the `compliance.` import path.
+
+### 6.6 `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer`)
+
+* **Removed by:** v2.1 improvement pass (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) + §3 (Zero
+  Active Usage). The module was dead in every supported install
+  profile: `stable_baselines3` appears in no dependency extra (it was
+  only a mypy override) and `gymnasium` nowhere at all, so
+  `PPOTrainer.__init__` raised `NotImplementedError` unconditionally.
+  With SB3 hand-installed it was *still* broken — its custom callback
+  class lacks SB3's `init_callback` interface, so `model.learn()`
+  raised `AttributeError`, which `pretrain()` swallowed and then logged
+  "Pretraining complete" with zeroed stats: silent fake success,
+  violating the §6.2 "stub collaborators must hard-fail" contract. A
+  `_mock_pretrain` residue fabricated reward/convergence numbers, and
+  `train_online`/`evaluate` silently substituted random actions when no
+  model was loaded. Despite being import-guarded as if lazy, the module
+  was eagerly imported on every `[ml]` install
+  (`if HAS_TORCH or TYPE_CHECKING`). Repository-wide grep: no runtime
+  callers, no tests, no docs.
+* **Replacement:** `agentic.agentic_autonomy.AgenticAutonomy` (in-house
+  numpy Q-learning with experience replay) for RL-style workflow
+  adaptation; `automl.BayesianOptimizer` / `engine.tune_fusion` for
+  hyperparameter search. Neither niche benefits from on-policy PPO at
+  Mercury's trial budgets.
+* **Regression test:** `tests/ml/test_removed_ppo.py`
+
+### 6.7 Geological `SolarFlareDetector` duplicate + `GeomagneticHMM`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. Two unrelated classes named
+  `SolarFlareDetector` existed (space vs geological). The geological
+  copy filled `kp_index_predicted` / `dst_index_predicted` from
+  hand-authored per-HMM-state lookup tables
+  (`base_kp=[1,2,4,6,8]`, `base_dst=[0,-10,-30,-100,-300]`) — invented
+  geomagnetic indices presented as predictions — and `GeomagneticHMM`
+  carried a hand-authored transition matrix plus per-state
+  storm-probability priors whose "state" was just the GOES flux class.
+* **Replacement:** the canonical
+  `omni_mercury_engine.space.solar_storm_detector.SolarFlareDetector`
+  (re-exported from `detectors.geological.disaster_detectors` and
+  `detectors.geological`, so existing imports keep working). Storm
+  fields are populated only from a REAL observed planetary Kp (NOAA
+  SWPC live feed or `observed_kp=`); Dst is estimated via the
+  documented NOAA G-scale / Loewe & Prölss (1997) mapping. Field
+  changes on `SolarFlarePredictionResult`: `hmm_state` /
+  `transition_probability` are gone (`flux_class_index` replaces them);
+  `flare_class` now carries NOAA letters (`"X"`), not `"x_class"`
+  labels (the legacy `SolarFlareClass` enum with `"x_class"` values is
+  preserved in `disaster_detectors` for import compatibility);
+  `geomagnetic_storm_probability` / `kp_index_predicted` /
+  `dst_index_predicted` are `float | None` and `None` offline.
+* **Regression test:** `tests/test_live_wiring_space.py`,
+  `tests/detectors/test_live_wiring_geological.py`
+
+### 6.8 Private NASA CNEOS loaders in `disaster_detectors`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) — private
+  module-level HTTP loaders (`load_nasa_fireball_data`,
+  `load_nasa_close_approach_data`, `load_nasa_sentry_data`) duplicated
+  the `data_sources` stack without its rate limiting/caching/circuit
+  breaking, and two of them were quietly broken against the live APIs:
+  the Sentry loader read nonexistent `ps`/`ts` keys (always emitting
+  its `-10`/`0` fallbacks) and the fireball loader mislabelled the
+  API's ×10¹⁰ J radiated-energy unit as joules.
+* **Replacement:** `data_sources.jpl_ssd.JPLFireballSource` /
+  `JPLSentrySource` (new real clients) and the existing
+  `data_sources.space_weather.NASANeoWsSource` for close approaches.
+  The `FireballEvent` / `CloseApproachEvent` / `SentryImpactRisk`
+  dataclasses moved to `data_sources.jpl_ssd` and are re-exported from
+  `disaster_detectors` for import compatibility. `MeteorDetector`
+  consumes only these clients (6 h refresh preserved via their
+  `CacheConfig`); `use_nasa_data=True` still means "construct default
+  clients".
+* **Regression test:** `tests/test_live_wiring_sources.py`,
+  `tests/detectors/test_live_wiring_geological.py`
+
+### 6.9 `USGSVolcanoSource.US_VOLCANOES` static table
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine — the source looped a hardcoded 10-entry
+  volcano dict and emitted `alert_level="normal"` /
+  `aviation_color_code="green"` for every volcano on every fetch:
+  fabricated all-clear alerts presentable as real monitoring.
+* **Replacement:** the same class now queries the real USGS HANS public
+  API (`getMonitoredVolcanoes` / `getElevatedVolcanoes`) and reports
+  the official observatory alert levels and aviation color codes.
+* **Regression test:** `tests/test_live_wiring_sources.py::TestUSGSVolcanoHANS`
+
+### 6.10 `flood_detector.TopographicRunoffPredictor`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. The class was an untrained neural network
+  that `FloodDetector` instantiated (`enable_runoff=True`) but **never
+  invoked** — dead surface whose only possible future use was emitting
+  random-weight runoff/discharge numbers. No caller, no checkpoint, no
+  labelled runoff corpus.
+* **Replacement:** `FloodDetector` already derives its
+  `runoff_coefficient` from the `SoilSaturationModel` physics
+  (infiltration-based, deterministic); that path is unchanged. The
+  `enable_runoff` constructor parameter was removed with the class (it
+  gated only the dead attribute).
+* **Regression test:**
+  `tests/detectors/test_live_wiring_geological.py::TestFloodDetectorLiveWiring::test_dead_runoff_network_is_gone`
 
 ---
 

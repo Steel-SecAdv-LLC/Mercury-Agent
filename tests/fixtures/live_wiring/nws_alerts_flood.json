@@ -1,0 +1,655 @@
+{
+ "@context": [
+  "https://geojson.org/geojson-ld/geojson-context.jsonld",
+  {
+   "@version": "1.1",
+   "wx": "https://api.weather.gov/ontology#",
+   "@vocab": "https://api.weather.gov/ontology#"
+  }
+ ],
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bba128cca351243ef3b469abf741e741dd7ba42c.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -97.21,
+       39.83
+      ],
+      [
+       -97.37,
+       39.89
+      ],
+      [
+       -97.37,
+       40
+      ],
+      [
+       -97.08,
+       40
+      ],
+      [
+       -97.08,
+       39.83
+      ],
+      [
+       -97.21,
+       39.83
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bba128cca351243ef3b469abf741e741dd7ba42c.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.bba128cca351243ef3b469abf741e741dd7ba42c.001.1",
+    "areaDesc": "Washington, KS",
+    "geocode": {
+     "SAME": [
+      "020201"
+     ],
+     "UGC": [
+      "KSC201"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/KSC201"
+    ],
+    "references": [],
+    "sent": "2026-07-09T00:43:00-05:00",
+    "effective": "2026-07-09T00:43:00-05:00",
+    "onset": "2026-07-09T00:43:00-05:00",
+    "expires": "2026-07-09T03:45:00-05:00",
+    "ends": "2026-07-09T03:45:00-05:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Flood Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Topeka KS",
+    "headline": "Flood Advisory issued July 9 at 12:43AM CDT until July 9 at 3:45AM CDT by NWS Topeka KS",
+    "description": "* WHAT...Urban and small stream flooding caused by excessive\nrainfall is expected.\n\n* WHERE...A portion of north central Kansas, including the following\ncounty, Washington.\n\n* WHEN...Until 345 AM CDT.\n\n* IMPACTS...Minor flooding in low-lying and poor drainage areas.\n\n* ADDITIONAL DETAILS...\n- At 1243 AM CDT, Doppler radar indicated heavy rain due to\nthunderstorms. This will cause urban and small stream\nflooding. Between 1.5 and 2.5 inches of rain have fallen.\n- Additional rainfall amounts of 0.5 to 1.5 inches are expected\nover the area. This additional rain will result in minor\nflooding.\n- Some locations that will experience flooding include...\nMorrowville and Mahaska.",
+    "instruction": "Turn around, don't drown when encountering flooded roads. Most flood\ndeaths occur in vehicles.\n\nBe especially cautious at night when it is harder to recognize the\ndangers of flooding.",
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "FLSTOP"
+     ],
+     "WMOidentifier": [
+      "WGUS83 KTOP 090543"
+     ],
+     "NWSheadline": [
+      "FLOOD ADVISORY IN EFFECT UNTIL 345 AM CDT EARLY THIS MORNING"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.NEW.KTOP.FA.Y.0052.260709T0543Z-260709T0845Z/"
+     ],
+     "eventEndingTime": [
+      "2026-07-09T03:45:00-05:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "FAY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3bf24851afde235c2219b19a3899f2b21513ab38.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -97,
+       44.62
+      ],
+      [
+       -96.96,
+       44.63
+      ],
+      [
+       -96.94,
+       44.62
+      ],
+      [
+       -96.93,
+       44.61
+      ],
+      [
+       -96.91,
+       44.59
+      ],
+      [
+       -96.9,
+       44.57
+      ],
+      [
+       -96.89,
+       44.56
+      ],
+      [
+       -96.89,
+       44.54
+      ],
+      [
+       -96.86,
+       44.54
+      ],
+      [
+       -96.85,
+       44.52
+      ],
+      [
+       -96.85,
+       44.5
+      ],
+      [
+       -96.9,
+       44.5
+      ],
+      [
+       -96.89,
+       44.51
+      ],
+      [
+       -96.89,
+       44.52
+      ],
+      [
+       -96.92,
+       44.53
+      ],
+      [
+       -96.92,
+       44.55
+      ],
+      [
+       -96.94,
+       44.56
+      ],
+      [
+       -96.95,
+       44.58
+      ],
+      [
+       -96.98,
+       44.61
+      ],
+      [
+       -97,
+       44.62
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.3bf24851afde235c2219b19a3899f2b21513ab38.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.3bf24851afde235c2219b19a3899f2b21513ab38.001.1",
+    "areaDesc": "Brookings, SD; Hamlin, SD",
+    "geocode": {
+     "SAME": [
+      "046011",
+      "046057"
+     ],
+     "UGC": [
+      "SDC011",
+      "SDC057"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/SDC011",
+     "https://api.weather.gov/zones/county/SDC057"
+    ],
+    "references": [],
+    "sent": "2026-07-09T00:15:00-05:00",
+    "effective": "2026-07-09T00:15:00-05:00",
+    "onset": "2026-07-09T00:15:00-05:00",
+    "expires": "2026-07-10T02:15:00-05:00",
+    "ends": null,
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Severe",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Flood Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Sioux Falls SD",
+    "headline": "Flood Warning issued July 9 at 12:15AM CDT by NWS Sioux Falls SD",
+    "description": "...The National Weather Service in Sioux Falls has issued a Flood\nWarning for the following rivers in South Dakota...\n\nBig Sioux River near Estelline affecting Hamlin and Brookings\nCounties.\n\n* WHAT...Minor flooding is occurring.\n\n* WHERE...Big Sioux River near Estelline.\n\n* WHEN...From early this morning until further notice.\n\n* IMPACTS...At 1644.0 feet, significant flooding of crop and pasture\nland begins.\n\n* ADDITIONAL DETAILS...\n- At 12:00 AM CDT Thursday the stage was 1644.1 feet.\n- Recent Activity...The maximum river stage in the 24 hours ending\nat 12:00 AM CDT Thursday was 1644.1 feet.\n- Forecast...No forecast is available for this location.\n- Flood stage is 1644.0 feet.\n- Stay up to date with the latest river observations and forecasts\nat: water.noaa.gov",
+    "instruction": "Turn around, don't drown when encountering flooded roads. Most flood\ndeaths occur in vehicles.\n\nAdditional information is available at www.weather.gov.\n\nThe next statement will be issued by late tonight.",
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "FLWFSD"
+     ],
+     "WMOidentifier": [
+      "WGUS43 KFSD 090515"
+     ],
+     "NWSheadline": [
+      "FLOOD WARNING IN EFFECT FROM EARLY THIS MORNING UNTIL FURTHER NOTICE"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "EAS-ORG": [
+      "WXR"
+     ],
+     "VTEC": [
+      "/O.NEW.KFSD.FL.W.0003.260709T0515Z-000000T0000Z/"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "FLW"
+     ],
+     "NationalWeatherService": [
+      "FLW"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.370850d03baae25125e49601073c65ec67b6f91d.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -97.37,
+       40.15
+      ],
+      [
+       -97.2,
+       40.1
+      ],
+      [
+       -97.2,
+       40
+      ],
+      [
+       -97.37,
+       40
+      ],
+      [
+       -97.37,
+       40.15
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.370850d03baae25125e49601073c65ec67b6f91d.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.370850d03baae25125e49601073c65ec67b6f91d.001.1",
+    "areaDesc": "Jefferson, NE",
+    "geocode": {
+     "SAME": [
+      "031095"
+     ],
+     "UGC": [
+      "NEC095"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/NEC095"
+    ],
+    "references": [],
+    "sent": "2026-07-09T00:03:00-05:00",
+    "effective": "2026-07-09T00:03:00-05:00",
+    "onset": "2026-07-09T00:03:00-05:00",
+    "expires": "2026-07-09T03:00:00-05:00",
+    "ends": "2026-07-09T03:00:00-05:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Flood Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Omaha/Valley NE",
+    "headline": "Flood Advisory issued July 9 at 12:03AM CDT until July 9 at 3:00AM CDT by NWS Omaha/Valley NE",
+    "description": "* WHAT...Flooding caused by excessive rainfall is expected.\n\n* WHERE...Southwestern Jefferson County in southeastern Nebraska...\n\n* WHEN...Until 300 AM CDT.\n\n* IMPACTS...Minor flooding in low-lying and poor drainage areas.\nWater over roadways.\n\n* ADDITIONAL DETAILS...\n- At 1203 AM CDT, Doppler radar indicated heavy rain due to\nthunderstorms. Minor flooding is ongoing or expected to begin\nshortly in the advisory area. Between 1 and 3 inches of rain have\nfallen.\n- Additional rainfall amounts of 1 to 2 inches are expected over\nthe area. This additional rain will result in minor flooding.\n- Some locations that will experience flooding include...\nReynolds and Buckley Creek Recreational Area.\n- http://www.weather.gov/safety/flood",
+    "instruction": "Turn around, don't drown when encountering flooded roads. Most flood\ndeaths occur in vehicles.\n\nBe especially cautious at night when it is harder to recognize the\ndangers of flooding.\n\nPlease report observed flooding to local emergency services or law\nenforcement and request they pass this information to the National\nWeather Service when you can do so safely.",
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "FLSOAX"
+     ],
+     "WMOidentifier": [
+      "WGUS83 KOAX 090503"
+     ],
+     "NWSheadline": [
+      "FLOOD ADVISORY IN EFFECT UNTIL 3 AM CDT EARLY THIS MORNING"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.NEW.KOAX.FA.Y.0020.260709T0503Z-260709T0800Z/"
+     ],
+     "eventEndingTime": [
+      "2026-07-09T03:00:00-05:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "FAY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.002.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.002.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.002.1",
+    "areaDesc": "Coastal North Bay Including Point Reyes National Seashore; San Francisco Peninsula Coast; Northern Monterey Bay; Southern Monterey Bay and Big Sur Coast",
+    "geocode": {
+     "SAME": [
+      "006041",
+      "006097",
+      "006081",
+      "006087",
+      "006053"
+     ],
+     "UGC": [
+      "CAZ505",
+      "CAZ509",
+      "CAZ529",
+      "CAZ530"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/CAZ505",
+     "https://api.weather.gov/zones/forecast/CAZ509",
+     "https://api.weather.gov/zones/forecast/CAZ529",
+     "https://api.weather.gov/zones/forecast/CAZ530"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.002.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.002.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-07-07T21:00:00-07:00"
+     }
+    ],
+    "sent": "2026-07-08T21:59:00-07:00",
+    "effective": "2026-07-08T21:59:00-07:00",
+    "onset": "2026-07-11T20:00:00-07:00",
+    "expires": "2026-07-09T16:00:00-07:00",
+    "ends": "2026-07-15T04:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Coastal Flood Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Coastal Flood Advisory issued July 8 at 9:59PM PDT until July 15 at 4:00AM PDT by NWS San Francisco CA",
+    "description": "* WHAT...For the Beach Hazards Statement, long period SW swell\nwill bring an increased risk of sneaker waves and strong rip\ncurrents. For the Coastal Flood Advisory, up to 1.7 ft of\ninundation above ground level is possible in low-lying areas\nnear shorelines and tidal waterways.\n\n* WHERE...Pacific Coast.\n\n* WHEN...For the Beach Hazards Statement, through Friday\nafternoon. For the Coastal Flood Advisory, from 8 PM Saturday\nto 4 AM PDT Wednesday.\n\n* IMPACTS...Dangerous conditions are forecast along the\nshoreline. Hazards include sneaker waves, strong rip currents,\nand large breaking waves. High tide flooding of lots, parks,\nand roads with only isolated road closures expected.\n\n* ADDITIONAL DETAILS...At the San Francisco tidal gauge, high\ntide is expected to be 1.6 ft above normal (7.4 ft MLLW) at\n9:11 PM 7/11, 1.7 ft above normal (7.5 ft MLLW) at 10:06 PM\n7/12, 1.7 ft above normal (7.5 ft MLLW) at 11:01 PM 7/13, 1.6\nft above normal (7.4 ft MLLW) at 11:55 PM 7/14. These\npredictions include both astronomical tides and roughly 3-6\ninches of additional water mainly from a combination of\nthermal expansion and accumulated sea level rise since the\ntidal datum was established (1983-2001). High tide varies up\nto 90 minutes earlier or later along the Pacific Coast and\nthrough the San Francisco Bay, respectively.",
+    "instruction": "Stay off of jetties, piers, rocks, and other waterside\ninfrastructure. Remain out of the water to avoid hazardous surf\nand NEVER turn your back on the ocean. Monitor local weather,\nsurf and tide forecasts at www.weather.gov/mtr.\n\nIf travel is required, allow extra time as some roads may be\nclosed. Do not drive around barricades or through water of\nunknown depth. Take the necessary actions to protect flood-prone\nproperty.",
+    "response": "Monitor",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "CFWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS46 KMTR 090459"
+     ],
+     "NWSheadline": [
+      "BEACH HAZARDS STATEMENT REMAINS IN EFFECT THROUGH FRIDAY AFTERNOON... ...COASTAL FLOOD ADVISORY REMAINS IN EFFECT FROM 8 PM SATURDAY TO 4 AM PDT WEDNESDAY"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.CON.KMTR.CF.Y.0007.260712T0300Z-260715T1100Z/"
+     ],
+     "eventEndingTime": [
+      "2026-07-15T04:00:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "CFY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.001.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.001.1",
+    "areaDesc": "San Francisco",
+    "geocode": {
+     "SAME": [
+      "006075"
+     ],
+     "UGC": [
+      "CAZ006"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/CAZ006"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.001.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.001.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-07-07T21:00:00-07:00"
+     }
+    ],
+    "sent": "2026-07-08T21:59:00-07:00",
+    "effective": "2026-07-08T21:59:00-07:00",
+    "onset": "2026-07-09T16:00:00-07:00",
+    "expires": "2026-07-09T16:00:00-07:00",
+    "ends": "2026-07-16T04:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Coastal Flood Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Coastal Flood Advisory issued July 8 at 9:59PM PDT until July 16 at 4:00AM PDT by NWS San Francisco CA",
+    "description": "* WHAT...For the Beach Hazards Statement, long period SW swell\nwill bring an increased risk of sneaker waves and strong rip\ncurrents. For the Coastal Flood Advisory, up to 1.7 ft of\ninundation above ground level is possible in low-lying areas\nnear shorelines and tidal waterways.\n\n* WHERE...San Francisco.\n\n* WHEN...For the Beach Hazards Statement, through Friday\nafternoon. For the Coastal Flood Advisory, from 4 PM Thursday\nJuly 9, to 4 AM PDT Thursday July 16.\n\n* IMPACTS...Dangerous conditions are forecast along the\nshoreline. Hazards include sneaker waves, strong rip currents,\nand large breaking waves. High tide flooding of lots, parks,\nand roads with only isolated road closures expected.\n\n* ADDITIONAL DETAILS...At the San Francisco tidal gauge, high tide\nis expected to be 1.1 ft above normal (6.9 ft MLLW) at 7:25 PM\n7/9, 1.3 ft above normal (7.1 ft MLLW) at 8:17 PM 7/10, 1.6 ft\nabove normal (7.4 ft MLLW) at 9:11 PM 7/11, 1.7 ft above normal\n(7.5 ft MLLW) at 10:06 PM 7/12, 1.7 ft above normal (7.5 ft\nMLLW) at 11:01 PM 7/13, 1.6 ft above normal (7.4 ft MLLW) at\n11:55 PM 7/14, 1.3 ft above normal (7.1 ft MLLW) at 12:48 AM\n7/16. These predictions include both astronomical tides and\nroughly 3-6 inches of additional water mainly from a combination\nof thermal expansion and accumulated sea level rise since the\ntidal datum was established (1983- 2001). High tide varies up to\n90 minutes earlier or later along the Pacific Coast and through\nthe San Francisco Bay, respectively.",
+    "instruction": "Stay off of jetties, piers, rocks, and other waterside\ninfrastructure. Remain out of the water to avoid hazardous surf\nand NEVER turn your back on the ocean. Monitor local weather,\nsurf and tide forecasts at www.weather.gov/mtr.\n\nIf travel is required, allow extra time as some roads may be\nclosed. Do not drive around barricades or through water of\nunknown depth. Take the necessary actions to protect flood-prone\nproperty.",
+    "response": "Monitor",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "CFWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS46 KMTR 090459"
+     ],
+     "NWSheadline": [
+      "BEACH HAZARDS STATEMENT REMAINS IN EFFECT THROUGH FRIDAY AFTERNOON... ...COASTAL FLOOD ADVISORY REMAINS IN EFFECT FROM 4 PM THURSDAY JULY 9 TO 4 AM PDT THURSDAY JULY 16"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.CON.KMTR.CF.Y.0007.260709T2300Z-260716T1100Z/"
+     ],
+     "eventEndingTime": [
+      "2026-07-16T04:00:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "CFY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.003.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.003.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.194ac23d4d3b20fe617a23e4326d82d522132489.003.1",
+    "areaDesc": "North Bay Interior Valleys; San Francisco Bay Shoreline",
+    "geocode": {
+     "SAME": [
+      "006041",
+      "006055",
+      "006097",
+      "006001",
+      "006013",
+      "006081",
+      "006085"
+     ],
+     "UGC": [
+      "CAZ506",
+      "CAZ508"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/CAZ506",
+     "https://api.weather.gov/zones/forecast/CAZ508"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.003.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.12d79beac54dec6a9d567d5075bff73ad4b5432c.003.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-07-07T21:00:00-07:00"
+     }
+    ],
+    "sent": "2026-07-08T21:59:00-07:00",
+    "effective": "2026-07-08T21:59:00-07:00",
+    "onset": "2026-07-09T16:00:00-07:00",
+    "expires": "2026-07-09T16:00:00-07:00",
+    "ends": "2026-07-16T04:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Coastal Flood Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Coastal Flood Advisory issued July 8 at 9:59PM PDT until July 16 at 4:00AM PDT by NWS San Francisco CA",
+    "description": "* WHAT...Up to 1.7 ft of inundation above ground level is\npossible in low-lying areas near shorelines and tidal\nwaterways.\n\n* WHERE...North Bay Interior Valleys and San Francisco Bay\nShoreline Counties.\n\n* WHEN...From 4 PM Thursday July 9, to 4 AM PDT Thursday July 16.\n\n* IMPACTS...High tide flooding of lots, parks, and roads with\nonly isolated road closures expected.\n\n* ADDITIONAL DETAILS...At the San Francisco tidal gauge, high tide\nis expected to be 1.1 ft above normal (6.9 ft MLLW) at 7:25 PM\n7/9, 1.3 ft above normal (7.1 ft MLLW) at 8:17 PM 7/10, 1.6 ft\nabove normal (7.4 ft MLLW) at 9:11 PM 7/11, 1.7 ft above normal\n(7.5 ft MLLW) at 10:06 PM 7/12, 1.7 ft above normal (7.5 ft\nMLLW) at 11:01 PM 7/13, 1.6 ft above normal (7.4 ft MLLW) at\n11:55 PM 7/14, 1.3 ft above normal (7.1 ft MLLW) at 12:48 AM\n7/16. These predictions include both astronomical tides and\nroughly 3-6 inches of additional water mainly from a combination\nof thermal expansion and accumulated sea level rise since the\ntidal datum was established (1983- 2001). High tide varies up to\n90 minutes earlier or later along the Pacific Coast and through\nthe San Francisco Bay, respectively.",
+    "instruction": "If travel is required, allow extra time as some roads may be\nclosed. Do not drive around barricades or through water of\nunknown depth. Take the necessary actions to protect flood-prone\nproperty.",
+    "response": "Monitor",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "CFWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS46 KMTR 090459"
+     ],
+     "NWSheadline": [
+      "COASTAL FLOOD ADVISORY REMAINS IN EFFECT FROM 4 PM THURSDAY JULY 9 TO 4 AM PDT THURSDAY JULY 16"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.CON.KMTR.CF.Y.0007.260709T2300Z-260716T1100Z/"
+     ],
+     "eventEndingTime": [
+      "2026-07-16T04:00:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "CFY"
+     ]
+    }
+   }
+  }
+ ],
+ "title": "Current watches, warnings, and advisories",
+ "updated": "2026-07-09T05:46:20+00:00"
+}

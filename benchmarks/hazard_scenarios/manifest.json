@@ -1,0 +1,130 @@
+{
+  "files": {
+    "earthquake_scenarios.npz": {
+      "construction": "60 s single-station traces at 100 Hz, background sigma 0.1. Events: impulsive P burst (12-20x background, 1.2 s exponential coda) then S coda at 2x P amplitude, S-P delay 2.0-6.55 s; true distance = dt_SP * 8.4 km/s (detector's documented Vp=6.0/Vs=3.5). Nulls: quiet noise, slow amplitude modulation, steady 2 Hz hum. Mirrors tests/detectors/test_geophysical_honesty.py fixtures.",
+      "hash_policy": "npz_content",
+      "label_source": "constructed",
+      "n_events": 14,
+      "n_scenarios": 24,
+      "seed": 4208,
+      "sha256": "bef8586ec21fb0c19e9a8bb53021dcbcbb60be26c814fe4fc59957ec3368fb7f"
+    },
+    "flood_scenarios.json": {
+      "construction": "Static scenarios against NWS flash-flood (2 in/hr) and 24 h flood (4 in) climatology plus gauge stage exceedance; nulls include near-threshold rain/stage and a falling post-crest river. Timed series ramp rainfall ahead of a river crest (known crest hour) to measure warning lead time. Fully explicit; no RNG.",
+      "hash_policy": "file_bytes",
+      "label_source": "constructed",
+      "n_events": 10,
+      "n_scenarios": 20,
+      "n_series": 6,
+      "seed": null,
+      "sha256": "8b3b966aa8537a96e1ea2b8390e5bb911ae7ab738b4b19904cd124a67fdb5ace"
+    },
+    "hurricane_scenarios.npz": {
+      "construction": "50x50 wind grids at 4 km spacing. Events: Rankine vortices, Vmax 30-66 m/s, core radius 12-24 km (core zeta = 2*Vmax/rc >= 2.5e-3 s^-1), central pressure from the inverse Dvorak wind-pressure relationship. Nulls: uniform 12 m/s flow, linear shear (zeta ~5e-5), weak broad low (Vmax 8 m/s, zeta ~2.7e-4), disorganised noise; deficits <= 6 mb. Mirrors tests/detectors/test_meteorological_honesty.py fixtures.",
+      "hash_policy": "npz_content",
+      "label_source": "constructed",
+      "n_events": 10,
+      "n_scenarios": 20,
+      "seed": 4210,
+      "sha256": "00eb21d7220cdcd579261ef25716fa620215711900b070a27e6b2f17a3a07ad9"
+    },
+    "solar_flare_windows.json": {
+      "class_counts": {
+        "B": 1,
+        "C": 12,
+        "M": 14,
+        "X": 1
+      },
+      "hash_policy": "file_bytes",
+      "label_source": "measured",
+      "n_windows": 28,
+      "provenance": {
+        "fetched_at": "2026-07-09T05:43:00Z",
+        "label_source": "measured",
+        "labels": "NOAA class of each 6 h window's measured peak GOES 0.1-0.8 nm flux. DEFINITIONAL label (the NOAA class is a flux threshold): this set gates the classification chain end-to-end on real measurements, not forecast skill.",
+        "sources": [
+          {
+            "rows": 20156,
+            "sha256": "e14c5c16d7f7d62a22525a9aae2c9166a3f570f669bb80936578701b7f12f3dd",
+            "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
+          },
+          {
+            "rows": 85,
+            "sha256": "88048f600964a51d7c4cbae41d5357f13d8886a8263b94e8e08bae43d5006e6f",
+            "url": "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json"
+          }
+        ]
+      },
+      "sha256": "6d90e8d38eb27edabb008f24ad43a19fcf8d9626013437bafa18f059b7feabee"
+    },
+    "solar_kp_windows.json": {
+      "hash_policy": "file_bytes",
+      "kp_range": [
+        0.33,
+        7.33
+      ],
+      "label_source": "measured",
+      "n_windows": 55,
+      "provenance": {
+        "fetched_at": "2026-07-09T05:43:00Z",
+        "inputs": "SWPC propagated real-time solar wind (speed, IMF By/Bz), averaged per 3-hour Kp interval by propagated arrival time; windows with <60 valid minutes dropped, never imputed",
+        "label_source": "measured",
+        "labels": "NOAA/GFZ planetary Kp index (ground magnetometer network)",
+        "sources": [
+          {
+            "rows": 57,
+            "sha256": "8044bc8cf8cf501ae296cd4e6162a145c35c80404ce8414d06909d5a9c6a19d3",
+            "url": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+          },
+          {
+            "rows": 9874,
+            "sha256": "99c2ed1b5e8a7e4e8fc408b2015c580ddf2887df0ea61b82f7025ca40a8f95f8",
+            "url": "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json"
+          }
+        ]
+      },
+      "sha256": "0ed63b55cca68a6fa2b8682ebe95ea89d04e2395024271e0bd9ee3ca482eba12"
+    },
+    "tornado_scenarios.npz": {
+      "construction": "48-frame x 64-gate Doppler velocity sequences (m/s), 1 frame/min. Events: inbound/outbound couplet ramping to V_rot 18-34.5 m/s over 6 frames from a known onset; touchdown labelled onset+15 min. Nulls: calm (sigma 2), turbulence (sigma 5), uniform 15 m/s flow, and sub-threshold couplets (V_rot 7/9 m/s). Mirrors tests/detectors/test_meteorological_honesty.py fixtures.",
+      "hash_policy": "npz_content",
+      "label_source": "constructed",
+      "n_events": 12,
+      "n_scenarios": 24,
+      "seed": 4207,
+      "sha256": "971768226ffbf213a8dcd5014a7620af75664c3e1f420cd1900a12e86654366e"
+    },
+    "tsunami_scenarios.npz": {
+      "construction": "4096 s sea-level records at 1 Hz, 5 cm noise floor. Events: 0.005 Hz long-period waves of 1.2-3.5 m arriving at t>2000 s (1.2 m is a documented borderline case for the 0.96 detection threshold). Nulls: quiet sea, 0.08 Hz wind swell (outside the tsunami band), 0.5 m tidal ramp. Mirrors tests/detectors/test_geophysical_honesty.py fixtures.",
+      "hash_policy": "npz_content",
+      "label_source": "constructed",
+      "n_events": 10,
+      "n_scenarios": 20,
+      "seed": 4209,
+      "sha256": "ccdbfc790c0478aaf1182599f2e41cb2f3e58322ba4cfa85feb830aad13465ef"
+    },
+    "volcano_scenarios.json": {
+      "construction": "Four scenarios per intended USGS alert level, labelled by which genuine precursors are present: none (normal); one modest seismic swarm, ~5% robust-outlier fraction (advisory); strong swarm + SO2 4-5x baseline degassing (watch); swarm + degassing + 22-30 cm InSAR displacement + >400 K thermal anomaly (warning). Mirrors tests/detectors/test_volcanic_honesty.py fixtures.",
+      "hash_policy": "file_bytes",
+      "label_source": "constructed",
+      "levels": [
+        "normal",
+        "advisory",
+        "watch",
+        "warning"
+      ],
+      "n_scenarios": 16,
+      "seed": 4211,
+      "sha256": "7bc8bf50acd50f5f63da0c43f29caf66952a51135658782197da6fb88609181f"
+    }
+  },
+  "generator": "benchmarks/hazard_scenarios/generate_scenarios.py",
+  "numpy_version_at_generation": "2.4.6",
+  "seeds": {
+    "earthquake": 4208,
+    "hurricane": 4210,
+    "tornado": 4207,
+    "tsunami": 4209,
+    "volcano": 4211
+  }
+}

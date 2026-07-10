@@ -453,7 +453,11 @@ class NanoSafeguardDetector(BaseDetector):
             return float(min(final_score, 1.0))
 
         except Exception as e:
-            logger.debug(f"Dimensional downsampling failed: {e}")
+            # This score is one slot of a fixed-length feature vector, so it
+            # cannot be dropped; return the neutral 0.0 but warn — a persistent
+            # failure silently zeroing a feature must be visible, not a DEBUG
+            # line below the default level.
+            logger.warning("Dimensional downsampling failed; using neutral 0.0: %s", e)
             return 0.0
 
     def _hierarchical_scan(self, data: np.ndarray[Any, Any]) -> list[float]:

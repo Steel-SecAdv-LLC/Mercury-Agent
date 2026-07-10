@@ -29,6 +29,7 @@ from omni_mercury_engine.data_sources.base import (
     DataSourceType,
     FetchResult,
     RateLimitConfig,
+    SourceUnreachableError,
 )
 from omni_mercury_engine.data_sources.consciousness import (
     GCPDataSource,
@@ -49,6 +50,22 @@ from omni_mercury_engine.data_sources.geomagnetic import (
     SuperMAGSource,
     USGSGeomagnetismSource,
 )
+from omni_mercury_engine.data_sources.jpl_ssd import (
+    CloseApproachEvent,
+    FireballEvent,
+    JPLFireballSource,
+    JPLSentrySource,
+    SentryImpactRisk,
+    close_approaches_from_neows_datapoints,
+    fireball_events_from_datapoints,
+    sentry_risks_from_datapoints,
+)
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveDataError,
+    LiveFetch,
+    SimulatedDataError,
+    fetch_live_datapoints,
+)
 from omni_mercury_engine.data_sources.space_weather import (
     NASADONKISource,
     NASAEONETSource,
@@ -64,6 +81,8 @@ __all__ = [
     "BGSELFStationSource",
     "CacheConfig",
     "CircuitBreakerConfig",
+    # NASA/JPL SSD
+    "CloseApproachEvent",
     "DataPoint",
     "DataSourceBase",
     "DataSourceConfig",
@@ -73,11 +92,17 @@ __all__ = [
     # Earth Science
     "EPAAirNowSource",
     "FetchResult",
+    "FireballEvent",
     # Consciousness Research
     "GCPDataSource",
     "GCPDotSource",
     "HeartMathGCMSSource",
     "INTERMAGNETSource",
+    "JPLFireballSource",
+    "JPLSentrySource",
+    # Live ingestion seam
+    "LiveDataError",
+    "LiveFetch",
     # Space Weather
     "NASADONKISource",
     "NASAEONETSource",
@@ -87,9 +112,16 @@ __all__ = [
     "NOAASWPCSource",
     "NWSWeatherAlertsSource",
     "RateLimitConfig",
+    "SentryImpactRisk",
+    "SimulatedDataError",
     "SolarSystemOpenDataSource",
+    "SourceUnreachableError",
     "SuperMAGSource",
     "USGSEarthquakeSource",
     "USGSGeomagnetismSource",
     "USGSVolcanoSource",
+    "close_approaches_from_neows_datapoints",
+    "fetch_live_datapoints",
+    "fireball_events_from_datapoints",
+    "sentry_risks_from_datapoints",
 ]

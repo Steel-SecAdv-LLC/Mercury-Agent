@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `2.0.0` — Steel-SecAdv-LLC. Last updated: 2026-07-05.
+Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-07-08.
 
 Mercury Agent is the **neuro-symbolic AI** orchestration / cognition layer
 of the FIND**Ω**YOU stack — a hybrid of deep-learning detectors, an

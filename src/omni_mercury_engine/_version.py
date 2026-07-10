@@ -42,7 +42,7 @@ _DISTRIBUTION_NAME = "mercury-agent"
 
 #: Last-resort literal — reached only when neither installed metadata nor the
 #: source ``pyproject.toml`` is readable. Kept equal to ``[project].version``.
-_FALLBACK_VERSION = "2.0.0"
+_FALLBACK_VERSION = "2.1.0"
 
 
 def _version_from_pyproject() -> str | None:

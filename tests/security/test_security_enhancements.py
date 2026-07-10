@@ -16,23 +16,25 @@ from omni_mercury_engine.security.realtime_threat_detection import (
 
 
 class TestQuantumResistantEncryption:
-    """Test quantum-resistant encryption."""
+    """Test post-quantum encryption (ML-KEM-1024 + AES-256-GCM via AMA)."""
 
     def test_key_generation(self) -> None:
-        """Test lattice-based key generation."""
+        """ML-KEM-1024 keypairs are non-empty, distinct byte strings."""
         qr = QuantumResistantEncryption(security_level=128)
 
-        public_key, private_key = qr._generate_lattice_key()
+        public_key, private_key = qr.generate_keypair()
 
-        A, b = public_key
-        assert A.shape == (128, 128)
-        assert b.shape == (128,)
-        assert private_key.shape == (128,)
+        # Kyber-1024 (ML-KEM-1024) fixed sizes: pk 1568 B, sk 3168 B.
+        assert isinstance(public_key, bytes)
+        assert isinstance(private_key, bytes)
+        assert len(public_key) == 1568
+        assert len(private_key) == 3168
+        assert public_key != private_key
 
     def test_encryption_decryption(self) -> None:
         """Test encrypt/decrypt cycle."""
         qr = QuantumResistantEncryption(security_level=128)
-        public_key, private_key = qr._generate_lattice_key()
+        public_key, private_key = qr.generate_keypair()
 
         plaintext = b"Test quantum-resistant encryption"
 
@@ -44,6 +46,32 @@ class TestQuantumResistantEncryption:
         decrypted = qr.decrypt_hybrid(ciphertext, private_key)
 
         assert decrypted == plaintext
+
+    def test_tamper_is_rejected(self) -> None:
+        """AES-256-GCM authentication fails closed on a flipped ciphertext bit."""
+        qr = QuantumResistantEncryption()
+        public_key, private_key = qr.generate_keypair()
+
+        envelope = bytearray(qr.encrypt_hybrid(b"integrity matters", public_key))
+        envelope[-1] ^= 0x01  # flip a bit in the AES-GCM ciphertext tail
+
+        with pytest.raises(ValueError):
+            qr.decrypt_hybrid(bytes(envelope), private_key)
+
+    def test_wrong_key_cannot_decrypt(self) -> None:
+        """A payload sealed to one keypair does not open under another.
+
+        ML-KEM implicit rejection yields a pseudo-random shared secret under
+        the wrong secret key, so the AES-256-GCM tag fails to authenticate.
+        """
+        qr = QuantumResistantEncryption()
+        public_key, _ = qr.generate_keypair()
+        _, other_secret = qr.generate_keypair()
+
+        envelope = qr.encrypt_hybrid(b"confidential", public_key)
+
+        with pytest.raises(ValueError):
+            qr.decrypt_hybrid(envelope, other_secret)
 
     def test_secure_data_handler(self) -> None:
         """Test SecureDataHandler with quantum-resistant encryption."""
@@ -134,6 +162,42 @@ class TestRealTimeThreatDetector:
         assert signature.severity == 0.8
         assert len(detector.threat_history) == 1
 
+    def test_fit_fails_closed_when_all_detectors_fail(self) -> None:
+        """Zero fitted sub-detectors must refuse to enter a fitted state (F12).
+
+        Regression: fit() set is_fitted=True unconditionally, so a total fit
+        failure produced a detector that reported "no threat / LOW" for every
+        input — silently blind.
+        """
+        detector = RealTimeThreatDetector(contamination=0.1)
+        normal_data = np.random.randn(50, 8)
+
+        # Make every sub-detector's fit raise.
+        for det in detector.detectors.values():
+            det.fit = _raise_fit  # type: ignore[method-assign, unused-ignore]
+
+        with pytest.raises(RuntimeError, match=r"all .* sub-detectors failed to fit"):
+            detector.fit(normal_data)
+        assert detector.is_fitted is False
+
+    def test_detect_fails_closed_when_all_predicts_fail(self) -> None:
+        """A blind detector at inference must raise, not report LOW (F12)."""
+        detector = RealTimeThreatDetector(contamination=0.1)
+        normal_data = np.random.randn(80, 8)
+        detector.fit(normal_data)
+        assert detector.is_fitted is True
+
+        # Break every sub-detector's inference methods.
+        for det in detector.detectors.values():
+            det.predict = _raise_predict  # type: ignore[method-assign, unused-ignore]
+            if hasattr(det, "score_samples"):
+                det.score_samples = _raise_predict  # type: ignore[method-assign, unused-ignore]
+            if hasattr(det, "decision_function"):
+                det.decision_function = _raise_predict  # type: ignore[method-assign, unused-ignore]
+
+        with pytest.raises(RuntimeError, match="all sub-detectors errored"):
+            detector.detect_threat(np.random.randn(10, 8))
+
     def test_threat_statistics(self) -> None:
         """Test threat statistics generation."""
         detector = RealTimeThreatDetector()
@@ -148,6 +212,91 @@ class TestRealTimeThreatDetector:
         assert stats["total_threats"] == 5
         assert "intrusion" in stats["threat_types"]
         assert stats["threat_types"]["intrusion"] == 5
+
+    # --- Calibrated-ensemble capability tests (scale-invariance, absolute
+    #     thresholding, calibrated probability) --------------------------------
+
+    def test_single_sample_can_be_flagged(self) -> None:
+        """A single clear anomaly is flagged; a single normal sample is not.
+
+        The old batch-relative percentile threshold could never flag a lone
+        sample (percentile of one value == that value). The training-referenced
+        absolute threshold can.
+        """
+        rng = np.random.default_rng(0)
+        detector = RealTimeThreatDetector(contamination=0.05)
+        detector.fit(rng.normal(0, 1, (400, 6)))
+
+        normal = detector.detect_threat(np.zeros((1, 6)))
+        anomaly = detector.detect_threat(np.full((1, 6), 9.0))
+
+        assert normal["is_threat"] is False
+        assert anomaly["is_threat"] is True
+        assert anomaly["anomaly_probabilities"][0] > normal["anomaly_probabilities"][0]
+
+    def test_ensemble_is_scale_invariant(self) -> None:
+        """No single sub-detector dominates, even with a huge-variance feature.
+
+        The old raw-score average was dominated by whichever detector had the
+        largest scale (kNN distances scale with feature magnitude).
+        """
+        rng = np.random.default_rng(1)
+        x_train = rng.normal(0, 1, (400, 6))
+        x_train[:, 0] *= 500.0  # one feature 500x larger
+        detector = RealTimeThreatDetector(contamination=0.05).fit(x_train)
+
+        x_test = rng.normal(0, 1, (300, 6))
+        x_test[:, 0] *= 500.0
+        x_test[::10] += rng.normal(0, 6, (30, 6))  # inject anomalies (real signal)
+        res = detector.detect_threat(x_test)
+        ensemble = np.array(res["ensemble_scores"])
+
+        corrs = []
+        for name, sub in detector.detectors.items():
+            raw = detector._raw_score(sub, x_test)
+            assert raw is not None
+            z = detector._standardize(name, raw)
+            corrs.append(abs(np.corrcoef(ensemble, z)[0, 1]))
+        # Every detector contributes materially; none dominates to ~1.0 alone.
+        # (A raw-score average would be driven ~entirely by the largest-scale
+        # detector, i.e. one corr ≈ 1.0 and the rest near 0.)
+        assert min(corrs) > 0.3
+        assert max(corrs) < 0.95
+
+    def test_absolute_false_positive_control(self) -> None:
+        """All-normal stays near the budget; all-anomaly is flagged in full.
+
+        The old batch-relative threshold flagged exactly ``contamination`` of
+        ANY batch — so it under-flagged an all-anomalous batch (~5%).
+        """
+        rng = np.random.default_rng(2)
+        detector = RealTimeThreatDetector(contamination=0.05).fit(rng.normal(0, 1, (600, 6)))
+
+        normal = detector.detect_threat(rng.normal(0, 1, (500, 6)))
+        anomaly = detector.detect_threat(rng.normal(0, 1, (500, 6)) + 8.0)
+
+        assert normal["num_threats"] / 500 < 0.15  # near the 5% budget
+        assert anomaly["num_threats"] / 500 > 0.80  # most of an all-anomaly batch
+
+    def test_calibrated_probability_and_agreement_present(self) -> None:
+        """Probabilities are in [0, 1] and agreement is a fraction in [0, 1]."""
+        rng = np.random.default_rng(3)
+        detector = RealTimeThreatDetector(contamination=0.05).fit(rng.normal(0, 1, (300, 5)))
+        res = detector.detect_threat(rng.normal(0, 1, (40, 5)))
+
+        probs = np.array(res["anomaly_probabilities"])
+        agree = np.array(res["detector_agreement"])
+        assert probs.shape == (40,)
+        assert np.all((probs >= 0.0) & (probs <= 1.0))
+        assert np.all((agree >= 0.0) & (agree <= 1.0))
+
+
+def _raise_fit(X):
+    raise ValueError("synthetic fit failure")
+
+
+def _raise_predict(X):
+    raise ValueError("synthetic inference failure")
 
 
 class TestAdaptiveThreatDetector:

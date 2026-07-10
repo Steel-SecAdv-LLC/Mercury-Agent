@@ -668,13 +668,19 @@ class SigmaDirectiveDetector(BaseDetector):
 
         dimensional_micro = self._dimensional_downsampling_detection(data)
 
-        return {
+        scores = {
             "molecular_hash_entropy": float(molecular_hash),
             "quantum_checksum": float(checksum),
             "bit_anomaly_rate": float(bit_anomalies),
             "micro_anomaly_score": float(micro_anomalies),
-            "dimensional_micro_score": float(dimensional_micro),
         }
+        # Include the dimensional sub-score only when it computed successfully.
+        # On failure it is None and is omitted, so the nano blend averages the
+        # components that actually produced a score instead of being dragged
+        # down by a spurious 0.0.
+        if dimensional_micro is not None:
+            scores["dimensional_micro_score"] = float(dimensional_micro)
+        return scores
 
     def _harmonic_anomaly_detection(self, data: np.ndarray[Any, Any]) -> float:
         """Harmonic anomaly detection using FFT."""
@@ -782,10 +788,10 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return float(min(micro_score, 1.0))
 
-    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
-        """N Term Enhancement: Dimensional downsampling for micro-anomaly detection Downsample to.
+    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float | None:
+        """N Term Enhancement: dimensional downsampling for micro-anomaly detection.
 
-        low dimensions to detect subtle micro-patterns.
+        Downsamples to low dimensions to detect subtle micro-patterns.
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 
@@ -824,8 +830,13 @@ class SigmaDirectiveDetector(BaseDetector):
             return float(min(final_score, 1.0))
 
         except Exception as e:
-            logger.debug("Nano-scale pattern detection failed: %s", e)
-            return 0.0
+            # Return None (not 0.0) so a failed sub-score is EXCLUDED from the
+            # nano blend rather than averaged in as a spurious 0.0 that would
+            # systematically depress the fused anomaly score (missed
+            # detections). Warn — a persistent failure must be visible, not a
+            # silent DEBUG line.
+            logger.warning("Dimensional-downsampling nano detection failed; excluding: %s", e)
+            return None
 
     def get_fitted_state(self) -> dict[str, Any] | None:
         """Export the fitted state for checkpoint round-tripping.

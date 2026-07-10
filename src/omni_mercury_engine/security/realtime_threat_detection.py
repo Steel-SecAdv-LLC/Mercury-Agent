@@ -9,6 +9,16 @@ Detection ensemble:
   - Isolation-style random-projection detector (tree-free)
   - Local density estimator (scipy.spatial.cKDTree)
   - Robust covariance (Mahalanobis distance)
+
+The sub-detector scores are combined *scale-invariantly*: each detector's
+training scores are robustly standardized (median / ``1.4826·MAD``) before the
+ensemble mean, so a detector whose raw scores are large (kNN distances) cannot
+drown out one whose scores are small (robust z-scores). The decision threshold
+and per-sample anomaly probability are calibrated against the training
+distribution (an absolute, training-referenced quantile + empirical CDF), so a
+single sample can be judged, an all-normal batch stays near the configured
+false-positive budget, and an all-anomalous batch is flagged in full — none of
+which a batch-relative percentile threshold can do.
 """
 
 from __future__ import annotations
@@ -207,13 +217,40 @@ class RealTimeThreatDetector(LoggerMixin):
 
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
-        # Reference score percentiles from training data (set during fit)
+        # Per-detector robust standardization stats from training (median /
+        # 1.4826·MAD) so heterogeneous score scales are made commensurate
+        # before they are combined -- see ``fit``/``_standardized_ensemble``.
+        self._detector_center: dict[str, float] = {}
+        self._detector_scale: dict[str, float] = {}
+        # Reference distribution of the *standardized* ensemble score on
+        # training data: an absolute (training-referenced) decision threshold,
+        # the sorted vector for an empirical-CDF anomaly probability, and the
+        # p90/95/99 quantiles that grade the threat level.
+        self._ref_threshold: float = 0.0
+        self._ref_ensemble_sorted: np.ndarray[Any, Any] = np.zeros(0)
         self._ref_p90: float = 0.0
         self._ref_p95: float = 0.0
         self._ref_p99: float = 0.0
 
+    _MAD_TO_SIGMA = 1.4826  # MAD → σ for a normal distribution.
+
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """Fit detectors on normal (non-threatening) data.
+
+        Beyond fitting each sub-detector, this learns the calibration the
+        ensemble needs to be *scale-invariant* and to threshold *absolutely*:
+
+        * Per-detector robust location/scale (median, ``1.4826·MAD``) of each
+          detector's training scores, so a detector whose raw scores happen to
+          be large (e.g. kNN Euclidean distances) can no longer dominate the
+          average over one whose scores are small (e.g. robust z-scores).
+        * The distribution of the standardized ensemble score on training data,
+          which yields an absolute decision threshold at the configured
+          contamination and an empirical CDF for a calibrated per-sample
+          anomaly probability. The previous implementation thresholded against
+          the *current inference batch*, which cannot flag a single sample,
+          always flags ``contamination`` fraction of an all-normal batch, and
+          under-flags an all-anomalous batch.
 
         Args:
             X: Training data (n_samples, n_features)
@@ -221,28 +258,79 @@ class RealTimeThreatDetector(LoggerMixin):
         Returns:
             Self
         """
+        fitted_count = 0
         for name, detector in self.detectors.items():
             try:
                 detector.fit(X)
+                fitted_count += 1
             except Exception as e:
                 self.logger.warning("Failed to fit %s: %s", name, e)
 
-        # Compute reference score distribution from training data
-        ref_scores_list: list[np.ndarray[Any, Any]] = []
+        if fitted_count == 0:
+            # Fail closed: entering a fitted state with zero working detectors
+            # would make detect_threat() report "no threat / LOW" for every
+            # input — a security detector silently blind. Refuse instead.
+            raise RuntimeError(
+                f"RealTimeThreatDetector.fit: all {len(self.detectors)} sub-detectors "
+                "failed to fit; refusing to enter a fitted state that would report "
+                "'no threat' for every input. Check the training data shape/dtype "
+                "and detector dependencies."
+            )
+
+        # Per-detector robust standardization stats from the training scores.
+        raw_ref: dict[str, np.ndarray[Any, Any]] = {}
         for name, detector in self.detectors.items():
             try:
-                if hasattr(detector, "score_samples"):
-                    ref_scores_list.append(detector.score_samples(X))
+                s = self._raw_score(detector, X)
             except Exception:
-                pass
-        if ref_scores_list:
-            ref_ensemble = np.mean(ref_scores_list, axis=0)
-            self._ref_p90 = float(np.percentile(ref_ensemble, 90))
-            self._ref_p95 = float(np.percentile(ref_ensemble, 95))
-            self._ref_p99 = float(np.percentile(ref_ensemble, 99))
+                continue
+            if s is None:
+                continue
+            raw_ref[name] = s
+            center = float(np.median(s))
+            mad = float(np.median(np.abs(s - center)))
+            scale = self._MAD_TO_SIGMA * mad
+            if scale <= 1e-12:  # near-constant training score → std fallback
+                scale = float(np.std(s)) or 1.0
+            self._detector_center[name] = center
+            self._detector_scale[name] = scale
+
+        # Reference distribution of the standardized ensemble on training data.
+        if raw_ref:
+            ref_ensemble = self._combine_standardized(
+                {name: self._standardize(name, s) for name, s in raw_ref.items()}
+            )
+            self._ref_ensemble_sorted = np.sort(ref_ensemble)
+            self._ref_threshold = float(np.quantile(ref_ensemble, 1.0 - self.contamination))
+            self._ref_p90 = float(np.quantile(ref_ensemble, 0.90))
+            self._ref_p95 = float(np.quantile(ref_ensemble, 0.95))
+            self._ref_p99 = float(np.quantile(ref_ensemble, 0.99))
 
         self.is_fitted = True
         return self
+
+    @staticmethod
+    def _raw_score(detector: Any, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """A detector's per-sample anomaly score (higher = more anomalous)."""
+        if hasattr(detector, "score_samples"):
+            return np.asarray(detector.score_samples(X), dtype=float)
+        if hasattr(detector, "decision_function"):
+            # decision_function is oriented lower = more anomalous; flip it.
+            return -np.asarray(detector.decision_function(X), dtype=float)
+        return None
+
+    def _standardize(self, name: str, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Robust z-standardize one detector's scores with its training stats."""
+        center = self._detector_center.get(name, 0.0)
+        scale = self._detector_scale.get(name, 1.0)
+        return (scores - center) / scale
+
+    @staticmethod
+    def _combine_standardized(
+        standardized: dict[str, np.ndarray[Any, Any]],
+    ) -> np.ndarray[Any, Any]:
+        """Mean of the per-detector standardized scores (scale-invariant)."""
+        return np.asarray(np.mean(np.vstack(list(standardized.values())), axis=0))
 
     def detect_threat(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect threats in real-time data.
@@ -251,61 +339,89 @@ class RealTimeThreatDetector(LoggerMixin):
             X: Input data (n_samples, n_features)
 
         Returns:
-            Dictionary with threat detection results
+            Dictionary with per-sample results. In addition to the historical
+            keys it exposes ``anomaly_probabilities`` (calibrated [0, 1] via the
+            training empirical CDF) and ``detector_agreement`` (fraction of
+            sub-detectors flagging each sample) for downstream analysis.
         """
         if not self.is_fitted:
             raise ValueError("Detector must be fitted before detection")
 
         predictions: dict[str, Any] = {}
-        scores: dict[str, Any] = {}
+        standardized: dict[str, np.ndarray[Any, Any]] = {}
 
         for name, detector in self.detectors.items():
             try:
                 if hasattr(detector, "predict"):
-                    pred = detector.predict(X)
-                    predictions[name] = pred
-
-                if hasattr(detector, "score_samples"):
-                    score = detector.score_samples(X)
-                    scores[name] = score
-                elif hasattr(detector, "decision_function"):
-                    score = detector.decision_function(X)
-                    scores[name] = score
+                    predictions[name] = detector.predict(X)
+                raw = self._raw_score(detector, X)
+                if raw is not None:
+                    standardized[name] = self._standardize(name, raw)
             except Exception as e:
                 self.logger.warning("Failed to predict with %s: %s", name, e)
 
-        if not scores:
-            return {
-                "is_threat": False,
-                "threat_indices": [],
-                "ensemble_scores": [],
-                "individual_predictions": {},
-                "threat_level": "LOW",
-                "num_threats": 0,
-                "timestamp": datetime.now().isoformat(),
-            }
+        if not standardized:
+            # Fitted, but every sub-detector errored at inference. This is a
+            # detection FAILURE, not a "no threat" result — returning LOW here
+            # would let a blind detector assert safety. Fail closed.
+            raise RuntimeError(
+                "RealTimeThreatDetection failed: all sub-detectors errored during "
+                "prediction, so threat cannot be assessed. This is NOT a 'no threat' "
+                "result — treat it as a detector outage."
+            )
 
-        ensemble_score = np.mean(list(scores.values()), axis=0)
+        # Scale-invariant ensemble of standardized scores.
+        ensemble_score = self._combine_standardized(standardized)
 
-        # Mercury-native score_samples: higher = more anomalous
-        is_threat = ensemble_score > np.percentile(ensemble_score, (1 - self.contamination) * 100)
+        # Absolute, training-referenced decision (works for a single sample and
+        # gives correct false-positive control on all-normal / all-anomalous
+        # batches, unlike a batch-relative percentile).
+        is_threat = ensemble_score > self._ref_threshold
+        anomaly_prob = self._anomaly_probability(ensemble_score)
+
+        # Per-sample detector agreement: fraction of sub-detectors flagging it.
+        agreement = self._detector_agreement(predictions, len(ensemble_score))
 
         threat_indices = np.where(is_threat)[0]
-
         threat_level = self._calculate_threat_level(ensemble_score)
 
         return {
             "is_threat": bool(np.any(is_threat)),
             "threat_indices": threat_indices.tolist(),
             "ensemble_scores": ensemble_score.tolist(),
+            "anomaly_probabilities": anomaly_prob.tolist(),
+            "detector_agreement": agreement.tolist(),
             "individual_predictions": {k: v.tolist() for k, v in predictions.items()},
             "threat_level": threat_level,
             "num_threats": int(np.sum(is_threat)),
             "timestamp": datetime.now().isoformat(),
         }
 
+    def _anomaly_probability(self, ensemble_score: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Calibrated [0, 1] anomaly probability via the training empirical CDF.
+
+        ``P(x)`` is the fraction of training ensemble scores at or below ``x``:
+        a normal-looking sample lands near the bulk (low P), an outlier lands in
+        the right tail (P → 1). Distribution-free — no Gaussian assumption.
+        """
+        ref = self._ref_ensemble_sorted
+        if ref.size == 0:
+            return np.zeros(len(ensemble_score))
+        ranks = np.searchsorted(ref, ensemble_score, side="right")
+        return ranks.astype(float) / float(ref.size)
+
+    @staticmethod
+    def _detector_agreement(
+        predictions: dict[str, np.ndarray[Any, Any]], n: int
+    ) -> np.ndarray[Any, Any]:
+        """Fraction of sub-detectors that flag each sample as an outlier (-1)."""
+        if not predictions:
+            return np.zeros(n)
+        flags = np.vstack([np.asarray(p) == -1 for p in predictions.values()])
+        return np.asarray(flags.mean(axis=0), dtype=float)
+
     def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
-        """Calculate threat level using reference thresholds from training data."""
+        """Grade the batch by its peak standardized ensemble score vs training."""
         max_score = float(np.max(scores))
 
         if max_score > self._ref_p99:

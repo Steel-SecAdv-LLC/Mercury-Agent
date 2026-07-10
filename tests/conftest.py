@@ -218,14 +218,65 @@ def _restore_engine_logger_propagation() -> Iterator[None]:
     capture again.  It does not weaken production behavior — the
     ``configure_logging`` flip remains in place during the body of each
     test that exercises it; we only restore the flag between tests.
+
+    The same failure mode exists for the logger's *level* and *disabled*
+    flag: a test that leaves ``omni_mercury_engine``'s level raised (e.g.
+    to ERROR) silently drops WARNING/INFO records at the logger before
+    they can reach caplog's root handler — reproduced as order-dependent
+    full-suite failures of ``test_cicids.py::test_synthetic_fallback_warning``
+    and ``test_feedback_loop.py::test_verify_trigger_no_secret_configured_
+    logs_only_reason_code`` under xdist scheduling. So the fixture now
+    forces a known-good state (propagating, enabled, NOTSET) at every
+    test start and restores the previous state afterwards.
     """
     logger = logging.getLogger("omni_mercury_engine")
     previous_propagate = logger.propagate
+    previous_level = logger.level
+    previous_disabled = logger.disabled
     logger.propagate = True
+    logger.setLevel(logging.NOTSET)
+    logger.disabled = False
     try:
         yield
     finally:
         logger.propagate = previous_propagate
+        logger.setLevel(previous_level)
+        logger.disabled = previous_disabled
+
+
+@pytest.fixture(autouse=True)
+def _isolate_gosnn_singleton() -> Iterator[None]:
+    """Reset the process-global GOSNN singleton around every test.
+
+    The Global Omni-Scalar Network is a process-wide singleton, and components
+    register SECURITY/ETHICAL scalars into it (crypto posture, timing anomalies,
+    detector state). Those scalars are read by the σ_Immutable ethical gate, so
+    a scalar left behind by one test bleeds into the gate's input for an
+    unrelated ``detect_with_fusion`` running later in the same worker process —
+    which under ``pytest-xdist`` (``-n``) manifests as a spurious fail-closed
+    ``EthicalConstraintViolationError`` (score→0.0) in whichever engine test
+    happens to share the worker. That made the parallel suite distribution-
+    dependent: green or red depending only on how xdist sharded the tests.
+
+    Resetting the singleton before and after each test makes every test start
+    from clean GOSNN state, so the suite is deterministic regardless of
+    sharding. This generalizes the per-file "freshly reset GOSNN singleton"
+    fixtures several test modules already declare. It is test-isolation only:
+    the underlying cross-request scalar bleed in the runtime is the GOSNN
+    hardening item (F10), tracked for its own change. Best-effort — if the
+    GOSNN module is unavailable (thin install), the reset is skipped.
+    """
+    try:
+        from omni_mercury_engine.core.global_omni_scalar_network import reset_global_network
+    except Exception:
+        yield
+        return
+
+    reset_global_network()
+    try:
+        yield
+    finally:
+        reset_global_network()
 
 
 @pytest.fixture

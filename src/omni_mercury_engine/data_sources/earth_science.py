@@ -32,6 +32,7 @@ from omni_mercury_engine.data_sources.base import (
     DataPoint,
     DataSourceBase,
     DataSourceConfig,
+    DataSourceError,
     DataSourceType,
     RateLimitConfig,
 )
@@ -151,9 +152,22 @@ class USGSEarthquakeSource(DataSourceBase):
         response = await self._http_get("query", params=params)
         data = response.json()
 
-        data_points: list[DataPoint] = []
+        # Contract check: FDSN GeoJSON always carries a "features" array. A
+        # payload without it is endpoint drift and must fail loud -- returning
+        # an empty success here would read as "no earthquakes this week".
+        if not isinstance(data, dict) or "features" not in data:
+            raise DataSourceError(
+                "USGS FDSN payload has no 'features' array "
+                f"(got {type(data).__name__}); endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        features = data["features"]
 
-        for feature in data.get("features", []):
+        data_points: list[DataPoint] = []
+        parse_failures = 0
+
+        for feature in features:
             try:
                 props = feature.get("properties", {})
                 coords = feature.get("geometry", {}).get("coordinates", [0, 0, 0])
@@ -203,8 +217,19 @@ class USGSEarthquakeSource(DataSourceBase):
                 )
 
             except (ValueError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to parse earthquake: {e}")
+                parse_failures += 1
+                logger.warning(f"Failed to parse earthquake feature: {e}")
                 continue
+
+        if features and not data_points:
+            # Every feature failed to parse: that is schema drift, not a
+            # quiet catalog. Refuse to return a fabricated empty success.
+            raise DataSourceError(
+                f"USGS FDSN returned {len(features)} features but none parsed "
+                f"({parse_failures} parse failures); schema drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         logger.info(
             f"USGS Earthquake: Fetched {len(data_points)} earthquakes (M>={self._min_magnitude})"
@@ -227,33 +252,32 @@ class VolcanoAlertLevel(Enum):
 
 
 class USGSVolcanoSource(DataSourceBase):
-    """USGS Volcano Hazards Program data source.
+    """USGS Volcano Hazards Program data source (real HANS public API).
 
-    Provides information on U.S. monitored volcanoes:
-    - Alert levels: Normal, Advisory, Watch, Warning
-    - Aviation color codes
-    - Current activity and hazards
+    Fetches the official alert state of every U.S. monitored volcano from the
+    USGS Hazard Alert Notification System (HANS) public API:
+
+    - ``getMonitoredVolcanoes`` — every monitored volcano with its current
+      alert level (NORMAL / ADVISORY / WATCH / WARNING / UNASSIGNED) and
+      aviation color code (GREEN / YELLOW / ORANGE / RED / UNASSIGNED)
+    - ``getElevatedVolcanoes`` — only volcanoes currently above NORMAL
+
+    API: https://volcanoes.usgs.gov/hans-public/api/volcano/
+
+    The HANS list endpoints do not include coordinates, so ``DataPoint.location``
+    is None; per-volcano coordinates are available from the ``getVolcano/<vnum>``
+    detail endpoint if a consumer needs them.
 
     Example:
         >>> source = USGSVolcanoSource()
-        >>> result = await source.fetch()
+        >>> result = await source.fetch()                      # all monitored
+        >>> result = await source.fetch(elevated_only=True)    # elevated only
     """
 
-    DEFAULT_BASE_URL = "https://volcanoes.usgs.gov/vhp/api/volcanoApi/"
+    DEFAULT_BASE_URL = "https://volcanoes.usgs.gov/hans-public/api/volcano/"
 
-    # Major U.S. volcanoes with coordinates
-    US_VOLCANOES: dict[str, tuple[str, float, float]] = {
-        "kilauea": ("Kilauea, Hawaii", 19.421, -155.287),
-        "mauna_loa": ("Mauna Loa, Hawaii", 19.475, -155.608),
-        "mount_st_helens": ("Mount St. Helens, Washington", 46.200, -122.180),
-        "mount_rainier": ("Mount Rainier, Washington", 46.853, -121.760),
-        "mount_shasta": ("Mount Shasta, California", 41.409, -122.193),
-        "yellowstone": ("Yellowstone, Wyoming", 44.428, -110.588),
-        "mount_hood": ("Mount Hood, Oregon", 45.374, -121.696),
-        "mount_baker": ("Mount Baker, Washington", 48.777, -121.813),
-        "crater_lake": ("Crater Lake, Oregon", 42.930, -122.121),
-        "lassen_peak": ("Lassen Peak, California", 40.488, -121.505),
-    }
+    MONITORED_ENDPOINT = "getMonitoredVolcanoes"
+    ELEVATED_ENDPOINT = "getElevatedVolcanoes"
 
     def __init__(
         self,
@@ -289,52 +313,94 @@ class USGSVolcanoSource(DataSourceBase):
         }
         return mapping.get(alert.lower(), AlertLevel.NONE)
 
+    def _parse_hans_entry(self, entry: dict[str, Any]) -> DataPoint | None:
+        """Parse one HANS volcano entry into a DataPoint.
+
+        Args:
+            entry: One element of a HANS ``getMonitoredVolcanoes`` /
+                ``getElevatedVolcanoes`` response.
+
+        Returns:
+            Parsed DataPoint, or None when the entry is malformed.
+        """
+        try:
+            name = entry["volcano_name"]
+            vnum = entry.get("vnum", "")
+            alert = str(entry.get("alert_level", "") or "UNASSIGNED")
+            color = str(entry.get("color_code", "") or "UNASSIGNED")
+
+            sent_unix = entry.get("sent_unixtime")
+            if sent_unix:
+                timestamp = datetime.fromtimestamp(int(sent_unix), tz=UTC)
+            else:
+                timestamp = datetime.now(UTC)
+
+            return DataPoint(
+                source_id=self.source_id,
+                source_type=DataSourceType.VOLCANO,
+                event_id=f"usgs_volcano_{vnum or name}_{int(timestamp.timestamp())}",
+                timestamp=timestamp,
+                data={
+                    "volcano_id": vnum,
+                    "name": name,
+                    "alert_level": alert.lower(),
+                    "aviation_color_code": color.lower(),
+                    "monitoring_status": "monitored",
+                    "observatory": entry.get("obs_fullname"),
+                    "observatory_abbr": entry.get("obs_abbr"),
+                    "notice_type": entry.get("notice_type_cd"),
+                    "notice_identifier": entry.get("notice_identifier"),
+                    "notice_url": entry.get("notice_url"),
+                },
+                location=None,  # HANS list endpoints carry no coordinates
+                alert_level=self._alert_level_to_level(alert),
+                confidence=0.98,  # Official observatory alert statements
+                metadata={"monitoring_network": "USGS", "api": "HANS"},
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse HANS volcano entry: {e}")
+            return None
+
     async def _fetch_impl(
         self,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        elevated_only: bool = False,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch volcano data from USGS.
+        """Fetch live volcano alert levels from the USGS HANS public API.
 
-        Note: The actual USGS volcano API structure may vary.
-        This implementation provides structured volcano data.
+        Args:
+            start_time: Unused (HANS returns the current alert state).
+            end_time: Unused (HANS returns the current alert state).
+            elevated_only: Fetch only volcanoes currently above NORMAL.
+            **kwargs: Unused source-specific parameters.
+
+        Returns:
+            One data point per monitored volcano with its official alert
+            level and aviation color code.
         """
+        endpoint = self.ELEVATED_ENDPOINT if elevated_only else self.MONITORED_ENDPOINT
+        response = await self._http_get(endpoint)
+        entries = response.json()
+
+        if not isinstance(entries, list):
+            raise DataSourceError(
+                f"USGS Volcano: unexpected HANS payload for {endpoint}: " f"{str(entries)[:200]}",
+                source_id=self.source_id,
+                retryable=False,
+            )
+
         data_points: list[DataPoint] = []
+        for entry in entries:
+            point = self._parse_hans_entry(entry)
+            if point is not None:
+                data_points.append(point)
 
-        # Fetch volcano status data
-        # Note: Actual API endpoint may differ
-        for volcano_id, (name, lat, lon) in self.US_VOLCANOES.items():
-            try:
-                # In production, fetch actual status from API
-                # For now, create structured data entries
-                data_points.append(
-                    DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.VOLCANO,
-                        event_id=f"usgs_volcano_{volcano_id}",
-                        timestamp=datetime.now(UTC),
-                        data={
-                            "volcano_id": volcano_id,
-                            "name": name,
-                            "alert_level": "normal",  # Would come from API
-                            "aviation_color_code": "green",  # Green, Yellow, Orange, Red
-                            "monitoring_status": "monitored",
-                            "hazards": [],
-                            "recent_activity": None,
-                        },
-                        location=(lat, lon, 0.0),
-                        alert_level=AlertLevel.NONE,
-                        confidence=0.95,
-                        metadata={"monitoring_network": "USGS"},
-                    )
-                )
-
-            except Exception as e:
-                logger.debug(f"Failed to process volcano {volcano_id}: {e}")
-                continue
-
-        logger.info(f"USGS Volcano: Fetched {len(data_points)} volcano entries")
+        logger.info(
+            f"USGS Volcano: Fetched {len(data_points)} volcano alert entries "
+            f"({'elevated only' if elevated_only else 'all monitored'})"
+        )
         return data_points
 
 
@@ -344,27 +410,43 @@ class USGSVolcanoSource(DataSourceBase):
 
 
 class NOAANWPSSource(DataSourceBase):
-    """NOAA National Water Prediction Service data source.
+    """NOAA National Water Prediction Service data source (river gauges).
 
-    Provides water-related data:
-    - Stream gauge readings
-    - Flood forecasts
-    - Water levels
+    Provides water-related data from the NWPS v1 API:
+    - Stream gauge readings (observed stage / flow)
+    - Flood category per gauge (no_flooding / action / minor / moderate / major)
+    - Forecast stage where available
+
+    The ``/gauges`` endpoint requires a bounding box; without one the API
+    returns an empty gauge list, so a ``bbox`` must be configured (or passed
+    per-fetch) for the source to produce data.
 
     No authentication required.
 
     Example:
-        >>> source = NOAANWPSSource()
+        >>> source = NOAANWPSSource(bbox=(-96.0, 28.0, -93.0, 31.0))  # Houston area
         >>> result = await source.fetch()
     """
 
     DEFAULT_BASE_URL = "https://api.water.noaa.gov/nwps/v1/"
 
+    # NWPS sentinel for "no data" numeric fields.
+    _MISSING = -999
+
     def __init__(
         self,
+        bbox: tuple[float, float, float, float] | None = None,
+        max_gauges: int = 50,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize NOAA NWPS data source."""
+        """Initialize NOAA NWPS data source.
+
+        Args:
+            bbox: Bounding box (xmin, ymin, xmax, ymax) in EPSG:4326 degrees.
+                Required by the NWPS ``/gauges`` endpoint for non-empty output.
+            max_gauges: Maximum gauges to parse per fetch.
+            config: Optional base configuration.
+        """
         base_config = config or DataSourceConfig()
         base_config.rate_limit = RateLimitConfig(
             requests_per_hour=0,
@@ -373,6 +455,9 @@ class NOAANWPSSource(DataSourceBase):
         base_config.cache = CacheConfig(ttl_seconds=300)
 
         super().__init__(base_config)
+
+        self._bbox = bbox
+        self._max_gauges = max_gauges
 
     @property
     def source_id(self) -> str:
@@ -384,83 +469,153 @@ class NOAANWPSSource(DataSourceBase):
         """Default source types."""
         return [DataSourceType.FLOOD]
 
-    def _flood_stage_to_alert(self, stage: str | None) -> AlertLevel:
-        """Convert flood stage to alert level."""
-        if not stage:
+    def _flood_category_to_alert(self, category: str | None) -> AlertLevel:
+        """Convert an NWPS ``floodCategory`` string to AlertLevel.
+
+        Handles both the exact NWPS v1 category tokens (``no_flooding`` /
+        ``action`` / ``minor`` / ``moderate`` / ``major``) and descriptive
+        strings ("major flood"). The ``no_flooding`` token is checked before
+        any substring rules: it contains the substring "flood", so naive
+        substring matching would misreport a quiet gauge as MODERATE.
+        """
+        if not category:
             return AlertLevel.NONE
 
-        stage_lower = stage.lower()
-        if "major" in stage_lower:
+        cat = category.lower()
+        if "no_flood" in cat or "not_defined" in cat or "obs_not_current" in cat:
+            return AlertLevel.NONE
+        if "major" in cat:
             return AlertLevel.SEVERE
-        elif "moderate" in stage_lower:
+        if "moderate" in cat:
             return AlertLevel.STRONG
-        elif "minor" in stage_lower or "flood" in stage_lower:
+        if "minor" in cat or "flood" in cat:
             return AlertLevel.MODERATE
-        elif "action" in stage_lower:
+        if "action" in cat:
             return AlertLevel.MINOR
-
         return AlertLevel.NONE
+
+    # Backwards-compatible alias for the pre-NWPS-v1 method name.
+    def _flood_stage_to_alert(self, stage: str | None) -> AlertLevel:
+        """Deprecated alias for :meth:`_flood_category_to_alert`."""
+        return self._flood_category_to_alert(stage)
+
+    @classmethod
+    def _numeric_or_none(cls, value: Any) -> float | None:
+        """Return float(value) unless it is missing or the -999 sentinel."""
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        return None if numeric == cls._MISSING else numeric
 
     async def _fetch_impl(
         self,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch water prediction data from NOAA NWPS."""
+        """Fetch river gauge readings from NOAA NWPS.
+
+        Args:
+            start_time: Unused (NWPS returns current gauge state).
+            end_time: Unused (NWPS returns current gauge state).
+            bbox: Optional per-fetch bounding-box override.
+            **kwargs: Unused source-specific parameters.
+
+        Returns:
+            One data point per gauge with observed stage/flow and flood
+            category.
+        """
+        effective_bbox = bbox or self._bbox
+        params: dict[str, Any] = {"srid": "EPSG_4326"}
+        if effective_bbox is not None:
+            xmin, ymin, xmax, ymax = effective_bbox
+            params.update(
+                {
+                    "bbox.xmin": xmin,
+                    "bbox.ymin": ymin,
+                    "bbox.xmax": xmax,
+                    "bbox.ymax": ymax,
+                }
+            )
+        else:
+            logger.warning(
+                "NOAA NWPS: no bbox configured; the /gauges endpoint returns an "
+                "empty list without one"
+            )
+
         data_points: list[DataPoint] = []
 
-        try:
-            # Fetch gauges data
-            response = await self._http_get("gauges")
-            data = response.json()
+        response = await self._http_get("gauges", params=params)
+        data = response.json()
 
-            gauges = data.get("gauges", [])
+        # Contract check: the NWPS v1 /gauges payload always carries a
+        # "gauges" array (possibly empty for an unpopulated bbox). A payload
+        # without it is endpoint drift and must fail loud.
+        if not isinstance(data, dict) or "gauges" not in data:
+            raise DataSourceError(
+                f"NWPS payload has no 'gauges' array (got {type(data).__name__}); "
+                "endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        gauges = data["gauges"]
 
-            for gauge in gauges[:50]:  # Limit to 50 gauges
-                try:
-                    gauge_id = gauge.get("lid", "")
-                    name = gauge.get("name", "Unknown")
+        for gauge in gauges[: self._max_gauges]:
+            try:
+                gauge_id = gauge.get("lid", "")
+                name = gauge.get("name", "Unknown")
 
-                    # Get coordinates
-                    lat = gauge.get("latitude", 0)
-                    lon = gauge.get("longitude", 0)
+                lat = gauge.get("latitude", 0)
+                lon = gauge.get("longitude", 0)
 
-                    # Get status
-                    status = gauge.get("status", {})
-                    observed = status.get("observed", {})
-                    forecast = status.get("forecast", {})
+                status = gauge.get("status", {})
+                observed = status.get("observed", {})
+                forecast = status.get("forecast", {})
 
-                    flood_stage = observed.get("flood", {}).get("stage")
+                flood_category = observed.get("floodCategory")
+                observed_value = self._numeric_or_none(observed.get("primary"))
+                forecast_value = self._numeric_or_none(forecast.get("primary"))
 
-                    data_points.append(
-                        DataPoint(
-                            source_id=self.source_id,
-                            source_type=DataSourceType.FLOOD,
-                            event_id=f"nwps_{gauge_id}",
-                            timestamp=datetime.now(UTC),
-                            data={
-                                "gauge_id": gauge_id,
-                                "name": name,
-                                "observed_value": observed.get("primary", {}).get("value"),
-                                "observed_unit": observed.get("primary", {}).get("unit"),
-                                "forecast_value": forecast.get("primary", {}).get("value"),
-                                "forecast_unit": forecast.get("primary", {}).get("unit"),
-                                "flood_stage": flood_stage,
-                            },
-                            location=(float(lat), float(lon), 0.0),
-                            alert_level=self._flood_stage_to_alert(flood_stage),
-                            confidence=0.9,
-                            metadata={"api_version": "NWPS v1"},
-                        )
+                valid_time = observed.get("validTime")
+                if valid_time and not str(valid_time).startswith("0001"):
+                    timestamp = datetime.fromisoformat(str(valid_time).replace("Z", "+00:00"))
+                else:
+                    timestamp = datetime.now(UTC)
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.FLOOD,
+                        event_id=f"nwps_{gauge_id}",
+                        timestamp=timestamp,
+                        data={
+                            "gauge_id": gauge_id,
+                            "name": name,
+                            "observed_value": observed_value,
+                            "observed_unit": observed.get("primaryUnit"),
+                            "observed_secondary": self._numeric_or_none(observed.get("secondary")),
+                            "observed_secondary_unit": observed.get("secondaryUnit"),
+                            "forecast_value": forecast_value,
+                            "forecast_unit": forecast.get("primaryUnit"),
+                            "flood_category": flood_category,
+                            "forecast_flood_category": forecast.get("floodCategory"),
+                            "wfo": gauge.get("wfo", {}).get("abbreviation"),
+                            "state": gauge.get("state", {}).get("abbreviation"),
+                        },
+                        location=(float(lat), float(lon), 0.0),
+                        alert_level=self._flood_category_to_alert(flood_category),
+                        confidence=0.9,
+                        metadata={"api_version": "NWPS v1"},
                     )
+                )
 
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse gauge: {e}")
-                    continue
-
-        except Exception as e:
-            logger.warning(f"NOAA NWPS fetch failed: {e}")
+            except (ValueError, KeyError, TypeError) as e:
+                logger.debug(f"Failed to parse gauge: {e}")
+                continue
 
         logger.info(f"NOAA NWPS: Fetched {len(data_points)} gauge readings")
         return data_points
@@ -568,52 +723,60 @@ class NOAACOOPSSource(DataSourceBase):
 
         data_points: list[DataPoint] = []
 
-        try:
-            response = await self._http_get("datagetter", params=params)
-            data = response.json()
+        # A fetch failure propagates loudly (DataSourceError from _http_get):
+        # silently returning [] here used to convert an outage or contract
+        # drift into a fabricated "no readings" result.
+        response = await self._http_get("datagetter", params=params)
+        data = response.json()
 
-            # Get station info
-            station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
-            station_name, lat, lon = station_info
+        # CO-OPS reports errors as {"error": {"message": ...}} with HTTP 200.
+        if isinstance(data, dict) and "error" in data:
+            raise DataSourceError(
+                f"CO-OPS {product.value} error for station {self._station_id}: "
+                f"{data['error'].get('message', data['error'])}",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
-            readings = data.get("data", [])
+        # Get station info
+        station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
+        station_name, lat, lon = station_info
 
-            for reading in readings[-20:]:  # Last 20 readings
-                try:
-                    time_str = reading.get("t", "")
-                    value = reading.get("v")
+        readings = data.get("data", [])
 
-                    if not time_str or value is None:
-                        continue
+        for reading in readings[-20:]:  # Last 20 readings
+            try:
+                time_str = reading.get("t", "")
+                value = reading.get("v")
 
-                    timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
-
-                    data_points.append(
-                        DataPoint(
-                            source_id=self.source_id,
-                            source_type=DataSourceType.TIDE,
-                            event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
-                            timestamp=timestamp,
-                            data={
-                                "station_id": self._station_id,
-                                "station_name": station_name,
-                                "product": product.value,
-                                "value": float(value),
-                                "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
-                                "quality": reading.get("q"),
-                            },
-                            location=(lat, lon, 0.0),
-                            confidence=0.95 if reading.get("q") == "v" else 0.8,
-                            metadata={"datum": "MLLW"},
-                        )
-                    )
-
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse CO-OPS reading: {e}")
+                if not time_str or value is None:
                     continue
 
-        except Exception as e:
-            logger.warning(f"CO-OPS {product.value} fetch failed: {e}")
+                timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.TIDE,
+                        event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "station_id": self._station_id,
+                            "station_name": station_name,
+                            "product": product.value,
+                            "value": float(value),
+                            "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
+                            "quality": reading.get("q"),
+                        },
+                        location=(lat, lon, 0.0),
+                        confidence=0.95 if reading.get("q") == "v" else 0.8,
+                        metadata={"datum": "MLLW"},
+                    )
+                )
+
+            except (ValueError, KeyError, TypeError) as e:
+                logger.warning(f"Failed to parse CO-OPS reading: {e}")
+                continue
 
         return data_points
 

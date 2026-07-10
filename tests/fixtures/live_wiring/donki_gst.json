@@ -1,0 +1,84 @@
+[
+ {
+  "gstID": "2026-07-04T00:00:00-GST-001",
+  "startTime": "2026-07-04T00:00Z",
+  "allKpIndex": [
+   {
+    "observedTime": "2026-07-04T03:00Z",
+    "kpIndex": 6.0,
+    "source": "NOAA"
+   },
+   {
+    "observedTime": "2026-07-04T06:00Z",
+    "kpIndex": 7.33,
+    "source": "NOAA"
+   },
+   {
+    "observedTime": "2026-07-04T09:00Z",
+    "kpIndex": 5.67,
+    "source": "NOAA"
+   },
+   {
+    "observedTime": "2026-07-04T15:00Z",
+    "kpIndex": 6.67,
+    "source": "NOAA"
+   },
+   {
+    "observedTime": "2026-07-04T18:00Z",
+    "kpIndex": 5.67,
+    "source": "NOAA"
+   }
+  ],
+  "link": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/GST/47312/-1",
+  "linkedEvents": [
+   {
+    "activityID": "2026-06-30T21:45:00-CME-001"
+   },
+   {
+    "activityID": "2026-07-01T12:12:00-CME-001"
+   },
+   {
+    "activityID": "2026-07-01T21:12:00-CME-001"
+   },
+   {
+    "activityID": "2026-07-02T02:36:00-CME-001"
+   },
+   {
+    "activityID": "2026-07-03T11:17:00-IPS-001"
+   },
+   {
+    "activityID": "2026-07-03T18:45:00-IPS-001"
+   },
+   {
+    "activityID": "2026-07-03T20:57:00-MPC-001"
+   },
+   {
+    "activityID": "2026-07-04T12:00:00-IPS-001"
+   }
+  ],
+  "submissionTime": "2026-07-08T13:59Z",
+  "versionId": 2,
+  "sentNotifications": [
+   {
+    "messageID": "20260704-AL-001",
+    "messageIssueTime": "2026-07-04T03:03Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47313/1"
+   },
+   {
+    "messageID": "20260704-AL-002",
+    "messageIssueTime": "2026-07-04T06:05Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47314/1"
+   },
+   {
+    "messageID": "20260704-AL-003",
+    "messageIssueTime": "2026-07-04T12:24Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47315/1"
+   },
+   {
+    "messageID": "20260704-AL-004",
+    "messageIssueTime": "2026-07-04T16:38Z",
+    "messageURL": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/Alert/47323/1"
+   }
+  ]
+ }
+]

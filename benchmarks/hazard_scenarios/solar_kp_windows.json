@@ -1,0 +1,462 @@
+{
+  "provenance": {
+    "fetched_at": "2026-07-09T05:43:00Z",
+    "inputs": "SWPC propagated real-time solar wind (speed, IMF By/Bz), averaged per 3-hour Kp interval by propagated arrival time; windows with <60 valid minutes dropped, never imputed",
+    "label_source": "measured",
+    "labels": "NOAA/GFZ planetary Kp index (ground magnetometer network)",
+    "sources": [
+      {
+        "rows": 57,
+        "sha256": "8044bc8cf8cf501ae296cd4e6162a145c35c80404ce8414d06909d5a9c6a19d3",
+        "url": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+      },
+      {
+        "rows": 9874,
+        "sha256": "99c2ed1b5e8a7e4e8fc408b2015c580ddf2887df0ea61b82f7025ca40a8f95f8",
+        "url": "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json"
+      }
+    ]
+  },
+  "windows": [
+    {
+      "by_imf_nt": -4.003,
+      "bz_imf_nt": 5.9801,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 142,
+      "solar_wind_speed_km_s": 369.106,
+      "window_start": "2026-07-02T06:00:00Z"
+    },
+    {
+      "by_imf_nt": 1.774,
+      "bz_imf_nt": 4.7967,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 181,
+      "solar_wind_speed_km_s": 371.884,
+      "window_start": "2026-07-02T09:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.9607,
+      "bz_imf_nt": 1.7186,
+      "kp_observed": 1.33,
+      "n_wind_minutes": 176,
+      "solar_wind_speed_km_s": 368.884,
+      "window_start": "2026-07-02T12:00:00Z"
+    },
+    {
+      "by_imf_nt": 6.4034,
+      "bz_imf_nt": -0.5759,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 177,
+      "solar_wind_speed_km_s": 347.649,
+      "window_start": "2026-07-02T15:00:00Z"
+    },
+    {
+      "by_imf_nt": 6.1846,
+      "bz_imf_nt": 1.3291,
+      "kp_observed": 0.33,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 337.436,
+      "window_start": "2026-07-02T18:00:00Z"
+    },
+    {
+      "by_imf_nt": 5.2072,
+      "bz_imf_nt": 1.5213,
+      "kp_observed": 0.67,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 327.253,
+      "window_start": "2026-07-02T21:00:00Z"
+    },
+    {
+      "by_imf_nt": 5.1037,
+      "bz_imf_nt": 2.2586,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 154,
+      "solar_wind_speed_km_s": 365.563,
+      "window_start": "2026-07-03T00:00:00Z"
+    },
+    {
+      "by_imf_nt": 5.5449,
+      "bz_imf_nt": 2.2851,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 172,
+      "solar_wind_speed_km_s": 380.603,
+      "window_start": "2026-07-03T03:00:00Z"
+    },
+    {
+      "by_imf_nt": 4.9904,
+      "bz_imf_nt": 0.6983,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 182,
+      "solar_wind_speed_km_s": 378.174,
+      "window_start": "2026-07-03T06:00:00Z"
+    },
+    {
+      "by_imf_nt": 6.2118,
+      "bz_imf_nt": 0.4828,
+      "kp_observed": 1.33,
+      "n_wind_minutes": 174,
+      "solar_wind_speed_km_s": 385.66,
+      "window_start": "2026-07-03T09:00:00Z"
+    },
+    {
+      "by_imf_nt": 10.3664,
+      "bz_imf_nt": -0.1737,
+      "kp_observed": 2.33,
+      "n_wind_minutes": 190,
+      "solar_wind_speed_km_s": 464.168,
+      "window_start": "2026-07-03T12:00:00Z"
+    },
+    {
+      "by_imf_nt": 8.7957,
+      "bz_imf_nt": 2.2586,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 182,
+      "solar_wind_speed_km_s": 476.873,
+      "window_start": "2026-07-03T15:00:00Z"
+    },
+    {
+      "by_imf_nt": 8.0832,
+      "bz_imf_nt": 1.2299,
+      "kp_observed": 3.67,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 501.016,
+      "window_start": "2026-07-03T18:00:00Z"
+    },
+    {
+      "by_imf_nt": -4.5264,
+      "bz_imf_nt": 5.1748,
+      "kp_observed": 3.67,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 553.346,
+      "window_start": "2026-07-03T21:00:00Z"
+    },
+    {
+      "by_imf_nt": -11.5508,
+      "bz_imf_nt": -1.4485,
+      "kp_observed": 6.0,
+      "n_wind_minutes": 171,
+      "solar_wind_speed_km_s": 583.896,
+      "window_start": "2026-07-04T00:00:00Z"
+    },
+    {
+      "by_imf_nt": -9.9866,
+      "bz_imf_nt": -12.7587,
+      "kp_observed": 7.33,
+      "n_wind_minutes": 166,
+      "solar_wind_speed_km_s": 602.37,
+      "window_start": "2026-07-04T03:00:00Z"
+    },
+    {
+      "by_imf_nt": -14.6676,
+      "bz_imf_nt": -8.0282,
+      "kp_observed": 5.67,
+      "n_wind_minutes": 164,
+      "solar_wind_speed_km_s": 581.743,
+      "window_start": "2026-07-04T06:00:00Z"
+    },
+    {
+      "by_imf_nt": -15.0854,
+      "bz_imf_nt": -0.6072,
+      "kp_observed": 4.67,
+      "n_wind_minutes": 171,
+      "solar_wind_speed_km_s": 584.262,
+      "window_start": "2026-07-04T09:00:00Z"
+    },
+    {
+      "by_imf_nt": -12.5007,
+      "bz_imf_nt": 3.5122,
+      "kp_observed": 6.33,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 614.286,
+      "window_start": "2026-07-04T12:00:00Z"
+    },
+    {
+      "by_imf_nt": -11.5801,
+      "bz_imf_nt": 1.0584,
+      "kp_observed": 5.67,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 579.521,
+      "window_start": "2026-07-04T15:00:00Z"
+    },
+    {
+      "by_imf_nt": -6.6009,
+      "bz_imf_nt": 2.8141,
+      "kp_observed": 5.33,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 576.549,
+      "window_start": "2026-07-04T18:00:00Z"
+    },
+    {
+      "by_imf_nt": -3.3135,
+      "bz_imf_nt": 4.7095,
+      "kp_observed": 4.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 570.275,
+      "window_start": "2026-07-04T21:00:00Z"
+    },
+    {
+      "by_imf_nt": 0.2847,
+      "bz_imf_nt": 5.0841,
+      "kp_observed": 3.33,
+      "n_wind_minutes": 158,
+      "solar_wind_speed_km_s": 558.061,
+      "window_start": "2026-07-05T00:00:00Z"
+    },
+    {
+      "by_imf_nt": 2.1539,
+      "bz_imf_nt": 2.7861,
+      "kp_observed": 3.0,
+      "n_wind_minutes": 152,
+      "solar_wind_speed_km_s": 550.87,
+      "window_start": "2026-07-05T03:00:00Z"
+    },
+    {
+      "by_imf_nt": 2.3871,
+      "bz_imf_nt": -1.3288,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 163,
+      "solar_wind_speed_km_s": 516.847,
+      "window_start": "2026-07-05T06:00:00Z"
+    },
+    {
+      "by_imf_nt": -1.9955,
+      "bz_imf_nt": -2.6475,
+      "kp_observed": 4.0,
+      "n_wind_minutes": 172,
+      "solar_wind_speed_km_s": 492.355,
+      "window_start": "2026-07-05T09:00:00Z"
+    },
+    {
+      "by_imf_nt": -2.8028,
+      "bz_imf_nt": -2.3389,
+      "kp_observed": 3.33,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 483.501,
+      "window_start": "2026-07-05T12:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.1804,
+      "bz_imf_nt": -3.1887,
+      "kp_observed": 3.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 470.424,
+      "window_start": "2026-07-05T15:00:00Z"
+    },
+    {
+      "by_imf_nt": 0.372,
+      "bz_imf_nt": -3.7406,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 451.933,
+      "window_start": "2026-07-05T18:00:00Z"
+    },
+    {
+      "by_imf_nt": -2.9637,
+      "bz_imf_nt": -3.2693,
+      "kp_observed": 3.0,
+      "n_wind_minutes": 182,
+      "solar_wind_speed_km_s": 458.365,
+      "window_start": "2026-07-05T21:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.2895,
+      "bz_imf_nt": -2.1961,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 456.144,
+      "window_start": "2026-07-06T00:00:00Z"
+    },
+    {
+      "by_imf_nt": -4.7397,
+      "bz_imf_nt": -2.3687,
+      "kp_observed": 2.0,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 456.597,
+      "window_start": "2026-07-06T03:00:00Z"
+    },
+    {
+      "by_imf_nt": -3.6191,
+      "bz_imf_nt": -1.5633,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 444.356,
+      "window_start": "2026-07-06T06:00:00Z"
+    },
+    {
+      "by_imf_nt": -2.5231,
+      "bz_imf_nt": -1.5139,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 428.957,
+      "window_start": "2026-07-06T09:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.1922,
+      "bz_imf_nt": -2.2814,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 419.509,
+      "window_start": "2026-07-06T12:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.1093,
+      "bz_imf_nt": -2.2302,
+      "kp_observed": 1.33,
+      "n_wind_minutes": 183,
+      "solar_wind_speed_km_s": 415.913,
+      "window_start": "2026-07-06T15:00:00Z"
+    },
+    {
+      "by_imf_nt": 5.8462,
+      "bz_imf_nt": -1.4833,
+      "kp_observed": 2.33,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 471.634,
+      "window_start": "2026-07-06T18:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.1405,
+      "bz_imf_nt": -0.3435,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 177,
+      "solar_wind_speed_km_s": 415.647,
+      "window_start": "2026-07-06T21:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.6517,
+      "bz_imf_nt": 0.9602,
+      "kp_observed": 0.67,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 412.322,
+      "window_start": "2026-07-07T00:00:00Z"
+    },
+    {
+      "by_imf_nt": 1.141,
+      "bz_imf_nt": 1.854,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 180,
+      "solar_wind_speed_km_s": 426.191,
+      "window_start": "2026-07-07T03:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.8663,
+      "bz_imf_nt": 3.4713,
+      "kp_observed": 0.67,
+      "n_wind_minutes": 174,
+      "solar_wind_speed_km_s": 446.455,
+      "window_start": "2026-07-07T06:00:00Z"
+    },
+    {
+      "by_imf_nt": 1.9367,
+      "bz_imf_nt": 2.4888,
+      "kp_observed": 0.67,
+      "n_wind_minutes": 181,
+      "solar_wind_speed_km_s": 431.643,
+      "window_start": "2026-07-07T09:00:00Z"
+    },
+    {
+      "by_imf_nt": 2.3972,
+      "bz_imf_nt": 0.5418,
+      "kp_observed": 1.0,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 425.698,
+      "window_start": "2026-07-07T12:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.0032,
+      "bz_imf_nt": -1.1669,
+      "kp_observed": 0.33,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 408.925,
+      "window_start": "2026-07-07T15:00:00Z"
+    },
+    {
+      "by_imf_nt": 3.5968,
+      "bz_imf_nt": -1.5891,
+      "kp_observed": 1.33,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 401.406,
+      "window_start": "2026-07-07T18:00:00Z"
+    },
+    {
+      "by_imf_nt": 2.2719,
+      "bz_imf_nt": -2.8361,
+      "kp_observed": 2.0,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 394.794,
+      "window_start": "2026-07-07T21:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.378,
+      "bz_imf_nt": -5.3604,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 181,
+      "solar_wind_speed_km_s": 391.814,
+      "window_start": "2026-07-08T00:00:00Z"
+    },
+    {
+      "by_imf_nt": 2.557,
+      "bz_imf_nt": -6.5054,
+      "kp_observed": 3.33,
+      "n_wind_minutes": 176,
+      "solar_wind_speed_km_s": 413.785,
+      "window_start": "2026-07-08T03:00:00Z"
+    },
+    {
+      "by_imf_nt": 4.3437,
+      "bz_imf_nt": -4.2073,
+      "kp_observed": 3.33,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 397.428,
+      "window_start": "2026-07-08T06:00:00Z"
+    },
+    {
+      "by_imf_nt": 5.8149,
+      "bz_imf_nt": -4.2172,
+      "kp_observed": 3.0,
+      "n_wind_minutes": 177,
+      "solar_wind_speed_km_s": 398.012,
+      "window_start": "2026-07-08T09:00:00Z"
+    },
+    {
+      "by_imf_nt": 6.0837,
+      "bz_imf_nt": -3.4931,
+      "kp_observed": 2.33,
+      "n_wind_minutes": 179,
+      "solar_wind_speed_km_s": 391.298,
+      "window_start": "2026-07-08T12:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.5725,
+      "bz_imf_nt": -5.4822,
+      "kp_observed": 1.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 383.749,
+      "window_start": "2026-07-08T15:00:00Z"
+    },
+    {
+      "by_imf_nt": -2.9034,
+      "bz_imf_nt": -3.234,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 177,
+      "solar_wind_speed_km_s": 366.819,
+      "window_start": "2026-07-08T18:00:00Z"
+    },
+    {
+      "by_imf_nt": -0.3582,
+      "bz_imf_nt": -1.2052,
+      "kp_observed": 2.33,
+      "n_wind_minutes": 184,
+      "solar_wind_speed_km_s": 376.416,
+      "window_start": "2026-07-08T21:00:00Z"
+    },
+    {
+      "by_imf_nt": 1.6078,
+      "bz_imf_nt": -1.9979,
+      "kp_observed": 2.67,
+      "n_wind_minutes": 178,
+      "solar_wind_speed_km_s": 385.362,
+      "window_start": "2026-07-09T00:00:00Z"
+    }
+  ]
+}

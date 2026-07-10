@@ -284,6 +284,15 @@ def discover_loaders() -> dict[str, type[DatasetLoader]]:
     for cls in _all_subclasses(DatasetLoader):
         if getattr(cls, "__abstractmethods__", None):
             continue  # still abstract -> not a usable dataset
+        # Test-fixture subclasses (defined in ``tests/test_*.py`` modules) are
+        # not part of the audit surface; they exist to probe base-class
+        # mechanics in isolation (e.g. the cache-vs-split regression probe),
+        # not to score data. Mirrors the identical exemption in
+        # ``loaders/label_provenance.py``. The sweep only sees them at all
+        # when a prior test in the same pytest process imported the test
+        # module that defines them.
+        if cls.__module__.split(".")[-1].startswith("test_"):
+            continue
         loaders[_loader_key(cls)] = cls
     return loaders
 

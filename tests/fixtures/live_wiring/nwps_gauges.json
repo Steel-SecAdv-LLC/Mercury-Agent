@@ -1,0 +1,124 @@
+{
+ "gauges": [
+  {
+   "lid": "ADDT2",
+   "name": "Langham Creek at Addicks Reservoir",
+   "rfc": {
+    "abbreviation": "WGRFC",
+    "name": "West Gulf River Forecast Center"
+   },
+   "wfo": {
+    "abbreviation": "HGX",
+    "name": "Dickinson"
+   },
+   "state": {
+    "abbreviation": "TX",
+    "name": "Texas"
+   },
+   "latitude": 29.791111111111,
+   "longitude": -95.623333333333,
+   "pedts": {
+    "observed": "HPIRG",
+    "forecast": ""
+   },
+   "status": {
+    "observed": {
+     "primary": 72.68,
+     "primaryUnit": "ft",
+     "secondary": 1.34,
+     "secondaryUnit": "kcfs",
+     "floodCategory": "no_flooding",
+     "validTime": "2026-07-09T05:15:00Z"
+    },
+    "forecast": {
+     "primary": -999,
+     "primaryUnit": "",
+     "secondary": -999,
+     "secondaryUnit": "",
+     "floodCategory": "fcst_not_current",
+     "validTime": "0001-01-01T00:00:00Z"
+    }
+   }
+  },
+  {
+   "lid": "ADMT2",
+   "name": "Adams Bayou at SH 87",
+   "rfc": {
+    "abbreviation": "WGRFC",
+    "name": "West Gulf River Forecast Center"
+   },
+   "wfo": {
+    "abbreviation": "LCH",
+    "name": "Lake Charles"
+   },
+   "state": {
+    "abbreviation": "TX",
+    "name": "Texas"
+   },
+   "latitude": 30.0934,
+   "longitude": -93.7497,
+   "pedts": {
+    "observed": "HGIRG",
+    "forecast": ""
+   },
+   "status": {
+    "observed": {
+     "primary": 0.14,
+     "primaryUnit": "ft",
+     "secondary": -999,
+     "secondaryUnit": "kcfs",
+     "floodCategory": "no_flooding",
+     "validTime": "2026-07-09T05:00:00Z"
+    },
+    "forecast": {
+     "primary": -999,
+     "primaryUnit": "",
+     "secondary": -999,
+     "secondaryUnit": "",
+     "floodCategory": "fcst_not_current",
+     "validTime": "0001-01-01T00:00:00Z"
+    }
+   }
+  },
+  {
+   "lid": "AUST2",
+   "name": "Austin Bayou at SH 35 near Liverpool",
+   "rfc": {
+    "abbreviation": "WGRFC",
+    "name": "West Gulf River Forecast Center"
+   },
+   "wfo": {
+    "abbreviation": "HGX",
+    "name": "Dickinson"
+   },
+   "state": {
+    "abbreviation": "TX",
+    "name": "Texas"
+   },
+   "latitude": 29.28088333,
+   "longitude": -95.33179167,
+   "pedts": {
+    "observed": "HGIRA",
+    "forecast": ""
+   },
+   "status": {
+    "observed": {
+     "primary": 10.07,
+     "primaryUnit": "ft",
+     "secondary": -999,
+     "secondaryUnit": "kcfs",
+     "floodCategory": "no_flooding",
+     "validTime": "2026-07-09T05:10:00Z"
+    },
+    "forecast": {
+     "primary": -999,
+     "primaryUnit": "",
+     "secondary": -999,
+     "secondaryUnit": "",
+     "floodCategory": "fcst_not_current",
+     "validTime": "0001-01-01T00:00:00Z"
+    }
+   }
+  }
+ ]
+}

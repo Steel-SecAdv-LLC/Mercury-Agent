@@ -42,6 +42,7 @@ from ama_cryptography.crypto_api import (
     CryptoPackageResult as _AmaCryptoPackageResult,
     create_crypto_package as _ama_create_crypto_package,
     get_pqc_capabilities as _ama_get_pqc_capabilities,
+    verify_crypto_package as _ama_verify_crypto_package,
 )
 
 AMA_CRYPTO_API_AVAILABLE = True
@@ -631,6 +632,41 @@ class MercuryCrypto:
         if config.include_timestamp:
             result.metadata["signed_at"] = time.time()
 
+        return result
+
+    def verify_crypto_package(
+        self,
+        content: bytes,
+        package: CryptoPackageResult,
+    ) -> dict[str, bool]:
+        """Verify a 6-layer AMA crypto package produced by :meth:`create_crypto_package`.
+
+        Closes the emit-without-verify gap: Mercury could seal 6-layer packages
+        (SHA3-256 hash, HMAC-SHA3-256, Ed25519 + ML-DSA-65 signatures, HKDF key
+        independence, RFC 3161 timestamp) via AMA but exposed no way to check
+        them. Delegates to AMA's ``verify_crypto_package`` against the
+        ``ama_package`` carried on the result.
+
+        Args:
+            content: The original signed content.
+            package: A :class:`CryptoPackageResult` from
+                :meth:`create_crypto_package` with ``use_six_layer=True``.
+
+        Returns:
+            Per-layer booleans plus ``all_valid`` (True iff every layer passed).
+
+        Raises:
+            ValueError: If ``package`` carries no AMA six-layer payload to verify
+                (e.g. it was built with ``use_six_layer=False``).
+        """
+        ama_package = getattr(package, "ama_package", None)
+        if ama_package is None:
+            raise ValueError(
+                "verify_crypto_package requires a six-layer package "
+                "(create with CryptoPackageConfig(use_six_layer=True)); "
+                "this result carries no AMA package to verify."
+            )
+        result: dict[str, bool] = _ama_verify_crypto_package(content, ama_package)
         return result
 
     def get_capabilities(self) -> dict[str, Any]:

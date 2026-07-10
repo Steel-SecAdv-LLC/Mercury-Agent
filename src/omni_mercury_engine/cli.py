@@ -58,9 +58,22 @@ def main() -> None:
     ),
 )
 @click.option("--output", "-o", help="Output file for results")
-@click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
-def detect(input: str, detector: str, output: str, threshold: float) -> None:
+@click.option(
+    "--threshold",
+    "-t",
+    default=None,
+    type=float,
+    help=(
+        "Anomaly decision threshold in [0, 1]. Overrides the fusion model's "
+        "adaptive threshold: is_anomaly becomes (anomaly_prob >= threshold). "
+        "Only the fusion path emits a probability; on other detectors it is "
+        "reported as inapplicable. Omit to use the model's own threshold."
+    ),
+)
+def detect(input: str, detector: str, output: str, threshold: float | None) -> None:
     """Detect anomalies in data."""
+    if threshold is not None and not (0.0 <= threshold <= 1.0):
+        raise click.BadParameter("--threshold must be in [0, 1]", param_hint="--threshold")
     # require_explicit_fit=False: this command has no train/test split to fit
     # the base detectors on (it scores whatever single file the caller gives
     # it), so it relies on detect_with_fusion's legacy auto-fit-on-first-batch
@@ -85,8 +98,23 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
                 err=True,
             )
         results = engine.detect_with_fusion(data)
+        if threshold is not None and "anomaly_prob" in results:
+            # Honour the operator's explicit decision boundary over the model's
+            # adaptive threshold (previously the flag was accepted and ignored).
+            results["is_anomaly"] = bool(float(results["anomaly_prob"]) >= threshold)
+            results["threshold_used"] = float(threshold)
+            results["threshold_source"] = "cli_override"
     else:
         results = engine.detect(data, detector_types=[detector])
+        if threshold is not None:
+            # The statistical path returns an aggregate decision with no single
+            # probability to threshold; say so rather than silently ignore.
+            click.echo(
+                f"--threshold={threshold} is not applied to detector "
+                f"'{detector}' (no probability output); use '-d fusion' to "
+                "apply a decision threshold.",
+                err=True,
+            )
 
     if output:
         with open(output, "w") as f:

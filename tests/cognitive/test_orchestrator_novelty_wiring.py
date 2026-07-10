@@ -112,3 +112,31 @@ def test_predictor_observes_non_anomalies_too() -> None:
     assert forecast["probability"] < 0.4
     assert "blended_score" in forecast
     assert 0.0 <= forecast["probability"] <= 1.0
+
+
+def test_engine_enable_cognitive_analysis_plumbs_opt_in_flags() -> None:
+    """The engine's public API reaches both opt-in engines.
+
+    Regression: ``enable_cognitive_analysis()`` constructed the orchestrator
+    without ``enable_curiosity`` / ``enable_enhanced_detection``, so the two
+    wired engines could only ever be activated by constructing the
+    orchestrator directly — unreachable through the engine entrypoint.
+    """
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    engine = OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False)
+
+    engine.enable_cognitive_analysis()
+    orchestrator = engine.cognitive_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.curiosity is None
+    assert orchestrator.enhanced_detector is None
+
+    engine.enable_cognitive_analysis(
+        enable_curiosity=True,
+        enable_enhanced_detection=True,
+    )
+    orchestrator = engine.cognitive_orchestrator
+    assert orchestrator is not None
+    assert orchestrator.curiosity is not None
+    assert orchestrator.enhanced_detector is not None

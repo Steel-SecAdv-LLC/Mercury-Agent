@@ -28,6 +28,7 @@ import hashlib
 import logging
 import os
 import secrets
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -513,6 +514,21 @@ class AuthKeyManager:
         current_index = self._key_index.get(purpose, 0)
         return self.derive_key(purpose, current_index)
 
+    @property
+    def rotation_manager(self) -> KeyRotationManager:
+        """The underlying AMA ``KeyRotationManager`` (shared rotation state).
+
+        Exposed so components like the adaptive-posture controller can drive
+        real key rotation through the same manager Mercury's purposes use,
+        rather than being handed ``None`` and silently no-op'ing.
+        """
+        return self._rotation
+
+    @property
+    def hd_derivation(self) -> HDKeyDerivation:
+        """The underlying AMA ``HDKeyDerivation`` (BIP32 key material)."""
+        return self._hd
+
     def complete_rotation(self, purpose: str) -> None:
         """Complete rotation by deprecating the previous key."""
         current_index = self._key_index.get(purpose, 0)
@@ -728,9 +744,36 @@ class JWTAuth:
             return {"user": user.username}
     """
 
-    # Development fallback key - NEVER use in production
-    _DEV_FALLBACK_KEY = "MERCURY_AGENT_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
+    # Development fallback signing key. Generated ONCE per process (lazily) —
+    # deliberately NOT a published constant. A hard-coded key in source control
+    # (the old behavior) is CWE-798: any deployment that reached this dev path
+    # by misconfiguration (forgot both MERCURY_ENV and JWT_SECRET_KEY) could
+    # have its admin tokens minted by anyone reading the repo. A per-process
+    # random key removes that: tokens are valid within one process (dev works),
+    # cannot be forged from a known value, and do NOT verify across workers /
+    # replicas / restarts — so a multi-replica production deployment that forgot
+    # to set a key fails VISIBLY (auth breaks) instead of silently accepting
+    # forged tokens. NEVER rely on this in production; set JWT_SECRET_KEY or
+    # AMA_MASTER_SEED.
+    _dev_fallback_key: str | None = None
+    _dev_fallback_key_lock = threading.Lock()
     _warned_about_fallback = False
+
+    @classmethod
+    def _get_dev_fallback_key(cls) -> str:
+        """Return this process's ephemeral dev signing key, creating it once.
+
+        Creation is lock-guarded (double-checked): two threads racing the
+        lazy init — e.g. a threaded ASGI server constructing two ``JWTAuth``
+        instances concurrently — must never observe different keys, or a
+        token signed by one instance would not verify with the other in the
+        same process.
+        """
+        if cls._dev_fallback_key is None:
+            with cls._dev_fallback_key_lock:
+                if cls._dev_fallback_key is None:
+                    cls._dev_fallback_key = secrets.token_hex(32)
+        return cls._dev_fallback_key
 
     def __init__(
         self,
@@ -796,15 +839,20 @@ class JWTAuth:
                         f"HD derivation error: {e}"
                     ) from e
             elif allow_dev_fallback:
-                # Use fallback key for development only
-                self.secret_key = self._DEV_FALLBACK_KEY
+                # Use an ephemeral per-process key for development only. Not a
+                # published constant (see _get_dev_fallback_key): unforgeable
+                # from source, and non-portable so a misconfigured multi-replica
+                # deployment fails visibly rather than silently.
+                self.secret_key = self._get_dev_fallback_key()
                 self.using_fallback = True
 
                 # Log warning only once per class (not per instance)
                 if not JWTAuth._warned_about_fallback:
                     logger.warning(
-                        "JWT_SECRET_KEY not set — using insecure dev fallback key "
-                        "(dev only; set JWT_SECRET_KEY before production)."
+                        "JWT_SECRET_KEY not set — using an ephemeral per-process dev "
+                        "signing key. Tokens will not verify across workers/replicas/"
+                        "restarts. Set JWT_SECRET_KEY (`openssl rand -hex 32`) or "
+                        "AMA_MASTER_SEED before production."
                     )
                     JWTAuth._warned_about_fallback = True
             else:

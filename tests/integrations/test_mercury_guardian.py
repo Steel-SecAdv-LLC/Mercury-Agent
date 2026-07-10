@@ -22,6 +22,10 @@ from typing import Any
 import numpy as np
 import pytest
 
+# GOSNN singleton isolation is handled globally by the autouse
+# ``_isolate_gosnn_singleton`` fixture in tests/conftest.py, so this adapter's
+# SECURITY-scalar registrations cannot bleed into other tests' σ_Immutable gate.
+
 # =============================================================================
 # MercuryGuardianAdapter Tests
 # =============================================================================
@@ -577,3 +581,102 @@ class TestGOSNNScalars:
         scalars = adapter.get_gosnn_scalars()
         assert "omni_crypto_avg_severity" in scalars
         assert scalars["omni_crypto_avg_severity"] > 0
+
+
+class TestAdaptivePostureRotationWiring:
+    """The adaptive-posture controller is wired to real AMA key rotation (F2).
+
+    Regression: CryptoPostureController was constructed with rotation_manager=
+    None and hd_derivation=None, so a ROTATE_KEYS decision could not rotate any
+    key material — the response loop was inert.
+    """
+
+    def test_controller_has_real_rotation_machinery(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        ctrl = adapter._posture_controller
+        assert ctrl.rotation_manager is not None
+        assert ctrl.hd_derivation is not None
+
+    def test_controller_shares_the_auth_key_manager_rotation_state(self) -> None:
+        from omni_mercury_engine.api.auth import get_auth_key_manager
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        assert (
+            adapter._posture_controller.rotation_manager is get_auth_key_manager().rotation_manager
+        )
+
+    def test_rotation_executes_without_error(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        ctrl = adapter._posture_controller
+        before = ctrl._rotation_count
+        ctrl._trigger_rotation()  # exercises the real KeyRotationManager path
+        assert ctrl._rotation_count == before + 1
+
+
+class TestPostureStatusHonestyOnEvaluatorFailure:
+    """A failing posture evaluator must degrade the reported posture (F11).
+
+    Regression: get_pqc_status reported ThreatLevel.NOMINAL whenever there was
+    no successful evaluation, so a PostureEvaluator that started raising left
+    the crypto posture pinned at a falsely-reassuring "healthy" during an
+    attack. It now reports UNKNOWN + posture_evaluation_healthy=False.
+    """
+
+    def test_fresh_adapter_is_nominal_and_healthy(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        status = MercuryGuardianAdapter().get_pqc_status()
+        assert status["posture_threat_level"] == "NOMINAL"
+        assert status["posture_evaluation_healthy"] is True
+        assert status["posture_eval_consecutive_failures"] == 0
+
+    def test_failing_evaluator_reports_unknown_not_nominal(self) -> None:
+        from unittest.mock import patch
+
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        with patch.object(adapter._posture_evaluator, "evaluate", side_effect=RuntimeError("boom")):
+            adapter._evaluate_posture_from_gosnn()
+
+        status = adapter.get_pqc_status()
+        assert status["posture_threat_level"] == "UNKNOWN"
+        assert status["posture_evaluation_healthy"] is False
+        assert status["posture_eval_consecutive_failures"] >= 1
+
+    def test_stale_success_does_not_mask_an_actively_failing_evaluator(self) -> None:
+        """A last-known-good evaluation must not keep reporting its level
+        while the evaluator is failing (consecutive failures > 0): the stale
+        picture cannot refresh, so the honest report is UNKNOWN."""
+        from unittest.mock import patch
+
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        adapter._evaluate_posture_from_gosnn()  # genuine successful evaluation
+        assert adapter.get_pqc_status()["posture_evaluation_healthy"] is True
+
+        with patch.object(adapter._posture_evaluator, "evaluate", side_effect=RuntimeError("boom")):
+            adapter._evaluate_posture_from_gosnn()
+
+        status = adapter.get_pqc_status()
+        assert status["posture_threat_level"] == "UNKNOWN"
+        assert status["posture_evaluation_healthy"] is False
+        assert status["posture_eval_consecutive_failures"] >= 1

@@ -99,13 +99,21 @@ class TestGeomageticCorrelator:
         correlator = GeomageticCorrelator()
         assert correlator.kp_thresholds is not None
 
-    def test_correlate_default_data(self) -> None:
-        """Test correlation with default geomagnetic data."""
+    def test_correlate_without_data_reports_unknown_not_quiet(self) -> None:
+        """Missing indices must be reported honestly, never invented.
+
+        Regression: this path used to default to Kp 3.0 / Dst -20.0 — a
+        fabricated quiet-time reading indistinguishable from a measurement.
+        """
         correlator = GeomageticCorrelator()
         schumann_anomaly = {"frequency_anomaly": False, "amplitude_anomaly": False}
         result = correlator.correlate_geomagnetic(schumann_anomaly)
-        assert "correlation_strength" in result
-        assert "geomagnetic_status" in result
+        assert result["geomagnetic_status"] == "unknown"
+        assert result["kp_index"] is None
+        assert result["dst_index"] is None
+        assert "geomagnetic_data_unavailable" in result["indicators"]
+        assert result["correlation_strength"] == 0.0
+        assert result["space_weather_factor"] == 1.0
 
     def test_correlate_with_storm(self) -> None:
         """Test correlation during geomagnetic storm."""
