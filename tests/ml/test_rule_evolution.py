@@ -31,9 +31,14 @@ import pytest
 
 pytest.importorskip("torch")
 
+from pathlib import Path as PathLib
+
 import torch
 
-from omni_mercury_engine.ml.rule_evolution import (
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``rule_evolution``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.ml.rule_evolution import (  # type: ignore[import-not-found,unused-ignore]
     ChannelStats,
     EvolvedRule,
     EvolvedRuleSearch,
@@ -50,7 +55,7 @@ from omni_mercury_engine.ml.rule_evolution import (
     save_evolved_rule_graph,
     tournament_select,
 )
-from omni_mercury_engine.ml.symbolic_constraint import (
+from omni_mercury_engine.ml.symbolic_constraint import (  # type: ignore[attr-defined,unused-ignore]
     SymbolicConstraintModule,
     ThresholdAtom,
     consensus_rule_graph,
@@ -74,30 +79,44 @@ BOUNDS = GenomeBounds(min_rules=1, max_rules=5, max_atoms=3)
 def pima_split() -> dict[str, np.ndarray[Any, Any]]:
     """Real ADBench ``Pima`` data: train/val channel matrices + labels.
 
+    Loads the committed recorded-real fixture
+    (``tests/fixtures/adbench/pima_real.npz``, the ADBench ``9_Pima`` arrays
+    captured 2026-07-09) so the real-data GA tests run in EVERY offline CI
+    lane -- they previously skipped on any fresh checkout, hiding the
+    fitness/determinism/end-to-end coverage behind a network opt-in. Falls
+    back to a cached/downloaded loader copy only if the fixture is missing.
+
     Features are min-max squashed to ``[0, 1]`` with **train-split statistics
     only** (the channels play the role of per-detector score channels; the
     genome operates over channel indices either way).  The test split is
     deliberately not materialised: fitness must never see it.
     """
-    from omni_mercury_engine.datasets.adbench import ADBenchLoader
-    from omni_mercury_engine.datasets.base import DatasetConfig
     from omni_mercury_engine.evaluation.metrics import split_three_way
 
-    loader = ADBenchLoader(
-        DatasetConfig(name="adbench", preprocessing={"dataset": "Pima"}, download=False)
-    )
-    cached = (loader.data_path / loader.npz_filename).exists()
-    if not cached:
-        if os.environ.get("MERCURY_NETWORK_TESTS", "0") != "1":
-            pytest.skip(
-                "ADBench Pima NPZ not cached under ./data and network tests are "
-                "disabled (set MERCURY_NETWORK_TESTS=1 to fetch it)"
-            )
+    fixture = PathLib(__file__).parents[1] / "fixtures" / "adbench" / "pima_real.npz"
+    if fixture.exists():
+        with np.load(fixture) as payload:
+            features, labels = payload["X"], payload["y"]
+    else:
+        from omni_mercury_engine.datasets.adbench import ADBenchLoader
+        from omni_mercury_engine.datasets.base import DatasetConfig
+
         loader = ADBenchLoader(
-            DatasetConfig(name="adbench", preprocessing={"dataset": "Pima"}, download=True)
+            DatasetConfig(name="adbench", preprocessing={"dataset": "Pima"}, download=False)
         )
-        loader.download()
-    features, labels = loader.load()
+        cached = (loader.data_path / loader.npz_filename).exists()
+        if not cached:
+            if os.environ.get("MERCURY_NETWORK_TESTS", "0") != "1":
+                pytest.skip(
+                    "committed Pima fixture missing, ADBench NPZ not cached under "
+                    "./data, and network tests are disabled "
+                    "(set MERCURY_NETWORK_TESTS=1 to fetch it)"
+                )
+            loader = ADBenchLoader(
+                DatasetConfig(name="adbench", preprocessing={"dataset": "Pima"}, download=True)
+            )
+            loader.download()
+        features, labels = loader.load()
     features = np.asarray(features, dtype=np.float64)
     labels = np.asarray(labels).astype(int).ravel()
 
@@ -193,7 +212,9 @@ class TestGenome:
         satisfaction = float(out["satisfaction"].detach())
         assert np.isfinite(satisfaction) and 0.0 <= satisfaction <= 1.0
         out["loss"].backward()  # co-training path stays autograd-safe
-        sample_scores = module.score_samples(scores)
+        # score_samples is a real method; under the stale editable install
+        # mypy types the attribute as Tensor, hence [operator].
+        sample_scores = module.score_samples(scores)  # type: ignore[operator,unused-ignore]
         assert sample_scores.shape == (32,)
         assert torch.all((sample_scores >= 0.0) & (sample_scores <= 1.0))
 
@@ -202,7 +223,7 @@ class TestGenome:
         genome = RuleGenome(rules=(EvolvedRule(atoms=(atom,), consequent="Anomalous"),))
         module = SymbolicConstraintModule(num_detectors=3, rule_graph=genome.to_rule_graph())
         with pytest.raises(ValueError, match="channel 11"):
-            module.score_samples(torch.rand(8, 3))
+            module.score_samples(torch.rand(8, 3))  # type: ignore[operator,unused-ignore]
 
     def test_threshold_rule_raises_score_where_it_fires(self) -> None:
         """The evolved scoring path responds to the rule's actual semantics."""
@@ -211,7 +232,9 @@ class TestGenome:
         module = SymbolicConstraintModule(num_detectors=2, rule_graph=genome.to_rule_graph())
         high = torch.tensor([[0.95, 0.5]])
         low = torch.tensor([[0.05, 0.5]])
-        assert float(module.score_samples(high)) > float(module.score_samples(low)) + 0.3
+        high_score = float(module.score_samples(high))  # type: ignore[operator,unused-ignore]
+        low_score = float(module.score_samples(low))  # type: ignore[operator,unused-ignore]
+        assert high_score > low_score + 0.3
 
 
 # -- operators -------------------------------------------------------------------
@@ -291,10 +314,16 @@ class TestFitness:
     ) -> None:
         import omni_mercury_engine.ml.rule_evolution as re_mod
 
+        # The canonical harness functions (the same objects ``rule_evolution``
+        # imports); pulling them from ``evaluation.metrics`` keeps their real
+        # ``-> float`` signatures visible to mypy.
+        from omni_mercury_engine.evaluation.metrics import (
+            compute_f1 as real_compute_f1,
+            fit_threshold as real_fit_threshold,
+        )
+
         threshold_calls: list[np.ndarray[Any, Any]] = []
         f1_calls: list[np.ndarray[Any, Any]] = []
-        real_fit_threshold = re_mod.fit_threshold
-        real_compute_f1 = re_mod.compute_f1
 
         def spy_fit_threshold(y_true: Any, y_score: Any, *a: Any, **kw: Any) -> float:
             threshold_calls.append(np.asarray(y_true))
@@ -429,7 +458,9 @@ class TestSerialization:
         assert graph == genome.to_rule_graph(name="unit_evolved")
         # And the loaded graph is accepted by the module.
         module = SymbolicConstraintModule(num_detectors=6, rule_graph=graph)
-        assert module.score_samples(torch.rand(4, 6)).shape == (4,)
+        rand_scores = torch.rand(4, 6)
+        loaded_scores = module.score_samples(rand_scores)  # type: ignore[operator,unused-ignore]
+        assert loaded_scores.shape == (4,)
 
     def test_resolve_rule_graph_errors(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="requires a path"):
@@ -473,3 +504,42 @@ class TestSerialization:
         assert config is not None
         assert config["rule_graph"] == "consensus"
         assert "rule_graph_spec" not in config
+
+
+class TestCommittedChampionArtifact:
+    """The SHIPPED evolved graph must load and score through the serve path.
+
+    Regression: ``benchmarks/evolved_rule_graph.json`` was committed but no
+    test ever loaded it, so a schema drift or a corrupted artifact would
+    only surface for the first user of ``evolved:<path>``.
+    """
+
+    ARTIFACT = PathLib(__file__).parents[2] / "benchmarks" / "evolved_rule_graph.json"
+
+    def test_champion_loads_via_resolve_seam(self) -> None:
+        graph = resolve_rule_graph(f"evolved:{self.ARTIFACT}")
+        assert graph.rules, "champion graph has no rules"
+
+    def test_champion_scores_through_deployed_module(self, pima_dataset: FitnessDataset) -> None:
+        """Scoring runs through the SAME SymbolicConstraintModule serve path
+        the benchmark used, on the real Pima validation split, and produces
+        finite, non-constant scores."""
+        import json
+
+        payload = json.loads(self.ARTIFACT.read_text())
+        n_channels = int(payload["num_channels"])
+        graph = resolve_rule_graph(f"evolved:{self.ARTIFACT}")
+        module = SymbolicConstraintModule(num_detectors=n_channels, rule_graph=graph)
+        scores_val = pima_dataset.scores_val
+        if scores_val.shape[1] != n_channels:
+            # The champion was evolved on the 12-channel cross-dataset board;
+            # pad/trim the Pima channels to the artifact's channel count so
+            # the serve path itself is what is exercised.
+            reps = -(-n_channels // scores_val.shape[1])
+            scores_val = np.tile(scores_val, (1, reps))[:, :n_channels]
+        scores_tensor = torch.from_numpy(scores_val.astype(np.float32))
+        scored = module.score_samples(scores_tensor)  # type: ignore[operator,unused-ignore]
+        scored_np = np.asarray(scored.detach().cpu().numpy(), dtype=np.float64).ravel()
+        assert scored_np.shape[0] == scores_val.shape[0]
+        assert np.all(np.isfinite(scored_np))
+        assert float(scored_np.std()) > 0.0, "champion graph scored a constant"
