@@ -1030,7 +1030,16 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                     "detection power at the fixed 1% false-alarm rate must "
                     "not regress below the closed-form baseline"
                 ),
-            }
+            },
+            {
+                "metric": "brier",
+                "higher_is_better": False,
+                "description": (
+                    "Brier score must not regress above the documented "
+                    "closed-form baseline (physics side uses the uncalibrated "
+                    "1 - p_comb pseudo-probability; see brier_note)"
+                ),
+            },
         ],
     )
     save_evaluation(ctx.data_dir, outcome)

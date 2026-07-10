@@ -335,7 +335,13 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
             "chi-square rule (models.gcp_ingest) must be beaten on "
             "mixed-fault AUC with power@1%FAR and Brier non-regression; on "
             "PURE bias faults that z-test is Neyman-Pearson-optimal, so "
-            "'closed form wins, not shipped' is a valid recorded outcome."
+            "'closed form wins, not shipped' is a valid recorded outcome -- "
+            "and is NOT the current one (2026-07-10, reg-gcp-v1): the learned "
+            "model won held-out 2022-2024 mixed-fault AUC 0.7875 vs 0.7246 "
+            "(paired case-resampling bootstrap 95% CI on the difference "
+            "[0.043, 0.080] excludes zero) with power@1%FAR 0.368 vs 0.337 "
+            "and Brier 0.183 vs 0.267 both non-regressing, so reg_deviation_gcp "
+            "shipped."
         ),
         pipeline_module="omni_mercury_engine.ml.hazard_training.consciousness_field",
         checkpoint_name="reg_deviation_gcp",
