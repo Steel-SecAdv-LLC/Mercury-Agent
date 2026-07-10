@@ -119,9 +119,9 @@ class SurgeSeries:
     """
 
     timestamps: list[str]
-    observed_m: np.ndarray  # type: ignore[type-arg]
-    predicted_m: np.ndarray  # type: ignore[type-arg]
-    residual_m: np.ndarray  # type: ignore[type-arg]
+    observed_m: np.ndarray
+    predicted_m: np.ndarray
+    residual_m: np.ndarray
     max_residual_m: float
     time_of_max: str
 

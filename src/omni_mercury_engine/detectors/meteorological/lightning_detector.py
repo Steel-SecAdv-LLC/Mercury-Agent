@@ -95,8 +95,8 @@ class LightningJumpResult:
 
     jump_detected: bool
     jumps: list[LightningJump] = field(default_factory=list)
-    bin_starts_s: np.ndarray | None = None  # type: ignore[type-arg]
-    flash_rates_per_min: np.ndarray | None = None  # type: ignore[type-arg]
+    bin_starts_s: np.ndarray | None = None
+    flash_rates_per_min: np.ndarray | None = None
     severe_weather_precursor: bool = False
     warning_actions: list[str] = field(default_factory=list)
 
@@ -182,9 +182,7 @@ class LightningDetector:
         self.cell_size_deg = cell_size_deg
         self.logger = logging.getLogger(__name__)
 
-    def compute_flash_rates(
-        self, flash_times_s: np.ndarray  # type: ignore[type-arg]
-    ) -> tuple[np.ndarray, np.ndarray]:  # type: ignore[type-arg]
+    def compute_flash_rates(self, flash_times_s: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Average the total flash rate over consecutive bins.
 
         Args:
@@ -217,9 +215,7 @@ class LightningDetector:
         rates = counts / (self.bin_seconds / 60.0)
         return edges[:-1], rates.astype(np.float64)
 
-    def detect_lightning_jumps(
-        self, flash_times_s: np.ndarray  # type: ignore[type-arg]
-    ) -> LightningJumpResult:
+    def detect_lightning_jumps(self, flash_times_s: np.ndarray) -> LightningJumpResult:
         """Run the 2-sigma lightning jump algorithm on a flash-time series.
 
         Args:
@@ -283,8 +279,8 @@ class LightningDetector:
 
     def cluster_cells(
         self,
-        latitudes: np.ndarray,  # type: ignore[type-arg]
-        longitudes: np.ndarray,  # type: ignore[type-arg]
+        latitudes: np.ndarray,
+        longitudes: np.ndarray,
     ) -> list[LightningCell]:
         """Cluster flash locations by simple spatial windowing (grid binning).
 
@@ -393,7 +389,7 @@ class LightningDetector:
             "Cross-check radar and active NWS warnings for the affected cell",
         ]
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:  # type: ignore[type-arg]
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract a fixed 20-dim feature vector for ML fusion.
 
         Treats the input as a flash-rate-like series (first axis time) and
@@ -406,7 +402,7 @@ class LightningDetector:
             Feature tensor of shape (20,).
         """
         if isinstance(data, torch.Tensor):
-            arr: np.ndarray = data.detach().cpu().numpy()  # type: ignore[type-arg]
+            arr: np.ndarray = data.detach().cpu().numpy()
         else:
             arr = np.asarray(data, dtype=np.float64)
         flat = arr.astype(np.float64).flatten()

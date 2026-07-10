@@ -119,16 +119,16 @@ class DroughtAssessmentResult:
     drought_detected: bool
     category: str
     spi_latest: dict[int, float] = field(default_factory=dict)
-    spi_series: dict[int, np.ndarray] = field(default_factory=dict)  # type: ignore[type-arg]
+    spi_series: dict[int, np.ndarray] = field(default_factory=dict)
     spei_latest: dict[int, float] = field(default_factory=dict)
-    spei_series: dict[int, np.ndarray] = field(default_factory=dict)  # type: ignore[type-arg]
-    pet_mm: np.ndarray | None = None  # type: ignore[type-arg]
+    spei_series: dict[int, np.ndarray] = field(default_factory=dict)
+    pet_mm: np.ndarray | None = None
     categories_by_window: dict[int, str] = field(default_factory=dict)
     confidence: float = 0.0
     warning_actions: list[str] = field(default_factory=list)
 
 
-def _validate_series(values: np.ndarray, name: str) -> np.ndarray:  # type: ignore[type-arg]
+def _validate_series(values: np.ndarray, name: str) -> np.ndarray:
     """Validate a 1-D input series: finite, 1-D, non-empty.
 
     Args:
@@ -157,7 +157,7 @@ def _validate_series(values: np.ndarray, name: str) -> np.ndarray:  # type: igno
     return arr
 
 
-def fit_gamma_thom(nonzero_values: np.ndarray) -> tuple[float, float]:  # type: ignore[type-arg]
+def fit_gamma_thom(nonzero_values: np.ndarray) -> tuple[float, float]:
     """Fit a two-parameter gamma distribution via the Thom (1958) approximation.
 
     The maximum-likelihood approximation used by the operational SPI
@@ -198,10 +198,10 @@ def fit_gamma_thom(nonzero_values: np.ndarray) -> tuple[float, float]:  # type: 
 
 
 def _strata_for_windows(
-    month_numbers: np.ndarray | None,  # type: ignore[type-arg]
+    month_numbers: np.ndarray | None,
     n_series: int,
     window_months: int,
-) -> list[np.ndarray]:  # type: ignore[type-arg]
+) -> list[np.ndarray]:
     """Build index groups over the aggregated series for distribution fitting.
 
     With ``month_numbers`` supplied, aggregated windows are stratified by
@@ -238,10 +238,10 @@ def _strata_for_windows(
 
 
 def compute_spi(
-    monthly_precip_mm: np.ndarray,  # type: ignore[type-arg]
+    monthly_precip_mm: np.ndarray,
     window_months: int,
-    month_numbers: np.ndarray | None = None,  # type: ignore[type-arg]
-) -> np.ndarray:  # type: ignore[type-arg]
+    month_numbers: np.ndarray | None = None,
+) -> np.ndarray:
     """Compute the Standardized Precipitation Index (McKee et al. 1993).
 
     Aggregates the monthly series with a trailing moving sum of
@@ -313,10 +313,10 @@ def compute_spi(
 
 
 def thornthwaite_pet(
-    monthly_temp_c: np.ndarray,  # type: ignore[type-arg]
+    monthly_temp_c: np.ndarray,
     latitude_deg: float,
-    month_numbers: np.ndarray,  # type: ignore[type-arg]
-) -> np.ndarray:  # type: ignore[type-arg]
+    month_numbers: np.ndarray,
+) -> np.ndarray:
     """Compute monthly potential evapotranspiration (Thornthwaite 1948).
 
     Uses the classical annual heat index formulation::
@@ -406,7 +406,7 @@ def thornthwaite_pet(
     return pet
 
 
-def _generalized_logistic_lmom_fit(values: np.ndarray) -> tuple[float, float, float]:  # type: ignore[type-arg]
+def _generalized_logistic_lmom_fit(values: np.ndarray) -> tuple[float, float, float]:
     """Fit a generalized logistic distribution by L-moments.
 
     The three-parameter log-logistic of Vicente-Serrano et al. (2010) is
@@ -472,11 +472,11 @@ def _generalized_logistic_lmom_fit(values: np.ndarray) -> tuple[float, float, fl
 
 
 def _generalized_logistic_cdf(
-    values: np.ndarray,  # type: ignore[type-arg]
+    values: np.ndarray,
     xi: float,
     alpha: float,
     kappa: float,
-) -> np.ndarray:  # type: ignore[type-arg]
+) -> np.ndarray:
     """Evaluate the generalized logistic CDF (Hosking & Wallis 1997, A.7).
 
     F(x) = 1 / (1 + exp(-y)) with y = -log(1 - kappa (x - xi)/alpha)/kappa
@@ -507,11 +507,11 @@ def _generalized_logistic_cdf(
 
 
 def compute_spei(
-    monthly_precip_mm: np.ndarray,  # type: ignore[type-arg]
-    monthly_pet_mm: np.ndarray,  # type: ignore[type-arg]
+    monthly_precip_mm: np.ndarray,
+    monthly_pet_mm: np.ndarray,
     window_months: int,
-    month_numbers: np.ndarray | None = None,  # type: ignore[type-arg]
-) -> np.ndarray:  # type: ignore[type-arg]
+    month_numbers: np.ndarray | None = None,
+) -> np.ndarray:
     """Compute the SPEI (Vicente-Serrano et al. 2010).
 
     The climatic water balance D = P - PET is aggregated over the trailing
@@ -632,10 +632,10 @@ class DroughtDetector:
 
     def assess(
         self,
-        monthly_precip_mm: np.ndarray,  # type: ignore[type-arg]
-        monthly_temp_c: np.ndarray | None = None,  # type: ignore[type-arg]
+        monthly_precip_mm: np.ndarray,
+        monthly_temp_c: np.ndarray | None = None,
         latitude_deg: float | None = None,
-        month_numbers: np.ndarray | None = None,  # type: ignore[type-arg]
+        month_numbers: np.ndarray | None = None,
     ) -> DroughtAssessmentResult:
         """Run a full multi-window drought assessment.
 
@@ -659,12 +659,12 @@ class DroughtDetector:
                 values), or if the SPEI branch is requested with
                 incomplete inputs.
         """
-        spi_series: dict[int, np.ndarray] = {}  # type: ignore[type-arg]
+        spi_series: dict[int, np.ndarray] = {}
         for window in self.windows_months:
             spi_series[window] = compute_spi(monthly_precip_mm, window, month_numbers)
 
-        spei_series: dict[int, np.ndarray] = {}  # type: ignore[type-arg]
-        pet: np.ndarray | None = None  # type: ignore[type-arg]
+        spei_series: dict[int, np.ndarray] = {}
+        pet: np.ndarray | None = None
         if monthly_temp_c is not None:
             if latitude_deg is None or month_numbers is None:
                 raise ValueError(
@@ -719,7 +719,7 @@ class DroughtDetector:
             warnings.append("D0 ABNORMALLY DRY: short-term dryness slowing growth")
         return warnings
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:  # type: ignore[type-arg]
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract a fixed 20-dim feature vector for ML fusion.
 
         Treats the input as a (possibly multivariate) series whose first
@@ -737,7 +737,7 @@ class DroughtDetector:
             Feature tensor of shape (20,).
         """
         if isinstance(data, torch.Tensor):
-            arr: np.ndarray = data.detach().cpu().numpy()  # type: ignore[type-arg]
+            arr: np.ndarray = data.detach().cpu().numpy()
         else:
             arr = np.asarray(data, dtype=np.float64)
         flat = arr.astype(np.float64).flatten()

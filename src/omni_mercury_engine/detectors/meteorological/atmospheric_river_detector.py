@@ -74,9 +74,9 @@ class IVTResult:
         ivt_v: Meridional component(s).
     """
 
-    ivt: np.ndarray  # type: ignore[type-arg]
-    ivt_u: np.ndarray  # type: ignore[type-arg]
-    ivt_v: np.ndarray  # type: ignore[type-arg]
+    ivt: np.ndarray
+    ivt_u: np.ndarray
+    ivt_v: np.ndarray
 
 
 @dataclass
@@ -113,11 +113,11 @@ class ARAssessmentResult:
 
 
 def _validate_profile_inputs(
-    q_kg_kg: np.ndarray,  # type: ignore[type-arg]
-    u_m_s: np.ndarray,  # type: ignore[type-arg]
-    v_m_s: np.ndarray,  # type: ignore[type-arg]
-    pressure_hpa: np.ndarray,  # type: ignore[type-arg]
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  # type: ignore[type-arg]
+    q_kg_kg: np.ndarray,
+    u_m_s: np.ndarray,
+    v_m_s: np.ndarray,
+    pressure_hpa: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Validate profile arrays: shapes, finiteness, units, level ordering.
 
     Returns:
@@ -171,10 +171,10 @@ def _validate_profile_inputs(
 
 
 def compute_ivt(
-    q_kg_kg: np.ndarray,  # type: ignore[type-arg]
-    u_m_s: np.ndarray,  # type: ignore[type-arg]
-    v_m_s: np.ndarray,  # type: ignore[type-arg]
-    pressure_hpa: np.ndarray,  # type: ignore[type-arg]
+    q_kg_kg: np.ndarray,
+    u_m_s: np.ndarray,
+    v_m_s: np.ndarray,
+    pressure_hpa: np.ndarray,
 ) -> IVTResult:
     """Compute IVT from specific-humidity and wind profiles.
 
@@ -207,7 +207,10 @@ def compute_ivt(
     p_pa = p[order] * 100.0
     q_o, u_o, v_o = q[:, order], u[:, order], v[:, order]
 
-    trapz = getattr(np, "trapezoid", None) or np.trapz  # numpy 2.x / 1.x
+    # numpy 2.x renamed trapz -> trapezoid; the 1.x branch is evaluated
+    # lazily only when trapezoid is absent, so the attribute reference is
+    # runtime-safe on both majors (mypy checks against 2.x stubs).
+    trapz = getattr(np, "trapezoid", None) or np.trapz  # type: ignore[attr-defined, unused-ignore]
     ivt_u = trapz(q_o * u_o, x=p_pa, axis=1) / GRAVITY_M_S2
     ivt_v = trapz(q_o * v_o, x=p_pa, axis=1) / GRAVITY_M_S2
     ivt = np.hypot(ivt_u, ivt_v)
@@ -249,9 +252,9 @@ class AtmosphericRiverDetector:
 
     def classify_ar_scale(
         self,
-        ivt_series: np.ndarray,  # type: ignore[type-arg]
+        ivt_series: np.ndarray,
         dt_hours: float | None = None,
-        timestamps_hours: np.ndarray | None = None,  # type: ignore[type-arg]
+        timestamps_hours: np.ndarray | None = None,
     ) -> ARAssessmentResult:
         """Apply the Ralph et al. (2019) AR scale to an IVT time series.
 
@@ -287,7 +290,7 @@ class AtmosphericRiverDetector:
             raise ValueError("supply exactly one of dt_hours or timestamps_hours")
         if dt_hours is not None and dt_hours <= 0.0:
             raise ValueError(f"dt_hours must be > 0, got {dt_hours}")
-        times: np.ndarray | None = None  # type: ignore[type-arg]
+        times: np.ndarray | None = None
         if timestamps_hours is not None:
             times = np.asarray(timestamps_hours, dtype=np.float64)
             if times.shape != ivt.shape:
@@ -353,10 +356,10 @@ class AtmosphericRiverDetector:
 
     def analyze_profiles(
         self,
-        q_kg_kg: np.ndarray,  # type: ignore[type-arg]
-        u_m_s: np.ndarray,  # type: ignore[type-arg]
-        v_m_s: np.ndarray,  # type: ignore[type-arg]
-        pressure_hpa: np.ndarray,  # type: ignore[type-arg]
+        q_kg_kg: np.ndarray,
+        u_m_s: np.ndarray,
+        v_m_s: np.ndarray,
+        pressure_hpa: np.ndarray,
         dt_hours: float,
     ) -> tuple[IVTResult, ARAssessmentResult]:
         """Compute IVT from profiles, then classify on the AR scale.
@@ -394,7 +397,7 @@ class AtmosphericRiverDetector:
             warnings.append(f"{strongest.label}: primarily beneficial precipitation")
         return warnings
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:  # type: ignore[type-arg]
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract a fixed 20-dim feature vector for ML fusion.
 
         Treats the input as a (precomputed, non-negative) IVT-like series
@@ -408,7 +411,7 @@ class AtmosphericRiverDetector:
             Feature tensor of shape (20,).
         """
         if isinstance(data, torch.Tensor):
-            arr: np.ndarray = data.detach().cpu().numpy()  # type: ignore[type-arg]
+            arr: np.ndarray = data.detach().cpu().numpy()
         else:
             arr = np.asarray(data, dtype=np.float64)
         flat = arr.astype(np.float64).flatten()

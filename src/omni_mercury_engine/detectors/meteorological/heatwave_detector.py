@@ -134,14 +134,14 @@ class HeatwaveAssessmentResult:
     heatwave_active: bool
     events: list[HeatwaveEvent] = field(default_factory=list)
     n_heatwave_days: int = 0
-    exceedance_flags: np.ndarray | None = None  # type: ignore[type-arg]
-    ehf_series: np.ndarray | None = None  # type: ignore[type-arg]
+    exceedance_flags: np.ndarray | None = None
+    ehf_series: np.ndarray | None = None
     max_ehf: float | None = None
     severity: str = HeatwaveSeverity.NONE.value
     warning_actions: list[str] = field(default_factory=list)
 
 
-def _to_date_array(dates: Any) -> np.ndarray:  # type: ignore[type-arg]
+def _to_date_array(dates: Any) -> np.ndarray:
     """Coerce input dates to a numpy datetime64[D] array.
 
     Args:
@@ -163,7 +163,7 @@ def _to_date_array(dates: Any) -> np.ndarray:  # type: ignore[type-arg]
     return out
 
 
-def _validate_temps(values: np.ndarray, name: str, n_expected: int) -> np.ndarray:  # type: ignore[type-arg]
+def _validate_temps(values: np.ndarray, name: str, n_expected: int) -> np.ndarray:
     """Validate a daily temperature array (finite, plausible degC range)."""
     arr = np.asarray(values, dtype=np.float64)
     if arr.ndim != 1 or arr.size != n_expected:
@@ -178,7 +178,7 @@ def _validate_temps(values: np.ndarray, name: str, n_expected: int) -> np.ndarra
     return arr
 
 
-def _day_of_year_365(dates: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
+def _day_of_year_365(dates: np.ndarray) -> np.ndarray:
     """Map dates to a fixed 365-day calendar index (0-364; Feb 29 -> Feb 28)."""
     out = np.empty(dates.size, dtype=np.int64)
     for i, d in enumerate(dates):
@@ -321,7 +321,7 @@ class HeatwaveDetector:
         self.min_duration_days = min_duration_days
         self.logger = logging.getLogger(__name__)
 
-        self._ctx_thresholds: np.ndarray | None = None  # type: ignore[type-arg]
+        self._ctx_thresholds: np.ndarray | None = None
         self._t95_dmt: float | None = None
         self._ehf85: float | None = None
         self._baseline_years: int = 0
@@ -334,8 +334,8 @@ class HeatwaveDetector:
     def fit_baseline(
         self,
         dates: Any,
-        tmax_c: np.ndarray,  # type: ignore[type-arg]
-        tmin_c: np.ndarray | None = None,  # type: ignore[type-arg]
+        tmax_c: np.ndarray,
+        tmin_c: np.ndarray | None = None,
     ) -> None:
         """Fit the calendar-day percentile climatology from a baseline series.
 
@@ -408,7 +408,7 @@ class HeatwaveDetector:
         )
 
     @staticmethod
-    def _contiguous_segments(dates: np.ndarray) -> list[tuple[int, int]]:  # type: ignore[type-arg]
+    def _contiguous_segments(dates: np.ndarray) -> list[tuple[int, int]]:
         """Split a date array into [start, end) index ranges of daily-contiguous runs."""
         if dates.size == 0:
             return []
@@ -419,10 +419,10 @@ class HeatwaveDetector:
 
     def _compute_ehf(
         self,
-        dates: np.ndarray,  # type: ignore[type-arg]
-        dmt: np.ndarray,  # type: ignore[type-arg]
+        dates: np.ndarray,
+        dmt: np.ndarray,
         t95: float,
-    ) -> np.ndarray:  # type: ignore[type-arg]
+    ) -> np.ndarray:
         """Compute the EHF series (NaN where undefined).
 
         EHF(i) is assigned to the start day i of the three-day period
@@ -443,8 +443,8 @@ class HeatwaveDetector:
     def detect_heatwaves(
         self,
         dates: Any,
-        tmax_c: np.ndarray,  # type: ignore[type-arg]
-        tmin_c: np.ndarray | None = None,  # type: ignore[type-arg]
+        tmax_c: np.ndarray,
+        tmin_c: np.ndarray | None = None,
     ) -> HeatwaveAssessmentResult:
         """Detect heatwaves in an analysis series against the fitted baseline.
 
@@ -497,7 +497,7 @@ class HeatwaveDetector:
                     )
                 run_start = None
 
-        ehf_series: np.ndarray | None = None  # type: ignore[type-arg]
+        ehf_series: np.ndarray | None = None
         max_ehf: float | None = None
         severity = HeatwaveSeverity.NONE
         if tmin_c is not None and self._t95_dmt is not None:
@@ -555,7 +555,7 @@ class HeatwaveDetector:
             warnings.append("Heatwave conditions detected: stay hydrated, avoid midday sun")
         return warnings
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:  # type: ignore[type-arg]
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract a fixed 20-dim feature vector for ML fusion.
 
         Emits robust summary statistics of the flattened series plus simple
@@ -571,7 +571,7 @@ class HeatwaveDetector:
             Feature tensor of shape (20,).
         """
         if isinstance(data, torch.Tensor):
-            arr: np.ndarray = data.detach().cpu().numpy()  # type: ignore[type-arg]
+            arr: np.ndarray = data.detach().cpu().numpy()
         else:
             arr = np.asarray(data, dtype=np.float64)
         flat = arr.astype(np.float64).flatten()

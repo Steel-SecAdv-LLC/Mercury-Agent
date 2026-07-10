@@ -171,9 +171,11 @@ def _initial_bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> 
 def _cross_track_km(
     lat: float, lon: float, start: tuple[float, float], bearing_deg: float
 ) -> float:
-    """Signed cross-track distance of a point from the great circle through
-    ``start`` with initial bearing ``bearing_deg`` (standard navigation
-    formula: d_xt = asin(sin(d13/R) * sin(theta13 - theta12)) * R).
+    """Signed cross-track distance of a point from a great circle.
+
+    The great circle passes through ``start`` with initial bearing
+    ``bearing_deg`` (standard navigation formula:
+    d_xt = asin(sin(d13/R) * sin(theta13 - theta12)) * R).
     """
     d13 = haversine_km(start[0], start[1], lat, lon) / EARTH_RADIUS_KM
     theta13 = math.radians(_initial_bearing_deg(start[0], start[1], lat, lon))
@@ -184,9 +186,11 @@ def _cross_track_km(
 def _along_track_km(
     lat: float, lon: float, start: tuple[float, float], bearing_deg: float
 ) -> float:
-    """Along-track distance of a point projected onto the great circle through
-    ``start`` with bearing ``bearing_deg`` (d_at = acos(cos(d13/R) / cos(d_xt/R)) * R,
-    signed by the along-axis bearing agreement).
+    """Along-track distance of a point projected onto a great circle.
+
+    The great circle passes through ``start`` with bearing ``bearing_deg``
+    (d_at = acos(cos(d13/R) / cos(d_xt/R)) * R, signed by the along-axis
+    bearing agreement).
     """
     d13 = haversine_km(start[0], start[1], lat, lon) / EARTH_RADIUS_KM
     dxt = _cross_track_km(lat, lon, start, bearing_deg) / EARTH_RADIUS_KM
@@ -304,14 +308,16 @@ class DerechoDetector:
 
     @staticmethod
     def _major_axis(reports: list[WindReport]) -> tuple[int, int, float]:
-        """Return (i, j, distance_km) of the most-separated report pair,
-        with i the chronologically earlier endpoint."""
+        """Return (i, j, distance_km) of the most-separated report pair.
+
+        ``i`` is the chronologically earlier endpoint.
+        """
         lats = np.array([r.lat for r in reports])
         lons = np.array([r.lon for r in reports])
         dist = pairwise_haversine_km(lats, lons)
         flat_idx = int(np.argmax(dist))
-        i, j = np.unravel_index(flat_idx, dist.shape)
-        i, j = int(i), int(j)
+        raw_i, raw_j = np.unravel_index(flat_idx, dist.shape)
+        i, j = int(raw_i), int(raw_j)
         d = float(dist[i, j])
         return (i, j, d) if reports[i].time_s <= reports[j].time_s else (j, i, d)
 

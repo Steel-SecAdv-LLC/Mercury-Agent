@@ -241,7 +241,7 @@ class _PlattCalibrator(_ScoreCalibrator):
 
 
 def build_tier_detectors(
-    subset: list[str] | tuple[str, ...] | None = None,
+    subset: Sequence[str] | None = None,
 ) -> dict[str, BaseDetector]:
     """Instantiate tier detectors, resolving module/class from the manifest.
 
@@ -858,13 +858,14 @@ def run_tier_ensemble(
         # per-method budgets flip the fixture-scale detections in seconds and
         # are overridable only through the library API (the surface options
         # deliberately expose method choice, not budget knobs).
-        budget: dict[str, Any] = {
+        budgets: dict[str, dict[str, Any]] = {
             "growing_spheres": {"n_samples": 40, "step_size": 1.0, "max_iterations": 25},
             "wachter": {"max_iterations": 150},
             "dice": {"max_iterations": 60},
             "genetic": {"population_size": 24, "max_generations": 20},
             "prototype": {},
-        }.get(counterfactual_method, {})
+        }
+        budget: dict[str, Any] = budgets.get(counterfactual_method, {})
         cf = explain_detection_counterfactual(
             score_fn,
             x_window,
