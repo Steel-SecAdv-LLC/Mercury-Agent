@@ -33,12 +33,23 @@ Prohibited claims (review section 7)
     time-to-event estimates for specific future events; not an early-warning
     system — always defer to USGS and official agencies.
 
-Feature spec ``seismicity-catalog-v1`` (128-dim contract, dims 32-127 zero)
+Feature spec ``seismicity-catalog-v2`` (128-dim contract, dims 36-127 zero)
     All features are computed STRICTLY from catalog events with
     ``event_time < t`` (no lookahead; property-tested). "nbhd" is the
     1.5-degree neighborhood: the 3 x 3 block of cells centred on the target
     cell. Invalid estimates are emitted as 0.0 with a presence flag of 0
     (mirroring the geomag spec) — never fabricated.
+
+    v2 appends the stacked Reasenberg-Jones block (dims 32-35): the
+    merit-gate baseline's own causal 30-day forecast enters as an INPUT, so
+    the learned model refines the operational clustering baseline instead of
+    having to rediscover it (hybrid/stacked forecasting — standard
+    operational practice). Motivation: the v1 candidate won the review's
+    primary metric (log-loss 0.0042 vs 0.0063) but RANKED BELOW the RJ
+    baseline (AUC 0.855 vs 0.898); a model that ranks worse than its
+    baseline must not ship on calibration alone, so the evaluation now also
+    carries auc/brier/reliability_ece non-regression constraints (house
+    pattern: ``EvaluationOutcome.constraints``).
 
     ======  =============================================================
      index  meaning
@@ -78,7 +89,21 @@ Feature spec ``seismicity-catalog-v1`` (128-dim contract, dims 32-127 zero)
         30  flag: >= 20 events with a computable nearest-neighbor eta
             (capped at the 400 most recent window events, deterministic)
         31  (epoch - 1981-01-01) / 44 yr — network-era drift covariate
-    32-127  zero padding (reserved by the fixed input_dim=128 contract)
+        32  stacked RJ forecast (v2): the clustering baseline's own
+            P(>=1 in-cell M>=5 in (t, t+30 d]) = 1 - exp(-lambda30) with
+            lambda30 = causal background mu (dim 35, pre-log) + in-cell RJ
+            triggered 30-d count (dim 34, pre-log)
+        33  ln lambda30 — the baseline's 30-day Poisson log-intensity
+            (the ranking-friendly form of dim 32; strictly positive input
+            thanks to the Laplace-smoothed mu)
+        34  log1p RJ expected triggered count of M>=5 in (t, t+30 d],
+            IN-CELL events only (dims 8-9 are the nbhd variants)
+        35  ln causal background mu: in-cell M>=5 count strictly before t
+            (+0.5 Laplace) per 30 d over the exposure since 1980-01-01.
+            Deliberately NOT the merit-gate baseline's train-years mu,
+            which would leak later train-year events into earlier train
+            epochs; for test epochs (2017+) the two are near-identical
+    36-127  zero padding (reserved by the fixed input_dim=128 contract)
     ======  =============================================================
 
     Deliberately absent (review): every EM/Schumann/geomagnetic/ionospheric
@@ -139,9 +164,9 @@ logger = logging.getLogger(__name__)
 
 HOOK_NAME = "earthquake_precursor"
 CHECKPOINT_NAME = "earthquake_precursor_ca"
-FEATURE_SPEC_VERSION = "seismicity-catalog-v1"
+FEATURE_SPEC_VERSION = "seismicity-catalog-v2"
 EQ_FEATURE_DIM = 128
-_N_INFORMATIVE = 32
+_N_INFORMATIVE = 36
 
 EQ_FEATURE_NAMES: tuple[str, ...] = (
     "rate_cell_w7",
@@ -176,6 +201,10 @@ EQ_FEATURE_NAMES: tuple[str, ...] = (
     "nn_mean_log_eta_w365",
     "flag_nn",
     "years_since_1981",
+    "rj_prob_30d_cell",
+    "rj_log_lambda_30d_cell",
+    "rj_rate_30d_cell",
+    "rj_mu_bg_causal_log",
 ) + tuple(f"reserved_{i}" for i in range(_N_INFORMATIVE, EQ_FEATURE_DIM))
 
 # --- region / grid / label constants (documented in the module docstring) ---
@@ -716,6 +745,31 @@ def background_mu(index: CatalogIndex) -> np.ndarray:
     return mu
 
 
+def causal_background_mu(index: CatalogIndex, ix: int, iy: int, t_days: float) -> float:
+    """Trailing-history background expectation of in-cell M>=5 per 30 days.
+
+    The causal analog of :func:`background_mu` for use as an INPUT feature
+    (v2 dims 32-35): ``(n + 0.5) / exposure * 30`` where ``n`` counts
+    in-cell M>=5.0 events STRICTLY before ``t_days`` and the exposure runs
+    from the catalog origin (1980-01-01) to ``t_days``. The merit-gate
+    baseline's train-years ``mu`` must NOT be used as a feature because, for
+    train epochs before 2010, it would incorporate later train-year events
+    (lookahead); this variant is property-tested lookahead-free.
+
+    Args:
+        index: Prebuilt catalog index.
+        ix: Cell latitude index.
+        iy: Cell longitude index.
+        t_days: Forecast epoch, days since 1980-01-01 UTC.
+
+    Returns:
+        Strictly positive Laplace-smoothed expectation per 30 days.
+    """
+    m5 = index.cell_m5_times(ix, iy)
+    n = int(np.searchsorted(m5, t_days, side="left"))
+    return float((n + 0.5) / max(t_days, 1.0) * LABEL_WINDOW_DAYS)
+
+
 # ---------------------------------------------------------------------------
 # feature builder
 # ---------------------------------------------------------------------------
@@ -730,7 +784,7 @@ def _window_slice(arrs: _CellArrays, t_days: float, window: float) -> _CellArray
 
 
 def build_feature_vector(index: CatalogIndex, ix: int, iy: int, t_days: float) -> np.ndarray:
-    """Build the 128-dim ``seismicity-catalog-v1`` feature vector for a case.
+    """Build the 128-dim ``seismicity-catalog-v2`` feature vector for a case.
 
     Every value derives from catalog events strictly before ``t_days``
     (asserted); the label window ``(t, t + 30 d]`` is never touched.
@@ -809,6 +863,19 @@ def build_feature_vector(index: CatalogIndex, ix: int, iy: int, t_days: float) -
         vec[30] = 1.0
 
     vec[31] = (t_days - _DAYS_1981) / (44.0 * 365.25)
+
+    # v2 stacked Reasenberg-Jones block (dims 32-35): the merit-gate
+    # baseline's own causal 30-day forecast as inputs, so the learned model
+    # refines the clustering baseline instead of rediscovering it. Strictly
+    # pre-epoch: in-cell events before t + the causal trailing-history mu.
+    cell_hi = int(np.searchsorted(cell.t, t_days, side="left"))
+    rj_cell_30d = rj_triggered_count_30d(cell.t[:cell_hi], cell.mag[:cell_hi], t_days)
+    mu_causal = causal_background_mu(index, ix, iy, t_days)
+    lambda_30d = mu_causal + rj_cell_30d
+    vec[32] = 1.0 - np.exp(-lambda_30d)
+    vec[33] = np.log(lambda_30d)
+    vec[34] = np.log1p(rj_cell_30d)
+    vec[35] = np.log(mu_causal)
     return vec
 
 
@@ -1094,7 +1161,7 @@ def _weighted_log_loss(labels: np.ndarray, probs: np.ndarray, weights: np.ndarra
 
 
 def train(ctx: PipelineContext) -> dict[str, Any]:
-    """Train the analyzer; early stopping on weighted validation log-loss.
+    """Train the analyzer; model selection on VALIDATION years only.
 
     The confidence head is the PRIMARY output -- P(M>=5.0 in-cell within
     30 days) under weighted BCE (inverse-sampling weights restore full-grid
@@ -1103,8 +1170,23 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     positives; days to first in-cell M>=4 / 30 where one occurs) and are
     never event predictions -- the review forbids that claim.
 
+    Selection policy (documented for owner ratification; house pattern from
+    ``solar_storm._select_operating_point``: selection targets mirror the
+    ship gate's constraints, computed on validation years only, never test):
+    among epochs, any state whose validation AUC matches or beats the
+    Reasenberg-Jones baseline's AUC on the SAME validation rows outranks
+    every state that does not; ties resolve to the lowest weighted
+    validation log-loss (the review's primary metric). Early stopping
+    applies the same ordering. This exists because the v1 candidate,
+    selected on validation log-loss alone, won held-out log-loss while
+    ranking WORSE than the RJ baseline (AUC 0.855 vs 0.898) and was refused
+    by the gate's auc constraint. The RJ validation probabilities use the
+    train-years background mu -- strictly causal for validation epochs
+    (2010+ > 2009).
+
     Returns:
-        Training record (epochs run, best val log-loss, sample counts).
+        Training record (epochs run, best val log-loss, val AUCs, selection
+        policy, sample counts).
     """
     from omni_mercury_engine.space.disaster_precursor_detector import EarthquakePrecursorAnalyzer
 
@@ -1120,8 +1202,24 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     tmask_t = torch.from_numpy(ds.time_mask[train_mask])
     xv = torch.from_numpy(x[val_mask])
 
+    # Reasenberg-Jones AUC on the identical validation rows: the val-side
+    # mirror of the ship gate's auc constraint (selection target only; the
+    # held-out evaluation never sees these years).
+    catalog, _paths = _load_catalog(ctx)
+    index = CatalogIndex(catalog)
+    mu = background_mu(index)
+    val_idx = np.flatnonzero(val_mask)
+    rj_val = np.empty(val_idx.size, dtype=np.float64)
+    for k, i in enumerate(val_idx):
+        vix, viy = int(ds.cell_ix[i]), int(ds.cell_iy[i])
+        rj_val[k] = rj_probability(
+            index.cell(vix, viy), float(ds.epoch_day[i]), float(mu[vix, viy])
+        )
+    val_auc_rj = binary_auc(ds.label[val_mask], rj_val)
+    logger.info("Reasenberg-Jones validation AUC (selection target): %.4f", val_auc_rj)
+
     model = EarthquakePrecursorAnalyzer(input_dim=EQ_FEATURE_DIM)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-5)
 
     logger.info(
         "training on %d rows (%d positives), validating on %d rows (%d positives)",
@@ -1133,8 +1231,10 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
 
     batch_size = 256
     best_val_ll = float("inf")
+    best_val_auc = float("nan")
+    best_meets_auc = False
     best_state: dict[str, torch.Tensor] | None = None
-    patience, bad_epochs = 8, 0
+    patience, bad_epochs = 12, 0
     epochs_run = 0
 
     for epoch in range(ctx.max_epochs):
@@ -1169,17 +1269,30 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         model.eval()
         with torch.no_grad():
             _, _, conf_v = model(xv)
-        val_ll = _weighted_log_loss(
-            ds.label[val_mask], conf_v.squeeze(-1).numpy(), ds.weight[val_mask]
+        conf_np = conf_v.squeeze(-1).numpy()
+        val_ll = _weighted_log_loss(ds.label[val_mask], conf_np, ds.weight[val_mask])
+        val_auc = binary_auc(ds.label[val_mask], conf_np)
+        # A non-finite RJ target (tiny fixture runs with a single class)
+        # degrades selection to pure val log-loss instead of failing.
+        meets_auc = bool(
+            not np.isfinite(val_auc_rj) or (np.isfinite(val_auc) and val_auc >= val_auc_rj)
         )
         logger.info(
-            "epoch %d: train loss %.5f, weighted val log-loss %.6f",
+            "epoch %d: train loss %.5f, weighted val log-loss %.6f, val AUC %.4f (RJ %.4f%s)",
             epoch + 1,
             epoch_loss / xt.shape[0],
             val_ll,
+            val_auc,
+            val_auc_rj,
+            ", constraint met" if meets_auc else "",
         )
-        if val_ll < best_val_ll - 1e-7:
+        improved = (meets_auc and not best_meets_auc) or (
+            meets_auc == best_meets_auc and val_ll < best_val_ll - 1e-7
+        )
+        if improved:
             best_val_ll = val_ll
+            best_val_auc = val_auc
+            best_meets_auc = meets_auc
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
             bad_epochs = 0
         else:
@@ -1196,6 +1309,16 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "seed": ctx.seed,
         "epochs_run": epochs_run,
         "best_val_log_loss_weighted": best_val_ll,
+        "best_val_auc": best_val_auc,
+        "val_auc_rj_baseline": float(val_auc_rj),
+        "selected_state_meets_val_auc_constraint": best_meets_auc,
+        "selection_policy": (
+            "epochs meeting val AUC >= RJ-baseline val AUC outrank all others; "
+            "ties -> lowest weighted val log-loss (review primary). Validation "
+            "years only -- the held-out test grid is never consulted."
+        ),
+        "learning_rate": 5e-4,
+        "early_stop_patience": patience,
         "n_train": int(train_mask.sum()),
         "n_val": int(val_mask.sum()),
         "train_years": list(SPLIT.train_years),
@@ -1246,6 +1369,59 @@ def _reliability(labels: np.ndarray, probs: np.ndarray) -> tuple[float, list[dic
     return float(ece), table
 
 
+def _bootstrap_log_loss_diff(
+    y: np.ndarray,
+    p_learned: np.ndarray,
+    p_physics: np.ndarray,
+    *,
+    seed: int,
+    n_boot: int = 1000,
+) -> dict[str, Any]:
+    """Seeded case-resampling bootstrap CI on the mean log-loss difference.
+
+    Resamples the identical held-out cases with replacement ``n_boot`` times
+    and reports the 2.5/97.5 percentile interval of the mean per-case
+    log-loss difference (learned minus physics; NEGATIVE = learned better).
+    Deterministic given ``seed``; recorded verbatim into extras.
+
+    Args:
+        y: Held-out binary labels.
+        p_learned: Learned-model probabilities (same cases).
+        p_physics: Physics-baseline probabilities (same cases).
+        seed: Bootstrap RNG seed (the pipeline seed).
+        n_boot: Number of resamples.
+
+    Returns:
+        Dict with the point estimate, CI bounds, resample count, seed, and
+        whether the CI excludes zero.
+    """
+    pl = np.clip(np.asarray(p_learned, dtype=np.float64), _P_CLAMP, 1.0 - _P_CLAMP)
+    pp = np.clip(np.asarray(p_physics, dtype=np.float64), _P_CLAMP, 1.0 - _P_CLAMP)
+    yy = np.asarray(y, dtype=np.float64)
+    ll_learned = -(yy * np.log(pl) + (1.0 - yy) * np.log(1.0 - pl))
+    ll_physics = -(yy * np.log(pp) + (1.0 - yy) * np.log(1.0 - pp))
+    diff = ll_learned - ll_physics
+    rng = np.random.default_rng(seed)
+    n = diff.size
+    means = np.empty(n_boot, dtype=np.float64)
+    for b in range(n_boot):
+        means[b] = float(diff[rng.integers(0, n, size=n)].mean())
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return {
+        "point_estimate": float(diff.mean()),
+        "ci95_low": float(lo),
+        "ci95_high": float(hi),
+        "n_resamples": int(n_boot),
+        "seed": int(seed),
+        "ci_excludes_zero": bool(hi < 0.0 or lo > 0.0),
+        "note": (
+            "mean per-case log-loss difference, learned minus physics "
+            "(negative = learned better), case-resampling bootstrap over the "
+            "identical held-out (cell, epoch) cases"
+        ),
+    }
+
+
 def _aftershock_dominance(index: CatalogIndex, ds: EarthquakeDataset, mask: np.ndarray) -> float:
     """Fraction of positive cases whose labeling event follows a recent M>=5.
 
@@ -1294,9 +1470,20 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     explicitly permits substituting. A bare-Poisson floor is reported in
     extras for context only.
 
+    Besides the primary metric (log_loss, per the review), the outcome
+    carries three secondary non-regression constraints vs the RJ baseline
+    -- auc (higher), brier (lower), reliability_ece (lower) -- so a
+    candidate that ranks worse than the clustering baseline can never ship
+    on calibration alone (the v1 candidate did exactly that and was
+    refused). Extras add a seeded 1000-resample bootstrap 95% CI on the
+    log-loss difference, the parameter count, and the median per-case
+    inference latency.
+
     Returns:
         The evaluation outcome (primary metric: log_loss, lower is better).
     """
+    import time
+
     from omni_mercury_engine.space.disaster_precursor_detector import DisasterPrecursorDetector
 
     ds = build_dataset(ctx)
@@ -1320,11 +1507,16 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     det_logger.setLevel(logging.WARNING)  # 100k+ per-case INFO lines otherwise
     try:
         learned_p = np.empty(test_idx.size, dtype=np.float64)
+        latency_s = np.empty(test_idx.size, dtype=np.float64)
         for k, i in enumerate(test_idx):
+            t0 = time.perf_counter()
             result = detector.detect_disaster_precursor({"seismicity_features": ds.features[i]})
+            latency_s[k] = time.perf_counter() - t0
             learned_p[k] = float(result.confidence)
     finally:
         det_logger.setLevel(old_level)
+    analyzer = detector.earthquake_analyzer
+    n_parameters = int(sum(p.numel() for p in analyzer.parameters())) if analyzer is not None else 0
 
     physics_p = np.empty(test_idx.size, dtype=np.float64)
     poisson_p = np.empty(test_idx.size, dtype=np.float64)
@@ -1375,6 +1567,29 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         physics=physics_metrics,
         n_test_samples=int(test_idx.size),
         test_years=SPLIT.test_years,
+        constraints=[
+            {
+                "metric": "auc",
+                "higher_is_better": True,
+                "description": (
+                    "held-out ranking (AUC) must not regress below the Reasenberg-Jones "
+                    "clustering baseline -- the v1 candidate won log-loss while ranking "
+                    "WORSE than RJ (0.855 vs 0.898) and must not have shipped"
+                ),
+            },
+            {
+                "metric": "brier",
+                "higher_is_better": False,
+                "description": "Brier score must not regress above the RJ baseline",
+            },
+            {
+                "metric": "reliability_ece",
+                "higher_is_better": False,
+                "description": (
+                    "expected calibration error must not regress above the RJ baseline"
+                ),
+            },
+        ],
         extras={
             "comparison": (
                 "identical held-out (cell, epoch) cases -- the complete test-years grid. "
@@ -1385,6 +1600,25 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "parameters a=-1.67, b=0.91, c=0.05 d, p=1.08 + train-years Laplace-smoothed "
                 "Poisson background), standing in for the detector's non-neural fallback, "
                 "which abstains from event probabilities (allowed by EvaluationOutcome.physics)."
+            ),
+            "feature_spec": FEATURE_SPEC_VERSION,
+            "stacked_baseline_note": (
+                "seismicity-catalog-v2 feeds the RJ baseline's own causal 30-day forecast "
+                "to the learned model as input dims 32-35 (hybrid/stacked forecasting), so "
+                "the network can only refine the clustering baseline, not ignore it. The "
+                "stacked inputs use a strictly causal trailing-history background mu, NOT "
+                "the merit-gate baseline's train-years mu (which would be lookahead for "
+                "pre-2010 train epochs)."
+            ),
+            "log_loss_diff_bootstrap": _bootstrap_log_loss_diff(
+                y, learned_p, physics_p, seed=ctx.seed
+            ),
+            "parameter_count": n_parameters,
+            "median_inference_latency_ms": float(np.median(latency_s) * 1e3),
+            "latency_note": (
+                "wall-clock seconds per detect_disaster_precursor call (feature dict in, "
+                "probability out) over every held-out case, CPU, "
+                "torch.set_num_threads as configured by the caller; median reported in ms"
             ),
             "aftershock_dominance_fraction_test_positives": aftershock_frac,
             "aftershock_dominance_note": (

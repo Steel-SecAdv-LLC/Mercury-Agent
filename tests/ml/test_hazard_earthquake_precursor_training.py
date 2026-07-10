@@ -57,7 +57,8 @@ class TestFeatureSpec:
         )
 
         assert len(ep.EQ_FEATURE_NAMES) == ep.EQ_FEATURE_DIM == 128
-        assert all(n.startswith("reserved_") for n in ep.EQ_FEATURE_NAMES[32:])
+        assert ep._N_INFORMATIVE == 36  # v2: 32 catalog dims + 4 stacked-RJ dims
+        assert all(n.startswith("reserved_") for n in ep.EQ_FEATURE_NAMES[ep._N_INFORMATIVE :])
         assert ep.N_LAT * ep.N_LON == 440
         model = EarthquakePrecursorAnalyzer(input_dim=ep.EQ_FEATURE_DIM)
         mag, t, conf = model(torch.zeros(2, ep.EQ_FEATURE_DIM))
@@ -202,6 +203,85 @@ class TestReasenbergJonesBaseline:
         before = ep.rj_probability(cell, _day(2019, 6, 20), 0.002)
         assert after > 10 * before
         assert after > 0.5  # days after an M7.1, RJ says M5+ is likely
+
+
+class TestStackedRJFeatures:
+    """v2 stacked block (dims 32-35): the RJ baseline's forecast as an input."""
+
+    def test_rj_features_present_in_spec(self) -> None:
+        assert ep.FEATURE_SPEC_VERSION == "seismicity-catalog-v2"
+        for offset, name in enumerate(
+            (
+                "rj_prob_30d_cell",
+                "rj_log_lambda_30d_cell",
+                "rj_rate_30d_cell",
+                "rj_mu_bg_causal_log",
+            )
+        ):
+            index = ep.EQ_FEATURE_NAMES.index(name)
+            assert index == 32 + offset
+            assert index < ep._N_INFORMATIVE
+
+    def test_rj_prob_feature_matches_causal_baseline_formula(self, index: ep.CatalogIndex) -> None:
+        """Dim 32 is exactly 1 - exp(-(causal mu + in-cell RJ 30-d count))."""
+        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix[0]), int(iy[0])
+        t = _day(2019, 7, 10)  # inside the Ridgecrest aftershock sequence
+        vec = ep.build_feature_vector(index, ix, iy, t)
+        cell = index.cell(ix, iy)
+        hi = int(np.searchsorted(cell.t, t, side="left"))
+        rj30 = ep.rj_triggered_count_30d(cell.t[:hi], cell.mag[:hi], t)
+        mu = ep.causal_background_mu(index, ix, iy, t)
+        assert vec[32] == pytest.approx(1.0 - math.exp(-(mu + rj30)), rel=1e-5)
+        assert vec[33] == pytest.approx(math.log(mu + rj30), rel=1e-5)
+        assert vec[34] == pytest.approx(math.log1p(rj30), rel=1e-5)
+        assert vec[35] == pytest.approx(math.log(mu), rel=1e-5)
+        assert vec[32] > 0.5  # days after an M7.1, the RJ baseline says M5+ is likely
+
+    def test_rj_features_have_no_lookahead(self, catalog: ep.Catalog) -> None:
+        """Dims 32-35 must not see the label window or anything after t."""
+        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix[0]), int(iy[0])
+        t_epoch = _day(2019, 7, 1)  # before the July 4 M6.4 / July 6 M7.1
+        full = ep.CatalogIndex(catalog)
+        pre_mask = catalog.t_days < t_epoch
+        truncated = ep.CatalogIndex(
+            ep.Catalog(
+                t_days=catalog.t_days[pre_mask],
+                lat=catalog.lat[pre_mask],
+                lon=catalog.lon[pre_mask],
+                depth=catalog.depth[pre_mask],
+                mag=catalog.mag[pre_mask],
+            )
+        )
+        vec_full = ep.build_feature_vector(full, ix, iy, t_epoch)
+        vec_trunc = ep.build_feature_vector(truncated, ix, iy, t_epoch)
+        np.testing.assert_array_equal(vec_full[32:36], vec_trunc[32:36])
+        assert ep.causal_background_mu(full, ix, iy, t_epoch) == ep.causal_background_mu(
+            truncated, ix, iy, t_epoch
+        )
+        # ... and the block is live, not constant: after the mainshocks the
+        # stacked baseline probability must move sharply upward.
+        vec_after = ep.build_feature_vector(full, ix, iy, _day(2019, 7, 10))
+        assert vec_after[32] > vec_full[32]
+        assert vec_after[33] > vec_full[33]
+
+    def test_causal_mu_counts_only_pre_epoch_m5(self, index: ep.CatalogIndex) -> None:
+        """The trailing mu uses M>=5 events strictly before t (Laplace +0.5)."""
+        ix, iy = ep.cell_of(np.array([RIDGECREST_LAT]), np.array([RIDGECREST_LON]))
+        ix, iy = int(ix[0]), int(iy[0])
+        t_before = _day(2019, 7, 1)
+        mu_before = ep.causal_background_mu(index, ix, iy, t_before)
+        # Fixture holds no pre-July-2019 M>=5 in the cell: bare prior only.
+        assert mu_before == pytest.approx(0.5 / t_before * ep.LABEL_WINDOW_DAYS)
+        m5 = index.cell_m5_times(ix, iy)
+        assert m5.size > 0  # July 2019 delivers many
+        t_after = float(m5[-1]) + 1.0
+        n_seen = int(np.searchsorted(m5, t_after, side="left"))
+        assert ep.causal_background_mu(index, ix, iy, t_after) == pytest.approx(
+            (n_seen + 0.5) / t_after * ep.LABEL_WINDOW_DAYS
+        )
+        assert ep.causal_background_mu(index, ix, iy, t_after) > mu_before
 
 
 class TestBValueEstimators:

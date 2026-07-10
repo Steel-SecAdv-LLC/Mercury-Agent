@@ -19,7 +19,7 @@ Integrates:
 
 Earthquake path (reframed per docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md):
 the ``EarthquakePrecursorAnalyzer`` is a regional seismicity-rate forecaster
-trained on real USGS catalog features (``seismicity-catalog-v1``). Its primary
+trained on real USGS catalog features (``seismicity-catalog-v2``). Its primary
 output is P(M>=5.0 within 30 days in a 0.5-degree California cell) -- a
 probabilistic rate forecast, dominated by honest Omori/ETAS-style aftershock
 clustering, NOT a validated precursor signal and NOT a deterministic
@@ -78,9 +78,11 @@ class EarthquakePrecursorAnalyzer(nn.Module):
     """Regional seismicity-rate forecaster over catalog statistics.
 
     Reframed per ``docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md``:
-    the input is the 128-dim ``seismicity-catalog-v1`` feature vector (USGS
+    the input is the 128-dim ``seismicity-catalog-v2`` feature vector (USGS
     catalog rates, Reasenberg-Jones triggered rate, b-values, clustering
-    statistics -- NO electromagnetic/Schumann inputs, which failed review).
+    statistics, and -- since v2 -- the stacked RJ baseline's own causal
+    30-day forecast, dims 32-35; NO electromagnetic/Schumann inputs, which
+    failed review).
 
     Heads (architecture fixed; semantics per the review):
 
@@ -121,7 +123,7 @@ class EarthquakePrecursorAnalyzer(nn.Module):
         )
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forecast from catalog seismicity features (``seismicity-catalog-v1``).
+        """Forecast from catalog seismicity features (``seismicity-catalog-v2``).
 
         Note: the extractor attribute keeps its historical name
         ``em_feature_extractor`` so existing checkpoint state-dict keys stay
@@ -457,7 +459,7 @@ class DisasterPrecursorDetector:
                 - tec_data: Optional ionospheric TEC data
                 - temporal_history: Historical ELF measurements
                 - seismicity_features: Optional 128-dim catalog feature vector
-                  (``seismicity-catalog-v1``); drives the probabilistic
+                  (``seismicity-catalog-v2``); drives the probabilistic
                   earthquake rate forecast and requires no ELF signal.
                   ``em_features`` is accepted as a legacy alias -- the vector
                   was never electromagnetic data once the EM framing was
@@ -581,7 +583,7 @@ class DisasterPrecursorDetector:
     def _predict_earthquake(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Forecast P(M>=5.0 within 30 days in a 0.5-degree cell).
 
-        Consumes a ``seismicity-catalog-v1`` feature vector (real USGS
+        Consumes a ``seismicity-catalog-v2`` feature vector (real USGS
         catalog statistics; see
         ``omni_mercury_engine.ml.hazard_training.earthquake_precursor``),
         standardized with the loaded checkpoint's training-years statistics.

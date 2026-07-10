@@ -94,42 +94,68 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="earthquake_precursor",
         detector="space.disaster_precursor_detector.DisasterPrecursorDetector",
         architecture="EarthquakePrecursorAnalyzer(128)",
-        category="b",
+        category="a",
         data_requirement=(
-            "USGS FDSN event catalog (earthquake.usgs.gov, public — reachable "
-            "here) reshaped into regional seismicity-sequence samples with "
-            "did-M6+-follow-within-window labels. Trainable in principle from "
-            "this environment; deliberately NOT shipped from this pass because "
-            "an honest evaluation needs multi-decade regional feature "
-            "engineering reviewed against the seismology literature — a "
-            "half-reviewed earthquake forecaster is worse than the physics "
-            "fallback that abstains. Run this hook's stages once the feature "
-            "spec is reviewed; the catalog fetcher (features.py seams) is real."
+            "USGS ComCat FDSN event catalog (earthquake.usgs.gov, public — "
+            "reachable here), California 1980-2024 M≥2.5, reshaped into "
+            "0.5-degree (cell, epoch) samples labeled P(M≥5.0 within 30 d) "
+            "per the binding feature-spec review "
+            "(docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md). The "
+            "trained head is a catalog-statistical seismicity-rate forecast "
+            "— never EM/Schumann precursor detection, never per-event "
+            "magnitude/time prediction. The merit gate compares against a "
+            "Reasenberg-Jones/ETAS-lite clustering baseline (not bare "
+            "Poisson) with auc/brier/reliability_ece non-regression "
+            "constraints; 'clustering baseline wins, not shipped' is a valid "
+            "recorded outcome — and is the CURRENT one (2026-07-10, "
+            "seismicity-catalog-v2 stacked-RJ candidate): the learned model "
+            "wins held-out log-loss (0.00414 vs 0.00629, bootstrap 95% CI "
+            "excludes zero) but its ranking AUC (0.8895) stays below the RJ "
+            "baseline (0.8975), so the gate refused the ship and the "
+            "abstaining physics fallback stays in charge. Honest record: "
+            "artifacts/hazard_training/earthquake_precursor.eval.json (committed)."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.earthquake_precursor",
+        checkpoint_name="earthquake_precursor_ca",
     ),
     "seismic_wave": HookEntry(
         name="seismic_wave",
         detector="detectors.geological.disaster_detectors.EarthquakeDetector",
-        architecture="SeismicWaveAnalyzer (spectrogram encoder)",
-        category="b",
+        architecture="SeismicWaveAnalyzer (spectrogram CNN; eq/magnitude/P/S heads)",
+        category="a",
         data_requirement=(
-            "Real labeled waveforms: EarthScope/IRIS FDSN dataselect "
-            "(service.iris.edu) miniSEED windows around USGS-cataloged events "
-            "plus noise windows. service.iris.edu is not reachable from this "
-            "environment's proxy allowlist."
+            "STEAD -- the STanford EArthquake Dataset (Mousavi et al. 2019, "
+            "CC-BY-4.0): 1.27M labeled 60 s 100 Hz traces served by the public "
+            "SeisBench mirror (seisbench.gfz.de). metadata.csv is downloaded "
+            "whole and sha256-pinned; the balanced Z-component subset is "
+            "streamed out of the 91 GB waveforms.hdf5 via HTTP Range requests "
+            "(never downloaded whole). The merit gate compares against the "
+            "detector's STA/LTA + band-resonance physics fallback through the "
+            "public predict_earthquake API with deployed-rule recall/FAR "
+            "non-regression constraints; 'physics wins, not shipped' is a "
+            "valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.seismic_wave",
+        checkpoint_name="seismic_stead",
     ),
     "tsunami_waveform": HookEntry(
         name="tsunami_waveform",
         detector="detectors.geological.disaster_detectors.TsunamiDetector",
-        architecture="WaveformFFTAnalyzer",
-        category="b",
+        architecture="WaveformFFTAnalyzer (Conv1d+LSTM over detided DART windows)",
+        category="a",
         data_requirement=(
-            "NOAA NDBC/DART bottom-pressure records for tsunamigenic events "
-            "(historical DART archives at ndbc.noaa.gov) with event windows "
-            "labeled from the NOAA tsunami event database. ndbc.noaa.gov "
-            "historical archives are not reachable from this environment."
+            "NOAA NDBC DART historical bottom-pressure archives "
+            "(www.ndbc.noaa.gov/data/historical/dart/, public) as detided "
+            "24 h windows, labeled with deep-ocean BPR arrival times and "
+            "measured amplitudes from the NCEI HazEL tsunami event/runup "
+            "database (www.ngdc.noaa.gov/hazel/, public), station ids "
+            "cross-checked against the NDBC station table. The merit gate "
+            "adds deployed-rule recall/FAR, event recall, and wave-height "
+            "MAE non-regression constraints; 'physics wins, not shipped' is "
+            "a valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.tsunami_waveform",
+        checkpoint_name="tsunami_dart",
     ),
     "hurricane_wind": HookEntry(
         name="hurricane_wind",
@@ -161,12 +187,18 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="tornado_radar",
         detector="detectors.geological.tornado_detector.TornadoDetector",
         architecture="DopplerRadarAnalyzer (LSTM+attention over velocity fields)",
-        category="b",
+        category="a",
         data_requirement=(
-            "NEXRAD Level-II Doppler velocity volumes (AWS Open Data "
-            "noaa-nexrad-level2) labeled with SPC tornado reports; the S3 "
-            "bucket is not reachable from this environment."
+            "NEXRAD Level-II Doppler velocity volumes from the public Unidata "
+            "mirror (unidata-nexrad-level2.s3.amazonaws.com, anonymous, "
+            "per-scan objects; the AWS noaa-nexrad-level2 bucket itself is "
+            "not allowlisted here) labeled with SPC WCM tornado reports "
+            "(www.spc.noaa.gov), SPC wind/hail reports for storm-day hard "
+            "negatives, and the NCEI HOMR WSR-88D site table for "
+            "range/azimuth geometry."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.tornado_radar",
+        checkpoint_name="tornado_nexrad",
     ),
     "volcanic_eruption": HookEntry(
         name="volcanic_eruption",
@@ -184,11 +216,22 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="wildfire_ignition",
         detector="detectors.geological.wildfire.WildfireDetector",
         architecture="FireIgnitionDetector CNN (+optional WildfireCNN)",
-        category="b",
+        category="a",
         data_requirement=(
-            "NASA FIRMS active-fire granules (firms.modaps.eosdis.nasa.gov — "
-            "requires a MAP_KEY) as thermal rasters with confirmed-fire labels."
+            "NASA FIRMS VIIRS-SNPP science-quality active-fire country CSVs "
+            "(firms.modaps.eosdis.nasa.gov/data/country/, keyless, US "
+            "2012-2024) rasterized to a 0.04-degree daily California grid: "
+            "32x32 detection-derived patches (brightness-temperature / FRP / "
+            "count channels from days <= t only) labeled with next-day "
+            "confirmed fire activity in the center 2x2 cells. The archive is "
+            "a census of satellite-confirmed fires, so absence means 'no "
+            "confirmed fire', never a fabricated background class; the "
+            "physics persistence baseline must be beaten on held-out years "
+            "with recall/false-alarm/Brier non-regression at the deployed "
+            "alert decision."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.wildfire_ignition",
+        checkpoint_name="wildfire_firms",
     ),
     "schumann_harmonics": HookEntry(
         name="schumann_harmonics",

@@ -1,0 +1,181 @@
+{
+  "constraints": [
+    {
+      "description": "held-out ranking (AUC) must not regress below the Reasenberg-Jones clustering baseline -- the v1 candidate won log-loss while ranking WORSE than RJ (0.855 vs 0.898) and must not have shipped",
+      "higher_is_better": true,
+      "metric": "auc"
+    },
+    {
+      "description": "Brier score must not regress above the RJ baseline",
+      "higher_is_better": false,
+      "metric": "brier"
+    },
+    {
+      "description": "expected calibration error must not regress above the RJ baseline",
+      "higher_is_better": false,
+      "metric": "reliability_ece"
+    }
+  ],
+  "extras": {
+    "aftershock_dominance_fraction_test_positives": 0.22972972972972974,
+    "aftershock_dominance_note": "Fraction of held-out positives whose labeling M>=5.0 event has a prior M>=5.0 within 45 days / 50 km. Skill on these cases is honest ETAS-style clustering (Omori aftershock triggering), NOT novel precursor detection; the review (section 4.4) requires this statement wherever results are shown.",
+    "comparison": "identical held-out (cell, epoch) cases -- the complete test-years grid. Learned path runs through the public DisasterPrecursorDetector.detect_disaster_precursor API with the candidate checkpoint loaded. The 'physics' side is the documented deterministic Reasenberg-Jones/ETAS-lite clustering baseline (generic California parameters a=-1.67, b=0.91, c=0.05 d, p=1.08 + train-years Laplace-smoothed Poisson background), standing in for the detector's non-neural fallback, which abstains from event probabilities (allowed by EvaluationOutcome.physics).",
+    "dataset_meta": {
+      "base_rate_test_true": 0.0005799373040752351,
+      "base_rate_trainval_true": 0.0007096197215957694,
+      "n_cells": 440,
+      "n_epochs": 1459,
+      "n_events_catalog": 83057,
+      "n_positives_test": 74,
+      "n_positives_total": 439,
+      "n_positives_trainval": 365,
+      "n_rows": 138917,
+      "neg_sample_fraction_trainval": 0.02130370918005039
+    },
+    "feature_spec": "seismicity-catalog-v2",
+    "latency_note": "wall-clock seconds per detect_disaster_precursor call (feature dict in, probability out) over every held-out case, CPU, torch.set_num_threads as configured by the caller; median reported in ms",
+    "log_loss_diff_bootstrap": {
+      "ci95_high": -0.0018842886519447632,
+      "ci95_low": -0.0024003842963941256,
+      "ci_excludes_zero": true,
+      "n_resamples": 1000,
+      "note": "mean per-case log-loss difference, learned minus physics (negative = learned better), case-resampling bootstrap over the identical held-out (cell, epoch) cases",
+      "point_estimate": -0.0021450168493219574,
+      "seed": 20260709
+    },
+    "median_inference_latency_ms": 0.3084904999468563,
+    "n_test_positives": 74,
+    "parameter_count": 87491,
+    "poisson_floor": {
+      "auc": 0.7200446882903794,
+      "brier": 0.0005913779811772201,
+      "log_loss": 0.005724290455190605
+    },
+    "poisson_floor_note": "Bare time-independent Poisson from train-years cell rates; sanity floor only -- beating it merely rediscovers Omori-law clustering and does NOT satisfy the merit gate.",
+    "probability_clamp": 1e-06,
+    "reliability_learned": [
+      {
+        "bin_hi": 0.001,
+        "bin_lo": 0.0,
+        "mean_predicted": 0.00033625869175511573,
+        "n": 103881.0,
+        "observed_frequency": 0.00016364878683816642
+      },
+      {
+        "bin_hi": 0.003,
+        "bin_lo": 0.001,
+        "mean_predicted": 0.0016277980825868989,
+        "n": 16985.0,
+        "observed_frequency": 0.000765381206292659
+      },
+      {
+        "bin_hi": 0.01,
+        "bin_lo": 0.003,
+        "mean_predicted": 0.005102213027806608,
+        "n": 5488.0,
+        "observed_frequency": 0.004555393476039171
+      },
+      {
+        "bin_hi": 0.03,
+        "bin_lo": 0.01,
+        "mean_predicted": 0.015494374514521726,
+        "n": 1148.0,
+        "observed_frequency": 0.012195121496915817
+      },
+      {
+        "bin_hi": 0.1,
+        "bin_lo": 0.03,
+        "mean_predicted": 0.03905849512286332,
+        "n": 98.0,
+        "observed_frequency": 0.051020409911870956
+      }
+    ],
+    "reliability_physics": [
+      {
+        "bin_hi": 0.003,
+        "bin_lo": 0.001,
+        "mean_predicted": 0.0017397184212915378,
+        "n": 108199.0,
+        "observed_frequency": 0.00016636012878734618
+      },
+      {
+        "bin_hi": 0.01,
+        "bin_lo": 0.003,
+        "mean_predicted": 0.005865107084338572,
+        "n": 11758.0,
+        "observed_frequency": 0.0010205816943198442
+      },
+      {
+        "bin_hi": 0.03,
+        "bin_lo": 0.01,
+        "mean_predicted": 0.01773628682650356,
+        "n": 5751.0,
+        "observed_frequency": 0.003303773235529661
+      },
+      {
+        "bin_hi": 0.1,
+        "bin_lo": 0.03,
+        "mean_predicted": 0.04727531442502846,
+        "n": 1737.0,
+        "observed_frequency": 0.009786988608539104
+      },
+      {
+        "bin_hi": 0.3,
+        "bin_lo": 0.1,
+        "mean_predicted": 0.15927547770162628,
+        "n": 123.0,
+        "observed_frequency": 0.03252032399177551
+      },
+      {
+        "bin_hi": 1.0,
+        "bin_lo": 0.3,
+        "mean_predicted": 0.5158963960099595,
+        "n": 32.0,
+        "observed_frequency": 0.125
+      }
+    ],
+    "ridgecrest_note": "The 2019 Ridgecrest sequence (M6.4 + M7.1) falls in the held-out test years (2017-2024).",
+    "stacked_baseline_note": "seismicity-catalog-v2 feeds the RJ baseline's own causal 30-day forecast to the learned model as input dims 32-35 (hybrid/stacked forecasting), so the network can only refine the clustering baseline, not ignore it. The stacked inputs use a strictly causal trailing-history background mu, NOT the merit-gate baseline's train-years mu (which would be lookahead for pre-2010 train epochs).",
+    "test_base_rate": 0.0005799373029731214,
+    "test_m5_events": 32
+  },
+  "failed_constraints": [
+    {
+      "description": "held-out ranking (AUC) must not regress below the Reasenberg-Jones clustering baseline -- the v1 candidate won log-loss while ranking WORSE than RJ (0.855 vs 0.898) and must not have shipped",
+      "higher_is_better": true,
+      "learned": 0.8895030838438457,
+      "metric": "auc",
+      "physics": 0.8974976380015353
+    }
+  ],
+  "higher_is_better": false,
+  "hook": "earthquake_precursor",
+  "learned": {
+    "auc": 0.8895030838438457,
+    "brier": 0.0005753602133007711,
+    "information_gain_per_active_cell": 2.7290894398437193,
+    "log_loss": 0.004141589682867444,
+    "reliability_ece": 0.0003177099999229569
+  },
+  "learned_beats_physics": false,
+  "n_test_samples": 127600,
+  "physics": {
+    "auc": 0.8974976380015353,
+    "brier": 0.0006737873709705008,
+    "information_gain_per_active_cell": -0.9696152895276561,
+    "log_loss": 0.006286606532189402,
+    "reliability_ece": 0.003161566611364142
+  },
+  "primary_metric": "log_loss",
+  "primary_metric_wins": true,
+  "test_years": [
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+  ]
+}
