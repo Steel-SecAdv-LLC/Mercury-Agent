@@ -262,6 +262,14 @@ class SchumannResonanceDetector:
         # deterministic FFT-physics assessment instead (see _physics_assessment).
         self._neural_trained = False
         self._warned_untrained = False
+        # Ratified operating point for the learned path's anomaly_detected
+        # decision (validation-selected threshold carried by the training
+        # pipeline's checkpoint payload -- see schumann_harmonics.py
+        # _select_operating_point, mirroring the solar-storm/tsunami policy).
+        # None (untrained, bare state_dicts, or pre-convention checkpoints)
+        # keeps the historical behavior: anomaly_detected stays the
+        # deterministic physics flags on every path.
+        self._operating_point: dict[str, float] | None = None
 
         self.geophysical_cycles = self._initialize_cycle_correlations()
 
@@ -381,6 +389,13 @@ class SchumannResonanceDetector:
             confidence_score = float(confidence[0].item())
             anomaly_types = ["normal", "amplitude", "frequency", "combined"]
             anomaly_type = anomaly_types[anomaly_class]
+            if self._operating_point is not None:
+                # Ratified deployed rule for the learned path: the DECISION is
+                # confidence > tau with the checkpoint's validation-selected
+                # threshold. Only anomaly_detected changes -- the confidence
+                # estimate and anomaly_type stay exactly what the network
+                # emitted (the merit gate evaluated this precise rule).
+                anomaly_detected = confidence_score > self._operating_point["detection_threshold"]
         else:
             # Untrained network -> do NOT present random outputs as signal.
             # Derive the type and confidence from the deterministic FFT physics.
@@ -518,6 +533,13 @@ class SchumannResonanceDetector:
         argument loads the shipped ``schumann_sierra_nevada`` checkpoint
         (provenance verified and logged by ``load_shipped_checkpoint``).
 
+        A wrapped payload may additionally carry a ratified
+        ``operating_point`` (the validation-selected decision threshold for
+        the learned path -- part of the deployed rule the merit gate
+        evaluated). It is validated BEFORE any state mutates and applied to
+        the ``anomaly_detected`` decision only; bare state_dicts and
+        pre-convention payloads keep the historical physics-flag decision.
+
         Args:
             state_dict: An in-memory ``state_dict``, a path to a saved one
                 (bare or wrapped payload), or None to load the shipped
@@ -528,13 +550,18 @@ class SchumannResonanceDetector:
                 been shipped.
             RuntimeError: The checkpoint is corrupt, fails its provenance
                 sha256 pin, or does not match the analyser architecture.
+            ValueError: The payload carries an ``operating_point`` whose
+                detection threshold is not a probability in (0, 1) -- a
+                nonsensical decision rule must refuse, not load.
         """
         loaded: Any
+        operating_point: dict[str, float] | None = None
         if state_dict is None:
             from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
 
             payload, _provenance = load_shipped_checkpoint("schumann_sierra_nevada")
             loaded = payload["harmonic_analyzer"]
+            operating_point = self._validated_operating_point(payload.get("operating_point"))
         else:
             loaded = state_dict
             if isinstance(state_dict, str):
@@ -542,11 +569,43 @@ class SchumannResonanceDetector:
             if isinstance(loaded, dict) and "harmonic_analyzer" in loaded:
                 # Wrapped training-pipeline payload; a bare analyser state_dict
                 # only ever carries parameter names like "cnn_encoder.0.weight".
+                operating_point = self._validated_operating_point(loaded.get("operating_point"))
                 loaded = loaded["harmonic_analyzer"]
         self.harmonic_analyzer.load_state_dict(loaded)
         self.harmonic_analyzer.eval()
+        self._operating_point = operating_point
         self._neural_trained = True
-        self.logger.info("Schumann CNN-LSTM weights loaded; learned classifier enabled.")
+        self.logger.info(
+            "Schumann CNN-LSTM weights loaded; learned classifier enabled%s.",
+            (
+                f" (decision operating point tau=" f"{operating_point['detection_threshold']:.4f})"
+                if operating_point is not None
+                else " (no operating point; physics flags keep the decision)"
+            ),
+        )
+
+    @staticmethod
+    def _validated_operating_point(op: Any) -> dict[str, float] | None:
+        """Validate a payload's ``operating_point`` before any state mutates.
+
+        Args:
+            op: The payload's ``operating_point`` entry (or None).
+
+        Returns:
+            ``{"detection_threshold": tau}`` or None when absent.
+
+        Raises:
+            ValueError: ``tau`` is not a finite probability in (0, 1).
+        """
+        if op is None:
+            return None
+        tau = float(op["detection_threshold"])
+        if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+            raise ValueError(
+                f"checkpoint operating point detection threshold {tau} is not a "
+                "probability; refusing a nonsensical decision rule"
+            )
+        return {"detection_threshold": tau}
 
     def _compute_power_spectrum(
         self, elf_signal: np.ndarray[Any, Any]

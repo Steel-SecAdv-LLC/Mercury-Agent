@@ -1,0 +1,29 @@
+{
+  "description": "Verbatim window extracts (first 12 x 3072 int16 samples, 64 s apart) from Sierra Nevada ELF station hour files (sensor 0, NS magnetic, fs=256 Hz, raw little-endian int16 ADC counts) inside the Zenodo year archives (records 6348691/6348773/6348838/6348930; CC-BY-4.0; Salinas et al. 2022, Computers & Geosciences 165:105148), fetched by the training pipeline's ranged-GET remote-ZIP reader (size- and CRC-verified members). Labels are GFZ Potsdam definitive Kp (disturbed >= 5, quiet <= 2). Both hours fall in the held-out test years and were re-used unmodified from the pipeline's hour cache.",
+  "hours": [
+    {
+      "archive": "2016",
+      "fixture": "hour_quiet_2016.npz",
+      "kp": 0.333,
+      "label": "quiet",
+      "member": "2016/1601/smplGRTU1_sensor_0_1601030156",
+      "t0_utc": "2016-01-03T01:56:00+00:00"
+    },
+    {
+      "archive": "2016",
+      "fixture": "hour_disturbed_2016.npz",
+      "kp": 6.0,
+      "label": "disturbed",
+      "member": "2016/1601/smplGRTU1_sensor_0_1601010056",
+      "t0_utc": "2016-01-01T00:56:00+00:00"
+    }
+  ],
+  "kp_source": "https://kp.gfz.de/app/json/ (definitive)",
+  "license": "CC-BY-4.0",
+  "zenodo_records": [
+    "6348691",
+    "6348773",
+    "6348838",
+    "6348930"
+  ]
+}

@@ -338,6 +338,85 @@ class TestLoadNeuralWeightsCompat:
                 det.load_neural_weights()
 
 
+class TestOperatingPointConsumption:
+    """The checkpoint's ratified threshold governs the learned decision.
+
+    Mirrors the solar-storm/tsunami dual-rule operating-point tests: the
+    validation-selected tau carried by the checkpoint is part of the deployed
+    rule, so loading it must (a) validate it before any state mutates,
+    (b) apply it to the learned path's ``anomaly_detected`` decision without
+    touching the confidence estimate or anomaly_type, and (c) leave the
+    historical physics-flag decision in charge for payloads that predate the
+    convention (and for bare state_dicts).
+    """
+
+    @staticmethod
+    def _write_payload(path: Path, operating_point: dict[str, float] | None) -> Path:
+        torch.manual_seed(11)
+        payload: dict[str, object] = {
+            "harmonic_analyzer": SchumannHarmonicAnalyzer(spectrum_size=SPECTRUM_BINS).state_dict(),
+            "feature_spec": "schumann-sn-v1",
+        }
+        if operating_point is not None:
+            payload["operating_point"] = operating_point
+        torch.save(payload, path)
+        return path
+
+    def test_operating_point_drives_learned_decision(self, tmp_path: Path, disturbed_hour) -> None:
+        """tau just below/above the emitted confidence must flip the decision."""
+        det = SchumannResonanceDetector(sampling_rate=FS_HZ)
+        det.load_neural_weights(
+            str(self._write_payload(tmp_path / "op.pt", {"detection_threshold": 0.5}))
+        )
+        assert det._operating_point == {"detection_threshold": 0.5}
+
+        signal = condition_signal(disturbed_hour["windows"][0])
+        base = det.detect_resonance_anomaly(signal)
+        conf = float(base.confidence)
+        assert 0.0 < conf < 1.0  # sigmoid head keeps confidence interior
+
+        det._operating_point = {"detection_threshold": max(conf - 1e-6, 1e-9)}
+        below = det.detect_resonance_anomaly(signal)
+        assert below.anomaly_detected is True
+        assert below.confidence == pytest.approx(conf)
+        assert below.anomaly_type == base.anomaly_type
+
+        det._operating_point = {"detection_threshold": conf + (1.0 - conf) / 2.0}
+        above = det.detect_resonance_anomaly(signal)
+        assert above.anomaly_detected is False
+        assert above.confidence == pytest.approx(
+            conf
+        ), "the operating point changes the DECISION, never the confidence estimate"
+        assert above.anomaly_type == base.anomaly_type
+
+    def test_operating_point_threshold_validated_on_load(self, tmp_path: Path) -> None:
+        """A payload carrying a nonsensical tau must refuse before mutating."""
+        det = SchumannResonanceDetector(sampling_rate=FS_HZ)
+        for bad_tau in (1.5, 0.0, float("nan")):
+            path = self._write_payload(
+                tmp_path / f"bad_{bad_tau}.pt", {"detection_threshold": bad_tau}
+            )
+            with pytest.raises(ValueError, match=r"not a\s+probability"):
+                det.load_neural_weights(str(path))
+            assert det._neural_trained is False  # validated BEFORE any state mutated
+            assert det._operating_point is None
+
+    def test_payload_without_operating_point_keeps_physics_decision(
+        self, tmp_path: Path, quiet_hour
+    ) -> None:
+        """Pre-convention payloads and bare state_dicts keep the old decision."""
+        physics = SchumannResonanceDetector(sampling_rate=FS_HZ)
+        learned = SchumannResonanceDetector(sampling_rate=FS_HZ)
+        learned.load_neural_weights(str(self._write_payload(tmp_path / "old.pt", None)))
+        assert learned._neural_trained is True
+        assert learned._operating_point is None
+        signal = condition_signal(quiet_hour["windows"][0])
+        res_l = learned.detect_resonance_anomaly(signal)
+        res_p = physics.detect_resonance_anomaly(signal)
+        # anomaly_detected stays the deterministic physics flags on both paths.
+        assert res_l.anomaly_detected == res_p.anomaly_detected
+
+
 @pytest.mark.skipif(
     not shipped_checkpoint_path("schumann_sierra_nevada").exists(),
     reason="schumann_sierra_nevada checkpoint not shipped",
@@ -354,6 +433,7 @@ class TestDifferentialPhysicsVsShipped:
         assert payload["window_samples"] == WINDOW_SAMPLES
         assert payload["spectrum_bins"] == SPECTRUM_BINS
         assert "class_rule" in payload and "Sierra Nevada" in payload["station"]
+        assert 0.0 < float(payload["operating_point"]["detection_threshold"]) < 1.0
         assert provenance is not None
         assert provenance["evaluation"]["learned_beats_physics"] is True
 

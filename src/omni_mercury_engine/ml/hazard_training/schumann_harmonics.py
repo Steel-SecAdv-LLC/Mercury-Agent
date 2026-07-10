@@ -118,6 +118,25 @@ GROUP_SPAN_BYTES = 64 * (1 << 20)
 #: Kp class thresholds: disturbed >= 5, quiet <= 2; 2 < Kp < 5 excluded.
 KP_DISTURBED = 5.0
 KP_QUIET = 2.0
+#: Validation recall floor for operating-point selection: a threshold that
+#: detects almost nothing can be technically non-regressing when physics
+#: itself detects little on validation, yet operationally useless
+#: (see :func:`_select_operating_point`; mirrors the tsunami/solar policy).
+OPERATING_POINT_RECALL_FLOOR = 0.5
+#: Solar's ratified 20% FAR headroom against val->test distribution shift.
+OPERATING_POINT_FAR_HEADROOM = 0.8
+#: Hour-level deployed rule (both paths): an hour is flagged disturbed when
+#: at least this fraction of its 12 windows report ``anomaly_detected``.
+HOUR_VOTE_FRACTION = 0.5
+
+#: Documented storm names for the per-event hit tables (matched on the UTC
+#: date an event's first sampled hour falls on, +/- 1 day). Only widely
+#: documented events are named; everything else reports its peak Kp and the
+#: NOAA G-scale derived from it.
+NAMED_STORMS: dict[str, str] = {
+    "2015-03-17": "St Patrick's Day storm (G4)",
+    "2015-06-22": "22-23 June 2015 storm (G4)",
+}
 #: Quiet hours sampled per disturbed hour (stratified matching).
 QUIET_RATIO = 1.5
 #: Hard ceiling on total HTTP bytes fetched by this pipeline.
@@ -1240,6 +1259,159 @@ def _hour_scores(model: Any, spectra: np.ndarray, batch_hours: int = 64) -> np.n
     return out
 
 
+def _window_confidences(model: Any, spectra: np.ndarray, batch_hours: int = 64) -> np.ndarray:
+    """Per-window sigmoid confidences, shape ``[n_hours, WINDOWS_PER_HOUR]``."""
+    model.eval()
+    n_hours = spectra.shape[0]
+    out = np.zeros((n_hours, WINDOWS_PER_HOUR), dtype=np.float64)
+    with torch.no_grad():
+        for start in range(0, n_hours, batch_hours):
+            chunk = spectra[start : start + batch_hours]
+            flat = torch.from_numpy(chunk.reshape(-1, 1, SPECTRUM_BINS))
+            _, conf = model(flat)
+            out[start : start + chunk.shape[0]] = (
+                conf.squeeze(-1).reshape(chunk.shape[0], WINDOWS_PER_HOUR).numpy()
+            )
+    return out
+
+
+def _select_operating_point(
+    model: Any, ds: SchumannDataset, val_mask: np.ndarray
+) -> dict[str, Any]:
+    """Choose the learned path's decision threshold on the VALIDATION years.
+
+    Policy (mirroring the ratified solar-storm / tsunami operating-point
+    machinery): the deployed hour-level rule for BOTH paths flags an hour
+    when >= :data:`HOUR_VOTE_FRACTION` of its 12 windows report
+    ``anomaly_detected``. Physics' window decision is its deterministic
+    spectral flags, measured here through the public
+    ``detect_resonance_anomaly`` API on the validation hours. The learned
+    window decision is ``confidence > tau``; a candidate ``tau`` is feasible
+    when the learned hour-level validation recall reaches at least
+    ``max(physics validation recall, OPERATING_POINT_RECALL_FLOOR)`` (the
+    floor keeps a technically-non-regressing but operationally useless
+    threshold from being selected) AND the validation false-alarm rate stays
+    at or below :data:`OPERATING_POINT_FAR_HEADROOM` ``* physics validation
+    FAR`` (solar's ratified 20% headroom against val->test shift). Among
+    feasible thresholds the one maximizing validation CSI wins (ties ->
+    higher tau, fewer alarms). If no threshold meets both targets, the
+    FAR-feasible threshold with the best recall is recorded instead
+    (``recall_floor_met`` False) -- the ship gate, not this selection, is
+    the final arbiter. The chosen ``tau`` ships in the checkpoint payload as
+    ``operating_point`` and ``SchumannResonanceDetector.load_neural_weights``
+    validates and applies it to the learned path's ``anomaly_detected``
+    DECISION only; the weights, confidence estimate, and anomaly_type are
+    never touched, and test years are never consulted.
+
+    Args:
+        model: Trained SchumannHarmonicAnalyzer (never modified).
+        ds: The built hour-level dataset.
+        val_mask: Boolean validation-year mask over ``ds`` rows.
+
+    Returns:
+        Operating-point record (policy, detection threshold, validation
+        recall/FAR/CSI for the learned rule and physics).
+
+    Raises:
+        RuntimeError: Validation lacks a class, or no threshold satisfies
+            even the FAR ceiling.
+    """
+    from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+
+    val_idx = np.flatnonzero(val_mask)
+    y_val = ds.disturbed[val_idx] > 0.5
+    if not y_val.any() or y_val.all():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an operating point honestly"
+        )
+
+    physics_det = SchumannResonanceDetector(sampling_rate=FS_HZ)
+    logging.getLogger("omni_mercury_engine.space.schumann_resonance").setLevel(logging.WARNING)
+    physics_hour = np.zeros(val_idx.size, dtype=bool)
+    for row, i in enumerate(val_idx):
+        flags = [
+            bool(
+                physics_det.detect_resonance_anomaly(
+                    condition_signal(ds.windows_int16[i, w])
+                ).anomaly_detected
+            )
+            for w in range(WINDOWS_PER_HOUR)
+        ]
+        physics_hour[row] = float(np.mean(flags)) >= HOUR_VOTE_FRACTION
+    physics_recall = float(physics_hour[y_val].mean())
+    physics_far = float(physics_hour[~y_val].mean())
+
+    conf = _window_confidences(model, ds.spectra[val_idx])
+
+    recall_floor = max(physics_recall, OPERATING_POINT_RECALL_FLOOR)
+    far_ceiling = OPERATING_POINT_FAR_HEADROOM * physics_far
+
+    def _learned_metrics(tau: float) -> tuple[float, float, float]:
+        flagged = np.mean(conf > tau, axis=1) >= HOUR_VOTE_FRACTION
+        tp = float(np.sum(flagged & y_val))
+        fn = float(np.sum(~flagged & y_val))
+        fp = float(np.sum(flagged & ~y_val))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~y_val)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    taus = np.unique(np.quantile(conf.ravel(), np.linspace(0.0, 1.0, 513)))
+    # The detector validates 0 < tau < 1 on load; degenerate endpoints are
+    # not deployable decision rules.
+    taus = taus[(taus > 0.0) & (taus < 1.0)]
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _learned_metrics(float(tau))
+        entry = {
+            "detection_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no threshold satisfies both targets: the most
+        # conservative feasible-on-FAR point with the best recall (a
+        # recall-maximizing fallback that blows the FAR ceiling would be
+        # selecting a point the ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["detection_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no detection threshold satisfies even the FAR ceiling on validation; "
+            "the confidence head is not usable for detection decisions -- refusing "
+            "to record a doomed operating point"
+        )
+    record = {
+        **chosen,
+        "policy": (
+            "learned window decision is confidence>tau, hour flagged when >= "
+            f"{HOUR_VOTE_FRACTION} of its windows fire; tau maximizes val CSI subject "
+            f"to val recall >= max(physics val recall, {OPERATING_POINT_RECALL_FLOOR}) "
+            f"AND val FAR <= {OPERATING_POINT_FAR_HEADROOM} * physics val FAR"
+        ),
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+    }
+    logger.info("operating point selected: %s", json.dumps(record, sort_keys=True))
+    return record
+
+
 def train(ctx: PipelineContext) -> dict[str, Any]:
     """Train the detector's SchumannHarmonicAnalyzer on the window spectra.
 
@@ -1252,8 +1424,18 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     path. Early stopping monitors the deployed hour-level validation AUC
     (mean window sigmoid-confidence), patience 6.
 
+    The checkpoint payload carries a validation-selected ``operating_point``
+    (see :func:`_select_operating_point`): the learned path's deployed
+    ``anomaly_detected`` decision is ``confidence > tau``, selected on the
+    VALIDATION years only against the same recall/FAR targets the ship gate
+    enforces, with solar's ratified FAR headroom. The weights are untouched
+    (selection is post-hoc on validation outputs) and test years are never
+    consulted; ``SchumannResonanceDetector.load_neural_weights`` validates
+    and applies it, decision only.
+
     Returns:
-        Training record (epochs, best validation AUC, split sizes).
+        Training record (epochs, best validation AUC, split sizes,
+        operating-point record).
     """
     from omni_mercury_engine.space.schumann_resonance import SchumannHarmonicAnalyzer
 
@@ -1348,6 +1530,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     if best_state is None:
         raise RuntimeError("training produced no finite validation AUC; refusing to save")
     model.load_state_dict(best_state)
+    operating_point = _select_operating_point(model, ds, val_mask)
 
     record = {
         "seed": ctx.seed,
@@ -1359,6 +1542,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "val_years": list(SPLIT.val_years),
         "class_counts": ds.class_counts,
         "climatology": ds.climatology,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "harmonic_analyzer": model.state_dict(),
@@ -1368,6 +1552,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "spectrum_bins": SPECTRUM_BINS,
         "station": "Sierra Nevada ELF (Zenodo 6348691/6348773/6348838/6348930)",
         "class_rule": CLASS_RULE,
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
@@ -1410,6 +1595,55 @@ def _storm_events(t0_iso: list[str], kp: np.ndarray, mask: np.ndarray) -> list[d
     return events
 
 
+def _noaa_g_scale(peak_kp: float) -> str:
+    """NOAA G-scale label from a Kp value (G1=Kp5 .. G5=Kp9).
+
+    Fractional (thirds) Kp is rounded to the nearest integer per the SWPC
+    convention, so Kp 8- (7.667) reads G4 -- matching how documented storms
+    (e.g. the 2015 G4 pair) are named.
+    """
+    kp_int = int(np.floor(peak_kp + 0.5))
+    if kp_int >= 9:
+        return "G5"
+    return {5: "G1", 6: "G2", 7: "G3", 8: "G4"}.get(kp_int, "sub-G1")
+
+
+def _storm_name(start_iso: str) -> str | None:
+    """Documented storm name for an event starting near a NAMED_STORMS date."""
+    start = _dt.datetime.fromisoformat(start_iso)
+    for date_str, name in NAMED_STORMS.items():
+        anchor = _dt.datetime.fromisoformat(f"{date_str}T00:00:00+00:00")
+        if abs((start - anchor).total_seconds()) <= 2 * 86400:
+            return name
+    return None
+
+
+def _storm_hit_table(
+    events: list[dict[str, Any]],
+    runs: dict[str, dict[str, np.ndarray]],
+    row_of: dict[int, int],
+) -> list[dict[str, Any]]:
+    """Per-storm-event hit table under each path's deployed hour decision."""
+    table = []
+    for ev in events:
+        rows = [row_of[i] for i in ev["hours"]]
+        entry: dict[str, Any] = {
+            "name": _storm_name(ev["start_utc"]),
+            "start_utc": ev["start_utc"],
+            # Peak over the hours THIS pipeline sampled -- the storm's true
+            # peak can be higher (mixed-bin hours are excluded from sampling).
+            "peak_kp_sampled": ev["peak_kp"],
+            "noaa_scale_sampled": _noaa_g_scale(ev["peak_kp"]),
+            "n_hours_sampled": ev["n_hours"],
+        }
+        for label in ("physics", "learned"):
+            dec = runs[label]["decision"][rows]
+            entry[f"{label}_hit"] = bool(dec.any())
+            entry[f"{label}_hour_fraction"] = float(dec.mean())
+        table.append(entry)
+    return table
+
+
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     """Compare learned vs physics through the public detector API.
 
@@ -1417,18 +1651,33 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     12 conditioned windows, each passed to
     ``SchumannResonanceDetector.detect_resonance_anomaly``. Physics is the
     untrained detector's deterministic FFT assessment; learned is the same
-    detector after ``load_neural_weights`` on the candidate checkpoint.
-    Hour-level scores average the 12 window outputs so window extraction does
-    not inflate the test size (no pseudo-replication).
+    detector after ``load_neural_weights`` on the candidate checkpoint (which
+    installs the checkpoint's validation-selected operating point, so the
+    learned window decision is ``confidence > tau``). Hour-level scores
+    average the 12 window outputs so window extraction does not inflate the
+    test size (no pseudo-replication); each path's hour decision is >= 50%
+    of its windows reporting ``anomaly_detected`` under its OWN deployed
+    rule. Secondary non-regression constraints: disturbed-detection recall
+    at the deployed rule (higher), false-alarm rate at the deployed rule
+    (lower), and hour-level anomaly-type agreement (higher).
+
+    Extras additionally carry a seeded 1000-resample bootstrap 95% CI on
+    the hour-level AUC difference, the model parameter count, the median
+    single-window inference latency (100 runs), the per-storm hit table on
+    the held-out test years, and a clearly-labeled validation-storm
+    diagnostic table covering the named 2015 G4 storms (early stopping and
+    operating-point context only -- never the gate's metrics).
 
     Returns:
         Evaluation outcome (primary metric: disturbed_auc, higher is better).
     """
+    import time
+
     from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
     torch.set_num_threads(2)  # shared box
     ds = build_dataset(ctx)
-    _, _, test_mask = SPLIT.masks(ds.years)
+    _, val_mask, test_mask = SPLIT.masks(ds.years)
     test_idx = np.flatnonzero(test_mask)
     if test_idx.size == 0:
         raise RuntimeError("no test hours found; cannot evaluate")
@@ -1440,6 +1689,8 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = SchumannResonanceDetector(sampling_rate=FS_HZ)
     learned_det = SchumannResonanceDetector(sampling_rate=FS_HZ)
     learned_det.load_neural_weights(str(cand_path))
+    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = payload.get("operating_point")
     # Tens of thousands of public-API calls follow; the detector logs one INFO
     # line per call, which would swamp the evaluation log.
     logging.getLogger("omni_mercury_engine.space.schumann_resonance").setLevel(logging.WARNING)
@@ -1451,7 +1702,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         }
         for i in idx:
             per: dict[str, dict[str, list[Any]]] = {
-                label: {"conf": [], "type": []} for label in out
+                label: {"conf": [], "type": [], "flag": []} for label in out
             }
             for w in range(WINDOWS_PER_HOUR):
                 signal = condition_signal(ds.windows_int16[i, w])
@@ -1459,11 +1710,16 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                     res = det.detect_resonance_anomaly(signal)
                     per[label]["conf"].append(float(res.confidence))
                     per[label]["type"].append(res.anomaly_type)
+                    # Each path's own deployed window decision: physics keeps
+                    # the deterministic spectral flags; the learned path (with
+                    # the loaded operating point) decides confidence > tau.
+                    per[label]["flag"].append(bool(res.anomaly_detected))
             for label in out:
-                types = per[label]["type"]
                 out[label]["conf"].append(float(np.mean(per[label]["conf"])))
-                out[label]["type"].append(_majority_type(types))
-                out[label]["decision"].append(float(np.mean([t != "normal" for t in types])) >= 0.5)
+                out[label]["type"].append(_majority_type(per[label]["type"]))
+                out[label]["decision"].append(
+                    float(np.mean(per[label]["flag"])) >= HOUR_VOTE_FRACTION
+                )
         return {
             label: {
                 "conf": np.asarray(v["conf"], dtype=np.float64),
@@ -1494,20 +1750,51 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
 
     # Per-storm hit table on the held-out test years.
     events = _storm_events(ds.t0_iso, ds.kp, test_mask & (ds.disturbed > 0.5))
-    pos_in_test = {int(g): k for k, g in enumerate(test_idx)}
-    storm_table = []
-    for ev in events:
-        rows = [pos_in_test[i] for i in ev["hours"]]
-        entry: dict[str, Any] = {
-            "start_utc": ev["start_utc"],
-            "peak_kp": ev["peak_kp"],
-            "n_hours_sampled": ev["n_hours"],
-        }
-        for label in ("physics", "learned"):
-            dec = runs[label]["decision"][rows]
-            entry[f"{label}_hit"] = bool(dec.any())
-            entry[f"{label}_hour_fraction"] = float(dec.mean())
-        storm_table.append(entry)
+    storm_table = _storm_hit_table(events, runs, {int(g): k for k, g in enumerate(test_idx)})
+
+    # Validation-storm DIAGNOSTIC table (named 2015 G4 storms live in the
+    # validation year by construction of the temporal split). These hours
+    # informed early stopping and the operating point only -- they are
+    # reported for context and never enter the gate's metrics.
+    val_dist_idx = np.flatnonzero(val_mask & (ds.disturbed > 0.5))
+    val_runs = _run_hours(val_dist_idx)
+    val_events = _storm_events(ds.t0_iso, ds.kp, val_mask & (ds.disturbed > 0.5))
+    val_storm_table = _storm_hit_table(
+        val_events, val_runs, {int(g): k for k, g in enumerate(val_dist_idx)}
+    )
+
+    # Seeded bootstrap 95% CI on the hour-level AUC difference (learned -
+    # physics) over the test hours: 1000 resamples with replacement;
+    # resamples that lose a class are skipped and counted.
+    rng = np.random.default_rng(ctx.seed)
+    n_resamples = 1000
+    diffs: list[float] = []
+    for _ in range(n_resamples):
+        rs = rng.integers(0, test_idx.size, size=test_idx.size)
+        auc_l = binary_auc(disturbed[rs].astype(float), runs["learned"]["conf"][rs])
+        auc_p = binary_auc(disturbed[rs].astype(float), runs["physics"]["conf"][rs])
+        if np.isfinite(auc_l) and np.isfinite(auc_p):
+            diffs.append(float(auc_l - auc_p))
+    diffs_arr = np.asarray(diffs)
+    auc_diff_ci = {
+        "n_resamples": n_resamples,
+        "n_valid": int(diffs_arr.size),
+        "seed": ctx.seed,
+        "mean": float(diffs_arr.mean()),
+        "ci95_low": float(np.percentile(diffs_arr, 2.5)),
+        "ci95_high": float(np.percentile(diffs_arr, 97.5)),
+    }
+
+    # Median single-window inference latency through the public API (both
+    # detectors are warm from the evaluation loop above).
+    def _median_latency_ms(det: Any) -> float:
+        signal = condition_signal(ds.windows_int16[test_idx[0], 0])
+        times = []
+        for _ in range(100):
+            t0 = time.perf_counter()
+            det.detect_resonance_anomaly(signal)
+            times.append((time.perf_counter() - t0) * 1000.0)
+        return float(np.median(times))
 
     outcome = EvaluationOutcome(
         hook=HOOK_NAME,
@@ -1526,9 +1813,13 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             ),
             "decision_rule": (
                 "hour flagged disturbed when >=50% of its 12 windows report "
-                "anomaly_type != 'normal'; hour score = mean window confidence; "
-                "hour type = majority vote (ties to the lower class index)"
+                "anomaly_detected under the path's OWN deployed rule -- physics: "
+                "deterministic spectral flags; learned: confidence > tau from the "
+                "checkpoint's validation-selected operating point; hour score = mean "
+                "window confidence; hour type = majority vote (ties to the lower "
+                "class index)"
             ),
+            "operating_point": operating_point,
             "window_derivation": (
                 "fs=256 Hz; neural input = first 512 one-sided FFT bins spanning "
                 "512*fs/n Hz; covering the 5-40 Hz Schumann band requires n <= 3276; "
@@ -1550,32 +1841,51 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "climatology": ds.climatology,
             "test_disturbed_fraction": float(disturbed.mean()),
             "per_storm_hits_test_years": storm_table,
+            "per_storm_hits_validation_diagnostic": val_storm_table,
             "named_validation_storms_note": (
                 "the 2015-03-17 St Patrick's Day G4 and 2015-06-22 G4 storms fall in "
                 "the 2015 validation year by construction of the temporal split; they "
-                "informed early stopping only, never the merit-gate metrics"
+                "informed early stopping and operating-point selection only, never "
+                "the merit-gate metrics -- their hit table above is diagnostic"
             ),
             "temporal_path_note": (
                 "the LSTM temporal path was trained with an auxiliary loss over each "
                 "hour's window-spectrum sequence; the deployed/evaluated decision is "
                 "the spectrum-only path (temporal_history=None)"
             ),
+            "auc_diff_bootstrap_ci95": auc_diff_ci,
+            "model_parameter_count": int(
+                sum(p.numel() for p in learned_det.harmonic_analyzer.parameters())
+            ),
+            "median_inference_latency_ms": {
+                "learned": _median_latency_ms(learned_det),
+                "physics": _median_latency_ms(physics_det),
+                "n_runs": 100,
+            },
         },
         constraints=[
             {
-                "metric": "four_class_accuracy",
+                "metric": "disturbed_recall_op",
                 "higher_is_better": True,
                 "description": (
-                    "hour-level anomaly-type agreement with the derived labels must "
-                    "not regress below the physics assessment"
+                    "disturbed-hour detection recall at each path's deployed decision "
+                    "rule must not regress below physics"
                 ),
             },
             {
                 "metric": "false_alarm_rate_op",
                 "higher_is_better": False,
                 "description": (
-                    "quiet-hour false-alarm rate at the deployed decision must not "
-                    "exceed physics"
+                    "quiet-hour false-alarm rate at each path's deployed decision "
+                    "rule must not exceed physics"
+                ),
+            },
+            {
+                "metric": "four_class_accuracy",
+                "higher_is_better": True,
+                "description": (
+                    "hour-level anomaly-type agreement with the derived labels must "
+                    "not regress below the physics assessment"
                 ),
             },
         ],
