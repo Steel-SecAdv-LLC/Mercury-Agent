@@ -39,6 +39,14 @@ at the root:
   `torch.load` is now hard-pinned to `weights_only=True` (house convention),
   including the shipped-checkpoint loader which previously passed
   `weights_only=False` explicitly.
+- **caplog isolation hardened for the full-suite lane.** The autouse
+  conftest guard that restored ``omni_mercury_engine``'s ``propagate`` flag
+  now also forces/restores the logger's *level* and *disabled* flag: a test
+  leaving the package logger raised to ERROR silently dropped WARNING
+  records before caplog's root handler, reproducing the order-dependent
+  full-suite failures of the CICIDS synthetic-fallback warning test and
+  the feedback-loop reason-code test under xdist scheduling (reproduced
+  locally with a level-polluting probe, then proven fixed).
 - **Label-provenance gate no longer audits test fixtures.**
   `datasets/label_provenance.py::discover_loaders()` now carries the same
   documented test-module exemption as its `loaders/` sibling: the F5

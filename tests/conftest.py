@@ -218,14 +218,30 @@ def _restore_engine_logger_propagation() -> Iterator[None]:
     capture again.  It does not weaken production behavior — the
     ``configure_logging`` flip remains in place during the body of each
     test that exercises it; we only restore the flag between tests.
+
+    The same failure mode exists for the logger's *level* and *disabled*
+    flag: a test that leaves ``omni_mercury_engine``'s level raised (e.g.
+    to ERROR) silently drops WARNING/INFO records at the logger before
+    they can reach caplog's root handler — reproduced as order-dependent
+    full-suite failures of ``test_cicids.py::test_synthetic_fallback_warning``
+    and ``test_feedback_loop.py::test_verify_trigger_no_secret_configured_
+    logs_only_reason_code`` under xdist scheduling. So the fixture now
+    forces a known-good state (propagating, enabled, NOTSET) at every
+    test start and restores the previous state afterwards.
     """
     logger = logging.getLogger("omni_mercury_engine")
     previous_propagate = logger.propagate
+    previous_level = logger.level
+    previous_disabled = logger.disabled
     logger.propagate = True
+    logger.setLevel(logging.NOTSET)
+    logger.disabled = False
     try:
         yield
     finally:
         logger.propagate = previous_propagate
+        logger.setLevel(previous_level)
+        logger.disabled = previous_disabled
 
 
 @pytest.fixture(autouse=True)
