@@ -709,6 +709,19 @@ class TrustedEndpoints:
             # UN OCHA Humanitarian Data Exchange — static snapshot of the
             # NASA Global Landslide Catalog (label-source fallback).
             "data.humdata.org",
+            # Internet Archive Wayback Machine — raw-bytes replay (id_ URLs)
+            # of the classic Global Consciousness Project per-second REG
+            # basketdata archives (noosphere.princeton.edu is unreachable
+            # from this environment; its 2011-2024 day files are archived).
+            # Real hardware-RNG null streams for the REG statistical-
+            # deviation detector.
+            "web.archive.org",
+            # Official GCP mirror — basketdata CSV format specification and
+            # parser sources (docs, not bulk data).
+            "global-mind.org",
+            # GCP 2.0 network — live public API (rolling 24h per-minute
+            # network-variance aggregates); no historical archive.
+            "rng.observer",
         }
     )
 
