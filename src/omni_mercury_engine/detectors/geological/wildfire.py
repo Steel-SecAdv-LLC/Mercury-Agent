@@ -40,6 +40,13 @@ from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 # Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
 HOTSPOT_THRESHOLD_K = 350.0
 
+# Default decision threshold on the CNN fire probability (the detector's
+# historical fixed alert rule). A trained checkpoint may carry a
+# validation-selected operating point that replaces it for the ALERT decision
+# only (see load_neural_weights); the reported confidence always stays the raw
+# sigmoid probability.
+FIRE_PROB_THRESHOLD_DEFAULT = 0.6
+
 
 class FireRiskLevel(Enum):
     """Fire risk classifications."""
@@ -620,6 +627,14 @@ class WildfireDetector:
         # declares a spec is loaded.
         self._feature_spec: str | None = None
 
+        # Deployed alert threshold on the CNN fire probability. A trained
+        # checkpoint may carry a validation-selected operating point (see
+        # wildfire_ignition._select_operating_point) because a pos-weighted
+        # BCE sigmoid's scale is not calibrated to the historical fixed 0.6;
+        # the threshold governs the ALERT decision only -- confidence remains
+        # the raw sigmoid probability.
+        self._fire_prob_threshold: float = FIRE_PROB_THRESHOLD_DEFAULT
+
         self.logger = logging.getLogger(__name__)
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
@@ -636,6 +651,14 @@ class WildfireDetector:
         in the center 2x2 cells on day t+1 -- not a same-scene imagery
         classification. The checkpoint's ``feature_spec`` records this
         contract.
+
+        A checkpoint may also carry an ``operating_point`` with a
+        validation-selected ``fire_prob_threshold`` replacing the default
+        alert rule ``probability > 0.6`` (the training sigmoid's scale is not
+        calibrated to that fixed constant). The threshold changes the ALERT
+        decision only; the reported confidence stays the raw probability. An
+        operating point that is not a probability in (0, 1) raises rather
+        than installing a nonsensical alert rule.
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing an
@@ -660,11 +683,25 @@ class WildfireDetector:
         self._feature_spec = (
             str(checkpoint["feature_spec"]) if "feature_spec" in checkpoint else None
         )
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["fire_prob_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating-point threshold {tau} is not a "
+                    "probability in (0, 1); refusing a nonsensical fire-alert rule"
+                )
+            self._fire_prob_threshold = tau
+        else:
+            self._fire_prob_threshold = FIRE_PROB_THRESHOLD_DEFAULT
         self._neural_trained = True
         self.logger.info(
-            "Wildfire neural weights loaded from %s (feature spec: %s); " "using learned detector",
+            "Wildfire neural weights loaded from %s (feature spec: %s; alert "
+            "threshold: %.4f%s); using learned detector",
             source,
             self._feature_spec or "unspecified",
+            self._fire_prob_threshold,
+            " from checkpoint operating point" if op is not None else " default",
         )
 
     def _warn_untrained_once(self) -> None:
@@ -795,7 +832,10 @@ class WildfireDetector:
         with torch.no_grad():
             fire_prob = self.ignition_detector(thermal_tensor)
 
-        fire_detected = float(fire_prob[0].item()) > 0.6
+        # Alert decision at the deployed threshold: the checkpoint's
+        # validation-selected operating point when one was loaded, else the
+        # historical fixed default. Confidence stays the raw probability.
+        fire_detected = float(fire_prob[0].item()) > self._fire_prob_threshold
 
         # Spatial hotspot mask over the (1, C, H, W) array: a pixel is a hotspot
         # candidate when ANY channel exceeds the threshold; the 2-D thermal map

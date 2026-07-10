@@ -53,6 +53,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -123,9 +124,21 @@ EASY_NEG_RATIO = 1.0
 
 SAMPLE_KINDS = ("positive", "hard_negative", "easy_negative")
 
-# The detector's deployed decision threshold on the CNN fire probability
-# (WildfireDetector._detect_ignition: fire_detected = prob > 0.6).
+# The detector's DEFAULT deployed decision threshold on the CNN fire
+# probability (wildfire.FIRE_PROB_THRESHOLD_DEFAULT: fire_detected =
+# prob > 0.6). A pos-weighted BCE sigmoid's scale is not calibrated to that
+# fixed constant, so train() selects the actual deployed threshold on the
+# VALIDATION years (_select_operating_point) and carries it in the checkpoint
+# payload; WildfireDetector.load_neural_weights consumes it for the ALERT
+# decision only.
 DEPLOYED_PROB_THRESHOLD = 0.6
+
+# Operating-point selection headroom on the VALIDATION years (mirrors
+# solar_storm._select_operating_point): the ship gate demands recall >= physics
+# and FAR <= physics on TEST, and a threshold selected at exact validation
+# parity can lose either by a rounding error after the val->test shift.
+OP_RECALL_HEADROOM = 0.01  # required val recall = physics val recall + this
+OP_FAR_HEADROOM = 0.85  # required val FAR <= this fraction of physics val FAR
 
 _REQUIRED_COLUMNS = (
     "latitude",
@@ -761,14 +774,154 @@ def _model_probs(model: Any, x: torch.Tensor, batch: int = 256) -> np.ndarray:
     return np.concatenate(out)
 
 
+def _deployed_metrics(labels: np.ndarray, detect: np.ndarray) -> tuple[float, float, float]:
+    """(recall, FAR, CSI) of boolean alert decisions against 0/1 labels."""
+    is_pos = labels == 1.0
+    tp = float(np.sum(detect & is_pos))
+    fn = float(np.sum(~detect & is_pos))
+    fp = float(np.sum(detect & ~is_pos))
+    recall = tp / max(tp + fn, 1.0)
+    far = fp / max(float(np.sum(~is_pos)), 1.0)
+    csi = tp / max(tp + fn + fp, 1.0)
+    return recall, far, csi
+
+
+def _select_operating_point(
+    ds: WildfireDataset,
+    *,
+    val_mask: np.ndarray,
+    val_probs: np.ndarray,
+) -> dict[str, Any]:
+    """Choose the deployed fire-alert threshold on the VALIDATION years.
+
+    Policy (documented for owner ratification, mirroring
+    ``solar_storm._select_operating_point``): the detector's deployed alert
+    rule is ``fire_probability > tau`` with a historical fixed default of
+    0.6, but the pos-weighted-BCE sigmoid's scale is not calibrated to that
+    constant. So tau is selected on the VALIDATION years against the same
+    constraints the ship gate enforces on test, with headroom for the
+    val->test distribution shift: alert recall must reach the physics
+    validation recall + :data:`OP_RECALL_HEADROOM`, AND the false-alarm rate
+    must stay at or below :data:`OP_FAR_HEADROOM` x the physics validation
+    FAR. Among feasible thresholds the one maximizing CSI wins (ties ->
+    higher tau, fewer alarms). If no threshold meets both floors, the
+    fallback is the most feasible-on-FAR point with the best recall (a
+    recall-maximizing fallback that blows the FAR ceiling would be selecting
+    a point the ship gate is guaranteed to refuse). Physics decisions come
+    from the SAME public ``WildfireDetector.predict_wildfire`` API that
+    ``evaluate`` uses, so parity is by construction. The chosen threshold is
+    carried in the checkpoint payload and consumed by
+    ``WildfireDetector.load_neural_weights`` for the ALERT decision only;
+    confidence remains the raw sigmoid probability.
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar (threshold, policy, and the validation-year
+        recall/FAR/CSI for both the learned rule and physics).
+
+    Raises:
+        RuntimeError: If validation is single-class, or no threshold even
+            satisfies the FAR ceiling (the alert head is unusable -- refusing
+            to record a doomed operating point).
+    """
+    from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+    val_idx = np.flatnonzero(val_mask)
+    labels = ds.labels[val_mask]
+    if not (labels == 1.0).any() or not (labels == 0.0).any():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an " "operating point honestly"
+        )
+
+    physics_det = WildfireDetector(
+        enable_spread_modeling=False,
+        enable_ndvi_processing=False,
+        enable_resonance=False,
+        enable_enhanced_cnn=False,
+    )
+    phys_detect = np.array(
+        [
+            bool(physics_det.predict_wildfire({"thermal_image": ds.patches[i]}).fire_detected)
+            for i in val_idx
+        ],
+        dtype=bool,
+    )
+    physics_recall, physics_far, physics_csi = _deployed_metrics(labels, phys_detect)
+
+    recall_floor = min(1.0, physics_recall + OP_RECALL_HEADROOM)
+    far_ceiling = OP_FAR_HEADROOM * physics_far
+
+    taus = np.unique(
+        np.concatenate(
+            [np.quantile(val_probs, np.linspace(0.0, 1.0, 513)), [DEPLOYED_PROB_THRESHOLD]]
+        )
+    )
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _deployed_metrics(labels, val_probs > float(tau))
+        entry = {
+            "fire_prob_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["fire_prob_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the fire-probability head is not usable for alert decisions -- "
+            "refusing to record a doomed operating point"
+        )
+    default_recall, default_far, default_csi = _deployed_metrics(
+        labels, val_probs > DEPLOYED_PROB_THRESHOLD
+    )
+    return {
+        **chosen,
+        "policy": "alert rule prob>tau; tau maximizes val CSI subject to val recall >= "
+        f"physics val recall + {OP_RECALL_HEADROOM} AND val FAR <= "
+        f"{OP_FAR_HEADROOM} * physics val FAR (headroom guards the val->test shift)",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+        "val_csi_physics": physics_csi,
+        "default_threshold": DEPLOYED_PROB_THRESHOLD,
+        "default_threshold_feasible": bool(
+            default_recall >= recall_floor and default_far <= far_ceiling
+        ),
+        "val_recall_default": default_recall,
+        "val_far_default": default_far,
+        "val_csi_default": default_csi,
+    }
+
+
 def train(ctx: PipelineContext) -> dict[str, Any]:
     """Train FireIgnitionDetector with early stopping on validation AUC.
 
     Pos-weighted BCE on the ``fire_classifier`` sigmoid output, Adam 1e-3,
-    batch 64, patience 6 on validation AUC (higher is better), seeded.
+    batch 64, patience 6 on validation AUC (higher is better), seeded. After
+    the best epoch is restored, the deployed alert threshold is selected on
+    the validation years (:func:`_select_operating_point`) and carried in the
+    checkpoint payload.
 
     Returns:
-        Training record (epochs run, best validation AUC, sample counts).
+        Training record (epochs run, best validation AUC, sample counts,
+        operating point).
     """
     from omni_mercury_engine.detectors.geological.wildfire import FireIgnitionDetector
 
@@ -844,9 +997,15 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         raise RuntimeError("training produced no finite validation AUC; refusing to save")
     model.load_state_dict(best_state)
 
+    operating_point = _select_operating_point(
+        ds, val_mask=val_mask, val_probs=_model_probs(model, x_val)
+    )
+    logger.info("operating point: %s", operating_point)
+
     record = {
         "seed": ctx.seed,
         "epochs_run": epochs_run,
+        "max_epochs": ctx.max_epochs,
         "best_val_auc": best_val_auc,
         "n_train": int(train_mask.sum()),
         "n_val": int(val_mask.sum()),
@@ -854,6 +1013,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "val_years": list(SPLIT.val_years),
         "train_positive_fraction": n_pos / x_train.shape[0],
         "pos_weight": pos_weight,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "ignition_detector": model.state_dict(),
@@ -862,6 +1022,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "patch_cells": PATCH_CELLS,
         "channels": list(CHANNEL_NAMES),
         "label": LABEL_SPEC,
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
@@ -879,6 +1040,15 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     so on this forecasting task it is effectively a persistence forecaster
     of tomorrow ("fire burning today near the center => alarm"). That is the
     honest baseline to beat, and it is recorded as such in ``extras``.
+
+    The learned alert decision is the detector's own deployed rule: the
+    validation-selected threshold carried by the candidate checkpoint
+    (installed by ``load_neural_weights``). Besides the primary AUC, the
+    gate constrains recall and false-alarm rate at each path's deployed
+    decision plus the Brier score of the confidence output; extras carry a
+    seeded 1000-resample bootstrap 95% CI on the AUC difference, the
+    parameter count, the median single-patch inference latency, and a
+    per-test-year breakdown.
 
     Returns:
         The evaluation outcome (primary metric: AUC of the deployed
@@ -921,19 +1091,70 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             conf[name].append(c)
             detected[name].append(bool(out.fire_detected))
 
-    def _metrics(name: str) -> dict[str, float]:
-        c = np.asarray(conf[name])
-        d = np.asarray(detected[name], dtype=bool)
-        is_pos = labels == 1.0
-        tp = float(np.sum(d & is_pos))
-        fn = float(np.sum(~d & is_pos))
-        fp = float(np.sum(d & ~is_pos))
+    conf_arr = {name: np.asarray(v, dtype=np.float64) for name, v in conf.items()}
+    det_arr = {name: np.asarray(v, dtype=bool) for name, v in detected.items()}
+
+    def _metrics(name: str, mask: np.ndarray | None = None) -> dict[str, float]:
+        m = np.ones(labels.size, dtype=bool) if mask is None else mask
+        recall, far, csi = _deployed_metrics(labels[m], det_arr[name][m])
         return {
-            "auc": binary_auc(labels, c),
-            "recall_deployed": float(tp / max(tp + fn, 1.0)),
-            "false_alarm_deployed": float(fp / max(float(np.sum(~is_pos)), 1.0)),
-            "csi_deployed": float(tp / max(tp + fn + fp, 1.0)),
-            "brier": brier_score(labels, c),
+            "auc": binary_auc(labels[m], conf_arr[name][m]),
+            "recall_deployed": recall,
+            "false_alarm_deployed": far,
+            "csi_deployed": csi,
+            "brier": brier_score(labels[m], conf_arr[name][m]),
+        }
+
+    # Seeded bootstrap 95% CI on the AUC difference (learned - physics),
+    # resampling test patches with replacement.
+    n_resamples = 1000
+    boot_rng = np.random.default_rng(ctx.seed)
+    deltas: list[float] = []
+    for _ in range(n_resamples):
+        idx = boot_rng.integers(0, labels.size, size=labels.size)
+        la = binary_auc(labels[idx], conf_arr["learned"][idx])
+        pa = binary_auc(labels[idx], conf_arr["physics"][idx])
+        if np.isfinite(la) and np.isfinite(pa):
+            deltas.append(float(la - pa))
+    delta_arr = np.asarray(deltas, dtype=np.float64)
+    auc_diff_bootstrap = {
+        "n_resamples": n_resamples,
+        "n_valid": int(delta_arr.size),
+        "seed": ctx.seed,
+        "delta_auc_point": float(
+            binary_auc(labels, conf_arr["learned"]) - binary_auc(labels, conf_arr["physics"])
+        ),
+        "ci95_low": float(np.percentile(delta_arr, 2.5)),
+        "ci95_high": float(np.percentile(delta_arr, 97.5)),
+    }
+
+    # Median single-patch inference latency of the learned path through the
+    # public API (100 timed runs on one representative test patch).
+    latency_case = {"thermal_image": ds.patches[test_idx[0]]}
+    latencies_ms: list[float] = []
+    for _ in range(100):
+        t0 = time.perf_counter()
+        learned_det.predict_wildfire(latency_case)
+        latencies_ms.append((time.perf_counter() - t0) * 1e3)
+    median_latency_ms = float(np.median(latencies_ms))
+
+    parameter_count = int(
+        sum(p.numel() for p in learned_det.ignition_detector.parameters())
+        if learned_det.ignition_detector is not None
+        else 0
+    )
+
+    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = payload.get("operating_point")
+
+    per_test_year: dict[int, dict[str, Any]] = {}
+    for y in np.unique(ds.years[test_idx]):
+        m = ds.years[test_idx] == y
+        per_test_year[int(y)] = {
+            "n_test_samples": int(m.sum()),
+            "base_rate": float(labels[m].mean()),
+            "learned": _metrics("learned", m),
+            "physics": _metrics("physics", m),
         }
 
     test_year_counts = {
@@ -955,6 +1176,14 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "test_base_rate": float(labels.mean()),
             "per_year_counts": {int(y): c for y, c in ds.per_year_counts.items()},
             "test_year_counts": test_year_counts,
+            "per_test_year_metrics": per_test_year,
+            "auc_diff_bootstrap": auc_diff_bootstrap,
+            "parameter_count": parameter_count,
+            "median_inference_latency_ms": median_latency_ms,
+            "inference_latency_note": "median of 100 timed single-patch "
+            "predict_wildfire calls on the learned path (CPU, torch threads as "
+            "configured by the caller)",
+            "operating_point": operating_point,
             "channels": list(CHANNEL_NAMES),
             "feature_spec": FEATURE_SPEC_VERSION,
             "label": LABEL_SPEC,
@@ -963,24 +1192,31 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "physics_baseline_interpretation": "the physics brightness-threshold path "
             "reads ch0 = TODAY's max brightness temperature, so on this next-day task "
             "it acts as a persistence forecaster of tomorrow -- the honest baseline",
-            "deployed_thresholds": "learned: fire probability > "
-            f"{DEPLOYED_PROB_THRESHOLD} (the detector's fixed decision rule); physics: "
-            "its own absolute+contextual brightness-temperature decision",
+            "deployed_thresholds": "learned: fire probability > the checkpoint's "
+            "validation-selected operating point (payload['operating_point'], "
+            f"default {DEPLOYED_PROB_THRESHOLD} when absent), installed by "
+            "load_neural_weights for the alert decision only; physics: its own "
+            "absolute+contextual brightness-temperature decision",
         },
         constraints=[
+            {
+                "metric": "recall_deployed",
+                "higher_is_better": True,
+                "description": "alert recall at each path's deployed decision rule "
+                "must not regress below physics -- a forecaster that misses fires "
+                "physics catches does not ship on a ranking win",
+            },
+            {
+                "metric": "false_alarm_deployed",
+                "higher_is_better": False,
+                "description": "false-alarm rate at each path's deployed decision "
+                "rule must not exceed physics",
+            },
             {
                 "metric": "brier",
                 "higher_is_better": False,
                 "description": "probability quality of the deployed confidence output "
                 "must not regress below the physics confidence",
-            },
-            {
-                "metric": "csi_deployed",
-                "higher_is_better": True,
-                "description": "critical success index at each path's deployed decision "
-                "rule must not regress -- recall/false-alarm are reported individually "
-                "but sit at different fixed operating rules, so the gate constrains "
-                "their operational aggregate rather than demanding pointwise dominance",
             },
         ],
     )
