@@ -270,14 +270,33 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="schumann_harmonics",
         detector="space.schumann_resonance.SchumannResonanceDetector",
         architecture="1D CNN + LSTM(512) over harmonic spectra",
-        category="b",
+        category="a",
         data_requirement=(
-            "Calibrated ELF station spectrograms (e.g. HeartMath GCMS or "
-            "university ELF observatories) with anomaly annotations; no such "
-            "labeled public corpus is downloadable here — the BGS ELF client "
-            "in data_sources is explicitly simulated and must never be used "
-            "as training data."
+            "Sierra Nevada (Spain) ELF observatory raw int16 ADC hour files "
+            "(Zenodo records 6348691/6348773/6348838/6348930, CC-BY-4.0; "
+            "Salinas et al. 2022, Comput. Geosci. 165:105148), read as "
+            "ranged-GET remote-ZIP member prefixes (the 26-28 GB year "
+            "archives are never downloaded whole), labeled with GFZ Potsdam "
+            "definitive Kp (kp.gfz.de): disturbed Kp>=5 vs quiet Kp<=2, "
+            "intermediate hours excluded — the simulated BGS ELF client is "
+            "never training data. The merit gate compares against the "
+            "detector's deterministic FFT-physics assessment through the "
+            "public detect_resonance_anomaly API on identical held-out "
+            "2016-2017 hours with deployed-rule recall/FAR and "
+            "anomaly-type-agreement non-regression constraints; 'physics "
+            "wins, not shipped' is a valid recorded outcome — and is the "
+            "CURRENT one (2026-07-10, schumann-sn-v1): the learned model "
+            "wins held-out ranking AUC (0.5684 vs 0.3738, bootstrap 95% CI "
+            "on the difference [0.132, 0.257] excludes zero) and "
+            "anomaly-type accuracy (0.6017 vs 0.2427), but the physics rule "
+            "alarms on every held-out hour (recall 1.0 at false-alarm rate "
+            "1.0), so the learned deployed rule's recall 0.7897 < 1.0 "
+            "failed the non-regression constraint and the gate refused the "
+            "ship — the physics fallback stays in charge. Honest record: "
+            "artifacts/hazard_training/schumann_sierra_nevada.eval.json."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.schumann_harmonics",
+        checkpoint_name="schumann_sierra_nevada",
     ),
     "consciousness_field": HookEntry(
         name="consciousness_field",

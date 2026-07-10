@@ -819,6 +819,14 @@ class VolcanicEruptionDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Ratified eruption-alert operating point carried by trained
+        # checkpoints (see volcanic_eruption._select_operating_point): the
+        # eruption-head probability drives the eruption_imminent DECISION via
+        # a validation-selected threshold. Decision only -- the emitted
+        # confidence is never rescaled by it. None until a checkpoint that
+        # declares one is loaded (the legacy fixed 0.7 rule applies then).
+        self._operating_point: dict[str, float] | None = None
+
         # HMM for volcanic state transitions
         self.state_hmm = VolcanicStateHMM() if enable_hmm else None
 
@@ -863,13 +871,28 @@ class VolcanicEruptionDetector:
         self.eruption_model.load_state_dict(checkpoint["eruption_model"])
         if self.seismic_detector is not None and "seismic_detector" in checkpoint:
             self.seismic_detector.load_state_dict(checkpoint["seismic_detector"])
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["eruption_prob_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating-point threshold {tau} is not a "
+                    "probability; refusing a nonsensical eruption-alert rule"
+                )
+            self._operating_point = {"eruption_prob_threshold": tau}
         self._neural_trained = True
         self.logger.info(
-            "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s); "
+            "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s%s); "
             "using learned forecast",
             source,
             checkpoint.get("feature_spec", "unknown"),
             ", ".join(checkpoint.get("volcanoes", [])) or "unspecified",
+            (
+                f"; eruption-alert operating point tau="
+                f"{self._operating_point['eruption_prob_threshold']:.4f}"
+                if self._operating_point is not None
+                else "; no operating point (legacy fixed 0.7 rule)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -1274,11 +1297,20 @@ class VolcanicEruptionDetector:
             self.eruption_model.eval()
             with torch.no_grad():
                 eruption_prob, vei_logits, time_norm = self.eruption_model(features_tensor)
+            prob = float(eruption_prob[0].item())
+            # The eruption_imminent DECISION uses the checkpoint-carried
+            # validation-selected operating point when one was loaded
+            # (decision only: the confidence stays the raw head probability);
+            # checkpoints without one keep the legacy fixed 0.7 rule.
+            if self._operating_point is not None:
+                imminent = prob >= self._operating_point["eruption_prob_threshold"]
+            else:
+                imminent = prob > 0.7
             vei_estimate = int(torch.argmax(torch.softmax(vei_logits[0], dim=0)).item())
             eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
             return {
-                "eruption_imminent": float(eruption_prob[0].item()) > 0.7,
-                "confidence": float(eruption_prob[0].item()),
+                "eruption_imminent": imminent,
+                "confidence": prob,
                 "time_to_eruption_hours": float(time_norm[0].item()) * 168.0,
                 "vei_estimate": vei_estimate,
                 "eruption_type": eruption_types[min(vei_estimate // 2, 3)],

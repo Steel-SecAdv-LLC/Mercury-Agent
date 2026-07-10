@@ -97,7 +97,11 @@ QUIET_BUFFER_DAYS = 60
 #: Hard cap on the CUMULATIVE waveform cache (== total EarthScope transfer,
 #: since day files are fetched once and never deleted). Applies across
 #: reruns, not per invocation -- restarting fetch cannot double the budget.
-WAVEFORM_BYTE_BUDGET = 6_200_000_000
+#: History: the first session's 6.2 GB cap ran out with 113 planned NEGATIVE
+#: station-days (93 test / 20 val) still unfetched; the continuation session
+#: was granted <= 3 GiB more and raised the cap just enough (~1.3 GB) to
+#: finish the committed sample plan -- never to widen it.
+WAVEFORM_BYTE_BUDGET = 7_500_000_000
 #: Sampled quiet (negative) days per volcano-year, per split. Test years get
 #: the densest sampling (false-alarm-rate precision on held-out data).
 NEG_PER_YEAR = {"train": 3, "val": 4, "test": 6}
@@ -1603,6 +1607,12 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     docstring). Early stopping on validation AUC of the eruption head,
     patience 8. Adam 1e-3, batch 64.
 
+    After training, the deployed eruption-alert operating point is selected
+    on the VALIDATION years only (see :func:`_select_operating_point`) and
+    carried in the checkpoint payload, where
+    ``VolcanicEruptionDetector.load_neural_weights`` consumes and validates
+    it; it drives the ``eruption_imminent`` decision only.
+
     Returns:
         Training record (also embedded in the candidate checkpoint).
     """
@@ -1713,12 +1723,15 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     model.load_state_dict(best_states[0])
     swarm.load_state_dict(best_states[1])
 
-    # Validation-selected alert threshold (reported + shipped for operators;
-    # the detector's hardcoded eruption_imminent threshold stays 0.7).
+    # Deployed-rule operating point: selected on the VALIDATION years only,
+    # against the ship gate's deployed-rule constraints (recall not below /
+    # FAR not above the physics swarm alarm on the same cases) with FAR
+    # headroom for the val->test shift. Payload-carried; consumed + validated
+    # by VolcanicEruptionDetector.load_neural_weights, decision only.
     model.eval()
     with torch.no_grad():
         val_prob = model(xv)[0].squeeze(-1).numpy()
-    tau, tau_stats = _select_threshold(yv, val_prob)
+    operating_point = _select_operating_point(ds, val_mask, val_prob)
 
     record = {
         "seed": ctx.seed,
@@ -1730,8 +1743,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "val_years": list(SPLIT.val_years),
         "train_positive_fraction": n_pos / max(n_pos + n_neg, 1.0),
         "pos_weight": pos_weight,
-        "val_alert_threshold": tau,
-        "val_alert_threshold_stats": tau_stats,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "eruption_model": model.state_dict(),
@@ -1745,14 +1757,19 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "feature_std": ds.feature_std.tolist(),
         "hourly_feature_mean": ds.hourly_mean.tolist(),
         "hourly_feature_std": ds.hourly_std.tolist(),
-        "val_alert_threshold": tau,
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
 
 
 def _select_threshold(labels: np.ndarray, scores: np.ndarray) -> tuple[float, dict[str, float]]:
-    """Pick the score threshold maximizing CSI on the given (val) samples."""
+    """Pick the score threshold maximizing CSI on the given samples.
+
+    Used to fit the classical RSAM-ratio baseline's alert threshold on TRAIN
+    years (the learned path's deployed threshold comes from
+    :func:`_select_operating_point` instead).
+    """
     labels = np.asarray(labels, dtype=bool)
     best_tau, best_csi, best = 0.5, -1.0, {"recall": 0.0, "far": 0.0, "csi": 0.0}
     for tau in np.unique(np.quantile(scores, np.linspace(0.0, 1.0, 257))):
@@ -1772,6 +1789,147 @@ def _select_threshold(labels: np.ndarray, scores: np.ndarray) -> tuple[float, di
     return best_tau, best
 
 
+def _physics_swarm_flags(ds: VolcanicDataset, indices: np.ndarray) -> np.ndarray:
+    """Physics swarm-alarm flags for the given cases via the PUBLIC API.
+
+    Runs an un-weighted :class:`VolcanicEruptionDetector` on each case's raw
+    per-minute velocity RSAM series (HMM reset per case) and collects the
+    deployed ``seismic_swarm_detected`` decision. Deterministic.
+    """
+    from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+    physics_det = VolcanicEruptionDetector()
+    det_logger = logging.getLogger("omni_mercury_engine.detectors.geological.volcanic")
+    old_level = det_logger.level
+    det_logger.setLevel(logging.WARNING)  # hundreds of per-case INFO lines otherwise
+    flags: list[bool] = []
+    try:
+        for i in indices:
+            minute = ds.minute_rsam[i]
+            minute_clean = minute[np.isfinite(minute)].astype(np.float64)
+            if physics_det.state_hmm is not None:
+                physics_det.state_hmm.reset()
+            result = physics_det.predict_eruption({"seismic_sequence": minute_clean})
+            flags.append(bool(result.seismic_swarm_detected))
+    finally:
+        det_logger.setLevel(old_level)
+    return np.asarray(flags, dtype=bool)
+
+
+def _select_operating_point(
+    ds: VolcanicDataset, val_mask: np.ndarray, head_prob_val: np.ndarray
+) -> dict[str, Any]:
+    """Choose the deployed eruption-alert threshold on VALIDATION years only.
+
+    Policy (documented for owner ratification; mirrors
+    ``solar_storm._select_operating_point``): the deployed learned decision
+    is ``eruption_head_prob >= tau`` -- exactly what
+    ``VolcanicEruptionDetector._forecast_eruption`` thresholds once the
+    checkpoint carries this operating point. Selection requires, on the
+    validation years only, that rule's eruption recall to be at least the
+    physics seismic swarm alarm's validation recall AND its false-alarm rate
+    to be at most ``0.8 *`` the physics validation FAR (the 20% headroom
+    guards the val->test shift the ship gate's hard FAR constraint does not
+    forgive). Both targets mirror the gate's deployed-rule constraints; the
+    Brier constraint is threshold-independent and needs no selection. Among
+    feasible thresholds the CSI-maximizing one wins (ties -> higher tau,
+    fewer false alarms). Physics validation recall/FAR come from the PUBLIC
+    ``predict_eruption`` API on the same (volcano, day) cases (HMM reset per
+    case). Falls back to the FAR-feasible threshold with the best recall when
+    both floors cannot be met (recorded loudly -- the ship gate then judges
+    the honest result).
+
+    Args:
+        ds: Assembled dataset (for validation labels + raw RSAM series).
+        val_mask: Boolean validation-year mask over the dataset rows.
+        head_prob_val: Eruption-head probabilities for the validation rows.
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and consumed
+        + validated by ``load_neural_weights`` (threshold, policy, floors,
+        validation stats for the learned rule and the physics alarm).
+
+    Raises:
+        RuntimeError: Single-class validation years, or no threshold meets
+            even the FAR ceiling.
+    """
+    labels = np.asarray(ds.labels[val_mask], dtype=bool)
+    if not labels.any() or labels.all():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an " "operating point honestly"
+        )
+
+    phys_detect = _physics_swarm_flags(ds, np.flatnonzero(val_mask))
+    physics_recall = float(np.mean(phys_detect[labels]))
+    physics_far = float(np.mean(phys_detect[~labels]))
+    recall_floor = physics_recall
+    far_ceiling = 0.8 * physics_far
+
+    def _rule_metrics(tau: float) -> tuple[float, float, float]:
+        detect = head_prob_val >= tau
+        tp = float(np.sum(detect & labels))
+        fn = float(np.sum(~detect & labels))
+        fp = float(np.sum(detect & ~labels))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~labels)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in np.unique(np.quantile(head_prob_val, np.linspace(0.0, 1.0, 513))):
+        recall, far, csi = _rule_metrics(float(tau))
+        entry = {
+            "eruption_prob_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback when both floors cannot be met: the FAR-feasible point
+        # with the best recall (a recall-maximizing fallback that blows the
+        # FAR ceiling would pick a point the gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["eruption_prob_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the eruption head is not usable for alert decisions -- refusing "
+            "to record a doomed operating point"
+        )
+    if not floor_met:
+        logger.warning(
+            "operating point fell back to the FAR-feasible best-recall threshold "
+            "(val recall %.3f < physics floor %.3f); the ship gate will judge it",
+            chosen["val_recall"],
+            recall_floor,
+        )
+    return {
+        **chosen,
+        "policy": (
+            "deployed rule eruption_head_prob >= tau; tau maximizes validation "
+            "CSI subject to val recall >= physics val swarm recall AND "
+            "val FAR <= 0.8 * physics val swarm FAR"
+        ),
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics_swarm": physics_recall,
+        "val_far_physics_swarm": physics_far,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Stage: evaluate
 # ---------------------------------------------------------------------------
@@ -1788,66 +1946,36 @@ def _rsam_baseline_scores(ds: VolcanicDataset) -> np.ndarray:
     return ds.features[:, 19].astype(np.float64)
 
 
-def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
-    """Compare learned vs physics through the public detector API.
+def _run_detector_cases(
+    ds: VolcanicDataset,
+    x: np.ndarray,
+    h: np.ndarray,
+    indices: np.ndarray,
+    *,
+    learned_det: Any,
+    physics_det: Any,
+) -> dict[str, Any]:
+    """Run identical (volcano, day) cases through both public detector paths.
 
-    Both paths see the IDENTICAL held-out (volcano, day) cases, each fed the
-    honest input it consumes, derived from the same real seismic record:
-
-    * learned -- ``{"fused_features": standardized volcano-seismic-v1
-      vector, "seismic_sequence": standardized hourly (24, 32) sequence}``
-      through ``VolcanicEruptionDetector.predict_eruption`` after
-      ``load_neural_weights(candidate)``;
-    * physics -- ``{"seismic_sequence": the day's per-minute velocity RSAM
-      series}`` through the same method on an un-weighted detector: the
-      deterministic robust-z swarm statistics + HMM belief drive the
-      confidence. No degassing/InSAR/thermal exists in this dataset, so
-      those precursor fields are honestly absent for BOTH paths (the physics
-      noisy-OR forecast stage only runs at >= 2 indicators, which seismic
-      alone cannot reach -- its confidence is the swarm/HMM path; recorded
-      in extras).
-
-    The HMM is reset before every case so sample order cannot leak state.
-
-    Because seismic-only physics rarely raises the multi-parameter alarm, a
-    documented RSAM-ratio threshold baseline (fitted on TRAIN years) is the
-    stronger classical comparison: the merit gate additionally requires the
-    learned AUC to be >= that baseline's AUC (see ``constraints``).
+    Each case feeds each path the honest input it consumes (see
+    :func:`evaluate`); the HMM is reset before every case so sample order
+    cannot leak state. The learned path's per-case wall-clock latency is
+    recorded for the extras.
 
     Returns:
-        The evaluation outcome (primary metric: eruption AUC, higher better).
+        Dict with per-path confidence and ``eruption_imminent`` lists, the
+        physics ``seismic_swarm_detected`` flags, and learned-path latencies.
     """
-    from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+    import time
 
-    torch.set_num_threads(2)  # shared box
-    ds = build_dataset(ctx)
-    x, h = _standardize(ds)
-    _, _, test_mask = SPLIT.masks(ds.years)
-    test_idx = np.flatnonzero(test_mask)
-    if test_idx.size == 0:
-        raise RuntimeError("no test rows found; cannot evaluate")
-
-    cand_path, _ = candidate_paths(ctx.data_dir, HOOK_NAME)
-    if not cand_path.exists():
-        raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
-    model_head_tau = float(payload["val_alert_threshold"])  # reported only
-
-    physics_det = VolcanicEruptionDetector()
-    learned_det = VolcanicEruptionDetector()
-    learned_det.load_neural_weights(str(cand_path))
-
-    y = ds.labels[test_idx]
-    rsam_scores_all = _rsam_baseline_scores(ds)
-    train_mask, val_mask, _ = SPLIT.masks(ds.years)
-    val_idx = np.flatnonzero(val_mask)
-    tau_rsam, rsam_fit = _select_threshold(ds.labels[train_mask], rsam_scores_all[train_mask])
-    rsam_scores = rsam_scores_all[test_idx]
-
-    def _run_cases(indices: np.ndarray) -> dict[str, Any]:
-        conf: dict[str, list[float]] = {"learned": [], "physics": []}
-        imminent: dict[str, list[bool]] = {"learned": [], "physics": []}
-        swarm_flags: list[bool] = []
+    det_logger = logging.getLogger("omni_mercury_engine.detectors.geological.volcanic")
+    old_level = det_logger.level
+    det_logger.setLevel(logging.WARNING)  # hundreds of per-case INFO lines otherwise
+    conf: dict[str, list[float]] = {"learned": [], "physics": []}
+    imminent: dict[str, list[bool]] = {"learned": [], "physics": []}
+    swarm_flags: list[bool] = []
+    latency_s: list[float] = []
+    try:
         for i in indices:
             minute = ds.minute_rsam[i]
             minute_clean = minute[np.isfinite(minute)].astype(np.float64)
@@ -1862,26 +1990,227 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             ):
                 if det.state_hmm is not None:
                     det.state_hmm.reset()  # per-case independence, no order leak
+                t0 = time.perf_counter()
                 result = det.predict_eruption(case)
+                elapsed = time.perf_counter() - t0
                 if not np.isfinite(result.confidence):
                     raise RuntimeError(f"{name} path returned non-finite confidence for case {i}")
                 conf[name].append(float(result.confidence))
                 imminent[name].append(bool(result.eruption_imminent))
-                if name == "physics":
+                if name == "learned":
+                    latency_s.append(elapsed)
+                else:
                     swarm_flags.append(bool(result.seismic_swarm_detected))
-        return {"conf": conf, "imminent": imminent, "swarm": swarm_flags}
+    finally:
+        det_logger.setLevel(old_level)
+    return {"conf": conf, "imminent": imminent, "swarm": swarm_flags, "latency_s": latency_s}
 
-    # Alert threshold for the learned path is selected on the VALIDATION
-    # years' API confidences (never test), so the deployed decision rule is
-    # fixed before the held-out cases are scored.
-    val_runs = _run_cases(val_idx)
-    tau_learned, tau_val_stats = _select_threshold(
-        ds.labels[val_idx], np.asarray(val_runs["conf"]["learned"])
-    )
-    runs = _run_cases(test_idx)
-    conf = runs["conf"]
-    imminent = runs["imminent"]
-    swarm_flags = runs["swarm"]
+
+def _bootstrap_auc_diff(
+    y: np.ndarray,
+    s_learned: np.ndarray,
+    s_other: np.ndarray,
+    *,
+    seed: int,
+    n_boot: int = 1000,
+) -> dict[str, Any]:
+    """Seeded stratified case-resampling bootstrap CI on the AUC difference.
+
+    Resamples positives and negatives separately with replacement (class
+    counts preserved, so AUC stays defined in every resample) and reports the
+    2.5/97.5 percentile interval of ``AUC(learned) - AUC(other)`` over the
+    identical held-out cases. POSITIVE = learned better. Deterministic given
+    ``seed``; recorded verbatim into extras.
+
+    Args:
+        y: Held-out binary labels.
+        s_learned: Learned-path scores (same cases).
+        s_other: Baseline scores (same cases).
+        seed: Bootstrap RNG seed (the pipeline seed).
+        n_boot: Number of resamples.
+
+    Returns:
+        Dict with the point estimate, CI bounds, resample count, seed, and
+        whether the CI excludes zero.
+    """
+    yy = np.asarray(y, dtype=bool)
+    sl = np.asarray(s_learned, dtype=np.float64)
+    so = np.asarray(s_other, dtype=np.float64)
+    pos = np.flatnonzero(yy)
+    neg = np.flatnonzero(~yy)
+    rng = np.random.default_rng(seed)
+    diffs = np.empty(n_boot, dtype=np.float64)
+    for b in range(n_boot):
+        idx = np.concatenate(
+            [pos[rng.integers(0, pos.size, pos.size)], neg[rng.integers(0, neg.size, neg.size)]]
+        )
+        yb = yy[idx]
+        diffs[b] = binary_auc(yb, sl[idx]) - binary_auc(yb, so[idx])
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    return {
+        "point_estimate": float(binary_auc(yy, sl) - binary_auc(yy, so)),
+        "ci95_low": float(lo),
+        "ci95_high": float(hi),
+        "n_resamples": int(n_boot),
+        "seed": int(seed),
+        "ci_excludes_zero": bool(hi < 0.0 or lo > 0.0),
+        "note": (
+            "AUC difference (learned minus baseline, positive = learned better), "
+            "stratified case-resampling bootstrap (positives and negatives resampled "
+            "separately so AUC stays defined) over the identical held-out "
+            "(volcano, day) cases"
+        ),
+    }
+
+
+def _finite_or_none(value: float) -> float | None:
+    """JSON-safe float: None where the metric is undefined (single class)."""
+    return float(value) if np.isfinite(value) else None
+
+
+def _per_volcano_test_breakdown(
+    ctx: PipelineContext,
+    ds: VolcanicDataset,
+    test_idx: np.ndarray,
+    learned_scores: np.ndarray,
+    physics_scores: np.ndarray,
+    learned_alert: np.ndarray,
+    physics_alert: np.ndarray,
+) -> dict[str, Any]:
+    """Per-volcano held-out coverage and metrics (scoped-deliverable honesty).
+
+    Every named volcano gets a row -- including those whose test years hold
+    no covered eruption onset (their test rows contribute false-alarm
+    precision only, stated explicitly) and any test-year onset that had to be
+    dropped for missing station coverage (read back from the fetch manifest's
+    plan report, so the record never silently forgets an uncovered onset).
+    """
+    manifest_path = ctx.data_dir / "volcanic" / "manifest.json"
+    uncovered: dict[str, list[str]] = {}
+    if manifest_path.exists():
+        report = json.loads(manifest_path.read_text()).get("plan_report", {})
+        for onset in report.get("onsets", []):
+            if onset.get("split") == "test" and onset.get("positive_days_planned", 0) == 0:
+                uncovered.setdefault(str(onset["volcano"]), []).append(
+                    f"{onset['onset']}: onset in the test years but no pre-onset "
+                    "station-day had >=6h data -- absent from the hit table"
+                )
+    y = ds.labels[test_idx]
+    vols = ds.volcano_idx[test_idx]
+    out: dict[str, Any] = {}
+    for vi, spec in enumerate(VOLCANOES):
+        sel = vols == vi
+        yy = y[sel].astype(bool)
+        entry: dict[str, Any] = {
+            "n_test": int(sel.sum()),
+            "n_pos": int(yy.sum()),
+            "n_neg": int((~yy).sum()),
+        }
+        if sel.any():
+            entry["auc_learned"] = _finite_or_none(binary_auc(yy, learned_scores[sel]))
+            entry["auc_physics"] = _finite_or_none(binary_auc(yy, physics_scores[sel]))
+            entry["recall_op_learned"] = (
+                float(np.mean(learned_alert[sel][yy])) if yy.any() else None
+            )
+            entry["recall_op_physics"] = (
+                float(np.mean(physics_alert[sel][yy])) if yy.any() else None
+            )
+            entry["far_op_learned"] = (
+                float(np.mean(learned_alert[sel][~yy])) if (~yy).any() else None
+            )
+            entry["far_op_physics"] = (
+                float(np.mean(physics_alert[sel][~yy])) if (~yy).any() else None
+            )
+        if spec.name in uncovered:
+            entry["uncovered_test_onsets"] = uncovered[spec.name]
+        if entry["n_pos"] == 0:
+            entry["note"] = (
+                "no covered test-year eruption onset for this volcano; its test "
+                "rows contribute false-alarm precision only"
+            )
+        out[spec.name] = entry
+    return out
+
+
+def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
+    """Compare learned vs physics through the public detector API.
+
+    Both paths see the IDENTICAL held-out (volcano, day) cases, each fed the
+    honest input it consumes, derived from the same real seismic record:
+
+    * learned -- ``{"fused_features": standardized volcano-seismic-v1
+      vector, "seismic_sequence": standardized hourly (24, 32) sequence}``
+      through ``VolcanicEruptionDetector.predict_eruption`` after
+      ``load_neural_weights(candidate)``, which consumes and validates the
+      payload-carried, validation-selected operating point (it drives the
+      ``eruption_imminent`` DECISION only; the confidence stays the raw
+      eruption-head probability);
+    * physics -- ``{"seismic_sequence": the day's per-minute velocity RSAM
+      series}`` through the same method on an un-weighted detector: the
+      deterministic robust-z swarm statistics + HMM belief drive the
+      confidence, and its deployed alarm is the ``seismic_swarm_detected``
+      flag. No degassing/InSAR/thermal exists in this dataset, so those
+      precursor fields are honestly absent for BOTH paths (the physics
+      noisy-OR forecast stage only runs at >= 2 indicators, which seismic
+      alone cannot reach -- its confidence is the swarm/HMM path; recorded
+      in extras).
+
+    The HMM is reset before every case so sample order cannot leak state.
+
+    Because seismic-only physics rarely raises the multi-parameter alarm, a
+    documented RSAM-ratio threshold baseline (fitted on TRAIN years) is the
+    stronger classical comparison: the merit gate additionally requires the
+    learned AUC to be >= that baseline's AUC. The full constraint set is the
+    house pattern: deployed-rule recall (higher), deployed-rule FAR (lower),
+    Brier (lower), plus that RSAM AUC floor. Extras add a seeded stratified
+    bootstrap 95% CI on the AUC difference, the parameter count, the median
+    per-case inference latency, the per-onset hit table, and the per-volcano
+    test breakdown.
+
+    Returns:
+        The evaluation outcome (primary metric: eruption AUC, higher better).
+    """
+    from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+    torch.set_num_threads(2)  # shared box
+    ds = build_dataset(ctx)
+    x, h = _standardize(ds)
+    train_mask, _, test_mask = SPLIT.masks(ds.years)
+    test_idx = np.flatnonzero(test_mask)
+    if test_idx.size == 0:
+        raise RuntimeError("no test rows found; cannot evaluate")
+
+    cand_path, _ = candidate_paths(ctx.data_dir, HOOK_NAME)
+    if not cand_path.exists():
+        raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
+    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = payload.get("operating_point")
+    if operating_point is None:
+        raise RuntimeError(
+            "candidate checkpoint carries no operating_point; re-run --train (the "
+            "deployed alert rule is selected on validation years, never at "
+            "evaluation time)"
+        )
+
+    physics_det = VolcanicEruptionDetector()
+    learned_det = VolcanicEruptionDetector()
+    learned_det.load_neural_weights(str(cand_path))  # consumes + validates the operating point
+
+    y = ds.labels[test_idx]
+    rsam_scores_all = _rsam_baseline_scores(ds)
+    tau_rsam, rsam_fit = _select_threshold(ds.labels[train_mask], rsam_scores_all[train_mask])
+    rsam_scores = rsam_scores_all[test_idx]
+
+    runs = _run_detector_cases(ds, x, h, test_idx, learned_det=learned_det, physics_det=physics_det)
+    learned_scores = np.asarray(runs["conf"]["learned"])
+    physics_scores = np.asarray(runs["conf"]["physics"])
+    # Deployed decision rules, one per path (house pattern): learned = the
+    # API's eruption_imminent flag, i.e. the checkpoint-carried
+    # validation-selected threshold on the eruption head; physics = its
+    # seismic swarm alarm on the same cases.
+    learned_alert = np.asarray(runs["imminent"]["learned"], dtype=bool)
+    physics_alert = np.asarray(runs["swarm"], dtype=bool)
+    rsam_alert = rsam_scores >= tau_rsam
 
     def _op_metrics(detect: np.ndarray) -> tuple[float, float, float]:
         is_pos = y == 1.0
@@ -1893,17 +2222,9 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         csi = tp / max(tp + fn + fp, 1.0)
         return recall, far, csi
 
-    learned_scores = np.asarray(conf["learned"])
-    physics_scores = np.asarray(conf["physics"])
-    learned_alert = learned_scores >= tau_learned
-    physics_alert = np.asarray(swarm_flags, dtype=bool)  # deployed seismic alarm
-    rsam_alert = rsam_scores >= tau_rsam
-
     l_rec, l_far, l_csi = _op_metrics(learned_alert)
     p_rec, p_far, p_csi = _op_metrics(physics_alert)
     r_rec, r_far, r_csi = _op_metrics(rsam_alert)
-    l_rec_dep, l_far_dep, _ = _op_metrics(np.asarray(imminent["learned"], dtype=bool))
-    p_rec_dep, p_far_dep, _ = _op_metrics(np.asarray(imminent["physics"], dtype=bool))
     rsam_auc = binary_auc(y, rsam_scores)
 
     learned_metrics = {
@@ -1912,8 +2233,6 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         "recall_op": l_rec,
         "far_op": l_far,
         "csi_op": l_csi,
-        "recall_imminent_070": l_rec_dep,
-        "far_imminent_070": l_far_dep,
         "auc_vs_rsam_baseline": binary_auc(y, learned_scores),
     }
     physics_metrics = {
@@ -1922,13 +2241,22 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         "recall_op": p_rec,
         "far_op": p_far,
         "csi_op": p_csi,
-        "recall_imminent_070": p_rec_dep,
-        "far_imminent_070": p_far_dep,
         "auc_vs_rsam_baseline": rsam_auc,
     }
 
     hit_table = _per_onset_hit_table(ds, test_idx, learned_alert, physics_alert, rsam_alert)
     lead_stats = _lead_time_stats(ds, test_idx, learned_alert)
+    per_volcano = _per_volcano_test_breakdown(
+        ctx, ds, test_idx, learned_scores, physics_scores, learned_alert, physics_alert
+    )
+    swarm_params = (
+        sum(p.numel() for p in learned_det.seismic_detector.parameters())
+        if learned_det.seismic_detector is not None
+        else 0
+    )
+    n_parameters = int(
+        sum(p.numel() for p in learned_det.eruption_model.parameters()) + swarm_params
+    )
 
     outcome = EvaluationOutcome(
         hook=HOOK_NAME,
@@ -1954,16 +2282,18 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "seismic-only input, so the documented RSAM-ratio threshold baseline "
                 "(feature dim 19, threshold fitted on TRAIN years, see rsam_baseline) is "
                 "included as the stronger classical comparison and gated via the "
-                "auc_vs_rsam_baseline constraint."
+                "auc_vs_rsam_baseline constraint. Each path is scored on its own deployed "
+                "decision rule (see operating_points)."
             ),
             "operating_points": {
-                "learned_tau_val_csi": tau_learned,
-                "learned_tau_val_stats": tau_val_stats,
-                "learned_model_head_tau_from_train_stage": model_head_tau,
+                "learned": dict(operating_point),
+                "learned_consumed_by": (
+                    "VolcanicEruptionDetector.load_neural_weights (validated; drives the "
+                    "eruption_imminent decision only, never the confidence)"
+                ),
                 "physics_alarm": "seismic_swarm_detected flag (robust-z exceedance)",
                 "rsam_tau_train_csi": tau_rsam,
                 "rsam_train_fit": rsam_fit,
-                "detector_deployed_imminent_threshold": 0.7,
             },
             "rsam_baseline": {
                 "auc": rsam_auc,
@@ -1973,6 +2303,26 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             },
             "per_onset_hits": hit_table,
             "lead_time_days": lead_stats,
+            "per_volcano_test": per_volcano,
+            "auc_diff_bootstrap": {
+                "learned_minus_physics": _bootstrap_auc_diff(
+                    y, learned_scores, physics_scores, seed=ctx.seed
+                ),
+                "learned_minus_rsam_baseline": _bootstrap_auc_diff(
+                    y, learned_scores, rsam_scores, seed=ctx.seed
+                ),
+            },
+            "parameter_count": n_parameters,
+            "parameter_count_note": (
+                "EruptionForecastModel + SeismicSwarmDetector, the two networks the "
+                "loaded learned path runs"
+            ),
+            "median_inference_latency_ms": float(np.median(np.asarray(runs["latency_s"])) * 1e3),
+            "latency_note": (
+                "wall-clock seconds per learned-path predict_eruption call (case dict "
+                "in, result out) over every held-out case, CPU, "
+                "torch.set_num_threads(2); median reported in ms"
+            ),
             "test_positive_fraction": float(y.mean()),
             "hmm_reset_per_case": True,
         },
@@ -1989,9 +2339,23 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 "metric": "recall_op",
                 "higher_is_better": True,
                 "description": (
-                    "recall at the deployed alert point must not regress below the "
-                    "physics swarm alarm's recall on identical cases"
+                    "eruption recall at the deployed alert rule (learned: the "
+                    "checkpoint-carried validation-selected threshold; physics: its "
+                    "seismic swarm alarm) must not regress on identical cases"
                 ),
+            },
+            {
+                "metric": "far_op",
+                "higher_is_better": False,
+                "description": (
+                    "false-alarm rate at the deployed alert rule must not exceed the "
+                    "physics swarm alarm's on identical cases"
+                ),
+            },
+            {
+                "metric": "brier",
+                "higher_is_better": False,
+                "description": ("confidence Brier score must not regress above the physics path"),
             },
         ],
     )

@@ -291,6 +291,49 @@ class TestBuildDatasetCausality:
         assert not np.array_equal(before.features[changed], after.features[changed])
 
 
+class TestOperatingPointConsumption:
+    """Checkpoint-carried alert threshold: consumed, validated, decision-only."""
+
+    @staticmethod
+    def _payload(tau: float) -> dict[str, Any]:
+        from omni_mercury_engine.detectors.geological.volcanic import (
+            EruptionForecastModel,
+            SeismicSwarmDetector,
+        )
+
+        torch.manual_seed(0)
+        return {
+            "eruption_model": EruptionForecastModel(input_dim=128).state_dict(),
+            "seismic_detector": SeismicSwarmDetector(input_dim=32).state_dict(),
+            "operating_point": {"eruption_prob_threshold": tau},
+        }
+
+    def test_valid_threshold_consumed_and_decision_only(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        path = tmp_path / "cand.pt"
+        torch.save(self._payload(0.42), path)
+        detector = VolcanicEruptionDetector()
+        detector.load_neural_weights(str(path))
+        assert detector._operating_point == {"eruption_prob_threshold": 0.42}
+        result = detector.predict_eruption({"fused_features": [0.0] * 128})
+        # Decision only: the imminent flag applies tau to the eruption-head
+        # probability, which (with no seismic input) IS the confidence --
+        # never a rescaled confidence.
+        assert result.eruption_imminent == (result.confidence >= 0.42)
+
+    @pytest.mark.parametrize("bad", [0.0, 1.0, -0.3, float("nan")])
+    def test_nonsense_threshold_refuses_loud(self, bad: float, tmp_path: Path) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        path = tmp_path / "cand.pt"
+        torch.save(self._payload(bad), path)
+        detector = VolcanicEruptionDetector()
+        with pytest.raises(ValueError, match="operating-point"):
+            detector.load_neural_weights(str(path))
+        assert detector._neural_trained is False
+
+
 _SHIPPED = shipped_checkpoint_path("volcanic_avo_seismic")
 
 
