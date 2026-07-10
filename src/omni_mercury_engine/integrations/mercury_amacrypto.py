@@ -420,17 +420,21 @@ class MercuryGuardianAdapter:
     def _reported_posture_level(self) -> str:
         """Posture level for status, honest about a broken evaluator.
 
-        * A successful evaluation → its threat level (last known good).
-        * No evaluation yet but the evaluator is failing → ``UNKNOWN`` — we
-          cannot assert NOMINAL when the thing that would detect a threat is
-          itself down.
+        * Evaluator actively failing (consecutive failures since the last
+          success) → ``UNKNOWN`` — a stale last-good evaluation must not
+          keep reporting a reassuring level while the thing that would
+          detect a threat is itself down. ``_posture_eval_failures`` resets
+          to 0 on every success, so a non-zero count always means "failing
+          right now", and the failure counters in the status payload carry
+          the detail.
+        * Otherwise, a successful evaluation → its threat level.
         * Never evaluated, no failures → ``NOMINAL`` (genuine quiescent
           baseline).
         """
-        if self._last_posture_evaluation is not None:
-            return str(self._last_posture_evaluation.threat_level.name)
         if self._posture_eval_failures > 0:
             return "UNKNOWN"
+        if self._last_posture_evaluation is not None:
+            return str(self._last_posture_evaluation.threat_level.name)
         return str(ThreatLevel.NOMINAL.name)
 
     def _record_anomaly(self, anomaly: CryptoAnomaly) -> None:

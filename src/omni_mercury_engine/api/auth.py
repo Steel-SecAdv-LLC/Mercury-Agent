@@ -28,6 +28,7 @@ import hashlib
 import logging
 import os
 import secrets
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -755,13 +756,23 @@ class JWTAuth:
     # forged tokens. NEVER rely on this in production; set JWT_SECRET_KEY or
     # AMA_MASTER_SEED.
     _dev_fallback_key: str | None = None
+    _dev_fallback_key_lock = threading.Lock()
     _warned_about_fallback = False
 
     @classmethod
     def _get_dev_fallback_key(cls) -> str:
-        """Return this process's ephemeral dev signing key, creating it once."""
+        """Return this process's ephemeral dev signing key, creating it once.
+
+        Creation is lock-guarded (double-checked): two threads racing the
+        lazy init — e.g. a threaded ASGI server constructing two ``JWTAuth``
+        instances concurrently — must never observe different keys, or a
+        token signed by one instance would not verify with the other in the
+        same process.
+        """
         if cls._dev_fallback_key is None:
-            cls._dev_fallback_key = secrets.token_hex(32)
+            with cls._dev_fallback_key_lock:
+                if cls._dev_fallback_key is None:
+                    cls._dev_fallback_key = secrets.token_hex(32)
         return cls._dev_fallback_key
 
     def __init__(

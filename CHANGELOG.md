@@ -39,6 +39,17 @@ at the root:
   `torch.load` is now hard-pinned to `weights_only=True` (house convention),
   including the shipped-checkpoint loader which previously passed
   `weights_only=False` explicitly.
+- **Review findings resolved without weakening.** (1) A stale last-good
+  posture evaluation no longer masks an actively failing evaluator:
+  ``_reported_posture_level()`` reports ``UNKNOWN`` whenever consecutive
+  evaluation failures exist, even when a prior success is cached
+  (strictly more conservative; regression test added). (2) The JWT dev
+  fallback key's lazy initialization is now lock-guarded (double-checked)
+  so racing threads can never observe two different per-process keys
+  (8-thread barrier test). (3) A concatenated docstring in
+  ``detectors/directive.py`` and a split log literal in
+  ``space/disaster_precursor_detector.py`` were repaired (no behavior
+  change).
 - **caplog isolation hardened for the full-suite lane.** The autouse
   conftest guard that restored ``omni_mercury_engine``'s ``propagate`` flag
   now also forces/restores the logger's *level* and *disabled* flag: a test

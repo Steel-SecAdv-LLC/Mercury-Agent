@@ -789,9 +789,9 @@ class SigmaDirectiveDetector(BaseDetector):
         return float(min(micro_score, 1.0))
 
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float | None:
-        """N Term Enhancement: Dimensional downsampling for micro-anomaly detection Downsample to.
+        """N Term Enhancement: dimensional downsampling for micro-anomaly detection.
 
-        low dimensions to detect subtle micro-patterns.
+        Downsamples to low dimensions to detect subtle micro-patterns.
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 

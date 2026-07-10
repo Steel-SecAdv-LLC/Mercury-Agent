@@ -55,6 +55,43 @@ class TestJWTAuthMissingKey:
             assert len(auth.secret_key) == 64  # secrets.token_hex(32)
             assert JWTAuth(allow_dev_fallback=True).secret_key == auth.secret_key
 
+    def test_dev_fallback_key_lazy_init_is_thread_safe(self) -> None:
+        """Concurrent first-touch initialization must yield ONE process key.
+
+        Regression (review finding): the lazy init was unsynchronized, so two
+        threads racing it could briefly observe different fallback keys —
+        breaking the guarantee that two instances in one process can
+        sign/verify each other's tokens.
+        """
+        import threading
+
+        from omni_mercury_engine.api.auth import JWTAuth
+
+        original = JWTAuth._dev_fallback_key
+        try:
+            JWTAuth._dev_fallback_key = None
+            barrier = threading.Barrier(8)
+            keys: list[str] = []
+            keys_lock = threading.Lock()
+
+            def grab() -> None:
+                barrier.wait()
+                key = JWTAuth._get_dev_fallback_key()
+                with keys_lock:
+                    keys.append(key)
+
+            threads = [threading.Thread(target=grab) for _ in range(8)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            assert len(keys) == 8
+            assert len(set(keys)) == 1, "racing initializers observed different keys"
+            assert len(keys[0]) == 64  # secrets.token_hex(32)
+        finally:
+            JWTAuth._dev_fallback_key = original
+
     def test_jwt_auth_missing_key_no_fallback_raises(self) -> None:
         """Test JWT auth raises error when key missing and fallback disabled."""
         with patch.dict(os.environ, {}, clear=True):

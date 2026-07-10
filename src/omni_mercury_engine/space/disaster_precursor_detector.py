@@ -368,7 +368,7 @@ class DisasterPrecursorDetector:
         self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
         self._neural_trained = True
         self.logger.info(
-            "Earthquake-precursor neural weights loaded from %s; magnitude " "estimation enabled",
+            "Earthquake-precursor neural weights loaded from %s; magnitude estimation enabled",
             checkpoint_path,
         )
 
