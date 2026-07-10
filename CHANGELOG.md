@@ -317,6 +317,69 @@ install the mocked commit was never awaited and the test failed spuriously;
 and the `.coveragerc` comment naming the CI coverage floors was trued to the
 current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
+### Independent verification pass — reproduced results + fail-loud hardening
+
+An adversarial re-verification of this branch reproduced the two headline
+research claims and fixed every defect it surfaced:
+
+- **Both committed research results reproduce exactly** and their artifacts
+  now carry provenance commits that exist in this repository (the previous
+  artifacts recorded a dirty-tree commit hash that was never pushed):
+  rule evolution held-out test F1 0.5439 vs consensus 0.4119 (+0.1320);
+  counterfactual validation wachter/prototype/genetic 1.00 flip / 1.00
+  verified minimality, dice/growing_spheres honest 0.00 on the piecewise
+  regime.
+- **Wildfire hotspot count is spatial.** `fire_perimeter_km2` and
+  `thermal_hotspots` now derive from the 2-D hotspot mask; the previous
+  channel-summed exceedance count inflated the ground-area estimate up to
+  C-fold for pixels hot in several bands (regression test with a
+  3-band-hot block).
+- **Counterfactual searches harden honestly.** New `NonFiniteScoreError`
+  lets the detection seam's fail-loud score wrapper participate in the
+  Wachter/DiCE finite infeasibility barrier (previously the barrier was
+  unreachable through the seam: the wrapper's ValueError aborted the whole
+  search); optimizer failures are logged with their exception type; the
+  genetic generator's proximity term actually uses Gower distance when
+  feature metadata is present (the docstring claimed it; the code always
+  used L2). GENETIC and GOWER gained their first executing tests.
+- **Real-data GA tests run in every offline lane** via the committed
+  recorded-real ADBench Pima fixture (they previously skipped on any fresh
+  checkout); the committed champion `evolved_rule_graph.json` is loaded and
+  scored through the deployed `SymbolicConstraintModule` by tests.
+- **T4 detectors are discoverable.** All fifteen T4 detectors and all four
+  cascades joined `DETECTOR_MANIFEST` (hail, winter_storm, derecho,
+  dust_storm, avalanche, rockfall, subsidence, cme_arrival, sep_storm,
+  ionospheric_scintillation, gic, surge_flood_cascade, eq_tsunami_cascade,
+  fire_debris_flow_cascade, solar_gic_cascade) — they were library-only,
+  invisible to auto-discovery and every manifest-driven surface.
+  `DroughtLoader`/`HeatwaveLoader` are exported from `loaders/__init__`.
+- **Benchmark gate vacuity closed.** `run_all_benchmarks.py` now counts a
+  crashed, data-less, or loader-missing GATED domain as a gate failure —
+  a benchmark that never measured its AUC could previously exit 0.
+- **Surface tests are unconditional.** The counterfactual HTTP tests
+  deterministically disable the rate limiter (walking the built middleware
+  chain) instead of escaping through `status in (200, 429)`; the 403
+  ethical-gate branch asserts the refusal shape.
+- The dead `flood` branch of `build_hazard_geojson` was removed honestly
+  (flood emits no diagnostics payload; validation rejects it upstream);
+  the EHF core gained Nairn & Fawcett worked-example tests; the surge
+  cascade gained a recorded-real CO-OPS observed/predicted fixture test
+  (The Battery, 2026-07-09); the orphaned mis-shaped
+  `swpc_planetary_kp_recent.json` fixture was removed; two pre-existing
+  lint errors (F821 `Path` in tests/test_cli.py, SIM117 in the hail loader
+  tests) were fixed.
+- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the honest
+  Schumann 1-D-spectrum / no-track-cone / no-flood-GeoJSON scope notes) and
+  `docs/COUNTERFACTUALS_AND_RULE_EVOLUTION.md` (reproduction commands).
+- **Typed test debt cleared for real.** The tests-lane mypy debt on this
+  branch (176 errors across 36 test files) was fixed preferring real
+  annotations over ignores, and re-verified under *true-tree* package
+  resolution (`MYPYPATH=src`, mirroring CI) — which surfaced and fixed 11
+  further latent errors a stale editable install had masked.
+  `AvalancheDetector.assess_new_snow_loading` / `assess_temperature_gradient`
+  now return typed `TypedDict` contracts instead of `dict[str, object]`
+  (dropping two `type: ignore[arg-type]` casts on the prediction path).
+
 ### Hazard visualization & diagnostics (T3)
 
 The intermediate arrays hazard detectors compute were persisted (opt-in
