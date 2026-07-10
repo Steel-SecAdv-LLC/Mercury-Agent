@@ -11,12 +11,14 @@ All loaders implement the BaseDomainLoader interface.
 from __future__ import annotations
 
 from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.drought_loader import DroughtLoader
 from omni_mercury_engine.loaders.earthquake_loader import EarthquakeLoader
 from omni_mercury_engine.loaders.energy_loader import EnergyLoader
 from omni_mercury_engine.loaders.fema_loader import FEMALoader
 from omni_mercury_engine.loaders.financial_loader import FinancialLoader
 from omni_mercury_engine.loaders.flood_loader import FloodLoader
 from omni_mercury_engine.loaders.hail_loader import HailLoader
+from omni_mercury_engine.loaders.heatwave_loader import HeatwaveLoader
 from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
 from omni_mercury_engine.loaders.landslide_loader import LandslideLoader
 from omni_mercury_engine.loaders.marine_loader import MarineLoader
@@ -33,12 +35,14 @@ from omni_mercury_engine.loaders.wildfire_loader import WildfireLoader
 
 __all__ = [
     "BaseDomainLoader",
+    "DroughtLoader",
     "EarthquakeLoader",
     "EnergyLoader",
     "FEMALoader",
     "FinancialLoader",
     "FloodLoader",
     "HailLoader",
+    "HeatwaveLoader",
     "HurricaneLoader",
     "LandslideLoader",
     "MarineLoader",

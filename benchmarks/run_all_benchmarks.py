@@ -168,16 +168,30 @@ def run_all(
                         mean_auc,
                         gate,
                     )
+            elif fail_on_gate:
+                # A gated domain that produced no AUC cannot be allowed to
+                # pass the gate by not being measured.
+                gate_failures.append(f"{domain}: benchmark produced no mean AUC to gate")
+                logger.warning("GATE FAILURE: %s produced no mean AUC", domain)
 
+        # A crashed or data-less GATED benchmark must not read as a pass:
+        # its AUC gate never ran, which is exactly the silent-vacuity failure
+        # mode the gates exist to prevent.
         except SystemExit:
             logger.warning("%s benchmark exited (no data available)", domain)
             unified["domains"][domain] = {"status": "no_data"}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: no data available; AUC gate never ran")
         except ImportError as exc:
             logger.error("Loader not found for %s: %s", domain, exc)
             unified["domains"][domain] = {"status": "loader_not_found", "error": str(exc)}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: loader not found; AUC gate never ran")
         except Exception as exc:
             logger.error("Benchmark failed for %s: %s", domain, exc)
             unified["domains"][domain] = {"status": "error", "error": str(exc)}
+            if fail_on_gate:
+                gate_failures.append(f"{domain}: benchmark crashed ({exc}); AUC gate never ran")
 
     elapsed = time.monotonic() - start
 

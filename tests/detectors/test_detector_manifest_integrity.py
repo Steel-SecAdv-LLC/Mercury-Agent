@@ -86,3 +86,37 @@ def test_nondefault_base_detectors_reachable_via_engine() -> None:
         assert isinstance(det, BaseDetector)
         assert name in eng.detectors
         assert eng.available_detectors()[name] is True
+
+
+def test_t4_domains_and_cascades_are_in_the_manifest() -> None:
+    """Every T4 hazard domain and cascade ships as discoverable manifest data.
+
+    Regression: the fifteen T4 detectors (space weather, severe-storm/winter,
+    geophysical) and all four cascades were library-only — importable but
+    absent from DETECTOR_MANIFEST, so auto-discovery, the registry board and
+    every manifest-driven surface silently ignored them.
+    """
+    manifest_names = {entry.name for entry in DETECTOR_MANIFEST}
+    required = {
+        # severe-storm / winter
+        "hail",
+        "winter_storm",
+        "derecho",
+        "dust_storm",
+        # geophysical
+        "avalanche",
+        "rockfall",
+        "subsidence",
+        # space weather
+        "cme_arrival",
+        "sep_storm",
+        "ionospheric_scintillation",
+        "gic",
+        # cascades
+        "surge_flood_cascade",
+        "eq_tsunami_cascade",
+        "fire_debris_flow_cascade",
+        "solar_gic_cascade",
+    }
+    missing = required - manifest_names
+    assert not missing, f"T4 detectors/cascades absent from DETECTOR_MANIFEST: {missing}"
