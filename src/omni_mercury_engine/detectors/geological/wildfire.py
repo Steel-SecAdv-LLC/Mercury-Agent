@@ -757,9 +757,6 @@ class WildfireDetector:
             fire_prob = self.ignition_detector(thermal_tensor)
 
         fire_detected = float(fire_prob[0].item()) > 0.6
-        hotspot_count = (
-            int(np.sum(thermal_image > HOTSPOT_THRESHOLD_K)) if thermal_image.size > 0 else 0
-        )
 
         # Spatial hotspot mask over the (1, C, H, W) array: a pixel is a hotspot
         # candidate when ANY channel exceeds the threshold; the 2-D thermal map
@@ -767,6 +764,11 @@ class WildfireDetector:
         thermal_2d = np.asarray(thermal_image, dtype=float).max(axis=(0, 1))
         hotspot_mask = np.asarray(thermal_image > HOTSPOT_THRESHOLD_K).any(axis=(0, 1))
         ignition_pixels = np.argwhere(hotspot_mask)
+        # SPATIAL hotspot pixel count from the mask. A channel-summed
+        # exceedance count (the previous formula) counts one pixel up to C
+        # times when several bands exceed the threshold, which inflated the
+        # ground-area estimate fire_perimeter_km2 = count * pixel_size_km^2.
+        hotspot_count = int(hotspot_mask.sum())
 
         # Connected hotspot regions (8-connectivity) -> one ignition location
         # per region: its pixel-space centroid, with the region's pixel count.

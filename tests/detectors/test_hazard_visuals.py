@@ -20,8 +20,10 @@ import pytest
 
 pytest.importorskip("matplotlib")
 
-from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
-from omni_mercury_engine.detectors.hazard_visuals import (
+from omni_mercury_engine.detectors.hazard_diagnostics import (  # type: ignore[import-not-found,unused-ignore]
+    HazardDiagnostics,
+)
+from omni_mercury_engine.detectors.hazard_visuals import (  # type: ignore[import-not-found,unused-ignore]
     build_hazard_geojson,
     render_doppler_field,
     render_hazard_png,

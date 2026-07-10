@@ -25,17 +25,51 @@ if TYPE_CHECKING:
 pytest.importorskip("torch")
 
 from omni_mercury_engine.detectors.geological.disaster_detectors import (
-    EarthquakeDetector,
-    MeteorDetector,
-    TsunamiDetector,
+    EarthquakeDetector as _EarthquakeDetector,
+    MeteorDetector as _MeteorDetector,
+    TsunamiDetector as _TsunamiDetector,
 )
-from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
-from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
-from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
-from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
-from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
-from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    HurricaneDetector as _HurricaneDetector,
+)
+from omni_mercury_engine.detectors.geological.landslide import (
+    LandslideDetector as _LandslideDetector,
+)
+from omni_mercury_engine.detectors.geological.tornado_detector import (
+    TornadoDetector as _TornadoDetector,
+)
+from omni_mercury_engine.detectors.geological.volcanic import (
+    VolcanicEruptionDetector as _VolcanicEruptionDetector,
+)
+from omni_mercury_engine.detectors.geological.wildfire import (
+    WildfireDetector as _WildfireDetector,
+)
+
+# The dev venv's editable install may point at a sibling worktree that
+# predates ``hazard_diagnostics``; ``unused-ignore`` keeps a correctly
+# installed tree (CI) clean.
+from omni_mercury_engine.detectors.hazard_diagnostics import (  # type: ignore[import-not-found,unused-ignore]
+    HazardDiagnostics,
+)
+from omni_mercury_engine.space.schumann_resonance import (
+    SchumannResonanceDetector as _SchumannResonanceDetector,
+)
+
+# Same sibling-worktree caveat as above: an editable install that predates
+# the diagnostics API resolves these detector classes with their old
+# signatures (no ``keep_diagnostics=`` kwarg, no ``result.diagnostics``).
+# Alias them to ``Any`` so both that environment and a correctly installed
+# tree (CI) type-check cleanly; the tests exercise the real API at runtime
+# either way.
+EarthquakeDetector: Any = _EarthquakeDetector
+HurricaneDetector: Any = _HurricaneDetector
+LandslideDetector: Any = _LandslideDetector
+MeteorDetector: Any = _MeteorDetector
+SchumannResonanceDetector: Any = _SchumannResonanceDetector
+TornadoDetector: Any = _TornadoDetector
+TsunamiDetector: Any = _TsunamiDetector
+VolcanicEruptionDetector: Any = _VolcanicEruptionDetector
+WildfireDetector: Any = _WildfireDetector
 
 
 def _seismic_series(n: int = 2048, fs: float = 100.0) -> np.ndarray[Any, Any]:
@@ -205,6 +239,22 @@ class TestWildfireDiagnosticsAndIgnitionFields:
         detector = WildfireDetector()
         result = detector.predict_wildfire({"thermal_image": thermal_image, "pixel_size_km": 0.5})
         assert result.fire_perimeter_km2 == pytest.approx(20 * 0.5**2)
+
+    def test_hotspot_count_is_spatial_not_channel_summed(self) -> None:
+        """A pixel hot in several bands is still ONE ground pixel.
+
+        Regression: the count used to sum threshold exceedances across all
+        channels, so this 4x5 block hot in all 3 bands counted as 60 pixels
+        and inflated fire_perimeter_km2 by 3x.
+        """
+        rng = np.random.default_rng(3)
+        img = rng.normal(300.0, 5.0, size=(3, 32, 32))
+        img[:, 10:14, 20:25] = 420.0  # same 4x5 block hot in ALL channels
+        detector = WildfireDetector()
+        result = detector.predict_wildfire({"thermal_image": img, "pixel_size_km": 0.5})
+        assert result.thermal_hotspots == 20  # spatial pixels, not 60
+        assert result.fire_perimeter_km2 == pytest.approx(20 * 0.5**2)
+        assert len(result.ignition_locations) == 1
 
     def test_thermal_mask_and_pixels_captured(self, thermal_image: np.ndarray[Any, Any]) -> None:
         detector = WildfireDetector(keep_diagnostics=True)

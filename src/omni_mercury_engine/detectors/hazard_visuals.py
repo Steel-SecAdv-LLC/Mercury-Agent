@@ -476,11 +476,14 @@ def build_hazard_geojson(
     with no georeferencing, so the caller MUST supply the mapping; this
     function refuses to fabricate coordinates.
 
-    The flood and landslide detectors compute no zonal output at all --
-    ``FloodPredictionResult`` zone fields are strings (evacuation route /
-    shelter labels in ``flood_detector.py``) and ``LandslidePredictionResult``
-    evacuation zones are string labels (``landslide.py``) -- so requesting
-    GeoJSON for them raises with that reason.
+    The landslide detector computes no zonal output at all --
+    ``LandslidePredictionResult`` evacuation zones are string labels
+    (``landslide.py``) -- so requesting GeoJSON for it raises with that
+    reason. Flood is not a diagnostics-producing hazard in the first place
+    (``FloodDetector`` emits no ``HazardDiagnostics``; its zone fields are
+    evacuation-route/shelter strings), so a flood payload is rejected
+    upstream by :class:`~omni_mercury_engine.detectors.hazard_diagnostics.
+    HazardDiagnostics` validation as an unknown hazard.
 
     Args:
         diagnostics: A ``wildfire`` :class:`HazardDiagnostics` payload.
@@ -497,10 +500,14 @@ def build_hazard_geojson(
             missing/incomplete geotransform.
     """
     diag = _coerce(diagnostics)
-    if diag.hazard in ("flood", "landslide"):
+    if diag.hazard == "landslide":
+        # (Flood never reaches here: it is not in KNOWN_HAZARDS, so payload
+        # validation rejects it upstream with an actionable unknown-hazard
+        # error -- a previous revision listed it in this branch, which was
+        # unreachable dead code.)
         raise ValueError(
-            f"the {diag.hazard} detector computes no zonal/geographic output -- its zone "
-            "fields are string labels (see flood_detector.py / landslide.py) -- so there "
+            "the landslide detector computes no zonal/geographic output -- its zone "
+            "fields are string labels (see landslide.py) -- so there "
             "is nothing real to map as GeoJSON"
         )
     if diag.hazard != "wildfire":

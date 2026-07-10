@@ -24,7 +24,7 @@ import math
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.avalanche_detector import (
+from omni_mercury_engine.detectors.geological.avalanche_detector import (  # type: ignore[import-not-found,unused-ignore]
     CRITICAL_NEW_SNOW_24H_CM,
     RHO_ICE,
     TG_FACETING_THRESHOLD_K_M,

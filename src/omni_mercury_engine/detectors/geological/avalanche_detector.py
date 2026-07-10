@@ -84,6 +84,7 @@ import itertools
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TypedDict
 
 import numpy as np
 
@@ -226,6 +227,24 @@ class AvalanchePredictionResult:
     rain_on_snow_flag: bool = False
     evidence: list[dict[str, object]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+
+class NewSnowLoadingAssessment(TypedDict):
+    """Return contract of :meth:`AvalancheDetector.assess_new_snow_loading`."""
+
+    effective_new_snow_24h_cm: float
+    wind_slab_active: bool
+    multiplier: float
+    critical: bool
+    skier_critical: bool
+
+
+class TemperatureGradientAssessment(TypedDict):
+    """Return contract of :meth:`AvalancheDetector.assess_temperature_gradient`."""
+
+    max_gradient_k_m: float
+    exceeds_threshold: bool
+    faceting_risk: bool
 
 
 class AvalancheDetector:
@@ -407,7 +426,7 @@ class AvalancheDetector:
     # ------------------------------------------------------------------
     def assess_new_snow_loading(
         self, new_snow_24h_cm: float, wind_speed_10m_ms: float = 0.0
-    ) -> dict[str, object]:
+    ) -> NewSnowLoadingAssessment:
         """Assess new-snow loading with the wind-slab multiplier.
 
         Args:
@@ -438,7 +457,7 @@ class AvalancheDetector:
 
     def assess_temperature_gradient(
         self, layers: list[SnowLayer], gradient_duration_days: float | None = None
-    ) -> dict[str, object]:
+    ) -> TemperatureGradientAssessment:
         """Assess kinetic-growth metamorphism risk from the layer temperatures.
 
         The gradient between adjacent layer mid-points is
@@ -548,7 +567,11 @@ class AvalancheDetector:
             }
         )
 
-        faceting = {"max_gradient_k_m": 0.0, "faceting_risk": False}
+        faceting: TemperatureGradientAssessment = {
+            "max_gradient_k_m": 0.0,
+            "exceeds_threshold": False,
+            "faceting_risk": False,
+        }
         if layers is not None and len(layers) >= 2:
             faceting = self.assess_temperature_gradient(layers, gradient_duration_days)
             evidence.append(
@@ -584,11 +607,11 @@ class AvalancheDetector:
             avalanche_likely=danger.value >= AvalancheDangerLevel.CONSIDERABLE.value,
             confidence=confidence,
             sk38=sk38_result,
-            new_snow_loading_flag=bool(loading["critical"]),
-            effective_new_snow_24h_cm=float(loading["effective_new_snow_24h_cm"]),  # type: ignore[arg-type]
-            wind_slab_flag=bool(loading["wind_slab_active"]),
-            faceting_risk_flag=bool(faceting["faceting_risk"]),
-            max_temperature_gradient_k_m=float(faceting["max_gradient_k_m"]),  # type: ignore[arg-type]
+            new_snow_loading_flag=loading["critical"],
+            effective_new_snow_24h_cm=loading["effective_new_snow_24h_cm"],
+            wind_slab_flag=loading["wind_slab_active"],
+            faceting_risk_flag=faceting["faceting_risk"],
+            max_temperature_gradient_k_m=faceting["max_gradient_k_m"],
             rain_on_snow_flag=rain_on_snow,
             evidence=evidence,
             warnings=self._warnings_for(danger),
@@ -600,7 +623,7 @@ class AvalancheDetector:
     @staticmethod
     def _map_to_eaws(
         sk38: SK38Result | None,
-        loading: dict[str, object],
+        loading: NewSnowLoadingAssessment,
         faceting_risk: bool,
         rain_on_snow: bool,
     ) -> AvalancheDangerLevel:
@@ -644,8 +667,8 @@ class AvalancheDetector:
     @staticmethod
     def _evidence_confidence(
         sk38: SK38Result | None,
-        loading: dict[str, object],
-        faceting: dict[str, object],
+        loading: NewSnowLoadingAssessment,
+        faceting: TemperatureGradientAssessment,
         rain_on_snow: bool,
     ) -> float:
         """Deterministic evidence score: fraction of independent lines fired.
