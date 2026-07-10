@@ -50,7 +50,10 @@ class TestTierManifest:
             assert hasattr(det, "fit") and hasattr(det, "detect")
 
     def test_build_unknown_name_raises(self) -> None:
-        with pytest.raises(KeyError):
+        # ValueError (client-input error), NOT KeyError: the HTTP/MCP surfaces
+        # route ValueError to 400/ToolError; a KeyError would surface as an
+        # internal 500 for what is a caller typo.
+        with pytest.raises(ValueError, match="not a registered detector"):
             build_tier_detectors(["not_a_detector"])
 
 

@@ -373,6 +373,20 @@ class TestDetectionInterconnectTools:
         )
         assert result["isError"] is True
 
+    def test_tier_detect_unknown_detector_is_clean_tool_error(self) -> None:
+        """A typo in ``subset`` yields a clean ToolError naming the detector
+        (review finding): the builder raises ValueError, which the tool maps
+        to isError with the message — never an opaque 'internal tool error'."""
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(2)
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]},
+        )
+        assert result["isError"] is True
+        assert "not_a_detector" in result["content"][0]["text"]
+
     def test_localize_root_cause_ranks_the_chain(self) -> None:
         server = MercuryMCPServer()
         rng = np.random.default_rng(0)

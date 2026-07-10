@@ -247,14 +247,18 @@ def build_tier_detectors(
 
     Args:
         subset: Optional detector names to build (defaults to the full
-            :data:`STREAMING_TIER`). Unknown names raise ``KeyError`` so a typo
-            fails loudly rather than silently dropping a detector.
+            :data:`STREAMING_TIER`). Unknown names raise ``ValueError`` so a
+            typo fails loudly rather than silently dropping a detector —
+            ``ValueError`` (not ``KeyError``) because an unknown name is an
+            invalid argument *value*, and the HTTP/MCP surfaces route
+            ``ValueError`` to a client error (400 / ToolError) instead of an
+            internal 500.
 
     Returns:
         Mapping ``name -> detector instance``, insertion-ordered by ``subset``.
 
     Raises:
-        KeyError: If a requested name is not a registered tier detector.
+        ValueError: If a requested name is not a registered tier detector.
     """
     from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 
@@ -263,7 +267,10 @@ def build_tier_detectors(
     built: dict[str, BaseDetector] = {}
     for name in names:
         if name not in manifest:
-            raise KeyError(f"'{name}' is not a registered detector")
+            raise ValueError(
+                f"'{name}' is not a registered detector; "
+                f"known tier detectors: {', '.join(sorted(STREAMING_TIER))}"
+            )
         entry = manifest[name]
         module = __import__(entry.module_path, fromlist=[entry.class_name])
         cls = getattr(module, entry.class_name)

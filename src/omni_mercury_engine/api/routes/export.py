@@ -798,8 +798,20 @@ def _compute_metrics_summary(
 
     return {
         "period": {
-            "start": min(d.timestamp for d in detections).isoformat(),
-            "end": max(d.timestamp for d in detections).isoformat(),
+            # Requested bounds take precedence so the same request has the
+            # same period semantics whether or not it matched data (review
+            # finding); the observed min/max only fill a bound the caller
+            # left open.
+            "start": (
+                start_time.isoformat()
+                if start_time
+                else min(d.timestamp for d in detections).isoformat()
+            ),
+            "end": (
+                end_time.isoformat()
+                if end_time
+                else max(d.timestamp for d in detections).isoformat()
+            ),
         },
         "total_detections": total,
         "total_anomalies_found": total_anomalies,

@@ -309,6 +309,18 @@ class TestDetectionRoutes:
         )
         assert response.status_code == 400
 
+    def test_tier_detection_unknown_detector_is_400_not_500(self, client: Any) -> None:
+        """A typo in ``subset`` is a client error (review finding): the builder
+        raises ValueError for unknown names, so the surface answers 400 with
+        the name in the detail — never an opaque internal 500."""
+        rng = np.random.default_rng(1)
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]}},
+        )
+        assert response.status_code == 400
+        assert "not_a_detector" in response.json()["detail"]
+
     def test_flagship_detection(self, client: Any) -> None:
         """The flagship OmniMercuryEngine fusion path is reachable over HTTP.
 
@@ -619,6 +631,49 @@ class TestExportRoutes:
                 "time_series",
             ):
                 assert key in data
+
+    def test_metrics_period_prefers_requested_bounds(self) -> None:
+        """Period semantics are consistent whether or not the range has data
+        (review finding): requested bounds win; observed min/max only fill a
+        bound the caller left open."""
+        from datetime import datetime
+
+        from omni_mercury_engine.api.routes.export import (
+            DetectionRecord,
+            _compute_metrics_summary,
+        )
+
+        def _rec(ts: datetime) -> DetectionRecord:
+            return DetectionRecord(
+                detection_id="d",
+                timestamp=ts,
+                user_id="u",
+                method="zscore",
+                data_hash="h",
+                anomaly_count=1,
+                max_score=0.9,
+                is_batch=False,
+                sensitivity=0.5,
+            )
+
+        records = [_rec(datetime(2026, 7, 5, 12)), _rec(datetime(2026, 7, 6, 12))]
+        wide_start, wide_end = datetime(2026, 7, 1), datetime(2026, 7, 9)
+
+        both = _compute_metrics_summary(records, wide_start, wide_end, "hour")
+        assert both["period"]["start"] == wide_start.isoformat()
+        assert both["period"]["end"] == wide_end.isoformat()
+
+        open_ended = _compute_metrics_summary(records, wide_start, None, "hour")
+        assert open_ended["period"]["start"] == wide_start.isoformat()
+        assert open_ended["period"]["end"] == datetime(2026, 7, 6, 12).isoformat()
+
+        unbounded = _compute_metrics_summary(records, None, None, "hour")
+        assert unbounded["period"]["start"] == datetime(2026, 7, 5, 12).isoformat()
+        assert unbounded["period"]["end"] == datetime(2026, 7, 6, 12).isoformat()
+
+        empty = _compute_metrics_summary([], wide_start, wide_end, "hour")
+        assert empty["period"]["start"] == wide_start.isoformat()
+        assert empty["period"]["end"] == wide_end.isoformat()
 
 
 # =============================================================================
