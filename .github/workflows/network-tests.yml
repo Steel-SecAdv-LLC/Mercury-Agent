@@ -83,5 +83,12 @@ jobs:
       - name: Run @pytest.mark.network suite
         env:
           MERCURY_NETWORK_TESTS: "1"
+          # NASA FIRMS MAP_KEY for the live wildfire area-API loader
+          # (WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret is
+          # named FIRMS_MAP_KEY). Only available in CI — never committed,
+          # never echoed. Checkpoint training itself uses the keyless
+          # yearly country archives and does not need this.
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
         run: |
           pytest -m network -v --tb=short

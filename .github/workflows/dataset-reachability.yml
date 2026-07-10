@@ -137,6 +137,12 @@ jobs:
 
       - name: Run network reachability harness
         if: matrix.lane == 'network'
+        env:
+          # NASA FIRMS MAP_KEY for the live wildfire area-API probe
+          # (WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret is
+          # named FIRMS_MAP_KEY). CI-only; never committed or echoed.
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
         run: |
           # Opt-in network probes for the 11 unreachable loaders.
           # ``--no-cov`` keeps the run time bounded — coverage is

@@ -1269,7 +1269,11 @@ def fetch(ctx: PipelineContext) -> dict[str, Any]:
                 "url": f"{FDSN_BASE}/dataselect/1/query?net=AV&sta={sta}&cha={cha}&<per-day>",
                 "sha256": agg,
                 "description": (
-                    f"EarthScope FDSN dataselect miniSEED, AV.{sta}.{cha}, "
+                    # nosec B608 - provenance text for a manifest: "dataselect"
+                    # is the FDSN endpoint name (bandit's SQL heuristic matches
+                    # the substring "select"); nothing here builds or executes
+                    # a query, and sta/cha come from the fixed volcano table.
+                    f"EarthScope FDSN dataselect miniSEED, AV.{sta}.{cha}, "  # nosec B608
                     f"{len(digests)} station-days (sha256 over sorted per-day sha256s; "
                     "per-day URLs reconstructable from sample_plan.json)"
                 ),
