@@ -69,8 +69,8 @@
     "test_policy": "test split scored exactly once, after the search finished"
   },
   "provenance": {
-    "commit": "01bea3b76971d3f2016fee5f0d54d57d88614465",
-    "created_utc": "2026-07-09T06:13:15.446283+00:00",
+    "commit": "1006e948be3fac38c7e30a8d328049ef7a6e163c",
+    "created_utc": "2026-07-10T01:10:56.917592+00:00",
     "graph_artifact": "benchmarks/evolved_rule_graph.json"
   },
   "seed": 0,
@@ -300,13 +300,13 @@
   ],
   "verdict": "EVOLVED graph beats the consensus baseline on held-out test F1 (mean 0.5439 vs 0.4119, margin +0.1320)",
   "wall_times_s": {
-    "evolution": 21.22,
+    "evolution": 11.57,
     "extraction_per_dataset": {
-      "Pima": 4.17,
-      "WBC": 3.33,
-      "cardio": 45.03,
-      "thyroid": 7.83
+      "Pima": 1.67,
+      "WBC": 1.1,
+      "cardio": 5.77,
+      "thyroid": 5.27
     },
-    "total": 97.85
+    "total": 35.81
   }
 }
