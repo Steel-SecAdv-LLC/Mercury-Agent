@@ -33,7 +33,7 @@
       "minimality_verified_rate": 1.0,
       "mean_sparsity": 6.25,
       "mean_distance": 14.13941756602136,
-      "wall_seconds": 27.48
+      "wall_seconds": 19.47
     },
     "dice": {
       "explanations": 8,
@@ -41,7 +41,7 @@
       "minimality_verified_rate": 0.0,
       "mean_sparsity": null,
       "mean_distance": null,
-      "wall_seconds": 606.34
+      "wall_seconds": 615.57
     },
     "growing_spheres": {
       "explanations": 8,
@@ -49,7 +49,7 @@
       "minimality_verified_rate": 0.0,
       "mean_sparsity": null,
       "mean_distance": null,
-      "wall_seconds": 309.93
+      "wall_seconds": 307.22
     },
     "prototype": {
       "explanations": 8,
@@ -57,7 +57,7 @@
       "minimality_verified_rate": 1.0,
       "mean_sparsity": 7.75,
       "mean_distance": 11.099437248587185,
-      "wall_seconds": 2.02
+      "wall_seconds": 2.06
     },
     "genetic": {
       "explanations": 8,
@@ -65,10 +65,10 @@
       "minimality_verified_rate": 1.0,
       "mean_sparsity": 6.625,
       "mean_distance": 11.410940150464501,
-      "wall_seconds": 24.23
+      "wall_seconds": 24.09
     }
   },
   "provenance": {
-    "commit": "1006e948be3fac38c7e30a8d328049ef7a6e163c"
+    "commit": "323a04d029cc2a1cf4c5c126b43033c6f7921870"
   }
 }

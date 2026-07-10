@@ -20,9 +20,9 @@
     "baseline_val_fitness": 0.5799813644955362,
     "best_val_fitness": 0.7107429392446635,
     "channel_semantics": "OmniMercuryEngine._extract_consensus_scores channels",
-    "commit": "1006e948be3fac38c7e30a8d328049ef7a6e163c",
+    "commit": "323a04d029cc2a1cf4c5c126b43033c6f7921870",
     "complexity_penalty": 0.0001,
-    "created_utc": "2026-07-10T01:10:56.888726+00:00",
+    "created_utc": "2026-07-10T03:15:34.931007+00:00",
     "datasets": [
       "cardio",
       "thyroid",
