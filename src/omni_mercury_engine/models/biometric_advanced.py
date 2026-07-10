@@ -531,19 +531,25 @@ class AgeProgressionEngine:
             # skip the fallback cleanly when unavailable — the DNN detector above
             # stays the primary path.
             cascade_factory = getattr(cv2, "CascadeClassifier", None)
-            cv2_data = getattr(cv2, "data", None)
-            if cascade_factory is not None and cv2_data is not None:
+            # ``cv2.data`` can exist while ``cv2.data.haarcascades`` does not
+            # (the 5.x headless/contrib split), so feature-detect the bundled
+            # cascade directory itself, not just the ``data`` module.
+            haarcascades_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
+            if cascade_factory is not None and haarcascades_dir is not None:
                 face_cascade = cascade_factory(
-                    cv2_data.haarcascades + "haarcascade_frontalface_default.xml"
+                    haarcascades_dir + "haarcascade_frontalface_default.xml"
                 )
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+                # A missing/unreadable cascade XML yields an empty classifier
+                # rather than raising; run the fallback only when it loaded.
+                if not face_cascade.empty():
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-                if len(faces) > 0:
-                    x, y, w, h = faces[0]
-                    face = image_rgb[y : y + h, x : x + w]
-                    face = cv2.resize(face, (160, 160))
-                    return face
+                    if len(faces) > 0:
+                        x, y, w, h = faces[0]
+                        face = image_rgb[y : y + h, x : x + w]
+                        face = cv2.resize(face, (160, 160))
+                        return face
 
             return None
 

@@ -130,6 +130,11 @@ class Model:
     current_version: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     deployment_config: dict[str, Any] = field(default_factory=dict)
+    # Absolute, root-confined storage directory, resolved once at registration
+    # from the trusted (locally generated) ``model_id``. Every later file
+    # operation reuses this value instead of re-deriving a path from the
+    # request-supplied id, so untrusted input never reaches a filesystem sink.
+    storage_dir: str = ""
 
 
 class ModelRegistry:
@@ -214,6 +219,7 @@ class ModelRegistry:
             self._version_counter[model_id] = 0
 
             model_dir = self._model_dir(model_id)
+            model.storage_dir = str(model_dir)
             model_dir.mkdir(exist_ok=True)
 
             logger.info(f"Model registered: {model_id} ({name}) by {owner_id}")
@@ -277,7 +283,9 @@ class ModelRegistry:
             file_size = 0
 
             if file_content:
-                version_dir = self._model_dir(model_id) / version_num
+                # Reuse the trusted directory resolved at registration; never
+                # rebuild a path from the request-supplied ``model_id``.
+                version_dir = Path(model.storage_dir) / version_num
                 version_dir.mkdir(parents=True, exist_ok=True)
 
                 ext = ".pt" if framework == ModelFramework.PYTORCH else ".bin"
@@ -398,12 +406,16 @@ class ModelRegistry:
     def delete_model(self, model_id: str) -> bool:
         """Delete a model and all its versions."""
         with self._lock:
-            if model_id not in self._models:
+            model = self._models.get(model_id)
+            if model is None:
                 return False
 
-            model_dir = self._model_dir(model_id)
-            if model_dir.exists():
-                shutil.rmtree(model_dir)
+            # Use the trusted directory stored at registration. The guard also
+            # prevents an empty value from resolving to the current directory.
+            if model.storage_dir:
+                model_dir = Path(model.storage_dir)
+                if model_dir.exists():
+                    shutil.rmtree(model_dir)
 
             del self._models[model_id]
             if model_id in self._version_counter:
