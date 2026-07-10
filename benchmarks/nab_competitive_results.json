@@ -1,0 +1,1871 @@
+{
+  "metadata": {
+    "benchmark": "nab_competitive (Mercury streaming tier vs same-harness baselines)",
+    "source": "NAB (Numenta Anomaly Benchmark) -- ALL five real categories",
+    "loader": "omni_mercury_engine.datasets.timeseries.NABLoader",
+    "categories": [
+      "realKnownCause",
+      "realAWSCloudwatch",
+      "realTraffic",
+      "realAdExchange",
+      "realTweets"
+    ],
+    "license": "AGPL-3.0",
+    "protocol": "unsupervised streaming: every method is fitted/initialised on the initial 15% warm-up window (min 200 points) and scores the whole series; long series anomaly-preservingly cropped to 6000 points; point-wise Mann-Whitney ROC-AUC + budget-matched NAB-style window detection rate; same series, warm-up, and metrics for every method",
+    "members": [
+      "spectral_residual",
+      "bocpd",
+      "spot_evt",
+      "hawkes",
+      "particle_filter",
+      "imm",
+      "gaussian_process",
+      "echo_state",
+      "spiking",
+      "digital_twin",
+      "survival",
+      "energy_based",
+      "deep_svdd"
+    ],
+    "baseline_config": {
+      "iforest_windowed": {
+        "window": 32,
+        "pyod_defaults": true,
+        "seed": 42
+      },
+      "ewma_zscore": {
+        "alpha": 0.05
+      },
+      "random": {
+        "seeded_uniform": true
+      },
+      "perfect": {
+        "labels_as_scores": true,
+        "role": "harness ceiling, not a competitor"
+      }
+    },
+    "seed": 42,
+    "max_len": 6000,
+    "warmup_frac": 0.15,
+    "git_commit": "5d24cdccff8ffd6784cd0a1321600bae063dccdb",
+    "command_line": "benchmarks/nab_competitive.py -o benchmarks/nab_competitive_results.json",
+    "timestamp": "2026-07-10T07:53:30.190501+00:00",
+    "runtime_seconds": 254.0,
+    "published_nab_scoreboard_standard_profile": {
+      "NOT_same_harness": "QUOTED for context only. These are NAB scores from NAB's own scorer over its full corpus -- a different metric and protocol; do not compare them numerically to the AUC / detection-rate measurements in this file.",
+      "source": "https://github.com/numenta/NAB#scoreboard (retrieved 2026-07-10)",
+      "citation": "Ahmad, Lavin, Purdy & Agha (2017). Unsupervised real-time anomaly detection for streaming data. Neurocomputing 262:134-147.",
+      "scores": {
+        "Perfect": 100.0,
+        "ARTime": 74.9,
+        "Numenta HTM": "70.5-69.7",
+        "CAD OSE": 69.9,
+        "earthgecko Skyline": 58.2,
+        "KNN CAD": 58.0,
+        "Relative Entropy": 54.6,
+        "Random Cut Forest": 51.7,
+        "Twitter ADVec v1.0.0": 47.1,
+        "Windowed Gaussian": 39.6,
+        "Etsy Skyline": 35.7,
+        "Bayesian Changepoint": 17.7,
+        "EXPoSE": 16.4,
+        "Random": 11.0,
+        "Null": 0.0
+      }
+    }
+  },
+  "summary": {
+    "n_streams": 30,
+    "per_method": {
+      "mercury_consensus": {
+        "n_streams": 30,
+        "mean_auc": 0.634951,
+        "median_auc": 0.620826,
+        "mean_window_detection_rate": 0.761111,
+        "errors": []
+      },
+      "mercury_average": {
+        "n_streams": 30,
+        "mean_auc": 0.603879,
+        "median_auc": 0.589536,
+        "mean_window_detection_rate": 0.977778,
+        "errors": []
+      },
+      "iforest_windowed": {
+        "n_streams": 30,
+        "mean_auc": 0.634762,
+        "median_auc": 0.625342,
+        "mean_window_detection_rate": 0.802778,
+        "errors": []
+      },
+      "ewma_zscore": {
+        "n_streams": 30,
+        "mean_auc": 0.49304,
+        "median_auc": 0.496283,
+        "mean_window_detection_rate": 0.972222,
+        "errors": []
+      },
+      "random": {
+        "n_streams": 30,
+        "mean_auc": 0.50227,
+        "median_auc": 0.502638,
+        "mean_window_detection_rate": 1.0,
+        "errors": []
+      },
+      "perfect": {
+        "n_streams": 30,
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "mean_window_detection_rate": 1.0,
+        "errors": []
+      }
+    },
+    "per_category": {
+      "realKnownCause": {
+        "n": 7,
+        "mean_auc": {
+          "mercury_consensus": 0.688815,
+          "mercury_average": 0.620058,
+          "iforest_windowed": 0.699295,
+          "ewma_zscore": 0.49241,
+          "random": 0.504293,
+          "perfect": 1.0
+        }
+      },
+      "realAWSCloudwatch": {
+        "n": 16,
+        "mean_auc": {
+          "mercury_consensus": 0.608515,
+          "mercury_average": 0.598598,
+          "iforest_windowed": 0.605703,
+          "ewma_zscore": 0.486263,
+          "random": 0.500333,
+          "perfect": 1.0
+        }
+      },
+      "realTraffic": {
+        "n": 7,
+        "mean_auc": {
+          "mercury_consensus": 0.641512,
+          "mercury_average": 0.599772,
+          "iforest_windowed": 0.636651,
+          "ewma_zscore": 0.509163,
+          "random": 0.504675,
+          "perfect": 1.0
+        }
+      }
+    },
+    "head_to_head": {
+      "mercury_consensus": {
+        "iforest_windowed": {
+          "wins": 16,
+          "losses": 14,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_network_in_257a54.csv",
+              "auc_margin": 0.19351
+            },
+            {
+              "stream": "realTraffic/occupancy_t4013.csv",
+              "auc_margin": 0.141507
+            },
+            {
+              "stream": "realKnownCause/nyc_taxi.csv",
+              "auc_margin": 0.07654
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+              "auc_margin": 0.039989
+            },
+            {
+              "stream": "realKnownCause/rogue_agent_key_hold.csv",
+              "auc_margin": 0.031883
+            }
+          ]
+        },
+        "ewma_zscore": {
+          "wins": 25,
+          "losses": 5,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.075663
+            },
+            {
+              "stream": "realKnownCause/rogue_agent_key_updown.csv",
+              "auc_margin": 0.069602
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+              "auc_margin": 0.050591
+            },
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.00483
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+              "auc_margin": 0.002243
+            }
+          ]
+        },
+        "random": {
+          "wins": 27,
+          "losses": 3,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+              "auc_margin": 0.032764
+            },
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.01528
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.014592
+            }
+          ]
+        },
+        "perfect": {
+          "wins": 0,
+          "losses": 30,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+              "auc_margin": 0.518161
+            },
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.506631
+            },
+            {
+              "stream": "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
+              "auc_margin": 0.505878
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.496769
+            },
+            {
+              "stream": "realKnownCause/rogue_agent_key_updown.csv",
+              "auc_margin": 0.481455
+            }
+          ]
+        }
+      },
+      "mercury_average": {
+        "iforest_windowed": {
+          "wins": 11,
+          "losses": 19,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv",
+              "auc_margin": 0.231869
+            },
+            {
+              "stream": "realTraffic/occupancy_t4013.csv",
+              "auc_margin": 0.175479
+            },
+            {
+              "stream": "realKnownCause/nyc_taxi.csv",
+              "auc_margin": 0.159348
+            },
+            {
+              "stream": "realKnownCause/machine_temperature_system_failure.csv",
+              "auc_margin": 0.145639
+            },
+            {
+              "stream": "realKnownCause/rogue_agent_key_hold.csv",
+              "auc_margin": 0.140141
+            }
+          ]
+        },
+        "ewma_zscore": {
+          "wins": 24,
+          "losses": 6,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.119497
+            },
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.088059
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+              "auc_margin": 0.048167
+            },
+            {
+              "stream": "realKnownCause/rogue_agent_key_updown.csv",
+              "auc_margin": 0.031955
+            },
+            {
+              "stream": "realKnownCause/nyc_taxi.csv",
+              "auc_margin": 0.028386
+            }
+          ]
+        },
+        "random": {
+          "wins": 26,
+          "losses": 4,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.098509
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.058426
+            },
+            {
+              "stream": "realKnownCause/nyc_taxi.csv",
+              "auc_margin": 0.03944
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+              "auc_margin": 0.003955
+            }
+          ]
+        },
+        "perfect": {
+          "wins": 0,
+          "losses": 30,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.58986
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+              "auc_margin": 0.540603
+            },
+            {
+              "stream": "realKnownCause/nyc_taxi.csv",
+              "auc_margin": 0.524075
+            },
+            {
+              "stream": "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
+              "auc_margin": 0.506735
+            },
+            {
+              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+              "auc_margin": 0.489352
+            }
+          ]
+        }
+      }
+    }
+  },
+  "per_stream": [
+    {
+      "name": "realKnownCause/ambient_temperature_system_failure.csv",
+      "n": 6000,
+      "anomaly_rate": 0.121,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.758075,
+          "seconds": 6.9838,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.660952,
+          "seconds": 5.8818,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.206612
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.734924,
+          "seconds": 1.7243,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.39021
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.500267,
+          "seconds": 0.0127,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.114325
+        },
+        "random": {
+          "roc_auc": 0.506485,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.130854
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/cpu_utilization_asg_misconfiguration.csv",
+      "n": 6000,
+      "anomaly_rate": 0.249833,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.819634,
+          "seconds": 6.3124,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.686023
+        },
+        "mercury_average": {
+          "roc_auc": 0.716331,
+          "seconds": 6.401,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.377585
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.785099,
+          "seconds": 0.5513,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.642428
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.483291,
+          "seconds": 0.0127,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.354236
+        },
+        "random": {
+          "roc_auc": 0.50285,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.254837
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/ec2_request_latency_system_failure.csv",
+      "n": 4032,
+      "anomaly_rate": 0.085813,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.525604,
+          "seconds": 3.8592,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.133956
+        },
+        "mercury_average": {
+          "roc_auc": 0.531576,
+          "seconds": 4.2081,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.132948
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.535486,
+          "seconds": 0.4267,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.092486
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.450008,
+          "seconds": 0.0112,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.078035
+        },
+        "random": {
+          "roc_auc": 0.513079,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.069364
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/machine_temperature_system_failure.csv",
+      "n": 6000,
+      "anomaly_rate": 0.189,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.905935,
+          "seconds": 6.0263,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.657711
+        },
+        "mercury_average": {
+          "roc_auc": 0.772513,
+          "seconds": 6.0481,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.354497
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.918152,
+          "seconds": 0.4108,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.703704
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.520148,
+          "seconds": 0.0048,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.186949
+        },
+        "random": {
+          "roc_auc": 0.498491,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.186067
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/nyc_taxi.csv",
+      "n": 6000,
+      "anomaly_rate": 0.1725,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.558733,
+          "seconds": 5.5755,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 0.241748
+        },
+        "mercury_average": {
+          "roc_auc": 0.475925,
+          "seconds": 6.6518,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 0.113153
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.635273,
+          "seconds": 0.5437,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 0.389372
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.504311,
+          "seconds": 0.0086,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 0.164251
+        },
+        "random": {
+          "roc_auc": 0.515365,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 0.169082
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 5.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/rogue_agent_key_hold.csv",
+      "n": 1882,
+      "anomaly_rate": 0.100956,
+      "warmup": 282,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.735176,
+          "seconds": 2.182,
+          "window_detection_rate": 0.5,
+          "n_windows": 2.0,
+          "alarm_precision": 0.25
+        },
+        "mercury_average": {
+          "roc_auc": 0.626918,
+          "seconds": 2.1365,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.194737
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.767059,
+          "seconds": 0.3855,
+          "window_detection_rate": 0.5,
+          "n_windows": 2.0,
+          "alarm_precision": 0.136364
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.4007,
+          "seconds": 0.0015,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.152632
+        },
+        "random": {
+          "roc_auc": 0.491853,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.078947
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realKnownCause/rogue_agent_key_updown.csv",
+      "n": 5315,
+      "anomaly_rate": 0.099718,
+      "warmup": 797,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.518545,
+          "seconds": 5.9378,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.104167
+        },
+        "mercury_average": {
+          "roc_auc": 0.556192,
+          "seconds": 5.5081,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.101887
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.519071,
+          "seconds": 0.3675,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.066038
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.588147,
+          "seconds": 0.0113,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.075472
+        },
+        "random": {
+          "roc_auc": 0.501926,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.1
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.565284,
+          "seconds": 3.5965,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.168342
+        },
+        "mercury_average": {
+          "roc_auc": 0.530303,
+          "seconds": 3.3552,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.121891
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.573765,
+          "seconds": 0.3363,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.174129
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.403763,
+          "seconds": 0.0033,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.087065
+        },
+        "random": {
+          "roc_auc": 0.493429,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.094527
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.644315,
+          "seconds": 3.2999,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.254364
+        },
+        "mercury_average": {
+          "roc_auc": 0.588681,
+          "seconds": 3.9121,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.164179
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.628375,
+          "seconds": 0.4424,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.310945
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.523037,
+          "seconds": 0.0112,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.114428
+        },
+        "random": {
+          "roc_auc": 0.494784,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.089552
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.481839,
+          "seconds": 4.1617,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.510648,
+          "seconds": 4.3818,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.161692
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.451153,
+          "seconds": 0.4495,
+          "window_detection_rate": 0.5,
+          "n_windows": 2.0,
+          "alarm_precision": 0.023077
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.484082,
+          "seconds": 0.0072,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.079602
+        },
+        "random": {
+          "roc_auc": 0.514603,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.106965
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+      "n": 4032,
+      "anomaly_rate": 0.09995,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.587967,
+          "seconds": 4.0454,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.171642
+        },
+        "mercury_average": {
+          "roc_auc": 0.590391,
+          "seconds": 4.0512,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.166253
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.627956,
+          "seconds": 0.4217,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.220844
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.638558,
+          "seconds": 0.0113,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.114144
+        },
+        "random": {
+          "roc_auc": 0.512244,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.086849
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv",
+      "n": 4032,
+      "anomaly_rate": 0.085069,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.624075,
+          "seconds": 4.0848,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.396341
+        },
+        "mercury_average": {
+          "roc_auc": 0.579732,
+          "seconds": 3.9633,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.154519
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.546443,
+          "seconds": 0.462,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.25656
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.384419,
+          "seconds": 0.0111,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.078717
+        },
+        "random": {
+          "roc_auc": 0.500744,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.093294
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv",
+      "n": 4032,
+      "anomaly_rate": 0.09995,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.813917,
+          "seconds": 4.7607,
+          "window_detection_rate": 0.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.588184,
+          "seconds": 4.7849,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.10199
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.820053,
+          "seconds": 0.4146,
+          "window_detection_rate": 0.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.0
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.398333,
+          "seconds": 0.0072,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.074442
+        },
+        "random": {
+          "roc_auc": 0.502902,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.101737
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+      "n": 4032,
+      "anomaly_rate": 0.100446,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.503231,
+          "seconds": 4.248,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.169666
+        },
+        "mercury_average": {
+          "roc_auc": 0.459397,
+          "seconds": 4.71,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.076543
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.48916,
+          "seconds": 0.5501,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.202469
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.578894,
+          "seconds": 0.0033,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.175309
+        },
+        "random": {
+          "roc_auc": 0.517823,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.091358
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv",
+      "n": 4730,
+      "anomaly_rate": 0.1,
+      "warmup": 709,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.583237,
+          "seconds": 6.5041,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.159236
+        },
+        "mercury_average": {
+          "roc_auc": 0.545635,
+          "seconds": 5.2232,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.137712
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.565774,
+          "seconds": 0.3843,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.196617
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.543902,
+          "seconds": 0.0119,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.167019
+        },
+        "random": {
+          "roc_auc": 0.50128,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.116279
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_disk_write_bytes_c0d644.csv",
+      "n": 4032,
+      "anomaly_rate": 0.100446,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.617576,
+          "seconds": 4.1437,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.224691
+        },
+        "mercury_average": {
+          "roc_auc": 0.612287,
+          "seconds": 3.9439,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.187654
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.622728,
+          "seconds": 0.39,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.281481
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.498314,
+          "seconds": 0.0168,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.195062
+        },
+        "random": {
+          "roc_auc": 0.494686,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.091358
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_network_in_257a54.csv",
+      "n": 4032,
+      "anomaly_rate": 0.09995,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.544318,
+          "seconds": 4.2392,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.246819
+        },
+        "mercury_average": {
+          "roc_auc": 0.742679,
+          "seconds": 4.2689,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.173697
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.737828,
+          "seconds": 0.4312,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.193548
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.31335,
+          "seconds": 0.0031,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.094293
+        },
+        "random": {
+          "roc_auc": 0.50313,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.096774
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/ec2_network_in_5abac7.csv",
+      "n": 4730,
+      "anomaly_rate": 0.100211,
+      "warmup": 709,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.709975,
+          "seconds": 4.7213,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.276371
+        },
+        "mercury_average": {
+          "roc_auc": 0.690483,
+          "seconds": 5.0404,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.227848
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.731677,
+          "seconds": 0.3788,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.270042
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.70704,
+          "seconds": 0.0077,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.191983
+        },
+        "random": {
+          "roc_auc": 0.488219,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.075949
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/elb_request_count_8c0756.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.560547,
+          "seconds": 3.6954,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.17
+        },
+        "mercury_average": {
+          "roc_auc": 0.529748,
+          "seconds": 4.3416,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.124378
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.514108,
+          "seconds": 0.5057,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.261194
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.486566,
+          "seconds": 0.0113,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.104478
+        },
+        "random": {
+          "roc_auc": 0.488545,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.106965
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/grok_asg_anomaly.csv",
+      "n": 4621,
+      "anomaly_rate": 0.100628,
+      "warmup": 693,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.570221,
+          "seconds": 4.8404,
+          "window_detection_rate": 0.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.599541,
+          "seconds": 4.8169,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.156989
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.490676,
+          "seconds": 0.3934,
+          "window_detection_rate": 0.333333,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.516578,
+          "seconds": 0.0117,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.146237
+        },
+        "random": {
+          "roc_auc": 0.49485,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.101075
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv",
+      "n": 1243,
+      "anomaly_rate": 0.101368,
+      "warmup": 200,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.63675,
+          "seconds": 1.163,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.242424
+        },
+        "mercury_average": {
+          "roc_auc": 0.716044,
+          "seconds": 1.1653,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.277778
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.6037,
+          "seconds": 0.3779,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.238095
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.427051,
+          "seconds": 0.001,
+          "window_detection_rate": 0.5,
+          "n_windows": 2.0,
+          "alarm_precision": 0.02381
+        },
+        "random": {
+          "roc_auc": 0.530929,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.126984
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.798873,
+          "seconds": 4.3707,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.800546,
+          "seconds": 4.0929,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.306733
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.814055,
+          "seconds": 0.4873,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.494366,
+          "seconds": 0.0065,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.089552
+        },
+        "random": {
+          "roc_auc": 0.478483,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.084577
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
+      "n": 4032,
+      "anomaly_rate": 0.099702,
+      "warmup": 604,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.494122,
+          "seconds": 3.8695,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "mercury_average": {
+          "roc_auc": 0.493265,
+          "seconds": 3.8276,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.107232
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.473798,
+          "seconds": 0.4251,
+          "window_detection_rate": 0.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.0
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.381951,
+          "seconds": 0.0086,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.074627
+        },
+        "random": {
+          "roc_auc": 0.488685,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.087065
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/TravelTime_387.csv",
+      "n": 2500,
+      "anomaly_rate": 0.0996,
+      "warmup": 375,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.703153,
+          "seconds": 2.7198,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.325301
+        },
+        "mercury_average": {
+          "roc_auc": 0.695392,
+          "seconds": 2.7351,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.269076
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.66485,
+          "seconds": 0.3979,
+          "window_detection_rate": 0.666667,
+          "n_windows": 3.0,
+          "alarm_precision": 0.136546
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.52455,
+          "seconds": 0.0022,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.100402
+        },
+        "random": {
+          "roc_auc": 0.512376,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 0.116466
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 3.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/TravelTime_451.csv",
+      "n": 2162,
+      "anomaly_rate": 0.10037,
+      "warmup": 324,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.642293,
+          "seconds": 2.2497,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.157407
+        },
+        "mercury_average": {
+          "roc_auc": 0.60692,
+          "seconds": 2.422,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.21659
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.601972,
+          "seconds": 0.3657,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.308756
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.533342,
+          "seconds": 0.0017,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.124424
+        },
+        "random": {
+          "roc_auc": 0.502425,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.124424
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/occupancy_6005.csv",
+      "n": 2380,
+      "anomaly_rate": 0.10042,
+      "warmup": 357,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.493369,
+          "seconds": 2.3508,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.109244
+        },
+        "mercury_average": {
+          "roc_auc": 0.41014,
+          "seconds": 2.1793,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.096639
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.437662,
+          "seconds": 0.3997,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.146444
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.498199,
+          "seconds": 0.0099,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.117155
+        },
+        "random": {
+          "roc_auc": 0.508649,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.100418
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/occupancy_t4013.csv",
+      "n": 2500,
+      "anomaly_rate": 0.1,
+      "warmup": 375,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.635064,
+          "seconds": 2.5724,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.224
+        },
+        "mercury_average": {
+          "roc_auc": 0.601092,
+          "seconds": 2.3179,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.776571,
+          "seconds": 0.4047,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.432
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.465751,
+          "seconds": 0.002,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.112
+        },
+        "random": {
+          "roc_auc": 0.510292,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.092
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/speed_6005.csv",
+      "n": 2500,
+      "anomaly_rate": 0.0956,
+      "warmup": 375,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.584307,
+          "seconds": 2.3764,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.158798
+        },
+        "mercury_average": {
+          "roc_auc": 0.540249,
+          "seconds": 2.8059,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.125523
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.601256,
+          "seconds": 0.4483,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.217573
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.474234,
+          "seconds": 0.002,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.07113
+        },
+        "random": {
+          "roc_auc": 0.481982,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 0.09205
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 1.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/speed_7578.csv",
+      "n": 1127,
+      "anomaly_rate": 0.102928,
+      "warmup": 200,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.764022,
+          "seconds": 1.3597,
+          "window_detection_rate": 1.0,
+          "n_windows": 4.0,
+          "alarm_precision": 0.542857
+        },
+        "mercury_average": {
+          "roc_auc": 0.769305,
+          "seconds": 1.3826,
+          "window_detection_rate": 1.0,
+          "n_windows": 4.0,
+          "alarm_precision": 0.439655
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.721179,
+          "seconds": 0.3884,
+          "window_detection_rate": 0.75,
+          "n_windows": 4.0,
+          "alarm_precision": 0.5
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.628193,
+          "seconds": 0.0009,
+          "window_detection_rate": 1.0,
+          "n_windows": 4.0,
+          "alarm_precision": 0.241379
+        },
+        "random": {
+          "roc_auc": 0.512245,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 4.0,
+          "alarm_precision": 0.086207
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 4.0,
+          "alarm_precision": 1.0
+        }
+      }
+    },
+    {
+      "name": "realTraffic/speed_t4013.csv",
+      "n": 2495,
+      "anomaly_rate": 0.1002,
+      "warmup": 374,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.668378,
+          "seconds": 2.8223,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.295547
+        },
+        "mercury_average": {
+          "roc_auc": 0.575307,
+          "seconds": 2.6671,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.236
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.653064,
+          "seconds": 0.4111,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.344
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.43987,
+          "seconds": 0.0101,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.084
+        },
+        "random": {
+          "roc_auc": 0.504754,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 0.088
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "n_windows": 2.0,
+          "alarm_precision": 1.0
+        }
+      }
+    }
+  ]
+}
