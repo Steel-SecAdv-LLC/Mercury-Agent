@@ -302,11 +302,12 @@ class TestTornadoDiagnostics:
         assert diag is not None and diag.hazard == "tornado"
 
         field = diag.arrays["doppler_velocity_field"]
-        attention = diag.arrays["radar_attention"]
         assert field.shape == (10, 64)
         np.testing.assert_allclose(field, radar_sequence, rtol=1e-6)
-        assert attention.shape == (10,)
-        assert np.isfinite(attention).all()
+        # Attention weights exist only on the trained-LSTM path; the physics
+        # couplet fallback (untrained default) consumes the same field but
+        # computes no attention, so none is captured (honestly absent).
+        assert "radar_attention" not in diag.arrays
         # The located couplet is the injected gate pair.
         assert diag.context["couplet_row"] == 4
         assert diag.context["couplet_col"] == 30
@@ -345,9 +346,11 @@ class TestHurricaneDiagnostics:
         np.testing.assert_allclose(vort, 2 * 1.5e-4, rtol=1e-6)
         assert diag.context["max_abs_vorticity"] == pytest.approx(3e-4, rel=1e-6)
         assert diag.context["max_wind_speed"] == pytest.approx(float(speed.max()))
-        # No storm-track cone anywhere: the track model was removed as uncomputed.
+        # No storm-track cone anywhere: the track model was removed as uncomputed
+        # (the honesty wave deleted the fabricated field entirely — lock its
+        # absence, not an empty value).
         assert "track" not in " ".join(diag.arrays)
-        assert result.track_forecast == []
+        assert not hasattr(result, "track_forecast")
 
     def test_speed_only_field_has_no_vorticity(self) -> None:
         detector = HurricaneDetector(keep_diagnostics=True)
@@ -375,24 +378,49 @@ class TestVolcanicDiagnostics:
         result = detector.predict_eruption({"seismic_sequence": seismic_sequence})
         assert result.diagnostics is None
 
-    def test_attention_series_and_belief_captured(
+    def test_robust_z_series_and_belief_captured(
         self, seismic_sequence: np.ndarray[Any, Any]
     ) -> None:
+        """Physics path (untrained default): the persisted series is the robust
+        z-score series the swarm decision is computed from, honestly named
+        ``seismic_robust_z`` — no attention exists on this path and none is
+        drawn. The HMM state belief is a real Bayesian intermediate updated
+        from binary observations on every path, so it is captured too."""
         detector = VolcanicEruptionDetector(keep_diagnostics=True)
         result = detector.predict_eruption({"seismic_sequence": seismic_sequence})
         diag = result.diagnostics
         assert diag is not None and diag.hazard == "volcanic"
 
-        attention = diag.arrays["seismic_attention"]
-        assert attention.shape == (20,)
-        assert np.isfinite(attention).all()
-        # Softmax attention over timesteps sums to 1.
-        assert float(attention.sum()) == pytest.approx(1.0, abs=1e-5)
+        assert "seismic_attention" not in diag.arrays  # neural-only, absent here
+        robust_z = diag.arrays["seismic_robust_z"]
+        assert robust_z.shape == (seismic_sequence.size,)
+        assert np.isfinite(robust_z).all() and (robust_z >= 0.0).all()
+        # Cross-check against the exact physics computation.
+        flat = seismic_sequence.ravel().astype(float)
+        med = float(np.median(flat))
+        mad = float(np.median(np.abs(flat - med)))
+        np.testing.assert_allclose(robust_z, np.abs(flat - med) / (1.4826 * mad), rtol=1e-9)
 
         belief = diag.arrays["hmm_state_belief"]
         assert belief.shape == (5,)
         assert float(belief.sum()) == pytest.approx(1.0, abs=1e-6)
         assert diag.context["hmm_state_names"][0] == "QUIESCENT"
+
+    def test_lstm_attention_is_normalized(self) -> None:
+        """The attention the trained-LSTM path would persist is a softmax over
+        timesteps (sums to 1) — tested directly on the module's forward pass,
+        which requires no fabricated 'trained' detector state."""
+        import torch
+
+        from omni_mercury_engine.detectors.geological.volcanic import SeismicSwarmDetector
+
+        module = SeismicSwarmDetector()
+        module.eval()
+        with torch.no_grad():
+            _, attention = module(torch.randn(1, 20, 32))
+        att = attention.squeeze(0).numpy()
+        assert att.shape == (20,)
+        assert float(att.sum()) == pytest.approx(1.0, abs=1e-5)
 
 
 class TestLandslideDiagnostics:
@@ -406,18 +434,39 @@ class TestLandslideDiagnostics:
         result = detector.predict_landslide({"slope_features": slope_features})
         assert result.diagnostics is None
 
-    def test_failure_type_distribution_captured(self, slope_features: np.ndarray[Any, Any]) -> None:
+    def test_untrained_path_has_honestly_absent_diagnostics(
+        self, slope_features: np.ndarray[Any, Any]
+    ) -> None:
+        """The failure-type softmax exists only on the trained-NN path; the
+        untrained default routes to the geotechnical physics assessment (a
+        rule-derived type, no distribution), so keep_diagnostics=True yields
+        NO diagnostics rather than a fabricated distribution."""
         detector = LandslideDetector(enable_ml_ensemble=False, keep_diagnostics=True)
         result = detector.predict_landslide({"slope_features": slope_features})
-        diag = result.diagnostics
-        assert diag is not None and diag.hazard == "landslide"
-        probs = diag.arrays["failure_type_probs"]
+        assert result.diagnostics is None
+        # The physics path still reports a rule-derived type.
+        assert result.landslide_type
+
+    def test_stability_model_type_distribution_is_normalized(
+        self, slope_features: np.ndarray[Any, Any]
+    ) -> None:
+        """The type distribution the trained path would persist is a softmax
+        over the 6 failure types — tested directly on the module's forward
+        pass, which requires no fabricated 'trained' detector state."""
+        import torch
+
+        from omni_mercury_engine.detectors.geological.landslide import SlopeStabilityModel
+
+        module = SlopeStabilityModel()
+        module.eval()
+        with torch.no_grad():
+            failure_prob, type_logits = module(
+                torch.tensor(slope_features, dtype=torch.float32).unsqueeze(0)
+            )
+        probs = torch.softmax(type_logits[0], dim=0).numpy()
         assert probs.shape == (6,)
         assert float(probs.sum()) == pytest.approx(1.0, abs=1e-5)
-        labels = diag.context["failure_type_labels"]
-        assert len(labels) == 6
-        # The reported landslide_type is the argmax of the persisted distribution.
-        assert labels[int(np.argmax(probs))] == result.landslide_type
+        assert 0.0 <= float(failure_prob[0].item()) <= 1.0
 
 
 class TestSchumannDiagnostics:

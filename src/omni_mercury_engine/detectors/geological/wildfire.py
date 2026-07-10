@@ -835,7 +835,6 @@ class WildfireDetector:
         contextual = max_temp > 330.0 and (max_temp - background) > 4.0 * scale
         absolute = max_temp > 360.0
         fire_detected = absolute or contextual
-        hotspot_count = int(np.sum(values > HOTSPOT_THRESHOLD_K))
         temp_severity = float(np.clip((max_temp - 330.0) / 60.0, 0.0, 1.0))
         hot_fraction = float(np.clip(np.mean(values > HOTSPOT_THRESHOLD_K) * 20.0, 0.0, 1.0))
         confidence = float(1.0 - (1.0 - temp_severity) * (1.0 - hot_fraction))
@@ -849,8 +848,16 @@ class WildfireDetector:
         if arr.ndim >= 2:
             stacked = arr.reshape(-1, *arr.shape[-2:])
             thermal_2d = stacked.max(axis=0)
-            hotspot_mask = (stacked > HOTSPOT_THRESHOLD_K).any(axis=0)
+            hotspot_mask = np.asarray((stacked > HOTSPOT_THRESHOLD_K).any(axis=0))
         ignition_pixels = np.argwhere(hotspot_mask)
+        # SPATIAL hotspot pixel count from the mask (a pixel hot in several
+        # bands is still ONE ground pixel; a channel-summed exceedance count
+        # inflated fire_perimeter_km2 by up to a factor of C). A bare 1-D
+        # series has no pixel geometry, so the flat exceedance count is the
+        # only meaningful number there.
+        hotspot_count = (
+            int(hotspot_mask.sum()) if arr.ndim >= 2 else int(np.sum(values > HOTSPOT_THRESHOLD_K))
+        )
 
         # Connected hotspot regions (8-connectivity) -> one ignition location
         # per region: its pixel-space centroid, with the region's pixel count.

@@ -568,9 +568,8 @@ class TornadoDetector:
                 indicators_detected += 2
                 result.confidence = max(result.confidence, radar_result["confidence"])
             if self.keep_diagnostics and "velocity_field" in radar_result:
-                # The captured field/attention exist only on the trained-LSTM
-                # path; the physics fallback captures nothing, so build nothing
-                # (mirrors the volcanic detector's empty-attention guard).
+                # Both paths capture the consumed Doppler field; only the
+                # trained-LSTM path additionally carries attention weights.
                 result.diagnostics = self._build_radar_diagnostics(radar_result)
 
         indicators_float: float = float(indicators_detected)
@@ -701,9 +700,20 @@ class TornadoDetector:
         velocity-couplet physics so an untrained network can never fabricate (or
         mask) a mesocyclone.
         """
+        radar_result: dict[str, Any]
         if not self._neural_trained:
             self._warn_untrained_once()
-            return self._analyze_radar_physics(radar_sequence)
+            radar_result = self._analyze_radar_physics(radar_sequence)
+            if self.keep_diagnostics:
+                # The physics couplet analysis consumes the same Doppler
+                # velocity field the LSTM would; capturing it is capturing
+                # real input data, not fabricating an intermediate. (There
+                # are no attention weights on this path — none are drawn.)
+                arr = np.asarray(radar_sequence, dtype=float)
+                if arr.ndim == 1:
+                    arr = arr.reshape(1, -1)
+                radar_result["velocity_field"] = arr
+            return radar_result
 
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
@@ -716,7 +726,7 @@ class TornadoDetector:
 
         mesocyclone_detected = float(meso_prob[0].item()) > 0.5
 
-        radar_result: dict[str, Any] = {
+        radar_result = {
             "mesocyclone_detected": mesocyclone_detected,
             "confidence": float(meso_prob[0].item()),
             "rotation_velocity": float(rotation_vel[0].item()) * 50,
@@ -759,12 +769,15 @@ class TornadoDetector:
             context["couplet_row"] = None
             context["couplet_col"] = None
             context["couplet_shear"] = None
+        arrays: dict[str, np.ndarray[Any, Any]] = {"doppler_velocity_field": field_2d}
+        # Attention weights exist only on the trained-LSTM path; the physics
+        # fallback consumes the same field but computes no attention, so none
+        # is included (honestly absent rather than fabricated).
+        if "attention_weights" in radar_result:
+            arrays["radar_attention"] = radar_result["attention_weights"]
         return HazardDiagnostics(
             hazard="tornado",
-            arrays={
-                "doppler_velocity_field": field_2d,
-                "radar_attention": radar_result["attention_weights"],
-            },
+            arrays=arrays,
             context=context,
         )
 
