@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Validate detection counterfactuals on real labeled detections, all methods.
+r"""Validate detection counterfactuals on real labeled detections, all methods.
 
 Protocol: fit :class:`MercuryAnomalyDetector` on a real ADBench tabular
 anomaly dataset, take its TRUE-POSITIVE detections (flagged AND labeled
