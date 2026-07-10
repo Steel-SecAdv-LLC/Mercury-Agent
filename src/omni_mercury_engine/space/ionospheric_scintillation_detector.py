@@ -452,11 +452,22 @@ class IonosphericScintillationDetector:
             magnetic_latitude_deg=float(magnetic_latitude_deg),
             local_time_hours=float(local_time_hours),
         )
+        # Log the latitude *regime* rather than the precise coordinate. The
+        # band (equatorial / mid-latitude / auroral) is what drives
+        # scintillation climatology, and keeping a raw location out of routine
+        # logs is sound log hygiene (CWE-532). The exact magnetic latitude
+        # remains available on the returned ``ScintillationRisk``.
+        if abs_mlat >= boundary:
+            latitude_band = "auroral/polar-cap"
+        elif abs_mlat <= _EQUATORIAL_BELT_DEG:
+            latitude_band = "equatorial-anomaly belt"
+        else:
+            latitude_band = "mid-latitude"
         self.logger.info(
-            "Climatological scintillation risk: %s (kp=%.1f, mlat=%.1f°, LT=%.1f h)",
+            "Climatological scintillation risk: %s (kp=%.1f, %s band, LT=%.1f h)",
             risk,
             kp,
-            magnetic_latitude_deg,
+            latitude_band,
             local_time_hours,
         )
         return assessment

@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -35,6 +36,13 @@ from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/models", tags=["Model Management"])
+
+# ``model_id`` reaches the registry from request path parameters. A genuine
+# identifier is always the 16-character lowercase hex digest produced by
+# ``ModelRegistry.register_model``. Constraining path-building inputs to this
+# exact shape means they cannot encode a separator (``/``) or a parent
+# reference (``..``), which makes filesystem path traversal impossible.
+_MODEL_ID_RE = re.compile(r"[0-9a-f]{16}")
 
 
 class ModelType(StrEnum):
@@ -147,6 +155,29 @@ class ModelRegistry:
         self._storage_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._version_counter: dict[str, int] = {}
 
+    def _model_dir(self, model_id: str) -> Path:
+        """Return the storage directory for ``model_id``, confined to the root.
+
+        ``model_id`` originates from request paths, so before it is ever used to
+        build a filesystem path it is validated against the exact identifier
+        format (:data:`_MODEL_ID_RE`) and the resolved location is verified to
+        stay inside the storage root. Either guard alone defeats path traversal;
+        together they are defense in depth.
+        """
+        if not _MODEL_ID_RE.fullmatch(model_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid model identifier",
+            )
+        root = os.path.realpath(self._storage_path)
+        candidate = os.path.realpath(os.path.join(root, model_id))
+        if candidate != root and not candidate.startswith(root + os.sep):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid model identifier",
+            )
+        return Path(candidate)
+
     def register_model(
         self,
         name: str,
@@ -182,7 +213,7 @@ class ModelRegistry:
             self._models[model_id] = model
             self._version_counter[model_id] = 0
 
-            model_dir = self._storage_path / model_id
+            model_dir = self._model_dir(model_id)
             model_dir.mkdir(exist_ok=True)
 
             logger.info(f"Model registered: {model_id} ({name}) by {owner_id}")
@@ -246,7 +277,7 @@ class ModelRegistry:
             file_size = 0
 
             if file_content:
-                version_dir = self._storage_path / model_id / version_num
+                version_dir = self._model_dir(model_id) / version_num
                 version_dir.mkdir(parents=True, exist_ok=True)
 
                 ext = ".pt" if framework == ModelFramework.PYTORCH else ".bin"
@@ -370,7 +401,7 @@ class ModelRegistry:
             if model_id not in self._models:
                 return False
 
-            model_dir = self._storage_path / model_id
+            model_dir = self._model_dir(model_id)
             if model_dir.exists():
                 shutil.rmtree(model_dir)
 
