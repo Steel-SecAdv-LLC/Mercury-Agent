@@ -458,13 +458,13 @@ class IonosphericScintillationDetector:
         # logs is sound log hygiene (CWE-532). The exact magnetic latitude
         # remains available on the returned ``ScintillationRisk``.
         if abs_mlat >= boundary:
-            latitude_band = "auroral/polar-cap"
+            latitude_band = "auroral"
         elif abs_mlat <= _EQUATORIAL_BELT_DEG:
-            latitude_band = "equatorial-anomaly belt"
+            latitude_band = "equatorial"
         else:
             latitude_band = "mid-latitude"
         self.logger.info(
-            "Climatological scintillation risk: %s (kp=%.1f, %s band, LT=%.1f h)",
+            "Climatological scintillation risk: %s (kp=%.1f, latitude_band=%s, LT=%.1f h)",
             risk,
             kp,
             latitude_band,
