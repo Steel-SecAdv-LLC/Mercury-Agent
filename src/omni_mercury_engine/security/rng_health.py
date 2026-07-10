@@ -105,7 +105,8 @@ def bytes_to_trial_sums(raw: bytes) -> np.ndarray:
             f"({MIN_TRIALS} trials of {TRIAL_BYTES} bytes); got {len(raw)} bytes"
         )
     bits = np.unpackbits(np.frombuffer(raw[: n_trials * TRIAL_BYTES], dtype=np.uint8))
-    return bits.reshape(n_trials, TRIAL_BITS).sum(axis=1).astype(np.float64)
+    sums: np.ndarray = bits.reshape(n_trials, TRIAL_BITS).sum(axis=1).astype(np.float64)
+    return sums
 
 
 def bit_bias_channel(raw: bytes, q: float, seed: int) -> bytes:

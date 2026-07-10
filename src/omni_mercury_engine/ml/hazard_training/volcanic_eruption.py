@@ -832,8 +832,12 @@ def compute_day_record(mseed_bytes: bytes, scale: float, expected_sr: float) -> 
         presence metadata. See ``FEATURE_NAMES``/``HOURLY_FEATURE_NAMES``.
 
     Raises:
-        RuntimeError: If the payload cannot be parsed as miniSEED or the
-            sample rate disagrees with the inventory by more than 1%.
+        RuntimeError: If the payload cannot be parsed as miniSEED or NO
+            trace matches the inventory sample rate within 1%. Individual
+            traces at a different rate (observed in the wild: 25 Hz segments
+            inside a nominally 50 Hz CERB.SHZ epoch) are dropped, and the
+            minutes they covered stay honestly absent (NaN -> presence
+            flags); they are never index-mapped at the wrong rate.
     """
     import obspy  # type: ignore[import-untyped, unused-ignore]  # lazy heavy import
 
@@ -842,21 +846,27 @@ def compute_day_record(mseed_bytes: bytes, scale: float, expected_sr: float) -> 
     except Exception as exc:  # obspy raises TypeError on unknown formats
         raise RuntimeError(f"unreadable miniSEED payload: {exc}") from exc
 
-    day0 = min(tr.stats.starttime for tr in stream)
+    traces = [
+        tr
+        for tr in stream
+        if abs(float(tr.stats.sampling_rate) - expected_sr) <= 0.01 * expected_sr
+    ]
+    if not traces:
+        rates = sorted({float(tr.stats.sampling_rate) for tr in stream})
+        raise RuntimeError(
+            f"sample rate {rates} disagrees with inventory {expected_sr}; refusing to mis-scale"
+        )
+    day0 = min(tr.stats.starttime for tr in traces)
     day_start = obspy.UTCDateTime(day0.year, day0.month, day0.day)
 
     minute_sum = np.zeros(1440, dtype=np.float64)
     minute_count = np.zeros(1440, dtype=np.int64)
     hour_trigs = np.zeros(24, dtype=np.int64)
     hour_band_acc: list[list[np.ndarray]] = [[] for _ in range(24)]
-    sr = float(stream[0].stats.sampling_rate)
-    if abs(sr - expected_sr) > 0.01 * expected_sr:
-        raise RuntimeError(
-            f"sample rate {sr} disagrees with inventory {expected_sr}; refusing to mis-scale"
-        )
-    gap_count = max(len(stream) - 1, 0)
+    sr = float(traces[0].stats.sampling_rate)
+    gap_count = max(len(traces) - 1, 0)
 
-    for tr in stream:
+    for tr in traces:
         v = np.asarray(tr.data, dtype=np.float64) / scale
         offset = float(tr.stats.starttime - day_start)
         idx_min = (offset + np.arange(v.size) / sr) / 60.0
@@ -1817,7 +1827,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     if not cand_path.exists():
         raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
     payload = torch.load(cand_path, map_location="cpu", weights_only=True)
-    tau_learned = float(payload["val_alert_threshold"])
+    model_head_tau = float(payload["val_alert_threshold"])  # reported only
 
     physics_det = VolcanicEruptionDetector()
     learned_det = VolcanicEruptionDetector()
@@ -1825,34 +1835,49 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
 
     y = ds.labels[test_idx]
     rsam_scores_all = _rsam_baseline_scores(ds)
-    train_mask, _, _ = SPLIT.masks(ds.years)
+    train_mask, val_mask, _ = SPLIT.masks(ds.years)
+    val_idx = np.flatnonzero(val_mask)
     tau_rsam, rsam_fit = _select_threshold(ds.labels[train_mask], rsam_scores_all[train_mask])
     rsam_scores = rsam_scores_all[test_idx]
 
-    conf: dict[str, list[float]] = {"learned": [], "physics": []}
-    imminent: dict[str, list[bool]] = {"learned": [], "physics": []}
-    swarm_flags: list[bool] = []
-    for i in test_idx:
-        minute = ds.minute_rsam[i]
-        minute_clean = minute[np.isfinite(minute)].astype(np.float64)
-        case_learned = {
-            "fused_features": x[i].tolist(),
-            "seismic_sequence": h[i],
-        }
-        case_physics = {"seismic_sequence": minute_clean}
-        for name, det, case in (
-            ("learned", learned_det, case_learned),
-            ("physics", physics_det, case_physics),
-        ):
-            if det.state_hmm is not None:
-                det.state_hmm.reset()  # per-case independence, no order leak
-            result = det.predict_eruption(case)
-            if not np.isfinite(result.confidence):
-                raise RuntimeError(f"{name} path returned non-finite confidence for case {i}")
-            conf[name].append(float(result.confidence))
-            imminent[name].append(bool(result.eruption_imminent))
-            if name == "physics":
-                swarm_flags.append(bool(result.seismic_swarm_detected))
+    def _run_cases(indices: np.ndarray) -> dict[str, Any]:
+        conf: dict[str, list[float]] = {"learned": [], "physics": []}
+        imminent: dict[str, list[bool]] = {"learned": [], "physics": []}
+        swarm_flags: list[bool] = []
+        for i in indices:
+            minute = ds.minute_rsam[i]
+            minute_clean = minute[np.isfinite(minute)].astype(np.float64)
+            case_learned = {
+                "fused_features": x[i].tolist(),
+                "seismic_sequence": h[i],
+            }
+            case_physics = {"seismic_sequence": minute_clean}
+            for name, det, case in (
+                ("learned", learned_det, case_learned),
+                ("physics", physics_det, case_physics),
+            ):
+                if det.state_hmm is not None:
+                    det.state_hmm.reset()  # per-case independence, no order leak
+                result = det.predict_eruption(case)
+                if not np.isfinite(result.confidence):
+                    raise RuntimeError(f"{name} path returned non-finite confidence for case {i}")
+                conf[name].append(float(result.confidence))
+                imminent[name].append(bool(result.eruption_imminent))
+                if name == "physics":
+                    swarm_flags.append(bool(result.seismic_swarm_detected))
+        return {"conf": conf, "imminent": imminent, "swarm": swarm_flags}
+
+    # Alert threshold for the learned path is selected on the VALIDATION
+    # years' API confidences (never test), so the deployed decision rule is
+    # fixed before the held-out cases are scored.
+    val_runs = _run_cases(val_idx)
+    tau_learned, tau_val_stats = _select_threshold(
+        ds.labels[val_idx], np.asarray(val_runs["conf"]["learned"])
+    )
+    runs = _run_cases(test_idx)
+    conf = runs["conf"]
+    imminent = runs["imminent"]
+    swarm_flags = runs["swarm"]
 
     def _op_metrics(detect: np.ndarray) -> tuple[float, float, float]:
         is_pos = y == 1.0
@@ -1929,6 +1954,8 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             ),
             "operating_points": {
                 "learned_tau_val_csi": tau_learned,
+                "learned_tau_val_stats": tau_val_stats,
+                "learned_model_head_tau_from_train_stage": model_head_tau,
                 "physics_alarm": "seismic_swarm_detected flag (robust-z exceedance)",
                 "rsam_tau_train_csi": tau_rsam,
                 "rsam_train_fit": rsam_fit,

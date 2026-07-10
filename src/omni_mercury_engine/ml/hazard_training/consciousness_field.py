@@ -200,8 +200,20 @@ def _fetch_wayback(url: str, dest: Path, *, timeout: float = 240.0) -> tuple[Pat
             url,
             direct_exc,
         )
-        resp = requests.get(url, timeout=timeout)  # honours HTTPS_PROXY + CA bundle
-        resp.raise_for_status()
+        resp = None
+        for attempt in range(3):  # Wayback resets connections under load
+            try:
+                # Honours HTTPS_PROXY + the environment CA bundle.
+                resp = requests.get(url, timeout=timeout)
+                resp.raise_for_status()
+                break
+            except requests.RequestException as exc:
+                if attempt == 2:
+                    raise
+                logger.warning("transient fetch failure for %s (%s); retrying", url, exc)
+                time.sleep(5.0 * (attempt + 1))
+        if resp is None:  # pragma: no cover - loop breaks with a response or raises
+            raise RuntimeError(f"unreachable: no response and no exception for {url}")
         if not resp.content:
             raise RuntimeError(f"empty response body from {url}; refusing to cache")
         dest.parent.mkdir(parents=True, exist_ok=True)

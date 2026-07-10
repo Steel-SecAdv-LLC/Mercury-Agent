@@ -95,6 +95,7 @@ import datetime as _dt
 import json
 import logging
 import re
+import struct
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -160,15 +161,18 @@ SCAN_AFTER_S = 5 * 60
 MIN_FINITE_FRACTION = 0.30
 
 POSITIVES_PER_YEAR = 28
-QUIET_VOLUMES_PER_YEAR = 8
-QUIET_SECTORS_PER_VOLUME = 3
+#: Quiet-day volumes are the only negatives that cost fresh downloads, so
+#: the byte budget is spent on more sectors per volume rather than more
+#: volumes (2016+ uncompressed SAILS volumes run 15-25 MB each).
+QUIET_VOLUMES_PER_YEAR = 6
+QUIET_SECTORS_PER_VOLUME = 4
 MARGINAL_SECTORS_PER_POSITIVE = 1
 #: Seeded draws per volume when hunting an acceptable random sector. Outbreak
-#: days reject most draws on the 150-km report-exclusion rule, so the hunt
-#: needs headroom; sector range stays inside the positive band so range alone
+#: days reject most draws on the report-exclusion rule, so the hunt needs
+#: headroom; sector range stays inside the positive band so range alone
 #: cannot become a class shortcut.
 MARGINAL_ATTEMPTS = 24
-QUIET_ATTEMPTS = 10
+QUIET_ATTEMPTS = 12
 QUIET_TORNADO_EXCLUSION_KM = 300.0
 #: Same-day marginal negatives: minimum distance from the sector CENTER to
 #: every tornado report of that UTC day. See the module docstring for why
@@ -484,6 +488,8 @@ def decode_lowest_vel_sweep(volume_path: Path) -> VelSweep:
     best_idx: int | None = None
     best_el = float("inf")
     for i, sweep in enumerate(f.sweeps):
+        if not sweep:  # metpy emits empty sweeps for missed elevations
+            continue
         ray0 = sweep[0]
         if not isinstance(ray0[4], dict) or b"VEL" not in ray0[4]:
             continue
@@ -711,7 +717,7 @@ def _collect_positive_samples(
                     vol_path = fetch_volume(ctx, key)
                     budget.add(vol_path)
                     sweep = decode_lowest_vel_sweep(vol_path)
-                except (ValueError, OSError, EOFError) as exc:
+                except (ValueError, OSError, EOFError, IndexError, KeyError, struct.error) as exc:
                     stats["pos_site_attempt_decode_error"] += 1
                     logger.warning("skipping undecodable volume %s: %s", key, exc)
                     continue
@@ -920,7 +926,7 @@ def _collect_quiet_negatives(
                 vol_path = fetch_volume(ctx, key)
                 budget.add(vol_path)
                 sweep = decode_lowest_vel_sweep(vol_path)
-            except (ValueError, OSError, EOFError) as exc:
+            except (ValueError, OSError, EOFError, IndexError, KeyError, struct.error) as exc:
                 stats["neg_quiet_decode_error"] += 1
                 logger.warning("skipping undecodable volume %s: %s", key, exc)
                 continue
