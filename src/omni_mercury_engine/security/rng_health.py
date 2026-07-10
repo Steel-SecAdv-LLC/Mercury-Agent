@@ -124,7 +124,7 @@ def bit_bias_channel(raw: bytes, q: float, seed: int) -> bytes:
     mask_bits = (rng.random(len(raw) * 8) < q).astype(np.uint8)
     mask = np.packbits(mask_bits)
     data = np.frombuffer(raw, dtype=np.uint8)
-    return (data | mask).tobytes()
+    return (data | mask).tobytes()  # type: ignore[no-any-return, unused-ignore]
 
 
 def _wilson_hilferty_z(chi2: float, df: int) -> float:

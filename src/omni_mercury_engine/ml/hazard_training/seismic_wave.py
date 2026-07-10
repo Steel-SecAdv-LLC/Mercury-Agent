@@ -1253,7 +1253,9 @@ def _select_operating_point(
         **chosen,
         "policy": "confidence > tau (sigmoid + 0.2*resonance, detector semantics); tau "
         "maximizes val CSI subject to val recall >= max(physics val recall + 0.02, 0.60) "
-        "AND val FAR <= 0.8 * physics val FAR",
+        "AND val FAR <= 0.8 * physics val FAR; when physics posts zero val FAR that ceiling "
+        "is unsatisfiable, so the fallback keeps the lowest-FAR tau meeting the recall floor "
+        "(recall_floor_met records the branch) and the merit gate decides FAR on test",
         "recall_floor": recall_floor,
         "recall_floor_met": floor_met,
         "far_ceiling": far_ceiling,
