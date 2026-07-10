@@ -742,7 +742,9 @@ async def detect_flagship(
             raise ValueError("'data' must be a 2-D feature matrix")
 
         # Serialize + offload the blocking, stateful fusion detection.
-        result = await run_in_threadpool(
+        # Annotated: run_in_threadpool is Any-typed under some Python/stub
+        # combinations (CI's 3.12 lane), and the route declares dict[str, Any].
+        result: dict[str, Any] = await run_in_threadpool(
             _run_flagship_detection,
             matrix,
             request.domain,
