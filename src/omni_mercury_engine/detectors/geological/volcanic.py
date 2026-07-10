@@ -9,7 +9,7 @@ Comprehensive volcanic hazard detection for humanitarian early warning:
 - Ground deformation (InSAR interferometry)
 - Ash dispersion modeling
 - Eruption forecasting with machine learning
-- Ancient pattern correlation (Schumann ELF + volcanic activity)
+- ELF electromagnetic correlation (exploratory)
 
 Integrations:
 - Seismic detectors for volcano-tectonic (VT) earthquakes
@@ -28,8 +28,6 @@ Research sources:
 
 ⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
 volcano observatories (USGS, PHIVOLCS, etc.). Always defer to official warnings.
-
-Performance: 25-35% faster alerts via HAT-CN-AD multi-scale fusion + GWO optimization
 """
 
 from __future__ import annotations
@@ -1079,7 +1077,9 @@ class VolcanicEruptionDetector:
             schumann_corr = self._correlate_schumann_elf(volcano_data["schumann_elf"])
             result.schumann_elf_correlation = schumann_corr
             if schumann_corr > 0.6:
-                indicators_detected += 0.5  # Ancient pattern bonus
+                # ELF correlation contributes a bounded 0.5 indicator bonus
+                # (exploratory evidence)
+                indicators_detected += 0.5
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}
@@ -1217,7 +1217,10 @@ class VolcanicEruptionDetector:
     def _correlate_schumann_elf(self, schumann_data: np.ndarray[Any, Any]) -> float:
         """Correlate Schumann ELF anomalies with volcanic activity.
 
-        Ancient wisdom: Earth's "hum" changes before major geological events.
+        Evidence status: Schumann/ELF anomalies preceding eruptions have been
+        reported in the literature but are not validated precursors. This
+        correlation is EXPLORATORY and its contribution to detection is
+        bounded (at most a 0.5 indicator bonus).
         """
         elf_mean = np.mean(schumann_data)
         elf_std = np.std(schumann_data)

@@ -16,7 +16,7 @@ Key Features:
 - Multi-harmonic anomaly detection
 - Temporal correlation with geophysical events
 - Amplitude and frequency deviation tracking
-- Neurosymbolic correlation with ancient knowledge
+- Cyclic geophysical correlation (lunar tidal / solar cycle, exploratory)
 - Golden ratio optimization for resonance detection
 - O(n log n) complexity via FFT
 
@@ -93,7 +93,7 @@ class SchumannAnomalyResult:
     temporal_pattern: dict[str, Any] | None = None
 
     recommendations: list[str] = field(default_factory=list)
-    ancient_correlation: dict[str, Any] | None = None
+    cycle_correlation: dict[str, Any] | None = None
 
     # Live-ingestion provenance (populated only by detect_live()).
     source_id: str | None = None
@@ -209,7 +209,7 @@ class SchumannResonanceDetector:
     def __init__(
         self,
         sampling_rate: float = 100.0,
-        enable_ancient_correlation: bool = True,
+        enable_cycle_correlation: bool = True,
         golden_ratio_thresholds: bool = True,
         data_source: BGSELFStationSource | None = None,
         keep_diagnostics: bool = False,
@@ -229,7 +229,8 @@ class SchumannResonanceDetector:
 
         Args:
             sampling_rate: ELF data sampling rate (Hz)
-            enable_ancient_correlation: Correlate with ancient solar/lunar cycles
+            enable_cycle_correlation: Correlate with cyclic geophysical periods
+                (lunar tidal / solar cycle); exploratory context only
             golden_ratio_thresholds: Use φ-optimized detection thresholds
             data_source: Optional BGS ELF station client for the live path.
             keep_diagnostics: When True, each anomaly result carries the
@@ -245,7 +246,7 @@ class SchumannResonanceDetector:
             )
         self.logger = logging.getLogger(__name__)
         self.sampling_rate = sampling_rate
-        self.enable_ancient_correlation = enable_ancient_correlation
+        self.enable_cycle_correlation = enable_cycle_correlation
         self.golden_ratio = 1.618 if golden_ratio_thresholds else 1.0
         self._elf_source = data_source
         self.keep_diagnostics = keep_diagnostics
@@ -262,7 +263,7 @@ class SchumannResonanceDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
-        self.ancient_knowledge = self._initialize_ancient_correlations()
+        self.geophysical_cycles = self._initialize_cycle_correlations()
 
         self.omni_resonance_scalars = {
             "omni_electromagnetic_harmony": 1.46 * self.golden_ratio,
@@ -272,7 +273,7 @@ class SchumannResonanceDetector:
             "omni_space_weather_correlation": 1.40 * self.golden_ratio,
             "omni_frequency_stability": 1.38 * self.golden_ratio,
             "omni_amplitude_sensitivity": 1.43 * self.golden_ratio,
-            "omni_ancient_wisdom_alignment": 1.37 * self.golden_ratio,
+            "omni_geophysical_cycle_alignment": 1.37 * self.golden_ratio,
         }
 
         self.logger.info(f"Schumann Resonance Detector initialized (fs={sampling_rate}Hz)")
@@ -289,11 +290,20 @@ class SchumannResonanceDetector:
         """
         return self.schumann_frequencies[0]
 
-    def _initialize_ancient_correlations(self) -> dict[str, Any]:
-        """Initialize ancient knowledge correlations.
+    def _initialize_cycle_correlations(self) -> dict[str, Any]:
+        """Initialize cyclic geophysical correlation references (EXPLORATORY).
 
-        Ancient civilizations observed natural cycles that correlate with electromagnetic phenomena.
-        This establishes symbolic connections for neurosymbolic reasoning.
+        Reference periods for lunar tidal and solar-cycle correlation checks,
+        used as symbolic context for neurosymbolic reasoning.
+
+        Evidence status: tidal (lunar) triggering of seismicity has been
+        reported but the effect is small and contested for forecasting
+        (Cochran, Vidale & Tanaka 2004, Science 306:1164-1166; Ide, Yabe &
+        Tanaka 2016, Nature Geoscience 9:834-837). Solar-cycle modulation of
+        geomagnetic activity is well established, but neither correlation is
+        a validated earthquake/eruption predictor. These correlations are
+        tracked as exploratory context only and do not alter the detection
+        computation.
         """
         return {
             "solar_cycles": {
@@ -307,10 +317,11 @@ class SchumannResonanceDetector:
                 "draconic_month": 27.21,
                 "note": "Lunar position affects Earth's magnetosphere",
             },
-            "ancient_observations": {
+            "calendar_cycles": {
                 "egyptian_sirius_cycle": 365.25,
                 "mayan_tzolkin": 260.0,
-                "note": "Ancient calendars tracked celestial/terrestrial harmonics",
+                "note": "Historical calendar periods (Sothic/tropical year, Tzolk'in) "
+                "kept as long-period references",
             },
             "resonance_ratios": {
                 "golden_ratio": 1.618,
@@ -402,9 +413,9 @@ class SchumannResonanceDetector:
             anomaly_type, risk_score, correlated_events
         )
 
-        ancient_correlation = None
-        if self.enable_ancient_correlation:
-            ancient_correlation = self._correlate_ancient_patterns(
+        cycle_correlation = None
+        if self.enable_cycle_correlation:
+            cycle_correlation = self._correlate_cycle_patterns(
                 fundamental_freq, temporal_pattern, metadata
             )
 
@@ -440,7 +451,7 @@ class SchumannResonanceDetector:
             correlated_events=correlated_events,
             temporal_pattern=temporal_pattern,
             recommendations=recommendations,
-            ancient_correlation=ancient_correlation,
+            cycle_correlation=cycle_correlation,
             diagnostics=diagnostics,
         )
 
@@ -689,13 +700,20 @@ class SchumannResonanceDetector:
 
         return recommendations[:6]
 
-    def _correlate_ancient_patterns(
+    def _correlate_cycle_patterns(
         self,
         fundamental_freq: float,
         temporal_pattern: dict[str, Any] | None,
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        """Correlate with ancient astronomical/geophysical cycles."""
+        """Correlate with cyclic geophysical periods (lunar tidal / solar cycle).
+
+        EXPLORATORY: the returned correlation is context only -- it does not
+        feed the anomaly decision or risk score. Tidal triggering of
+        seismicity is a small, contested effect (Cochran et al. 2004;
+        Ide et al. 2016) and solar-cycle modulation of geomagnetic activity,
+        while established, is not a validated event predictor.
+        """
         correlations: dict[str, list[str]] = {
             "detected_cycles": [],
             "symbolic_significance": [],
@@ -712,12 +730,15 @@ class SchumannResonanceDetector:
             if lunar_correlation:
                 correlations["detected_cycles"].append("Lunar cycle correlation")
                 correlations["symbolic_significance"].append(
-                    "Ancient lunar observations: Electromagnetic-gravitational coupling"
+                    "Measurement span near lunar tidal period (draconic 27.21 d / "
+                    "synodic 29.53 d); tidal triggering of seismicity is small and "
+                    "contested (exploratory)"
                 )
 
         if fundamental_freq > 7.83:
             correlations["symbolic_significance"].append(
-                "Elevated resonance: Potential increased solar activity (ancient solar tracking)"
+                "Elevated resonance: consistent with increased solar activity "
+                "(solar-cycle modulation of geomagnetic activity; exploratory)"
             )
 
         return correlations
@@ -857,7 +878,7 @@ def create_omni_resonance_scalars() -> dict[str, float]:
         "omni_space_weather_correlation": 1.40 * phi,
         "omni_frequency_stability": 1.38 * phi,
         "omni_amplitude_sensitivity": 1.43 * phi,
-        "omni_ancient_wisdom_alignment": 1.37 * phi,
+        "omni_geophysical_cycle_alignment": 1.37 * phi,
         "omni_waveguide_propagation": 1.39 * phi,
         "omni_solar_modulation": 1.41 * phi,
     }

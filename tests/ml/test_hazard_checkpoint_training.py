@@ -146,9 +146,7 @@ class TestMeritGate:
 
     def test_non_finite_constraint_refuses(self) -> None:
         """An unmeasurable constraint must refuse, never pass silently."""
-        outcome = self._constrained_outcome(
-            learned_recall=float("nan"), physics_recall=0.57
-        )
+        outcome = self._constrained_outcome(learned_recall=float("nan"), physics_recall=0.57)
         assert outcome.learned_beats_physics is False
 
     def test_ship_checkpoint_refuses_on_failed_constraint(self, tmp_path: Path) -> None:
@@ -251,9 +249,7 @@ class TestShippedSolarStormCheckpoint:
         """
         from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
 
-        detector = SolarStormDetector(
-            enable_flare_detection=False, enable_cme_tracking=False
-        )
+        detector = SolarStormDetector(enable_flare_detection=False, enable_cme_tracking=False)
         detector.load_neural_weights()  # shipped default
         case = {
             "solar_wind_speed_km_s": 520.0,
@@ -289,10 +285,8 @@ class TestShippedSolarStormCheckpoint:
         payload["operating_point"] = {"storm_prob_threshold": 1.5}
         bad = tmp_path / "bad_op.pt"
         _torch.save(payload, bad)
-        detector = SolarStormDetector(
-            enable_flare_detection=False, enable_cme_tracking=False
-        )
-        with pytest.raises(ValueError, match="not a\\s+probability"):
+        detector = SolarStormDetector(enable_flare_detection=False, enable_cme_tracking=False)
+        with pytest.raises(ValueError, match=r"not a\s+probability"):
             detector.load_neural_weights(str(bad))
 
     def test_detector_default_load_uses_shipped_checkpoint(self) -> None:

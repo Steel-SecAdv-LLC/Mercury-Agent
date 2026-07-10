@@ -17,7 +17,7 @@ Key Features:
 - Reaction kinetics deviation detection
 - Molecular structure anomaly identification
 - Golden ratio relationships in chemical bonding
-- Neurosymbolic integration with alchemical knowledge
+- Neurosymbolic integration with a classical planetary-metals reference list
 - O(n) complexity for real-time analysis
 
 Scientific Foundation:
@@ -80,7 +80,7 @@ class ChemicalAnomalyResult:
     stability_concerns: list[str] = field(default_factory=list)
 
     recommendations: list[str] = field(default_factory=list)
-    ancient_alchemical_correlation: dict[str, Any] | None = None
+    classical_metals_correlation: dict[str, Any] | None = None
 
 
 class PeriodicTableEncoder(nn.Module):
@@ -150,19 +150,20 @@ class ChemistryAnomalyDetector:
     def __init__(
         self,
         enable_isotope_analysis: bool = True,
-        enable_alchemical_correlation: bool = True,
+        enable_classical_metals_correlation: bool = True,
         golden_ratio_bonds: bool = True,
     ):
         """Initialize chemistry anomaly detector.
 
         Args:
             enable_isotope_analysis: Enable isotope decay analysis
-            enable_alchemical_correlation: Correlate with historical alchemy
+            enable_classical_metals_correlation: Annotate detections against the
+                classical planetary-metals reference list (historical metallurgy)
             golden_ratio_bonds: Use φ-based chemical bonding analysis
         """
         self.logger = logging.getLogger(__name__)
         self.enable_isotope_analysis = enable_isotope_analysis
-        self.enable_alchemical_correlation = enable_alchemical_correlation
+        self.enable_classical_metals_correlation = enable_classical_metals_correlation
         self.golden_ratio = 1.618 if golden_ratio_bonds else 1.0
 
         self.periodic_encoder = PeriodicTableEncoder(num_elements=118, embedding_dim=64)
@@ -171,7 +172,7 @@ class ChemistryAnomalyDetector:
 
         self.isotope_data = self._initialize_isotope_data()
 
-        self.alchemical_knowledge = self._initialize_alchemical_kb()
+        self.classical_metals_kb = self._initialize_classical_metals_kb()
 
         self.omni_chemistry_scalars = {
             "omni_elemental_purity": 1.44 * self.golden_ratio,
@@ -182,7 +183,7 @@ class ChemistryAnomalyDetector:
             "omni_catalytic_efficiency": 1.39 * self.golden_ratio,
             "omni_thermodynamic_optimization": 1.42 * self.golden_ratio,
             "omni_quantum_coherence": 1.46 * self.golden_ratio,
-            "omni_alchemical_wisdom": 1.38 * self.golden_ratio,
+            "omni_classical_metals_correlation": 1.38 * self.golden_ratio,
         }
 
         self.logger.info("Chemistry Anomaly Detector initialized")
@@ -255,11 +256,15 @@ class ChemistryAnomalyDetector:
             "Pu-239": {"mass": 239, "stable": False, "half_life": 24110, "decay_mode": "alpha"},
         }
 
-    def _initialize_alchemical_kb(self) -> dict[str, Any]:
-        """Initialize alchemical knowledge base.
+    def _initialize_classical_metals_kb(self) -> dict[str, Any]:
+        """Initialize the classical planetary-metals reference list.
 
-        Historical alchemy discovered many chemical principles before modern science. This knowledge
-        base establishes symbolic connections.
+        Historical-metallurgy reference data: the seven metals of classical
+        antiquity (gold, silver, copper, iron, tin, lead, mercury) with their
+        traditional planetary symbols, the four classical elements mapped to
+        their modern physical-chemistry analogues, and historical process
+        stages. Used only to annotate detections with descriptive
+        historical-metallurgy context; it does not affect anomaly scoring.
         """
         return {
             "classical_elements": {
@@ -268,8 +273,8 @@ class ChemistryAnomalyDetector:
                 "air": {"properties": ["hot", "wet"], "modern": "gas phase"},
                 "earth": {"properties": ["cold", "dry"], "modern": "solid phase"},
             },
-            "alchemical_metals": {
-                "gold": {"symbol": "☉", "element": "Au", "Z": 79, "perfection": "incorruptible"},
+            "classical_metals": {
+                "gold": {"symbol": "☉", "element": "Au", "Z": 79, "property": "incorruptible"},
                 "silver": {"symbol": "☽", "element": "Ag", "Z": 47, "property": "lunar"},
                 "mercury": {"symbol": "☿", "element": "Hg", "Z": 80, "property": "volatile"},
                 "copper": {"symbol": "♀", "element": "Cu", "Z": 29, "property": "venusian"},
@@ -277,9 +282,9 @@ class ChemistryAnomalyDetector:
                 "tin": {"symbol": "♃", "element": "Sn", "Z": 50, "property": "jovial"},
                 "lead": {"symbol": "♄", "element": "Pb", "Z": 82, "property": "saturnine"},
             },
-            "philosopher_stone_ratios": {
+            "reference_ratios": {
                 "golden_ratio": 1.618,
-                "note": "Alchemists sought perfect proportions in transmutation",
+                "note": "Golden ratio retained as the module's proportion reference constant",
             },
             "transformation_principles": [
                 "calcination",
@@ -351,11 +356,9 @@ class ChemistryAnomalyDetector:
             anomaly_type, element_anomalies, isotope_anomalies, stability_concerns
         )
 
-        ancient_correlation = None
-        if self.enable_alchemical_correlation:
-            ancient_correlation = self._correlate_alchemical_knowledge(
-                chemical_data, element_anomalies
-            )
+        metals_correlation = None
+        if self.enable_classical_metals_correlation:
+            metals_correlation = self._correlate_classical_metals(chemical_data, element_anomalies)
 
         result = ChemicalAnomalyResult(
             anomaly_detected=anomaly_detected,
@@ -368,7 +371,7 @@ class ChemistryAnomalyDetector:
             periodic_violations=periodic_violations,
             stability_concerns=stability_concerns,
             recommendations=recommendations,
-            ancient_alchemical_correlation=ancient_correlation,
+            classical_metals_correlation=metals_correlation,
         )
 
         self.logger.info(
@@ -566,23 +569,27 @@ class ChemistryAnomalyDetector:
 
         return recommendations[:6]
 
-    def _correlate_alchemical_knowledge(
+    def _correlate_classical_metals(
         self, chemical_data: dict[str, Any], element_anomalies: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        """Correlate with historical alchemical knowledge."""
+        """Annotate the sample against the classical planetary-metals list.
+
+        Reports which of the seven metals of classical antiquity (gold,
+        silver, copper, iron, tin, lead, mercury) are present in the
+        elemental composition. Descriptive historical-metallurgy context
+        only; does not affect anomaly scoring.
+        """
         correlation: dict[str, Any] = {
-            "alchemical_metals_present": [],
+            "classical_metals_present": [],
             "classical_element_balance": {},
-            "philosophical_insights": [],
+            "historical_notes": [],
         }
 
         if "elemental_composition" in chemical_data:
             for element_symbol in chemical_data["elemental_composition"]:
-                for metal_name, metal_info in self.alchemical_knowledge[
-                    "alchemical_metals"
-                ].items():
+                for metal_name, metal_info in self.classical_metals_kb["classical_metals"].items():
                     if metal_info["element"] == element_symbol:
-                        correlation["alchemical_metals_present"].append(
+                        correlation["classical_metals_present"].append(
                             {
                                 "metal": metal_name,
                                 "symbol": metal_info["symbol"],
@@ -590,14 +597,14 @@ class ChemistryAnomalyDetector:
                             }
                         )
 
-        if len(correlation["alchemical_metals_present"]) >= 3:
-            correlation["philosophical_insights"].append(
-                "Multiple alchemical metals: Consider transmutation principles"
+        if len(correlation["classical_metals_present"]) >= 3:
+            correlation["historical_notes"].append(
+                "Three or more classical planetary metals present in composition"
             )
 
         if element_anomalies:
-            correlation["philosophical_insights"].append(
-                "Elemental imbalance: Ancient alchemists sought harmony via golden ratio"
+            correlation["historical_notes"].append(
+                "Elemental imbalance: composition deviates from expected abundance ranges"
             )
 
         return correlation
@@ -692,6 +699,6 @@ def create_omni_chemistry_scalars() -> dict[str, float]:
         "omni_catalytic_efficiency": 1.39 * phi,
         "omni_thermodynamic_optimization": 1.42 * phi,
         "omni_quantum_coherence": 1.46 * phi,
-        "omni_alchemical_wisdom": 1.38 * phi,
+        "omni_classical_metals_correlation": 1.38 * phi,
         "omni_nuclear_stability": 1.48 * phi,
     }

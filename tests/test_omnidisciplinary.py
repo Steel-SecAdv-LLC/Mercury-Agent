@@ -47,6 +47,25 @@ def test_chemistry_import() -> None:
     assert detector is not None
 
 
+def test_chemistry_classical_metals_gold_entry() -> None:
+    """Every classical-metal KB entry must carry the 'property' key.
+
+    Regression: the gold entry used to spell its key "perfection", so any
+    composition containing Au raised KeyError inside
+    ``_correlate_classical_metals``.
+    """
+    from omni_mercury_engine.models.chemistry import ChemistryAnomalyDetector
+
+    detector = ChemistryAnomalyDetector()
+    for name, info in detector.classical_metals_kb["classical_metals"].items():
+        assert "property" in info, f"{name} entry missing 'property'"
+    correlation = detector._correlate_classical_metals(
+        {"elemental_composition": {"Au": 0.5, "Fe": 0.3, "Pb": 0.2}}, []
+    )
+    metals = {entry["metal"] for entry in correlation["classical_metals_present"]}
+    assert {"gold", "iron", "lead"} <= metals
+
+
 def test_parapsychology_import() -> None:
     """Test parapsychology module imports correctly"""
     from omni_mercury_engine.models.parapsychology import ParapsychologyDetector

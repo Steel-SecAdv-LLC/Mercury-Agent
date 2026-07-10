@@ -424,9 +424,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         raise RuntimeError("training produced no finite validation MAE; refusing to save")
     model.load_state_dict(best_state)
 
-    operating_point = _select_operating_point(
-        model, ds, x_val=x_val, val_mask=val_mask
-    )
+    operating_point = _select_operating_point(model, ds, x_val=x_val, val_mask=val_mask)
 
     record = {
         "seed": ctx.seed,
@@ -506,8 +504,7 @@ def _select_operating_point(
     storm_true = ds.storm[val_mask].astype(bool)
     if not storm_true.any() or storm_true.all():
         raise RuntimeError(
-            "validation years contain a single class; cannot select an "
-            "operating point honestly"
+            "validation years contain a single class; cannot select an " "operating point honestly"
         )
 
     model.eval()
