@@ -175,13 +175,32 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
     "landslide_stability": HookEntry(
         name="landslide_stability",
         detector="detectors.geological.landslide.LandslideDetector",
-        architecture="SlopeStabilityModel",
-        category="b",
+        architecture="SlopeStabilityModel (64-feature MLP; failure + type heads)",
+        category="a",
         data_requirement=(
-            "NASA Global Landslide Catalog / COOLR event records joined with "
-            "site geotechnical and antecedent-rainfall covariates; the joined "
-            "covariates require GPM/soil archives not reachable here."
+            "NASA Global Landslide Catalog / COOLR events via the public AGOL "
+            "mirror (services1.arcgis.com, layer "
+            "nasa_global_landslide_catalog_point; rain-family triggers, "
+            "2007-2024, |lat| <= 50, location accuracy <= 25 km) joined with "
+            "CHIRPS v2.0 global daily 0.25-deg precipitation "
+            "(data.chc.ucsb.edu, public) as the landslide-coolr-v1 rainfall "
+            "feature vector; every percentile uses the fixed 1981-2006 "
+            "climatology and no site geotechnical dims are fabricated (they "
+            "stay zero with presence flags 0). The detector's physics path "
+            "abstains on rainfall-only inputs, so the merit gate compares "
+            "against the STRONGER of that API path and a documented "
+            "Caine-1980-style antecedent-rainfall percentile threshold "
+            "fitted on TRAIN years only, with deployed-rule recall/FAR and "
+            "Brier non-regression constraints; the deployed rule carries a "
+            "validation-selected operating point consumed decision-only by "
+            "load_neural_weights. 'Physics wins, not shipped' is a valid "
+            "recorded outcome -- and is NOT the current one (2026-07-10): "
+            "the learned model won held-out 2018-2024 AUC 0.8498 vs 0.8064 "
+            "(bootstrap 95% CI on the difference excludes zero) with all "
+            "constraints passing, so landslide_coolr shipped."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.landslide_stability",
+        checkpoint_name="landslide_coolr",
     ),
     "tornado_radar": HookEntry(
         name="tornado_radar",
@@ -204,13 +223,27 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="volcanic_eruption",
         detector="detectors.geological.volcanic.VolcanicEruptionDetector",
         architecture="EruptionForecastModel(128) + SeismicSwarmDetector LSTM",
-        category="b",
+        category="a",
         data_requirement=(
-            "Observatory-grade multiparameter monitoring series (seismic RSAM, "
-            "SO2 flux, deformation) for labeled eruptive/non-eruptive periods "
-            "— e.g. USGS/AVO and INGV archives distributed per-volcano on "
-            "request; no public bulk archive is reachable here."
+            "Smithsonian GVP Holocene eruption catalog "
+            "(webservices.volcano.si.edu, public WFS CSV) for day-precision "
+            "eruption-onset labels + VEI, EarthScope FDSN station/"
+            "availability/dataselect services (service.earthscope.org, "
+            "public) for AV-network station-day miniSEED near each volcano, "
+            "and the USGS HANS VAN notice archive (volcanoes.usgs.gov) as an "
+            "onset cross-check for 1-2 day-uncertain starts. SCOPED "
+            "deliverable: the checkpoint is trained ONLY for the named "
+            "AVO volcano set in volcanic_eruption.VOLCANOES (Shishaldin, "
+            "Semisopochnoi, Pavlof, Great Sitkin, Veniaminof, Cleveland, "
+            "Okmok, Redoubt), never as a universal eruption forecaster. The "
+            "merit gate compares against the detector's seismic physics "
+            "path AND an RSAM-ratio threshold baseline through the public "
+            "predict_eruption API, with deployed-rule recall/FAR and Brier "
+            "non-regression constraints; 'physics wins, not shipped' is a "
+            "valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.volcanic_eruption",
+        checkpoint_name="volcanic_avo_seismic",
     ),
     "wildfire_ignition": HookEntry(
         name="wildfire_ignition",
@@ -248,15 +281,31 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
     ),
     "consciousness_field": HookEntry(
         name="consciousness_field",
-        detector="models.parapsychology.ConsciousnessField",
-        architecture="LSTM field analyzer",
-        category="c",
+        detector="models.parapsychology.ParapsychologyDetector",
+        architecture="ConsciousnessFieldAnalyzer (LSTM+attention over 100 s REG composites)",
+        category="a",
         data_requirement=(
-            "No real labeled corpus exists for this architecture's input "
-            "contract; any training set would be fabricated. The hook remains "
-            "for research checkpoints supplied by the operator; the shipped "
-            "default stays the physics/statistics fallback permanently."
+            "Global Consciousness Project per-second per-egg REG trials "
+            "(noosphere.princeton.edu day files 2012-2024, fetched from the "
+            "Internet Archive Wayback Machine, sha256-pinned) -- each value "
+            "the sum of 200 XOR-whitened hardware-RNG bits, Binomial(200, "
+            "0.5) under the null. Fault-injection methodology: labels are "
+            "true by mathematical construction -- the null class is the real "
+            "measured stream and the anomaly class is the SAME windows "
+            "passed through seeded, recorded hardware-failure channels "
+            "(single-egg bit-bias, common-mode correlated bias, stuck bits); "
+            "nothing is fabricated, and the trained head is a REG "
+            "statistical-deviation detector only. The consciousness-field "
+            "interpretation (PEAR / Stargate / GCP / Koestler) is the "
+            "contested hypothesis under study, neither asserted nor denied. "
+            "Merit gate: the pre-registered closed-form |Stouffer Z| + "
+            "chi-square rule (models.gcp_ingest) must be beaten on "
+            "mixed-fault AUC with power@1%FAR and Brier non-regression; on "
+            "PURE bias faults that z-test is Neyman-Pearson-optimal, so "
+            "'closed form wins, not shipped' is a valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.consciousness_field",
+        checkpoint_name="reg_deviation_gcp",
     ),
 }
 

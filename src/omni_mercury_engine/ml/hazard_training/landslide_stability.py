@@ -42,7 +42,7 @@ Temporal split (never random -- landslide reporting and rainfall both
 autocorrelate across years): train 2007-2015, validation 2016-2017, test
 2018-2024, split on each sample's own date year. The task sketch suggested
 test 2021-2024, but GLC ingestion largely stopped in 2019 (2021-2024 hold
-only ~53 filtered positives), so the boundary moved to 2018 (675 test
+only ~53 filtered positives), so the boundary moved to 2018 (656 test
 positives); the ordering constraint train < val < test is unchanged.
 
 Feature spec ``landslide-coolr-v1`` (64 dims, matching
@@ -1575,6 +1575,10 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
             type_pred = model(x_val)[1].argmax(dim=1).numpy()
         type_acc = float(np.mean(type_pred[mapped_val] == t_val[mapped_val]))
 
+    operating_point = _select_operating_point(
+        model, ds, x_val=x_val, val_mask=val_mask, train_mask=train_mask
+    )
+
     record = {
         "seed": ctx.seed,
         "epochs_run": epochs_run,
@@ -1589,6 +1593,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "val_far_at_0p6": fp / max(float(np.sum(~is_pos)), 1.0),
         "val_type_accuracy_mapped": type_acc,
         "standardization_fold_prob_diff": prob_diff,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "stability_model": folded.state_dict(),
@@ -1600,9 +1605,171 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "climatology_years": list(CLIMATOLOGY_YEARS),
         "type_labels": list(LANDSLIDE_TYPE_LABELS),
         "standardization": "folded into feature_encoder[0]; pass RAW landslide-coolr-v1 vectors",
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
+
+
+def _rainfall_trigger_confidence(fields: Mapping[str, float]) -> float:
+    """Rainfall-trigger probability for one case (physics parity mirror).
+
+    Mirrors ``RainfallTriggerModel.assess_rainfall_trigger`` exactly
+    (Caine-style intensity-duration threshold with an antecedent-rainfall
+    saturation boost); used only to score the API physics path on the
+    validation years during operating-point selection. The evaluate stage
+    still measures physics through the public detector API.
+    """
+    intensity = float(fields.get("intensity_mm_hr", 0.0))
+    duration = float(fields.get("duration_hours", 0.0))
+    antecedent = float(fields.get("antecedent_7day_mm", 0.0))
+    id_threshold = intensity * duration**0.5
+    critical_id = 10.0 * 6.0**0.5
+    return float(min((id_threshold / critical_id) * (1.0 + antecedent / 100.0), 1.0))
+
+
+def _select_operating_point(
+    model: Any,
+    ds: LandslideDataset,
+    *,
+    x_val: torch.Tensor,
+    val_mask: np.ndarray,
+    train_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Choose the learned path's slope-failure alert threshold (tau).
+
+    The stability head is trained with positive-weighted BCE on a
+    25%-positive dataset, so its probability scale need not align with the
+    detector's fixed neural-path alert bar (slope failure probability >
+    0.6). Policy (documented for owner ratification, mirroring the
+    solar-storm/tsunami machinery): on the VALIDATION years only, require
+    the learned decision ``prob > tau`` to reach a recall of at least
+    ``max(physics validation recall, 0.5)`` AND a false-alarm rate of at
+    most ``0.8 * physics validation FAR`` (the 20% headroom guards the
+    val->test distribution shift the ship gate's hard FAR constraint does
+    not forgive); among feasible taus pick the one maximizing CSI (ties ->
+    higher tau, i.e. fewer false alarms). "Physics" mirrors the merit
+    gate's own baseline selection, computed on validation years: the
+    stronger (by validation AUC, ties -> baseline) of (1) the API physics
+    path, which abstains on rainfall-only inputs (slope failure
+    probability identically 0, so its deployed recall/FAR are both 0),
+    and (2) the train-years-fitted antecedent-rainfall percentile
+    baseline at its train-fitted threshold.
+
+    Args:
+        model: The trained (standardized-input) SlopeStabilityModel.
+        ds: Assembled dataset.
+        x_val: Standardized validation feature tensor.
+        val_mask: Validation-year sample mask.
+        train_mask: Train-year sample mask (baseline fitting only).
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar: the threshold (``detection_threshold``,
+        consumed decision-only by ``LandslideDetector.load_neural_weights``),
+        the policy text, the validation recall/FAR/CSI at tau, and the
+        physics floors it was selected against.
+
+    Raises:
+        RuntimeError: When validation holds a single class or no tau
+            satisfies even the FAR ceiling -- a doomed operating point must
+            refuse loudly, not ship quietly.
+    """
+    is_pos = ds.labels[val_mask] == 1.0
+    if not is_pos.any() or is_pos.all():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an operating point honestly"
+        )
+    model.eval()
+    with torch.no_grad():
+        prob = model(x_val)[0].squeeze(-1).numpy().astype(np.float64)
+
+    val_idx = np.flatnonzero(val_mask)
+    api_conf = np.array([_rainfall_trigger_confidence(ds.raw_fields[i]) for i in val_idx])
+    api_auc = binary_auc(ds.labels[val_mask], api_conf)
+    fit = _fit_rain_threshold(ds, train_mask)
+    base_scores = ds.features[val_mask, fit["column"]].astype(np.float64)
+    base_auc = binary_auc(ds.labels[val_mask], base_scores)
+    base_alert = base_scores >= fit["threshold"]
+    tp = float(np.sum(base_alert & is_pos))
+    fp = float(np.sum(base_alert & ~is_pos))
+    fn = float(np.sum(~base_alert & is_pos))
+    if np.isfinite(base_auc) and (not np.isfinite(api_auc) or base_auc >= api_auc):
+        physics_used = "fitted_rain_threshold_baseline"
+        physics_recall = tp / max(tp + fn, 1.0)
+        physics_far = fp / max(float(np.sum(~is_pos)), 1.0)
+    else:
+        # The API physics path abstains on rainfall-only inputs (slope
+        # failure probability identically 0): its deployed rule never fires.
+        physics_used = "detector_api_physics_path"
+        physics_recall, physics_far = 0.0, 0.0
+
+    recall_floor = max(physics_recall, 0.5)
+    far_ceiling = 0.8 * physics_far
+
+    def _metrics_at(tau: float) -> tuple[float, float, float]:
+        alert = prob > tau
+        tp = float(np.sum(alert & is_pos))
+        fn = float(np.sum(~alert & is_pos))
+        fp = float(np.sum(alert & ~is_pos))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~is_pos)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in np.unique(np.quantile(prob, np.linspace(0.0, 1.0, 513))):
+        if not 0.0 < float(tau) < 1.0:
+            continue
+        recall, far, csi = _metrics_at(float(tau))
+        entry = {
+            "detection_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no tau satisfies both floors: the best-recall point
+        # among FAR-feasible taus (a recall-maximizing fallback that blows
+        # the FAR ceiling would be selecting a point the ship gate is
+        # guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["detection_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the stability head is not usable for alert decisions -- refusing "
+            "to record a doomed operating point"
+        )
+    return {
+        **chosen,
+        "policy": "single-rule (slope failure probability > tau, decision-only); tau "
+        "maximizes val CSI subject to val recall >= max(physics val recall, 0.5) AND "
+        "val FAR <= 0.8 * physics val FAR; physics mirrors the merit gate's baseline "
+        "selection (stronger of the API physics path and the train-fitted "
+        "antecedent-rainfall percentile threshold, by validation AUC)",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+        "val_physics_baseline_used": physics_used,
+        "val_auc_api_physics": api_auc,
+        "val_auc_fitted_baseline": base_auc,
+        "fixed_bar_without_operating_point": DEPLOYED_PROB_THRESHOLD,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1638,24 +1805,23 @@ def _threshold_metrics(
     }
 
 
-def _fit_rain_threshold_baseline(
-    ds: LandslideDataset,
-    train_mask: np.ndarray,
-    test_mask: np.ndarray,
-) -> tuple[dict[str, float], dict[str, Any]]:
-    """Caine-1980-style antecedent-rainfall percentile baseline (train-fitted).
+def _fit_rain_threshold(ds: LandslideDataset, train_mask: np.ndarray) -> dict[str, Any]:
+    """Fit the Caine-1980-style percentile baseline on TRAIN years only.
 
-    Selects, on TRAIN years only, the single climatology-percentile feature
-    with the best train AUC, then the alert threshold on it maximizing
-    train CSI. Nothing from validation/test years touches the fit.
+    Selects the single climatology-percentile feature with the best train
+    AUC, then the alert threshold on it maximizing train CSI. Nothing from
+    validation/test years touches the fit.
 
     Args:
         ds: Assembled dataset (features are raw canonical vectors).
         train_mask: Train-year sample mask.
-        test_mask: Test-year sample mask.
 
     Returns:
-        Tuple of (test metrics, baseline definition record).
+        Fit record: feature name, canonical column index, train AUC, alert
+        threshold, and the train CSI at that threshold.
+
+    Raises:
+        RuntimeError: When no candidate feature has a finite train AUC.
     """
     y_train = ds.labels[train_mask]
     best_name, best_col, best_auc = "", -1, float("-inf")
@@ -1676,19 +1842,48 @@ def _fit_rain_threshold_baseline(
         csi = tp / max(tp + fn + fp, 1.0)
         if csi > best_csi:
             best_tau, best_csi = float(tau), csi
-    test_scores = ds.features[test_mask, best_col].astype(np.float64)
-    metrics = _threshold_metrics(
-        ds.labels[test_mask], test_scores, test_scores, test_scores >= best_tau
-    )
-    definition = {
-        "kind": "antecedent-rainfall percentile threshold (Caine-1980-style, "
-        "fitted on TRAIN years only)",
+    return {
         "feature": best_name,
+        "column": best_col,
         "train_auc": best_auc,
         "threshold": best_tau,
         "train_csi_at_threshold": best_csi,
     }
-    return metrics, definition
+
+
+def _fit_rain_threshold_baseline(
+    ds: LandslideDataset,
+    train_mask: np.ndarray,
+    test_mask: np.ndarray,
+) -> tuple[dict[str, float], dict[str, Any], np.ndarray]:
+    """Caine-1980-style antecedent-rainfall percentile baseline (train-fitted).
+
+    Selects, on TRAIN years only, the single climatology-percentile feature
+    with the best train AUC, then the alert threshold on it maximizing
+    train CSI. Nothing from validation/test years touches the fit.
+
+    Args:
+        ds: Assembled dataset (features are raw canonical vectors).
+        train_mask: Train-year sample mask.
+        test_mask: Test-year sample mask.
+
+    Returns:
+        Tuple of (test metrics, baseline definition record, test scores).
+    """
+    fit = _fit_rain_threshold(ds, train_mask)
+    test_scores = ds.features[test_mask, fit["column"]].astype(np.float64)
+    metrics = _threshold_metrics(
+        ds.labels[test_mask], test_scores, test_scores, test_scores >= fit["threshold"]
+    )
+    definition = {
+        "kind": "antecedent-rainfall percentile threshold (Caine-1980-style, "
+        "fitted on TRAIN years only)",
+        "feature": fit["feature"],
+        "train_auc": fit["train_auc"],
+        "threshold": fit["threshold"],
+        "train_csi_at_threshold": fit["train_csi_at_threshold"],
+    }
+    return metrics, definition, test_scores
 
 
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
@@ -1713,12 +1908,26 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     that path and the documented train-years-fitted antecedent-rainfall
     percentile baseline; both are recorded verbatim in ``extras``.
 
+    Each path is scored on its OWN deployed decision rule: the learned
+    path thresholds its slope-failure probability at the candidate's
+    validation-selected operating point (``payload["operating_point"]``,
+    the same rule ``LandslideDetector.load_neural_weights`` consumes
+    decision-only; the fixed 0.6 bar when absent), the API physics path at
+    the detector's fixed 0.6 neural-path alert bar, and the fitted
+    baseline at its train-fitted threshold. Extras additionally carry a
+    seeded 1000-resample bootstrap 95% CI on the AUC difference over the
+    test cases, the model parameter count, the median single-case
+    inference latency (100 runs), the trigger histogram, and per-year test
+    counts.
+
     Args:
         ctx: Pipeline context.
 
     Returns:
         The evaluation outcome (primary metric: AUC, higher is better).
     """
+    import time
+
     from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 
     ds = build_dataset(ctx)
@@ -1734,6 +1943,11 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det.load_neural_weights(str(cand_path))
+    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = payload.get("operating_point")
+    learned_bar = DEPLOYED_PROB_THRESHOLD
+    if operating_point is not None:
+        learned_bar = float(operating_point["detection_threshold"])
 
     labels = ds.labels[test_idx]
     scores: dict[str, list[float]] = {"physics": [], "learned": []}
@@ -1749,13 +1963,15 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             raise RuntimeError(f"learned path returned non-finite probability for case {i}")
         scores["physics"].append(float(phys_out.confidence))
         scores["learned"].append(float(learned_out.slope_failure_probability))
-        # Deployed decision on both paths: the detector's own neural-path
-        # alert bar (slope failure probability > 0.6). The physics path's
-        # probability is identically 0 on rainfall-only inputs (it
-        # abstains) -- that near-abstention is the recorded result, not a
-        # scoring artifact; its trigger rate is reported alongside.
+        # Deployed decision, each path under its own rule: physics keeps the
+        # detector's fixed neural-path alert bar (slope failure probability
+        # > 0.6); the learned path applies the checkpoint's ratified
+        # operating point. The physics path's probability is identically 0
+        # on rainfall-only inputs (it abstains) -- that near-abstention is
+        # the recorded result, not a scoring artifact; its trigger rate is
+        # reported alongside.
         deployed["physics"].append(phys_out.slope_failure_probability > DEPLOYED_PROB_THRESHOLD)
-        deployed["learned"].append(learned_out.slope_failure_probability > DEPLOYED_PROB_THRESHOLD)
+        deployed["learned"].append(learned_out.slope_failure_probability > learned_bar)
         rainfall_trigger_fired += int(phys_out.rainfall_trigger)
 
     learned_metrics = _threshold_metrics(
@@ -1770,16 +1986,76 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         np.asarray(scores["physics"]),
         np.asarray(deployed["physics"], dtype=bool),
     )
-    baseline_metrics, baseline_definition = _fit_rain_threshold_baseline(ds, train_mask, test_mask)
+    baseline_metrics, baseline_definition, baseline_test_scores = _fit_rain_threshold_baseline(
+        ds, train_mask, test_mask
+    )
 
     api_auc = physics_api_metrics["auc"]
     base_auc = baseline_metrics["auc"]
     if np.isfinite(base_auc) and (not np.isfinite(api_auc) or base_auc >= api_auc):
         physics_metrics = baseline_metrics
         physics_used = "fitted_rain_threshold_baseline"
+        physics_gate_scores = baseline_test_scores
     else:
         physics_metrics = physics_api_metrics
         physics_used = "detector_api_physics_path"
+        physics_gate_scores = np.asarray(scores["physics"])
+
+    # Seeded bootstrap 95% CI on the AUC difference (learned - gate physics)
+    # over the identical test cases: 1000 resamples with replacement;
+    # resamples that lose a class (astronomically unlikely at this
+    # prevalence) are skipped.
+    rng = np.random.default_rng(ctx.seed)
+    learned_scores_arr = np.asarray(scores["learned"])
+    n_resamples = 1000
+    diffs: list[float] = []
+    for _ in range(n_resamples):
+        idx = rng.integers(0, test_idx.size, size=test_idx.size)
+        auc_l = binary_auc(labels[idx], learned_scores_arr[idx])
+        auc_p = binary_auc(labels[idx], physics_gate_scores[idx])
+        if np.isfinite(auc_l) and np.isfinite(auc_p):
+            diffs.append(float(auc_l - auc_p))
+    diffs_arr = np.asarray(diffs)
+    auc_diff_ci = {
+        "n_resamples": n_resamples,
+        "n_valid": int(diffs_arr.size),
+        "seed": ctx.seed,
+        "mean": float(diffs_arr.mean()),
+        "ci95_low": float(np.percentile(diffs_arr, 2.5)),
+        "ci95_high": float(np.percentile(diffs_arr, 97.5)),
+        "ci_excludes_zero": bool(
+            float(np.percentile(diffs_arr, 2.5)) > 0.0
+            or float(np.percentile(diffs_arr, 97.5)) < 0.0
+        ),
+        "note": "AUC difference (learned minus gate physics), case-resampling "
+        "bootstrap over the identical held-out (cell, day) cases",
+    }
+
+    # Median single-case inference latency through the public API (both
+    # detectors are warm from the evaluation loop above).
+    latency_case = {"rainfall_data": dict(ds.raw_fields[test_idx[0]])}
+    latency_features = ds.features[test_idx[0]]
+
+    def _median_latency_ms(det: LandslideDetector, with_features: bool) -> float:
+        times = []
+        for _ in range(100):
+            case: dict[str, Any] = {"rainfall_data": dict(latency_case["rainfall_data"])}
+            if with_features:
+                case["slope_features"] = latency_features
+            t0 = time.perf_counter()
+            det.predict_landslide(case)
+            times.append((time.perf_counter() - t0) * 1000.0)
+        return float(np.median(times))
+
+    test_years_arr = ds.years[test_idx]
+    per_year_test_counts = {
+        str(year): {
+            "total": int(np.sum(test_years_arr == year)),
+            "positives": int(labels[test_years_arr == year].sum()),
+            "negatives": int(np.sum(test_years_arr == year) - labels[test_years_arr == year].sum()),
+        }
+        for year in SPLIT.test_years
+    }
 
     outcome = EvaluationOutcome(
         hook=HOOK_NAME,
@@ -1806,19 +2082,43 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "fitted_baseline_metrics": baseline_metrics,
             "fitted_baseline_definition": baseline_definition,
             "physics_rainfall_trigger_rate": rainfall_trigger_fired / float(test_idx.size),
-            "deployed_rule": f"slope failure probability > {DEPLOYED_PROB_THRESHOLD} (the "
-            "detector's fixed neural-path alert bar); baseline uses its train-fitted "
-            "threshold",
+            "operating_point": operating_point,
+            "deployed_rule": f"learned: slope failure probability > {learned_bar:.6g} (the "
+            "checkpoint's validation-selected operating point, consumed decision-only by "
+            "LandslideDetector.load_neural_weights; the fixed "
+            f"{DEPLOYED_PROB_THRESHOLD} bar when absent); physics API path: probability > "
+            f"{DEPLOYED_PROB_THRESHOLD} (the detector's fixed neural-path alert bar); "
+            "fitted baseline: its train-fitted threshold -- each path is scored on its "
+            "own deployed decision rule",
             "test_positive_fraction": float(labels.mean()),
+            "auc_diff_bootstrap_ci95": auc_diff_ci,
+            "model_parameter_count": (
+                int(sum(p.numel() for p in learned_det.stability_model.parameters()))
+                if learned_det.stability_model is not None
+                else 0
+            ),
+            "median_inference_latency_ms": {
+                "learned": _median_latency_ms(learned_det, with_features=True),
+                "physics": _median_latency_ms(physics_det, with_features=False),
+                "n_runs": 100,
+            },
+            "trigger_histogram": ds.extras.get("rain_trigger_histogram"),
+            "per_year_test_counts": per_year_test_counts,
             "dataset_report": ds.extras,
             "type_mapping": {k: LANDSLIDE_TYPE_LABELS[v] for k, v in GLC_CATEGORY_TO_TYPE.items()},
         },
         constraints=[
             {
-                "metric": "csi_deployed",
+                "metric": "recall_deployed",
                 "higher_is_better": True,
-                "description": "critical success index at the deployed alert threshold "
-                "must not regress below the physics baseline",
+                "description": "recall at each path's deployed alert rule must not "
+                "regress below the physics baseline",
+            },
+            {
+                "metric": "far_deployed",
+                "higher_is_better": False,
+                "description": "false-alarm rate at each path's deployed alert rule "
+                "must not exceed the physics baseline",
             },
             {
                 "metric": "brier",

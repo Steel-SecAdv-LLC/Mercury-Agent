@@ -7,9 +7,10 @@ series of one Kerala grid cell + a verbatim NASA GLC AGOL page excerpt --
 see ``tests/fixtures/hazard_training/landslide/PROVENANCE.json``); no
 network. Covered: content-based GLC field introspection, the feature
 builder's no-lookahead property, climatology-percentile determinism against
-the fixed 1981-2006 era, temporal-split enforcement, and (when a checkpoint
-has been shipped through the merit gate) the physics-vs-learned differential
-through the public detector API.
+the fixed 1981-2006 era, temporal-split enforcement, the decision-only
+consumption of a checkpoint's ratified alert operating point, and (when a
+checkpoint has been shipped through the merit gate) the physics-vs-learned
+differential through the public detector API.
 """
 
 from __future__ import annotations
@@ -209,6 +210,94 @@ class TestSplitEnforcement:
         assert ls.CLIMATOLOGY_ERA == "1981-2006"
 
 
+class TestOperatingPointConsumption:
+    """load_neural_weights consumes the ratified operating point, decision-only."""
+
+    @staticmethod
+    def _payload(tau: float | None) -> dict[str, object]:
+        from omni_mercury_engine.detectors.geological.landslide import SlopeStabilityModel
+
+        torch.manual_seed(7)
+        model = SlopeStabilityModel(input_dim=ls.FEATURE_DIM)
+        payload: dict[str, object] = {
+            "stability_model": model.state_dict(),
+            "feature_spec": ls.FEATURE_SPEC_VERSION,
+        }
+        if tau is not None:
+            payload["operating_point"] = {"detection_threshold": tau}
+        return payload
+
+    @staticmethod
+    def _detector() -> object:
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        return LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
+
+    #: Rainfall that fires the intensity-duration trigger (id = 30*sqrt(24)
+    #: = 147 >> critical 24.5), so landslide_imminent depends only on the
+    #: slope-failure probability vs the alert bar.
+    _RAIN = {"intensity_mm_hr": 30.0, "duration_hours": 24.0, "antecedent_7day_mm": 150.0}
+
+    @pytest.mark.parametrize("bad_tau", [0.0, 1.0, -0.25, 2.0, float("nan")])
+    def test_invalid_threshold_refuses_before_loading(self, tmp_path: Path, bad_tau: float) -> None:
+        path = tmp_path / "cand.pt"
+        torch.save(self._payload(bad_tau), path)
+        detector = self._detector()
+        with pytest.raises(ValueError, match=r"not a probability"):
+            detector.load_neural_weights(str(path))
+        # A bad rule must not half-load: the detector stays on physics.
+        assert detector._neural_trained is False
+        assert detector._operating_point is None
+
+    def test_absent_operating_point_keeps_fixed_bar(self, tmp_path: Path) -> None:
+        path = tmp_path / "cand.pt"
+        torch.save(self._payload(None), path)
+        detector = self._detector()
+        detector.load_neural_weights(str(path))
+        assert detector._neural_trained is True
+        assert detector._operating_point is None
+
+    def test_threshold_is_decision_only(self, tmp_path: Path) -> None:
+        """Tau flips landslide_imminent but never rescales the probability."""
+        vec = np.zeros(ls.FEATURE_DIM, dtype=np.float32)
+        base = tmp_path / "no_op.pt"
+        torch.save(self._payload(None), base)
+        detector = self._detector()
+        detector.load_neural_weights(str(base))
+        out = detector.predict_landslide({"rainfall_data": dict(self._RAIN), "slope_features": vec})
+        prob = out.slope_failure_probability
+        assert 0.0 < prob < 1.0  # sigmoid output is strictly inside (0, 1)
+
+        for tau, expected in ((prob / 2.0, True), ((1.0 + prob) / 2.0, False)):
+            path = tmp_path / f"tau_{expected}.pt"
+            torch.save(self._payload(tau), path)
+            detector = self._detector()
+            detector.load_neural_weights(str(path))
+            assert detector._operating_point == {"detection_threshold": tau}
+            out_tau = detector.predict_landslide(
+                {"rainfall_data": dict(self._RAIN), "slope_features": vec}
+            )
+            assert out_tau.slope_failure_probability == pytest.approx(prob, abs=0.0)
+            assert out_tau.landslide_imminent is expected
+
+    def test_operating_point_never_governs_the_physics_path(self, tmp_path: Path) -> None:
+        """Without slope_features the physics path keeps the fixed 0.6 bar."""
+        path = tmp_path / "cand.pt"
+        torch.save(self._payload(0.1), path)
+        detector = self._detector()
+        detector.load_neural_weights(str(path))
+        # Physics: displacement 25 mm/day -> severity 0.5 -> probability 0.5,
+        # which clears tau=0.1 but NOT the physics path's fixed 0.6 bar.
+        out = detector.predict_landslide(
+            {
+                "rainfall_data": dict(self._RAIN),
+                "sensor_data": {"displacement_rate_mm_day": 25.0},
+            }
+        )
+        assert out.slope_failure_probability == pytest.approx(0.5)
+        assert out.landslide_imminent is False
+
+
 _SHIPPED = shipped_checkpoint_path(ls.CHECKPOINT_NAME)
 
 
@@ -270,12 +359,16 @@ class TestDifferentialPhysicsVsShipped:
         assert learned_out.landslide_type in ls.LANDSLIDE_TYPE_LABELS
         # Peak-monsoon Kerala 2018 (the real flood disaster) must score
         # above the same cell in the dry season, from the same real data.
-        dry_row = int(dt.date(2018, 1, 20).toordinal() - int(cell_fixture["era2018_dates"][0]))
+        # 2018-03-15 is the driest-window day with the full 60 antecedent
+        # days inside the fixture year (60-day sum 21.8 mm vs 2050 mm at the
+        # flood peak); Jan 20 (the sketch's pick) has only 19 days of history
+        # and compute_rain_quantities refuses it loudly.
+        dry_row = int(dt.date(2018, 3, 15).toordinal() - int(cell_fixture["era2018_dates"][0]))
         dry_q = ls.compute_rain_quantities(cell_fixture["era2018_mm"].astype(np.float64), dry_row)
         tables = ls.climatology_tables(cell_fixture["clim_mm"])
         assert tables is not None
         dry_pct = {k: ls.percentile_of(tables[k], dry_q[k]) for k in ls.RAIN_QUANTITY_KEYS}
-        dry_vec = ls.build_feature_vector(dry_q, dry_pct, lat=12.4, day_of_year=20)
+        dry_vec = ls.build_feature_vector(dry_q, dry_pct, lat=12.4, day_of_year=74)
         dry_out = learned.predict_landslide({"slope_features": dry_vec})
         assert prob > dry_out.slope_failure_probability
 

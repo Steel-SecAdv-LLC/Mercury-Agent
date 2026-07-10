@@ -563,6 +563,20 @@ class LandslideDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Ratified alert operating point carried by trained checkpoints (see
+        # landslide_stability.py _select_operating_point, mirroring the
+        # tsunami/seismic machinery): the learned path's landslide_imminent
+        # decision thresholds the slope-failure probability at a
+        # VALIDATION-selected tau, because the fixed 0.6 bar was chosen for
+        # the physics probability scale and the BCE-trained stability head
+        # lives on its own scale. The loaded threshold is part of the
+        # ratified deployed rule -- it ships inside the merit-gated
+        # checkpoint and is selected against the same recall/false-alarm
+        # constraints the ship gate enforces. None until a checkpoint that
+        # declares one is loaded (then the learned path uses it,
+        # decision-only; the physics path always keeps the 0.6 bar).
+        self._operating_point: dict[str, float] | None = None
+
         self.logger = logging.getLogger(__name__)
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
@@ -577,11 +591,22 @@ class LandslideDetector:
         into its first encoder layer), documented dimension-by-dimension in
         :mod:`omni_mercury_engine.ml.hazard_training.landslide_stability`.
 
+        Trained checkpoints may carry a ratified ``operating_point`` (the
+        validation-selected slope-failure probability threshold governing
+        the learned path's ``landslide_imminent`` decision -- part of the
+        deployed rule the merit gate evaluated). It is consumed
+        decision-only: the reported probability is never rescaled.
+
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
                 ``stability_model`` state dict. None loads the shipped
                 ``landslide_coolr`` default (sha256-verified against its
                 provenance sidecar; missing/corrupt files raise).
+
+        Raises:
+            ValueError: If the checkpoint carries an ``operating_point``
+                whose detection threshold is not a probability in (0, 1) --
+                a nonsensical alert rule must refuse, not load.
         """
         if self.stability_model is None:
             raise RuntimeError("slope-stability modelling is disabled on this detector")
@@ -593,13 +618,36 @@ class LandslideDetector:
         else:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
+        # Ratified operating point (validation-selected alert threshold for
+        # the learned path -- part of the deployed decision rule the merit
+        # gate evaluated). Validated BEFORE any state mutates so a bad rule
+        # cannot half-load. Checkpoints that predate the convention simply
+        # leave the fixed 0.6 bar in charge.
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["detection_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating point detection threshold {tau} is not a "
+                    "probability; refusing a nonsensical alert rule"
+                )
         self.stability_model.load_state_dict(checkpoint["stability_model"])
+        if op is not None:
+            self._operating_point = {"detection_threshold": float(op["detection_threshold"])}
+        else:
+            self._operating_point = None
         self._neural_trained = True
         self.logger.info(
             "Landslide neural weights loaded from %s (feature spec: %s); using learned "
-            "stability model",
+            "stability model%s",
             source,
             checkpoint.get("feature_spec", "unspecified"),
+            (
+                f" (alert operating point tau="
+                f"{self._operating_point['detection_threshold']:.4f})"
+                if self._operating_point is not None
+                else " (no operating point; fixed 0.6 alert bar governs)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -679,9 +727,11 @@ class LandslideDetector:
         if "slope_data" in landslide_data:
             result.slope_angle_deg = landslide_data["slope_data"].get("slope_angle_deg")
 
+        neural_path_used = False
         if self.enable_stability:
             if self._neural_trained and "slope_features" in landslide_data:
                 stability_result = self._assess_slope_stability(landslide_data["slope_features"])
+                neural_path_used = True
             else:
                 # Physics path: works from the real geotechnical fields, so it
                 # runs even without an opaque slope_features vector (previously
@@ -705,8 +755,18 @@ class LandslideDetector:
                     },
                 )
 
+        # Deployed alert decision. The learned path thresholds at the
+        # checkpoint's ratified operating point when one was loaded (the
+        # deployed rule the merit gate evaluated -- see
+        # landslide_stability._select_operating_point); the physics path and
+        # operating-point-free checkpoints keep the fixed 0.6 bar. The
+        # threshold is decision-only: slope_failure_probability is reported
+        # unchanged either way.
+        alert_bar = 0.6
+        if neural_path_used and self._operating_point is not None:
+            alert_bar = self._operating_point["detection_threshold"]
         result.landslide_imminent = (
-            triggers_detected >= 1 and result.slope_failure_probability > 0.6
+            triggers_detected >= 1 and result.slope_failure_probability > alert_bar
         )
 
         result.risk_level = self._determine_risk_level(triggers_detected, result)
