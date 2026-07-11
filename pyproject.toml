@@ -102,16 +102,19 @@ ml = [
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
-    # Upper-capped below 5.0: OpenCV 5.0.0 (released 2026-07) removed a number of
-    # long-standing top-level ``cv2`` symbols -- including ``cv2.CascadeClassifier``
-    # (used by ``models/biometric_advanced.py``), which no longer exists on the
-    # ``cv2`` module at *runtime* (it moved out of the flat namespace) and also
-    # vanished from the type stubs, breaking the blocking ``mypy`` gate with
-    # ``Module has no attribute "CascadeClassifier"``.  Without a cap the
-    # unbounded floor resolves 5.0.x and both the Type Checking lane and the
-    # affected runtime path break.  Pin to the 4.x API this codebase targets;
-    # revisit as a deliberate migration when adopting the 5.x namespace.
-    "opencv-python-headless>=4.8.0,<5",
+    # OpenCV 5.0.0 (released 2026-07) relocated the Haar/HOG detectors -- notably
+    # ``cv2.CascadeClassifier`` and the bundled ``cv2.data.haarcascades`` used by
+    # ``models/biometric_advanced.py`` -- into ``opencv_contrib``, so they are
+    # absent from the ``-headless`` 5.x wheel (both at runtime and in the type
+    # stubs, which is what previously broke the blocking ``mypy`` gate with
+    # ``Module has no attribute "CascadeClassifier"``).  ``biometric_advanced.py``
+    # now feature-detects those symbols via ``getattr`` and degrades gracefully
+    # (the DNN face detector stays primary), so both the runtime path and the
+    # mypy gate are safe on the 5.x line.  Every other ``cv2`` symbol this code
+    # uses (``imread``/``cvtColor``/``resize``/``GaussianBlur``/``VideoCapture``
+    # /``COLOR_*``) is unchanged under 5.x.  Ceiling raised to ``<6`` to permit
+    # the 5.x major; the 4.8 floor stays as the baseline API this code targets.
+    "opencv-python-headless>=4.8.0,<6",
     # CVE-2025-47273: path traversal / arbitrary file write in setuptools'
     # ``PackageIndex`` (fixed in 78.1.1).  ``setuptools`` is a *runtime*
     # dependency of both ``torch`` and ``tensorflow`` (``Required-by:
