@@ -535,13 +535,19 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
         aucs = []
         aps = []
         errors = []
+        deferred = []
         for r in measured:
             res = r["methods"].get(m)
             if res is None:
                 continue
+            # Three terminal cell states: an error, a wall-clock deferral, or a
+            # finite score. A deferred cell carries neither "error" nor
+            # "roc_auc", so it must be handled before any roc_auc access.
             if "error" in res:
                 errors.append({"dataset": r["name"], "error": res["error"]})
-            elif not np.isnan(res["roc_auc"]):
+            elif "deferred" in res:
+                deferred.append({"dataset": r["name"], "wall_seconds": res.get("wall_seconds")})
+            elif "roc_auc" in res and not np.isnan(res["roc_auc"]):
                 aucs.append(res["roc_auc"])
                 aps.append(res["average_precision"])
         per_method[m] = {
@@ -552,6 +558,7 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
             "mean_ap": float(np.mean(aps)) if aps else None,
             "median_ap": float(np.median(aps)) if aps else None,
             "errors": errors,
+            "deferred": deferred,
         }
 
     # Complete rows for rank stats.
