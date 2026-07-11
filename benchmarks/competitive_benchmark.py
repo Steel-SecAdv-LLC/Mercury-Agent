@@ -253,16 +253,16 @@ def _load_embedding(group: str, name: str) -> tuple[np.ndarray, np.ndarray, str,
     target = _data_root() / "adbench_embeddings" / group / f"{name}.npz"
     if not target.exists():
         content = http_get_with_retry(url, timeout=120)
-        data = np.load(io.BytesIO(content), allow_pickle=False)
-        if "X" not in data or "y" not in data:
-            raise ValueError(f"NPZ missing X/y keys, found: {list(data.keys())}")
+        with np.load(io.BytesIO(content), allow_pickle=False) as data:
+            if "X" not in data or "y" not in data:
+                raise ValueError(f"NPZ missing X/y keys, found: {list(data.keys())}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
     raw = target.read_bytes()
     sha = hashlib.sha256(raw).hexdigest()
-    data = np.load(io.BytesIO(raw), allow_pickle=False)
-    X = data["X"].astype(np.float64)
-    y = (data["y"].astype(np.int64).ravel() > 0).astype(int)
+    with np.load(io.BytesIO(raw), allow_pickle=False) as data:
+        X = data["X"].astype(np.float64)  # .astype copies -> safe to use after close
+        y = (data["y"].astype(np.int64).ravel() > 0).astype(int)
     return X, y, sha, url
 
 
