@@ -168,8 +168,12 @@ def build_pyod_detector(algorithm: PyODAlgorithm, *, seed: int = 42) -> Any:
             return AutoEncoder(random_state=seed, verbose=0)
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ImportError(
-            "PyOD is required to run comparison baselines. "
-            "Install it with: pip install 'mercury-agent[benchmark]' (or pip install pyod)."
+            f"Could not import the PyOD backend for {algorithm!r}: {exc}. "
+            "This usually means PyOD itself is not installed -- install it with: "
+            "pip install 'mercury-agent[benchmark]' (or pip install pyod). It can "
+            "also be a missing optional/transitive dependency of the specific "
+            "model (e.g. AutoEncoder requires torch); the original ImportError "
+            "above names the exact missing module."
         ) from exc
     raise ValueError(f"Unsupported PyOD algorithm: {algorithm!r}")
 

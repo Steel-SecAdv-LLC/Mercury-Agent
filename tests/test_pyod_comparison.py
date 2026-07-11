@@ -47,14 +47,20 @@ def adbench_wine() -> tuple[np.ndarray, np.ndarray]:
     narrowed to the expected offline/uncached failure modes so a genuine loader
     regression (a parsing bug, an unexpected ``ValueError``) still fails loudly
     instead of masquerading as an "offline" skip.
+
+    When ``MERCURY_NETWORK_TESTS=1`` is explicitly set the network CI lane is
+    *supposed* to exercise the real dataset path, so a download/load failure
+    there is a real regression (broken source / caching) and is re-raised to
+    FAIL the test -- only the default offline run skips.
     """
     from omni_mercury_engine.datasets.adbench import ADBenchLoader
     from omni_mercury_engine.datasets.base import DatasetConfig
     from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 
+    net_enabled = os.environ.get("MERCURY_NETWORK_TESTS") == "1"
     loader = ADBenchLoader(DatasetConfig(name="adbench", preprocessing={"dataset": "wine"}))
     cached = (loader.data_path / loader.npz_filename).exists()
-    if not cached and os.environ.get("MERCURY_NETWORK_TESTS") != "1":
+    if not cached and not net_enabled:
         pytest.skip(
             "ADBench 'wine' NPZ not cached and MERCURY_NETWORK_TESTS != 1 "
             "(offline-deterministic default; set MERCURY_NETWORK_TESTS=1 to fetch)"
@@ -63,6 +69,10 @@ def adbench_wine() -> tuple[np.ndarray, np.ndarray]:
         loader.download()  # no-op when cached
         X, y = loader._load_raw()
     except (DataSourceUnavailableError, FileNotFoundError, OSError) as exc:  # offline/uncached
+        if net_enabled:
+            # The network lane exists to catch exactly this -- a real failure of
+            # the dataset path must not be swallowed as an "offline" skip.
+            raise
         pytest.skip(f"ADBench wine unavailable (offline, not cached): {exc}")
     return X.astype(np.float64), (y > 0).astype(int)
 
