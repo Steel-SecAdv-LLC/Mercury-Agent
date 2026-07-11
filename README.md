@@ -51,7 +51,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 **Version:** v2.1.0
-**Date:** 2026-07-08
+**Date:** 2026-07-11
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -78,7 +78,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-06-17
+> **Last Updated:** 2026-07-11
 >
 
 ---
@@ -210,10 +210,10 @@ headline.
 **Live-API loaders (`src/omni_mercury_engine/loaders/`).** Phase 1 of the
 governed recursive self-improvement work extends the same label-provenance
 discipline to the live-API loader path that the governed-fusion suite
-(`research/governed_fusion/`) consumes. Of the 15 concrete loaders (the 16 `*Loader` classes measured in the [Codebase Scale](#codebase-scale-measured-not-estimated) block, minus the abstract `BaseDomainLoader` base), only
+(`research/governed_fusion/`) consumes. Of the 20 concrete loaders (the 21 `*Loader` classes measured in the [Codebase Scale](#codebase-scale-measured-not-estimated) block, minus the abstract `BaseDomainLoader` base), only
 **2** produce labels independent of any scored feature — `network_security`
 (NSL-KDD `label`, BATADAL `ATT_FLAG`) and `sepsis` (PhysioNet SepsisLabel).
-The remaining 13 threshold a scored column or reconstruct the entire series
+The remaining 18 threshold a scored column or reconstruct the entire series
 and are tagged `LABEL_SOURCE = "statistical"`. The governed-fusion manifest
 (`research/governed_fusion/manifest.json`) carries this audit per-event: of
 the 23 live events, **2 are eligible for the transparent fitness signal** Phases 2–3
@@ -457,7 +457,7 @@ Distribution of unsupervised adaptive weights across all datasets, and mean weig
 
 ### Domain Loader Validation (28 Real-World Domain Loaders)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). These 28 are benchmark *dataset* entries exercised through the concrete domain loaders — a single `*Loader` class can serve several datasets — and are therefore distinct from the 16 `*Loader` classes counted structurally in [Codebase Scale](#codebase-scale-measured-not-estimated). Domain-level results (committed `mercury_benchmark_results.json` run, 2026-06-21):
+Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). These 28 are benchmark *dataset* entries exercised through the concrete domain loaders — a single `*Loader` class can serve several datasets — and are therefore distinct from the 21 `*Loader` classes counted structurally in [Codebase Scale](#codebase-scale-measured-not-estimated). Domain-level results (committed `mercury_benchmark_results.json` run, 2026-06-21):
 
 Label column: **ext** = externally-labeled (comparable); **self** =
 self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
@@ -2540,6 +2540,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-06-17*
+*Last updated: 2026-07-11*
 
 </div>

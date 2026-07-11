@@ -199,7 +199,7 @@ GATE_ROWS: list[Row] = [
         metric="pre-registered p, FDR/Bonferroni",
         artifact_display="`spaceweather_coincidence.json`",
         tests_display="`test_event_coincidence` (offline)",
-        contract="pre-registered; honest null",
+        contract="pre-registered; transparent null",
         source=(
             "src/omni_mercury_engine/evaluation/event_coincidence.py",
             "permutation_coincidence_test",
@@ -211,6 +211,8 @@ GATE_ROWS: list[Row] = [
 ]
 
 _PREAMBLE = """# WS-E — Neural-submodule completeness sweep
+
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 > **GENERATED — do not edit by hand.** Regenerate with
 > `python scripts/neural_coverage.py --update`; CI runs
@@ -261,11 +263,13 @@ runs in CI and as `tests/docs/test_neural_coverage_gate.py`.
 
 ## Out of scope (flagged, not silently skipped)
 
-The wider tree has ~40 additional `nn.Module` classes (visual/VLM, SOTA
-TranAD/MAAT, geological detectors, etc.). They are **not** part of the
-neuro-symbolic-fusion scope and were not re-audited here. A full-tree neural
-audit is a separate, larger effort; this table is exhaustive for the modules in
-scope.
+The wider tree contains 171 `nn.Module` subclasses in total (measured and
+CI-gated in the README Codebase Scale block); the neuro-symbolic-fusion
+submodules audited here are the critical subset. The remainder — visual/VLM,
+SOTA TranAD/MAAT, the streaming/statistical detector tier, and the
+geological/space detectors — are **not** part of that scope and were not
+re-audited here. A full-tree neural audit is a separate, larger effort; this
+table is exhaustive for the modules in scope.
 """
 
 
