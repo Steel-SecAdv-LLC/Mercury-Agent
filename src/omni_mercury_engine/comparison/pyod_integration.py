@@ -228,6 +228,11 @@ def run_pyod_baselines(
 
     results: dict[str, dict[str, Any]] = {}
     for algorithm in chosen:
+        # Stable result key derived up front so the "record, never drop" error
+        # path below can never itself raise: a caller passing a non-enum value
+        # gets its failure recorded (under str(value)) instead of an
+        # AttributeError on ``.value`` crashing the whole baseline run.
+        key = algorithm.value if isinstance(algorithm, PyODAlgorithm) else str(algorithm)
         try:
             detector = build_pyod_detector(algorithm, seed=seed)
             t0 = time.perf_counter()
@@ -238,13 +243,13 @@ def run_pyod_baselines(
             score_seconds = time.perf_counter() - t0
             if scores.shape[0] != X_test.shape[0]:
                 raise ValueError(f"scores length {scores.shape[0]} != n_test {X_test.shape[0]}")
-            results[algorithm.value] = {
+            results[key] = {
                 "scores": scores,
                 "fit_seconds": float(fit_seconds),
                 "score_seconds": float(score_seconds),
             }
         except Exception as exc:  # record, never drop
-            results[algorithm.value] = {"error": f"{type(exc).__name__}: {exc}"}
+            results[key] = {"error": f"{type(exc).__name__}: {exc}"}
     return results
 
 
