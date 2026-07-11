@@ -1,5 +1,7 @@
 # WS-D — Parapsychology (GCP) sub-net: strict pre-registration
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Registered **before** any analysis. The Global Consciousness Project dataset's
 documented failure mode is **post-hoc analytic flexibility** (choosing the
 statistic/window after seeing the data). This pre-registration fixes every
@@ -19,7 +21,7 @@ fair-coin null around a fixed, independently-defined event catalog.
   Documented raw-stream endpoint: `noosphere.princeton.edu` `eggdatareq`.
 * **Reachability (this environment):** the raw-stream host is **unreachable**
   (and not on the trusted allowlist); `fetch_egg_stream()` reports
-  `reachable=False` honestly. The reachable mirror `global-mind.org/data/` serves
+  `reachable=False` transparently. The reachable mirror `global-mind.org/data/` serves
   only aggregate **daily HTML summaries**, not the raw streams the encoder needs.
 * **Fallback:** a clearly-labelled **synthetic true-random** generator
   (`Binomial(200, 0.5)`) validates the statistics/encoder plumbing under a known
@@ -72,7 +74,7 @@ corrected bar is cleared. Never assert psi; a clean null is a valid contribution
 
 The psi null stands and is closed — re-hunting it would be motivated reasoning,
 not engineering. But the *scaffolding* built here is real, reusable
-scientific-integrity infrastructure: honest ingestion with explicit
+scientific-integrity infrastructure: transparent ingestion with explicit
 reachability, a **pre-registration** that fixes the analysis before the data is
 seen, a **null test**, and a **multiple-comparison correction**. That is exactly
 what a free, life-safety anomaly system needs whenever it asks *"do my detector's

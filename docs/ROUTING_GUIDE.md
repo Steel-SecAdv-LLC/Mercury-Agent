@@ -1,6 +1,6 @@
 # Routing Infrastructure Guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 
@@ -371,8 +371,9 @@ data_chain = FallbackChain(name="earthquake_data")
 @data_chain.handler(priority=0, timeout=30.0)
 async def load_from_usgs(params):
     """Primary: Load from USGS API."""
-    loader = USGSEarthquakeLoader(use_synthetic=False)
+    loader = USGSEarthquakeLoader()
     return loader.load(
+        use_synthetic=False,
         days_back=params.get("days", 30),
         min_magnitude=params.get("min_mag", 2.5)
     )
@@ -386,8 +387,8 @@ async def load_from_cache(params):
 @data_chain.handler(priority=2)
 async def load_synthetic(params):
     """Final fallback: Generate synthetic data."""
-    loader = USGSEarthquakeLoader(use_synthetic=True)
-    return loader.load(n_samples=1000)
+    loader = USGSEarthquakeLoader()
+    return loader.load(use_synthetic=True, n_samples=1000)
 
 # Use in detection pipeline
 async def run_earthquake_analysis(params):

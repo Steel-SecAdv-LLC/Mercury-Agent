@@ -1,5 +1,7 @@
 # Mercury Harm Policy — Weapons & Mass-Casualty Uplift Gate
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Mercury is an autonomous, open-web-capable agent built to serve a wide range of
 scientific, clinical, engineering, humanitarian, and public-safety work. Many of
 those professions operate *inside* hazardous subject matter every day — a
@@ -248,7 +250,7 @@ handful of fixed strings:
   `configs/weapons_gate_calibration.json`, loaded at import; val Brier ≈0.003,
   ECE ≈0.044), and the harm-score ⇄ disposition gate-agreement invariant is
   verified (1.0 on the corpus). `BenevolenceCalibration.is_fitted`/`source` report
-  honestly whether the active parameters are measured or default fallbacks.
+  transparently whether the active parameters are measured or default fallbacks.
 - **Legacy paired set** — `tests/ethical/test_weapons_uplift_gate.py` retains the
   red-team (must-refuse) and professional dual-use (must-allow) assertion sets as a
   fast, readable smoke of both directions.
@@ -320,7 +322,7 @@ limits plainly:
 
 **Compensating controls — now implemented, not aspirational.** For an autonomous,
 open-web, GPL-shipped, not-externally-audited system, the controls outside the
-classifier carry real weight, and this PR makes them concrete:
+classifier carry real weight, and are implemented as concrete controls:
 
 - **Durable decision/refusal audit log** (`cognitive.gate_audit`) — every refusal,
   escalation, provenance-withhold, and accretion signal is written to an

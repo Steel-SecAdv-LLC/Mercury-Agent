@@ -1,5 +1,7 @@
 # Hazard checkpoint training (T5)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Reproducible pipeline for training the eleven `load_neural_weights()` hooks
 on **real data only**, with a hard merit gate: a checkpoint ships only when
 the trained model beats the detector's deterministic physics fallback on
@@ -69,7 +71,7 @@ Held-out comparison, both models running through
 | Storm false-alarm rate @ Kp5 | **0.09%** | 3.1% |
 
 The merit gate compares the primary metric (Kp MAE): learned wins by 45%.
-Honest caveat, recorded in the provenance sidecar: at the *fixed* Kp≥5
+Transparent caveat, recorded in the provenance sidecar: at the *fixed* Kp≥5
 operating point the learned nowcast trades recall for a 36× lower
 false-alarm rate; the AUC shows its ranking of storm hours is strictly
 better, so operators can choose their own operating point. The detector

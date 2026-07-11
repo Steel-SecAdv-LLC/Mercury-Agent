@@ -1,6 +1,6 @@
 # Hazard Visualization & Diagnostics (T3)
 
-Applies to Mercury Agent v2.1.x.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Hazard detectors can persist the intermediate arrays they previously
 discarded and render them as deterministic artifacts. Everything drawn comes
@@ -17,7 +17,7 @@ from omni_mercury_engine.detectors.geological.disaster_detectors import Earthqua
 
 detector = EarthquakeDetector(keep_diagnostics=True)
 result = detector.predict_earthquake(waveform)
-diag = result.diagnostics   # HazardDiagnostics or None (honestly absent)
+diag = result.diagnostics   # HazardDiagnostics or None (transparently absent)
 ```
 
 `HazardDiagnostics` (`detectors/hazard_diagnostics.py`) carries the named
@@ -37,7 +37,7 @@ Per-hazard intermediates:
 | schumann | harmonic power spectrum | 1-D spectrum PNG |
 | volcanic / landslide | score series | 1-D series PNG |
 
-**Honest scope notes**
+**Transparent scope notes**
 
 * **Schumann/ELF**: the detector computes a **1-D harmonic power spectrum**
   (Welch PSD over the record), not a time–frequency spectrogram — no
@@ -46,7 +46,7 @@ Per-hazard intermediates:
   BGS client only receives in caller-supplied instrument mode.
 * **Hurricane track cones are NOT rendered**: no track model exists in the
   codebase (`hurricane_detector.py` removed its fabricated track fields in
-  the honesty wave), so only the real computed wind/vorticity fields are
+  the transparency wave), so only the real computed wind/vorticity fields are
   drawn.
 * **Flood/landslide zones**: `FloodPredictionResult`/`LandslidePredictionResult`
   zone fields are evacuation-route/shelter **string labels**, not geometry.
@@ -89,7 +89,7 @@ feature_collection = build_hazard_geojson(
 ## Tests
 
 `tests/detectors/test_hazard_diagnostics.py` (capture: arrays match the
-compute path, off-by-default, honestly-absent cases),
+compute path, off-by-default, transparently-absent cases),
 `tests/detectors/test_hazard_visuals.py` (PNG magic bytes + determinism,
 RFC 7946 structure, refusal paths), `tests/test_cli_hazard_viz.py`,
 `tests/api/*`, `tests/test_mcp_hazard_visualize.py`,

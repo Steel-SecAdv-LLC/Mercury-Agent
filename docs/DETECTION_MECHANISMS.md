@@ -1,5 +1,7 @@
 # Detection Mechanisms
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This document describes the streaming / statistical / state-space detector tier
 added to Mercury Agent, how each detector is calibrated to emit probabilistic
 scores, and how the tier is wired end-to-end into the existing fusion, scoring,
@@ -382,7 +384,7 @@ non-finite robustness, or a correctness fix) and its post-hardening coverage.
 unsupervised `average` ensemble reaches ROC-AUC **0.613** (median 0.617), edging
 the best single member (`echo_state`, 0.610) — the complementarity lift the tier
 is designed for. See [Validation & benchmarks](#validation--benchmarks) for the
-full per-member table and the honest note on the supervised combiners. Coverage
+full per-member table and the transparent note on the supervised combiners. Coverage
 column is from the tier robustness suite (`_calibration.py` is at 100%); torch
 members and `deeplog_sequence` are not exercised in the pure-NumPy lane.
 
@@ -435,7 +437,7 @@ Aggregate results across **29 real NAB series** (seed 0), sorted by mean ROC-AUC
 | ensemble:stacking (sup., subset) | 0.261 | 0.571 | 15 |
 | ensemble:bma (sup., subset) | 0.270 | 0.563 | 15 |
 
-**Real-data honesty note.** These are *unsupervised streaming* numbers on real
+**Real-data transparency note.** These are *unsupervised streaming* numbers on real
 NAB, not the controlled synthetic signals used during development — per-point
 AUC on NAB is a hard, strict metric. The **unsupervised `average` ensemble
 (ROC-AUC 0.613, median 0.617) is the strongest combiner**, edging the best single
@@ -443,7 +445,7 @@ member (`echo_state`, 0.610): the ensemble lift the tier is designed to deliver,
 now demonstrated on real data. The supervised `stacking` / `bma` combiners are
 measurable only where NAB's clustered labels leave anomalies in the training fold
 (15 of 29 series); with the sparse up-front labels streaming NAB provides they do
-not beat the unsupervised average — an honest reflection of the setting, not a
+not beat the unsupervised average — a transparent reflection of the setting, not a
 defect. Per-detector robustness is covered by the contract tests under
 `tests/detectors/`.
 

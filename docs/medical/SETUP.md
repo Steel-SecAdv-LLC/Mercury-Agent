@@ -1,6 +1,6 @@
 # Medical modules — operator setup guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Mercury Agent's medical modules ship **integration-ready, not pre-integrated**.
 The platform never carries vendor credentials and never fabricates patient
@@ -167,9 +167,10 @@ The adapter expects an `Observation` resource search endpoint at
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `FHIR_BASE_URL` | yes | FHIR R4 base URL (no trailing slash). Must start with `http://` or `https://`. |
+| `FHIR_BASE_URL` | yes | FHIR R4 base URL (no trailing slash). Must use the `https://` scheme; a plain `http://` URL is rejected with a `ConfigurationError` unless the `FHIR_ALLOW_HTTP` opt-in is set, because PHI must traverse TLS. |
 | `FHIR_PATIENT_ID` | yes | Logical id of the `Patient` resource being monitored. |
 | `FHIR_BEARER_TOKEN` | no | Pre-issued OAuth2 bearer token. Required for most production servers; optional for open sandboxes. |
+| `FHIR_ALLOW_HTTP` | no | Set to `1` to permit a plain `http://` base URL for an explicitly documented local or development FHIR server; PHI endpoints must otherwise use `https://`. |
 
 ### 3. LOINC code coverage
 

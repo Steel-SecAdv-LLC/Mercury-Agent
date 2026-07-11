@@ -1,6 +1,6 @@
 # Drone modules — operator setup guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Mercury Agent's drone detection stack is **integration-ready, not
 pre-integrated**. The platform never ships vendor SDKs, telemetry
@@ -243,7 +243,7 @@ dataclass.
 ## See also
 
 - [`docs/API_REFERENCE.md`](../API_REFERENCE.md) — quick-import index.
-- `tests/test_drone_detector.py` — 16+ tests covering the rule engine
+- `tests/test_drone_detector.py` — 32 tests covering the rule engine
   and ensemble integration.
 - `RADD: Rule-based Anomaly Detection for Drones` — academic reference
   for the invariant-rule approach.

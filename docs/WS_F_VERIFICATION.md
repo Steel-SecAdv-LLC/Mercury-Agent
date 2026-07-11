@@ -1,5 +1,7 @@
 # WS-F — Whole-system verification
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 ## Suite + static analysis
 
 * **flake8:** clean across all 13 touched files.
@@ -17,8 +19,9 @@
 
 `pyproject.toml` is the manifest (no lockfile). The complete `[ml]` extra is
 active and import-clean: torch 2.12, torchvision 0.27, pytorch-lightning 2.6,
-timm 1.0, opencv 4.13; core scipy 1.17, pandas 3.0, numpy 2.4, pydantic 2.13;
-`ama_cryptography` 3.2 (primary PQC backend). **No conflicts.**
+timm 1.0, opencv-python-headless on the 5.x line (constraint `>=4.8.0,<6`); core
+scipy 1.17, pandas 3.0, numpy 2.4, pydantic 2.13;
+`ama_cryptography` 3.3 (primary PQC backend). **No conflicts.**
 
 **sklearn is intentionally absent.** Mercury's own `mercury_ml` supplies
 `roc_auc_score` / `f1_score` / `StandardScaler`, so every artifact here is
@@ -46,7 +49,7 @@ ablations pin seeds 0/1/2.
 
 ## Global-impact paragraphs (mission lens: life-safety, free, STEM)
 
-**WS-A.** Catching that the "regression" was the #255 honesty de-leak — not a
+**WS-A.** Catching that the "regression" was the #255 transparency de-leak — not a
 detector regression — protects the integrity of every downstream life-safety
 decision: a system that quietly re-inflates its headline with circular labels
 would mislead operators about its real reliability. The deterministic per-dataset
@@ -55,14 +58,14 @@ guard means a *genuine* future regression now fails CI loudly and freely
 
 **WS-B.** Differentiable domain encoders are real, reusable STEM machinery
 (learnable FFT / finite-difference / Fisher operators) now available opt-in — but
-the honest ablation kept them **off by default** because they don't yet beat the
+the transparent ablation kept them **off by default** because they don't yet beat the
 static extractor on real labels. Globally this preserves whole-system
 reliability: no unproven capacity is silently added to the path that flags
 anomalies in a crisis.
 
 **WS-C.** Refuting "no labels possible" and building real weak supervision from
 public-domain space-weather catalogs turns a dead sub-net into a *teachable*,
-reproducible pipeline — exactly the STEM-discovery mission — while the honest
+reproducible pipeline — exactly the STEM-discovery mission — while the transparent
 quarantine (synthetic signal + unstable training) prevents a half-trained ELF
 detector from ever driving a life-safety alert.
 
@@ -115,4 +118,4 @@ the verification scaffolding was made permanent. New/changed verification:
   the most-recent dependency set, mypy surfaced 6 now-unused `# type: ignore`
   comments (newer numpy stubs), 1 `no-any-return`, and an undeclared `urllib3`
   import boundary. All fixed surgically; `mypy src/omni_mercury_engine/` is clean
-  across 602 files.
+  across 734 files.

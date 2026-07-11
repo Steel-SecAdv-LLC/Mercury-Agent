@@ -1,5 +1,7 @@
 # `corpus/pending` — red-team triage queue
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Surviving gate bypasses discovered by the adversarial co-training harness
 (`benchmarks/red_team_harness.py`, module `omni_mercury_engine.intel.red_team`)
 are appended here as `red_team_survivors.jsonl` — one JSON object per line, in

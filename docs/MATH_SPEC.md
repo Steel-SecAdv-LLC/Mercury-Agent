@@ -1,7 +1,7 @@
 # Mercury Agent -- Formal Mathematical Specification
 
 **Version:** 2.1.0
-**Date:** 2026-07-08 (v2.1.0 release; spec content last revised 2026-07-05 — the σ-threshold clamp floor, calibration iteration cap, and constants table were trued to code in the mercury-intel pass; no formal surfaces were added or removed)
+**Date:** 2026-07-11 (v2.1.0 release; spec content last revised 2026-07-11 — the §4.3 OAE weight-normalization proof was reconciled with the canonical $\Phi:1:1$ derivation used in §2.1.1, Appendix B, and code (`core/three_r/fusion.py`, `core/centralized_constants.py`); no formal surfaces were added or removed)
 **Status:** Living Document
 **Cross-references:** top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical Enforcement", [`ROUTING_GUIDE.md`](ROUTING_GUIDE.md)
 
@@ -144,7 +144,7 @@ $$
 | $b_0$ | Inflection point (domain-specific) |
 | $k$ | Steepness parameter (domain-specific) |
 
-**Domain profiles** (from `centralized_constants.py`, lines 182--199):
+**Domain profiles** (from `centralized_constants.py`, lines 196--207):
 
 | Domain | $b_0$ | $k$ | Behavior |
 |--------|-------|-----|----------|
@@ -165,7 +165,7 @@ evaluation (line 238).
 choices. **UNJUSTIFIED:** Domain-specific $b_0$ and $k$ values require empirical
 calibration data.
 
-**Implementation:** `core/centralized_constants.py`, function `sigmoid_benevolence_gate()`, lines 205--240.
+**Implementation:** `core/centralized_constants.py`, function `sigmoid_benevolence_gate()`, lines 213--248.
 
 #### 2.1.4 OAE Output Range
 
@@ -611,7 +611,7 @@ $$
 | Justice | $J$ | Fairness and anti-discrimination score |
 | Altruism | $A$ | Societal benefit score |
 | Compassion | $C$ | Harm prevention score |
-| Truth | $T$ | Transparency and honesty score |
+| Truth | $T$ | Transparency and truthfulness score |
 
 All components $\in [0, 1]$. Weights $w_J, w_A, w_C, w_T$ are sourced from
 `EthicalScalars` configuration (approximately equal by default).
@@ -833,10 +833,10 @@ returns `is_stable=False` on short or NaN-affected histories (§2.2.3, §6.3).
 **Proof:**
 
 $$
-w_R + w_H + w_O = \frac{\Phi}{\phi_{\text{sum}}} + \frac{1}{\phi_{\text{sum}}} + \frac{1/\Phi}{\phi_{\text{sum}}} = \frac{\Phi + 1 + 1/\Phi}{\phi_{\text{sum}}}
+w_R + w_H + w_O = \frac{\Phi}{\phi_{\text{sum}}} + \frac{1}{\phi_{\text{sum}}} + \frac{1}{\phi_{\text{sum}}} = \frac{\Phi + 1 + 1}{\phi_{\text{sum}}}
 $$
 
-Since $\phi_{\text{sum}} = \Phi + 1 + 1/\Phi$ by definition:
+Since $\phi_{\text{sum}} = \Phi + 2$ by definition:
 
 $$
 w_R + w_H + w_O = \frac{\phi_{\text{sum}}}{\phi_{\text{sum}}} = 1 \quad \square
@@ -950,7 +950,7 @@ division by zero:
 
 **Central epsilon constant:** `MATH.EPSILON = 1e-8` (general), `MATH.EPSILON_SMALL = 1e-10` (sensitive).
 
-**Implementation:** `core/centralized_constants.py`, lines 52--54.
+**Implementation:** `core/centralized_constants.py`, lines 47--49.
 
 ### 6.2 Overflow Protection in Sigmoid/Exponential Functions
 
@@ -965,7 +965,7 @@ exponent = max(-500.0, min(500.0, exponent))
 This prevents `math.exp()` overflow for extreme inputs. For $|x| \leq 500$,
 $e^x$ is within float64 range ($e^{500} \approx 1.4 \times 10^{217} < 1.8 \times 10^{308}$).
 
-**Implementation:** `core/centralized_constants.py`, line 238.
+**Implementation:** `core/centralized_constants.py`, line 246.
 
 #### Banach recursion sigmoid:
 

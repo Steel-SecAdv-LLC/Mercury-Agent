@@ -1,5 +1,7 @@
 # Hardware Test Harness
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This document describes how to obtain reproducible performance numbers
 for the Mercury Agent Lyapunov validation pipeline using
 `scripts/run_hardware_benchmark.py`.  The goal is *scientific*

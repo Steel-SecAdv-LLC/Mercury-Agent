@@ -1,6 +1,6 @@
 # Compliance Modules
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 `omni_mercury_engine.compliance` is the consumer-facing surface for
 governance and policy frameworks. It hosts three first-party modules
@@ -15,9 +15,10 @@ ported from Omni-AXA-Engine and hardened during the port:
 > threat detection, audit logging, SafeHTTP, model policy
 > enforcement). `compliance/` is for *governance frameworks* — what
 > organisations are required to do (controls, citations, dissemination
-> rules) rather than how Mercury itself implements primitives. PR
-> #223 enforced this split when it moved `tlp_handler` out of
-> `security/`. New governance modules belong here.
+> rules) rather than how Mercury itself implements primitives. This
+> split was enforced when `tlp_handler` was relocated out of
+> `security/` into `compliance/` (recorded in the `[1.7.0]` CHANGELOG
+> entry and `DEPRECATION.md`). New governance modules belong here.
 
 ---
 
@@ -82,30 +83,35 @@ integrator = NISTCSFIntegrator()
 # 1. Assess a single function against current evidence.
 assessment = integrator.assess_function(
     function=NISTFunction.PROTECT,
-    evidence={"PR.AA-01": True, "PR.DS-02": True, ...},
+    evidence={"pr.aa-01": 0.90, "pr.ds-02": 0.75, ...},  # id -> maturity in [0, 1]
 )
 
-# 2. Create an organisational target profile.
-profile = integrator.create_profile(
-    name="prod-2026",
-    target_tiers={NISTFunction.PROTECT: ImplementationTier.ADAPTIVE, ...},
-)
+# 2. Build a current-vs-target organisational profile from assessments.
+#    The target tier is taken from the integrator's configured
+#    `target_tier`; gaps and priority actions are derived per function.
+profile = integrator.create_profile(assessments=current_assessments)
 
-# 3. Detect supply-chain anomalies (e.g. unexpected dependency tier drift).
+# 3. Detect supply-chain anomalies from per-supplier risk / compliance
+#    scores (CSF 2.0 GV.SC categories).
 sca = integrator.detect_supply_chain_anomalies(
-    current_state=current_assessments,
-    baseline=baseline_assessments,
+    supplier_data={
+        "supplier-a": {"risk_score": 0.80, "compliance_score": 0.40},
+        "supplier-b": {"risk_score": 0.20, "compliance_score": 0.90},
+    },
 )
 
-# 4. Continuous monitoring — delta against last run.
-delta = integrator.continuous_monitoring_detect(
-    previous=last_run, current=current_assessments,
+# 4. Continuous monitoring over numeric metric arrays (DE.CM, DE.AE).
+#    Returns (anomaly_scores: np.ndarray, events: list[str]) aligned to
+#    the rows of `network_data`; it does not diff assessment objects.
+scores, events = integrator.continuous_monitoring_detect(
+    network_data=metrics_array,   # 2-D ndarray: rows = samples, cols = metrics
+    baseline=baseline_array,       # optional 1-D ndarray; defaults to column means
 )
 
 # 5. Compliance report (JSON-serialisable).
 report = integrator.generate_compliance_report(
-    profile=profile,
     assessments=current_assessments,
+    profile=profile,
 )
 ```
 
@@ -177,7 +183,7 @@ from omni_mercury_engine.compliance import (
 detector = OSHAComplianceDetector(sector=OSHASector.CONSTRUCTION)
 
 hazards = detector.detect_hazards(
-    sensor_readings={
+    sensor_data={
         "temperature_f": 95.0,
         "relative_humidity": 70.0,
         "noise_db": 92.0,
@@ -186,7 +192,7 @@ hazards = detector.detect_hazards(
 )
 
 for h in hazards:
-    print(h.category, h.severity, h.cfr_citation)
+    print(h.category, h.severity, h.osha_standard)
 ```
 
 ---
@@ -217,9 +223,9 @@ clauses in the upstream were replaced with explicit
 | Symbol | Kind | Purpose |
 |--------|------|---------|
 | `TLPColor` | `Enum` | `CLEAR`, `GREEN`, `AMBER`, `AMBER_STRICT`, `RED` |
-| `TLPClassification` | dataclass | Classification result with reasoning + watermark |
+| `TLPClassification` | dataclass | Classification result (`color`, `confidence`, `reasoning`, `sharing_guidelines`, `ethical_considerations`) |
 | `TLPHandler` | class | Top-level classifier |
-| `TLPValidationError` | exception | Invalid input (e.g. sensitivity score out of [0, 1]) |
+| `TLPValidationError` | exception | Invalid input (e.g. `anomaly_score` out of [0, 1], empty `anomaly_type`/`domain`) |
 | `get_tlp_handler()` | factory | Convenience constructor |
 
 ### Usage
@@ -230,21 +236,21 @@ from omni_mercury_engine.compliance import TLPHandler, TLPColor
 handler = TLPHandler()
 
 # Single classification
-classification = handler.classify(
-    sensitivity_score=0.85,
-    has_pii=True,
-    has_credentials=False,
-    operational_context="incident_response",
+classification = handler.classify_anomaly(
+    anomaly_score=0.65,
+    anomaly_type="patient_data",
+    domain="medical",
+    context={"strict_sharing": True},
 )
-print(classification.color)        # TLPColor.AMBER_STRICT
-print(classification.watermark)    # "TLP:AMBER+STRICT — ..."
+print(classification.color)                                  # TLPColor.AMBER_STRICT
+print(handler.generate_watermark_text(classification.color)) # "TLP:AMBER+STRICT - ..."
 
 # Batch classification + per-colour stats
-results = handler.classify_batch(items)
-stats = handler.summarise(results)
+results = handler.batch_classify(items)
+stats = handler.get_color_statistics(results)
 
 # Export metadata for embedding in JSON / HTML / Markdown reports
-metadata = handler.export_metadata(classification)
+metadata = handler.get_export_metadata(classification)
 ```
 
 `ReportGenerator.apply_tlp_classification()` is the canonical way to
@@ -256,9 +262,15 @@ expected schema.
 
 ## Ethical and disclosure considerations
 
-- The TLP handler refuses to downgrade a classification once it has
-  raised to `AMBER+STRICT` or `RED` for a given artefact in the same
-  process — locking guards live in `TLPHandler._enforce_monotonicity`.
+- The TLP handler is stateless per call: `classify_anomaly` retains no
+  cross-call artefact state and applies no downgrade lock. Ordering is
+  instead expressed through `TLPColor.rank`, a monotonic severity index
+  from `0` (CLEAR) to `4` (RED), which callers can use to compare or
+  clamp classifications. Within a single call, an `AMBER` result is
+  escalated to `AMBER+STRICT` (never downgraded) by
+  `TLPHandler._maybe_strict_escalate` when `strict_sharing` /
+  `contains_pii` context is set or when a medical/healthcare domain
+  carries PII/PHI-bearing types.
 - The OSHA detector never auto-files compliance reports with any
   external authority; it surfaces hazards locally so a human
   reviewer can act.
@@ -274,5 +286,6 @@ expected schema.
 - [`docs/API_REFERENCE.md`](API_REFERENCE.md) — quick-import index.
 - [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) — how Mercury Agent positions
   itself against NIST / OWASP / CWE.
-- `CHANGELOG.md` "[Unreleased]" section — the full port narrative
-  (PR #223 + #228) with line-level provenance.
+- `CHANGELOG.md` `[1.7.0]` section — the full port narrative, including
+  the `security/` → `compliance/` relocation of `tlp_handler` and the
+  addition of the NIST CSF, OSHA / eCFR, and TLP 2.0 modules.

@@ -1,6 +1,6 @@
 # Mercury Agent - Active Dataset Catalog
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Every dataset in the benchmark pipeline. Datasets are loaded at runtime;
 API-sourced datasets may be unavailable if endpoints are down. The benchmark
@@ -106,8 +106,11 @@ domains.
 
 > **NAB also backs the streaming detector-tier evaluation.** `NABLoader.iter_series`
 > exposes NAB as ordered per-file 1-D `(series, labels)` streams (real categories
-> only; the synthetic `artificial*` sets are excluded). The 18-detector tier is
-> scored on it by `benchmarks/detection_tier_benchmark.py`, merged into the
+> only; the synthetic `artificial*` sets are excluded). Thirteen 1-D-capable
+> members of the 18-detector tier are scored on it by
+> `benchmarks/detection_tier_benchmark.py` (the multivariate `rca` /
+> `deeplog_sequence` / `frequent_pattern` and the torch-gated `srcnn` /
+> `diffusion_ad` members are excluded so the lane stays pure-NumPy), merged into the
 > `detection_tier` section of `mercury_benchmark_results.json` — see
 > [`../docs/DETECTION_MECHANISMS.md`](../docs/DETECTION_MECHANISMS.md).
 | SMAP | SMAPMSLLoader | timeseries | [NASA SMAP](https://github.com/khundman/telemanom) | None | ~135,000 | 25 | ~12% | Apache-2.0 |

@@ -1,5 +1,7 @@
 # Governed Recursive Self-Improvement — Phases 1–3
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 > Status of this document: **Phases 1–3 implemented.** Phase 1 closed the
 > measurement-provenance problem. Phase 2 added the governed promotion gate.
 > Phase 3 wires Reflexion threshold recommendations, high/critical-drift
@@ -120,10 +122,10 @@ justification.
   `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader` (a
   provenance-declaration default; loaders must override to declare
   their actual source).
-* All 15 concrete loaders updated:
+* All 20 concrete loaders updated:
   * `ground_truth` (2): `network_security_loader.NetworkSecurityLoader`,
     `sepsis_loader.SepsisLoader`.
-  * `statistical` (13): every other live-API loader. The justification on
+  * `statistical` (18): every other live-API loader. The justification on
     each `LABEL_SOURCE` block names the exact circular pattern (e.g.
     earthquake labels `magnitude >= mainshock_mag - 1.0` against
     feature[0] = `magnitude`).
@@ -295,7 +297,7 @@ The wiring, surface by surface:
   through the gate** (`--dormant-revival`) instead of only uploading it. A module
   below the pre-registered signal bar is archived; one that clears it but lacks
   promotion-gate candidate evidence is recorded as a fail-closed reject — the
-  honest disposition until the full ablation+gate evidence exists.
+  transparent disposition until the full ablation+gate evidence exists.
 * Every routing decision is written to an append-only store, and human approval
   is preserved for every `promote`.
 

@@ -1,5 +1,7 @@
 # Mercury General-Purpose Capabilities
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Mercury's specialty is calibrated, multi-domain **anomaly detection**. But a free
 and potentially life-saving agent should also be *generally useful* — able to
 research the open web when one is reachable, read and synthesize sources, and
@@ -23,7 +25,7 @@ fail-closed.
 
 Because Mercury ships no generative model, the assistant **extracts and
 organizes** content sources actually contain and **cites** them — it does not
-fabricate prose. This is a deliberate honesty contract.
+fabricate prose. This is a deliberate transparency contract.
 
 ## Components
 
@@ -144,7 +146,7 @@ if report.available:
     for s in report.sources:                 # provenance for every source
         print(s["url"], s.get("relevance"))
 else:
-    print(report.note)                       # honest: refused / offline / no results
+    print(report.note)                       # transparent: refused / offline / no results
 
 # Extractive answer (verbatim sentences from sources, cited):
 print(agent.answer("what coverage guarantee does conformal prediction give?"))
@@ -157,6 +159,6 @@ doc = agent.write_document(
 )
 ```
 
-In a sandbox with no outbound network, `research`/`answer` return honestly with
+In a sandbox with no outbound network, `research`/`answer` return transparently with
 `available=False` rather than fabricating results — the same fail-closed posture
 as the rest of Mercury.

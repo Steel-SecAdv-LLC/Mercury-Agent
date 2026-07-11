@@ -1,5 +1,7 @@
 # Neuro-Symbolic Fusion, Ablation, and Conformal Uncertainty
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This document is the **accounting** for Mercury Agent's neuro-symbolic fusion
 work: what was built, how it was measured on real labels, and the explicit
 keep / cut / quarantine verdict for every component touched. The standing rule
@@ -113,7 +115,7 @@ default; the schedule is. (The gate logic enforces this: an FP-reduction bought
 with a meaningful full-data AUC regression does **not** read as KEEP for a fixed
 weight.)
 
-Honest reading of the split:
+Transparent reading of the split:
 
 * **Low-data regime (frac ≤ 0.5): the constraint helps.** ΔAUC is positive at most
   low fractions across cardio / thyroid (and breastw @ 0.1), with false positives
@@ -183,7 +185,7 @@ not regress full-data AUC (−0.0007, within noise) and lifts low-data AUC
 there — it even improves thyroid@1.0 by +0.0033 (3/3) with a gentle λ̄=0.007 — and
 keeps the low-data gains.
 
-**Honest caveat (disclosed, not hidden):** the lone meaningful regression is
+**Transparent caveat (disclosed, not hidden):** the lone meaningful regression is
 **WBC@1.0 (−0.0069)**. WBC is tiny (~15 positives even at full data) and
 near-ceiling, so the `n_pos`-keyed schedule cannot distinguish it from the scarce
 regime and still applies λ̄≈0.076. It is one full-data cell of four and the
@@ -266,6 +268,42 @@ switch rule does not fire. The richer graph is now live, tested, and selectable
 follow-up: a larger-N confirmation could clear the bar. To be ablated, not
 assumed.
 
+## 2.4 Genetically evolved rule graphs (`symbolic_rule_graph="evolved:<path>"`)
+
+The two hand-written graphs above (`consensus`, `consensus_salience`) are not the
+only selectable rule structures. `fit_fusion`'s `symbolic_rule_graph` argument
+also accepts an `"evolved:<path>"` specification
+(`engine.py::fit_fusion`, docstring at `engine.py:1385-1388`), which loads a
+genetically evolved `RuleGraph` from the JSON artifact written by
+`omni_mercury_engine.ml.rule_evolution`. The graph is resolved by
+`resolve_rule_graph` (`ml/symbolic_constraint.py:439`), which strips the
+case-insensitive `evolved:` prefix (`_EVOLVED_GRAPH_PREFIX`,
+`symbolic_constraint.py:436`) and deserialises the artifact into the same
+`RuleGraph` type the registry graphs use — so an evolved graph co-trains through
+the identical `SymbolicConstraintModule` path, with no separate blend and no
+post-hoc multiplication.
+
+The seam is that evolved rules range over a richer predicate grammar than the
+built-in `Consensus`/`NotConsensus` atoms. `parse_evolved_predicate`
+(`symbolic_constraint.py:258-290`) parses a conjunctive (`&`-joined) predicate
+name into a tuple of atoms, where each atom is either a builtin atom or a
+`ThresholdAtom` (`symbolic_constraint.py:219-255`): a soft threshold test over a
+named detector-score channel, grounded as the differentiable fuzzy truth value
+`sigmoid((score[channel] − threshold) · slope)` for `>=` (mirrored for `<=`) —
+the same soft-threshold construction as the `Salient` predicate of §2.3, but with
+an *evolved, fixed* threshold in place of a learnable one. Thresholds are
+quantised (`quantize_threshold`) so evolved graphs round-trip losslessly through
+`rule_graph_to_spec` and the engine checkpoint.
+
+`ml/rule_evolution.py` produces these graphs (added in PR #333, 2026-07-10) and
+`benchmarks/rule_evolution_benchmark.py` is the harness that evaluates them.
+This is a live, selectable, benchmarked capability. No ablation delta,
+seed-agreement figure, or KEEP/CUT verdict is asserted here: the committed
+artifacts in this repository do not carry a paired evolved-vs-baseline result of
+the form §2.1–§2.3 report, so the seam is documented as available and measured
+without a default-changing claim. The registry default remains
+`symbolic_rule_graph="consensus"` (`engine.py:1314`).
+
 ## 3. Calibration + conformal uncertainty in the output
 
 Building on the conformal plumbing from PR #242, the fusion serve path now
@@ -294,10 +332,10 @@ sets.
 | **LTN / symbolic constraint** | dead (orphaned nn.Modules in `cognitive/differentiable_logic.py`) | **REVIVED + ENABLED** via the adaptive schedule | The `SymbolicConstraintModule` is a genuine, tested, co-trained LTN. A *fixed* `λ` was quarantined (no full-data win, §2), but the label-scarcity `ScarcityWeightSchedule` (§2.1) cleared a pre-registered dominance bar on real ADBench labels, so `symbolic_weight="adaptive"` is now the **default**: co-training runs when labels are scarce and decays to the neural path otherwise. The orphaned `differentiable_logic.py` modules remain, superseded by this focused implementation. |
 | **Schumann CNN-LSTM** (`space/schumann_resonance.py`) | run at inference with **random weights** (theater + non-deterministic bug) | **QUARANTINE** | Untrained network no longer drives `anomaly_type`/`confidence`/`risk_score`; deterministic FFT-physics fallback used instead, with a one-time warning. `load_neural_weights()` activates the learned path once a real labelled corpus exists. |
 | **Parapsychology consciousness-field** (`models/parapsychology.py`) | run at inference with **random weights**; no validated ground truth | **QUARANTINE** | Field coherence abstains to the neutral 0.5 prior while untrained, with a one-time warning. No fabricated signal is emitted. |
-| **`LogicTensorNetwork`** (`models/neurosymbolic.py`) | a never-trained `nn.Module` whose random-init forward fed the fusion consensus as if it were a neural confidence | **RE-WIRED to the canonical module (2026-06-02)** | Instead of staying retired, the `LogicTensorNetwork` surface is rebuilt as a thin head over the canonical `SymbolicConstraintModule`: `LogicTensorNetwork.predict(detector_scores)` routes through that module's fuzzy-logic `Consensus` predicate (exposed as the new public `SymbolicConstraintModule.predict`). No random init — an untrained module's zero-initialised parameters give a deterministic uniform-weight consensus; a co-trained module applies learned detector reliabilities. `NeurosymbolicEngine.ltn` is built when torch is present. The raw-feature `neural_inference` remains an honestly-labelled deterministic heuristic (a per-feature dispersion statistic, *not* a trained signal). Regression: `tests/test_neurosymbolic_integration.py::{test_ltn_is_wired_to_canonical_symbolic_module, test_ltn_predict_delegates_to_symbolic_consensus, test_neural_inference_is_deterministic_and_feature_responsive}` + `tests/ml/test_symbolic_constraint.py::TestPredictInference`. |
+| **`LogicTensorNetwork`** (`models/neurosymbolic.py`) | a never-trained `nn.Module` whose random-init forward fed the fusion consensus as if it were a neural confidence | **RE-WIRED to the canonical module (2026-06-02)** | Instead of staying retired, the `LogicTensorNetwork` surface is rebuilt as a thin head over the canonical `SymbolicConstraintModule`: `LogicTensorNetwork.predict(detector_scores)` routes through that module's fuzzy-logic `Consensus` predicate (exposed as the new public `SymbolicConstraintModule.predict`). No random init — an untrained module's zero-initialised parameters give a deterministic uniform-weight consensus; a co-trained module applies learned detector reliabilities. `NeurosymbolicEngine.ltn` is built when torch is present. The raw-feature `neural_inference` remains a transparently-labelled deterministic heuristic (a per-feature dispersion statistic, *not* a trained signal). Regression: `tests/test_neurosymbolic_integration.py::{test_ltn_is_wired_to_canonical_symbolic_module, test_ltn_predict_delegates_to_symbolic_consensus, test_neural_inference_is_deterministic_and_feature_responsive}` + `tests/ml/test_symbolic_constraint.py::TestPredictInference`. |
 | **Fusion temperature calibration** (PR #255) | present | **KEEP** | Unchanged; conformal composes on top of it. |
 
-## 5. Honest open items
+## 5. Transparent open items
 
 * The differentiable domain encoders (spectral/FFT, kinematic, Fisher/entropy)
   remain numpy/scipy feature extractors converted to tensors; converting them to
@@ -305,7 +343,7 @@ sets.
   landed. The feasibility analysis (torch.fft for spectral, Conv1d difference
   kernels for kinematic) is recorded for the follow-up.
 * The Schumann and parapsychology networks remain quarantined, not revived: no
-  real labelled corpus exists in-repo to train them honestly. Reviving them
+  real labelled corpus exists in-repo to train them transparently. Reviving them
   would require that data first — anything else would be theater.
 
 ## 6. Statistical confirmation of the sub-threshold sweeps

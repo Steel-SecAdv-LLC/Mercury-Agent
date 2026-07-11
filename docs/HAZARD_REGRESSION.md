@@ -1,10 +1,12 @@
 # Hazard Regression Gate — per-hazard skill floors
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 ## TL;DR
 
-The hazard honesty wave (`4a3ba33` volcanic, `30a5582` space, `1afd151`
-tsunami/earthquake, `56903a5` meteorological) replaced untrained-network
-theater with deterministic physics paths — but nothing pinned their *skill*.
+The hazard transparency wave (volcanic, space, tsunami/earthquake, and
+meteorological detectors) replaced untrained-network theater with
+deterministic physics paths — but nothing pinned their *skill*.
 `benchmarks/hazard_regression_guard.py` + `hazard_domain_baseline.json` close
 that: every guarded detector runs over committed, hash-pinned scenario sets,
 standard skill scores (`omni_mercury_engine/evaluation/hazard_metrics.py` —
@@ -72,7 +74,7 @@ fields, seismic traces, DART records, gridded winds, gauge observations —
 e.g. `earthquake.usgs.gov` serves catalogs, not station waveforms). Each set
 is built by the committed generator (`generate_scenarios.py`, fixed per-domain
 seeds, NumPy `default_rng` stream stability) against the detector's
-documented input contract, mirroring the honesty-test fixtures
+documented input contract, mirroring the transparency-test fixtures
 (`tests/detectors/test_*_honesty.py`). Labels are the physical ground truth
 of the constructed situation (a 25 m/s velocity couplet **is** a mesocyclone
 signature), never the detector's output. Every `manifest.json` entry carries a
@@ -103,12 +105,12 @@ python benchmarks/hazard_regression_guard.py --check         # the CI gate (~12 
 
 ## Explicit exclusions (documented in the registry, tripwired where possible)
 
-* **Hurricane track error** — no track model exists; the honesty wave
+* **Hurricane track error** — no track model exists; the transparency wave
   deliberately *removed* the never-computed `track_forecast` /
   `landfall_probability` / `time_to_landfall_hours` fields. Gating a track
   metric would fabricate a capability. A tripwire fails the guard if the dead
   fields regrow.
-* **Earthquake magnitude MAE** — the untrained detector honestly emits
+* **Earthquake magnitude MAE** — the untrained detector transparently emits
   `estimated_magnitude=None`; a tripwire fails the guard if a magnitude is
   ever fabricated while untrained. `hazard_metrics.magnitude_error` and
   `location_error_km` are implemented + unit-tested for the day trained

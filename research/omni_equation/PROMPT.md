@@ -1,4 +1,5 @@
 # Mercury Omni-Equation — Build Prompt (measurement-grounded)
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 **Context.** You are working in `Mercury-Agent`. The North Star is one
 ethics-gated, multi-stream, validated scoring law (the "omni-equation") that
@@ -72,4 +73,4 @@ Update `FINDINGS.md`.
 ## Definition of done (shippable)
 At least one of {Gate 1 accuracy, Gate 2 F1, Gate 3 cost} shows a **measured**
 win on real data, with ethics provably intact and exact reduction-to-baseline. If
-none do, the honest output is **"do not ship,"** with the numbers.
+none do, the transparent output is **"do not ship,"** with the numbers.

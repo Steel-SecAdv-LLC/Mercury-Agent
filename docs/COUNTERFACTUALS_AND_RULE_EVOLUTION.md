@@ -1,6 +1,6 @@
 # Counterfactual Explanations & Genetic Rule Evolution
 
-Applies to Mercury Agent v2.1.x.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Counterfactuals on the detection path
 
@@ -25,7 +25,7 @@ carry a **finite infeasibility barrier**: a candidate region where the
 detector cannot score (non-finite output, or a fail-loud score wrapper
 raising `NonFiniteScoreError`) repels the optimizer with a large finite
 penalty instead of NaN-poisoning or aborting the search. Search failures are
-logged with their exception type and recorded honestly — a failed search can
+logged with their exception type and recorded transparently — a failed search can
 never be reported as a successful flip because validity is always re-scored.
 
 `GeneticCounterfactual` is a seeded, derivative-free GA (tournament
@@ -49,7 +49,7 @@ ADBench **WBC** dataset; flip and minimality are re-scored through the real
 | dice | 0.00 | 0.00 |
 | growing_spheres | 0.00 | 0.00 |
 
-The dice/growing_spheres zeros are **honest structural results** on this
+The dice/growing_spheres zeros are **transparent structural results** on this
 piecewise batch-scorer regime (their smooth-boundary correctness is locked
 by unit tests in `tests/explainability/`); they are reported, not tuned away.
 
@@ -85,7 +85,7 @@ deterministic GA (seeded selection/mutation/crossover, elitism, patience).
 * The hand-written consensus graph is seeded into the initial population,
   so evolution can only be selected if it genuinely beats it.
 
-### Measured result (committed, reproduced 2026-07-09)
+### Measured result (committed, reproduced 2026-07-10)
 
 `benchmarks/rule_evolution_results.json` (seed 0, pop 40, 30 generations):
 evolved graph beats the consensus baseline on held-out test F1,

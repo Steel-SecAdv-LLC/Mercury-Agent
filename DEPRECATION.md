@@ -2,8 +2,8 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 1.2 |
-| Last Updated | 2026-05-20 |
+| Document Version | 1.3 |
+| Last Updated | 2026-07-11 |
 | Applies to | Mercury Agent v2.1.x |
 
 This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
@@ -316,7 +316,8 @@ correctness doctrine (stub collaborators must hard-fail rather than
 silently degrade).  Each entry records the criterion that overrode
 preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
-development cycle; §6.6 in v2.1.
+development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
+were removed across the v2.1 improvement and live-wiring passes.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 

@@ -1,6 +1,6 @@
 # Oracle Noise Color Calibration
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Theory
 
@@ -29,7 +29,7 @@ The Oracle estimates β from the reference (training) spectrum:
 
 1. Compute PSD via FFT: `PSD = |FFT(signal)|²`
 2. Fit log-log regression: `log(PSD) = -β·log(f) + C`
-3. Classify: β < 0.5 → white, 0.5-1.5 → pink, > 1.5 → brown
+3. Classify across five regimes: β < -1.5 → violet, -1.5 ≤ β < -0.5 → blue, -0.5 ≤ β < 0.5 → white, 0.5 ≤ β < 1.5 → pink, β ≥ 1.5 → brown
 
 The R² of the fit indicates confidence in the noise model.
 
@@ -56,9 +56,11 @@ The corrected power ratio = observed / expected. This removes the systematic bia
 
 ## Implementation
 
-See `src/omni_mercury_engine/detectors/spectral_domain_oracle.py`:
+See `src/omni_mercury_engine/detectors/spectral_domain_frequency.py`:
 
-- `SpectralDomainOracle._estimate_noise_color()` — β estimation
-- `SpectralDomainOracle._expected_band_power()` — model-based expected power
-- `SpectralDomainOracle._compute_band_anomaly()` — corrected z-scores
-- `SpectralDomainOracle._compute_adaptive_alpha()` — window-aware thresholds
+- `SpectralDomainFrequency._estimate_noise_color()` — β estimation
+- `SpectralDomainFrequency._expected_band_power()` — model-based expected power
+- `SpectralDomainFrequency._compute_band_anomaly()` — corrected z-scores
+- `SpectralDomainFrequency._compute_adaptive_alpha()` — window-aware thresholds
+
+`SpectralDomainOracle` remains importable as a backward-compatible alias for `SpectralDomainFrequency`; the former `spectral_domain_oracle` module is now a re-export shim, and new code should import from `spectral_domain_frequency` directly.

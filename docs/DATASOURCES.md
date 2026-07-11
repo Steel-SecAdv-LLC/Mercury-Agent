@@ -1,6 +1,8 @@
 # Mercury-Agent Data Sources
 
-Last verified: 2026-05-19 (loader catalog refresh; the per-dataset
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
+Last verified: 2026-07-11 (loader catalog refresh; the per-dataset
 tables below still derive from the legacy 2026-02-15 sweep — the
 51-success `mercury_benchmark.py` regression-gate baseline — preserved
 here as the auditable starting point). The canonical public
@@ -336,6 +338,61 @@ No synthetic data is used in any benchmark.
 | **API Key** | Not required |
 | **License** | Public Domain (US Government) |
 
+### Domain: Drought
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `DroughtLoader` |
+| **API** | NOAA NCEI Global Summary of the Month (GSOM) |
+| **Source URL** | `https://www.ncei.noaa.gov/data/gsom/access/` |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government / NOAA) |
+
+### Domain: Hail
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `HailLoader` |
+| **API** | NOAA Storm Prediction Center (SPC) severe-weather archive |
+| **Archive URL** | `https://www.spc.noaa.gov/wcm/data/1955-2023_hail.csv.zip` |
+| **Daily-reports URL** | `https://www.spc.noaa.gov/climo/reports/today_filtered.csv` |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government / NOAA) |
+
+### Domain: Heatwave
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `HeatwaveLoader` |
+| **API** | NOAA NCEI Global Summary of the Day (GSOD) |
+| **Source URL** | `https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/` |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government / NOAA) |
+
+### Domain: Meteor / Fireball
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `MeteorLoader` |
+| **API** | NASA/JPL CNEOS Fireball archive + NASA NeoWs close-approach feed |
+| **Fireball URL** | `https://ssd-api.jpl.nasa.gov/fireball.api` |
+| **NeoWs URL** | `https://api.nasa.gov/neo/rest/v1/feed` |
+| **API Key** | Optional (free) — NeoWs accepts `DEMO_KEY`; supply a registered `NASA_API_KEY` to lift rate limits |
+| **Env Variable** | `NASA_API_KEY` (optional) |
+| **License** | Public Domain (US Government / NASA) |
+
+### Domain: Space Weather / Geomagnetic Storm
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `SpaceWeatherLoader` |
+| **API** | USGS Geomagnetism web service + NASA DONKI GST |
+| **USGS URL** | `https://geomag.usgs.gov/ws/data/` |
+| **DONKI URL** | `https://api.nasa.gov/DONKI/GST` |
+| **API Key** | Optional (free) — DONKI accepts `DEMO_KEY`; supply a registered `NASA_API_KEY` to lift rate limits |
+| **Env Variable** | `NASA_API_KEY` (optional) |
+| **License** | Public Domain (US Government / NASA / USGS) |
+
 ### API Key Summary
 
 | API | Key Required | Env Variable |
@@ -344,6 +401,7 @@ No synthetic data is used in any benchmark.
 | NASA FIRMS | **Yes** (free) | `NASA_FIRMS_MAP_KEY` |
 | FRED | **Yes** (free) | `FRED_API_KEY` |
 | EIA | Optional (free) | `EIA_API_KEY` |
+| NASA NeoWs / DONKI | Optional (free; `DEMO_KEY` fallback) | `NASA_API_KEY` |
 
 All API keys are stored in environment variables, never in code. See `.env.example` for the complete list.
 

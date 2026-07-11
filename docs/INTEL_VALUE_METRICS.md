@@ -1,5 +1,7 @@
 # Mercury Intelligence Layer — Value Metrics
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Every intelligence-layer stream ships a **measured** value metric with a
 **baseline** and a **target**. A stream that cannot state, and measure, the value
 it delivers is theater. This document is the operator/reviewer view of that value
