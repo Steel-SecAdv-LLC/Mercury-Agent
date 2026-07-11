@@ -691,8 +691,14 @@ def run(
     datasets: list[str] | None = None,
     skip_fusion: bool = False,
     seed: int = SEED,
+    output_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run the full competitive benchmark and return the results dict."""
+    """Run the full competitive benchmark and return the results dict.
+
+    When ``output_path`` is given, a partial snapshot is written after every
+    dataset and re-used on restart, so a container recycle mid-run costs only
+    the in-flight dataset, not the whole (hours-long) suite.
+    """
     catalog = build_dataset_catalog(only=datasets, quick=quick)
     method_order = [m for m in MERCURY_METHODS if not (skip_fusion and m == "mercury_fusion")]
     method_order += list(PYOD_METHODS)
@@ -705,7 +711,7 @@ def run(
     for _algo in DEFAULT_BASELINES:
         try:
             build_pyod_detector(_algo)
-        except Exception:  # noqa: BLE001 - warm-up only; real errors surface per cell
+        except Exception:
             pass
 
     mode = "quick" if quick else ("custom" if datasets else "full")
@@ -714,8 +720,44 @@ def run(
     print(f"  datasets={len(catalog)} ({mode})  methods={method_order}  seed={seed}")
     print("=" * 78)
 
+    # Resume: reuse already-measured datasets from a prior *partial* snapshot so
+    # an interrupted run continues where it left off. A dataset counts as done
+    # only once it produced methods or a named load/split error (an interrupted
+    # dataset is absent from the snapshot and re-runs). A completed results file
+    # is NOT treated as a resume point -- it is overwritten by a fresh run.
+    done: dict[str, dict[str, Any]] = {}
+    if output_path is not None and output_path.exists():
+        try:
+            prior = json.loads(output_path.read_text())
+            if prior.get("metadata", {}).get("partial"):
+                for r in prior.get("per_dataset", []):
+                    if "methods" in r or "error" in r:
+                        done[r["name"]] = r
+        except (OSError, json.JSONDecodeError):
+            done = {}
+    if done:
+        print(
+            f"  resuming: {len(done)} datasets already measured, {len(catalog) - len(done)} to go"
+        )
+
+    def _write_partial(rows: list[dict[str, Any]]) -> None:
+        if output_path is not None:
+            output_path.write_text(
+                json.dumps(
+                    {"metadata": {"partial": True, "n_done": len(rows)}, "per_dataset": rows},
+                    indent=2,
+                )
+                + "\n"
+            )
+
     t_start = time.perf_counter()
-    per_dataset = [evaluate_dataset(entry, skip_fusion=skip_fusion, seed=seed) for entry in catalog]
+    per_dataset: list[dict[str, Any]] = []
+    for entry in catalog:
+        if entry["name"] in done:
+            per_dataset.append(done[entry["name"]])
+            continue
+        per_dataset.append(evaluate_dataset(entry, skip_fusion=skip_fusion, seed=seed))
+        _write_partial(per_dataset)
     runtime_s = time.perf_counter() - t_start
 
     summary = summarize(per_dataset, method_order)
@@ -829,15 +871,16 @@ def main() -> int:
     ap.add_argument("-o", "--output", type=Path, default=None)
     args = ap.parse_args()
 
+    out = args.output or (QUICK_OUTPUT_PATH if args.quick else OUTPUT_PATH)
     results = run(
         quick=args.quick,
         datasets=args.datasets,
         skip_fusion=args.skip_fusion,
         seed=args.seed,
+        output_path=out,
     )
     _print_summary(results)
 
-    out = args.output or (QUICK_OUTPUT_PATH if args.quick else OUTPUT_PATH)
     out.write_text(json.dumps(results, indent=2, sort_keys=False) + "\n")
     print(f"\nresults written: {out}")
     return 0
