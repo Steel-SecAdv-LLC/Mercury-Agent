@@ -146,7 +146,13 @@ def _window_embed(series: np.ndarray, window: int) -> np.ndarray:
 
 def _iforest_windowed_scores(series: np.ndarray, warmup: int, seed: int) -> np.ndarray:
     """PyOD IsolationForest on sliding windows: fit on warm-up rows, score all."""
-    from pyod.models.iforest import IForest
+    try:
+        from pyod.models.iforest import IForest
+    except ImportError as exc:  # pragma: no cover - depends on environment
+        raise ImportError(
+            "PyOD is required for the iforest_windowed baseline. Install it with: "
+            "pip install 'mercury-agent[benchmark]' (or pip install pyod)."
+        ) from exc
 
     X = _window_embed(np.asarray(series, dtype=np.float64), WINDOW)
     model = IForest(random_state=seed)
