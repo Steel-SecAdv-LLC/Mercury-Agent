@@ -204,6 +204,10 @@ def test_benchmark_against_pyod_end_to_end(
 
     detector = MercuryAnomalyDetector()
     detector.fit(X_train)
+    # Match the benchmark's eval path exactly: competitive_benchmark._run_mercury_tier
+    # plants this runtime-only domain marker, which routes detect() through the
+    # same "adbench" blending. Without it this test would exercise a different path.
+    detector._benchmark_domain = "adbench"  # type: ignore[attr-defined]
     mercury_scores = np.asarray(detector.detect(X_test)["scores"], dtype=np.float64)
 
     comparison = PyODComparison()

@@ -89,12 +89,33 @@ def test_guard_set_is_fixed_and_covered() -> None:
 
 
 def test_baseline_never_stores_floors() -> None:
-    """Floors are derived (measured - margin), never persisted."""
-    raw = _BASELINE.read_text()
-    assert "floor" not in raw and "ceiling" not in raw, (
-        "baseline must store measurements + margins only; floors are derived by "
-        "_floors_from at check time"
+    """Floors/ceilings are derived (measured - margin) at check time, never persisted.
+
+    Structural check on the stored KEYS -- not a substring grep, which would
+    false-positive on the word "floors" in the margins-justification prose. The
+    invariant is that none of the keys ``_floors_from`` produces are persisted.
+    """
+    data = _baseline()
+    forbidden = {"mercury_auc_floor", "mercury_mean_auc_floor", "competitive_gap_ceiling"}
+
+    def _all_keys(obj: Any) -> set[str]:
+        found: set[str] = set()
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                found.add(key)
+                found |= _all_keys(value)
+        elif isinstance(obj, list):
+            for value in obj:
+                found |= _all_keys(value)
+        return found
+
+    persisted = _all_keys(data)
+    assert not (persisted & forbidden), (
+        f"baseline persists derived floor keys {persisted & forbidden}; it must store "
+        "measurements + margins only (floors are derived by _floors_from at check time)"
     )
+    # The margins ARE stored (so floors can be derived); the floors are NOT.
+    assert "margins" in data["metadata"]
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +243,10 @@ def test_check_fails_against_mutated_stricter_baseline(
     """Tightening a pinned value beyond reality must trip the gate."""
     mod = _load_guard()
     mutated = copy.deepcopy(_baseline())
-    name = next(iter(mutated["datasets"]))
+    # Pick the LOWEST-AUC dataset: a mutated-up baseline (floor = 1.0 - AUC_MARGIN
+    # = 0.97) is then guaranteed to exceed the real measurement and trip the gate.
+    # A high-AUC set (e.g. breastw ~0.99) leaves no room, since AUC caps at 1.0.
+    name = min(mutated["datasets"], key=lambda k: mutated["datasets"][k]["mercury_tier_auc"])
     mutated["datasets"][name]["mercury_tier_auc"] = 1.0
     bpath = tmp_path / "mutated_baseline.json"
     bpath.write_text(json.dumps(mutated))

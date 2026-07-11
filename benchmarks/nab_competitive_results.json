@@ -47,10 +47,10 @@
     "seed": 42,
     "max_len": 6000,
     "warmup_frac": 0.15,
-    "git_commit": "5d24cdccff8ffd6784cd0a1321600bae063dccdb",
-    "command_line": "benchmarks/nab_competitive.py -o benchmarks/nab_competitive_results.json",
-    "timestamp": "2026-07-10T07:53:30.190501+00:00",
-    "runtime_seconds": 254.0,
+    "git_commit": "ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8",
+    "command_line": "benchmarks/nab_competitive.py",
+    "timestamp": "2026-07-11T05:25:15.051506+00:00",
+    "runtime_seconds": 222.7,
     "published_nab_scoreboard_standard_profile": {
       "NOT_same_harness": "QUOTED for context only. These are NAB scores from NAB's own scorer over its full corpus -- a different metric and protocol; do not compare them numerically to the AUC / detection-rate measurements in this file.",
       "source": "https://github.com/numenta/NAB#scoreboard (retrieved 2026-07-10)",
@@ -75,45 +75,45 @@
     }
   },
   "summary": {
-    "n_streams": 30,
+    "n_streams": 46,
     "per_method": {
       "mercury_consensus": {
-        "n_streams": 30,
-        "mean_auc": 0.634951,
-        "median_auc": 0.620826,
-        "mean_window_detection_rate": 0.761111,
+        "n_streams": 46,
+        "mean_auc": 0.618385,
+        "median_auc": 0.593931,
+        "mean_window_detection_rate": 0.922101,
         "errors": []
       },
       "mercury_average": {
-        "n_streams": 30,
-        "mean_auc": 0.603879,
-        "median_auc": 0.589536,
-        "mean_window_detection_rate": 0.977778,
+        "n_streams": 46,
+        "mean_auc": 0.584209,
+        "median_auc": 0.583958,
+        "mean_window_detection_rate": 0.985507,
         "errors": []
       },
       "iforest_windowed": {
-        "n_streams": 30,
-        "mean_auc": 0.634762,
-        "median_auc": 0.625342,
-        "mean_window_detection_rate": 0.802778,
+        "n_streams": 46,
+        "mean_auc": 0.610165,
+        "median_auc": 0.612515,
+        "mean_window_detection_rate": 0.869565,
         "errors": []
       },
       "ewma_zscore": {
-        "n_streams": 30,
-        "mean_auc": 0.49304,
-        "median_auc": 0.496283,
-        "mean_window_detection_rate": 0.972222,
+        "n_streams": 46,
+        "mean_auc": 0.484622,
+        "median_auc": 0.485324,
+        "mean_window_detection_rate": 0.981884,
         "errors": []
       },
       "random": {
-        "n_streams": 30,
-        "mean_auc": 0.50227,
-        "median_auc": 0.502638,
+        "n_streams": 46,
+        "mean_auc": 0.49982,
+        "median_auc": 0.501373,
         "mean_window_detection_rate": 1.0,
         "errors": []
       },
       "perfect": {
-        "n_streams": 30,
+        "n_streams": 46,
         "mean_auc": 1.0,
         "median_auc": 1.0,
         "mean_window_detection_rate": 1.0,
@@ -153,13 +153,35 @@
           "random": 0.504675,
           "perfect": 1.0
         }
+      },
+      "realAdExchange": {
+        "n": 6,
+        "mean_auc": {
+          "mercury_consensus": 0.629802,
+          "mercury_average": 0.541287,
+          "iforest_windowed": 0.55055,
+          "ewma_zscore": 0.460626,
+          "random": 0.486615,
+          "perfect": 1.0
+        }
+      },
+      "realTweets": {
+        "n": 10,
+        "mean_auc": {
+          "mercury_consensus": 0.561835,
+          "mercury_average": 0.550951,
+          "iforest_windowed": 0.572142,
+          "ewma_zscore": 0.473765,
+          "random": 0.500392,
+          "perfect": 1.0
+        }
       }
     },
     "head_to_head": {
       "mercury_consensus": {
         "iforest_windowed": {
-          "wins": 16,
-          "losses": 14,
+          "wins": 24,
+          "losses": 22,
           "ties": 0,
           "worst_losses": [
             {
@@ -175,23 +197,31 @@
               "auc_margin": 0.07654
             },
             {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
-              "auc_margin": 0.039989
+              "stream": "realTweets/Twitter_volume_AAPL.csv",
+              "auc_margin": 0.057269
             },
             {
-              "stream": "realKnownCause/rogue_agent_key_hold.csv",
-              "auc_margin": 0.031883
+              "stream": "realAdExchange/exchange-4_cpc_results.csv",
+              "auc_margin": 0.048778
             }
           ]
         },
         "ewma_zscore": {
-          "wins": 25,
-          "losses": 5,
+          "wins": 39,
+          "losses": 7,
           "ties": 0,
           "worst_losses": [
             {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
               "auc_margin": 0.075663
+            },
+            {
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.07164
+            },
+            {
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.070711
             },
             {
               "stream": "realKnownCause/rogue_agent_key_updown.csv",
@@ -200,41 +230,53 @@
             {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
               "auc_margin": 0.050591
-            },
-            {
-              "stream": "realTraffic/occupancy_6005.csv",
-              "auc_margin": 0.00483
-            },
-            {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
-              "auc_margin": 0.002243
             }
           ]
         },
         "random": {
-          "wins": 27,
-          "losses": 3,
+          "wins": 40,
+          "losses": 6,
           "ties": 0,
           "worst_losses": [
+            {
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.080542
+            },
+            {
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.06807
+            },
             {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
               "auc_margin": 0.032764
             },
             {
-              "stream": "realTraffic/occupancy_6005.csv",
-              "auc_margin": 0.01528
+              "stream": "realTweets/Twitter_volume_KO.csv",
+              "auc_margin": 0.029379
             },
             {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
-              "auc_margin": 0.014592
+              "stream": "realTraffic/occupancy_6005.csv",
+              "auc_margin": 0.01528
             }
           ]
         },
         "perfect": {
           "wins": 0,
-          "losses": 30,
+          "losses": 46,
           "ties": 0,
           "worst_losses": [
+            {
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.569384
+            },
+            {
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.56819
+            },
+            {
+              "stream": "realTweets/Twitter_volume_KO.csv",
+              "auc_margin": 0.529231
+            },
             {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
               "auc_margin": 0.518161
@@ -242,26 +284,14 @@
             {
               "stream": "realTraffic/occupancy_6005.csv",
               "auc_margin": 0.506631
-            },
-            {
-              "stream": "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
-              "auc_margin": 0.505878
-            },
-            {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
-              "auc_margin": 0.496769
-            },
-            {
-              "stream": "realKnownCause/rogue_agent_key_updown.csv",
-              "auc_margin": 0.481455
             }
           ]
         }
       },
       "mercury_average": {
         "iforest_windowed": {
-          "wins": 11,
-          "losses": 19,
+          "wins": 17,
+          "losses": 29,
           "ties": 0,
           "worst_losses": [
             {
@@ -287,8 +317,8 @@
           ]
         },
         "ewma_zscore": {
-          "wins": 24,
-          "losses": 6,
+          "wins": 37,
+          "losses": 9,
           "ties": 0,
           "worst_losses": [
             {
@@ -300,45 +330,49 @@
               "auc_margin": 0.088059
             },
             {
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.072204
+            },
+            {
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.069799
+            },
+            {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
               "auc_margin": 0.048167
-            },
-            {
-              "stream": "realKnownCause/rogue_agent_key_updown.csv",
-              "auc_margin": 0.031955
-            },
-            {
-              "stream": "realKnownCause/nyc_taxi.csv",
-              "auc_margin": 0.028386
             }
           ]
         },
         "random": {
-          "wins": 26,
-          "losses": 4,
+          "wins": 37,
+          "losses": 9,
           "ties": 0,
           "worst_losses": [
+            {
+              "stream": "realAdExchange/exchange-3_cpm_results.csv",
+              "auc_margin": 0.128878
+            },
             {
               "stream": "realTraffic/occupancy_6005.csv",
               "auc_margin": 0.098509
             },
             {
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.078701
+            },
+            {
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.069563
+            },
+            {
               "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
               "auc_margin": 0.058426
-            },
-            {
-              "stream": "realKnownCause/nyc_taxi.csv",
-              "auc_margin": 0.03944
-            },
-            {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
-              "auc_margin": 0.003955
             }
           ]
         },
         "perfect": {
           "wins": 0,
-          "losses": 30,
+          "losses": 46,
           "ties": 0,
           "worst_losses": [
             {
@@ -346,20 +380,20 @@
               "auc_margin": 0.58986
             },
             {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
-              "auc_margin": 0.540603
+              "stream": "realAdExchange/exchange-3_cpm_results.csv",
+              "auc_margin": 0.582605
             },
             {
-              "stream": "realKnownCause/nyc_taxi.csv",
-              "auc_margin": 0.524075
+              "stream": "realTweets/Twitter_volume_IBM.csv",
+              "auc_margin": 0.570877
             },
             {
-              "stream": "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
-              "auc_margin": 0.506735
+              "stream": "realAdExchange/exchange-2_cpc_results.csv",
+              "auc_margin": 0.566349
             },
             {
-              "stream": "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
-              "auc_margin": 0.489352
+              "stream": "realTweets/Twitter_volume_KO.csv",
+              "auc_margin": 0.553175
             }
           ]
         }
@@ -375,45 +409,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.758075,
-          "seconds": 6.9838,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 3.7013,
+          "window_detection_rate": 0.5,
+          "alarm_precision": 0.34022,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.660952,
-          "seconds": 5.8818,
+          "seconds": 3.4415,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.206612
+          "alarm_precision": 0.206612,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.734924,
-          "seconds": 1.7243,
+          "seconds": 0.7834,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.39021
+          "alarm_precision": 0.385675,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.500267,
-          "seconds": 0.0127,
+          "seconds": 0.0063,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.114325
+          "alarm_precision": 0.114325,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.506485,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.130854
+          "alarm_precision": 0.130854,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -425,45 +459,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.819634,
-          "seconds": 6.3124,
+          "seconds": 3.379,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.686023
+          "alarm_precision": 0.686458,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.716331,
-          "seconds": 6.401,
+          "seconds": 3.4238,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.377585
+          "alarm_precision": 0.377585,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.785099,
-          "seconds": 0.5513,
+          "seconds": 0.2114,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.642428
+          "alarm_precision": 0.642428,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.483291,
-          "seconds": 0.0127,
+          "seconds": 0.0063,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.354236
+          "alarm_precision": 0.354236,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.50285,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.254837
+          "alarm_precision": 0.254837,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -475,45 +509,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.525604,
-          "seconds": 3.8592,
+          "seconds": 2.3051,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.133956
+          "alarm_precision": 0.124277,
+          "n_windows": 3
         },
         "mercury_average": {
           "roc_auc": 0.531576,
-          "seconds": 4.2081,
+          "seconds": 2.2812,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.132948
+          "alarm_precision": 0.132948,
+          "n_windows": 3
         },
         "iforest_windowed": {
           "roc_auc": 0.535486,
-          "seconds": 0.4267,
+          "seconds": 0.205,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.092486
+          "alarm_precision": 0.092486,
+          "n_windows": 3
         },
         "ewma_zscore": {
           "roc_auc": 0.450008,
-          "seconds": 0.0112,
+          "seconds": 0.0044,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.078035
+          "alarm_precision": 0.078035,
+          "n_windows": 3
         },
         "random": {
           "roc_auc": 0.513079,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.069364
+          "alarm_precision": 0.069364,
+          "n_windows": 3
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     },
@@ -525,45 +559,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.905935,
-          "seconds": 6.0263,
+          "seconds": 3.4706,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.657711
+          "alarm_precision": 0.686067,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.772513,
-          "seconds": 6.0481,
+          "seconds": 3.5819,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.354497
+          "alarm_precision": 0.354497,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.918152,
-          "seconds": 0.4108,
+          "seconds": 0.2074,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.703704
+          "alarm_precision": 0.703704,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.520148,
-          "seconds": 0.0048,
+          "seconds": 0.0064,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.186949
+          "alarm_precision": 0.186949,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.498491,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.186067
+          "alarm_precision": 0.186067,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -575,45 +609,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.558733,
-          "seconds": 5.5755,
+          "seconds": 3.3773,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 0.241748
+          "alarm_precision": 0.24058,
+          "n_windows": 5
         },
         "mercury_average": {
           "roc_auc": 0.475925,
-          "seconds": 6.6518,
+          "seconds": 3.3916,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 0.113153
+          "alarm_precision": 0.113043,
+          "n_windows": 5
         },
         "iforest_windowed": {
           "roc_auc": 0.635273,
-          "seconds": 0.5437,
+          "seconds": 0.2184,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 0.389372
+          "alarm_precision": 0.389372,
+          "n_windows": 5
         },
         "ewma_zscore": {
           "roc_auc": 0.504311,
-          "seconds": 0.0086,
+          "seconds": 0.0064,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 0.164251
+          "alarm_precision": 0.164251,
+          "n_windows": 5
         },
         "random": {
           "roc_auc": 0.515365,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 0.169082
+          "alarm_precision": 0.169082,
+          "n_windows": 5
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 5.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 5
         }
       }
     },
@@ -625,45 +659,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.735176,
-          "seconds": 2.182,
+          "seconds": 1.1662,
           "window_detection_rate": 0.5,
-          "n_windows": 2.0,
-          "alarm_precision": 0.25
+          "alarm_precision": 0.005263,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.626918,
-          "seconds": 2.1365,
+          "seconds": 1.1303,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.194737
+          "alarm_precision": 0.194737,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.767059,
-          "seconds": 0.3855,
-          "window_detection_rate": 0.5,
-          "n_windows": 2.0,
-          "alarm_precision": 0.136364
+          "seconds": 0.1762,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.347368,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.4007,
-          "seconds": 0.0015,
+          "seconds": 0.0021,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.152632
+          "alarm_precision": 0.152632,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.491853,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.078947
+          "alarm_precision": 0.078947,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -675,45 +709,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.518545,
-          "seconds": 5.9378,
+          "seconds": 3.145,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.104167
+          "alarm_precision": 0.103774,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.556192,
-          "seconds": 5.5081,
+          "seconds": 3.166,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.101887
+          "alarm_precision": 0.101887,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.519071,
-          "seconds": 0.3675,
+          "seconds": 0.1925,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.066038
+          "alarm_precision": 0.066038,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.588147,
-          "seconds": 0.0113,
+          "seconds": 0.0057,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.075472
+          "alarm_precision": 0.075472,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.501926,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.1
+          "alarm_precision": 0.1,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -725,45 +759,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.565284,
-          "seconds": 3.5965,
+          "seconds": 2.2787,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.168342
+          "alarm_precision": 0.166667,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.530303,
-          "seconds": 3.3552,
+          "seconds": 2.2842,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.121891
+          "alarm_precision": 0.121891,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.573765,
-          "seconds": 0.3363,
+          "seconds": 0.1962,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.174129
+          "alarm_precision": 0.174129,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.403763,
-          "seconds": 0.0033,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.087065
+          "alarm_precision": 0.087065,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.493429,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.094527
+          "alarm_precision": 0.094527,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -775,45 +809,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.644315,
-          "seconds": 3.2999,
+          "seconds": 2.3002,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.254364
+          "alarm_precision": 0.253731,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.588681,
-          "seconds": 3.9121,
+          "seconds": 2.3512,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.164179
+          "alarm_precision": 0.164179,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.628375,
-          "seconds": 0.4424,
+          "seconds": 0.2011,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.310945
+          "alarm_precision": 0.310945,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.523037,
-          "seconds": 0.0112,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.114428
+          "alarm_precision": 0.114428,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.494784,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.089552
+          "alarm_precision": 0.089552,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -825,45 +859,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.481839,
-          "seconds": 4.1617,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 2.3453,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.268657,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.510648,
-          "seconds": 4.3818,
+          "seconds": 2.2874,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.161692
+          "alarm_precision": 0.161692,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.451153,
-          "seconds": 0.4495,
+          "seconds": 0.2028,
           "window_detection_rate": 0.5,
-          "n_windows": 2.0,
-          "alarm_precision": 0.023077
+          "alarm_precision": 0.029851,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.484082,
-          "seconds": 0.0072,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.079602
+          "alarm_precision": 0.079602,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.514603,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.106965
+          "alarm_precision": 0.106965,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -875,45 +909,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.587967,
-          "seconds": 4.0454,
+          "seconds": 2.2683,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.171642
+          "alarm_precision": 0.171216,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.590391,
-          "seconds": 4.0512,
+          "seconds": 2.2615,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.166253
+          "alarm_precision": 0.166253,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.627956,
-          "seconds": 0.4217,
+          "seconds": 0.1969,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.220844
+          "alarm_precision": 0.220844,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.638558,
-          "seconds": 0.0113,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.114144
+          "alarm_precision": 0.114144,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.512244,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.086849
+          "alarm_precision": 0.086849,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -925,45 +959,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.624075,
-          "seconds": 4.0848,
+          "seconds": 2.2647,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.396341
+          "alarm_precision": 0.381924,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.579732,
-          "seconds": 3.9633,
+          "seconds": 2.297,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.154519
+          "alarm_precision": 0.154519,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.546443,
-          "seconds": 0.462,
+          "seconds": 0.2016,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.25656
+          "alarm_precision": 0.25656,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.384419,
-          "seconds": 0.0111,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.078717
+          "alarm_precision": 0.078717,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.500744,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.093294
+          "alarm_precision": 0.093294,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -975,45 +1009,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.813917,
-          "seconds": 4.7607,
-          "window_detection_rate": 0.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.0
+          "seconds": 2.2782,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.501241,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.588184,
-          "seconds": 4.7849,
+          "seconds": 2.2752,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.10199
+          "alarm_precision": 0.101737,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.820053,
-          "seconds": 0.4146,
-          "window_detection_rate": 0.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.0
+          "seconds": 0.1987,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.424318,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.398333,
-          "seconds": 0.0072,
+          "seconds": 0.0044,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.074442
+          "alarm_precision": 0.074442,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.502902,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.101737
+          "alarm_precision": 0.101737,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1025,45 +1059,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.503231,
-          "seconds": 4.248,
+          "seconds": 2.2775,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.169666
+          "alarm_precision": 0.167901,
+          "n_windows": 3
         },
         "mercury_average": {
           "roc_auc": 0.459397,
-          "seconds": 4.71,
+          "seconds": 2.263,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.076543
+          "alarm_precision": 0.076543,
+          "n_windows": 3
         },
         "iforest_windowed": {
           "roc_auc": 0.48916,
-          "seconds": 0.5501,
+          "seconds": 0.1897,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.202469
+          "alarm_precision": 0.202469,
+          "n_windows": 3
         },
         "ewma_zscore": {
           "roc_auc": 0.578894,
-          "seconds": 0.0033,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.175309
+          "alarm_precision": 0.175309,
+          "n_windows": 3
         },
         "random": {
           "roc_auc": 0.517823,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.091358
+          "alarm_precision": 0.091358,
+          "n_windows": 3
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     },
@@ -1075,45 +1109,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.583237,
-          "seconds": 6.5041,
+          "seconds": 2.7521,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.159236
+          "alarm_precision": 0.158562,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.545635,
-          "seconds": 5.2232,
+          "seconds": 2.7858,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.137712
+          "alarm_precision": 0.137421,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.565774,
-          "seconds": 0.3843,
+          "seconds": 0.1882,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.196617
+          "alarm_precision": 0.196617,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.543902,
-          "seconds": 0.0119,
+          "seconds": 0.005,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.167019
+          "alarm_precision": 0.167019,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.50128,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.116279
+          "alarm_precision": 0.116279,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1125,45 +1159,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.617576,
-          "seconds": 4.1437,
+          "seconds": 2.3938,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.224691
+          "alarm_precision": 0.224691,
+          "n_windows": 3
         },
         "mercury_average": {
           "roc_auc": 0.612287,
-          "seconds": 3.9439,
+          "seconds": 2.435,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.187654
+          "alarm_precision": 0.187654,
+          "n_windows": 3
         },
         "iforest_windowed": {
           "roc_auc": 0.622728,
-          "seconds": 0.39,
+          "seconds": 0.1909,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.281481
+          "alarm_precision": 0.281481,
+          "n_windows": 3
         },
         "ewma_zscore": {
           "roc_auc": 0.498314,
-          "seconds": 0.0168,
+          "seconds": 0.0043,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.195062
+          "alarm_precision": 0.195062,
+          "n_windows": 3
         },
         "random": {
           "roc_auc": 0.494686,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.091358
+          "alarm_precision": 0.091358,
+          "n_windows": 3
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     },
@@ -1175,45 +1209,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.544318,
-          "seconds": 4.2392,
+          "seconds": 2.3935,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.246819
+          "alarm_precision": 0.243176,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.742679,
-          "seconds": 4.2689,
+          "seconds": 2.4321,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.173697
+          "alarm_precision": 0.173697,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.737828,
-          "seconds": 0.4312,
+          "seconds": 0.1929,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.193548
+          "alarm_precision": 0.193548,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.31335,
-          "seconds": 0.0031,
+          "seconds": 0.0043,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.094293
+          "alarm_precision": 0.094293,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.50313,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.096774
+          "alarm_precision": 0.096774,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1225,45 +1259,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.709975,
-          "seconds": 4.7213,
+          "seconds": 2.8099,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.276371
+          "alarm_precision": 0.276371,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.690483,
-          "seconds": 5.0404,
+          "seconds": 2.7943,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.227848
+          "alarm_precision": 0.227848,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.731677,
-          "seconds": 0.3788,
+          "seconds": 0.1885,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.270042
+          "alarm_precision": 0.270042,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.70704,
-          "seconds": 0.0077,
+          "seconds": 0.005,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.191983
+          "alarm_precision": 0.191983,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.488219,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.075949
+          "alarm_precision": 0.075949,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1275,45 +1309,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.560547,
-          "seconds": 3.6954,
+          "seconds": 2.2861,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.17
+          "alarm_precision": 0.169154,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.529748,
-          "seconds": 4.3416,
+          "seconds": 2.3322,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.124378
+          "alarm_precision": 0.124378,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.514108,
-          "seconds": 0.5057,
+          "seconds": 0.2103,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.261194
+          "alarm_precision": 0.261194,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.486566,
-          "seconds": 0.0113,
+          "seconds": 0.0044,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.104478
+          "alarm_precision": 0.104478,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.488545,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.106965
+          "alarm_precision": 0.106965,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1325,45 +1359,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.570221,
-          "seconds": 4.8404,
-          "window_detection_rate": 0.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.0
+          "seconds": 2.7397,
+          "window_detection_rate": 0.333333,
+          "alarm_precision": 0.180645,
+          "n_windows": 3
         },
         "mercury_average": {
           "roc_auc": 0.599541,
-          "seconds": 4.8169,
+          "seconds": 2.6505,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.156989
+          "alarm_precision": 0.156989,
+          "n_windows": 3
         },
         "iforest_windowed": {
           "roc_auc": 0.490676,
-          "seconds": 0.3934,
+          "seconds": 0.1951,
           "window_detection_rate": 0.333333,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 0.077419,
+          "n_windows": 3
         },
         "ewma_zscore": {
           "roc_auc": 0.516578,
-          "seconds": 0.0117,
+          "seconds": 0.0049,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.146237
+          "alarm_precision": 0.146237,
+          "n_windows": 3
         },
         "random": {
           "roc_auc": 0.49485,
           "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.101075
+          "alarm_precision": 0.101075,
+          "n_windows": 3
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     },
@@ -1375,45 +1409,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.63675,
-          "seconds": 1.163,
+          "seconds": 0.7609,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.242424
+          "alarm_precision": 0.142857,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.716044,
-          "seconds": 1.1653,
+          "seconds": 0.7436,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.277778
+          "alarm_precision": 0.277778,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.6037,
-          "seconds": 0.3779,
+          "seconds": 0.1797,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.238095
+          "alarm_precision": 0.238095,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.427051,
-          "seconds": 0.001,
+          "seconds": 0.0016,
           "window_detection_rate": 0.5,
-          "n_windows": 2.0,
-          "alarm_precision": 0.02381
+          "alarm_precision": 0.02381,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.530929,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.126984
+          "alarm_precision": 0.126984,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1425,45 +1459,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.798873,
-          "seconds": 4.3707,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 2.3328,
+          "window_detection_rate": 0.5,
+          "alarm_precision": 0.251244,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.800546,
-          "seconds": 4.0929,
+          "seconds": 2.281,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.306733
+          "alarm_precision": 0.30597,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.814055,
-          "seconds": 0.4873,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 0.2101,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.258706,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.494366,
-          "seconds": 0.0065,
+          "seconds": 0.0044,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.089552
+          "alarm_precision": 0.089552,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.478483,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.084577
+          "alarm_precision": 0.084577,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1475,45 +1509,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.494122,
-          "seconds": 3.8695,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 2.3113,
+          "window_detection_rate": 0.5,
+          "alarm_precision": 0.251244,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.493265,
-          "seconds": 3.8276,
+          "seconds": 2.381,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.107232
+          "alarm_precision": 0.106965,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.473798,
-          "seconds": 0.4251,
-          "window_detection_rate": 0.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.0
+          "seconds": 0.1972,
+          "window_detection_rate": 0.5,
+          "alarm_precision": 0.131841,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.381951,
-          "seconds": 0.0086,
+          "seconds": 0.0044,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.074627
+          "alarm_precision": 0.074627,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.488685,
-          "seconds": 0.0,
+          "seconds": 0.0001,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.087065
+          "alarm_precision": 0.087065,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1525,45 +1559,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.703153,
-          "seconds": 2.7198,
+          "seconds": 1.4539,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.325301
+          "alarm_precision": 0.325301,
+          "n_windows": 3
         },
         "mercury_average": {
           "roc_auc": 0.695392,
-          "seconds": 2.7351,
+          "seconds": 1.4558,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.269076
+          "alarm_precision": 0.269076,
+          "n_windows": 3
         },
         "iforest_windowed": {
           "roc_auc": 0.66485,
-          "seconds": 0.3979,
+          "seconds": 0.1867,
           "window_detection_rate": 0.666667,
-          "n_windows": 3.0,
-          "alarm_precision": 0.136546
+          "alarm_precision": 0.136546,
+          "n_windows": 3
         },
         "ewma_zscore": {
           "roc_auc": 0.52455,
-          "seconds": 0.0022,
+          "seconds": 0.0028,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.100402
+          "alarm_precision": 0.100402,
+          "n_windows": 3
         },
         "random": {
           "roc_auc": 0.512376,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 0.116466
+          "alarm_precision": 0.116466,
+          "n_windows": 3
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 3.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     },
@@ -1575,45 +1609,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.642293,
-          "seconds": 2.2497,
+          "seconds": 1.2384,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.157407
+          "alarm_precision": 0.156682,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.60692,
-          "seconds": 2.422,
+          "seconds": 1.2371,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.21659
+          "alarm_precision": 0.21659,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.601972,
-          "seconds": 0.3657,
+          "seconds": 0.2003,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.308756
+          "alarm_precision": 0.308756,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.533342,
-          "seconds": 0.0017,
+          "seconds": 0.0024,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.124424
+          "alarm_precision": 0.124424,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.502425,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.124424
+          "alarm_precision": 0.124424,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1625,45 +1659,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.493369,
-          "seconds": 2.3508,
+          "seconds": 1.3549,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.109244
+          "alarm_precision": 0.112971,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.41014,
-          "seconds": 2.1793,
+          "seconds": 1.349,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.096639
+          "alarm_precision": 0.096234,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.437662,
-          "seconds": 0.3997,
+          "seconds": 0.1885,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.146444
+          "alarm_precision": 0.146444,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.498199,
-          "seconds": 0.0099,
+          "seconds": 0.0027,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.117155
+          "alarm_precision": 0.117155,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.508649,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.100418
+          "alarm_precision": 0.100418,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1675,45 +1709,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.635064,
-          "seconds": 2.5724,
+          "seconds": 1.4307,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.224
+          "alarm_precision": 0.224,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.601092,
-          "seconds": 2.3179,
+          "seconds": 1.4291,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.2
+          "alarm_precision": 0.2,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.776571,
-          "seconds": 0.4047,
+          "seconds": 0.1941,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.432
+          "alarm_precision": 0.432,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.465751,
-          "seconds": 0.002,
+          "seconds": 0.0028,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.112
+          "alarm_precision": 0.112,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.510292,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.092
+          "alarm_precision": 0.092,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
         }
       }
     },
@@ -1725,45 +1759,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.584307,
-          "seconds": 2.3764,
+          "seconds": 1.432,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.158798
+          "alarm_precision": 0.154812,
+          "n_windows": 1
         },
         "mercury_average": {
           "roc_auc": 0.540249,
-          "seconds": 2.8059,
+          "seconds": 1.435,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.125523
+          "alarm_precision": 0.125523,
+          "n_windows": 1
         },
         "iforest_windowed": {
           "roc_auc": 0.601256,
-          "seconds": 0.4483,
+          "seconds": 0.1943,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.217573
+          "alarm_precision": 0.217573,
+          "n_windows": 1
         },
         "ewma_zscore": {
           "roc_auc": 0.474234,
-          "seconds": 0.002,
+          "seconds": 0.0028,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.07113
+          "alarm_precision": 0.07113,
+          "n_windows": 1
         },
         "random": {
           "roc_auc": 0.481982,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 0.09205
+          "alarm_precision": 0.09205,
+          "n_windows": 1
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 1.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 1
         }
       }
     },
@@ -1775,45 +1809,45 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.764022,
-          "seconds": 1.3597,
+          "seconds": 0.6822,
           "window_detection_rate": 1.0,
-          "n_windows": 4.0,
-          "alarm_precision": 0.542857
+          "alarm_precision": 0.5,
+          "n_windows": 4
         },
         "mercury_average": {
           "roc_auc": 0.769305,
-          "seconds": 1.3826,
+          "seconds": 0.6781,
           "window_detection_rate": 1.0,
-          "n_windows": 4.0,
-          "alarm_precision": 0.439655
+          "alarm_precision": 0.439655,
+          "n_windows": 4
         },
         "iforest_windowed": {
           "roc_auc": 0.721179,
-          "seconds": 0.3884,
+          "seconds": 0.1761,
           "window_detection_rate": 0.75,
-          "n_windows": 4.0,
-          "alarm_precision": 0.5
+          "alarm_precision": 0.5,
+          "n_windows": 4
         },
         "ewma_zscore": {
           "roc_auc": 0.628193,
-          "seconds": 0.0009,
+          "seconds": 0.0013,
           "window_detection_rate": 1.0,
-          "n_windows": 4.0,
-          "alarm_precision": 0.241379
+          "alarm_precision": 0.241379,
+          "n_windows": 4
         },
         "random": {
           "roc_auc": 0.512245,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 4.0,
-          "alarm_precision": 0.086207
+          "alarm_precision": 0.086207,
+          "n_windows": 4
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 4.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 4
         }
       }
     },
@@ -1825,45 +1859,845 @@
       "methods": {
         "mercury_consensus": {
           "roc_auc": 0.668378,
-          "seconds": 2.8223,
+          "seconds": 1.4342,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.295547
+          "alarm_precision": 0.292,
+          "n_windows": 2
         },
         "mercury_average": {
           "roc_auc": 0.575307,
-          "seconds": 2.6671,
+          "seconds": 1.4672,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.236
+          "alarm_precision": 0.236,
+          "n_windows": 2
         },
         "iforest_windowed": {
           "roc_auc": 0.653064,
-          "seconds": 0.4111,
+          "seconds": 0.1885,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.344
+          "alarm_precision": 0.344,
+          "n_windows": 2
         },
         "ewma_zscore": {
           "roc_auc": 0.43987,
-          "seconds": 0.0101,
+          "seconds": 0.0028,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.084
+          "alarm_precision": 0.084,
+          "n_windows": 2
         },
         "random": {
           "roc_auc": 0.504754,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 0.088
+          "alarm_precision": 0.088,
+          "n_windows": 2
         },
         "perfect": {
           "roc_auc": 1.0,
           "seconds": 0.0,
           "window_detection_rate": 1.0,
-          "n_windows": 2.0,
-          "alarm_precision": 1.0
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-2_cpc_results.csv",
+      "n": 1624,
+      "anomaly_rate": 0.100369,
+      "warmup": 243,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.43181,
+          "seconds": 0.9487,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.042945,
+          "n_windows": 1
+        },
+        "mercury_average": {
+          "roc_auc": 0.433651,
+          "seconds": 0.9883,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.067485,
+          "n_windows": 1
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.324746,
+          "seconds": 0.192,
+          "window_detection_rate": 0.0,
+          "alarm_precision": 0.0,
+          "n_windows": 1
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.50345,
+          "seconds": 0.0018,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.079755,
+          "n_windows": 1
+        },
+        "random": {
+          "roc_auc": 0.512352,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.09816,
+          "n_windows": 1
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 1
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-2_cpm_results.csv",
+      "n": 1624,
+      "anomaly_rate": 0.099754,
+      "warmup": 243,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.557665,
+          "seconds": 0.9416,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.203704,
+          "n_windows": 2
+        },
+        "mercury_average": {
+          "roc_auc": 0.537444,
+          "seconds": 0.9436,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.117284,
+          "n_windows": 2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.503027,
+          "seconds": 0.1841,
+          "window_detection_rate": 0.5,
+          "alarm_precision": 0.049383,
+          "n_windows": 2
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.497408,
+          "seconds": 0.0019,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.074074,
+          "n_windows": 2
+        },
+        "random": {
+          "roc_auc": 0.453674,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.074074,
+          "n_windows": 2
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-3_cpc_results.csv",
+      "n": 1538,
+      "anomaly_rate": 0.09948,
+      "warmup": 230,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.738083,
+          "seconds": 0.8886,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.248366,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.619044,
+          "seconds": 0.8944,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.215686,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.727652,
+          "seconds": 0.1814,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.437908,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.456686,
+          "seconds": 0.002,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.124183,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.473892,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.071895,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-3_cpm_results.csv",
+      "n": 1538,
+      "anomaly_rate": 0.09948,
+      "warmup": 230,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.648335,
+          "seconds": 0.8879,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.196078,
+          "n_windows": 1
+        },
+        "mercury_average": {
+          "roc_auc": 0.417395,
+          "seconds": 0.8923,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.039216,
+          "n_windows": 1
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.290149,
+          "seconds": 0.1794,
+          "window_detection_rate": 0.0,
+          "alarm_precision": 0.0,
+          "n_windows": 1
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.420221,
+          "seconds": 0.0017,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.058824,
+          "n_windows": 1
+        },
+        "random": {
+          "roc_auc": 0.546273,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.117647,
+          "n_windows": 1
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 1
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-4_cpc_results.csv",
+      "n": 1643,
+      "anomaly_rate": 0.100426,
+      "warmup": 246,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.753416,
+          "seconds": 0.9519,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.254545,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.664936,
+          "seconds": 0.952,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.218182,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.802194,
+          "seconds": 0.1786,
+          "window_detection_rate": 0.666667,
+          "alarm_precision": 0.266667,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.46207,
+          "seconds": 0.0019,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.084848,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.472969,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.072727,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realAdExchange/exchange-4_cpm_results.csv",
+      "n": 1643,
+      "anomaly_rate": 0.099817,
+      "warmup": 246,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.649502,
+          "seconds": 0.9485,
+          "window_detection_rate": 0.75,
+          "alarm_precision": 0.347561,
+          "n_windows": 4
+        },
+        "mercury_average": {
+          "roc_auc": 0.575249,
+          "seconds": 0.9382,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.22561,
+          "n_windows": 4
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.655531,
+          "seconds": 0.1787,
+          "window_detection_rate": 0.75,
+          "alarm_precision": 0.128049,
+          "n_windows": 4
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.423919,
+          "seconds": 0.0019,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.091463,
+          "n_windows": 4
+        },
+        "random": {
+          "roc_auc": 0.460529,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.067073,
+          "n_windows": 4
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 4
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_AAPL.csv",
+      "n": 6000,
+      "anomaly_rate": 0.1985,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.664794,
+          "seconds": 3.3558,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.406381,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.680336,
+          "seconds": 3.35,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.418976,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.722063,
+          "seconds": 0.1964,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.434089,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.447157,
+          "seconds": 0.0064,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.162049,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.48443,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.178002,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_AMZN.csv",
+      "n": 6000,
+      "anomaly_rate": 0.131667,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.580639,
+          "seconds": 3.4189,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.251899,
+          "n_windows": 2
+        },
+        "mercury_average": {
+          "roc_auc": 0.562072,
+          "seconds": 3.4134,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.201266,
+          "n_windows": 2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.595535,
+          "seconds": 0.2189,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.310127,
+          "n_windows": 2
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.47642,
+          "seconds": 0.0063,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.118987,
+          "n_windows": 2
+        },
+        "random": {
+          "roc_auc": 0.50483,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.131646,
+          "n_windows": 2
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_CRM.csv",
+      "n": 6000,
+      "anomaly_rate": 0.2655,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.641223,
+          "seconds": 3.4169,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.402385,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.634397,
+          "seconds": 3.4055,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.38732,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.682188,
+          "seconds": 0.2116,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.444444,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.488407,
+          "seconds": 0.0065,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.276836,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.499256,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.26742,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_CVS.csv",
+      "n": 6000,
+      "anomaly_rate": 0.132333,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.594061,
+          "seconds": 3.3681,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.20403,
+          "n_windows": 2
+        },
+        "mercury_average": {
+          "roc_auc": 0.570872,
+          "seconds": 3.3578,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.211587,
+          "n_windows": 2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.578977,
+          "seconds": 0.2016,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.210327,
+          "n_windows": 2
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.465163,
+          "seconds": 0.0063,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.127204,
+          "n_windows": 2
+        },
+        "random": {
+          "roc_auc": 0.501466,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.139798,
+          "n_windows": 2
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_FB.csv",
+      "n": 6000,
+      "anomaly_rate": 0.2465,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.500414,
+          "seconds": 3.3835,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.25355,
+          "n_windows": 2
+        },
+        "mercury_average": {
+          "roc_auc": 0.491218,
+          "seconds": 3.3686,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.2238,
+          "n_windows": 2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.474087,
+          "seconds": 0.2061,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.2238,
+          "n_windows": 2
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.42099,
+          "seconds": 0.0064,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.192698,
+          "n_windows": 2
+        },
+        "random": {
+          "roc_auc": 0.498778,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.250169,
+          "n_windows": 2
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_GOOG.csv",
+      "n": 6000,
+      "anomaly_rate": 0.238667,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.551186,
+          "seconds": 3.387,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.331006,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.51399,
+          "seconds": 3.4381,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.278631,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.59554,
+          "seconds": 0.2048,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.351955,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.46371,
+          "seconds": 0.0063,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.208101,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.507412,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.24162,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_IBM.csv",
+      "n": 6000,
+      "anomaly_rate": 0.1325,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.430616,
+          "seconds": 3.3862,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.07044,
+          "n_windows": 1
+        },
+        "mercury_average": {
+          "roc_auc": 0.429123,
+          "seconds": 3.3957,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.07044,
+          "n_windows": 1
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.416557,
+          "seconds": 0.2143,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.030189,
+          "n_windows": 1
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.501327,
+          "seconds": 0.0063,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.137107,
+          "n_windows": 1
+        },
+        "random": {
+          "roc_auc": 0.498686,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.124528,
+          "n_windows": 1
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 1
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_KO.csv",
+      "n": 6000,
+      "anomaly_rate": 0.176333,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.470769,
+          "seconds": 3.38,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.172023,
+          "n_windows": 2
+        },
+        "mercury_average": {
+          "roc_auc": 0.446825,
+          "seconds": 3.3528,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.162571,
+          "n_windows": 2
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.406829,
+          "seconds": 0.1992,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.167297,
+          "n_windows": 2
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.439048,
+          "seconds": 0.0065,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.172968,
+          "n_windows": 2
+        },
+        "random": {
+          "roc_auc": 0.500148,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.178639,
+          "n_windows": 2
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 2
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_PFE.csv",
+      "n": 6000,
+      "anomaly_rate": 0.1985,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.590846,
+          "seconds": 3.6056,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.298908,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.589115,
+          "seconds": 3.5961,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.281276,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.621331,
+          "seconds": 0.2099,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.321579,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.495345,
+          "seconds": 0.0064,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.191436,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.498773,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.206549,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
+        }
+      }
+    },
+    {
+      "name": "realTweets/Twitter_volume_UPS.csv",
+      "n": 6000,
+      "anomaly_rate": 0.1585,
+      "warmup": 900,
+      "methods": {
+        "mercury_consensus": {
+          "roc_auc": 0.593801,
+          "seconds": 3.3888,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.251314,
+          "n_windows": 3
+        },
+        "mercury_average": {
+          "roc_auc": 0.591558,
+          "seconds": 3.431,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.232387,
+          "n_windows": 3
+        },
+        "iforest_windowed": {
+          "roc_auc": 0.628316,
+          "seconds": 0.2047,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.26919,
+          "n_windows": 3
+        },
+        "ewma_zscore": {
+          "roc_auc": 0.540083,
+          "seconds": 0.0065,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.15878,
+          "n_windows": 3
+        },
+        "random": {
+          "roc_auc": 0.51014,
+          "seconds": 0.0001,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 0.173502,
+          "n_windows": 3
+        },
+        "perfect": {
+          "roc_auc": 1.0,
+          "seconds": 0.0,
+          "window_detection_rate": 1.0,
+          "alarm_precision": 1.0,
+          "n_windows": 3
         }
       }
     }

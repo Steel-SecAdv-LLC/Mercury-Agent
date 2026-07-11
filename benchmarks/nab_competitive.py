@@ -41,7 +41,7 @@ and they are kept in a clearly separated section.
 
 Usage::
 
-    python benchmarks/nab_competitive.py                 # all 58 real streams
+    python benchmarks/nab_competitive.py                 # every real stream in the NABLoader inventory
     python benchmarks/nab_competitive.py --max-files 5   # smoke run
 
 Output:
@@ -206,29 +206,30 @@ def _label_windows(labels: np.ndarray) -> list[tuple[int, int]]:
 def window_detection_metrics(scores: np.ndarray, labels: np.ndarray) -> dict[str, float]:
     """NAB-style window detection at a budget-matched alarm rate.
 
-    The alarm threshold is the ``(1 - anomaly_rate)`` quantile of the method's
-    own scores, so every method fires the same number of alarms (the labelled
-    anomaly budget) and no method gets an oracle threshold.
+    Every method is given the SAME alarm budget -- exactly the number of
+    labelled anomaly points -- by flagging its own top-k highest scores
+    (``k = labels.sum()``), so no method gets an oracle threshold and results
+    reflect ranking quality, not score discretization.
 
     Returns:
         ``window_detection_rate`` (fraction of ground-truth windows containing
-        at least one alarm), ``n_windows``, and ``alarm_precision`` (fraction
-        of alarm points inside any window).
+        at least one alarm), ``n_windows`` (a count, emitted as an integer by
+        the caller), and ``alarm_precision`` (fraction of alarm points inside
+        any window). All values are floats; ``n_windows`` is a whole number.
     """
     scores = np.asarray(scores, dtype=np.float64).ravel()
     labels = np.asarray(labels, dtype=np.int64).ravel()
     windows = _label_windows(labels)
-    rate = float(labels.mean())
-    if not windows or rate <= 0.0:
-        return {"window_detection_rate": 0.0, "n_windows": 0, "alarm_precision": 0.0}
-    # Budget-matched alarms: fire on EXACTLY the labelled anomaly budget
-    # (k = round(anomaly_rate * n)) by flagging the top-k highest scores, with a
-    # stable index tie-break. A quantile threshold + strict ``>`` emits fewer
-    # (or zero) alarms when scores tie/plateau at the quantile, which breaks the
-    # budget-matched guarantee and makes the result depend on score
-    # discretization rather than ranking quality.
     n = int(scores.size)
-    k = min(max(round(rate * n), 1), n)
+    n_anom = int(labels.sum())
+    if not windows or n_anom <= 0:
+        return {"window_detection_rate": 0.0, "n_windows": 0.0, "alarm_precision": 0.0}
+    # Budget-matched alarms: fire on EXACTLY the labelled anomaly budget -- k is
+    # the exact number of labelled anomaly points (clamped to [1, n]), NOT
+    # round(rate*n) which can drift by a point from the true count -- by flagging
+    # the top-k highest scores with a stable index tie-break. (A quantile
+    # threshold + strict ``>`` would emit fewer/zero alarms on score ties.)
+    k = min(max(n_anom, 1), n)
     alarms = np.zeros(n, dtype=bool)
     alarms[np.argsort(-scores, kind="stable")[:k]] = True
     detected = sum(1 for lo, hi in windows if bool(alarms[lo:hi].any()))
@@ -236,7 +237,7 @@ def window_detection_metrics(scores: np.ndarray, labels: np.ndarray) -> dict[str
     in_window = int((alarms & (labels == 1)).sum())
     return {
         "window_detection_rate": detected / len(windows),
-        "n_windows": len(windows),
+        "n_windows": float(len(windows)),
         "alarm_precision": (in_window / n_alarms) if n_alarms else 0.0,
     }
 
