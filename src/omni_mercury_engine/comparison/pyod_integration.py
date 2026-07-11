@@ -102,12 +102,21 @@ def pyod_available() -> bool:
 
 
 def pyod_version() -> str | None:
-    """Return the installed PyOD version string, or ``None`` if not installed."""
+    """Return the installed PyOD version string, or ``None`` if unavailable.
+
+    Metadata-only helper: a broken/partial install can raise a non-``ImportError``
+    on ``import pyod`` (binary incompatibility, C-extension load failure), and
+    version stamping must never crash the benchmark. Any failure returns
+    ``None`` -- the same defensive posture as ``_version()`` in
+    ``benchmarks/competitive_benchmark.py``. (``pyod_available()`` deliberately
+    stays narrow: a broken install should surface loudly at the gate, not be
+    silently reported as "not installed".)
+    """
     try:
         import pyod
 
         return str(pyod.__version__)
-    except ImportError:
+    except Exception:
         return None
 
 
