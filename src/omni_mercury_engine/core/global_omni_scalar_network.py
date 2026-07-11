@@ -1748,6 +1748,34 @@ class GlobalOmniScalarNetwork:
             "bias_audit": self.perform_bias_audit(),
         }
 
+    def ethical_observability(self) -> dict[str, float]:
+        """Live ethical-gate snapshot for Prometheus export.
+
+        Scores the current operational scalar vector through the ethical gate
+        and reads the enforced benevolence scalar, so the deployment's
+        ``mercury_agent_sigma_alignment`` and ``mercury_agent_benevolence_score``
+        alerts (helm ``prometheusrule.yaml``) evaluate real series instead of
+        sitting in ``NoData`` and silently failing to protect the gate.
+
+        Read-only: it evaluates the gate purely to obtain the score and never
+        mutates scalars nor emits the gate-trigger warning side effects that
+        :meth:`get_enhanced_scalars` does.
+
+        Returns:
+            ``{"sigma_alignment": <current ethical-gate score>,
+            "benevolence_score": <enforced omnibenevolence scalar>}``.
+        """
+        all_scalars = self._collect_all_scalars()
+        scalar_vector = np.array(list(all_scalars.values()), dtype=np.float64)
+        _passes, ethical_score = self.ethical_gate.evaluate(scalar_vector)
+        benevolence = float(
+            all_scalars.get(
+                "omnibenevolence",
+                self.get_scalar("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
+            )
+        )
+        return {"sigma_alignment": float(ethical_score), "benevolence_score": benevolence}
+
     @classmethod
     def _is_metric_only_scalar(cls, key: str) -> bool:
         """Return True for diagnostic measurement scalars excluded from the σ vector.

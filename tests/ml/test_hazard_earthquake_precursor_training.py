@@ -385,6 +385,23 @@ class TestDetectorContract:
         with pytest.raises(RuntimeError, match="untrained"):
             det._predict_earthquake(np.zeros(ep.EQ_FEATURE_DIM, dtype=np.float32))
 
+    def test_default_load_refuses_when_no_checkpoint_ships(self) -> None:
+        """earthquake_precursor was a merit-gate refusal, so no
+        ``earthquake_precursor_ca`` checkpoint ships. ``load_neural_weights(None)``
+        must raise a clear FileNotFoundError naming the training command rather
+        than implying a shipped default that does not exist.
+        """
+        from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+        from omni_mercury_engine.space.disaster_precursor_detector import (
+            DisasterPrecursorDetector,
+        )
+
+        if shipped_checkpoint_path("earthquake_precursor_ca").exists():
+            pytest.skip("an earthquake_precursor_ca checkpoint now ships")
+        det = DisasterPrecursorDetector()
+        with pytest.raises(FileNotFoundError, match="train_hazard_checkpoints"):
+            det.load_neural_weights(None)
+
 
 @pytest.mark.skipif(
     not shipped_checkpoint_path("earthquake_precursor_ca").exists(),

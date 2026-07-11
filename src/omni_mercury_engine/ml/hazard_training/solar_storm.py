@@ -532,7 +532,20 @@ def _select_operating_point(
         csi = tp / max(tp + fn + fp, 1.0)
         return recall, far, csi
 
+    # Candidate thresholds from the storm-probability quantile grid, restricted
+    # to finite values strictly inside (0, 1): the 0.0/1.0 quantiles (the min/max
+    # storm probability) would degenerate to a detect-all / detect-none-extra
+    # rule AND, if the head saturates to exactly 0 or 1, would produce a boundary
+    # tau that SolarStormDetector.load_neural_weights() later refuses (it requires
+    # 0 < tau < 1). Filtering here keeps the selected operating point loadable.
     taus = np.unique(np.quantile(storm_prob, np.linspace(0.0, 1.0, 513)))
+    taus = taus[np.isfinite(taus) & (taus > 0.0) & (taus < 1.0)]
+    if taus.size == 0:
+        raise RuntimeError(
+            "no storm-probability threshold falls strictly inside (0, 1); the "
+            "storm head saturated to a constant and cannot yield a loadable "
+            "operating point -- refusing to record a boundary threshold"
+        )
     best: dict[str, Any] | None = None
     fallback: dict[str, Any] | None = None
     for tau in taus:

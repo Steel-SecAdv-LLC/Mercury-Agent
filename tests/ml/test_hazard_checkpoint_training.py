@@ -12,7 +12,7 @@ them, not against live archives (the weekly network lane re-runs fetch).
 from __future__ import annotations
 
 import pickle
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -288,6 +288,109 @@ class TestShippedSolarStormCheckpoint:
         detector = SolarStormDetector(enable_flare_detection=False, enable_cme_tracking=False)
         with pytest.raises(ValueError, match=r"not a\s+probability"):
             detector.load_neural_weights(str(bad))
+
+    @pytest.mark.parametrize(
+        "bad_op",
+        [
+            {"threshold": 0.5},  # missing 'storm_prob_threshold' key
+            [0.5],  # not a mapping
+            "0.5",  # not a mapping
+            0.5,  # not a mapping
+            {"storm_prob_threshold": "high"},  # unparseable threshold
+        ],
+    )
+    def test_malformed_operating_point_raises_value_error(
+        self, tmp_path: Path, bad_op: object
+    ) -> None:
+        """A missing key or non-mapping operating point raises a clear
+        ValueError, never a raw KeyError/TypeError leaking from ``float(op[...])``.
+        """
+        import torch as _torch
+
+        from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+        from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
+
+        payload = _torch.load(
+            shipped_checkpoint_path("solar_storm_geomag"), map_location="cpu", weights_only=True
+        )
+        payload["operating_point"] = bad_op
+        bad = tmp_path / "malformed_op.pt"
+        _torch.save(payload, bad)
+        detector = SolarStormDetector(enable_flare_detection=False, enable_cme_tracking=False)
+        with pytest.raises(ValueError):
+            detector.load_neural_weights(str(bad))
+
+    def test_load_replaces_operating_point_and_feature_stats_wholesale(
+        self, tmp_path: Path
+    ) -> None:
+        """A second load whose checkpoint omits the operating point / feature
+        stats must reset them, not inherit the previous checkpoint's (a stale
+        onset rule or a train/serve standardization mismatch across loads).
+        """
+        import torch as _torch
+
+        from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+        from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
+
+        payload = _torch.load(
+            shipped_checkpoint_path("solar_storm_geomag"), map_location="cpu", weights_only=True
+        )
+        detector = SolarStormDetector(enable_flare_detection=False, enable_cme_tracking=False)
+        detector.load_neural_weights()  # shipped default: sets op point + feature stats
+        assert detector._operating_point is not None
+        assert detector._feature_mean is not None and detector._feature_std is not None
+        assert detector._feature_spec is not None
+
+        stripped = {k: v for k, v in payload.items()}
+        for absent in ("operating_point", "feature_mean", "feature_std", "feature_spec"):
+            stripped.pop(absent, None)
+        path = tmp_path / "no_op_no_stats.pt"
+        _torch.save(stripped, path)
+        detector.load_neural_weights(str(path))
+        assert detector._operating_point is None, "stale operating point must be cleared"
+        assert detector._feature_mean is None and detector._feature_std is None
+        assert detector._feature_spec is None
+
+    def test_select_operating_point_refuses_saturated_head(self) -> None:
+        """A storm head that saturates to a constant yields no threshold strictly
+        inside (0, 1); selection must refuse loudly rather than record a boundary
+        tau the detector's loader would later reject.
+        """
+        from omni_mercury_engine.ml.hazard_training.solar_storm import (
+            GeomagDataset,
+            _select_operating_point,
+        )
+
+        n = 40
+        storm = (np.arange(n) % 2).astype(np.float32)  # mixed classes
+        ds = GeomagDataset(
+            features=np.zeros((n, 3), dtype=np.float32),
+            kp=np.zeros(n, dtype=np.float32),
+            storm=storm,
+            years=np.zeros(n, dtype=np.int32),
+            raw_fields=[{} for _ in range(n)],
+            feature_fill={},
+            feature_mean=np.zeros(3, dtype=np.float32),
+            feature_std=np.ones(3, dtype=np.float32),
+        )
+
+        class _SaturatedHead:
+            """Emits storm_prob == 0.0 for every row (a degenerate head)."""
+
+            def eval(self) -> _SaturatedHead:
+                return self
+
+            def __call__(self, x: Any) -> tuple[Any, Any]:
+                rows = int(x.shape[0])
+                return torch.zeros(rows, 1), torch.zeros(rows, 1)
+
+        with pytest.raises(RuntimeError, match=r"strictly inside \(0, 1\)"):
+            _select_operating_point(
+                _SaturatedHead(),
+                ds,
+                x_val=torch.zeros(n, 3),
+                val_mask=np.ones(n, dtype=bool),
+            )
 
     def test_detector_default_load_uses_shipped_checkpoint(self) -> None:
         from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector

@@ -406,10 +406,16 @@ class DisasterPrecursorDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing an
-                ``earthquake_analyzer`` state dict. ``None`` loads the shipped
-                default checkpoint (``earthquake_precursor_ca``), whose
-                provenance sidecar is verified and logged; missing or corrupt
-                files raise instead of degrading silently.
+                ``earthquake_analyzer`` state dict. ``None`` looks up the
+                ``earthquake_precursor_ca`` checkpoint, which does **not** ship:
+                the learned seismicity-rate model was refused at the merit gate
+                (held-out AUC 0.8895 < its Reasenberg-Jones clustering baseline
+                0.8975 -- see ``artifacts/hazard_training/
+                earthquake_precursor.eval.json``), so passing ``None`` raises a
+                ``FileNotFoundError`` naming the training command rather than
+                loading a default that does not exist. Pass an explicit path to
+                load a checkpoint you trained yourself; missing or corrupt files
+                raise instead of degrading silently.
         """
         if self.earthquake_analyzer is None:
             raise RuntimeError("earthquake precursor analysis is disabled on this detector")
@@ -421,11 +427,22 @@ class DisasterPrecursorDetector:
         else:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
-        self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
+        # Parse the standardization stats into locals, then replace instance
+        # state wholesale: a checkpoint that omits feature_mean/feature_std
+        # resets standardization to "raw features" instead of silently reusing a
+        # previously loaded checkpoint's stats (which would be a train/serve
+        # mismatch across successive loads on one detector instance).
+        feature_spec: str | None = None
+        feature_mean: np.ndarray[Any, Any] | None = None
+        feature_std: np.ndarray[Any, Any] | None = None
         if "feature_mean" in checkpoint and "feature_std" in checkpoint:
-            self._feature_spec = str(checkpoint.get("feature_spec", "unknown"))
-            self._feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
-            self._feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
+            feature_spec = str(checkpoint.get("feature_spec", "unknown"))
+            feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
+            feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
+        self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
+        self._feature_spec = feature_spec
+        self._feature_mean = feature_mean
+        self._feature_std = feature_std
         self._neural_trained = True
         self.logger.info(
             "Earthquake seismicity-rate weights loaded from %s (feature spec: %s); "
@@ -443,8 +460,10 @@ class DisasterPrecursorDetector:
                 "probability is emitted and estimated_magnitude remains None, "
                 "so nothing is fabricated from random weights. Precursor "
                 "detection continues from the real Schumann/geomagnetic/"
-                "ionospheric/seismic correlations. Call load_neural_weights() "
-                "to load the shipped catalog-trained checkpoint."
+                "ionospheric/seismic correlations. No catalog-trained "
+                "checkpoint ships (the learned model was refused at the merit "
+                "gate); call load_neural_weights(<path>) with a checkpoint you "
+                "trained to enable the neural forecast."
             )
             self._warned_untrained = True
 

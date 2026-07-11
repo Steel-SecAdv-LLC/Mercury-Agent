@@ -843,22 +843,54 @@ class SolarStormDetector:
         else:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
-        self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        # Parse + validate the entire payload into locals BEFORE mutating any
+        # instance attribute, so a load either fully replaces the prior weights,
+        # standardization stats, and operating point or leaves the detector
+        # untouched (a malformed operating point raises without half-applying).
+        # Loading is wholesale: a checkpoint that omits the feature stats or the
+        # operating point resets those to their untrained defaults rather than
+        # silently inheriting the previously loaded checkpoint's values.
+        feature_spec: str | None = None
+        feature_mean: np.ndarray[Any, Any] | None = None
+        feature_std: np.ndarray[Any, Any] | None = None
+        feature_fill: dict[str, float] | None = None
         if "feature_mean" in checkpoint and "feature_std" in checkpoint:
-            self._feature_spec = str(checkpoint.get("feature_spec", "unknown"))
-            self._feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
-            self._feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
+            feature_spec = str(checkpoint.get("feature_spec", "unknown"))
+            feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
+            feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
             fill = checkpoint.get("feature_fill") or {}
-            self._feature_fill = {str(k): float(v) for k, v in fill.items()}
+            feature_fill = {str(k): float(v) for k, v in fill.items()}
+
+        operating_point: dict[str, float] | None = None
         op = checkpoint.get("operating_point")
         if op is not None:
-            tau = float(op["storm_prob_threshold"])
-            if not (0.0 < tau < 1.0) or not np.isfinite(tau):
+            if not isinstance(op, dict) or "storm_prob_threshold" not in op:
+                raise ValueError(
+                    "checkpoint operating point must be a mapping carrying a "
+                    f"'storm_prob_threshold'; got {type(op).__name__}"
+                )
+            try:
+                tau = float(op["storm_prob_threshold"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"checkpoint operating point threshold {op['storm_prob_threshold']!r} "
+                    "is not a real number; refusing a nonsensical storm-onset rule"
+                ) from exc
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
                 raise ValueError(
                     f"checkpoint operating point threshold {tau} is not a "
-                    "probability; refusing a nonsensical storm-onset rule"
+                    "probability in (0, 1); refusing a nonsensical storm-onset rule"
                 )
-            self._operating_point = {"storm_prob_threshold": tau}
+            operating_point = {"storm_prob_threshold": tau}
+
+        # Commit: load the weights, then replace the standardization stats and
+        # operating point wholesale from the locals parsed above.
+        self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        self._feature_spec = feature_spec
+        self._feature_mean = feature_mean
+        self._feature_std = feature_std
+        self._feature_fill = feature_fill
+        self._operating_point = operating_point
         self._neural_trained = True
         self.logger.info(
             "Geomagnetic neural weights loaded from %s (feature spec: %s%s); "
