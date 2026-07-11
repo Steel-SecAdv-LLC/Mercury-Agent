@@ -15,6 +15,7 @@ in these routes, which means the JSON body must be nested under a `request` key.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -149,6 +150,93 @@ class TestModelRoutes:
         )
         assert get_resp.status_code == 200
         assert get_resp.json()["name"] == "roundtrip_model"
+
+
+# =============================================================================
+# Model Storage Path-Confinement Tests
+# =============================================================================
+
+
+class TestModelStoragePathConfinement:
+    """Regression tests for the model-storage path-traversal class of bug.
+
+    Request-supplied ids are validated and the storage directory is addressed by
+    a hash of the id, so non-canonical ids are rejected outright and uploaded
+    bytes always land under the configured storage root. These tests guard
+    against a future refactor reintroducing the CodeQL ``py/path-injection``
+    finding.
+    """
+
+    def test_version_upload_lands_under_storage_root(self, tmp_path: Any) -> None:
+        """An uploaded version file is written inside the storage root."""
+        from omni_mercury_engine.api.routes.models import (
+            ModelFramework,
+            ModelRegistry,
+            ModelType,
+        )
+
+        registry = ModelRegistry(storage_path=str(tmp_path))
+        model = registry.register_model(
+            name="confine-test", model_type=ModelType.FUSION, owner_id="u1"
+        )
+        version = registry.add_version(
+            model_id=model.model_id,
+            created_by="u1",
+            file_content=b"weight-bytes",
+            framework=ModelFramework.PYTORCH,
+        )
+
+        assert version.file_path is not None
+        written = Path(version.file_path).resolve()
+        root = tmp_path.resolve()
+        assert str(written).startswith(str(root) + os.sep)
+        assert written.read_bytes() == b"weight-bytes"
+
+    def test_adversarial_model_id_is_rejected(self, tmp_path: Any) -> None:
+        """Non-canonical / traversal-style identifiers are rejected with 400."""
+        from fastapi import HTTPException
+
+        from omni_mercury_engine.api.routes.models import ModelRegistry
+
+        registry = ModelRegistry(storage_path=str(tmp_path))
+        for evil in [
+            "../../etc/passwd",
+            "..",
+            "a/b/c",
+            "/abs/path",
+            "x" * 500,
+            "",
+            "0123456789ABCDEF",  # uppercase — not the canonical lowercase form
+            "0123456789abcde",  # too short
+        ]:
+            with pytest.raises(HTTPException) as exc_info:
+                registry._model_dir(evil)
+            assert exc_info.value.status_code == 400
+
+    def test_canonical_model_id_resolves_under_root(self, tmp_path: Any) -> None:
+        """A registered model's directory resolves inside the storage root."""
+        from omni_mercury_engine.api.routes.models import ModelRegistry, ModelType
+
+        registry = ModelRegistry(storage_path=str(tmp_path))
+        model = registry.register_model(
+            name="confine-test", model_type=ModelType.FUSION, owner_id="u1"
+        )
+        resolved = registry._model_dir(model.model_id).resolve()
+        assert str(resolved).startswith(str(tmp_path.resolve()) + os.sep)
+
+    def test_delete_removes_only_the_model_dir(self, tmp_path: Any) -> None:
+        """Deleting a model removes its directory but leaves the root intact."""
+        from omni_mercury_engine.api.routes.models import ModelRegistry, ModelType
+
+        registry = ModelRegistry(storage_path=str(tmp_path))
+        model = registry.register_model(name="del-test", model_type=ModelType.FUSION, owner_id="u1")
+        model_dir = registry._model_dir(model.model_id)
+        assert model_dir.exists()
+
+        assert registry.delete_model(model.model_id) is True
+        assert not model_dir.exists()
+        assert tmp_path.exists()
+        assert registry.delete_model("deadbeefdeadbeef") is False
 
 
 # =============================================================================

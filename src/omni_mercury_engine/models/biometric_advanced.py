@@ -25,6 +25,7 @@ Designed for humanitarian missing persons applications.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -523,17 +524,35 @@ class AgeProgressionEngine:
                     face = cv2.resize(face, (160, 160))
                     return face
 
-            face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"  # type: ignore[attr-defined, unused-ignore]
-            )
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+            # Haar-cascade fallback. OpenCV 5.0 relocated ``CascadeClassifier``
+            # and the bundled ``cv2.data.haarcascades`` into ``opencv_contrib``,
+            # so they are absent from the ``-headless`` 5.x wheel. Feature-detect
+            # both via ``getattr`` (this also keeps the blocking mypy gate green
+            # across the 4.x and 5.x stubs, which differ on these symbols) and
+            # skip the fallback cleanly when unavailable — the DNN detector above
+            # stays the primary path.
+            cascade_factory = getattr(cv2, "CascadeClassifier", None)
+            # ``cv2.data`` can exist while ``cv2.data.haarcascades`` does not
+            # (the 5.x headless/contrib split), so feature-detect the bundled
+            # cascade directory itself, not just the ``data`` module.
+            haarcascades_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
+            if cascade_factory is not None and haarcascades_dir is not None:
+                # ``os.path.join`` normalizes the separator: ``haarcascades_dir``
+                # is not guaranteed to carry a trailing slash across builds.
+                face_cascade = cascade_factory(
+                    os.path.join(haarcascades_dir, "haarcascade_frontalface_default.xml")
+                )
+                # A missing/unreadable cascade XML yields an empty classifier
+                # rather than raising; run the fallback only when it loaded.
+                if not face_cascade.empty():
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-            if len(faces) > 0:
-                x, y, w, h = faces[0]
-                face = image_rgb[y : y + h, x : x + w]
-                face = cv2.resize(face, (160, 160))
-                return face
+                    if len(faces) > 0:
+                        x, y, w, h = faces[0]
+                        face = image_rgb[y : y + h, x : x + w]
+                        face = cv2.resize(face, (160, 160))
+                        return face
 
             return None
 
