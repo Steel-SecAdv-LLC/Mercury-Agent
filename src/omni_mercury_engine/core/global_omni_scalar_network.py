@@ -1503,9 +1503,17 @@ class GlobalOmniScalarNetwork:
                 f"Ethical gate warning: score {ethical_score:.3f} below threshold "
                 f"{self.sigma_immutable_threshold:.2f}"
             )
+            # The exact σ_Immutable threshold is a static governance constant
+            # (already captured in the returned ``warnings`` above and in
+            # configuration); the per-event log records only the actionable
+            # facts — which component was gated and its score — rather than
+            # re-emitting that constant on every trigger. Lazy %-args defer
+            # formatting to the handler.
             self.logger.warning(
-                f"Ethical gate triggered for {requesting_component}: "
-                f"score={ethical_score:.3f}, threshold={self.sigma_immutable_threshold:.2f}"
+                "Ethical gate triggered for %s: score=%.3f (below the "
+                "configured σ_Immutable floor)",
+                requesting_component,
+                ethical_score,
             )
 
         dimensional_states = self._prepare_dimensional_states(base_scalars, context)

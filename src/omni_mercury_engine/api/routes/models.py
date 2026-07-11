@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -35,6 +36,11 @@ from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/models", tags=["Model Management"])
+
+# Canonical registry identifier: the 16-char lowercase hex digest that
+# ``ModelRegistry.register_model`` mints. Request-supplied ids are validated
+# against this before any storage operation.
+_MODEL_ID_RE = re.compile(r"[0-9a-f]{16}")
 
 
 class ModelType(StrEnum):
@@ -147,6 +153,40 @@ class ModelRegistry:
         self._storage_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._version_counter: dict[str, int] = {}
 
+    def _dir_key(self, model_id: str) -> str:
+        """Validate ``model_id`` and return a filesystem-safe directory name.
+
+        ``model_id`` reaches the registry from request path parameters. It is
+        rejected with HTTP 400 unless it matches the canonical identifier format
+        (:data:`_MODEL_ID_RE`). The on-disk directory is then addressed by a
+        SHA3-256 digest of the id, so even if the format check were ever
+        bypassed the name could not contain a separator (``/``) or parent
+        reference (``..``). The digest is deterministic, so a given id always
+        maps to the same directory.
+        """
+        if not _MODEL_ID_RE.fullmatch(model_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid model identifier",
+            )
+        return hashlib.sha3_256(model_id.encode()).hexdigest()[:32]
+
+    def _model_dir(self, model_id: str) -> Path:
+        """Return the hash-addressed storage directory, confined to the root.
+
+        Resolving both the root and the candidate and requiring containment is
+        defense in depth: it rejects a directory that an out-of-band symlink
+        would otherwise redirect outside the storage root.
+        """
+        root = self._storage_path.resolve()
+        candidate = (root / self._dir_key(model_id)).resolve()
+        if not candidate.is_relative_to(root):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid model identifier",
+            )
+        return candidate
+
     def register_model(
         self,
         name: str,
@@ -180,10 +220,9 @@ class ModelRegistry:
             )
 
             self._models[model_id] = model
-            self._version_counter[model_id] = 0
+            self._version_counter[self._dir_key(model_id)] = 0
 
-            model_dir = self._storage_path / model_id
-            model_dir.mkdir(exist_ok=True)
+            self._model_dir(model_id).mkdir(exist_ok=True)
 
             logger.info(f"Model registered: {model_id} ({name}) by {owner_id}")
             return model
@@ -237,8 +276,9 @@ class ModelRegistry:
                     detail=f"Model {model_id} not found",
                 )
 
-            self._version_counter[model_id] += 1
-            version_num = f"v{self._version_counter[model_id]}"
+            dir_key = self._dir_key(model_id)
+            self._version_counter[dir_key] += 1
+            version_num = f"v{self._version_counter[dir_key]}"
             version_id = f"{model_id}:{version_num}"
 
             file_path = None
@@ -246,7 +286,10 @@ class ModelRegistry:
             file_size = 0
 
             if file_content:
-                version_dir = self._storage_path / model_id / version_num
+                # Hash-addressed directory (see ``_model_dir``): the on-disk
+                # name derives from a digest of the id, never the raw id, so no
+                # request-supplied value reaches this filesystem path.
+                version_dir = self._model_dir(model_id) / version_num
                 version_dir.mkdir(parents=True, exist_ok=True)
 
                 ext = ".pt" if framework == ModelFramework.PYTORCH else ".bin"
@@ -370,13 +413,14 @@ class ModelRegistry:
             if model_id not in self._models:
                 return False
 
-            model_dir = self._storage_path / model_id
+            model_dir = self._model_dir(model_id)
             if model_dir.exists():
                 shutil.rmtree(model_dir)
 
             del self._models[model_id]
-            if model_id in self._version_counter:
-                del self._version_counter[model_id]
+            dir_key = self._dir_key(model_id)
+            if dir_key in self._version_counter:
+                del self._version_counter[dir_key]
 
             logger.info(f"Model {model_id} deleted")
             return True
