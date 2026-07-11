@@ -81,10 +81,12 @@ jobs:
       - name: Prefetch ADBench guard datasets
         # The guard subset (8 Classical sets) is all --check needs; --quick
         # additionally pulls 2 embedding sets which competitive_benchmark
-        # fetches (and caches) itself on first use.
+        # fetches (and caches) itself on first use. ``wine`` is added so the
+        # test_pyod_comparison end-to-end fixture (which skips offline by
+        # design) actually exercises the real comparison in this network lane.
         run: |
           python scripts/prefetch_datasets.py --adbench \
-            breastw cardio Ionosphere WBC Lymphography Pima glass pendigits
+            breastw cardio Ionosphere WBC Lymphography Pima glass pendigits wine
 
       - name: PyOD comparison layer unit tests
         run: |
