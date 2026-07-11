@@ -13,6 +13,8 @@ fabricating data.
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pytest
 
@@ -36,15 +38,31 @@ requires_pyod = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def adbench_wine() -> tuple[np.ndarray, np.ndarray]:
-    """Real ADBench 'wine' dataset (cached locally; skip if unobtainable)."""
+    """Real ADBench 'wine' dataset (cached locally; skip if unobtainable).
+
+    Deterministic-by-default: if the NPZ is not already cached AND network tests
+    are not explicitly enabled (``MERCURY_NETWORK_TESTS=1``), skip *immediately*
+    rather than reaching for the network -- so the default per-PR run neither
+    stalls on a download nor depends on external availability. The ``except`` is
+    narrowed to the expected offline/uncached failure modes so a genuine loader
+    regression (a parsing bug, an unexpected ``ValueError``) still fails loudly
+    instead of masquerading as an "offline" skip.
+    """
     from omni_mercury_engine.datasets.adbench import ADBenchLoader
     from omni_mercury_engine.datasets.base import DatasetConfig
+    from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 
     loader = ADBenchLoader(DatasetConfig(name="adbench", preprocessing={"dataset": "wine"}))
+    cached = (loader.data_path / loader.npz_filename).exists()
+    if not cached and os.environ.get("MERCURY_NETWORK_TESTS") != "1":
+        pytest.skip(
+            "ADBench 'wine' NPZ not cached and MERCURY_NETWORK_TESTS != 1 "
+            "(offline-deterministic default; set MERCURY_NETWORK_TESTS=1 to fetch)"
+        )
     try:
         loader.download()  # no-op when cached
         X, y = loader._load_raw()
-    except Exception as exc:  # offline and uncached
+    except (DataSourceUnavailableError, FileNotFoundError, OSError) as exc:  # offline/uncached
         pytest.skip(f"ADBench wine unavailable (offline, not cached): {exc}")
     return X.astype(np.float64), (y > 0).astype(int)
 
@@ -158,9 +176,7 @@ def test_run_pyod_baselines_records_failures_not_drops(
     """A baseline that cannot run is recorded with an error, never dropped."""
     X_train, X_test, _y_test = wine_split
     # LOF cannot fit on a single row -> per-algorithm error entry.
-    results = run_pyod_baselines(
-        X_train[:1], X_test, algorithms=[PyODAlgorithm.LOF], seed=42
-    )
+    results = run_pyod_baselines(X_train[:1], X_test, algorithms=[PyODAlgorithm.LOF], seed=42)
     assert set(results) == {"local_outlier_factor"}
     assert "error" in results["local_outlier_factor"]
 

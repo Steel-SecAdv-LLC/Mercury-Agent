@@ -209,9 +209,7 @@ def test_check_reports_dataset_missing_from_measurement() -> None:
     assert any(name in v and "missing" in v for v in violations), violations
 
 
-def test_check_reports_missing_baseline(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_check_reports_missing_baseline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     mod = _load_guard()
     monkeypatch.setattr(mod, "BASELINE_PATH", tmp_path / "absent.json")
     violations = mod.check(_baseline())

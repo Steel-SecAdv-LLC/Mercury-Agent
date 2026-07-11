@@ -56,6 +56,9 @@ import argparse
 import hashlib
 import io
 import json
+import multiprocessing as _mp
+import os
+import queue as _queue
 import subprocess
 import sys
 import time
@@ -67,9 +70,8 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import numpy as np
-
 import mercury_benchmark as mb
+import numpy as np
 
 from omni_mercury_engine.comparison.pyod_integration import (
     DEFAULT_BASELINES,
@@ -93,6 +95,60 @@ MERCURY_METHODS: tuple[str, ...] = ("mercury_tier", "mercury_fusion")
 
 #: PyOD baseline names, in report order.
 PYOD_METHODS: tuple[str, ...] = tuple(a.value for a in DEFAULT_BASELINES)
+
+#: Per-(dataset, method) wall-clock cap in seconds. A single cell exceeding this
+#: budget is recorded as a transparent deferral -- never a silent drop, and
+#: never a hang that stalls the rest of the suite on a large shared box.
+#: Override via the ``MERCURY_METHOD_TIMEOUT`` environment variable.
+METHOD_TIMEOUT_SECONDS: int = int(os.environ.get("MERCURY_METHOD_TIMEOUT", "300"))
+
+
+def _run_cell(fn: Any, timeout_s: int = METHOD_TIMEOUT_SECONDS) -> dict[str, Any]:
+    """Run one (dataset, method) cell under a hard wall-clock cap.
+
+    The cell runs in a forked child so the cap is a real wall-clock kill, not a
+    cooperative signal that a long native call (e.g. an O(n^2) neighbour search)
+    could ignore. The fork inherits the parent's already-imported modules, so a
+    child re-runs no imports and does not re-pay the PQC import gate.
+
+    Returns:
+        ``fn()``'s result dict with a ``wall_seconds`` key added on success; on
+        overrun ``{"deferred": "exceeded {N}s wall budget", "wall_seconds": ...}``;
+        on a child crash ``{"error": ..., "wall_seconds": ...}``.
+    """
+    ctx = _mp.get_context("fork")
+    result_q: Any = ctx.Queue()
+
+    def _target() -> None:
+        try:
+            result_q.put(("ok", fn()))
+        except Exception as exc:  # pragma: no cover - reported to parent, never raised
+            result_q.put(("err", f"{type(exc).__name__}: {exc}"))
+
+    t0 = time.perf_counter()
+    proc = ctx.Process(target=_target, daemon=True)
+    proc.start()
+    try:
+        status, payload = result_q.get(timeout=timeout_s)
+    except _queue.Empty:
+        wall = round(time.perf_counter() - t0, 1)
+        if proc.is_alive():
+            proc.terminate()
+            proc.join(5)
+            if proc.is_alive():
+                proc.kill()
+                proc.join()
+            return {"deferred": f"exceeded {timeout_s}s wall budget", "wall_seconds": wall}
+        proc.join()
+        return {"error": f"cell died (exit={proc.exitcode}) before returning", "wall_seconds": wall}
+    proc.join(5)
+    wall = round(time.perf_counter() - t0, 1)
+    if status == "ok":
+        result = payload if isinstance(payload, dict) else {"value": payload}
+        result.setdefault("wall_seconds", wall)
+        return result
+    return {"error": payload, "wall_seconds": wall}
+
 
 # ---------------------------------------------------------------------------
 # Dataset catalog: 47 ADBench Classical + 10 CV/NLP embedding datasets = 57
@@ -404,7 +460,7 @@ def evaluate_dataset(
         print(f"  [{name}] SKIP: {row['error'][:100]}")
         return row
     row.update(
-        n_samples=int(len(X)),
+        n_samples=len(X),
         n_features=int(X.shape[1] if X.ndim > 1 else 1),
         anomaly_ratio=float(np.mean(y)),
         npz_sha256=sha,
@@ -417,41 +473,45 @@ def evaluate_dataset(
         print(f"  [{name}] SKIP: {split}")
         return row
     X_train, X_test, y_test = split
-    row.update(n_train=int(len(X_train)), n_test=int(len(X_test)))
+    row.update(n_train=len(X_train), n_test=len(X_test))
 
     methods: dict[str, dict[str, Any]] = {}
 
-    try:
-        methods["mercury_tier"] = _run_mercury_tier(X_train, X_test, y_test)
-    except Exception as exc:
-        methods["mercury_tier"] = {"error": f"{type(exc).__name__}: {exc}"}
-
+    # Every (dataset, method) cell runs under a hard per-cell wall-clock cap in
+    # a forked child (METHOD_TIMEOUT_SECONDS): an overrun is a recorded deferral,
+    # never a silent drop and never a hang that stalls the rest of the suite.
+    methods["mercury_tier"] = _run_cell(lambda: _run_mercury_tier(X_train, X_test, y_test))
     if not skip_fusion:
-        try:
-            methods["mercury_fusion"] = _run_mercury_fusion(X_train, X_test, y_test, seed=seed)
-        except Exception as exc:
-            methods["mercury_fusion"] = {"error": f"{type(exc).__name__}: {exc}"}
+        methods["mercury_fusion"] = _run_cell(
+            lambda: _run_mercury_fusion(X_train, X_test, y_test, seed=seed)
+        )
 
-    for algo_name, run in run_pyod_baselines(X_train, X_test, seed=seed).items():
-        if "error" in run:
-            methods[algo_name] = {"error": run["error"]}
-            continue
-        methods[algo_name] = {
-            **_metrics(y_test, run["scores"]),
-            "fit_seconds": run["fit_seconds"],
-            "score_seconds": run["score_seconds"],
-        }
+    # Each PyOD baseline gets its OWN capped cell so one slow detector (LOF/KNN
+    # on the largest sets) defers alone instead of taking the whole row with it.
+    for algo in DEFAULT_BASELINES:
+        cell = _run_cell(
+            lambda a=algo: run_pyod_baselines(X_train, X_test, algorithms=[a], seed=seed)[a.value]
+        )
+        if "scores" in cell:
+            methods[algo.value] = {
+                **_metrics(y_test, cell["scores"]),
+                "fit_seconds": cell["fit_seconds"],
+                "score_seconds": cell["score_seconds"],
+                "wall_seconds": cell.get("wall_seconds"),
+            }
+        else:  # error or deferral -- recorded verbatim, never dropped
+            methods[algo.value] = cell
 
     row["methods"] = methods
     aucs = {
-        m: r["roc_auc"]
-        for m, r in methods.items()
-        if "roc_auc" in r and not np.isnan(r["roc_auc"])
+        m: r["roc_auc"] for m, r in methods.items() if "roc_auc" in r and not np.isnan(r["roc_auc"])
     }
+    deferred = [m for m, r in methods.items() if "deferred" in r]
     best = max(aucs, key=aucs.__getitem__) if aucs else None
     row["best_method"] = best
     parts = "  ".join(f"{m}={aucs.get(m, float('nan')):.3f}" for m in aucs)
-    print(f"  [{name}] best={best}  {parts}")
+    tail = f"  DEFERRED={deferred}" if deferred else ""
+    print(f"  [{name}] best={best}  {parts}{tail}")
     return row
 
 
@@ -504,7 +564,7 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
         )
 
     complete = [r for r in measured if _complete(r)]
-    rank_sum = {m: 0.0 for m in method_order}
+    rank_sum = dict.fromkeys(method_order, 0.0)
     for r in complete:
         aucs = np.array([r["methods"][m]["roc_auc"] for m in method_order])
         # rank 1 = best AUC; average ranks on ties
@@ -518,9 +578,7 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
                 ranks[tie] = ranks[tie].mean()
         for i, m in enumerate(method_order):
             rank_sum[m] += float(ranks[i])
-    mean_rank = {
-        m: (rank_sum[m] / len(complete)) if complete else None for m in method_order
-    }
+    mean_rank = {m: (rank_sum[m] / len(complete)) if complete else None for m in method_order}
     for m in method_order:
         per_method[m]["mean_rank"] = mean_rank[m]
 
@@ -598,6 +656,16 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
         rows_out.sort(key=lambda e: -e["worst_margin"])
         losses_any[mm] = rows_out
 
+    # Every (dataset, method) cell the wall-clock guard deferred, recorded with
+    # its measured wall time -- surfaced so the report's "Deferred cells"
+    # subsection is exact and no timed-out cell is silently absent.
+    deferred_cells = [
+        {"dataset": r["name"], "method": m, "wall_seconds": res.get("wall_seconds")}
+        for r in measured
+        for m, res in r["methods"].items()
+        if isinstance(res, dict) and "deferred" in res
+    ]
+
     return {
         "n_datasets_attempted": len(per_dataset),
         "n_datasets_measured": len(measured),
@@ -605,6 +673,7 @@ def summarize(per_dataset: list[dict[str, Any]], method_order: list[str]) -> dic
         "per_method": per_method,
         "head_to_head": head_to_head,
         "datasets_where_mercury_loses": losses_any,
+        "deferred_cells": deferred_cells,
         "skipped": [
             {"dataset": r["name"], "reason": r["error"]} for r in per_dataset if "error" in r
         ],
@@ -628,6 +697,17 @@ def run(
     method_order = [m for m in MERCURY_METHODS if not (skip_fusion and m == "mercury_fusion")]
     method_order += list(PYOD_METHODS)
 
+    # Warm the PyOD model imports in the PARENT once, so every forked per-cell
+    # child inherits them (copy-on-write) instead of re-importing pyod + numba
+    # from disk on each of the ~6*N baseline cells.
+    from omni_mercury_engine.comparison.pyod_integration import build_pyod_detector
+
+    for _algo in DEFAULT_BASELINES:
+        try:
+            build_pyod_detector(_algo)
+        except Exception:  # noqa: BLE001 - warm-up only; real errors surface per cell
+            pass
+
     mode = "quick" if quick else ("custom" if datasets else "full")
     print("=" * 78)
     print("Mercury Competitive Benchmark -- Mercury tier + fusion vs PyOD baselines")
@@ -635,15 +715,19 @@ def run(
     print("=" * 78)
 
     t_start = time.perf_counter()
-    per_dataset = [
-        evaluate_dataset(entry, skip_fusion=skip_fusion, seed=seed) for entry in catalog
-    ]
+    per_dataset = [evaluate_dataset(entry, skip_fusion=skip_fusion, seed=seed) for entry in catalog]
     runtime_s = time.perf_counter() - t_start
 
     summary = summarize(per_dataset, method_order)
 
-    import sklearn
-    import torch
+    # torch is optional here: --skip-fusion must run on a [benchmark]-only
+    # install (no ML stack), so its version is recorded when importable and
+    # null otherwise rather than hard-importing it just to stamp a version.
+    def _version(mod: str) -> str | None:
+        try:
+            return str(__import__(mod).__version__)
+        except Exception:
+            return None
 
     results = {
         "metadata": {
@@ -681,9 +765,9 @@ def run(
             "versions": {
                 "python": sys.version.split()[0],
                 "numpy": np.__version__,
-                "torch": torch.__version__,
+                "torch": _version("torch"),
                 "pyod": pyod_version(),
-                "scikit_learn": sklearn.__version__,
+                "scikit_learn": _version("sklearn"),
             },
             "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
             "methods": method_order,
@@ -740,9 +824,7 @@ def main() -> int:
         default=None,
         help="explicit dataset names (Classical name, or cv:<name> / nlp:<name>)",
     )
-    ap.add_argument(
-        "--skip-fusion", action="store_true", help="skip the (slow) fusion engine lane"
-    )
+    ap.add_argument("--skip-fusion", action="store_true", help="skip the (slow) fusion engine lane")
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("-o", "--output", type=Path, default=None)
     args = ap.parse_args()

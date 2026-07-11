@@ -63,9 +63,8 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import numpy as np
-
 import detection_tier_benchmark as dtb
+import numpy as np
 
 SEED = 42
 WINDOW = 32  # sliding-window length for the windowed IForest baseline (fixed, untuned)
@@ -174,9 +173,7 @@ def _ewma_zscore_scores(series: np.ndarray, warmup: int) -> np.ndarray:
     return scores
 
 
-def _mercury_ensemble_scores(
-    series: np.ndarray, warmup: int, seed: int, method: str
-) -> np.ndarray:
+def _mercury_ensemble_scores(series: np.ndarray, warmup: int, seed: int, method: str) -> np.ndarray:
     """Mercury StreamingScoreEnsemble: fit members on warm-up, score everything.
 
     Exactly the unsupervised protocol of
@@ -224,8 +221,16 @@ def window_detection_metrics(scores: np.ndarray, labels: np.ndarray) -> dict[str
     rate = float(labels.mean())
     if not windows or rate <= 0.0:
         return {"window_detection_rate": 0.0, "n_windows": 0, "alarm_precision": 0.0}
-    threshold = float(np.quantile(scores, 1.0 - rate))
-    alarms = scores > threshold
+    # Budget-matched alarms: fire on EXACTLY the labelled anomaly budget
+    # (k = round(anomaly_rate * n)) by flagging the top-k highest scores, with a
+    # stable index tie-break. A quantile threshold + strict ``>`` emits fewer
+    # (or zero) alarms when scores tie/plateau at the quantile, which breaks the
+    # budget-matched guarantee and makes the result depend on score
+    # discretization rather than ranking quality.
+    n = int(scores.size)
+    k = min(max(round(rate * n), 1), n)
+    alarms = np.zeros(n, dtype=bool)
+    alarms[np.argsort(-scores, kind="stable")[:k]] = True
     detected = sum(1 for lo, hi in windows if bool(alarms[lo:hi].any()))
     n_alarms = int(alarms.sum())
     in_window = int((alarms & (labels == 1)).sum())
@@ -267,9 +272,12 @@ def evaluate_stream(
                 "roc_auc": round(dtb._roc_auc(scores, labels), 6),
                 "seconds": round(elapsed, 4),
             }
-            entry.update(
-                {k: round(float(v), 6) for k, v in window_detection_metrics(scores, labels).items()}
-            )
+            wmetrics = window_detection_metrics(scores, labels)
+            # n_windows is a count -- keep it an int; round only the rate/precision
+            # floats (float(v) here previously turned n_windows into e.g. 2.0).
+            n_windows = int(wmetrics.pop("n_windows"))
+            entry.update({k: round(float(v), 6) for k, v in wmetrics.items()})
+            entry["n_windows"] = n_windows
             methods[method] = entry
         except Exception as exc:
             methods[method] = {"error": f"{type(exc).__name__}: {exc}"}
@@ -389,9 +397,7 @@ def run(
     for name, series, labels in datasets:
         row = evaluate_stream(name, series, labels, seed=seed)
         streams.append(row)
-        aucs = {
-            m: r.get("roc_auc") for m, r in row["methods"].items() if "roc_auc" in r
-        }
+        aucs = {m: r.get("roc_auc") for m, r in row["methods"].items() if "roc_auc" in r}
         best = max(aucs, key=lambda k: aucs[k]) if aucs else None
         print(
             f"  [{name}] n={row['n']} rate={row['anomaly_rate']:.3f} best={best} "

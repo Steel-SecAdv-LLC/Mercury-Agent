@@ -224,9 +224,7 @@ def run_pyod_baselines(
             scores = np.asarray(detector.decision_function(X_test), dtype=np.float64).ravel()
             score_seconds = time.perf_counter() - t0
             if scores.shape[0] != X_test.shape[0]:
-                raise ValueError(
-                    f"scores length {scores.shape[0]} != n_test {X_test.shape[0]}"
-                )
+                raise ValueError(f"scores length {scores.shape[0]} != n_test {X_test.shape[0]}")
             results[algorithm.value] = {
                 "scores": scores,
                 "fit_seconds": float(fit_seconds),
@@ -237,9 +235,7 @@ def run_pyod_baselines(
     return results
 
 
-def _score_metrics(
-    y_test: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]
-) -> dict[str, float]:
+def _score_metrics(y_test: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]) -> dict[str, float]:
     """ROC-AUC + Average Precision via the in-repo (sklearn-free) metric kernels."""
     from omni_mercury_engine.ml.mercury_ml import average_precision_score, roc_auc_score
 
@@ -484,9 +480,7 @@ class PyODComparison:
         results = {
             "mercury": mercury_metrics,
             "pyod": pyod_metrics,
-            "comparison_summary": self._generate_comparison_summary(
-                mercury_metrics, pyod_metrics
-            ),
+            "comparison_summary": self._generate_comparison_summary(mercury_metrics, pyod_metrics),
         }
         self.benchmark_results = results
         return results
