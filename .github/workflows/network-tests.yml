@@ -83,12 +83,27 @@ jobs:
       - name: Run @pytest.mark.network suite
         env:
           MERCURY_NETWORK_TESTS: "1"
-          # NASA FIRMS MAP_KEY for the live wildfire area-API loader
-          # (WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret is
-          # named FIRMS_MAP_KEY). Only available in CI — never committed,
-          # never echoed. Checkpoint training itself uses the keyless
-          # yearly country archives and does not need this.
+          # Live-data API keys for the keyed loaders. Every value is a repo
+          # secret injected only in CI -- never committed, echoed, or written to
+          # any artifact. Where the loader's env var differs from the secret
+          # name, BOTH are set to the same secret (documented per line).
+          #
+          # NASA FIRMS: WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret
+          # is named FIRMS_MAP_KEY. Checkpoint training uses the keyless yearly
+          # country archives and does not need this.
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
           NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          # NASA Open APIs (DONKI space weather + NeoWs) -- space_weather_loader
+          # and meteor_loader read NASA_API_KEY (fall back to DEMO_KEY unkeyed).
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+          # FRED (api.stlouisfed.org) -- financial_loader reads FRED_API_KEY.
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          # EIA (api.eia.gov) -- energy_loader reads EIA_API_KEY.
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          # Alpha Vantage market data -- financial market loader reads
+          # ALPHA_VANTAGE_API_KEY.
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          # OpenWeatherMap -- weather loader reads OPENWEATHERMAP_API_KEY.
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
         run: |
           pytest -m network -v --tb=short

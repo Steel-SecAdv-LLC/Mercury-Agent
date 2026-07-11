@@ -603,6 +603,8 @@ class TrustedEndpoints:
             # validation; the loader itself targets the forecast host.
             "archive-api.open-meteo.com",
             "api.open-meteo.com",
+            # OpenWeatherMap current-conditions / forecast (weather loader)
+            "api.openweathermap.org",
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects,
             # fireball archive — meteor loader)
             "ssd-api.jpl.nasa.gov",
@@ -651,6 +653,7 @@ class TrustedEndpoints:
             "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
             "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
             "api.eia.gov",  # EIA (Energy Information Administration)
+            "www.alphavantage.co",  # Alpha Vantage market/financial time series (financial market loader)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
             "www.who.int",  # WHO Emergencies hub (pandemic loader)
