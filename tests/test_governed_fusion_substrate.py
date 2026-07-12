@@ -37,7 +37,7 @@ def test_certificate_radius_is_sound_for_mahalanobis_boundary() -> None:
 def test_certificate_radius_sound_against_real_component_score() -> None:
     """Perturbing the input within rho never flips the REAL component score.
 
-    This is the honest soundness probe (Item 1): it certifies the
+    This is the transparent soundness probe (Item 1): it certifies the
     info-geometry *component's* price level-set, so it perturbs the input and
     checks ``_compute_info_geometry_score`` — the component's actual decision
     signal — does not cross the component's own operating threshold inside the

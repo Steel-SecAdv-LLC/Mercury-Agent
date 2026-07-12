@@ -57,7 +57,7 @@ class FireRiskLevel(Enum):
 class WildfirePredictionResult:
     """Wildfire prediction results.
 
-    Coordinate honesty: ``ignition_locations`` are PIXEL-SPACE ``(row, col)``
+    Coordinate transparency: ``ignition_locations`` are PIXEL-SPACE ``(row, col)``
     centroids of connected hotspot regions in the supplied thermal image. The
     detector has no geotransform, so it never fabricates lat/lon; callers that
     know the image georeferencing map pixels to WGS84 themselves (see
@@ -673,7 +673,7 @@ class WildfireDetector:
                 )
 
             # Capture only when the ignition path actually produced the spatial
-            # intermediates; diagnostics stay honestly absent otherwise instead
+            # intermediates; diagnostics stay transparently absent otherwise instead
             # of crashing or fabricating empty arrays.
             if self.keep_diagnostics and "hotspot_mask" in ignition_result:
                 context: dict[str, Any] = {
@@ -842,7 +842,7 @@ class WildfireDetector:
         # Spatial intermediates, mirroring the CNN path: the 2-D thermal map is
         # the channel-max brightness temperature and a pixel is a hotspot when
         # ANY channel exceeds the threshold. Non-2-D inputs (bare series) carry
-        # no pixel geometry, so the spatial arrays stay honestly empty.
+        # no pixel geometry, so the spatial arrays stay transparently empty.
         thermal_2d = empty_arrays["thermal_image_k"]
         hotspot_mask = empty_arrays["hotspot_mask"]
         if arr.ndim >= 2:

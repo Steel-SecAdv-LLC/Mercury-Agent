@@ -10,7 +10,7 @@ The verifier is certificate-first: :func:`verify_trajectory` re-checks a *handed
 step by step (a fabricated step is refuted), and :func:`compute_trajectory` runs the map to
 produce a genuine certificate.
 
-Honesty about limits: reaching 1 is confirmable, but non-termination is only semi-decidable --
+Transparency about limits: reaching 1 is confirmable, but non-termination is only semi-decidable --
 a trajectory that exceeds the step budget yields an explicit ``inconclusive`` verdict, never a
 fabricated pass or a false refutation.
 """
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class Status(Enum):
-    """Trichotomy: the oracle confirms, refutes, or honestly declines to decide."""
+    """Trichotomy: the oracle confirms, refutes, or transparently declines to decide."""
 
     CONFIRMED = "confirmed"
     REFUTED = "refuted"

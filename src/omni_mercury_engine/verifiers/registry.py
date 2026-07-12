@@ -8,7 +8,7 @@ ledger, and (3) registers a *bounded summary* scalar into the GOSNN -- one stabl
 canonical problem, so the operational σ_Immutable input vector cannot be inflated past its
 180-band contract no matter how many claims are checked.
 
-Honesty is preserved end to end: a claim the oracle cannot decide (Collatz budget exceeded, no
+Transparency is preserved end to end: a claim the oracle cannot decide (Collatz budget exceeded, no
 Lean toolchain) is recorded as ``inconclusive`` / ``unavailable`` and registers no scalar.
 """
 

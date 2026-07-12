@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The unified three-state honesty contract -- one invariant across both repos.
+"""The unified three-state transparency contract -- one invariant across both repos.
 
 ``GROUNDED`` / ``UNAVAILABLE`` / ``UNDECIDABLE`` is the single vocabulary that
 governs both the **oracle side** (this repo's :mod:`omni_mercury_engine.verifiers`)

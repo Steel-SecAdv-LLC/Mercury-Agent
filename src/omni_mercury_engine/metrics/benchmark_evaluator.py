@@ -106,7 +106,7 @@ class BenchmarkEvaluator:
             tune_on: Threshold-selection policy passed to
                 :meth:`AnomalyMetrics.compute_all`.  Defaults to ``"val"`` so
                 benchmark numbers are reported on a held-out test split with the
-                threshold tuned on validation (honest operating point).  Use
+                threshold tuned on validation (transparent operating point).  Use
                 ``"in_sample"`` to reproduce the legacy optimistic upper bound.
                 On datasets too small to split, ``"val"`` falls back to
                 in-sample with a logged warning.

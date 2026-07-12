@@ -40,7 +40,7 @@ observations: the ~2 mm/yr class boundary is the wide-area PSI noise floor
 the cm/yr-to-dm/yr range documented for compacting basins, up to the
 ~400 mm/yr extreme measured over Mexico City (Cigna & Tapete, 2021).
 
-Honest data note:
+Transparent data note:
     Real InSAR feeds (EGMS, COMET-LiCS) are offline product downloads that
     require registration; there is no free real-time API. This detector
     therefore consumes their standard *product shape* (points × epochs LOS
@@ -165,7 +165,7 @@ class SubsidencePredictionResult:
             (empty when coordinates were not supplied).
         sinkhole_precursor_detected: True when any cluster passes all
             sinkhole-precursor criteria.
-        notes: Honest notes about skipped stages (e.g. no coordinates).
+        notes: Transparent notes about skipped stages (e.g. no coordinates).
     """
 
     anomaly_detected: bool

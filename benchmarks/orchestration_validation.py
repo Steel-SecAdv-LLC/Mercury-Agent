@@ -9,7 +9,7 @@ and meta machinery must be measured against the *right* metric, on a *real*
 task, or not at all. The real task now exists: the
 ``MultiAgentOrchestrator`` (``agentic/orchestration.py``) runs these modules
 over the live detector ensemble on real ADBench labels. Four pre-registered
-questions, one per revived module, each on its own honest metric:
+questions, one per revived module, each on its own transparent metric:
 
 1. **Coordination** (``multi_agent_coordination``): per-sample
    confidence-weighted consensus across the five real detectors. Bar:
@@ -129,7 +129,7 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
 
     # Pin the global RNGs per run: some live detectors carry stochastic
     # components that follow the *global* seed (e.g. DimensionalAnalyzer's
-    # autoencoder lane), so without this the grid is honest but not
+    # autoencoder lane), so without this the grid is transparent but not
     # bit-reproducible run-to-run.
     np.random.seed(seed)
     try:

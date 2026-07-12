@@ -295,7 +295,7 @@ def test_fibring_does_not_regress_vs_balanced_on_synthetic_workload() -> None:
 
     # Non-regression: AUROC must not drop more than 1pp; Brier must not rise
     # more than 0.5pp. These tolerances are tight but achievable on the
-    # deterministic seed and document an honest bar for "non-regression".
+    # deterministic seed and document a transparent bar for "non-regression".
     assert (
         auroc_fibring >= auroc_balanced - 0.01
     ), f"AUROC regression: fibring={auroc_fibring:.4f} balanced={auroc_balanced:.4f}"

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Ionospheric scintillation / GNSS-degradation detection.
 
-Honest scope, two strictly separated paths:
+Transparent scope, two strictly separated paths:
 
 1. **Measurement path** — real S4 and sigma-phi computation from supplied
    receiver samples:

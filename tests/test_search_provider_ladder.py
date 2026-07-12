@@ -341,5 +341,5 @@ class TestFromEnv:
         r = WebResearcher.from_env()
         assert r.search_providers == ()
         assert r.enable_ddg_fallback is False
-        # Provider-only with no providers and no fallback -> honest empty result.
+        # Provider-only with no providers and no fallback -> transparent empty result.
         assert r.search("anything") == []

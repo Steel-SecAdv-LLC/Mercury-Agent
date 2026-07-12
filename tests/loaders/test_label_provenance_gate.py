@@ -73,7 +73,7 @@ def test_registry_has_no_stale_entries() -> None:
 def test_ground_truth_set_is_the_phase_1_finding() -> None:
     """The audit confirms only two ground-truth loaders feed the live suite.
 
-    This is the honest baseline Phase 1 surfaces: of the 15 concrete live-API
+    This is the transparent baseline Phase 1 surfaces: of the 15 concrete live-API
     loaders, only ``network_security`` and ``sepsis`` produce labels
     independent of any scored feature. Every other loader thresholds a
     scored column (statistical) or reconstructs the series (statistical).

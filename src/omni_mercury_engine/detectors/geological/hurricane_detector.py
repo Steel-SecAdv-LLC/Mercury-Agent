@@ -105,7 +105,7 @@ class HurricanePredictionResult:
 
     # NOTE: track_forecast / landfall_probability / time_to_landfall_hours were
     # removed deliberately: they were declared but never computed anywhere, and
-    # an honest track forecast requires steering-flow data and a track model
+    # a transparent track forecast requires steering-flow data and a track model
     # this detector does not have. Advertising uncomputed skill is theater.
 
     warning_actions: list[str] = field(default_factory=list)

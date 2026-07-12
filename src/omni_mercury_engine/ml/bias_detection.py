@@ -8,7 +8,7 @@ Provides production-ready bias detection using Fairlearn metrics:
 - Disparate impact analysis
 - Group fairness metrics
 
-This module implements honest, validated fairness metrics without
+This module implements transparent, validated fairness metrics without
 exaggerated claims. All metrics are standard implementations from
 the fairness ML literature.
 

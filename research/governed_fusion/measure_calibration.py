@@ -4,7 +4,7 @@
 
 The measured bottleneck of #276/#278 is the operating point / probability
 quality, not breadth (high AUROC, broken calibration). This benchmarks the
-calibration thesis honestly on the 29-event suite:
+calibration thesis transparently on the 29-event suite:
 
   * identity   — raw scores min-max scaled to [0,1] (the uncalibrated baseline);
   * isotonic   — IsotonicCalibration (the nonparametric Brier-minimiser the

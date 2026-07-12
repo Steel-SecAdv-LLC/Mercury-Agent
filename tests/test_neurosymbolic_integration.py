@@ -63,7 +63,7 @@ def test_predict() -> None:
 # detector scores through the canonical co-trained
 # ``ml/symbolic_constraint.py::SymbolicConstraintModule`` consensus predicate
 # (deterministic untrained, learned-reliability when co-trained). The raw-
-# feature ``neural_inference`` remains an honestly-labelled heuristic.
+# feature ``neural_inference`` remains a transparently-labelled heuristic.
 # ---------------------------------------------------------------------------
 
 

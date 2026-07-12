@@ -790,7 +790,7 @@ def run_tier_ensemble(
             the same series (the tier's calibrated score is piecewise
             constant, so gradient methods stall, and blind sampling rarely
             shrinks a whole burst window at once — real normal neighborhoods
-            are the honest, robust anchors). Also ``growing_spheres`` /
+            are the transparent, robust anchors). Also ``growing_spheres`` /
             ``dice`` / ``genetic`` / ``wachter``.
 
     Returns:

@@ -678,7 +678,7 @@ class LandslideDetector:
             result.confidence = max(result.confidence, stability_result["failure_probability"])
             # Only the (trained) NN path produces a failure-type softmax; the
             # physics path emits no "type_probs" key, so the .get() guard keeps
-            # keep_diagnostics from crashing there and diagnostics stay honestly
+            # keep_diagnostics from crashing there and diagnostics stay transparently
             # absent (None) rather than fabricated.
             if self.keep_diagnostics and stability_result.get("type_probs") is not None:
                 result.diagnostics = HazardDiagnostics(

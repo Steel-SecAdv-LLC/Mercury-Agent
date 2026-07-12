@@ -3,7 +3,7 @@
 """Pre-registered event-coincidence null-test (WS-D harvest).
 
 WS-D (parapsychology/GCP) built real, reusable scientific-integrity machinery:
-honest ingestion with explicit reachability, a **pre-registration** that fixes
+transparent ingestion with explicit reachability, a **pre-registration** that fixes
 every analytic degree of freedom before seeing data, a **null test**, and a
 **multiple-comparison correction**. The psi question was a faithful null and is
 closed -- but the machinery is exactly what a free, life-safety anomaly system

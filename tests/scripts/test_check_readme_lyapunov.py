@@ -6,7 +6,7 @@ The script is the **import-based** λ drift gate: it imports the
 canonical constants from the package and asserts the documented numeric
 literals match.  These tests exercise the registry behaviour against
 synthetic fixtures *and* the shipped ``README.md`` / ``docs/MATH_SPEC.md``,
-so the gate stays honest as the docs evolve.
+so the gate stays transparent as the docs evolve.
 
 Five mandated test categories from the doctrine are covered:
 

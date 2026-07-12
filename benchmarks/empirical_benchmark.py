@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Empirical Benchmark Suite for Mercury-Agent.
 
-This module provides honest, data-driven benchmarks comparing Mercury-Agent's
+This module provides transparent, data-driven benchmarks comparing Mercury-Agent's
 anomaly detection capabilities against established near-peer systems using
 publicly available datasets.
 
@@ -258,7 +258,7 @@ def fetch_from_mirror(
 # GitHub-based Dataset Fetching for Time-Series Anomaly Detection
 # =============================================================================
 # These functions fetch real datasets from public GitHub repositories without
-# requiring authentication. This enables honest benchmarks on industry-standard
+# requiring authentication. This enables transparent benchmarks on industry-standard
 # datasets that peer systems use (SMD, SMAP, MSL, BATADAL).
 #
 # Data Sources (all MIT/public domain, no auth required):
@@ -2287,7 +2287,7 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
 def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
-    """Generate honest assessment of Mercury-Agent performance."""
+    """Generate transparent assessment of Mercury-Agent performance."""
     assessment: dict[str, Any] = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",

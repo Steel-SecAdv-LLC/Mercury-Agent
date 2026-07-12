@@ -224,7 +224,7 @@ class EarthquakePredictionResult:
     earthquake_detected: bool
     confidence: float
     # None when no trained model is loaded: an uncalibrated single station has
-    # no honest Richter estimate (magnitude_class is "undetermined" then).
+    # no transparent Richter estimate (magnitude_class is "undetermined" then).
     estimated_magnitude: float | None
     magnitude_class: str
 
@@ -953,7 +953,7 @@ class EarthquakeDetector:
         # load_neural_weights(), detection now runs directly on the
         # field-standard physics -- STA/LTA triggering, S-P epicenter distance,
         # band resonance -- and NO magnitude is estimated (a single uncalibrated
-        # station cannot honestly produce a Richter magnitude).
+        # station cannot transparently produce a Richter magnitude).
         self._neural_trained = False
         self._warned_untrained = False
 
@@ -986,7 +986,7 @@ class EarthquakeDetector:
                 "EarthquakeDetector's SeismicWaveAnalyzer is untrained (no "
                 "checkpoint loaded); detecting from STA/LTA + spectral physics and "
                 "emitting no magnitude estimate (estimated_magnitude=None) -- an "
-                "uncalibrated single station cannot honestly produce one. Call "
+                "uncalibrated single station cannot transparently produce one. Call "
                 "load_neural_weights() once a trained checkpoint exists."
             )
             self._warned_untrained = True
@@ -1058,7 +1058,7 @@ class EarthquakeDetector:
             # Physics path: detection strength is the peak STA/LTA trigger ratio
             # blended with the seismic-band resonance; P/S detection is the
             # picker itself. No magnitude is fabricated -- an uncalibrated
-            # single station has no honest Richter estimate, so
+            # single station has no transparent Richter estimate, so
             # estimated_magnitude stays None ("undetermined").
             self._warn_untrained_once()
             p_wave_detected = p_arrival is not None
@@ -1158,7 +1158,7 @@ class EarthquakeDetector:
         spectral anomalies) are absent/zero here and ``estimated_magnitude``
         is the LARGEST OBSERVED catalog magnitude -- a real USGS measurement,
         not a model estimate (the untrained-network magnitude fabrication was
-        removed in the honesty wave). ``aftershock_probability`` stays 0.0:
+        removed in the transparency wave). ``aftershock_probability`` stays 0.0:
         no calibrated Reasenberg-Jones parameters are available, so no
         forecast is fabricated. Rate/clustering features (events/day,
         maximum-likelihood b-value per Aki 1965, clustered-event fraction)

@@ -495,7 +495,7 @@ class SchumannResonanceDetector:
         """Load trained weights for the CNN-LSTM analyser and enable it.
 
         Once trained weights exist (a labelled Schumann corpus is required to
-        produce them honestly), this activates the learned classifier path in
+        produce them transparently), this activates the learned classifier path in
         :meth:`detect_resonance_anomaly`.
 
         Args:

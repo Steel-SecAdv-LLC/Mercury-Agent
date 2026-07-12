@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for genetic rule evolution (``omni_mercury_engine.ml.rule_evolution``).
 
-Covers the properties the search's honesty rests on:
+Covers the properties the search's transparency rests on:
 
 1. Operators respect the complexity bounds and are deterministic under a
    seeded generator.
@@ -368,7 +368,7 @@ class TestFitness:
 
 
 class TestEvolution:
-    """Determinism and honest progress of the generational loop."""
+    """Determinism and transparent progress of the generational loop."""
 
     @staticmethod
     def _search(

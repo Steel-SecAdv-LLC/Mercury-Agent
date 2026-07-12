@@ -71,7 +71,7 @@ def loader(tmp_path: Path) -> Iterator[HailLoader]:
 
 
 class TestInterface:
-    """Loader contract and honest label-provenance declaration."""
+    """Loader contract and transparent label-provenance declaration."""
 
     def test_declarations(self) -> None:
         assert HailLoader.DOMAIN == "hail"

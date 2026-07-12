@@ -9,7 +9,7 @@ in degF, sentinel 9999.9 for missing).  Events cover major US heatwaves;
 each event carries a multi-year baseline period from the same station used
 to build the calendar-day percentile climatology.
 
-Ground-truth labelling is honestly *statistical*: a day is labelled
+Ground-truth labelling is transparently *statistical*: a day is labelled
 anomalous when it belongs to a run of >= 3 consecutive days whose maximum
 temperature exceeds the calendar-day 90th percentile (CTX90pct, 15-day
 window; Perkins & Alexander 2013) computed from the baseline years.

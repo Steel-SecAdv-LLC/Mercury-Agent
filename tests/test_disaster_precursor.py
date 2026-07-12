@@ -100,7 +100,7 @@ class TestGeomageticCorrelator:
         assert correlator.kp_thresholds is not None
 
     def test_correlate_without_data_reports_unknown_not_quiet(self) -> None:
-        """Missing indices must be reported honestly, never invented.
+        """Missing indices must be reported transparently, never invented.
 
         Regression: this path used to default to Kp 3.0 / Dst -20.0 — a
         fabricated quiet-time reading indistinguishable from a measurement.

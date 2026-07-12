@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Lean theorem verifier: the formal-proof tier, with honest behaviour when Lean is absent."""
+"""Lean theorem verifier: the formal-proof tier, with transparent behaviour when Lean is absent."""
 
 from __future__ import annotations
 

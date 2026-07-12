@@ -122,7 +122,7 @@ class StreamMessage:
     # analogous numeric cursor and instead identifies each entry by its
     # ``<ms-timestamp>-<seq>`` stream ID string (e.g. ``"1234567890123-0"``,
     # consumed by ``XACK``/``XCLAIM``). Both sources populate this field with
-    # their own consume-position identifier, so it is honestly ``int | str``
+    # their own consume-position identifier, so it is transparently ``int | str``
     # rather than narrowed to the Kafka-only ``int`` shape.
     offset: int | str | None = None
 
@@ -853,7 +853,7 @@ class KafkaStreamConsumer(StreamConsumer):
 
         # Always a Kafka-populated int on this path (consume() above sets it
         # from aiokafka's ConsumerRecord.offset); the int | str union exists
-        # only to also honestly type Redis's string stream IDs. Guard with an
+        # only to also transparently type Redis's string stream IDs. Guard with an
         # explicit runtime check rather than ``assert`` -- asserts are stripped
         # under ``python -O``, and a stray string offset would then reach
         # ``message.offset + 1`` and raise TypeError. Skip with a debug log,

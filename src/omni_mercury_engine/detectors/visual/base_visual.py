@@ -62,7 +62,7 @@ class VisualDetectorConfig:
 class BaseVisualDetector(BaseDetector, nn.Module):
     """Abstract base class for visual anomaly detectors.
 
-    .. note:: **Honest abstract contract (ROADMAP deferred item #4).**
+    .. note:: **Transparent abstract contract (ROADMAP deferred item #4).**
         ``fit`` / ``detect`` / ``extract_features`` are genuine
         ``@abstractmethod`` declarations, so :class:`BaseVisualDetector`
         cannot be instantiated directly (a ``TypeError`` is raised) — there

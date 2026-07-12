@@ -248,7 +248,7 @@ class TestEAWSMapping:
     def test_critical_loading_alone_is_considerable(self) -> None:
         result = AvalancheDetector().predict_avalanche(new_snow_24h_cm=35.0)
         assert result.danger_level == AvalancheDangerLevel.CONSIDERABLE.value
-        assert result.sk38 is None  # no profile: no SK38, honestly absent
+        assert result.sk38 is None  # no profile: no SK38, transparently absent
 
     def test_rain_on_snow_escalates(self) -> None:
         result = AvalancheDetector().predict_avalanche(rain_mm_24h=12.0, air_temperature_c=2.0)

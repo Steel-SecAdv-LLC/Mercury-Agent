@@ -418,7 +418,7 @@ class MercuryGuardianAdapter:
         }
 
     def _reported_posture_level(self) -> str:
-        """Posture level for status, honest about a broken evaluator.
+        """Posture level for status, transparent about a broken evaluator.
 
         * Evaluator actively failing (consecutive failures since the last
           success) → ``UNKNOWN`` — a stale last-good evaluation must not

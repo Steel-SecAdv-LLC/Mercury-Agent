@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tsunami domain honest benchmark.
+"""Tsunami domain transparent benchmark.
 
 Fetches real DART buoy data from NOAA NDBC, runs MercuryAnomalyDetector,
 and reports metrics for each ground-truth tsunami event.

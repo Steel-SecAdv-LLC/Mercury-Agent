@@ -37,7 +37,7 @@ def test_ground_truth_fails_loud_when_labels_underivable(monkeypatch: pytest.Mon
 
 
 def test_ground_truth_uses_label_column_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The honest path still works: a 'label' column is returned verbatim."""
+    """The transparent path still works: a 'label' column is returned verbatim."""
     loader = NetworkSecurityLoader()
 
     monkeypatch.setattr(loader, "_load_labels_from_dataset", lambda event_id: None)

@@ -4,7 +4,7 @@
 
 :class:`DecisionAbstentionResponder` turns a detection certificate into a
 :class:`~omni_mercury_engine.decision.record.DecisionRecord`: it classifies the
-event into the three-state honesty contract, projects that onto an operational
+event into the three-state transparency contract, projects that onto an operational
 disposition, and attaches a bounded, non-destructive response.  It is a pure,
 deterministic function of the evidence -- same certificate in, same record out
 -- which is what makes the whole loop verifiable.
@@ -18,7 +18,7 @@ order:
    present it is authoritative:
 
    * singleton ``{1}`` / ``{0}`` -> ``GROUNDED`` (the coverage level is the
-     honest confidence);
+     transparent confidence);
    * ``{0, 1}`` -> ``UNAVAILABLE`` (a *calibrated* don't-know -- both labels
      are admissible at the target coverage);
    * ``{}`` -> ``UNDECIDABLE`` (an atypical point no class explains; fail-closed
@@ -352,7 +352,7 @@ class DecisionAbstentionResponder:
 
     @staticmethod
     def _caveats(ev: Evidence) -> tuple[str, ...]:
-        """Non-blocking honesty notes that do not change the verdict."""
+        """Non-blocking transparency notes that do not change the verdict."""
         caveats: list[str] = []
         if ev.ethical_gate_passed is None:
             caveats.append(

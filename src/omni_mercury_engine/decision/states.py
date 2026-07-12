@@ -11,7 +11,7 @@ axes a closed loop needs:
 * :class:`ResponseAction` -- the *bounded, non-destructive* response the loop
   recommends.
 
-The honesty axis -- *did we actually decide?* -- is **not** re-invented here.
+The transparency axis -- *did we actually decide?* -- is **not** re-invented here.
 It reuses the engine's own cross-component invariant
 :class:`omni_mercury_engine.verifiers.three_state.ThreeState`
 (``GROUNDED`` / ``UNAVAILABLE`` / ``UNDECIDABLE``).  A :class:`Disposition`

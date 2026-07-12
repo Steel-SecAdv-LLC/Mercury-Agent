@@ -1135,7 +1135,7 @@ class TestResolveIPsLiteralShortCircuit:
     Without this short-circuit the SSRF gate could be bypassed by a
     raw IP in the URL: a hostname resolver that returns no records
     for ``127.0.0.1`` would otherwise mask the loopback address from
-    the private-IP filter. The literal-IP path keeps the gate honest.
+    the private-IP filter. The literal-IP path keeps the gate transparent.
     """
 
     @pytest.mark.parametrize(

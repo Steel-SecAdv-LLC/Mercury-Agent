@@ -5,10 +5,10 @@
 :class:`DecisionLedger` is the closed loop's memory: an append-only, JSON-
 serialisable trail of every
 :class:`~omni_mercury_engine.decision.record.DecisionRecord` the responder
-emits, with an aggregate :meth:`summary` over the honesty states, dispositions
+emits, with an aggregate :meth:`summary` over the transparency states, dispositions
 and responses seen.  It turns a stream of one-shot decisions into a verifiable
 record -- what was decided, why, how the loop responded, and how often it
-honestly abstained.
+transparently abstained.
 
 Three properties make it production-safe for a long-running, possibly
 concurrent engine:
@@ -146,8 +146,8 @@ class DecisionLedger:
         """Return aggregate counts and rates over the recorded decisions.
 
         The summary is the audit's headline: how the loop split across the three
-        honesty states, the operational dispositions and the bounded responses,
-        plus the honest-abstention and calibrated-decision rates.  It is O(1) in
+        transparency states, the operational dispositions and the bounded responses,
+        plus the transparent-abstention and calibrated-decision rates.  It is O(1) in
         the size of the trail -- the counts are maintained incrementally as
         records are recorded and evicted, not recomputed here.
         """

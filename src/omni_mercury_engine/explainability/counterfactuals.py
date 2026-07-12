@@ -130,7 +130,7 @@ def gower_distance(
             1.0); pass the observed value ranges for the canonical Gower
             normalization.  In-range inputs then yield per-feature terms in
             ``[0, 1]``; out-of-range inputs are NOT clipped, so a candidate
-            outside the observed range honestly scores > 1.
+            outside the observed range transparently scores > 1.
 
     Returns:
         The Gower distance (mean per-feature dissimilarity).
@@ -502,7 +502,7 @@ class WachterCounterfactual(CounterfactualGenerator):
             if result.success:
                 return result.x
         except Exception as e:
-            # An honest search failure: real detectors raise data-dependent
+            # A transparent search failure: real detectors raise data-dependent
             # errors on extreme candidates (e.g. np.histogram over an
             # all-NaN intermediate). The failure is logged with its type and
             # the search returns no counterfactual -- downstream validity is
@@ -715,7 +715,7 @@ class DiCECounterfactual(CounterfactualGenerator):
             return cfs
 
         except Exception as e:
-            # Honest search failure (see Wachter._optimize): logged with its
+            # Transparent search failure (see Wachter._optimize): logged with its
             # type; the returned init points are re-scored downstream, so an
             # aborted search records validity=False rather than a fabricated
             # success. NonFiniteScoreError is absorbed by the objective's

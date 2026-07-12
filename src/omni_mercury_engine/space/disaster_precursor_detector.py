@@ -138,7 +138,7 @@ class GeomageticCorrelator:
         Args:
             schumann_anomaly: Schumann resonance anomaly data
             geomagnetic_data: Observed Kp/Dst indices. When absent (or an
-                index is missing) the analysis reports honestly: status
+                index is missing) the analysis reports transparently: status
                 ``"unknown"``, ``kp_index``/``dst_index`` ``None``, and a
                 ``geomagnetic_data_unavailable`` indicator. No quiet-time
                 default is ever invented — a fabricated Kp 3.0 / Dst −20
@@ -342,7 +342,7 @@ class DisasterPrecursorDetector:
         # EM-precursor corpus exists to train it. Until real weights are loaded
         # via load_neural_weights(), its outputs are noise -- and unlike Kp
         # (which has the Boyle-index physics), NO validated physics maps EM
-        # features to a Richter magnitude. The honest fallback is therefore to
+        # features to a Richter magnitude. The transparent fallback is therefore to
         # emit NO magnitude estimate at all: the real correlation paths
         # (Schumann risk, geomagnetic, ionospheric, seismic) still drive
         # precursor detection, but estimated_magnitude stays None rather than
@@ -468,7 +468,7 @@ class DisasterPrecursorDetector:
                 result.time_to_event_hours = eq_prediction["time_to_event_hours"]
                 result.confidence = max(result.confidence, eq_prediction["confidence"])
             else:
-                # Fail honest: an untrained network must not fabricate a
+                # Fail transparent: an untrained network must not fabricate a
                 # magnitude. Detection still proceeds from the real correlations.
                 self._warn_untrained_once()
 

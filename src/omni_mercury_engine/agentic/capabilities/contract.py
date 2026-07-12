@@ -4,7 +4,7 @@
 
 Mercury's capability layer already enforces three safety invariants, but as
 *scattered, hand-rolled* logic inside each method: ``WebResearcher`` returns a
-typed honest-negative instead of raising when the network fails; the
+typed transparent-negative instead of raising when the network fails; the
 ``GeneralAssistant`` withholds an uncited answer on a provenance-required topic;
 the ``ExtractiveSynthesizer`` redacts operational content sentence by sentence.
 Nothing declared those guarantees as a *contract* or proved they hold, so a
@@ -12,12 +12,12 @@ future refactor could silently drop one and no test would notice.
 
 :func:`capability_contract` turns each guarantee into a declared, runtime-enforced
 postcondition attached to the capability method. It does **not** invent new
-behaviour -- it reuses the capability's own honest-negative shapes -- and it never
+behaviour -- it reuses the capability's own transparent-negative shapes -- and it never
 weakens a result: enforcement can only *downgrade* an output toward refusal /
 redaction, never upgrade one toward permit. The three invariants:
 
 * :attr:`Invariant.FAIL_CLOSED` -- an unexpected exception must not escape as an
-  unguarded error; it becomes the capability's typed honest-negative (a
+  unguarded error; it becomes the capability's typed transparent-negative (a
   ``FetchResult`` with ``error`` set, a refused ``ResearchReport``, an empty
   summary), audited before it is returned. A capability can never crash a caller
   into an unguarded path.
@@ -84,7 +84,7 @@ class ContractViolation(RuntimeError):
 
 @runtime_checkable
 class SupportsRefusal(Protocol):
-    """Structural type of a capability result that can express an honest refusal.
+    """Structural type of a capability result that can express a transparent refusal.
 
     The "type" half of the capability-as-contract envelope: any result carrying a
     boolean ``refused`` (e.g. :class:`~omni_mercury_engine.agentic.capabilities.assistant.ResearchReport`)
@@ -134,7 +134,7 @@ def capability_contract(
         invariants: One or more :class:`Invariant` this capability must uphold.
         on_error: Required for :attr:`Invariant.FAIL_CLOSED`. Given
             ``(exc, args, kwargs)`` (``args[0]`` is the bound instance), returns
-            the capability's typed honest-negative for a caught exception.
+            the capability's typed transparent-negative for a caught exception.
         emitted: Required for :attr:`Invariant.CITE_OR_REFUSE`. ``(result, instance)
             -> bool``: whether the result emitted substantive content (vs a
             refusal/unavailable).
@@ -181,7 +181,7 @@ def capability_contract(
             instance = args[0] if args else None
             if Invariant.FAIL_CLOSED in inv_set:
                 # Postcondition enforcement runs INSIDE the guard, so a raising
-                # hook fails closed to the honest-negative too -- the whole path
+                # hook fails closed to the transparent-negative too -- the whole path
                 # can never crash a caller into an unguarded result.
                 try:
                     result = func(*args, **kwargs)
@@ -203,7 +203,7 @@ def capability_contract(
                     assert on_error is not None  # guaranteed by decoration-time check
                     return cast("R", on_error(exc, args, kwargs))
             # Without FAIL_CLOSED the caller opted out of a sentinel, so a hook or
-            # capability error propagates (there is no typed honest-negative to
+            # capability error propagates (there is no typed transparent-negative to
             # substitute); pair MONOTONE_HARM / CITE_OR_REFUSE with FAIL_CLOSED to
             # make enforcement itself fail-closed.
             return _enforce_postconditions(func(*args, **kwargs), instance, inv_set, contract_label)

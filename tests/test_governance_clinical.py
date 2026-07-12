@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for clinical governance scalars (SOFA, NEWS2, MEWS, MELD-Na), three-state.
 
-CI honesty: the torch-backed SOFA worked examples are skipped *loudly* (explicit reason)
+CI transparency: the torch-backed SOFA worked examples are skipped *loudly* (explicit reason)
 when the ``[ml]`` extra is absent, and :func:`test_clinical_ml_suite_must_run_under_gate`
 fails the build if they would silently skip in the lane that owns them
 (``MERCURY_REQUIRES_ML=1``).  The numpy-only families (NEWS2/MEWS/MELD-Na) run everywhere.

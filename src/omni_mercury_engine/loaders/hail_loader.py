@@ -13,7 +13,7 @@ reports.
 
 Label provenance is declared ``"statistical"``: the label thresholds the
 ``mag`` (hail diameter) column, which is also engineered as feature[0] --
-a direct feature-threshold circularity, declared honestly so the
+a direct feature-threshold circularity, declared transparently so the
 governed-fusion headline excludes it (see
 :mod:`omni_mercury_engine.loaders.label_provenance`).
 """
@@ -125,7 +125,7 @@ class HailLoader(BaseDomainLoader):
     SOURCE_URL: str = _ARCHIVE_URL
     # Labels = ``mag >= 2.0`` (SPC significant-hail diameter) and feature[0]
     # is the same ``mag`` column.  Direct feature-threshold circularity,
-    # declared honestly (see loaders/label_provenance.py).
+    # declared transparently (see loaders/label_provenance.py).
     LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
 

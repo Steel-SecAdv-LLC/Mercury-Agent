@@ -158,7 +158,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     SOURCE_URL: str = "https://www.unb.ca/cic/datasets/ids-2017.html"
     # Labels come from the per-row attack flag shipped with each benchmark
     # (NSL-KDD ``label`` column, BATADAL ``ATT_FLAG``).  Independent of any
-    # scored feature.  Eligible for the honest fitness substrate.
+    # scored feature.  Eligible for the transparent fitness substrate.
     LABEL_SOURCE: str = "ground_truth"
     REQUIRES_API_KEY: bool = False
     # Feature selection based on Cohen's d effect size analysis.

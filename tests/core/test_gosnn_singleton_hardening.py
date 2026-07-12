@@ -16,7 +16,7 @@ which stays as test hygiene but which the runtime no longer depends on):
    ``scalar_registration`` context manager makes registrations temporary.
 3. Registry thread-safety — concurrent register/unregister cycles never
    tear a reader's snapshot.
-4. Re-init honesty — re-constructing the singleton with a materially
+4. Re-init transparency — re-constructing the singleton with a materially
    different configuration raises ``ValueError`` instead of silently
    ignoring the request; the module accessor warns (once) and returns the
    live instance.

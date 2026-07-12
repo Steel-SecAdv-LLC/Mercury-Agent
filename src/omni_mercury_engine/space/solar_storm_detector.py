@@ -131,7 +131,7 @@ class SolarStormPredictionResult:
 class SolarFlarePredictionResult:
     """Solar flare prediction results (canonical, lives with the detector).
 
-    Storm-forecast fields honesty contract (mirrors the hazard honesty wave):
+    Storm-forecast fields transparency contract (mirrors the hazard transparency wave):
     ``geomagnetic_storm_probability`` / ``kp_index_predicted`` /
     ``dst_index_predicted`` are ``None`` unless a REAL planetary K-index
     observation was supplied (live NOAA SWPC feed or ``observed_kp=``). The
@@ -143,7 +143,7 @@ class SolarFlarePredictionResult:
     matching :class:`SolarFlareClass` in this module); the legacy duplicate in
     ``detectors/geological/disaster_detectors.py`` emitted ``"a_class"`` style
     labels. ``hmm_state``/``transition_probability`` were removed with the
-    hand-authored HMM (see DEPRECATION.md); ``flux_class_index`` is the honest
+    hand-authored HMM (see DEPRECATION.md); ``flux_class_index`` is the transparent
     replacement (0=A .. 4=X, derived from the observed flux).
     """
 
@@ -341,7 +341,7 @@ class SolarFlareDetector:
                 ``"noaa_swpc_planetary_k_index"``).
 
         Returns:
-            SolarFlarePredictionResult with honest storm-forecast semantics.
+            SolarFlarePredictionResult with transparent storm-forecast semantics.
         """
         if isinstance(x_ray_flux, np.ndarray):
             current_flux = float(x_ray_flux[-1])

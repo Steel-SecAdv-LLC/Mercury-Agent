@@ -4,7 +4,7 @@
 
 PR #262 de-leaked the supervised headline by excluding circular,
 manufactured-label datasets (``LABEL_SOURCE = "statistical"``). That de-leak is
-only as good as each loader's honesty, because the base class silently defaults
+only as good as each loader's transparency, because the base class silently defaults
 ``LABEL_SOURCE = "ground_truth"``. This gate promotes the one-off audit into a
 permanent, repo-wide check:
 

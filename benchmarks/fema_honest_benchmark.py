@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""FEMA cross-domain honest benchmark.
+"""FEMA cross-domain transparent benchmark.
 
 Fetches real disaster declaration data from OpenFEMA,
 runs MercuryAnomalyDetector, and reports metrics.

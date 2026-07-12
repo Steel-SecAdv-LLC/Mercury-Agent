@@ -3,7 +3,7 @@
 """Wildfire → Debris-Flow Cascade — the USGS post-fire debris-flow model family.
 
 Implements the published-coefficient models used operationally by the USGS
-for emergency post-fire debris-flow hazard assessment. These are honest
+for emergency post-fire debris-flow hazard assessment. These are transparent
 "trained" models: every coefficient below is a published regression value
 with provenance, embedded verbatim — nothing is fitted, tuned or invented
 here.
@@ -34,7 +34,7 @@ Models implemented:
   with V in m³, ``i15`` the peak 15-min intensity (mm/h), ``Bmh`` the
   watershed area burned at moderate/high severity (km²), and ``R`` the
   watershed relief (m); residual standard error 1.04 in ln-space. Volume
-  is *omitted honestly* when ``Bmh``/relief inputs are unavailable — the
+  is *omitted transparently* when ``Bmh``/relief inputs are unavailable — the
   cascade never guesses them.
 
 Staged composition (each stage requires real evidence):
@@ -328,7 +328,7 @@ class FireDebrisFlowResult:
             (None when the storm is entirely dry).
         cannon_exceeded: Storm mean intensity above the Cannon curve.
         volume_m3: Gartner 2014 volume (None when inputs were not
-            supplied — omitted honestly, never guessed).
+            supplied — omitted transparently, never guessed).
         volume_class: USGS volume class 1-4 (None with volume).
         volume_omitted_reason: Why the volume stage did not run ("" when it
             ran).

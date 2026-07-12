@@ -48,7 +48,7 @@ import numpy as np
 # Genuinely-labelled ADBench datasets (ground-truth anomaly labels), small
 # enough to train quickly on CPU. Must stay in lockstep with the de-leaked
 # headline set in benchmarks/fusion_raw_benchmark.py -- no statistically /
-# heuristically labelled source is admitted, so every metric here is honest.
+# heuristically labelled source is admitted, so every metric here is transparent.
 DEFAULT_DATASETS = ["breastw", "cardio", "thyroid", "WBC", "Pima"]
 DEFAULT_SEEDS = [0, 1, 2]
 DEFAULT_FRACTIONS = [0.1, 0.25, 0.5, 1.0]
@@ -232,7 +232,7 @@ def run_dataset(
 
     n_pos = int((y == 1).sum())
     if n_pos < 4 or len(np.unique(y)) < 2:
-        print(f"  {name:<12} SKIP (too few anomalies for an honest split)")
+        print(f"  {name:<12} SKIP (too few anomalies for a transparent split)")
         return None
 
     fraction_results: list[FractionResult] = []

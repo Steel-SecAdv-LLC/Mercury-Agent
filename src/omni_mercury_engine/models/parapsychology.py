@@ -451,7 +451,7 @@ class ParapsychologyDetector:
         """Load trained weights for the consciousness-field analyser and enable it.
 
         Activates the neural path in :meth:`_analyze_field_coherence`. Requires a
-        validated labelled corpus to produce honest weights.
+        validated labelled corpus to produce transparent weights.
 
         Args:
             state_dict: An in-memory ``state_dict`` or a path to a saved one.

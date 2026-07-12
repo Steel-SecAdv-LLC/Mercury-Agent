@@ -72,7 +72,7 @@ env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
   # Coarse headline backstop floors - fail CI if the genuine-label headline
-  # falls below these. Honest post-de-leak baseline (e9feeec, #261): mean
+  # falls below these. Transparent post-de-leak baseline (e9feeec, #261): mean
   # AUC 0.8259, mean F1 0.6046 (genuine labels only; see
   # docs/ANOMALY_REGRESSION_WS_A.md). AUC floor 0.75 keeps a ~9% margin under
   # 0.8259 (AUC is stable enough across runs to hold a tight floor). F1 floor
@@ -193,7 +193,7 @@ jobs:
         # (seed 42), pinned in benchmarks/anomaly_regression_baseline.json.
         # Fails fast (~20s) on a real detector regression before the heavy run.
         # Context: docs/ANOMALY_REGRESSION_WS_A.md (the #261 "drop" was the
-        # #255 eval-honesty de-leak, not a detector regression).
+        # #255 eval-transparency de-leak, not a detector regression).
         env:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |

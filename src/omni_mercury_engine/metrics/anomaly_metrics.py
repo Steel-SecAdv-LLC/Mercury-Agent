@@ -139,7 +139,7 @@ def compute_f1_max(
     .. warning::
         **In-sample / diagnostic.** The threshold is tuned on the same
         ``(y_true, y_score)`` it is scored against, so ``max_f1`` is an
-        optimistic upper bound, not an honest operating point.  For leakage-free
+        optimistic upper bound, not a transparent operating point.  For leakage-free
         reporting tune on validation and report on test via
         :func:`omni_mercury_engine.evaluation.metrics.fit_threshold` /
         :meth:`AnomalyMetrics.compute_all` with ``tune_on="val"``.
@@ -525,7 +525,7 @@ class AnomalyMetrics:
         # This is the operating-point F1 at the val-tuned threshold on the test
         # split -- NOT an oracle max-over-thresholds (computing that on test
         # would re-introduce the threshold leakage this split exists to remove).
-        # Exposed as "f1" (honest name); "f1_max" is kept as a backward-compatible
+        # Exposed as "f1" (transparent name); "f1_max" is kept as a backward-compatible
         # alias for consumers of the in-sample API, with the same value.
         results["f1"] = op_f1
         results["f1_max"] = op_f1
@@ -537,7 +537,7 @@ class AnomalyMetrics:
         if masks_true is not None and masks_score is not None:
             # Keep pixel-level metrics on the SAME disjoint test split as the
             # sample-level metrics; scoring them on the full (train+val+test)
-            # masks would leak optimistic pixels and break the honest-split
+            # masks would leak optimistic pixels and break the transparent-split
             # contract. Convert to NumPy BEFORE applying the split index: the
             # mask args may be torch tensors, lists, or other arraylikes that
             # do not support NumPy advanced indexing with ``test_idx`` (a NumPy

@@ -6,7 +6,7 @@ Each entry answers, per hook: what real labeled data would train it, whether
 that data is obtainable from this environment, and — when it is — which
 pipeline module runs. Hooks whose real data is NOT obtainable here fail loud
 with the full data requirement (:class:`HazardDataUnavailableError`); that is
-the honest terminal state, not a stub: the audit is the deliverable that
+the transparent terminal state, not a stub: the audit is the deliverable that
 prevents anyone from quietly training these on synthetic data.
 
 Categories (see ``docs/HAZARD_CHECKPOINT_TRAINING.md``):
@@ -16,7 +16,7 @@ Categories (see ``docs/HAZARD_CHECKPOINT_TRAINING.md``):
   entry documents the exact source so an operator can run the same stages.
 * ``c`` — no real labeled corpus exists for the architecture's input
   contract; training it would require fabricating data, which this codebase
-  forbids. The physics fallback is the permanent honest default.
+  forbids. The physics fallback is the permanent transparent default.
 """
 
 from __future__ import annotations
@@ -100,7 +100,7 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
             "here) reshaped into regional seismicity-sequence samples with "
             "did-M6+-follow-within-window labels. Trainable in principle from "
             "this environment; deliberately NOT shipped from this pass because "
-            "an honest evaluation needs multi-decade regional feature "
+            "a transparent evaluation needs multi-decade regional feature "
             "engineering reviewed against the seismology literature — a "
             "half-reviewed earthquake forecaster is worse than the physics "
             "fallback that abstains. Run this hook's stages once the feature "

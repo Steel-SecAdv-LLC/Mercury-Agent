@@ -187,7 +187,7 @@ def compute_best_f1(
         This is an **in-sample / diagnostic** measure: the returned ``best_f1``
         is the F1 at the threshold tuned on the *same* ``(y_true, y_score)`` it
         is scored against, so it is an optimistic upper bound (like AUC), **not**
-        an honest operating-point estimate.  To report operating-point metrics
+        a transparent operating-point estimate.  To report operating-point metrics
         without threshold leakage, tune on a validation split and report on a
         disjoint test split via :func:`fit_threshold` /
         :func:`evaluate_anomaly_detection_split` (or
@@ -650,14 +650,14 @@ def evaluate_anomaly_detection_split(
     val-tuned threshold).  ``best_f1`` / ``best_threshold`` instead carry the
     *validation* in-sample maximum: ``best_threshold`` is the F1-argmax over
     thresholds on val and ``best_f1`` is its F1 on that same val split, so
-    ``best_f1`` is an optimistic upper bound (like AUC), NOT an honest operating
+    ``best_f1`` is an optimistic upper bound (like AUC), NOT a transparent operating
     point.  Compare models by ``f1`` (or the AUCs), never by ``best_f1``.
 
     Falls back to :func:`evaluate_anomaly_detection` (in-sample) with a logged
     warning when the data is too small, or when the validation split (which we
     tune on) or the test split (which we report on) is single-class -- a
     single-class test split makes AUC/recall degenerate, so we say so and fall
-    back rather than emit meaningless "honest" numbers.
+    back rather than emit meaningless "transparent" numbers.
 
     Args:
         y_true: Binary ground truth labels (0 = normal, 1 = anomaly).
@@ -689,12 +689,12 @@ def evaluate_anomaly_detection_split(
 
     # Feasibility: need a non-empty val/test split, a two-class TEST split
     # (a single-class test split makes AUC-ROC 0.5 and recall/F1 degenerate, so
-    # the reported "honest" numbers would be meaningless), and -- when we must
+    # the reported "transparent" numbers would be meaningless), and -- when we must
     # tune -- a two-class VALIDATION split (otherwise F1 tuning is degenerate).
     # This mirrors AnomalyMetrics._compute_all_split, which guards BOTH splits;
     # the test-split check was missing here, letting a clustered-anomaly
     # time-series split (val two-class, test single-class) silently return
-    # AUC=0.5 as an honest metric.
+    # AUC=0.5 as a transparent metric.
     needs_tuning = threshold is None
     feasible = len(test_idx) > 0 and len(val_idx) > 0 and len(np.unique(y_true[test_idx])) >= 2
     if needs_tuning and feasible:
@@ -713,7 +713,7 @@ def evaluate_anomaly_detection_split(
     tuned_threshold = (
         threshold if threshold is not None else fit_threshold(y_true[val_idx], y_score[val_idx])
     )
-    # Honest "best F1": the val-tuned threshold scored on the validation split.
+    # Transparent "best F1": the val-tuned threshold scored on the validation split.
     val_f1 = compute_f1(y_true[val_idx], (y_score[val_idx] >= tuned_threshold).astype(int))
 
     yt = y_true[test_idx]

@@ -9,7 +9,7 @@ documents -- not only score anomalies.
 
 This package adds those capabilities using **only the Python standard library +
 numpy** (no new third-party dependencies, no language-model service): every
-behaviour here is native, deterministic, and fail-closed (it degrades honestly
+behaviour here is native, deterministic, and fail-closed (it degrades transparently
 when the network is unavailable rather than fabricating results).
 
 Capabilities:

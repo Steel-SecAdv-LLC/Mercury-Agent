@@ -202,7 +202,7 @@ class ConsensusResult:
         participant_count: Number of participating agents
         method_used: Consensus method used
         dissenting_agents: IDs of dissenting agents
-        abstained: True when no consensus could honestly be formed (for
+        abstained: True when no consensus could transparently be formed (for
             example, fewer participants than the protocol's minimum). An
             abstained result's ``final_decision`` carries no signal and must
             be treated as "don't know", never as a benign verdict.
@@ -511,7 +511,7 @@ class ConsensusProtocol:
         ]
 
         if len(detection_results) < self.min_participants:
-            # Fail-closed: below quorum there is no honest collective verdict.
+            # Fail-closed: below quorum there is no transparent collective verdict.
             # The result is explicitly marked abstained so callers cannot
             # mistake "could not decide" for "decided benign".
             return ConsensusResult(
