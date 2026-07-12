@@ -571,6 +571,7 @@ class TrustedEndpoints:
             # Government/Research APIs
             "earthquake.usgs.gov",
             "mrdata.usgs.gov",  # USGS Mineral Resources Data System
+            "m2m.cr.usgs.gov",  # USGS EROS Machine-to-Machine inventory API (Landsat scene search)
             "services.swpc.noaa.gov",
             "www.nhc.noaa.gov",
             "api.tidesandcurrents.noaa.gov",

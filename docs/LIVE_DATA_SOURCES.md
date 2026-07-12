@@ -6,10 +6,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Live data sources & keyed loaders
 
 Mercury's domain loaders fetch **real** measured data from public
-government/research/commercial APIs. Six of these APIs authenticate with a key.
-Each key is stored as a **GitHub Actions repository secret** and is injected
-into the relevant CI lanes only — never committed to the repository, echoed into
-logs, written into any artifact or provenance sidecar, or exposed outside CI.
+government/research/commercial APIs. Seven of these data sources authenticate
+with a key — and USGS EROS M2M uses **two** secrets (an application token *and*
+an ERS username; see its note below). Each secret is stored as a **GitHub
+Actions repository secret** and is injected into the relevant CI lanes only —
+never committed to the repository, echoed into logs, written into any artifact
+or provenance sidecar, or exposed outside CI.
 
 ## Secret → env var → loader → endpoint → CI lane
 
@@ -21,6 +23,26 @@ logs, written into any artifact or provenance sidecar, or exposed outside CI.
 | `EIA_API_KEY` | `EIA_API_KEY` | `loaders/energy_loader.py` (`EnergyLoader`) | `api.eia.gov` | `network-tests`, `dataset-reachability`, `live-data-validation` |
 | `ALPHA_VANTAGE_API_KEY` | `ALPHA_VANTAGE_API_KEY` | `integrations/stubs/financial.py` (`FinancialService`, Alpha Vantage market data) | `www.alphavantage.co` | `network-tests`, `dataset-reachability`, `live-data-validation` |
 | `OPENWEATHERMAP_API_KEY` | `OPENWEATHERMAP_API_KEY` | `integrations/stubs/weather.py` (`WeatherService`, OpenWeatherMap) | `api.openweathermap.org` | `network-tests`, `dataset-reachability`, `live-data-validation` |
+| `USGS_KEY` **+** `EROSERS_USERNAME` | `USGS_KEY`, `EROSERS_USERNAME` | `integrations/usgs_eros.py` (`USGSErosM2MClient`, EROS M2M `login-token` → dataset search) | `m2m.cr.usgs.gov` | `network-tests`, `dataset-reachability`, `live-data-validation` |
+
+### The two-secret source: USGS EROS M2M
+
+The USGS EROS Machine-to-Machine API (`m2m.cr.usgs.gov`, the interface behind
+EarthExplorer) authenticates with the **`login-token`** endpoint — the legacy
+`login` (username + password) endpoint was **deprecated 2026-02-26**.
+`login-token` requires **both** an ERS **username** and a 64-character
+**application token** (generated at `ers.cr.usgs.gov/password/appgenerate`,
+used in place of the password). So this one source needs two secrets:
+
+```yaml
+env:
+  USGS_KEY: ${{ secrets.USGS_KEY }}                 # the application token
+  EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }} # the ERS username
+```
+
+`USGSErosM2MClient.available()` requires both to be set; with only one it fails
+loudly rather than half-authenticating. The returned API key lives only in
+memory, is sent as the `X-Auth-Token` header, and is invalidated by `logout()`.
 
 ### The one name mismatch: FIRMS
 

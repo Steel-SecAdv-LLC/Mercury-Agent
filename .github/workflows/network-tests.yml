@@ -105,5 +105,8 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           # OpenWeatherMap -- weather loader reads OPENWEATHERMAP_API_KEY.
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+          # USGS EROS M2M (login-token) needs BOTH the application token and the ERS username.
+          USGS_KEY: ${{ secrets.USGS_KEY }}
+          EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
         run: |
           pytest -m network -v --tb=short

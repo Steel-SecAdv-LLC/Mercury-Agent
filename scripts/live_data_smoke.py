@@ -94,6 +94,24 @@ def _openweather_ok() -> int:
     return 1 if data is not None else 0
 
 
+def _usgs_eros_ok() -> int:
+    """Authenticate to USGS EROS M2M and dataset-search Landsat; row count.
+
+    Proves BOTH ``USGS_KEY`` (application token) and ``EROSERS_USERNAME`` reach
+    the client and that ``login-token`` + ``dataset-search`` return real records.
+    Logs out (invalidating the API key) regardless of outcome; no key material
+    is ever printed.
+    """
+    from omni_mercury_engine.integrations.usgs_eros import USGSErosM2MClient
+
+    client = USGSErosM2MClient()
+    try:
+        datasets = client.dataset_search("landsat")
+    finally:
+        client.logout()
+    return len(datasets)
+
+
 def main() -> int:
     """Run every keyed-loader smoke and return a process exit code."""
     from omni_mercury_engine.loaders.energy_loader import EnergyLoader
@@ -123,6 +141,11 @@ def main() -> int:
     )
     _smoke("financial market (Alpha Vantage quote)", ("ALPHA_VANTAGE_API_KEY",), _alpha_vantage_ok)
     _smoke("weather (OpenWeatherMap current)", ("OPENWEATHERMAP_API_KEY",), _openweather_ok)
+    _smoke(
+        "usgs_eros (M2M Landsat dataset search)",
+        ("USGS_KEY", "EROSERS_USERNAME"),
+        _usgs_eros_ok,
+    )
 
     ok = sum(1 for _, s, _ in _RESULTS if s == "OK")
     fail = sum(1 for _, s, _ in _RESULTS if s == "FAIL")
