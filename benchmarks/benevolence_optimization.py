@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 PHI: float = 1.618033988749895  # Golden ratio
-LAMBDA_LYAPUNOV: float = 0.25  # Elevated Lyapunov constant for 25% faster convergence
+LAMBDA_LYAPUNOV: float = 0.25  # Lyapunov convergence-rate target (see compute_lyapunov_stability)
 BENEVOLENCE_THRESHOLD: float = 0.99  # Minimum benevolence requirement
 
 # Default sigma_Immutable thresholds
@@ -475,7 +475,8 @@ class EthicalGatingForms:
         Compute Lyapunov exponent for sigma trajectory stability.
 
         The Lyapunov exponent measures the rate of convergence to the
-        equilibrium state. Target is lambda >= 0.25 for 25% speedup.
+        equilibrium state. This method reports the measured exponent and
+        whether it meets the lambda >= 0.25 stability target (LAMBDA_LYAPUNOV).
 
         Args:
             sigma_trajectory: Array of sigma values over time

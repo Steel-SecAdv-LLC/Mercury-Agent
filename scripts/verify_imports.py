@@ -34,7 +34,7 @@ sample_scalars = [
     "omni_prescience",
     "omni_perspicacious",
     "omni_sagacious",
-    "omni_ineffable_transcendence",
+    "omni_aspirational_excellence",
 ]
 for scalar in sample_scalars:
     value = getattr(s, scalar, None)

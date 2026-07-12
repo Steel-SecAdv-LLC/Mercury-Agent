@@ -185,6 +185,16 @@ class EvaluationOutcome:
         n_test_samples: Number of held-out cases both models saw.
         test_years: The held-out years.
         extras: Additional context recorded into provenance verbatim.
+        constraints: Secondary non-regression constraints the merit gate
+            enforces IN ADDITION to the primary metric. Each entry is
+            ``{"metric": str, "higher_is_better": bool, "description": str}``
+            and requires the learned model to match or beat physics on that
+            metric (parity allowed -- the primary metric is where a strict
+            win is demanded). Constraints only ever ADD ways for the gate to
+            refuse a ship; they can never rescue a primary-metric loss. This
+            exists because a single primary metric can hide an operational
+            regression (the first shipped solar-storm checkpoint halved storm
+            recall at the fixed Kp>=5 point while winning Kp MAE).
     """
 
     hook: str
@@ -195,15 +205,46 @@ class EvaluationOutcome:
     n_test_samples: int
     test_years: tuple[int, ...]
     extras: dict[str, Any] = field(default_factory=dict)
+    constraints: list[dict[str, Any]] = field(default_factory=list)
 
     @property
-    def learned_beats_physics(self) -> bool:
+    def primary_metric_wins(self) -> bool:
         """True when the learned model wins the primary metric outright."""
         lv = self.learned[self.primary_metric]
         pv = self.physics[self.primary_metric]
         if not (np.isfinite(lv) and np.isfinite(pv)):
             return False
         return bool(lv > pv) if self.higher_is_better else bool(lv < pv)
+
+    @property
+    def failed_constraints(self) -> list[dict[str, Any]]:
+        """Secondary constraints the learned model failed (empty = all met).
+
+        A constraint fails when the learned metric regresses strictly below
+        (or above, for lower-is-better) the physics value, or when either
+        value is non-finite -- an unmeasurable constraint must refuse, not
+        pass silently.
+        """
+        failed: list[dict[str, Any]] = []
+        for c in self.constraints:
+            metric = str(c["metric"])
+            higher = bool(c["higher_is_better"])
+            lv = float(self.learned.get(metric, float("nan")))
+            pv = float(self.physics.get(metric, float("nan")))
+            if not (np.isfinite(lv) and np.isfinite(pv)):
+                ok = False
+            elif higher:
+                ok = bool(lv >= pv)
+            else:
+                ok = bool(lv <= pv)
+            if not ok:
+                failed.append({**c, "learned": lv, "physics": pv})
+        return failed
+
+    @property
+    def learned_beats_physics(self) -> bool:
+        """Merit-gate verdict: primary strictly won AND no constraint failed."""
+        return self.primary_metric_wins and not self.failed_constraints
 
     def to_json(self) -> dict[str, Any]:
         """Serializable form for the evaluation record and provenance."""
@@ -214,6 +255,9 @@ class EvaluationOutcome:
             "learned": self.learned,
             "physics": self.physics,
             "learned_beats_physics": self.learned_beats_physics,
+            "primary_metric_wins": self.primary_metric_wins,
+            "constraints": self.constraints,
+            "failed_constraints": self.failed_constraints,
             "n_test_samples": self.n_test_samples,
             "test_years": list(self.test_years),
             "extras": self.extras,
@@ -337,6 +381,7 @@ def load_evaluation(data_dir: Path, hook: str) -> EvaluationOutcome:
         n_test_samples=raw["n_test_samples"],
         test_years=tuple(raw["test_years"]),
         extras=raw.get("extras", {}),
+        constraints=raw.get("constraints", []),
     )
 
 
@@ -374,6 +419,19 @@ def ship_checkpoint(
         FileNotFoundError: If the candidate checkpoint is missing.
     """
     if not outcome.learned_beats_physics:
+        if outcome.primary_metric_wins and outcome.failed_constraints:
+            failures = "; ".join(
+                f"{c['metric']}: learned={c['learned']:.6g} vs physics={c['physics']:.6g} "
+                f"({'higher' if c['higher_is_better'] else 'lower'} is better)"
+                for c in outcome.failed_constraints
+            )
+            raise MeritGateError(
+                f"MERIT GATE REFUSED for hook '{hook}': the primary metric "
+                f"({outcome.primary_metric}) wins but secondary non-regression "
+                f"constraints failed on held-out years {list(outcome.test_years)}: "
+                f"{failures}. A checkpoint that regresses an operational metric "
+                "does not ship on a primary-metric win alone."
+            )
         direction = "higher" if outcome.higher_is_better else "lower"
         raise MeritGateError(
             f"MERIT GATE REFUSED for hook '{hook}': learned "

@@ -571,6 +571,7 @@ class TrustedEndpoints:
             # Government/Research APIs
             "earthquake.usgs.gov",
             "mrdata.usgs.gov",  # USGS Mineral Resources Data System
+            "m2m.cr.usgs.gov",  # USGS EROS Machine-to-Machine inventory API (Landsat scene search)
             "services.swpc.noaa.gov",
             "www.nhc.noaa.gov",
             "api.tidesandcurrents.noaa.gov",
@@ -603,6 +604,8 @@ class TrustedEndpoints:
             # validation; the loader itself targets the forecast host.
             "archive-api.open-meteo.com",
             "api.open-meteo.com",
+            # OpenWeatherMap current-conditions / forecast (weather loader)
+            "api.openweathermap.org",
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects,
             # fireball archive — meteor loader)
             "ssd-api.jpl.nasa.gov",
@@ -651,6 +654,7 @@ class TrustedEndpoints:
             "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
             "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
             "api.eia.gov",  # EIA (Energy Information Administration)
+            "www.alphavantage.co",  # Alpha Vantage market/financial time series (financial market loader)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
             "www.who.int",  # WHO Emergencies hub (pandemic loader)
@@ -672,6 +676,56 @@ class TrustedEndpoints:
             # engineering domain; used by ``datasets/ucr_archive.py``
             # MBA/CWRU loader.
             "engineering.case.edu",
+            # SeisBench data repository mirrors (GFZ Potsdam backup mirror and
+            # DESY/HIFIS primary, both on port 443) — STEAD labeled seismic
+            # waveform corpus for the seismic-wave analyzer training pipeline.
+            # Both support HTTP Range so trace subsets stream without pulling
+            # the full 85 GB HDF5.
+            "seisbench.gfz.de",
+            "hifis-storage.desy.de",
+            # SCEDC (Southern California Earthquake Data Center) on AWS Open
+            # Data — per-event miniSEED bundles + phase picks (seismic-wave
+            # training supplement; anonymous public bucket).
+            "scedc-pds.s3.amazonaws.com",
+            # Google Cloud Storage public-data JSON/object API. Used for the
+            # ARCO-ERA5 reanalysis zarr store (gcp-public-data-arco-era5:
+            # hurricane-wind training features) and the NEXRAD Level-II
+            # mirror (gcp-public-data-nexrad-l2). Anonymous read-only GETs;
+            # the AWS noaa-nexrad-level2 bucket denies anonymous requests
+            # from this environment, these mirrors do not.
+            "storage.googleapis.com",
+            # Unidata NEXRAD Level-II S3 mirror (tornado-radar training;
+            # anonymous public bucket, unlike the primary NOAA bucket).
+            "unidata-nexrad-level2.s3.amazonaws.com",
+            # UCSB Climate Hazards Center CHIRPS rainfall archive
+            # (landslide-stability training: antecedent-rainfall covariates).
+            "data.chc.ucsb.edu",
+            # Smithsonian GVP web services (WFS eruption/event catalog with
+            # start dates + VEI — volcanic-eruption training labels; the
+            # volcano.si.edu apex host serves the human site only).
+            "webservices.volcano.si.edu",
+            # ArcGIS Online mirror of the NASA Global Landslide Catalog /
+            # COOLR points (updated through 2025). The official COOLR
+            # FeatureServer host maps.nccs.nasa.gov (allowlisted above) is
+            # blocked by this environment's egress proxy, so the training
+            # pipeline falls back to this public AGOL-hosted mirror.
+            "services1.arcgis.com",
+            # UN OCHA Humanitarian Data Exchange — static snapshot of the
+            # NASA Global Landslide Catalog (label-source fallback).
+            "data.humdata.org",
+            # Internet Archive Wayback Machine — raw-bytes replay (id_ URLs)
+            # of the classic Global Consciousness Project per-second REG
+            # basketdata archives (noosphere.princeton.edu is unreachable
+            # from this environment; its 2011-2024 day files are archived).
+            # Real hardware-RNG null streams for the REG statistical-
+            # deviation detector.
+            "web.archive.org",
+            # Official GCP mirror — basketdata CSV format specification and
+            # parser sources (docs, not bulk data).
+            "global-mind.org",
+            # GCP 2.0 network — live public API (rolling 24h per-minute
+            # network-variance aggregates); no historical archive.
+            "rng.observer",
         }
     )
 

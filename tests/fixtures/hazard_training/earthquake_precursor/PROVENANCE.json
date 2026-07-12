@@ -1,0 +1,15 @@
+{
+  "columns_kept": [
+    "time",
+    "latitude",
+    "longitude",
+    "depth",
+    "mag"
+  ],
+  "description": "Real USGS ComCat catalog excerpt: California-region M>=2.5 earthquakes, 2019-06-01 <= time < 2019-08-01 (contains the 2019 Ridgecrest M6.4 of July 4 and M7.1 of July 6). Untouched rows from the upstream CSV; only columns were reduced to time/latitude/longitude/depth/mag and rows outside the two-month window dropped. No values were edited.",
+  "fetched_utc": "2026-07-10T07:15:03+00:00",
+  "fixture_sha256": "07ace9318be4f82d8aab8b855359a90835e33bd967e0f646c6b6b7eaead6dfce",
+  "n_rows": 2615,
+  "source_csv_sha256": "bd7b870cd6392bc7134da64c80c8efc3fbb58fc39d56dd97754c6e3aa44b5e5c",
+  "source_url": "https://earthquake.usgs.gov/fdsnws/event/1/query?starttime=2019-01-01&endtime=2020-01-01&minmagnitude=2.5&minlatitude=32&maxlatitude=42&minlongitude=-125&maxlongitude=-114&eventtype=earthquake&format=csv&orderby=time-asc"
+}

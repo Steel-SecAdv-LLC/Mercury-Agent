@@ -7,8 +7,10 @@ Implements the TranAD architecture with key innovations:
 2. Adversarial Training: GAN-inspired stability for reconstruction
 3. MAML (Model-Agnostic Meta-Learning): Few-shot anomaly detection
 
-Performance: Achieves up to 17% F1 improvement, 99% training time reduction
-vs baselines on SMD, SMAP, MSL, SWaT, WADI datasets.
+The TranAD paper (Tuli, Casale, & Jennings, VLDB 2022) reports up to 17% F1
+improvement and 99% training-time reduction versus baselines on SMD, SMAP, MSL,
+SWaT and WADI. Those are the authors' published results, not a measurement of
+this implementation.
 
 Ethical Integration:
     - Bias detection hooks for fairness monitoring

@@ -21,16 +21,16 @@ scalars = re.findall(scalar_pattern, ethical_content)
 
 # Categorize by theme
 categories = {
-    "Ancient Wisdom": [
-        "thoth",
-        "maat",
-        "athena",
-        "hermes",
-        "pharaonic",
-        "hieroglyphic",
-        "lunar",
-        "cosmic",
-        "isfet",
+    "Integrity & Judgment": [
+        "truthfulness",
+        "proportional",
+        "accountability",
+        "symbolic_reasoning",
+        "equilibrium",
+        "disorder",
+        "reflective",
+        "record",
+        "cyclical",
     ],
     "Modern AI Ethics": ["ai", "model", "rogue", "neurosymbolic", "agentic", "swarm", "recursive"],
     "Quantum/Physics": [
@@ -102,6 +102,6 @@ print(f"\n**Total Unique Scalars**: {len(scalars)}")
 
 # Find high-value scalars (>1.40)
 print("\n## High-Value Scalars (> 1.40)\n")
-high_value = [(name, val) for name, val in scalars if val > 1.40]
+high_value = [(name, float(val)) for name, val in scalars if float(val) > 1.40]
 for name, val in sorted(high_value, key=lambda x: x[1], reverse=True):
     print(f"- `{name}`: {val}")

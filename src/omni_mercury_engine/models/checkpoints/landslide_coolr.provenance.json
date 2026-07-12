@@ -1,0 +1,536 @@
+{
+  "checkpoint": "landslide_coolr.pt",
+  "checkpoint_sha256": "5d3cd08aa27214789932316c283e1e8bbf2140a1fcc4be06b3a85f455910a602",
+  "created_utc": "2026-07-10T19:01:58+00:00",
+  "data_sources": [
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 0",
+      "sha256": "ba80875cfcdabbc7d1ba5500722012d8c8d3cd1949c211c8cb6a59dd7d15c6cc",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=0&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 1",
+      "sha256": "b9836b0ebc62a7a9b2ad2849f1f41cf2e61fb62e3c7d26df761701c275854880",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=2000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 2",
+      "sha256": "96739e9f1e7a16a319d430d445246901fa140c217128c8d1333e21f6b014c489",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=4000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 3",
+      "sha256": "9676102e0a025b239b0e96e403cb049788eaaccc8f06208d3887b996af7f7928",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=6000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 4",
+      "sha256": "43c976e28bc27c2c7b8766b9ce484d2e1103fc12ba88fd01ba234e56e53b1617",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=8000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 5",
+      "sha256": "54f40f9550777f7f182912539702f5f50db23a33d44b51e9f56880f5a931dc48",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=10000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 6",
+      "sha256": "36590bf8c0569126a4611cbf9262964ff42a67dad7f51be64269f0059be7a4db",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=12000&resultRecordCount=2000"
+    },
+    {
+      "description": "NASA Global Landslide Catalog (AGOL mirror), page 7",
+      "sha256": "d08b62de8d60fac699d9f21b7a8e92a86ff9f4e9aa25e74bf87c123f4b8908a5",
+      "url": "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/nasa_global_landslide_catalog_point/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&orderByFields=FID%20ASC&resultOffset=14000&resultRecordCount=2000"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1981",
+      "sha256": "abf5aa47db1a47b1bb0358591d02adb7cdc765af1de83834aa0a36157828f0cb",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1981.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1982",
+      "sha256": "5264a039135cbe00fff7c2b8296123ddc652db67a3086ac1d84bc7cfd91d1b3c",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1982.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1983",
+      "sha256": "8083ed549a4027fddad74e4a3be75c8587ad0830de3be0200c56b295d81cbe26",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1983.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1984",
+      "sha256": "e1c3edab18b4bd69a659a42e95ca9a97051b7055738fdf4b63796ff199bbf2a4",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1984.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1985",
+      "sha256": "795f6ef239d5a88b0afc682875ad5567f61d694980346c656db5445af428b3ab",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1985.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1986",
+      "sha256": "3ad6497e71ee565d2ecdb895993f2ca9b4db6ed0efb702eb000b934b7ea4438f",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1986.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1987",
+      "sha256": "a47dd1314d10589213b7d807fb8f1486972f2a0fcf081d899b414304c09aad8d",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1987.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1988",
+      "sha256": "07b7a89ac7e7f1e16cad1db1100217a60a124964b77693e6323b0c1316f813e3",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1988.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1989",
+      "sha256": "a81c7a0916bf81e4047cda8d6320cc5c94720f758f232c50b80502a840702ab8",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1989.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1990",
+      "sha256": "10a95daa84df0e1934c462c3687cff0accff907557f92c6c1e7ee0d2077ed0d4",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1990.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1991",
+      "sha256": "f549808c69601cf288b4f0f42b8ac5337c348f06d1fb55aa86b67e9bbd3837f9",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1991.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1992",
+      "sha256": "ae26310b18369c1015e6b70db6dfb7ad1c138f846bd7c322e0b6794a26423f56",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1992.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1993",
+      "sha256": "292ff168ef7f4420d36606f7ed84aa5380dd979a90351762926ef4c569e90f56",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1993.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1994",
+      "sha256": "f856963801db2a62fa5c35537810f1649f19d32c84f1c4f2bb3fd3dcc82ba7ec",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1994.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1995",
+      "sha256": "54c7a408d49112465479a06a3d1e5b37cb10b526c2cf20215f2b75579c8c2a0e",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1995.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1996",
+      "sha256": "b0a4604e5a213671e6d591ad959c2156685ee026b54fbc8ad87860e35f3db4df",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1996.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1997",
+      "sha256": "a04019a26e20988e35d8d14e88f1083aabb8104434c556c21e3d29e1c30ae731",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1997.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1998",
+      "sha256": "15f3e33707c14b3ef26b525cb116766b847f2295c60aa41c6ae73df10e748e98",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1998.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 1999",
+      "sha256": "dbb0a6a0ee1ff5e3ba5439101bedc24dad0951810a03a6f5cdc96e4b08c06716",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.1999.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2000",
+      "sha256": "57014c9ff72c8997b5b141793c06ffd1a8d8f5c6d1308789ac8e12c3860e5790",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2000.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2001",
+      "sha256": "8550c96c7f8c29cbc6a1be3be56d7f769125d15b9ac7bc6c4f0fc4a76034f0fa",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2001.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2002",
+      "sha256": "8027aaf7e005d74073d2c744d9c8a0343ffade272c1d1f8c420972bcbade2231",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2002.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2003",
+      "sha256": "5b5a538e187ca651bc1fcc25eb445d31a05067b5a109bd8bb4651db11346cf6f",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2003.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2004",
+      "sha256": "5e671526f27567e9218d275f7a47b6c0d7e0acf718edfee64c5843f5ee497e93",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2004.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2005",
+      "sha256": "2185afd5c3d110da52a9a81eb97f25b37f30db5c0478e536a84c957351e44b53",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2005.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2006",
+      "sha256": "3f78d5e733ea38bef25e47af9b3a907a96e27b8334cc04e4898837239e6539e6",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2006.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2007",
+      "sha256": "c4594aeaafd7b9e7065577563799bca461582723e6b32df332206b43cb853138",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2007.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2008",
+      "sha256": "6fe5dc8facd7750b6c08ecd0cadaaf19570acccd6a15f20efcbdd960230b5551",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2008.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2009",
+      "sha256": "e6ccdc38aa146793f2c92858412122ef14a7a34332940bec03bd520cc77dc235",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2009.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2010",
+      "sha256": "f6b6bd962626c038959a743b5f6e6c22b0bd6647b89b4a08b0f2305ac77f7277",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2010.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2011",
+      "sha256": "45f437d8f1c7237b7043ebf4fec800461252af02e7cbcc87a844ddf0d1a911d2",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2011.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2012",
+      "sha256": "27792b3d028ca5e745a8fe45c4f133a4183469512d2e55ead950d54a5a5a890b",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2012.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2013",
+      "sha256": "d531a704ed1a40be2d509b1d984913194015f84721edc555f2de8c000bcab638",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2013.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2014",
+      "sha256": "c3225de85da99422bc5fde9dbd1bdabff206fc2902d811944169348c8352d521",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2014.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2015",
+      "sha256": "0c770adf07884a25610ea00d66d5e221529159746d3d76d9affea69c77666233",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2015.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2016",
+      "sha256": "8ff4f6284c1d37b50e8b1e47dbd9f6e108a9ee3b17a6752bb18cc0b7384526d3",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2016.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2017",
+      "sha256": "9692ca1fee495b8091084b1e5d29ea618483e67886a281f82b4a03555861d6b8",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2017.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2018",
+      "sha256": "05b0850b8b8c16a2d5d33ddc6ba89d503084dc7374845214289be1b411a30d3f",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2018.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2019",
+      "sha256": "311723f2f8d2af3307da198ebafece0c081200f336444a4261516539348fed38",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2019.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2020",
+      "sha256": "2ab3b142141c5cfc708bc666dc89900005b7452b66324515fca1baa8dff00402",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2020.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2021",
+      "sha256": "1b2db33508896ed1932b9db7e6dad6136e90687d3fe630f08066dbd279e0dabb",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2021.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2022",
+      "sha256": "5f9b88f0623083759ba351a263bf23afd7fb26b13e23d051d5bb22a55aa0bcb9",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2022.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2023",
+      "sha256": "8430cc8afd1a69205ecf757a2d8d95f3e6fbc44544326b27b4d534a82ee9c14c",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2023.days_p25.nc"
+    },
+    {
+      "description": "CHIRPS v2.0 global daily 0.25deg precipitation, 2024",
+      "sha256": "c632f5ac626021cb09dee226c14cd9e1f4530af8cd66f73c7304f6e36587446a",
+      "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p25/chirps-v2.0.2024.days_p25.nc"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "recall at each path's deployed alert rule must not regress below the physics baseline",
+        "higher_is_better": true,
+        "metric": "recall_deployed"
+      },
+      {
+        "description": "false-alarm rate at each path's deployed alert rule must not exceed the physics baseline",
+        "higher_is_better": false,
+        "metric": "far_deployed"
+      },
+      {
+        "description": "probability calibration (Brier) must not regress below the physics baseline",
+        "higher_is_better": false,
+        "metric": "brier"
+      }
+    ],
+    "extras": {
+      "auc_diff_bootstrap_ci95": {
+        "ci95_high": 0.05745370389529269,
+        "ci95_low": 0.030578301726602995,
+        "ci_excludes_zero": true,
+        "mean": 0.043513107036221424,
+        "n_resamples": 1000,
+        "n_valid": 1000,
+        "note": "AUC difference (learned minus gate physics), case-resampling bootstrap over the identical held-out (cell, day) cases",
+        "seed": 20260709
+      },
+      "comparison": "identical held-out (cell, day) cases through LandslideDetector.predict_landslide: physics fallback (no checkpoint, no slope_features) vs loaded candidate checkpoint (+slope_features), both fed the same honest rainfall_data derived from the same CHIRPS observations",
+      "dataset_report": {
+        "accuracy_cutoff_km": 25.0,
+        "accuracy_histogram": {
+          "0km": 594,
+          "100km": 29,
+          "10km": 1348,
+          "1km": 1947,
+          "250km": 25,
+          "25km": 1351,
+          "50km": 720,
+          "5km": 2854,
+          "unknown": 488
+        },
+        "cells_without_climatology": 0,
+        "dropped_by_accuracy_cutoff": 1262,
+        "dropped_outside_lat50": 403,
+        "dropped_positives_on_nonland_cells": 98,
+        "dropped_samples_without_chirps_rain": 0,
+        "events_in_2007_2024": 12942,
+        "neg_far_cell": 7996,
+        "neg_far_cell_skipped": 0,
+        "neg_same_cell": 15992,
+        "neg_same_cell_skipped": 0,
+        "positives_after_filters": 8094,
+        "rain_trigger_histogram": {
+          "(blank)": 4,
+          "construction": 116,
+          "continuous_rain": 891,
+          "dam_embankment_collapse": 20,
+          "downpour": 4905,
+          "earthquake": 110,
+          "flooding": 101,
+          "freeze_thaw": 46,
+          "heavy rain": 5,
+          "heavy rainfall": 2,
+          "leaking_pipe": 19,
+          "mining": 119,
+          "monsoon": 156,
+          "no_apparent_trigger": 82,
+          "other": 50,
+          "rain": 3084,
+          "rainfall": 1,
+          "snowfall_snowmelt": 168,
+          "tropical_cyclone": 614,
+          "unknown": 2442,
+          "vibration": 3,
+          "volcano": 4
+        },
+        "rain_triggered": 9759,
+        "split_counts": {
+          "test_2018_2024": {
+            "negatives": 1968,
+            "positives": 656,
+            "total": 2624
+          },
+          "train_2007_2015": {
+            "negatives": 17166,
+            "positives": 5722,
+            "total": 22888
+          },
+          "val_2016_2017": {
+            "negatives": 4854,
+            "positives": 1618,
+            "total": 6472
+          }
+        },
+        "type_class_counts": {
+          "debris_flow": 209,
+          "earth_flow": 14,
+          "mud_flow": 1864,
+          "rock_slide": 355,
+          "rotational_slide": 8,
+          "snow_avalanche": 1
+        },
+        "type_unmapped_positives": 5545
+      },
+      "deployed_rule": "learned: slope failure probability > 0.666472 (the checkpoint's validation-selected operating point, consumed decision-only by LandslideDetector.load_neural_weights; the fixed 0.6 bar when absent); physics API path: probability > 0.6 (the detector's fixed neural-path alert bar); fitted baseline: its train-fitted threshold -- each path is scored on its own deployed decision rule",
+      "fitted_baseline_definition": {
+        "feature": "pct_rain_sum7d",
+        "kind": "antecedent-rainfall percentile threshold (Caine-1980-style, fitted on TRAIN years only)",
+        "threshold": 0.8199157118797302,
+        "train_auc": 0.8433256975098065,
+        "train_csi_at_threshold": 0.4769486692015209
+      },
+      "fitted_baseline_metrics": {
+        "auc": 0.8064229656206623,
+        "brier": 0.2661959064404081,
+        "csi_deployed": 0.41898864809081526,
+        "far_deployed": 0.15904471544715448,
+        "recall_deployed": 0.6189024390243902
+      },
+      "median_inference_latency_ms": {
+        "learned": 0.26684250019570754,
+        "n_runs": 100,
+        "physics": 0.01323050014434557
+      },
+      "model_parameter_count": 46546,
+      "operating_point": {
+        "detection_threshold": 0.6664724547881633,
+        "far_ceiling": 0.12179645653069633,
+        "fixed_bar_without_operating_point": 0.6,
+        "policy": "single-rule (slope failure probability > tau, decision-only); tau maximizes val CSI subject to val recall >= max(physics val recall, 0.5) AND val FAR <= 0.8 * physics val FAR; physics mirrors the merit gate's baseline selection (stronger of the API physics path and the train-fitted antecedent-rainfall percentile threshold, by validation AUC)",
+        "recall_floor": 0.6446229913473424,
+        "recall_floor_met": true,
+        "val_auc_api_physics": 0.7461048016163444,
+        "val_auc_fitted_baseline": 0.8289206129233189,
+        "val_csi": 0.540859707132735,
+        "val_far": 0.10280181293778327,
+        "val_far_physics": 0.1522455706633704,
+        "val_physics_baseline_used": "fitted_rain_threshold_baseline",
+        "val_recall": 0.707663782447466,
+        "val_recall_physics": 0.6446229913473424
+      },
+      "per_year_test_counts": {
+        "2018": {
+          "negatives": 1602,
+          "positives": 534,
+          "total": 2136
+        },
+        "2019": {
+          "negatives": 165,
+          "positives": 55,
+          "total": 220
+        },
+        "2020": {
+          "negatives": 87,
+          "positives": 29,
+          "total": 116
+        },
+        "2021": {
+          "negatives": 51,
+          "positives": 17,
+          "total": 68
+        },
+        "2022": {
+          "negatives": 30,
+          "positives": 10,
+          "total": 40
+        },
+        "2023": {
+          "negatives": 27,
+          "positives": 9,
+          "total": 36
+        },
+        "2024": {
+          "negatives": 6,
+          "positives": 2,
+          "total": 8
+        }
+      },
+      "physics_api_metrics": {
+        "auc": 0.5027947154471545,
+        "brier": 0.24885670731707318,
+        "csi_deployed": 0.0,
+        "far_deployed": 0.0,
+        "recall_deployed": 0.0
+      },
+      "physics_input_mapping": "intensity_mm_hr = CHIRPS day-of rain / 24 h (daily-mean intensity); duration_hours = 24 (daily resolution floor); antecedent_7day_mm = observed sum of the 7 days before the event day. These are ALL the rainfall fields RainfallTriggerModel defines; the physics slope-stability term abstains (probability 0) because no slope/saturation/displacement observation exists in this corpus and none was fabricated",
+      "physics_metrics_used_for_gate": "fitted_rain_threshold_baseline",
+      "physics_rainfall_trigger_rate": 0.0019054878048780487,
+      "test_positive_fraction": 0.25,
+      "trigger_histogram": {
+        "(blank)": 4,
+        "construction": 116,
+        "continuous_rain": 891,
+        "dam_embankment_collapse": 20,
+        "downpour": 4905,
+        "earthquake": 110,
+        "flooding": 101,
+        "freeze_thaw": 46,
+        "heavy rain": 5,
+        "heavy rainfall": 2,
+        "leaking_pipe": 19,
+        "mining": 119,
+        "monsoon": 156,
+        "no_apparent_trigger": 82,
+        "other": 50,
+        "rain": 3084,
+        "rainfall": 1,
+        "snowfall_snowmelt": 168,
+        "tropical_cyclone": 614,
+        "unknown": 2442,
+        "vibration": 3,
+        "volcano": 4
+      },
+      "type_mapping": {
+        "creep": "earth_flow",
+        "debris flow": "debris_flow",
+        "debris_flow": "debris_flow",
+        "earth flow": "earth_flow",
+        "earth_flow": "earth_flow",
+        "lahar": "debris_flow",
+        "mud flow": "mud_flow",
+        "mud_flow": "mud_flow",
+        "mudslide": "mud_flow",
+        "rock fall": "rock_slide",
+        "rock slide": "rock_slide",
+        "rock_fall": "rock_slide",
+        "rock_slide": "rock_slide",
+        "rockfall": "rock_slide",
+        "rotational slide": "rotational_slide",
+        "rotational_slide": "rotational_slide",
+        "snow_avalanche": "snow_avalanche"
+      }
+    },
+    "failed_constraints": [],
+    "higher_is_better": true,
+    "hook": "landslide_stability",
+    "learned": {
+      "auc": 0.8497600324707515,
+      "brier": 0.1568525332261675,
+      "csi_deployed": 0.4569606801275239,
+      "far_deployed": 0.1448170731707317,
+      "recall_deployed": 0.6554878048780488
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 2624,
+    "physics": {
+      "auc": 0.8064229656206623,
+      "brier": 0.2661959064404081,
+      "csi_deployed": 0.41898864809081526,
+      "far_deployed": 0.15904471544715448,
+      "recall_deployed": 0.6189024390243902
+    },
+    "primary_metric": "auc",
+    "primary_metric_wins": true,
+    "test_years": [
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "670090b3c0e58678afea8fd622d0ccdac95256a7",
+  "hook": "landslide_stability",
+  "seed": 20260709
+}

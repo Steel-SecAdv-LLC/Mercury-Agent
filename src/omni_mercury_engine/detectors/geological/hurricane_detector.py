@@ -25,8 +25,6 @@ Research sources:
 
 ⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
 hurricane centers (NHC, JTWC). Always defer to official hurricane warnings.
-
-Performance: Enhanced tracking via resonance frequency amplification + recursive analysis
 """
 
 from __future__ import annotations
@@ -177,6 +175,23 @@ class SeaSurfaceTemperatureAnalyzer:
             return 0.0
         ohc = (sst - 26.0) * depth_26c * 0.1
         return min(ohc, 150.0)
+
+
+#: Class order of the WindPatternAnalyzer's 8-way category head. This is the
+#: single source of truth shared with the training pipeline
+#: (``ml/hazard_training/hurricane_wind.py`` imports it): index 0 is the
+#: no-cyclone class trained on far-from-storm patches; 1..7 follow the
+#: Saffir-Simpson progression used everywhere else in this detector.
+NEURAL_CATEGORY_ORDER: tuple[str, ...] = (
+    "no_cyclone",
+    "tropical_depression",
+    "tropical_storm",
+    "category_1",
+    "category_2",
+    "category_3",
+    "category_4",
+    "category_5",
+)
 
 
 class WindPatternAnalyzer(nn.Module):
@@ -436,25 +451,56 @@ class HurricaneDetector:
         # the network is consulted only after load_neural_weights().
         self._neural_trained = False
         self._warned_untrained = False
+        self._feature_spec: str | None = None
 
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the wind-pattern analyzer.
+
+        Until this is called the network is untrained and wind fields are
+        analysed with the deterministic kinematics of
+        :meth:`_analyze_wind_field` only.
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``wind_analyzer`` state dict.
+                ``wind_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``hurricane_era5``, trained on ERA5 10 m
+                wind patches labeled with IBTrACS best-track intensities),
+                whose provenance sidecar is logged; missing or corrupt files
+                raise instead of degrading silently.
         """
         if self.wind_analyzer is None:
             raise RuntimeError("wind analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("hurricane_era5")
+            source = "shipped default 'hurricane_era5'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.wind_analyzer.load_state_dict(checkpoint["wind_analyzer"])
+        self.wind_analyzer.eval()
+        self._feature_spec = str(checkpoint.get("feature_spec", "unknown"))
         self._neural_trained = True
         self.logger.info(
-            "Hurricane wind neural weights loaded from %s; using learned analyzer",
-            checkpoint_path,
+            "Hurricane wind neural weights loaded from %s (feature spec: %s); "
+            "using learned analyzer",
+            source,
+            self._feature_spec,
         )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "HurricaneDetector's WindPatternAnalyzer is untrained (no checkpoint "
+                "loaded); analysing wind fields with the deterministic observed-"
+                "kinematics physics instead of the NN. Call load_neural_weights() "
+                "once a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_hurricane(self, cyclone_data: dict[str, Any]) -> HurricanePredictionResult:
         """Comprehensive tropical cyclone prediction.
@@ -507,7 +553,11 @@ class HurricaneDetector:
                 indicators_detected += 1
 
         if self.enable_wind and "wind_field" in cyclone_data:
-            wind_result = self._analyze_wind_field(cyclone_data["wind_field"])
+            if self._neural_trained:
+                wind_result = self._analyze_wind_field_neural(cyclone_data["wind_field"])
+            else:
+                self._warn_untrained_once()
+                wind_result = self._analyze_wind_field(cyclone_data["wind_field"])
             result.max_relative_vorticity_s1 = wind_result["max_relative_vorticity_s1"]
             result.closed_circulation = wind_result["closed_circulation"]
             # The observed field can only raise the wind estimate, never mask a
@@ -519,6 +569,10 @@ class HurricaneDetector:
                 indicators_detected += 1
             elif wind_result["max_relative_vorticity_s1"] > 5e-4:
                 indicators_detected += 0.5
+            # Learned path only: the category head's tropical-cyclone
+            # probability (physics results carry no such key).
+            if wind_result.get("neural_tc_probability", 0.0) >= 0.5:
+                indicators_detected += 1
 
         if self.enable_resonance and "signal_data" in cyclone_data:
             assert self.resonance_amplifier is not None, "Resonance amplifier must be initialized"
@@ -639,6 +693,73 @@ class HurricaneDetector:
             "max_wind_speed_kt": max_wind_kt,
             "max_relative_vorticity_s1": max_vorticity,
             "closed_circulation": max_vorticity >= 2e-3,
+        }
+
+    def _analyze_wind_field_neural(
+        self, wind_field: dict[str, Any] | np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
+        """Learned wind-field analysis (only reached after trained weights load).
+
+        The observed kinematics of :meth:`_analyze_wind_field` stay authoritative
+        for what was *measured* -- vorticity, closed circulation, and the
+        observed maximum wind -- computed from the identical input. The trained
+        WindPatternAnalyzer then contributes what the coarse field cannot show
+        directly: its intensity head is trained in **knots** against IBTrACS
+        best-track maximum sustained winds (feature spec ``hurricane-era5-v1``,
+        channels u10/v10/speed in m/s, no input standardization -- the raw
+        caller field is the network input, guaranteeing train/serve parity),
+        so its output is used as ``max_wind_speed_kt`` directly, floored at the
+        observed patch maximum: real measured wind can only ever raise the
+        estimate, mirroring how this method's caller treats pressure-derived
+        winds.
+
+        Args:
+            wind_field: ``{"u": array, "v": array}`` wind components in m/s.
+                2-D ``(H, W)`` arrays are a single-time field; 3-D
+                ``(T, H, W)`` arrays are a time sequence, oldest first (the
+                shipped checkpoint is trained on T=2 frames at t-6h and t).
+                Inputs the network cannot consume (bare speed arrays,
+                mismatched or non-finite components) fall back to the
+                deterministic physics analysis of the same data -- nothing is
+                imputed.
+
+        Returns:
+            The physics keys (``max_wind_speed_kt``,
+            ``max_relative_vorticity_s1``, ``closed_circulation``) plus
+            ``neural_max_wind_kt``, ``neural_tc_probability`` (1 minus the
+            no-cyclone class probability), and ``neural_category``.
+        """
+        physics = self._analyze_wind_field(wind_field)
+        if not isinstance(wind_field, dict):
+            return physics
+        u = np.asarray(wind_field.get("u", []), dtype=np.float32)
+        v = np.asarray(wind_field.get("v", []), dtype=np.float32)
+        if u.ndim == 2:
+            u, v = u[None], v[None]
+        if (
+            u.ndim != 3
+            or u.shape != v.shape
+            or u.size == 0
+            or not (np.isfinite(u).all() and np.isfinite(v).all())
+        ):
+            return physics
+
+        frames = np.stack([u, v, np.hypot(u, v)], axis=1)  # (T, 3, H, W)
+        tensor = torch.from_numpy(frames).unsqueeze(0)  # (1, T, 3, H, W)
+        assert self.wind_analyzer is not None, "wind analyzer must be initialized"
+        self.wind_analyzer.eval()
+        with torch.no_grad():
+            max_wind, category_logits = self.wind_analyzer(tensor)
+            probs = torch.softmax(category_logits[0], dim=-1)
+        neural_kt = float(max_wind[0, 0])
+        tc_probability = float(1.0 - probs[0])
+        category = NEURAL_CATEGORY_ORDER[int(torch.argmax(probs))]
+        return {
+            **physics,
+            "max_wind_speed_kt": max(neural_kt, physics["max_wind_speed_kt"]),
+            "neural_max_wind_kt": neural_kt,
+            "neural_tc_probability": tc_probability,
+            "neural_category": category,
         }
 
     @staticmethod

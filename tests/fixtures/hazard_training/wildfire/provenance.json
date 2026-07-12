@@ -1,0 +1,13 @@
+{
+  "notes": "Rows are byte-exact lines from the source file (no reformatting). All values are real satellite measurements; nothing is synthesized.",
+  "retrieved_utc": "2026-07-10",
+  "rows": 524,
+  "selection": [
+    "acq_date in [2023-08-14, 2023-08-31] AND latitude in [40.5, 40.9) AND longitude in [-123.7, -123.3): the August 2023 lightning-complex fire cluster in the Six Rivers National Forest area (growth, decay, and resurgence morphology; includes low-confidence rows so the confidence filter is exercised)",
+    "acq_date == 2023-08-14 AND type == 2 AND latitude in [39.0, 40.0) AND longitude in [-119.5, -119.0): one non-vegetation (type-2 static-source) detection inside the CA bbox, exercising the type filter",
+    "acq_date in [2023-08-14, 2023-08-31] AND latitude in [42.1, 42.6) AND longitude in [-124.5, -122.5): Oregon detections north of the CA bbox, exercising the bbox filter"
+  ],
+  "source_description": "NASA FIRMS VIIRS-SNPP science-quality active-fire detections, United States, 2023 (keyless country archive; no MAP_KEY used)",
+  "source_sha256": "d419abfb7d39d8040fd4487aee7e8003b1940ae5eb0cd95aa244cd7e303d4b4d",
+  "source_url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2023/viirs-snpp_2023_United_States.csv"
+}

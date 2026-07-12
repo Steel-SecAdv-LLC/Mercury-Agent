@@ -1,0 +1,23 @@
+{
+  "source_url": "https://www.ndbc.noaa.gov/data/historical/dart/21419t2011.txt.gz",
+  "source_sha256": "5baa80657611b298e8465d556ec7da31e6879df8eff1f84932c050bc2e713628",
+  "description": "Byte-exact row excerpts from the real NOAA NDBC DART historical bottom-pressure archive for station 21419 (KURIL ISLANDS - 209NM SE of Kuril Is., DART II), year 2011. Both excerpts keep the two '#' header lines and every archive row (all T modes, including 9999.000 sentinels) inside their UTC date spans.",
+  "files": {
+    "21419t2011_jan01-09_excerpt.txt.gz": {
+      "selection": "rows with month=01 and day 01..09 (quiet tidal span incl. the Jan 8 19:15-20:00 sentinel gap)",
+      "rows": 864,
+      "modes": {"1": 864}
+    },
+    "21419t2011_mar10-12_excerpt.txt.gz": {
+      "selection": "rows with month=03 and day 10..12 (2011-03-11 Tohoku tsunami: event-mode T=2/3 rows and the blanked standard-mode stream)",
+      "rows": 2344,
+      "modes": {"1": 288, "2": 2040, "3": 16}
+    }
+  },
+  "label": {
+    "source_url": "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events/5413/runups?itemsPerPage=200&page=1",
+    "event": "NCEI HazEL tsunami event 5413 (2011-03-11 Tohoku, Japan, M9.1)",
+    "runup": "locationName 'D21419 BPR, 209 NM S OF KURIL IS', typeMeasurementId 3, arrDay 11, arrHour 7, arrMin 6 (UTC), runupHt 0.54 m"
+  },
+  "generated_by": "gzip-recompressed line selection from the sha256-pinned source file cached by the tsunami_waveform fetch stage (data/hazard_training/tsunami_dart/dart/21419t2011.txt.gz)"
+}

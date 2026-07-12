@@ -25,8 +25,6 @@ Research sources:
 
 ⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
 flood warnings (NWS, USGS). Always defer to official flood warnings.
-
-Performance: Enhanced prediction via refactoring engine + dynamic optimization
 """
 
 from __future__ import annotations
