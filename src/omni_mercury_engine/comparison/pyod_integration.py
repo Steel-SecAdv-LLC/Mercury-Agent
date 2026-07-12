@@ -8,7 +8,7 @@ open-source competition under one protocol. It is consumed by
 ``benchmarks/competitive_benchmark.py`` (the ADBench head-to-head harness) and
 usable directly for ad-hoc comparisons.
 
-Design rules (honesty-by-construction):
+Design rules (transparent-by-construction):
 
 * **Library defaults only.** Every PyOD detector is instantiated with PyOD's
   own defaults; the single exception is fixing ``random_state`` for the
