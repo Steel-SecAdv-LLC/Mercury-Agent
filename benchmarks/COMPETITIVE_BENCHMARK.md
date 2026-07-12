@@ -165,7 +165,7 @@ python benchmarks/competitive_regression_guard.py --check
 
 ## Provenance
 
-- **ADBench git commit:** `ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8`
+- **Benchmark code commit (Mercury repo `git rev-parse HEAD`):** `ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8` — the dataset *content* is pinned by the per-dataset sha256 list, not a dataset-repo revision.
 - **seed:** 42  ·  **max_samples:** 10000  ·  **fusion_epochs:** 50
 - **versions:** python 3.11.15, numpy 2.4.6, torch 2.13.0+cu130, pyod 3.6.1, scikit-learn 1.9.0
 - **dataset source:** https://github.com/Minqi824/ADBench (MIT)

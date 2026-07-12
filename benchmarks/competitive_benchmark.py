@@ -442,6 +442,28 @@ def _run_mercury_fusion(
     }
 
 
+def _run_pyod_cell(
+    algo: Any, X_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, *, seed: int
+) -> dict[str, Any]:
+    """Run one PyOD baseline and reduce it to metrics inside the forked child.
+
+    Returning only the reduced ``_metrics`` dict (+ fit/score timings) instead of
+    the full score vector keeps the ``_run_cell`` process-boundary transfer tiny:
+    the raw scores are up to ``MAX_SAMPLES`` float64s per cell (57x6 baseline
+    cells), and the parent discards them after reducing anyway. An error/deferral
+    dict from ``run_pyod_baselines`` passes through unchanged; ``wall_seconds`` is
+    added by ``_run_cell`` on success.
+    """
+    res = run_pyod_baselines(X_train, X_test, algorithms=[algo], seed=seed)[algo.value]
+    if "scores" not in res:  # recorded error/deferral -- never dropped
+        return res
+    return {
+        **_metrics(y_test, res["scores"]),
+        "fit_seconds": res["fit_seconds"],
+        "score_seconds": res["score_seconds"],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-dataset evaluation
 # ---------------------------------------------------------------------------
@@ -489,18 +511,13 @@ def evaluate_dataset(
     # Each PyOD baseline gets its OWN capped cell so one slow detector (LOF/KNN
     # on the largest sets) defers alone instead of taking the whole row with it.
     for algo in DEFAULT_BASELINES:
-        cell = _run_cell(
-            lambda a=algo: run_pyod_baselines(X_train, X_test, algorithms=[a], seed=seed)[a.value]
+        # Reduce to metrics INSIDE the forked child so only the small metrics
+        # dict crosses the multiprocessing Queue, never the full score vector.
+        # _run_cell attaches wall_seconds on success; an error/deferral cell
+        # (from the timeout guard or run_pyod_baselines) passes through verbatim.
+        methods[algo.value] = _run_cell(
+            lambda a=algo: _run_pyod_cell(a, X_train, X_test, y_test, seed=seed)
         )
-        if "scores" in cell:
-            methods[algo.value] = {
-                **_metrics(y_test, cell["scores"]),
-                "fit_seconds": cell["fit_seconds"],
-                "score_seconds": cell["score_seconds"],
-                "wall_seconds": cell.get("wall_seconds"),
-            }
-        else:  # error or deferral -- recorded verbatim, never dropped
-            methods[algo.value] = cell
 
     row["methods"] = methods
     aucs = {

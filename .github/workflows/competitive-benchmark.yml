@@ -69,8 +69,16 @@ jobs:
       - name: Cache ADBench datasets
         uses: actions/cache@v6
         with:
-          path: data/adbench
-          key: adbench-classical-v1
+          # Cache the Classical NPZs AND the CV/NLP embedding NPZs
+          # (competitive_benchmark.py --quick downloads the latter under
+          # data/adbench_embeddings/); without it the scheduled lane re-downloads
+          # every run. Key bumped so the embeddings directory is populated once.
+          path: |
+            data/adbench
+            data/adbench_embeddings
+          key: adbench-classical-embeddings-v2
+          restore-keys: |
+            adbench-classical-
 
       - name: Install dependencies (core + ML + PyOD benchmark extra)
         run: |

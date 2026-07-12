@@ -9,7 +9,7 @@ This test exists because two real wiring gaps were found and fixed:
    reached the loader.
 2. **Never injected.** None of the data-source secrets were referenced by any
    workflow, so every keyed domain loader ran without credentials in CI and its
-   live-wiring test silently skipped or fail-softed.
+   live-wiring test silently skipped or degraded to a soft failure.
 
 The checks are deliberately **hermetic** -- they read source files and the
 workflow YAML rather than importing the engine, so the guard runs in every CI
@@ -140,10 +140,14 @@ class TestFallbackBehaviour:
     """Behavioural check of the base-loader fallback (guarded on optional deps)."""
 
     def test_wildfire_resolves_firms_secret_name(self, monkeypatch: Any, tmp_path: Path) -> None:
-        pytest.importorskip("torch")  # loaders package eagerly imports torch-gated detectors
+        # Importing the loaders package can fail for "environment not provisioned"
+        # reasons only: the native-crypto PQC import gate raises RuntimeError, and
+        # optional deps the loaders pull in transitively raise ImportError. Skip
+        # for those; re-raise anything else so a genuine regression (NameError,
+        # SyntaxError, ...) fails loudly instead of being masked as a skip.
         try:
             from omni_mercury_engine.loaders.wildfire_loader import WildfireLoader
-        except Exception as exc:  # pragma: no cover - native crypto backend absent locally
+        except (ImportError, RuntimeError) as exc:  # optional dep / PQC gate absent
             pytest.skip(f"engine import unavailable: {exc}")
         monkeypatch.delenv("NASA_FIRMS_MAP_KEY", raising=False)
         monkeypatch.setenv("FIRMS_MAP_KEY", "firms-secret-value")
