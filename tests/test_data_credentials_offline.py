@@ -100,3 +100,65 @@ def test_checkers_surface_http_status_on_real_http_error(
     ok, detail = getattr(mod, checker)("dummy-key")
     assert ok is False
     assert detail.startswith("HTTP 401")
+
+
+# --- Credential redaction: a transport error must never leak the key ----------
+
+_SECRET = "SUPERSECRETKEY12345"
+
+
+class TestRedaction:
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            f"?api_key={_SECRET}&frequency=hourly",
+            f"?apikey={_SECRET}",
+            f"?appid={_SECRET}&q=London",
+            f"?token={_SECRET}",
+            f"&password={_SECRET}&x=1",
+            f"?API_KEY={_SECRET}",  # case-insensitive
+        ],
+    )
+    def test_redact_strips_credential_query_values(self, mod: Any, raw: str) -> None:
+        out = mod._redact(raw)
+        assert _SECRET not in out, f"secret leaked through _redact: {out}"
+        assert "***" in out
+
+    def test_redact_preserves_non_credential_text(self, mod: Any) -> None:
+        assert mod._redact("host='api.eia.gov' port=443 frequency=hourly") == (
+            "host='api.eia.gov' port=443 frequency=hourly"
+        )
+
+    def test_fail_detail_does_not_leak_key_from_transport_error(self, mod: Any) -> None:
+        # A realistic requests transport error embeds the full URL incl. the key.
+        exc = (
+            "HTTPSConnectionPool(host='api.eia.gov', port=443): Max retries exceeded with url: "
+            f"/v2/electricity/rto/region-data/data/?api_key={_SECRET}&frequency=hourly "
+            "(Caused by NewConnectionError('Failed to establish a new connection'))"
+        )
+        detail = mod._fail_detail(0, exc.encode())
+        assert _SECRET not in detail, f"_fail_detail leaked the API key: {detail}"
+
+
+@pytest.mark.parametrize(
+    "checker",
+    ["check_eia", "check_fred", "check_nasa", "check_alpha_vantage", "check_openweathermap"],
+)
+def test_checkers_never_leak_key_on_transport_error(
+    mod: Any, monkeypatch: pytest.MonkeyPatch, checker: str
+) -> None:
+    """No keyed checker may echo the credential value into its report line."""
+    leak = (
+        "Max retries exceeded with url: /path?api_key="
+        + _SECRET
+        + "&apikey="
+        + _SECRET
+        + "&appid="
+        + _SECRET
+        + "&token="
+        + _SECRET
+    )
+    monkeypatch.setattr(mod, "_get", lambda *a, **k: (0, leak.encode()))
+    ok, detail = getattr(mod, checker)(_SECRET)
+    assert ok is False
+    assert _SECRET not in detail, f"{checker} leaked the credential: {detail}"

@@ -21,11 +21,27 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.parse
 from typing import Any
 
 import requests
+
+#: Query-string parameters that carry a credential value. ``requests`` transport
+#: errors embed the full request URL, so a raw exception string can leak the key
+#: (e.g. ``?api_key=SECRET``) into CI logs. :func:`_redact` strips these values
+#: before any diagnostic is returned or printed, honouring this module's
+#: "secret VALUES are never printed" contract.
+_CREDENTIAL_QUERY_PARAM = re.compile(
+    r"(?i)((?:api[_-]?key|app[_-]?id|appid|access[_-]?key|token|password|passwd|secret|key)=)"
+    r"[^&\s\"'<>]+"
+)
+
+
+def _redact(text: str) -> str:
+    """Replace the value of any credential-bearing query parameter with ``***``."""
+    return _CREDENTIAL_QUERY_PARAM.sub(r"\1***", text)
 
 
 def _get(url: str, timeout: int = 30) -> tuple[int, bytes]:
@@ -47,6 +63,10 @@ def _fail_detail(status: int, body: bytes) -> str:
     error we report the status plus a short body preview (which for these APIs is
     typically the provider's own error message, e.g. an invalid-key JSON).
 
+    The text is passed through :func:`_redact` first: a ``requests`` transport
+    error embeds the full request URL, whose query string carries the API key, so
+    the raw string is scrubbed of credential values before it can reach a log.
+
     Args:
         status: The status code from :func:`_get` (``0`` means transport error).
         body: The response body, or the transport exception text when ``status``
@@ -55,7 +75,7 @@ def _fail_detail(status: int, body: bytes) -> str:
     Returns:
         A single-line, non-sensitive diagnostic suitable for the CI report.
     """
-    text = body.decode(errors="replace").strip()
+    text = _redact(body.decode(errors="replace").strip())
     if status == 0:
         return f"transport error: {text[:200]}" if text else "transport error (no detail)"
     return f"HTTP {status}" + (f": {text[:160]}" if text else "")
@@ -225,7 +245,7 @@ CHECKS: dict[str, tuple[tuple[str, ...], Any]] = {
 
 
 def run() -> int:
-    """Run every keyed data-source delivery check; return the failure count as exit code."""
+    """Run every keyed data-source delivery check; exit 1 if any present key fails, else 0."""
     print("=== Mercury data-source credential delivery check ===")
     failures = 0
     for name, (env_vars, checker) in CHECKS.items():

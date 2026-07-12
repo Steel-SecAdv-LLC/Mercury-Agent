@@ -43,9 +43,16 @@ per-alert root-cause notes, sandbox deployment steps and validation artifacts in
   error text when the status is `0`, and appends a short provider-body preview
   (typically the API's own error message) on a real HTTP error; every keyed
   checker (EIA/FRED/NASA/AlphaVantage/OpenWeatherMap) routes its non-200 path
-  through it. New offline suite `tests/test_data_credentials_offline.py` (15
-  cases) drives each checker through a monkeypatched `_get` and asserts the
-  transport reason reaches the report and `"HTTP 0"` never does.
+  through it. **Because a `requests` transport error embeds the full request URL
+  (whose query string carries the API key), the surfaced text is first scrubbed
+  by a new `_redact()` helper** — the value of any credential-bearing query
+  parameter (`api_key`/`apikey`/`appid`/`token`/`password`/`secret`/`key`) is
+  replaced with `***`, so the fix cannot leak a secret into CI logs (honouring the
+  module's "secret values are never printed" contract). `run()`'s docstring was
+  also corrected to match its actual exit-code contract (1 on any failure, else
+  0). New offline suite `tests/test_data_credentials_offline.py` (28 cases) drives
+  each checker through a monkeypatched `_get` and asserts the transport reason
+  reaches the report, `"HTTP 0"` never does, and the key is never echoed.
 - **A broad `except` in the secret-wiring guard could mask a real regression.**
   `tests/test_secret_wiring.py`'s behavioural loader check caught every
   `RuntimeError` on engine import and skipped, so a non-PQC `RuntimeError` from a
