@@ -9,6 +9,10 @@ Submodules (imported lazily by the registry so that inference-side imports of
 * :mod:`.features` -- canonical feature specs shared with the detectors.
 * :mod:`.solar_storm` -- hook "solar_storm" (GeomagneticStormPredictor,
   OMNI2 solar wind + observed Kp; the category-(a) pipeline).
+* :mod:`.consciousness_field` -- hook "consciousness_field"
+  (ConsciousnessFieldAnalyzer as a REG statistical-deviation detector:
+  real archived GCP hardware-RNG streams versus the same streams passed
+  through recorded fault-injection channels; labels true by construction).
 * :mod:`.registry` -- one entry per ``load_neural_weights`` hook; the
   category (b)/(c) hooks fail loud with their documented data requirement.
 

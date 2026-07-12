@@ -9,7 +9,7 @@ Comprehensive volcanic hazard detection for humanitarian early warning:
 - Ground deformation (InSAR interferometry)
 - Ash dispersion modeling
 - Eruption forecasting with machine learning
-- Ancient pattern correlation (Schumann ELF + volcanic activity)
+- ELF electromagnetic correlation (exploratory)
 
 Integrations:
 - Seismic detectors for volcano-tectonic (VT) earthquakes
@@ -28,8 +28,6 @@ Research sources:
 
 ⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
 volcano observatories (USGS, PHIVOLCS, etc.). Always defer to official warnings.
-
-Performance: 25-35% faster alerts via HAT-CN-AD multi-scale fusion + GWO optimization
 """
 
 from __future__ import annotations
@@ -821,6 +819,14 @@ class VolcanicEruptionDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Ratified eruption-alert operating point carried by trained
+        # checkpoints (see volcanic_eruption._select_operating_point): the
+        # eruption-head probability drives the eruption_imminent DECISION via
+        # a validation-selected threshold. Decision only -- the emitted
+        # confidence is never rescaled by it. None until a checkpoint that
+        # declares one is loaded (the legacy fixed 0.7 rule applies then).
+        self._operating_point: dict[str, float] | None = None
+
         # HMM for volcanic state transitions
         self.state_hmm = VolcanicStateHMM() if enable_hmm else None
 
@@ -831,7 +837,7 @@ class VolcanicEruptionDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the eruption + seismic-swarm networks.
 
         Until this is called the networks are untrained and the detector runs on
@@ -839,17 +845,54 @@ class VolcanicEruptionDetector:
         Calling this with a genuine checkpoint flips ``_neural_trained`` on so the
         learned models drive the forecast.
 
+        SCOPE of the shipped default (``volcanic_avo_seismic``): trained ONLY
+        for the named Alaska/AVO-monitored volcanoes recorded in the
+        checkpoint's ``volcanoes`` list (see its provenance sidecar), from
+        their local AV-network seismic stations. It is NOT a universal
+        eruption forecaster; the ``fused_features`` input must follow the
+        checkpoint's ``feature_spec`` (``volcano-seismic-v1``: standardized
+        with the shipped ``feature_mean``/``feature_std``).
+
         Args:
             checkpoint_path: Path to a torch checkpoint with ``eruption_model``
-                (and optionally ``seismic_detector``) state dicts.
+                (and optionally ``seismic_detector``) state dicts. ``None``
+                loads the shipped default checkpoint (``volcanic_avo_seismic``),
+                whose provenance sidecar is logged; missing or corrupt files
+                raise instead of degrading silently.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("volcanic_avo_seismic")
+            source = "shipped default 'volcanic_avo_seismic'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.eruption_model.load_state_dict(checkpoint["eruption_model"])
         if self.seismic_detector is not None and "seismic_detector" in checkpoint:
             self.seismic_detector.load_state_dict(checkpoint["seismic_detector"])
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["eruption_prob_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating-point threshold {tau} is not a "
+                    "probability; refusing a nonsensical eruption-alert rule"
+                )
+            self._operating_point = {"eruption_prob_threshold": tau}
         self._neural_trained = True
         self.logger.info(
-            "Volcanic neural weights loaded from %s; using learned forecast", checkpoint_path
+            "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s%s); "
+            "using learned forecast",
+            source,
+            checkpoint.get("feature_spec", "unknown"),
+            ", ".join(checkpoint.get("volcanoes", [])) or "unspecified",
+            (
+                f"; eruption-alert operating point tau="
+                f"{self._operating_point['eruption_prob_threshold']:.4f}"
+                if self._operating_point is not None
+                else "; no operating point (legacy fixed 0.7 rule)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -1079,7 +1122,9 @@ class VolcanicEruptionDetector:
             schumann_corr = self._correlate_schumann_elf(volcano_data["schumann_elf"])
             result.schumann_elf_correlation = schumann_corr
             if schumann_corr > 0.6:
-                indicators_detected += 0.5  # Ancient pattern bonus
+                # ELF correlation contributes a bounded 0.5 indicator bonus
+                # (exploratory evidence)
+                indicators_detected += 0.5
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}
@@ -1217,7 +1262,10 @@ class VolcanicEruptionDetector:
     def _correlate_schumann_elf(self, schumann_data: np.ndarray[Any, Any]) -> float:
         """Correlate Schumann ELF anomalies with volcanic activity.
 
-        Ancient wisdom: Earth's "hum" changes before major geological events.
+        Evidence status: Schumann/ELF anomalies preceding eruptions have been
+        reported in the literature but are not validated precursors. This
+        correlation is EXPLORATORY and its contribution to detection is
+        bounded (at most a 0.5 indicator bonus).
         """
         elf_mean = np.mean(schumann_data)
         elf_std = np.std(schumann_data)
@@ -1249,11 +1297,20 @@ class VolcanicEruptionDetector:
             self.eruption_model.eval()
             with torch.no_grad():
                 eruption_prob, vei_logits, time_norm = self.eruption_model(features_tensor)
+            prob = float(eruption_prob[0].item())
+            # The eruption_imminent DECISION uses the checkpoint-carried
+            # validation-selected operating point when one was loaded
+            # (decision only: the confidence stays the raw head probability);
+            # checkpoints without one keep the legacy fixed 0.7 rule.
+            if self._operating_point is not None:
+                imminent = prob >= self._operating_point["eruption_prob_threshold"]
+            else:
+                imminent = prob > 0.7
             vei_estimate = int(torch.argmax(torch.softmax(vei_logits[0], dim=0)).item())
             eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
             return {
-                "eruption_imminent": float(eruption_prob[0].item()) > 0.7,
-                "confidence": float(eruption_prob[0].item()),
+                "eruption_imminent": imminent,
+                "confidence": prob,
                 "time_to_eruption_hours": float(time_norm[0].item()) * 168.0,
                 "vei_estimate": vei_estimate,
                 "eruption_type": eruption_types[min(vei_estimate // 2, 3)],

@@ -1,0 +1,955 @@
+{
+  "constraints": [
+    {
+      "description": "disturbed-hour detection recall at each path's deployed decision rule must not regress below physics",
+      "higher_is_better": true,
+      "metric": "disturbed_recall_op"
+    },
+    {
+      "description": "quiet-hour false-alarm rate at each path's deployed decision rule must not exceed physics",
+      "higher_is_better": false,
+      "metric": "false_alarm_rate_op"
+    },
+    {
+      "description": "hour-level anomaly-type agreement with the derived labels must not regress below the physics assessment",
+      "higher_is_better": true,
+      "metric": "four_class_accuracy"
+    }
+  ],
+  "extras": {
+    "auc_diff_bootstrap_ci95": {
+      "ci95_high": 0.25675677013600007,
+      "ci95_low": 0.1315319466894555,
+      "mean": 0.19438528227943253,
+      "n_resamples": 1000,
+      "n_valid": 1000,
+      "seed": 20260709
+    },
+    "calibration_note": "signals are raw ADC counts (station response ~flat 6-25 Hz per the published docs); the only conditioning is per-window mean removal, applied identically to both paths -- the detector max-normalizes its spectrum so absolute gain cancels, but an unremoved DC offset would dominate that normalization; the class rule's amplitude feature deliberately uses the raw |fft|^2/n periodogram to retain absolute scale",
+    "class_counts": {
+      "test": {
+        "amplitude": 141,
+        "combined": 6,
+        "frequency": 86,
+        "normal": 352
+      },
+      "train": {
+        "amplitude": 107,
+        "combined": 1,
+        "frequency": 94,
+        "normal": 304
+      },
+      "val": {
+        "amplitude": 236,
+        "combined": 2,
+        "frequency": 138,
+        "normal": 563
+      }
+    },
+    "class_rule": "quiet (Kp<=2) -> normal; disturbed (Kp>=5) sub-typed against the train-years quiet climatology (mean/std over train quiet hours of hour-mean log10 band power 5-40 Hz and hour-mean 6-10 Hz spectral centroid, raw periodogram |fft|^2/n of demeaned windows): z_amp=|dlog_bp|/sigma, z_freq=|dcentroid|/sigma; both>2 -> combined, z_freq>2 -> frequency, z_amp>2 -> amplitude, else the larger z decides (amplitude on ties); 2<Kp<5 hours are excluded entirely.",
+    "climatology": {
+      "centroid_hz_mean": 8.137068740231006,
+      "centroid_hz_std": 0.08588631973470387,
+      "log_band_power_mean": 6.760019047253523,
+      "log_band_power_std": 0.24183511232760502,
+      "n_train_quiet_hours": 304
+    },
+    "comparison": "identical held-out Sierra Nevada hours (12 conditioned windows each) through SchumannResonanceDetector.detect_resonance_anomaly at fs=256 Hz; physics = untrained deterministic FFT assessment, learned = same detector after load_neural_weights(candidate)",
+    "decision_rule": "hour flagged disturbed when >=50% of its 12 windows report anomaly_detected under the path's OWN deployed rule -- physics: deterministic spectral flags; learned: confidence > tau from the checkpoint's validation-selected operating point; hour score = mean window confidence; hour type = majority vote (ties to the lower class index)",
+    "median_inference_latency_ms": {
+      "learned": 1.4856840000447846,
+      "n_runs": 100,
+      "physics": 0.17397750002601242
+    },
+    "model_parameter_count": 138041,
+    "named_validation_storms_note": "the 2015-03-17 St Patrick's Day G4 and 2015-06-22 G4 storms fall in the 2015 validation year by construction of the temporal split; they informed early stopping and operating-point selection only, never the merit-gate metrics -- their hit table above is diagnostic",
+    "operating_point": {
+      "detection_threshold": 0.351118476013653,
+      "far_ceiling": 0.8,
+      "policy": "learned window decision is confidence>tau, hour flagged when >= 0.5 of its windows fire; tau maximizes val CSI subject to val recall >= max(physics val recall, 0.5) AND val FAR <= 0.8 * physics val FAR",
+      "recall_floor": 1.0,
+      "recall_floor_met": false,
+      "val_csi": 0.3898305084745763,
+      "val_far": 0.7992895204262878,
+      "val_far_physics": 1.0,
+      "val_recall": 0.8563829787234043,
+      "val_recall_physics": 1.0
+    },
+    "per_storm_hits_test_years": [
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 8,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-01-01T00:56:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-01-21T03:19:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-02-08T00:17:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-02-16T12:16:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-02-17T21:16:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7777777777777778,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-03-06T15:15:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.3333333333333333,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-03-11T12:14:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-03-14T21:37:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-03-15T18:37:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-04-02T15:36:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-04-07T21:35:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-04-12T21:35:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-05-02T00:29:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.875,
+        "n_hours_sampled": 24,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-05-08T00:29:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7777777777777778,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-06-05T12:11:00+00:00"
+      },
+      {
+        "learned_hit": false,
+        "learned_hour_fraction": 0.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-06-14T18:10:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.3333333333333333,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-07-19T21:14:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.4444444444444444,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-08-02T21:12:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.16666666666666666,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-08-23T18:11:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-09-01T21:10:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-09-02T21:10:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8888888888888888,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-09-27T00:08:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8,
+        "n_hours_sampled": 15,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-09-28T15:07:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-09-30T18:07:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-10-04T03:07:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-10-13T15:06:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-10-16T18:06:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7916666666666666,
+        "n_hours_sampled": 24,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-10-25T09:05:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-10-29T00:05:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2016-12-21T15:30:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2017-02-01T15:11:00+00:00"
+      }
+    ],
+    "per_storm_hits_validation_diagnostic": [
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-01-04T15:27:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-01-07T06:27:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 5,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-02-01T21:51:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 5,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-02-17T21:50:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 5,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-02-24T00:50:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 8,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-03-01T00:49:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 2,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-03-02T06:49:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 27,
+        "name": "St Patrick's Day storm (G4)",
+        "noaa_scale_sampled": "G4",
+        "peak_kp_sampled": 7.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-03-17T06:24:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-03-19T09:23:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-03-22T06:23:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-04-10T00:22:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-04-15T09:21:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-04-16T18:21:00+00:00"
+      },
+      {
+        "learned_hit": false,
+        "learned_hour_fraction": 0.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-05-06T12:19:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.9166666666666666,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-05-13T00:18:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-05-18T21:18:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7777777777777778,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-06-08T06:16:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.75,
+        "n_hours_sampled": 24,
+        "name": "22-23 June 2015 storm (G4)",
+        "noaa_scale_sampled": "G4",
+        "peak_kp_sampled": 8.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-06-22T15:14:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-06-25T06:14:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8333333333333334,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-07-04T18:13:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-07-13T03:12:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.3333333333333333,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 5.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-07-13T18:12:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-07-23T06:11:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-08-07T12:10:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.5,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-08-15T09:09:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-08-23T06:08:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-08-27T03:08:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8666666666666667,
+        "n_hours_sampled": 15,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-08-27T21:08:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 15,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-09-07T15:07:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7222222222222222,
+        "n_hours_sampled": 18,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-09-09T03:07:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.75,
+        "n_hours_sampled": 12,
+        "name": null,
+        "noaa_scale_sampled": "G3",
+        "peak_kp_sampled": 7.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-09-11T06:06:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.8888888888888888,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G3",
+        "peak_kp_sampled": 7.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-09-20T06:05:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-10-05T09:04:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 30,
+        "name": null,
+        "noaa_scale_sampled": "G3",
+        "peak_kp_sampled": 7.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-10-07T03:04:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.6666666666666666,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-10-12T15:03:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-03T06:01:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.7777777777777778,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-04T03:01:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 6,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-07T03:01:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 9,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-10T06:01:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 3,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-18T21:00:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 2,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-11-30T06:59:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 2,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-12-10T03:58:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 1.0,
+        "n_hours_sampled": 2,
+        "name": null,
+        "noaa_scale_sampled": "G1",
+        "peak_kp_sampled": 5.333,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-12-14T21:57:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.88,
+        "n_hours_sampled": 25,
+        "name": null,
+        "noaa_scale_sampled": "G3",
+        "peak_kp_sampled": 6.667,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-12-20T03:57:00+00:00"
+      },
+      {
+        "learned_hit": true,
+        "learned_hour_fraction": 0.75,
+        "n_hours_sampled": 8,
+        "name": null,
+        "noaa_scale_sampled": "G2",
+        "peak_kp_sampled": 6.0,
+        "physics_hit": true,
+        "physics_hour_fraction": 1.0,
+        "start_utc": "2015-12-31T12:56:00+00:00"
+      }
+    ],
+    "temporal_path_note": "the LSTM temporal path was trained with an auxiliary loss over each hour's window-spectrum sequence; the deployed/evaluated decision is the spectrum-only path (temporal_history=None)",
+    "test_disturbed_fraction": 0.39829059829059826,
+    "window_derivation": "fs=256 Hz; neural input = first 512 one-sided FFT bins spanning 512*fs/n Hz; covering the 5-40 Hz Schumann band requires n <= 3276; n=3072 (12.0 s) gives df=1/12 Hz and 0-42.67 Hz coverage of all five modes (7.8/14.3/20.8/27.3/33.8 Hz); 12 windows/hour, 64 s apart, from the first ~12.2 min of each hour file (prefix-only ranged fetches)"
+  },
+  "failed_constraints": [
+    {
+      "description": "disturbed-hour detection recall at each path's deployed decision rule must not regress below physics",
+      "higher_is_better": true,
+      "learned": 0.7896995708154506,
+      "metric": "disturbed_recall_op",
+      "physics": 1.0
+    }
+  ],
+  "higher_is_better": true,
+  "hook": "schumann_harmonics",
+  "learned": {
+    "confidence_brier": 0.23766836547220407,
+    "disturbed_auc": 0.5684134802965275,
+    "disturbed_recall_op": 0.7896995708154506,
+    "false_alarm_rate_op": 0.6875,
+    "four_class_accuracy": 0.6017094017094017
+  },
+  "learned_beats_physics": false,
+  "n_test_samples": 585,
+  "physics": {
+    "confidence_brier": 0.281294617252295,
+    "disturbed_auc": 0.3738112075692548,
+    "disturbed_recall_op": 1.0,
+    "false_alarm_rate_op": 1.0,
+    "four_class_accuracy": 0.24273504273504273
+  },
+  "primary_metric": "disturbed_auc",
+  "primary_metric_wins": true,
+  "test_years": [
+    2016,
+    2017
+  ]
+}

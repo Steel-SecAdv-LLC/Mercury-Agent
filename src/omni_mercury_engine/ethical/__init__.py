@@ -84,18 +84,19 @@ from omni_mercury_engine.ethical.ethical_alignment_engine import (
 )
 from omni_mercury_engine.ethical.ethical_constraint_engine import (
     AthenaWisdomEngine,
+    GeometricPattern,
     ImmutableGeometryProcessor,
     ImmutableWisdomEngine,
     MaatBalanceEngine,
     TwelveFoldVerificationSystem,
     VerificationDimension,
-    WisdomArchetype,
 )
 
 __all__ = [
     "AlignmentArchetype",
     "AthenaWisdomEngine",
     "EthicalViolation",
+    "GeometricPattern",
     "GeometricPatternProcessor",
     "ImmutableGeometryProcessor",
     "ImmutableWisdomEngine",
@@ -105,5 +106,4 @@ __all__ = [
     "StrategicEngine",
     "TwelveFoldVerificationSystem",
     "VerificationDimension",
-    "WisdomArchetype",
 ]

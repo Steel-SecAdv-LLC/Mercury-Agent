@@ -16,7 +16,7 @@ Key Features:
 - Multi-harmonic anomaly detection
 - Temporal correlation with geophysical events
 - Amplitude and frequency deviation tracking
-- Neurosymbolic correlation with ancient knowledge
+- Cyclic geophysical correlation (lunar tidal / solar cycle, exploratory)
 - Golden ratio optimization for resonance detection
 - O(n log n) complexity via FFT
 
@@ -93,7 +93,7 @@ class SchumannAnomalyResult:
     temporal_pattern: dict[str, Any] | None = None
 
     recommendations: list[str] = field(default_factory=list)
-    ancient_correlation: dict[str, Any] | None = None
+    cycle_correlation: dict[str, Any] | None = None
 
     # Live-ingestion provenance (populated only by detect_live()).
     source_id: str | None = None
@@ -209,7 +209,7 @@ class SchumannResonanceDetector:
     def __init__(
         self,
         sampling_rate: float = 100.0,
-        enable_ancient_correlation: bool = True,
+        enable_cycle_correlation: bool = True,
         golden_ratio_thresholds: bool = True,
         data_source: BGSELFStationSource | None = None,
         keep_diagnostics: bool = False,
@@ -229,7 +229,8 @@ class SchumannResonanceDetector:
 
         Args:
             sampling_rate: ELF data sampling rate (Hz)
-            enable_ancient_correlation: Correlate with ancient solar/lunar cycles
+            enable_cycle_correlation: Correlate with cyclic geophysical periods
+                (lunar tidal / solar cycle); exploratory context only
             golden_ratio_thresholds: Use φ-optimized detection thresholds
             data_source: Optional BGS ELF station client for the live path.
             keep_diagnostics: When True, each anomaly result carries the
@@ -245,7 +246,7 @@ class SchumannResonanceDetector:
             )
         self.logger = logging.getLogger(__name__)
         self.sampling_rate = sampling_rate
-        self.enable_ancient_correlation = enable_ancient_correlation
+        self.enable_cycle_correlation = enable_cycle_correlation
         self.golden_ratio = 1.618 if golden_ratio_thresholds else 1.0
         self._elf_source = data_source
         self.keep_diagnostics = keep_diagnostics
@@ -261,8 +262,16 @@ class SchumannResonanceDetector:
         # deterministic FFT-physics assessment instead (see _physics_assessment).
         self._neural_trained = False
         self._warned_untrained = False
+        # Ratified operating point for the learned path's anomaly_detected
+        # decision (validation-selected threshold carried by the training
+        # pipeline's checkpoint payload -- see schumann_harmonics.py
+        # _select_operating_point, mirroring the solar-storm/tsunami policy).
+        # None (untrained, bare state_dicts, or pre-convention checkpoints)
+        # keeps the historical behavior: anomaly_detected stays the
+        # deterministic physics flags on every path.
+        self._operating_point: dict[str, float] | None = None
 
-        self.ancient_knowledge = self._initialize_ancient_correlations()
+        self.geophysical_cycles = self._initialize_cycle_correlations()
 
         self.omni_resonance_scalars = {
             "omni_electromagnetic_harmony": 1.46 * self.golden_ratio,
@@ -272,7 +281,7 @@ class SchumannResonanceDetector:
             "omni_space_weather_correlation": 1.40 * self.golden_ratio,
             "omni_frequency_stability": 1.38 * self.golden_ratio,
             "omni_amplitude_sensitivity": 1.43 * self.golden_ratio,
-            "omni_ancient_wisdom_alignment": 1.37 * self.golden_ratio,
+            "omni_geophysical_cycle_alignment": 1.37 * self.golden_ratio,
         }
 
         self.logger.info(f"Schumann Resonance Detector initialized (fs={sampling_rate}Hz)")
@@ -289,11 +298,20 @@ class SchumannResonanceDetector:
         """
         return self.schumann_frequencies[0]
 
-    def _initialize_ancient_correlations(self) -> dict[str, Any]:
-        """Initialize ancient knowledge correlations.
+    def _initialize_cycle_correlations(self) -> dict[str, Any]:
+        """Initialize cyclic geophysical correlation references (EXPLORATORY).
 
-        Ancient civilizations observed natural cycles that correlate with electromagnetic phenomena.
-        This establishes symbolic connections for neurosymbolic reasoning.
+        Reference periods for lunar tidal and solar-cycle correlation checks,
+        used as symbolic context for neurosymbolic reasoning.
+
+        Evidence status: tidal (lunar) triggering of seismicity has been
+        reported but the effect is small and contested for forecasting
+        (Cochran, Vidale & Tanaka 2004, Science 306:1164-1166; Ide, Yabe &
+        Tanaka 2016, Nature Geoscience 9:834-837). Solar-cycle modulation of
+        geomagnetic activity is well established, but neither correlation is
+        a validated earthquake/eruption predictor. These correlations are
+        tracked as exploratory context only and do not alter the detection
+        computation.
         """
         return {
             "solar_cycles": {
@@ -307,10 +325,11 @@ class SchumannResonanceDetector:
                 "draconic_month": 27.21,
                 "note": "Lunar position affects Earth's magnetosphere",
             },
-            "ancient_observations": {
+            "calendar_cycles": {
                 "egyptian_sirius_cycle": 365.25,
                 "mayan_tzolkin": 260.0,
-                "note": "Ancient calendars tracked celestial/terrestrial harmonics",
+                "note": "Historical calendar periods (Sothic/tropical year, Tzolk'in) "
+                "kept as long-period references",
             },
             "resonance_ratios": {
                 "golden_ratio": 1.618,
@@ -370,6 +389,13 @@ class SchumannResonanceDetector:
             confidence_score = float(confidence[0].item())
             anomaly_types = ["normal", "amplitude", "frequency", "combined"]
             anomaly_type = anomaly_types[anomaly_class]
+            if self._operating_point is not None:
+                # Ratified deployed rule for the learned path: the DECISION is
+                # confidence > tau with the checkpoint's validation-selected
+                # threshold. Only anomaly_detected changes -- the confidence
+                # estimate and anomaly_type stay exactly what the network
+                # emitted (the merit gate evaluated this precise rule).
+                anomaly_detected = confidence_score > self._operating_point["detection_threshold"]
         else:
             # Untrained network -> do NOT present random outputs as signal.
             # Derive the type and confidence from the deterministic FFT physics.
@@ -402,9 +428,9 @@ class SchumannResonanceDetector:
             anomaly_type, risk_score, correlated_events
         )
 
-        ancient_correlation = None
-        if self.enable_ancient_correlation:
-            ancient_correlation = self._correlate_ancient_patterns(
+        cycle_correlation = None
+        if self.enable_cycle_correlation:
+            cycle_correlation = self._correlate_cycle_patterns(
                 fundamental_freq, temporal_pattern, metadata
             )
 
@@ -440,7 +466,7 @@ class SchumannResonanceDetector:
             correlated_events=correlated_events,
             temporal_pattern=temporal_pattern,
             recommendations=recommendations,
-            ancient_correlation=ancient_correlation,
+            cycle_correlation=cycle_correlation,
             diagnostics=diagnostics,
         )
 
@@ -491,23 +517,95 @@ class SchumannResonanceDetector:
         confidence = float(min(1.0, 0.6 * evidence + 0.4 * dev_term))
         return anomaly_type, confidence
 
-    def load_neural_weights(self, state_dict: dict[str, Any] | str) -> None:
+    def load_neural_weights(self, state_dict: dict[str, Any] | str | None = None) -> None:
         """Load trained weights for the CNN-LSTM analyser and enable it.
 
         Once trained weights exist (a labelled Schumann corpus is required to
         produce them honestly), this activates the learned classifier path in
         :meth:`detect_resonance_anomaly`.
 
+        Historically this hook loaded a bare ``state_dict`` (in memory or from
+        a path) directly into ``harmonic_analyzer`` with no dict-key wrapping,
+        unlike other hooks; that behavior is preserved. The training pipeline
+        (``ml/hazard_training/schumann_harmonics.py``) ships a *wrapped*
+        payload ``{"harmonic_analyzer": state_dict, "feature_spec": ...}``, so
+        an explicit-path load now accepts both shapes, and calling with no
+        argument loads the shipped ``schumann_sierra_nevada`` checkpoint
+        (provenance verified and logged by ``load_shipped_checkpoint``).
+
+        A wrapped payload may additionally carry a ratified
+        ``operating_point`` (the validation-selected decision threshold for
+        the learned path -- part of the deployed rule the merit gate
+        evaluated). It is validated BEFORE any state mutates and applied to
+        the ``anomaly_detected`` decision only; bare state_dicts and
+        pre-convention payloads keep the historical physics-flag decision.
+
         Args:
-            state_dict: An in-memory ``state_dict`` or a path to a saved one.
+            state_dict: An in-memory ``state_dict``, a path to a saved one
+                (bare or wrapped payload), or None to load the shipped
+                ``schumann_sierra_nevada`` checkpoint.
+
+        Raises:
+            FileNotFoundError: ``state_dict`` is None and no checkpoint has
+                been shipped.
+            RuntimeError: The checkpoint is corrupt, fails its provenance
+                sha256 pin, or does not match the analyser architecture.
+            ValueError: The payload carries an ``operating_point`` whose
+                detection threshold is not a probability in (0, 1) -- a
+                nonsensical decision rule must refuse, not load.
         """
-        loaded: Any = state_dict
-        if isinstance(state_dict, str):
-            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+        loaded: Any
+        operating_point: dict[str, float] | None = None
+        if state_dict is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            payload, _provenance = load_shipped_checkpoint("schumann_sierra_nevada")
+            loaded = payload["harmonic_analyzer"]
+            operating_point = self._validated_operating_point(payload.get("operating_point"))
+        else:
+            loaded = state_dict
+            if isinstance(state_dict, str):
+                loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+            if isinstance(loaded, dict) and "harmonic_analyzer" in loaded:
+                # Wrapped training-pipeline payload; a bare analyser state_dict
+                # only ever carries parameter names like "cnn_encoder.0.weight".
+                operating_point = self._validated_operating_point(loaded.get("operating_point"))
+                loaded = loaded["harmonic_analyzer"]
         self.harmonic_analyzer.load_state_dict(loaded)
         self.harmonic_analyzer.eval()
+        self._operating_point = operating_point
         self._neural_trained = True
-        self.logger.info("Schumann CNN-LSTM weights loaded; learned classifier enabled.")
+        self.logger.info(
+            "Schumann CNN-LSTM weights loaded; learned classifier enabled%s.",
+            (
+                f" (decision operating point tau=" f"{operating_point['detection_threshold']:.4f})"
+                if operating_point is not None
+                else " (no operating point; physics flags keep the decision)"
+            ),
+        )
+
+    @staticmethod
+    def _validated_operating_point(op: Any) -> dict[str, float] | None:
+        """Validate a payload's ``operating_point`` before any state mutates.
+
+        Args:
+            op: The payload's ``operating_point`` entry (or None).
+
+        Returns:
+            ``{"detection_threshold": tau}`` or None when absent.
+
+        Raises:
+            ValueError: ``tau`` is not a finite probability in (0, 1).
+        """
+        if op is None:
+            return None
+        tau = float(op["detection_threshold"])
+        if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+            raise ValueError(
+                f"checkpoint operating point detection threshold {tau} is not a "
+                "probability; refusing a nonsensical decision rule"
+            )
+        return {"detection_threshold": tau}
 
     def _compute_power_spectrum(
         self, elf_signal: np.ndarray[Any, Any]
@@ -689,13 +787,20 @@ class SchumannResonanceDetector:
 
         return recommendations[:6]
 
-    def _correlate_ancient_patterns(
+    def _correlate_cycle_patterns(
         self,
         fundamental_freq: float,
         temporal_pattern: dict[str, Any] | None,
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        """Correlate with ancient astronomical/geophysical cycles."""
+        """Correlate with cyclic geophysical periods (lunar tidal / solar cycle).
+
+        EXPLORATORY: the returned correlation is context only -- it does not
+        feed the anomaly decision or risk score. Tidal triggering of
+        seismicity is a small, contested effect (Cochran et al. 2004;
+        Ide et al. 2016) and solar-cycle modulation of geomagnetic activity,
+        while established, is not a validated event predictor.
+        """
         correlations: dict[str, list[str]] = {
             "detected_cycles": [],
             "symbolic_significance": [],
@@ -712,12 +817,15 @@ class SchumannResonanceDetector:
             if lunar_correlation:
                 correlations["detected_cycles"].append("Lunar cycle correlation")
                 correlations["symbolic_significance"].append(
-                    "Ancient lunar observations: Electromagnetic-gravitational coupling"
+                    "Measurement span near lunar tidal period (draconic 27.21 d / "
+                    "synodic 29.53 d); tidal triggering of seismicity is small and "
+                    "contested (exploratory)"
                 )
 
         if fundamental_freq > 7.83:
             correlations["symbolic_significance"].append(
-                "Elevated resonance: Potential increased solar activity (ancient solar tracking)"
+                "Elevated resonance: consistent with increased solar activity "
+                "(solar-cycle modulation of geomagnetic activity; exploratory)"
             )
 
         return correlations
@@ -857,7 +965,7 @@ def create_omni_resonance_scalars() -> dict[str, float]:
         "omni_space_weather_correlation": 1.40 * phi,
         "omni_frequency_stability": 1.38 * phi,
         "omni_amplitude_sensitivity": 1.43 * phi,
-        "omni_ancient_wisdom_alignment": 1.37 * phi,
+        "omni_geophysical_cycle_alignment": 1.37 * phi,
         "omni_waveguide_propagation": 1.39 * phi,
         "omni_solar_modulation": 1.41 * phi,
     }

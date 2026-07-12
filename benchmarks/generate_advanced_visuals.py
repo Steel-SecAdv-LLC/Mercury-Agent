@@ -575,7 +575,7 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     Convergence:       1.39x
     ─────────────────────
     Lyapunov λ = 0.25
-    σ_Sacred = 0.96
+    σ_Alignment = 0.96
     Φ = 1.618
     """
     ax9.text(

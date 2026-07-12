@@ -8,18 +8,17 @@ while maintaining detection accuracy.
 Key techniques:
 - Knowledge Distillation: Train smaller student model from ensemble teacher
 - Pruning: Remove low-importance connections
-- Quantization: INT8 inference (2-4x speedup)
+- Quantization: INT8 inference
 - Layer Fusion: Combine sequential operations
 
 These optimizations enable deployment on resource-constrained devices
 and faster real-time processing, critical for humanitarian applications
 like emergency response systems and field-deployed crisis detection.
 
-Expected performance gains:
-- INT8 quantization: 2-4x inference speedup
-- Pruning (50%): 1.5-2x speedup with <1% accuracy loss
-- Knowledge distillation: 3-10x smaller models
-- Layer fusion: 10-30% additional speedup
+The magnitude of any speedup is workload- and hardware-dependent and is not
+measured locally. The multipliers commonly cited in the quantization literature
+(INT8, structured pruning, layer fusion) are theoretical expectations only; use
+ModelCompressor.estimate_speedup() for a compression-specific estimate.
 """
 
 from __future__ import annotations

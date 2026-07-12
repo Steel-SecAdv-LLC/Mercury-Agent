@@ -782,6 +782,36 @@ class TestGCPDataSource:
         assert "network_variance" in analysis["analyses"]
         assert "stouffer_z" in analysis["analyses"]
 
+    @pytest.mark.asyncio
+    async def test_points_are_stamped_simulated(self) -> None:
+        """Every emitted point must carry the simulated stamp.
+
+        Regression (honesty bug): the source generates its trials locally
+        (no real noosphere feed is fetched) but used to emit them without
+        ``metadata["simulated"]`` and with computed confidence, which the
+        live-ingestion provenance seam would have accepted as a live feed.
+        """
+        source = GCPDataSource(seed=0)
+        points = await source._fetch_impl()
+        assert points, "expected simulated GCP points"
+        for point in points:
+            assert point.metadata["simulated"] is True
+            assert point.metadata["data_provenance"] == "simulated"
+            assert point.confidence == 0.0
+
+    def test_live_ingestion_refuses_unopted_simulated_feed(self) -> None:
+        """The provenance seam must refuse GCP without allow_simulated."""
+        from omni_mercury_engine.data_sources.live_ingestion import (
+            SimulatedDataError,
+            fetch_live_datapoints,
+        )
+
+        source = GCPDataSource(seed=0)
+        with pytest.raises(SimulatedDataError):
+            fetch_live_datapoints(source)
+        fetched = fetch_live_datapoints(source, allow_simulated=True)
+        assert fetched.data_provenance == "simulated"
+
 
 class TestGCPDotSource:
     """Tests for GCPDot data source."""
@@ -800,6 +830,22 @@ class TestGCPDotSource:
         assert source._deviation_to_color(1.0).value == "green"
         assert source._deviation_to_color(0.0).value == "yellow"
         assert source._deviation_to_color(-1.0).value == "red"
+
+    @pytest.mark.asyncio
+    async def test_points_are_stamped_simulated(self) -> None:
+        """Every emitted point must carry the simulated stamp.
+
+        Regression (honesty bug): gcpdot.com has no data API, so the state
+        is generated locally, but points used to ship unlabelled with
+        confidence 0.7.
+        """
+        source = GCPDotSource(seed=0)
+        points = await source._fetch_impl()
+        assert points, "expected a simulated GCPDot point"
+        for point in points:
+            assert point.metadata["simulated"] is True
+            assert point.metadata["data_provenance"] == "simulated"
+            assert point.confidence == 0.0
 
 
 # =============================================================================

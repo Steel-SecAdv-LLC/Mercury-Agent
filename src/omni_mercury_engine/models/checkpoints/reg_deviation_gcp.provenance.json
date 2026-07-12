@@ -1,0 +1,577 @@
+{
+  "checkpoint": "reg_deviation_gcp.pt",
+  "checkpoint_sha256": "d802c02b6be2fe073dd6598408f42368b9ff99ef544147dd46cd1e97c904ee06",
+  "created_utc": "2026-07-10T20:37:17+00:00",
+  "data_sources": [
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-01-07 (Wayback capture 20250109081041 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-01-07.csv.gz)",
+      "sha256": "060b39fd82e2173739b99aca4c847fbda3ee490253b1f7bde931a0d462c380dd",
+      "url": "https://web.archive.org/web/20250109081041id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-01-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-03-28 (Wayback capture 20250109080953 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-03-28.csv.gz)",
+      "sha256": "566a7921b9123ae84d62f7790f9d33c2f4f37976484e9ff5c9e15df4ae7c88cd",
+      "url": "https://web.archive.org/web/20250109080953id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-03-28.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-05-02 (Wayback capture 20250109081127 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-05-02.csv.gz)",
+      "sha256": "4040d5f0523349d06c7b440ee391f6d496ab2f3e9ccc6cdd34a9167c6fd4e5c6",
+      "url": "https://web.archive.org/web/20250109081127id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-05-02.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-08-27 (Wayback capture 20250109081104 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-08-27.csv.gz)",
+      "sha256": "e459f516f380ba3015736381877fa0d000e971a168fc30c16b6d9165650c277d",
+      "url": "https://web.archive.org/web/20250109081104id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-08-27.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-10-24 (Wayback capture 20250109081143 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-10-24.csv.gz)",
+      "sha256": "7b9a91c959f78d415312be4ef68f393995991f46a5f5f34014e9c6016f169fa1",
+      "url": "https://web.archive.org/web/20250109081143id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-10-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2012-12-25 (Wayback capture 20250109081225 of https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-12-25.csv.gz)",
+      "sha256": "63c804590515319604d03acab0dc04ed36801af4e2f396c931cb25ace334de84",
+      "url": "https://web.archive.org/web/20250109081225id_/https://noosphere.princeton.edu/data/eggsummary/2012/basketdata-2012-12-25.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-02-08 (Wayback capture 20250109080324 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-02-08.csv.gz)",
+      "sha256": "76889402714610b86b46074e9b40f3114ddd4883df31053c9421f04fea6fd5a6",
+      "url": "https://web.archive.org/web/20250109080324id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-02-08.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-03-08 (Wayback capture 20250109080326 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-03-08.csv.gz)",
+      "sha256": "9d742b5207aeee5cba10a98de048a4973a8a3051812c6e58293bef38e2f4eee1",
+      "url": "https://web.archive.org/web/20250109080326id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-03-08.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-06-04 (Wayback capture 20250109080237 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-06-04.csv.gz)",
+      "sha256": "f406b85bbf9d62e56b15273fd247b709d51ad842b5ee14ba2070296f32851ebf",
+      "url": "https://web.archive.org/web/20250109080237id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-06-04.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-08-23 (Wayback capture 20250109080209 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-08-23.csv.gz)",
+      "sha256": "5771ed28e5ec406c1cc4c7abb3692b0b40e9296c1222ce26a7139464cae43e67",
+      "url": "https://web.archive.org/web/20250109080209id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-08-23.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-10-03 (Wayback capture 20250109080257 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-10-03.csv.gz)",
+      "sha256": "7768bfce5c274c1b5948f059533814a91f46bb83c07e759a6957447e32e57162",
+      "url": "https://web.archive.org/web/20250109080257id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-10-03.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2013-12-09 (Wayback capture 20250109080314 of https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-12-09.csv.gz)",
+      "sha256": "0260f009ae020672598716a020755da75183c70c2059bff275ac5512c3b25854",
+      "url": "https://web.archive.org/web/20250109080314id_/https://noosphere.princeton.edu/data/eggsummary/2013/basketdata-2013-12-09.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-02-06 (Wayback capture 20250109080446 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-02-06.csv.gz)",
+      "sha256": "4b0f0fd6c43e90ef0b82b28e617c43cb7a779542f116c778dfcd42b084b9503a",
+      "url": "https://web.archive.org/web/20250109080446id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-02-06.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-04-27 (Wayback capture 20250109080536 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-04-27.csv.gz)",
+      "sha256": "badf863646aea5564a2574fe8ca3dc3492e235cb45adde66388b4ce7ff0f1c95",
+      "url": "https://web.archive.org/web/20250109080536id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-04-27.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-06-24 (Wayback capture 20250109080525 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-06-24.csv.gz)",
+      "sha256": "2869dbfa02d33e7706c05d8e881666a0aba1049a44a64cf23ca9d7dc6e191379",
+      "url": "https://web.archive.org/web/20250109080525id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-06-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-07-07 (Wayback capture 20250109080408 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-07-07.csv.gz)",
+      "sha256": "fddb84b616bc131792d41ddb32e3108906ebab294630a9449c9c8db4ed62b44e",
+      "url": "https://web.archive.org/web/20250109080408id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-07-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-10-28 (Wayback capture 20250109080551 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-10-28.csv.gz)",
+      "sha256": "2bf300d5988a61679f1eb27b78fc2e5dd1f10e7d9d213739d2b124f0787ddb14",
+      "url": "https://web.archive.org/web/20250109080551id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-10-28.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2014-12-08 (Wayback capture 20250109080406 of https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-12-08.csv.gz)",
+      "sha256": "27cdb54e2fded3ba3c6f3f34ad5cfdff93a761e44b00ccbced6aec928f44d6f7",
+      "url": "https://web.archive.org/web/20250109080406id_/https://noosphere.princeton.edu/data/eggsummary/2014/basketdata-2014-12-08.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-02-03 (Wayback capture 20250109082832 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-02-03.csv.gz)",
+      "sha256": "3cfa804342a8b4f5e8d44bf677b2ab005817d705739e45c5a15352b88129c634",
+      "url": "https://web.archive.org/web/20250109082832id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-02-03.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-03-26 (Wayback capture 20250109082826 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-03-26.csv.gz)",
+      "sha256": "99f3ced5d05f3eeb481a9a1cf48dfe7ad076f033b3f8999e7893d676b3cc84ae",
+      "url": "https://web.archive.org/web/20250109082826id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-03-26.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-05-11 (Wayback capture 20250109082758 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-05-11.csv.gz)",
+      "sha256": "efd29b4fd1bacb089b027c740e917ce070ec8a5aaffaf4be69d0f5190afb437b",
+      "url": "https://web.archive.org/web/20250109082758id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-05-11.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-07-15 (Wayback capture 20250109082951 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-07-15.csv.gz)",
+      "sha256": "2feb248d55c41eabce04faa763ba13dd52b880adba520795a8d469eb85946adc",
+      "url": "https://web.archive.org/web/20250109082951id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-07-15.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-08-28 (Wayback capture 20250109082743 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-08-28.csv.gz)",
+      "sha256": "cfffc7382b75cf8524c492038e56af527df2f305ef9d8cda0d92557c1c94191b",
+      "url": "https://web.archive.org/web/20250109082743id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-08-28.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2015-11-24 (Wayback capture 20250109082935 of https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-11-24.csv.gz)",
+      "sha256": "6e4363e40290fd49babf6a61419917ab0e5594959d12376c45f5c1047b14a9c5",
+      "url": "https://web.archive.org/web/20250109082935id_/https://noosphere.princeton.edu/data/eggsummary/2015/basketdata-2015-11-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-01-05 (Wayback capture 20250109081931 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-01-05.csv.gz)",
+      "sha256": "b932cb86dd47b5386b3feaa1f2fe57494eeae797ab6ea335bb3c5a718230a716",
+      "url": "https://web.archive.org/web/20250109081931id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-01-05.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-04-29 (Wayback capture 20250109082007 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-04-29.csv.gz)",
+      "sha256": "9b9000b3f2914b35aadbbd5fda82b6dbcf6f83a7f1928e4bc1f0ad0fd12044e9",
+      "url": "https://web.archive.org/web/20250109082007id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-04-29.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-05-02 (Wayback capture 20250109082000 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-05-02.csv.gz)",
+      "sha256": "60dd0b57b69146473ff9c8faf059422c60b8fd036063aba343b53ff08e7d99ee",
+      "url": "https://web.archive.org/web/20250109082000id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-05-02.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-08-05 (Wayback capture 20250109081836 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-08-05.csv.gz)",
+      "sha256": "b044dde9a3b43a7f0220ae3b0f97e211a6f91fd7420b0489bbf035a069ce972f",
+      "url": "https://web.archive.org/web/20250109081836id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-08-05.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-09-21 (Wayback capture 20250109081914 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-09-21.csv.gz)",
+      "sha256": "75ca5645c361161c0ba4cdefd3f7c636ea1572bb35d05410e640862d5f852510",
+      "url": "https://web.archive.org/web/20250109081914id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-09-21.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2016-11-28 (Wayback capture 20250109081850 of https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-11-28.csv.gz)",
+      "sha256": "739dfab73b089cf4f63c5c2607ba358e57b0575a07e0094a437728702389c6d1",
+      "url": "https://web.archive.org/web/20250109081850id_/https://noosphere.princeton.edu/data/eggsummary/2016/basketdata-2016-11-28.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-02-09 (Wayback capture 20250109081653 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-02-09.csv.gz)",
+      "sha256": "483fcc65bef67f061fbbba1c9467893b5cddf8f08e2c5ab4a2a98e87f02fca2e",
+      "url": "https://web.archive.org/web/20250109081653id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-02-09.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-03-23 (Wayback capture 20250109081635 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-03-23.csv.gz)",
+      "sha256": "bd3de74953d55c1dad12f48bbb061c05dfda626b1befb301a2697434e17a3624",
+      "url": "https://web.archive.org/web/20250109081635id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-03-23.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-06-10 (Wayback capture 20250109081744 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-06-10.csv.gz)",
+      "sha256": "678e9bbeac94223fc8c0f46dbff8aee6499055b8f0524353143683e0b4bee46f",
+      "url": "https://web.archive.org/web/20250109081744id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-06-10.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-07-07 (Wayback capture 20250109081821 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-07-07.csv.gz)",
+      "sha256": "62f498757eeb594a7cdde5d0534cc4f8fd8770255c1e6554624b794ba84a352f",
+      "url": "https://web.archive.org/web/20250109081821id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-07-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-09-03 (Wayback capture 20250109081618 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-09-03.csv.gz)",
+      "sha256": "886173ac4e029d8f42079923318359aef44025de083e76012682a57ffa76b829",
+      "url": "https://web.archive.org/web/20250109081618id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-09-03.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2017-12-20 (Wayback capture 20250109081701 of https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-12-20.csv.gz)",
+      "sha256": "0d77ecd57698efdc7f8f3a0fc303dc6ec94cf2b138f12aa8d70fa870aa4192f8",
+      "url": "https://web.archive.org/web/20250109081701id_/https://noosphere.princeton.edu/data/eggsummary/2017/basketdata-2017-12-20.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-02-01 (Wayback capture 20250109081322 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-02-01.csv.gz)",
+      "sha256": "ffa369d331c32fdfcf5e592d14200c45f679029bd8416e86b0e5aff6fff70cbc",
+      "url": "https://web.archive.org/web/20250109081322id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-02-01.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-04-17 (Wayback capture 20250109081407 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-04-17.csv.gz)",
+      "sha256": "07c99dbc9713be7ff65b43661f799cea8439b66bfbd2bc6514dc00dff1672ebc",
+      "url": "https://web.archive.org/web/20250109081407id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-04-17.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-05-19 (Wayback capture 20250109081350 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-05-19.csv.gz)",
+      "sha256": "e9f7c232e76abb64c682749a8a450c51acd8d14853c84dfe3196aade33895ea4",
+      "url": "https://web.archive.org/web/20250109081350id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-05-19.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-07-09 (Wayback capture 20250109081241 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-07-09.csv.gz)",
+      "sha256": "e2fd18dbac7ce7a4b2373024c208b8e6e2a500b24a73403fe95c92df13c2c784",
+      "url": "https://web.archive.org/web/20250109081241id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-07-09.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-09-22 (Wayback capture 20250109081234 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-09-22.csv.gz)",
+      "sha256": "d387c061f8d39d3e44374e2dd477bb2956ee3e93153a053d7fb0091c69c23f5b",
+      "url": "https://web.archive.org/web/20250109081234id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-09-22.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2018-12-24 (Wayback capture 20250109081352 of https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-12-24.csv.gz)",
+      "sha256": "53d757224c182fd26d944d4c51f494a076c3fa7ae3d3fb27a4c8a06c0b398338",
+      "url": "https://web.archive.org/web/20250109081352id_/https://noosphere.princeton.edu/data/eggsummary/2018/basketdata-2018-12-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-01-10 (Wayback capture 20250109082519 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-01-10.csv.gz)",
+      "sha256": "bfd1a6c5ffa8efb995b5fcb2ce6253da4663e153e9a14be0dc0b7a9bcd983c1e",
+      "url": "https://web.archive.org/web/20250109082519id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-01-10.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-03-06 (Wayback capture 20250109082409 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-03-06.csv.gz)",
+      "sha256": "deae28fe65ea0d3c714671e4ba7cc0b30589cd97e903f893fc742d397f1fe492",
+      "url": "https://web.archive.org/web/20250109082409id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-03-06.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-05-07 (Wayback capture 20250109082506 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-05-07.csv.gz)",
+      "sha256": "f0fd8b82bd42e8e29174eeb1ac9a6a8cc2f91924d8a8319b2aac52eebf1b6f30",
+      "url": "https://web.archive.org/web/20250109082506id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-05-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-08-23 (Wayback capture 20250109082433 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-08-23.csv.gz)",
+      "sha256": "59af0abe23b5d86605284112aff5b319b55724fc9ddae66c9f0bf4b8bbabf9f9",
+      "url": "https://web.archive.org/web/20250109082433id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-08-23.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-09-07 (Wayback capture 20250109082456 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-09-07.csv.gz)",
+      "sha256": "232e856066ceeb988458018df097c69cf1c89574754b61b423ec269d8ac72ed6",
+      "url": "https://web.archive.org/web/20250109082456id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-09-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2019-12-02 (Wayback capture 20250109082438 of https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-12-02.csv.gz)",
+      "sha256": "724e93cc73f619d6d97569a09717b13abc4afc50500e801d09b1637a2eb9cabc",
+      "url": "https://web.archive.org/web/20250109082438id_/https://noosphere.princeton.edu/data/eggsummary/2019/basketdata-2019-12-02.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-01-07 (Wayback capture 20250109081604 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-01-07.csv.gz)",
+      "sha256": "bcdf03d7c37472912eea6f7461cf04668f24eb6e40a95a4aa9aa3c24d2f063f9",
+      "url": "https://web.archive.org/web/20250109081604id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-01-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-04-16 (Wayback capture 20250109081548 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-04-16.csv.gz)",
+      "sha256": "6741c71613212ec2ba46436f95ee81d9365b23a1c2cc1b06231484a1424f8993",
+      "url": "https://web.archive.org/web/20250109081548id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-04-16.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-06-03 (Wayback capture 20250109081613 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-06-03.csv.gz)",
+      "sha256": "fe19b23cd1cb0dd6fe5b812e1ebafaaa098599f853509f2eb90fbc7ff873bcdd",
+      "url": "https://web.archive.org/web/20250109081613id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-06-03.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-07-24 (Wayback capture 20250109081511 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-07-24.csv.gz)",
+      "sha256": "378b80ab30717f0b7c0d68d2ac7a5ddbaf1521d9bc5af37a868d0f9719ca8acb",
+      "url": "https://web.archive.org/web/20250109081511id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-07-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-09-26 (Wayback capture 20250109081542 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-09-26.csv.gz)",
+      "sha256": "17f64ecf63598cb9a1a52a6a08c6482cae8fb5a1cf0e4399128f88da909ec3c4",
+      "url": "https://web.archive.org/web/20250109081542id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-09-26.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2020-12-11 (Wayback capture 20250109081559 of https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-12-11.csv.gz)",
+      "sha256": "d7779802df40b65d4037fe856308d77048d75d113526e2d7f945e5c2df11425a",
+      "url": "https://web.archive.org/web/20250109081559id_/https://noosphere.princeton.edu/data/eggsummary/2020/basketdata-2020-12-11.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-03-02 (Wayback capture 20250109082218 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-03-02.csv.gz)",
+      "sha256": "36b18abf6dbd209db6f81aa6430000806e650e3ba77d8e368e8e14f8e1786ca7",
+      "url": "https://web.archive.org/web/20250109082218id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-03-02.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-04-26 (Wayback capture 20250109082059 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-04-26.csv.gz)",
+      "sha256": "0e63d1e8cbe3e13b2b32d51388bc8492deb4adf4ea2c81346d862fe2a81bff63",
+      "url": "https://web.archive.org/web/20250109082059id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-04-26.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-05-04 (Wayback capture 20250109082110 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-05-04.csv.gz)",
+      "sha256": "650b91c77d99de0ad11d3b5f0ddc4ae7e24c57fad221e29f821ee65158be8b0e",
+      "url": "https://web.archive.org/web/20250109082110id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-05-04.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-07-06 (Wayback capture 20250109082113 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-07-06.csv.gz)",
+      "sha256": "9a4667593f9bf20fc65347f6a8d6ed2f7fec070dff15580c3a75539b99126974",
+      "url": "https://web.archive.org/web/20250109082113id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-07-06.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-10-08 (Wayback capture 20250109082155 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-10-08.csv.gz)",
+      "sha256": "9fc62361cc1e838f65f19cc4c4d9dca53059ba26f69e0b8d56692d1522c789cc",
+      "url": "https://web.archive.org/web/20250109082155id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-10-08.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2021-12-02 (Wayback capture 20250109082129 of https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-12-02.csv.gz)",
+      "sha256": "960511aff42bf0ddd1b2e1d077fffe729fbb8e83102fb196f7ae64cccd863ff2",
+      "url": "https://web.archive.org/web/20250109082129id_/https://noosphere.princeton.edu/data/eggsummary/2021/basketdata-2021-12-02.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-01-22 (Wayback capture 20250109082616 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-01-22.csv.gz)",
+      "sha256": "58f34f2076c830a74ca9a86f8d6fcf0cf0a172d267caa2d8aa86a7cde91758e7",
+      "url": "https://web.archive.org/web/20250109082616id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-01-22.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-03-11 (Wayback capture 20250109082718 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-03-11.csv.gz)",
+      "sha256": "4d3ebbd175301cd8cb5dddeeab434e46fd947b34cef6c50a9b0cd5958cd8de27",
+      "url": "https://web.archive.org/web/20250109082718id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-03-11.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-06-23 (Wayback capture 20250109082645 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-06-23.csv.gz)",
+      "sha256": "418b1816fb1a83707e2ddf0313617aaec4d6976fd6c0387c99fba46bf058ee3c",
+      "url": "https://web.archive.org/web/20250109082645id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-06-23.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-08-22 (Wayback capture 20250109082647 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-08-22.csv.gz)",
+      "sha256": "3b531e5af831fea1597e327d4c9872e262dc1ce7f9c57919644b3ca371ac0866",
+      "url": "https://web.archive.org/web/20250109082647id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-08-22.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-09-09 (Wayback capture 20250109082639 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-09-09.csv.gz)",
+      "sha256": "b80789f50218f1de10ffa9d7e778e0e9dfb2569275176c74c98c64ef6db1e851",
+      "url": "https://web.archive.org/web/20250109082639id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-09-09.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2022-11-18 (Wayback capture 20250109082622 of https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-11-18.csv.gz)",
+      "sha256": "404be6dc4b6a1f88e0eb71f999c5f8b70cd2117a3a77fa570fb77032c10fcf55",
+      "url": "https://web.archive.org/web/20250109082622id_/https://noosphere.princeton.edu/data/eggsummary/2022/basketdata-2022-11-18.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-02-08 (Wayback capture 20250109082325 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-02-08.csv.gz)",
+      "sha256": "ef1940f4ef462857b00524dc020a0c93bc37fe58df00716410edc5d4f32cfefd",
+      "url": "https://web.archive.org/web/20250109082325id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-02-08.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-04-30 (Wayback capture 20250109082253 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-04-30.csv.gz)",
+      "sha256": "8f316fc8867255563687486ddb99f26ff6597cf39d4ba10cdf198a1fd838cbde",
+      "url": "https://web.archive.org/web/20250109082253id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-04-30.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-05-28 (Wayback capture 20250109082339 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-05-28.csv.gz)",
+      "sha256": "815cc83135fb8bb0b0827a567b25a27fa793e51b85f21f285a7136735c4b2b6e",
+      "url": "https://web.archive.org/web/20250109082339id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-05-28.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-08-24 (Wayback capture 20250109082243 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-08-24.csv.gz)",
+      "sha256": "e88bb1e4758d0566b4bab27b20fe2dadc1745bce5b1140d5a3d6ff15d6d7f532",
+      "url": "https://web.archive.org/web/20250109082243id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-08-24.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-09-27 (Wayback capture 20250109082337 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-09-27.csv.gz)",
+      "sha256": "4ea5ecb98bd5f890d85c1154463bf2b051fabd61bf00fc13f1b834e9cde14515",
+      "url": "https://web.archive.org/web/20250109082337id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-09-27.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2023-12-10 (Wayback capture 20250109082243 of https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-12-10.csv.gz)",
+      "sha256": "06981d4456aa7c8e1a6c207889b690bd9223140190cf46d3b57f74b0fbd5237d",
+      "url": "https://web.archive.org/web/20250109082243id_/https://noosphere.princeton.edu/data/eggsummary/2023/basketdata-2023-12-10.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-02-07 (Wayback capture 20250109080050 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-02-07.csv.gz)",
+      "sha256": "34853a05442af0032f8f7fd66055c09114fbf63b1b585a8b7f174f2a4c82110a",
+      "url": "https://web.archive.org/web/20250109080050id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-02-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-04-17 (Wayback capture 20250109080025 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-04-17.csv.gz)",
+      "sha256": "0000b896ebd2cf00762fb81a90a4fb012b898e1a3a9aa6fdad7626a426d01244",
+      "url": "https://web.archive.org/web/20250109080025id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-04-17.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-05-26 (Wayback capture 20250109080042 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-05-26.csv.gz)",
+      "sha256": "f0db69d4b03f2ae91418716c111279aed85f1fc6ba89cb74dcceac23630368da",
+      "url": "https://web.archive.org/web/20250109080042id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-05-26.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-07-21 (Wayback capture 20250109080044 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-07-21.csv.gz)",
+      "sha256": "0979b26babe556c4890ae76311757c7ccdc1ba620487f373a0ddcacaebd141a4",
+      "url": "https://web.archive.org/web/20250109080044id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-07-21.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-09-07 (Wayback capture 20250109075951 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-09-07.csv.gz)",
+      "sha256": "bb9806696da4780955f7aadbaa065bcd2474499e13f85a2662b9e147e9c269f0",
+      "url": "https://web.archive.org/web/20250109075951id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-09-07.csv.gz"
+    },
+    {
+      "description": "GCP per-second per-egg REG trials, 2024-12-28 (Wayback capture 20250109075936 of https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-12-28.csv.gz)",
+      "sha256": "701bf4395e3bf7bf842f1bbc185f95638d98c569a3b33c746bfa9977c5d2a914",
+      "url": "https://web.archive.org/web/20250109075936id_/https://noosphere.princeton.edu/data/eggsummary/2024/basketdata-2024-12-28.csv.gz"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "detection power at the fixed 1% false-alarm rate must not regress below the closed-form baseline",
+        "higher_is_better": true,
+        "metric": "power_at_far01"
+      },
+      {
+        "description": "Brier score must not regress above the documented closed-form baseline (physics side uses the uncalibrated 1 - p_comb pseudo-probability; see brier_note)",
+        "higher_is_better": false,
+        "metric": "brier"
+      }
+    ],
+    "extras": {
+      "auc_diff_bootstrap": {
+        "ci95_high": 0.079839498729169,
+        "ci95_low": 0.0430812496136561,
+        "ci_excludes_zero": true,
+        "n_resamples": 1000,
+        "note": "AUC(learned) - AUC(physics) on the mixed fault families (positive = learned better), paired case-resampling bootstrap over the identical held-out windows",
+        "point_estimate": 0.06293233989197533,
+        "seed": 20260709
+      },
+      "brier_note": "physics brier uses the uncalibrated pseudo-probability 1 - p_comb; only the learned head is a trained probability",
+      "comparison": "identical held-out windows; learned = public ParapsychologyDetector API with the candidate checkpoint loaded; physics = the PRE-REGISTERED closed-form statistics from models.gcp_ingest (per-window |Stouffer Z| Bonferroni-combined with the two-sided chi-square network-variance tail). EvaluationOutcome.physics IS this documented closed-form baseline.",
+      "eggs_per_window": {
+        "max": 20.0,
+        "mean": 15.191486111111109,
+        "min": 10.0
+      },
+      "latency_note": "per-window wall time of the full public detect_psi_anomaly call (closed-form statistics + neural head), single process, torch.set_num_threads(2); median reported in ms",
+      "median_inference_latency_ms": 7.120081500033848,
+      "neyman_pearson_note": "on PURE bias faults the |Stouffer Z| statistic is the Neyman-Pearson-optimal test of the induced mean shift, so the learned model is not expected to beat it there; the honest win condition is the MIXED-fault AUC",
+      "parameter_count": 269697,
+      "power_vs_fault_parameter": {
+        "learned": {
+          "bias(q=0.005)": {
+            "auc_vs_null": 0.5660375118708452,
+            "n": 117,
+            "power_at_far01": 0.03418803418803419
+          },
+          "bias(q=0.01)": {
+            "auc_vs_null": 0.6155062134502924,
+            "n": 114,
+            "power_at_far01": 0.05263157894736842
+          },
+          "bias(q=0.02)": {
+            "auc_vs_null": 0.7071634134134134,
+            "n": 111,
+            "power_at_far01": 0.04504504504504504
+          },
+          "bias(q=0.05)": {
+            "auc_vs_null": 0.8926722222222222,
+            "n": 125,
+            "power_at_far01": 0.312
+          },
+          "common_mode(q=0.005)": {
+            "auc_vs_null": 0.75435,
+            "n": 125,
+            "power_at_far01": 0.432
+          },
+          "common_mode(q=0.01)": {
+            "auc_vs_null": 0.9799594907407407,
+            "n": 120,
+            "power_at_far01": 0.9583333333333334
+          },
+          "common_mode(q=0.02)": {
+            "auc_vs_null": 1.0,
+            "n": 107,
+            "power_at_far01": 1.0
+          },
+          "common_mode(q=0.05)": {
+            "auc_vs_null": 1.0,
+            "n": 146,
+            "power_at_far01": 1.0
+          },
+          "stuck_bit(k=10)": {
+            "auc_vs_null": 0.8600192436412316,
+            "n": 166,
+            "power_at_far01": 0.25301204819277107
+          },
+          "stuck_bit(k=2)": {
+            "auc_vs_null": 0.58625,
+            "n": 140,
+            "power_at_far01": 0.02857142857142857
+          },
+          "stuck_bit(k=5)": {
+            "auc_vs_null": 0.6969469099276792,
+            "n": 169,
+            "power_at_far01": 0.047337278106508875
+          }
+        },
+        "physics": {
+          "bias(q=0.005)": {
+            "auc_vs_null": 0.49679783950617284,
+            "n": 117,
+            "power_at_far01": 0.017094017094017096
+          },
+          "bias(q=0.01)": {
+            "auc_vs_null": 0.48322977582846005,
+            "n": 114,
+            "power_at_far01": 0.008771929824561403
+          },
+          "bias(q=0.02)": {
+            "auc_vs_null": 0.5293918918918918,
+            "n": 111,
+            "power_at_far01": 0.018018018018018018
+          },
+          "bias(q=0.05)": {
+            "auc_vs_null": 0.7631027777777778,
+            "n": 125,
+            "power_at_far01": 0.144
+          },
+          "common_mode(q=0.005)": {
+            "auc_vs_null": 0.909475,
+            "n": 125,
+            "power_at_far01": 0.448
+          },
+          "common_mode(q=0.01)": {
+            "auc_vs_null": 0.9983796296296297,
+            "n": 120,
+            "power_at_far01": 0.9666666666666667
+          },
+          "common_mode(q=0.02)": {
+            "auc_vs_null": 1.0,
+            "n": 107,
+            "power_at_far01": 1.0
+          },
+          "common_mode(q=0.05)": {
+            "auc_vs_null": 1.0,
+            "n": 146,
+            "power_at_far01": 1.0
+          },
+          "stuck_bit(k=10)": {
+            "auc_vs_null": 0.748995983935743,
+            "n": 166,
+            "power_at_far01": 0.18674698795180722
+          },
+          "stuck_bit(k=2)": {
+            "auc_vs_null": 0.5182986111111111,
+            "n": 140,
+            "power_at_far01": 0.02142857142857143
+          },
+          "stuck_bit(k=5)": {
+            "auc_vs_null": 0.5480050131492439,
+            "n": 169,
+            "power_at_far01": 0.01775147928994083
+          }
+        }
+      },
+      "single_egg_dilution_note": "bias/stuck_bit faults afflict ONE egg; their signal is diluted ~1/sqrt(n_eggs) in the network composite, so low power at small q/k is the honest physics of aggregation -- per-device monitoring (security.rng_health) sees the same channel undiluted"
+    },
+    "failed_constraints": [],
+    "higher_is_better": true,
+    "hook": "consciousness_field",
+    "learned": {
+      "brier": 0.18265683997544824,
+      "fault_auc": 0.7874891493055556,
+      "power_at_far01": 0.3680555555555556,
+      "realized_far": 0.010416666666666666
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 2880,
+    "physics": {
+      "brier": 0.2669870043464907,
+      "fault_auc": 0.7245568094135802,
+      "power_at_far01": 0.3368055555555556,
+      "realized_far": 0.010416666666666666
+    },
+    "primary_metric": "fault_auc",
+    "primary_metric_wins": true,
+    "test_years": [
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "5821bdb836404b53a6d6c5577145588be8889c95",
+  "hook": "consciousness_field",
+  "seed": 20260709
+}

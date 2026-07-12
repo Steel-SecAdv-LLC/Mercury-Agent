@@ -23,7 +23,19 @@ Analysis Metrics:
 - Cumulative deviation
 - Stouffer Z-score
 
-Note: 20-minute delay on real-time feed.
+HONESTY CONTRACT: neither source in this module fetches real network data
+-- the noosphere.princeton.edu archive is unreachable from this environment
+and gcpdot.com has no machine-readable API -- so every emitted trial/state
+is generated locally. Every data point therefore carries
+``metadata["simulated"] = True`` and ``metadata["data_provenance"] =
+"simulated"`` with ``confidence=0.0`` (mirroring
+:class:`~omni_mercury_engine.data_sources.geomagnetic.BGSELFStationSource`),
+and the live-ingestion seam refuses such points unless the consumer
+explicitly opts in with ``allow_simulated=True``. For REAL archived GCP
+streams use the Wayback-based training pipeline
+(:mod:`omni_mercury_engine.ml.hazard_training.consciousness_field`).
+
+Note: 20-minute delay on real-time feed (when the real feed is available).
 """
 
 from __future__ import annotations
@@ -204,13 +216,18 @@ class GCPDataSource(DataSourceBase):
     distributed globally. Each EGG produces 200-bit trial sums per second,
     with expected binomial[200, 0.5] distribution (mean=100, variance=50).
 
-    The hypothesis is that global events affecting human consciousness may
-    correlate with deviations from randomness across the network.
+    The hypothesis under study -- contested, neither asserted nor denied
+    here -- is that global events may correlate with deviations from
+    randomness across the network (see
+    :mod:`omni_mercury_engine.models.parapsychology`).
 
-    Data available:
-    - Real-time feed (20-minute delay)
-    - Historical data extraction
-    - Network-wide statistics
+    HONESTY CONTRACT: the archive host is unreachable from this
+    environment, so ``fetch()`` generates SIMULATED trials locally
+    (``_simulate_egg_data``) and stamps every emitted point with
+    ``metadata["simulated"] = True``, ``metadata["data_provenance"] =
+    "simulated"`` and ``confidence=0.0``. Downstream live ingestion refuses
+    these points without an explicit ``allow_simulated=True`` opt-in; they
+    can never masquerade as measurements or training data.
 
     Example:
         >>> source = GCPDataSource()
@@ -269,6 +286,7 @@ class GCPDataSource(DataSourceBase):
 
         self._analysis_types = analysis_types or list(GCPAnalysisType)
         self._rng: np.random.Generator = np.random.default_rng(seed)
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -426,11 +444,23 @@ class GCPDataSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch and analyze GCP network data.
+        """Analyze SIMULATED GCP-shaped network data (no real feed reachable).
 
-        Note: This implementation uses simulated data for demonstration.
-        In production, replace with actual API calls to noosphere.princeton.edu.
+        The noosphere.princeton.edu feed is unreachable from this
+        environment, so the trials are generated locally and every emitted
+        point is stamped ``metadata["simulated"] = True`` /
+        ``data_provenance="simulated"`` with ``confidence=0.0`` (see the
+        class HONESTY CONTRACT). The statistical analysis chain itself is
+        real and identical to what a real feed would flow through.
         """
+        if not self._warned_simulated:
+            logger.warning(
+                "GCP noosphere feed is not fetched from this environment; emitting "
+                "SIMULATED trials labelled metadata['simulated']=True with "
+                "confidence=0.0. Consumers must opt in with allow_simulated=True."
+            )
+            self._warned_simulated = True
+
         end_time = end_time or datetime.now(UTC)
         start_time = start_time or (end_time - timedelta(minutes=60))
 
@@ -451,8 +481,10 @@ class GCPDataSource(DataSourceBase):
             network_z = analysis["analyses"]["stouffer_z"]["network_z"]
             alert_level = self._z_score_to_alert_level(network_z)
 
-        # Calculate overall confidence based on sample size
-        confidence = min(0.95, 0.5 + 0.45 * (n_samples / 3600))
+        # Simulated data carries zero evidential confidence (mirrors
+        # BGSELFStationSource's simulated mode) -- the live-ingestion seam
+        # additionally refuses it without allow_simulated=True.
+        confidence = 0.0
 
         data_points: list[DataPoint] = []
 
@@ -478,7 +510,9 @@ class GCPDataSource(DataSourceBase):
                 metadata={
                     "network": "GCP Noosphere",
                     "analysis_types": [t.value for t in self._analysis_types],
-                    "note": "20-minute delay on real-time data",
+                    "note": "SIMULATED trials (no real feed reachable); not a measurement",
+                    "simulated": True,
+                    "data_provenance": "simulated",
                 },
             )
         )
@@ -506,8 +540,12 @@ class GCPDataSource(DataSourceBase):
                         },
                         location=(egg.latitude, egg.longitude, 0.0),
                         alert_level=self._z_score_to_alert_level(egg_z),
-                        confidence=confidence * 0.9,
-                        metadata={"network": "GCP"},
+                        confidence=confidence,
+                        metadata={
+                            "network": "GCP",
+                            "simulated": True,
+                            "data_provenance": "simulated",
+                        },
                     )
                 )
 
@@ -532,10 +570,14 @@ class GCPDotColor(Enum):
 class GCPDotSource(DataSourceBase):
     """GCPDot visualization/analysis data source.
 
-    GCPDot provides a real-time visualization of GCP network coherence:
-    - Color indicates current network state
-    - Historical data for trend analysis
-    - Simplified interpretation of GCP statistics
+    GCPDot (gcpdot.com) visualizes GCP network coherence as a colored dot;
+    it exposes no machine-readable API, so this source cannot fetch the real
+    state.
+
+    HONESTY CONTRACT: every emitted point is a locally SIMULATED stand-in,
+    stamped ``metadata["simulated"] = True`` / ``metadata["data_provenance"]
+    = "simulated"`` with ``confidence=0.0``; downstream live ingestion
+    refuses it without an explicit ``allow_simulated=True`` opt-in.
 
     Example:
         >>> source = GCPDotSource()
@@ -568,6 +610,7 @@ class GCPDotSource(DataSourceBase):
 
         super().__init__(base_config)
         self._rng: np.random.Generator = np.random.default_rng(seed)
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -606,13 +649,21 @@ class GCPDotSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch GCPDot status.
+        """Emit a SIMULATED GCPDot state (gcpdot.com has no data API).
 
-        Note: This provides a simplified representation.
-        In production, fetch from gcpdot.com API if available.
+        Every point is stamped ``metadata["simulated"] = True`` /
+        ``data_provenance="simulated"`` with ``confidence=0.0`` (see the
+        class HONESTY CONTRACT); nothing here is a measurement.
         """
-        # Simulate current GCPDot state
-        # In production, this would parse the actual GCPDot visualization data
+        if not self._warned_simulated:
+            logger.warning(
+                "GCPDot has no machine-readable API; emitting a SIMULATED state "
+                "labelled metadata['simulated']=True with confidence=0.0. "
+                "Consumers must opt in with allow_simulated=True."
+            )
+            self._warned_simulated = True
+
+        # Simulated stand-in for the GCPDot state (clearly labelled above).
         current_deviation = self._rng.normal(0, 1)
         color = self._deviation_to_color(current_deviation)
 
@@ -636,8 +687,13 @@ class GCPDotSource(DataSourceBase):
                 "interpretation": self._get_interpretation(color, current_deviation),
             },
             alert_level=self._color_to_alert_level(color),
-            confidence=0.7,  # Simplified metric
-            metadata={"source": "GCPDot", "visualization": True},
+            confidence=0.0,  # simulated data carries zero evidential confidence
+            metadata={
+                "source": "GCPDot",
+                "visualization": True,
+                "simulated": True,
+                "data_provenance": "simulated",
+            },
         )
 
         logger.info(f"GCPDot: Current state is {color.value}")

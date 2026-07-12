@@ -3,7 +3,8 @@
 """Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation.
 
 Advanced disaster early warning using Schumann resonance anomalies:
-- Earthquake precursor detection (electromagnetic signatures)
+- Earthquake seismicity-rate forecasting (probabilistic, catalog-statistical;
+  see below -- the former "electromagnetic precursor" framing failed review)
 - Tsunami early warning (ionospheric perturbations)
 - Volcanic eruption precursors
 - Severe weather prediction (geomagnetic correlations)
@@ -14,16 +15,28 @@ Integrates:
 - Seismic data correlation
 - Geomagnetic indices
 - Ionospheric disturbances
-- Ancient pattern recognition (lunar/solar cycles)
+- Cyclic geophysical correlation (lunar tidal / solar cycle, exploratory)
+
+Earthquake path (reframed per docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md):
+the ``EarthquakePrecursorAnalyzer`` is a regional seismicity-rate forecaster
+trained on real USGS catalog features (``seismicity-catalog-v2``). Its primary
+output is P(M>=5.0 within 30 days in a 0.5-degree California cell) -- a
+probabilistic rate forecast, dominated by honest Omori/ETAS-style aftershock
+clustering, NOT a validated precursor signal and NOT a deterministic
+prediction of individual earthquakes (no magnitude, location or
+time-of-occurrence claims; Geller et al. 1997; Jordan et al. 2011). The
+electromagnetic/Schumann earthquake-prediction interpretation did not survive
+peer review and is retired; no EM feature feeds this model.
 
 ⚠️ SIMULATION-BASED: For research. NOT a replacement for official warning systems.
 Always defer to USGS, NOAA, and national seismological agencies.
 
 Research sources:
-- Electromagnetic earthquake precursor studies
+- USGS ComCat earthquake catalog (FDSN event service)
+- Operational statistical seismicity forecasting (Reasenberg & Jones 1989;
+  Gerstenberger et al. 2005; CSEP testing standards)
 - Ionospheric precursor research
 - NOAA Space Weather Prediction Center
-- USGS earthquake monitoring
 """
 
 from __future__ import annotations
@@ -62,9 +75,25 @@ class DisasterPrecursorResult:
 
 
 class EarthquakePrecursorAnalyzer(nn.Module):
-    """Earthquake precursor detection using electromagnetic signatures.
+    """Regional seismicity-rate forecaster over catalog statistics.
 
-    Analyzes Schumann+seismic correlations for earthquake prediction.
+    Reframed per ``docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md``:
+    the input is the 128-dim ``seismicity-catalog-v2`` feature vector (USGS
+    catalog rates, Reasenberg-Jones triggered rate, b-values, clustering
+    statistics, and -- since v2 -- the stacked RJ baseline's own causal
+    30-day forecast, dims 32-35; NO electromagnetic/Schumann inputs, which
+    failed review).
+
+    Heads (architecture fixed; semantics per the review):
+
+    * ``confidence_head`` -- PRIMARY: P(M>=5.0 event within 30 days in a
+      0.5-degree cell), a probabilistic rate forecast.
+    * ``magnitude_predictor`` -- DIAGNOSTIC regression of the observed
+      maximum magnitude in positive windows (scaled /9). Never a prediction
+      of a specific future event's magnitude.
+    * ``time_predictor`` -- DIAGNOSTIC regression of observed days to the
+      first in-cell M>=4 (scaled /30 d). Never a time-to-event prediction;
+      the literature supports no such capability.
     """
 
     def __init__(self, input_dim: int = 128) -> None:
@@ -93,16 +122,22 @@ class EarthquakePrecursorAnalyzer(nn.Module):
             nn.Linear(128, 32), nn.ReLU(), nn.Linear(32, 1), nn.Sigmoid()
         )
 
-    def forward(self, em_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Predict earthquake from EM precursors.
+    def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forecast from catalog seismicity features (``seismicity-catalog-v2``).
+
+        Note: the extractor attribute keeps its historical name
+        ``em_feature_extractor`` so existing checkpoint state-dict keys stay
+        stable; its inputs are catalog statistics, never EM measurements.
 
         Args:
-            em_features: Electromagnetic precursor features
+            features: Standardized 128-dim catalog seismicity feature batch.
 
         Returns:
-            Tuple of (magnitude, time_to_event, confidence)
+            Tuple of (diagnostic magnitude regression, diagnostic time
+            regression, event probability) -- the probability is the primary
+            output; the other heads are diagnostics, never predictions.
         """
-        features = self.em_feature_extractor(em_features)
+        features = self.em_feature_extractor(features)
 
         magnitude = self.magnitude_predictor(features)
         time_to_event = self.time_predictor(features)
@@ -329,7 +364,7 @@ class DisasterPrecursorDetector:
         self.enable_geomagnetic = enable_geomagnetic
 
         self.schumann_detector = SchumannResonanceDetector(
-            sampling_rate=100.0, enable_ancient_correlation=True, golden_ratio_thresholds=True
+            sampling_rate=100.0, enable_cycle_correlation=True, golden_ratio_thresholds=True
         )
 
         self.earthquake_analyzer = EarthquakePrecursorAnalyzer() if enable_earthquake else None
@@ -338,50 +373,97 @@ class DisasterPrecursorDetector:
         self.seismic_correlator = SeismicCorrelator()
 
         # Anti-theater guard (mirrors SchumannResonanceDetector): the
-        # EarthquakePrecursorAnalyzer ships with random weights and no labelled
-        # EM-precursor corpus exists to train it. Until real weights are loaded
-        # via load_neural_weights(), its outputs are noise -- and unlike Kp
-        # (which has the Boyle-index physics), NO validated physics maps EM
-        # features to a Richter magnitude. The honest fallback is therefore to
-        # emit NO magnitude estimate at all: the real correlation paths
-        # (Schumann risk, geomagnetic, ionospheric, seismic) still drive
-        # precursor detection, but estimated_magnitude stays None rather than
-        # being fabricated from an untrained network scaled by 9.0.
+        # EarthquakePrecursorAnalyzer initializes with random weights. Until a
+        # real catalog-trained checkpoint is loaded via load_neural_weights(),
+        # its outputs are noise, so the earthquake path abstains: no event
+        # probability is emitted and estimated_magnitude stays None. Even when
+        # trained, this path emits P(M>=5.0 within 30 days in a 0.5-deg cell)
+        # -- never a magnitude or time-to-event for a specific future quake
+        # (per docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md). The
+        # real correlation paths (Schumann risk, geomagnetic, ionospheric,
+        # seismic) keep working either way.
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Feature contract carried by trained checkpoints (see
+        # omni_mercury_engine.ml.hazard_training.earthquake_precursor):
+        # spec name + standardization statistics from the training years.
+        # None until a checkpoint that declares them is loaded.
+        self._feature_spec: str | None = None
+        self._feature_mean: np.ndarray[Any, Any] | None = None
+        self._feature_std: np.ndarray[Any, Any] | None = None
+
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
-        """Load trained weights for the earthquake-precursor analyzer.
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
+        """Load trained weights for the earthquake seismicity-rate forecaster.
 
-        Until this is called, ``detect_disaster_precursor`` refuses to estimate
-        a magnitude from EM features (there is no physics substitute).
+        Until this is called, the earthquake neural path abstains entirely
+        (loud warning, no fabricated outputs). Once loaded, the path emits
+        P(M>=5.0 within 30 days in a 0.5-degree cell) as its confidence --
+        never a magnitude or time-to-event for a specific future earthquake
+        (per ``docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md``).
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing an
-                ``earthquake_analyzer`` state dict.
+                ``earthquake_analyzer`` state dict. ``None`` looks up the
+                ``earthquake_precursor_ca`` checkpoint, which does **not** ship:
+                the learned seismicity-rate model was refused at the merit gate
+                (held-out AUC 0.8895 < its Reasenberg-Jones clustering baseline
+                0.8975 -- see ``artifacts/hazard_training/
+                earthquake_precursor.eval.json``), so passing ``None`` raises a
+                ``FileNotFoundError`` naming the training command rather than
+                loading a default that does not exist. Pass an explicit path to
+                load a checkpoint you trained yourself; missing or corrupt files
+                raise instead of degrading silently.
         """
         if self.earthquake_analyzer is None:
             raise RuntimeError("earthquake precursor analysis is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("earthquake_precursor_ca")
+            source = "shipped default 'earthquake_precursor_ca'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
+        # Parse the standardization stats into locals, then replace instance
+        # state wholesale: a checkpoint that omits feature_mean/feature_std
+        # resets standardization to "raw features" instead of silently reusing a
+        # previously loaded checkpoint's stats (which would be a train/serve
+        # mismatch across successive loads on one detector instance).
+        feature_spec: str | None = None
+        feature_mean: np.ndarray[Any, Any] | None = None
+        feature_std: np.ndarray[Any, Any] | None = None
+        if "feature_mean" in checkpoint and "feature_std" in checkpoint:
+            feature_spec = str(checkpoint.get("feature_spec", "unknown"))
+            feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
+            feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
         self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
+        self._feature_spec = feature_spec
+        self._feature_mean = feature_mean
+        self._feature_std = feature_std
         self._neural_trained = True
         self.logger.info(
-            "Earthquake-precursor neural weights loaded from %s; magnitude estimation enabled",
-            checkpoint_path,
+            "Earthquake seismicity-rate weights loaded from %s (feature spec: %s); "
+            "probabilistic 30-day M>=5 forecasting enabled",
+            source,
+            self._feature_spec or "raw features, no standardization",
         )
 
     def _warn_untrained_once(self) -> None:
-        """Emit a single WARNING that magnitude estimation is disabled."""
+        """Emit a single WARNING that the earthquake neural path is abstaining."""
         if not self._warned_untrained:
             self.logger.warning(
                 "EarthquakePrecursorAnalyzer is untrained (no checkpoint loaded); "
-                "estimated_magnitude will remain None -- no validated physics maps "
-                "EM features to a Richter magnitude, so nothing is fabricated. "
-                "Precursor detection continues from the real Schumann/geomagnetic/"
-                "ionospheric/seismic correlations. Call load_neural_weights() once "
-                "a trained checkpoint exists."
+                "the earthquake seismicity-rate path abstains -- no event "
+                "probability is emitted and estimated_magnitude remains None, "
+                "so nothing is fabricated from random weights. Precursor "
+                "detection continues from the real Schumann/geomagnetic/"
+                "ionospheric/seismic correlations. No catalog-trained "
+                "checkpoint ships (the learned model was refused at the merit "
+                "gate); call load_neural_weights(<path>) with a checkpoint you "
+                "trained to enable the neural forecast."
             )
             self._warned_untrained = True
 
@@ -395,9 +477,18 @@ class DisasterPrecursorDetector:
                 - geomagnetic_data: Optional Kp/Dst indices
                 - tec_data: Optional ionospheric TEC data
                 - temporal_history: Historical ELF measurements
+                - seismicity_features: Optional 128-dim catalog feature vector
+                  (``seismicity-catalog-v2``); drives the probabilistic
+                  earthquake rate forecast and requires no ELF signal.
+                  ``em_features`` is accepted as a legacy alias -- the vector
+                  was never electromagnetic data once the EM framing was
+                  retired (see the module docstring).
 
         Returns:
-            Disaster precursor prediction
+            Disaster precursor prediction. When the trained earthquake path
+            runs, ``confidence`` carries P(M>=5.0 within 30 days in the
+            feature vector's 0.5-degree cell); ``estimated_magnitude`` is
+            NEVER populated from the neural model (review-prohibited claim).
         """
         result = DisasterPrecursorResult(
             precursor_detected=False,
@@ -406,8 +497,24 @@ class DisasterPrecursorDetector:
             risk_level="low",
         )
 
+        seismicity_features = precursor_data.get(
+            "seismicity_features", precursor_data.get("em_features")
+        )
+
         elf_signal = precursor_data.get("elf_signal")
         if elf_signal is None:
+            # Catalog-only earthquake forecasting needs no ELF signal (the
+            # reviewed model consumes catalog statistics exclusively).
+            if self.enable_earthquake and seismicity_features is not None:
+                if self._neural_trained:
+                    eq_forecast = self._predict_earthquake(seismicity_features)
+                    result.confidence = eq_forecast["event_probability"]
+                    result.disaster_type = "earthquake"
+                    result.precursor_detected = eq_forecast["event_probability"] >= 0.5
+                    result.risk_level = self._assess_risk_level(result)
+                else:
+                    self._warn_untrained_once()
+                return result
             self.logger.warning("No ELF signal provided")
             return result
 
@@ -461,15 +568,20 @@ class DisasterPrecursorDetector:
                     schumann_result.risk_score, seismic_correlation["correlation"]
                 )
 
-        if self.enable_earthquake and "em_features" in precursor_data:
+        if self.enable_earthquake and seismicity_features is not None:
             if self._neural_trained:
-                eq_prediction = self._predict_earthquake(precursor_data["em_features"])
-                result.estimated_magnitude = eq_prediction["magnitude"]
-                result.time_to_event_hours = eq_prediction["time_to_event_hours"]
-                result.confidence = max(result.confidence, eq_prediction["confidence"])
+                eq_forecast = self._predict_earthquake(seismicity_features)
+                # Probability framing only: confidence carries P(M>=5.0, 30 d).
+                # estimated_magnitude / time_to_event_hours are deliberately
+                # NOT populated from the neural model -- the review forbids
+                # magnitude and time-to-event claims for specific events.
+                result.confidence = max(result.confidence, eq_forecast["event_probability"])
+                if eq_forecast["event_probability"] >= 0.5:
+                    result.precursor_detected = True
+                    result.disaster_type = "earthquake"
             else:
                 # Fail honest: an untrained network must not fabricate a
-                # magnitude. Detection still proceeds from the real correlations.
+                # forecast. Detection still proceeds from the real correlations.
                 self._warn_untrained_once()
 
         if self.enable_tsunami and result.disaster_type == "earthquake":
@@ -487,33 +599,54 @@ class DisasterPrecursorDetector:
 
         return result
 
-    def _predict_earthquake(self, em_features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict earthquake magnitude from EM features (trained network only).
+    def _predict_earthquake(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Forecast P(M>=5.0 within 30 days in a 0.5-degree cell).
+
+        Consumes a ``seismicity-catalog-v2`` feature vector (real USGS
+        catalog statistics; see
+        ``omni_mercury_engine.ml.hazard_training.earthquake_precursor``),
+        standardized with the loaded checkpoint's training-years statistics.
+
+        Returns a dict with:
+
+        * ``event_probability`` (also mirrored as ``confidence``) -- PRIMARY:
+          the probabilistic 30-day M>=5.0 rate forecast. Skill is expected to
+          be dominated by aftershock/foreshock clustering (honest ETAS-style
+          skill), not novel precursor detection.
+        * ``diagnostic_max_magnitude`` / ``diagnostic_days_to_m4`` --
+          DIAGNOSTIC regressions of observables (window max magnitude;
+          days to first in-cell M>=4). Per the literature review these are
+          NEVER predictions of a specific future event's magnitude or timing
+          and must not populate ``estimated_magnitude``/
+          ``time_to_event_hours``.
 
         Raises:
             RuntimeError: If called before :meth:`load_neural_weights` -- an
-                untrained network's magnitude would be fabrication.
+                untrained network's output would be fabrication.
         """
         if not self._neural_trained:
             raise RuntimeError(
                 "EarthquakePrecursorAnalyzer is untrained; refusing to fabricate "
-                "a magnitude. Call load_neural_weights() first."
+                "a forecast. Call load_neural_weights() first."
             )
-        features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
-
         if self.earthquake_analyzer is None:
             raise RuntimeError("Earthquake analyzer not initialized")
+
+        vec = np.asarray(features, dtype=np.float32)
+        if self._feature_mean is not None and self._feature_std is not None:
+            vec = (vec - self._feature_mean) / self._feature_std
+        features_tensor = torch.tensor(vec, dtype=torch.float32).unsqueeze(0)
+
         self.earthquake_analyzer.eval()
         with torch.no_grad():
             magnitude, time_to_event, confidence = self.earthquake_analyzer(features_tensor)
 
-        magnitude_richter = float(magnitude[0].item()) * 9.0
-        time_hours = float(time_to_event[0].item()) * 72.0
-
+        probability = float(confidence[0].item())
         return {
-            "magnitude": magnitude_richter,
-            "time_to_event_hours": time_hours,
-            "confidence": float(confidence[0].item()),
+            "event_probability": probability,
+            "confidence": probability,
+            "diagnostic_max_magnitude": float(magnitude[0].item()) * 9.0,
+            "diagnostic_days_to_m4": float(time_to_event[0].item()) * 30.0,
         }
 
     def _estimate_time_to_event(self, risk_score: float, correlation: float) -> float:

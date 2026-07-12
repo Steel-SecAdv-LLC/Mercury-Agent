@@ -1,0 +1,23 @@
+{
+  "created_utc": "2026-07-10T07:53:57+00:00",
+  "description": "REAL-data fixtures for tests/ml/test_hazard_volcanic_training.py. No synthetic data: bytes are verbatim excerpts of the upstream archives.",
+  "gvp_csv": {
+    "file": "gvp_shishaldin_eruptions.csv",
+    "rows": 51,
+    "source_catalog_sha256": "918ab8ffbef1132fda379994b71678ca8f6f70bd2c0ed51f94beb8c1357c47e6",
+    "source_url": "https://webservices.volcano.si.edu/geoserver/GVP-VOTW/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=GVP-VOTW:Smithsonian_VOTW_Holocene_Eruptions&outputFormat=csv",
+    "what": "All Shishaldin (311360) rows of the GVP Holocene eruption catalog."
+  },
+  "mseed": {
+    "day": "2023-07-01",
+    "file": "av_ssba_bhz_2023-07-01.mseed",
+    "note": "Trimmed with obspy Stream.slice; encoding unchanged (miniSEED).",
+    "sample_rate_hz": 50.0,
+    "scale_counts_per_m_s": 301719995.7020526,
+    "scale_source": "EarthScope FDSN station service channel inventory (net=AV&format=text&level=channel), epoch covering the day",
+    "source_day_sha256": "3d270da974ac564192ff9b8d914ccae30bf0d3fe0230ffd47e72f489e2eaed34",
+    "source_url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=SSBA&cha=BHZ&starttime=2023-07-01T00:00:00&endtime=2023-07-02T00:00:00",
+    "station": "AV.SSBA..BHZ",
+    "what": "First 65 minutes of the AV.SSBA..BHZ station-day 2023-07-01 (Shishaldin volcano, Alaska; 10 days before the GVP-cataloged 2023-07-11 eruption onset, eruption number 22539)."
+  }
+}

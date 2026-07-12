@@ -137,6 +137,29 @@ jobs:
 
       - name: Run network reachability harness
         if: matrix.lane == 'network'
+        env:
+          # Live-data API keys for the keyed-loader reachability probes.
+          # Every value is a repo secret injected only in CI -- never committed
+          # or echoed. Where the loader's env var differs from the secret name,
+          # BOTH are set to the same secret (documented per line).
+          #
+          # NASA FIRMS: WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret
+          # is named FIRMS_MAP_KEY.
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          # NASA Open APIs (DONKI + NeoWs) -- space_weather + meteor loaders.
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+          # FRED (api.stlouisfed.org) -- financial_loader.
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          # EIA (api.eia.gov) -- energy_loader.
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          # Alpha Vantage market data -- financial market loader.
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          # OpenWeatherMap -- weather loader.
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+          # USGS EROS M2M (login-token) needs BOTH the application token and the ERS username.
+          USGS_KEY: ${{ secrets.USGS_KEY }}
+          EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
         run: |
           # Opt-in network probes for the 11 unreachable loaders.
           # ``--no-cov`` keeps the run time bounded — coverage is

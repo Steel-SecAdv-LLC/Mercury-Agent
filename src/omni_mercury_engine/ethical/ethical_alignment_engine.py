@@ -563,7 +563,7 @@ class GeometricPatternProcessor:
             patterns_detected=patterns,
         )
 
-    def compute_divine_proportion(self, a: float, b: float) -> float:
+    def compute_golden_ratio(self, a: float, b: float) -> float:
         """Compute how close the ratio a/b is to the golden ratio.
 
         Args:

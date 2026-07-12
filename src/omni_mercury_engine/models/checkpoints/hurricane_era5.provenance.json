@@ -1,0 +1,281 @@
+{
+  "checkpoint": "hurricane_era5.pt",
+  "checkpoint_sha256": "f4328227124ca611748252cb5e20c12f19d0daa586768475343bbf02d3237a7e",
+  "created_utc": "2026-07-10T07:32:37+00:00",
+  "data_sources": [
+    {
+      "description": "IBTrACS v04r01 since-1980 best-track CSV (labels)",
+      "sha256": "76da1de29ee12a278c65a593fced43609b07f82ff284b96b1914da2f1af9de11",
+      "url": "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.since1980.list.v04r01.csv"
+    },
+    {
+      "description": "ARCO-ERA5 10m u/v wind, raw zarr-2 chunk GETs (features)",
+      "sha256": "streamed-chunks (integrity: per-chunk blosc decode + shape/finite checks; derived patch caches pinned below)",
+      "url": "https://storage.googleapis.com/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1990",
+      "sha256": "777a4fa0a72740fd82c40d6975f4f2119250bd741276fa4a9bb70de247423856",
+      "url": "file:era5_patches/patches_1990.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1991",
+      "sha256": "91fc5992cb1c7d5bac4561fff0e55255bb94a0a51ee1ec3129740af0f8a7f2c8",
+      "url": "file:era5_patches/patches_1991.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1992",
+      "sha256": "2ee88fd6035c6192323cc008a8e8bcd80bbef9d9d82f498c8eb505bbe850920a",
+      "url": "file:era5_patches/patches_1992.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1993",
+      "sha256": "9beaeb53ee0820f7d7c2cf2a0526239f14a77ca466b3e50a3b4f49aa68069021",
+      "url": "file:era5_patches/patches_1993.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1994",
+      "sha256": "d42ed25c12a90563fd98468cd8701ba4591ccd84a6bf2a72dee42aed61e2039e",
+      "url": "file:era5_patches/patches_1994.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1995",
+      "sha256": "453d8fb5155924827a40baf53b3d0c93d6e664ea891dc8bd630854e0d73532cd",
+      "url": "file:era5_patches/patches_1995.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1996",
+      "sha256": "02f5b9813a35ae06cbfb68b66d614b9245755fb49136a2906457015bcebc725d",
+      "url": "file:era5_patches/patches_1996.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1997",
+      "sha256": "475adad1693455991b09ebb1c4705a56877e6ea247e5ff0338e9ca666dd9ea6f",
+      "url": "file:era5_patches/patches_1997.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1998",
+      "sha256": "a9b136ca86aa6e42f2aa201cca35ac7f29530d88ecd5c1842772554e5c8333f7",
+      "url": "file:era5_patches/patches_1998.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 1999",
+      "sha256": "8da803be29e51667d12eaaa7b12b0630206025a276c3554f2bbe6adb3d5307cc",
+      "url": "file:era5_patches/patches_1999.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2000",
+      "sha256": "76b1af88b9395af6d57f787ebd120ac35620618728a45cd68fca340d86c7c9e1",
+      "url": "file:era5_patches/patches_2000.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2001",
+      "sha256": "84d6fa20b9706ce231fa1f3be2c35cadb599f9f9dc4889bda78837803c00f557",
+      "url": "file:era5_patches/patches_2001.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2002",
+      "sha256": "8c6cd1e3a5adeae4ac214a14d5ce511c469f14edb30a578fe2f8dcdfe057d47e",
+      "url": "file:era5_patches/patches_2002.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2003",
+      "sha256": "b34b976e36cbb59081eaf08a546d6c063b5765e68023626ae7fed7b3270b0cc7",
+      "url": "file:era5_patches/patches_2003.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2004",
+      "sha256": "b09aaa90ac98233f890c74b6dbbf1c9df1ab0bb2f1cfac913e63be966fa35b96",
+      "url": "file:era5_patches/patches_2004.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2005",
+      "sha256": "7d6462ffc5296c76ecc7a3921777222d8c72567dd847c2d6421901b703717047",
+      "url": "file:era5_patches/patches_2005.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2006",
+      "sha256": "4ef8c628378c6fe21a6ebea420493a725de55cf2f4b9b624f05faf233c8b4d9f",
+      "url": "file:era5_patches/patches_2006.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2007",
+      "sha256": "f717c3cfd036fdaa21aa5051a6ce058e6ce3ce13ed8ed79afdb29baf33d47e85",
+      "url": "file:era5_patches/patches_2007.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2008",
+      "sha256": "7c0b0229a0c6b55b83cecffe85baddd0a0eb74e1220d1bfa005be7fe4c6c3398",
+      "url": "file:era5_patches/patches_2008.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2009",
+      "sha256": "31ae28874ff12f33411f82d2ce85917478d398a7026c46a7d2fcd196ea542fa2",
+      "url": "file:era5_patches/patches_2009.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2010",
+      "sha256": "3498761d7579bc0b0501d6f6d8beec70db8dae16218c542a55e8bb4921fb9420",
+      "url": "file:era5_patches/patches_2010.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2011",
+      "sha256": "37292f0fb08491169411cd177484bfb5080ccb81b97eb3536c6f690b90876d11",
+      "url": "file:era5_patches/patches_2011.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2012",
+      "sha256": "64f279b61909f82f04e6dc33ef34c19b6e628bbc0d3b6ff6a3588fe0e7c7d8f6",
+      "url": "file:era5_patches/patches_2012.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2013",
+      "sha256": "9cc84daa07468e606e872162780808f3375558a0acef914cdc40c9eccb06b5ac",
+      "url": "file:era5_patches/patches_2013.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2014",
+      "sha256": "d6d1b7d1a5d7f33d07a95c85064ac62217c697303896adbf79808e3164f42b72",
+      "url": "file:era5_patches/patches_2014.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2015",
+      "sha256": "7dc2d4c5b2d03da056650a119e64b1ef5b783eb87615fc4d52ce77a15e47dd13",
+      "url": "file:era5_patches/patches_2015.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2016",
+      "sha256": "ab87f923f57792d459712b72ca942d7fc56616a28c458432bb21f11786201db2",
+      "url": "file:era5_patches/patches_2016.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2017",
+      "sha256": "29d9d29d5486f49c999597eafddb8586623899b63d3e160fcfdd7e2d912efb08",
+      "url": "file:era5_patches/patches_2017.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2018",
+      "sha256": "ea2931ce7e188654b93eae8fd12c868a01409ba36059da9d7e48e41963e8f0bf",
+      "url": "file:era5_patches/patches_2018.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2019",
+      "sha256": "2cee103d83b1ad5f075b7bb2ad7692dabca127bad415eef4c0500aec6e699855",
+      "url": "file:era5_patches/patches_2019.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2020",
+      "sha256": "2afa14ab4e90b09346915057ce334581e2526d7fa465407e38be36c26ed9406c",
+      "url": "file:era5_patches/patches_2020.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2021",
+      "sha256": "b714596c065d548d82dcc914183e5273101dc4a882b5defe7d7a222a1ea6d618",
+      "url": "file:era5_patches/patches_2021.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2022",
+      "sha256": "8cf6caad5ccaa0ae0d7ddf6e64d062e5bc826a18831cc1305040edbdc8766c1d",
+      "url": "file:era5_patches/patches_2022.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2023",
+      "sha256": "a47af680eccbb132bdb2c536dd613334075a5c2739485c5c7504da4294fa6780",
+      "url": "file:era5_patches/patches_2023.npz"
+    },
+    {
+      "description": "extracted 33x33 u/v/speed patch tensors, 2024",
+      "sha256": "56798c36d877496b1d75bf79051bfed50cda5efa2a05ba8610ceac17dafa6010",
+      "url": "file:era5_patches/patches_2024.npz"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "the win must come from real storms: positive-sample intensity error must not regress below the physics under-estimate",
+        "higher_is_better": false,
+        "metric": "intensity_mae_kt_positives"
+      },
+      {
+        "description": "Saffir-Simpson bucket accuracy through the public API must not regress",
+        "higher_is_better": true,
+        "metric": "category_accuracy"
+      },
+      {
+        "description": "hurricane-vs-negative ranking must not regress against physics' best detection score (patch max wind)",
+        "higher_is_better": true,
+        "metric": "hurricane_detection_auc_wind_score"
+      }
+    ],
+    "extras": {
+      "bytes_fetched_total": 7929680455,
+      "chunk_gets_total": 2380,
+      "comparison": "identical held-out ERA5 patch sequences through HurricaneDetector.predict_hurricane, physics fallback vs loaded checkpoint",
+      "era5_availability": {
+        "earliest_needed": {
+          "available": true,
+          "time": "1989-12-31T18:00:00"
+        },
+        "future_probe": {
+          "available": false,
+          "time": "2026-09-08T07:16:14.912559"
+        },
+        "latest_needed": {
+          "available": true,
+          "time": "2024-12-31T18:00:00"
+        }
+      },
+      "n_auc_cases": 291,
+      "n_test_negative": 255,
+      "n_test_positive": 138,
+      "notes": [
+        "negative-sample intensity truth equals the observed patch max wind, so the physics fallback is exact on negatives by construction; the learned path must win on positives without losing the negatives",
+        "physics confidence is quantized (vorticity needs a single-time 2-D field, and sequence input yields zero vorticity), so its confidence-based AUC is uninformative; the wind-score AUC gives physics its best detection shot"
+      ],
+      "per_basin_test_counts": {
+        "(negative)": 255,
+        "EP": 18,
+        "NA": 31,
+        "NI": 6,
+        "SI": 27,
+        "SP": 17,
+        "WP": 39
+      }
+    },
+    "failed_constraints": [],
+    "higher_is_better": false,
+    "hook": "hurricane_wind",
+    "learned": {
+      "category_accuracy": 0.6081424936386769,
+      "hurricane_detection_auc": 0.9882352941176471,
+      "hurricane_detection_auc_wind_score": 0.9980392156862745,
+      "intensity_mae_kt": 5.394750232224887,
+      "intensity_mae_kt_negatives": 0.5542539498534781,
+      "intensity_mae_kt_positives": 14.339145536606836,
+      "intensity_rmse_kt": 11.309797045574307
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 393,
+    "physics": {
+      "category_accuracy": 0.5470737913486005,
+      "hurricane_detection_auc": 0.5,
+      "hurricane_detection_auc_wind_score": 0.971677559912854,
+      "intensity_mae_kt": 6.116930144572217,
+      "intensity_mae_kt_negatives": 6.327008762728976e-07,
+      "intensity_mae_kt_positives": 17.4199520686823,
+      "intensity_rmse_kt": 15.918159201919257
+    },
+    "primary_metric": "intensity_mae_kt",
+    "primary_metric_wins": true,
+    "test_years": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "a5646e081efaa6b9fabf0de72edaf09eb1e01265",
+  "hook": "hurricane_wind",
+  "seed": 20260709
+}

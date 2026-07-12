@@ -20,8 +20,6 @@ Research sources:
 - NOAA/NASA GOES fire detection
 - USFS wildfire science
 - FIRMS (Fire Information for Resource Management System)
-
-Performance: 20-30% faster detection via multi-scale thermal fusion
 """
 
 from __future__ import annotations
@@ -41,6 +39,13 @@ from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 
 # Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
 HOTSPOT_THRESHOLD_K = 350.0
+
+# Default decision threshold on the CNN fire probability (the detector's
+# historical fixed alert rule). A trained checkpoint may carry a
+# validation-selected operating point that replaces it for the ALERT decision
+# only (see load_neural_weights); the reported confidence always stays the raw
+# sigmoid probability.
+FIRE_PROB_THRESHOLD_DEFAULT = 0.6
 
 
 class FireRiskLevel(Enum):
@@ -91,7 +96,17 @@ class WildfirePredictionResult:
 
 
 class FireIgnitionDetector(nn.Module):
-    """Real-time fire ignition detection from satellite thermal data."""
+    """CNN scoring fire activity from satellite-derived thermal rasters.
+
+    The shipped ``wildfire_firms`` checkpoint trains this network for
+    NEXT-DAY fire activity forecasting: inputs are 3-channel 32x32-cell
+    (0.04-degree) rasters built from NASA FIRMS VIIRS detections over days
+    ``[t-6..t]`` (today's max brightness temperature in Kelvin, log1p 3-day
+    FRP sum, log1p 7-day detection count -- detection-derived fields, NOT
+    full thermal imagery), and the sigmoid output is the probability of any
+    confirmed vegetation-fire detection in the center 2x2 cells on day t+1.
+    See ``omni_mercury_engine.ml.hazard_training.wildfire_ignition``.
+    """
 
     def __init__(self, input_channels: int = 3) -> None:
         """Initialize the instance."""
@@ -605,27 +620,88 @@ class WildfireDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Input contract of a loaded trained checkpoint (see
+        # omni_mercury_engine.ml.hazard_training.wildfire_ignition): the
+        # shipped weights consume FIRMS-detection-derived rasters and emit a
+        # NEXT-DAY fire-activity probability. None until a checkpoint that
+        # declares a spec is loaded.
+        self._feature_spec: str | None = None
+
+        # Deployed alert threshold on the CNN fire probability. A trained
+        # checkpoint may carry a validation-selected operating point (see
+        # wildfire_ignition._select_operating_point) because a pos-weighted
+        # BCE sigmoid's scale is not calibrated to the historical fixed 0.6;
+        # the threshold governs the ALERT decision only -- confidence remains
+        # the raw sigmoid probability.
+        self._fire_prob_threshold: float = FIRE_PROB_THRESHOLD_DEFAULT
+
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the ignition detector (and optional CNN).
 
         Until this is called the networks are untrained and ignition detection
         runs on the deterministic thermal physics.
 
+        The shipped default (``wildfire_firms``) is trained for next-day fire
+        activity FORECASTING: its input is a 3-channel 32x32 raster of NASA
+        FIRMS VIIRS detection-derived fields from days <= t (today's max
+        brightness temperature, log1p 3-day FRP, log1p 7-day count), and its
+        confidence is the probability of a confirmed vegetation-fire detection
+        in the center 2x2 cells on day t+1 -- not a same-scene imagery
+        classification. The checkpoint's ``feature_spec`` records this
+        contract.
+
+        A checkpoint may also carry an ``operating_point`` with a
+        validation-selected ``fire_prob_threshold`` replacing the default
+        alert rule ``probability > 0.6`` (the training sigmoid's scale is not
+        calibrated to that fixed constant). The threshold changes the ALERT
+        decision only; the reported confidence stays the raw probability. An
+        operating point that is not a probability in (0, 1) raises rather
+        than installing a nonsensical alert rule.
+
         Args:
             checkpoint_path: Path to a torch checkpoint containing an
-                ``ignition_detector`` (and optionally ``enhanced_cnn``) state dict.
+                ``ignition_detector`` (and optionally ``enhanced_cnn``) state
+                dict. ``None`` loads the shipped default checkpoint
+                (``wildfire_firms``), whose provenance sidecar is logged;
+                missing or corrupt files raise instead of degrading silently.
         """
         if self.ignition_detector is None:
             raise RuntimeError("ignition detection is disabled on this detector")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("wildfire_firms")
+            source = "shipped default 'wildfire_firms'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.ignition_detector.load_state_dict(checkpoint["ignition_detector"])
         if self.enhanced_cnn is not None and "enhanced_cnn" in checkpoint:
             self.enhanced_cnn.load_state_dict(checkpoint["enhanced_cnn"])
+        self._feature_spec = (
+            str(checkpoint["feature_spec"]) if "feature_spec" in checkpoint else None
+        )
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["fire_prob_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating-point threshold {tau} is not a "
+                    "probability in (0, 1); refusing a nonsensical fire-alert rule"
+                )
+            self._fire_prob_threshold = tau
+        else:
+            self._fire_prob_threshold = FIRE_PROB_THRESHOLD_DEFAULT
         self._neural_trained = True
         self.logger.info(
-            "Wildfire neural weights loaded from %s; using learned detector", checkpoint_path
+            "Wildfire neural weights loaded from %s (feature spec: %s; alert "
+            "threshold: %.4f%s); using learned detector",
+            source,
+            self._feature_spec or "unspecified",
+            self._fire_prob_threshold,
+            " from checkpoint operating point" if op is not None else " default",
         )
 
     def _warn_untrained_once(self) -> None:
@@ -756,7 +832,10 @@ class WildfireDetector:
         with torch.no_grad():
             fire_prob = self.ignition_detector(thermal_tensor)
 
-        fire_detected = float(fire_prob[0].item()) > 0.6
+        # Alert decision at the deployed threshold: the checkpoint's
+        # validation-selected operating point when one was loaded, else the
+        # historical fixed default. Confidence stays the raw probability.
+        fire_detected = float(fire_prob[0].item()) > self._fire_prob_threshold
 
         # Spatial hotspot mask over the (1, C, H, W) array: a pixel is a hotspot
         # candidate when ANY channel exceeds the threshold; the 2-D thermal map

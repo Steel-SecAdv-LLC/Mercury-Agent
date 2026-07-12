@@ -29,33 +29,33 @@ spec:
               is below the required 0.99 threshold.
               This requires immediate attention.
 
-        # Alert if sigma_sacred drops below 0.93 hard limit
-        - alert: MercurySigmaSacredViolation
+        # Alert if sigma_alignment drops below 0.93 hard limit
+        - alert: MercurySigmaAlignmentViolation
           expr: |
-            mercury_agent_sigma_sacred < 0.93
+            mercury_agent_sigma_alignment < 0.93
           for: 30s
           labels:
             severity: critical
             component: ethical
           annotations:
-            summary: "σ_Sacred below hard limit (0.93)"
+            summary: "σ_Alignment below hard limit (0.93)"
             description: |
-              Mercury Agent σ_Sacred score {{ `{{ $value | printf "%.3f" }}` }}
+              Mercury Agent σ_Alignment score {{ `{{ $value | printf "%.3f" }}` }}
               is below the hard limit of 0.93.
               Ethical gate is blocking operations.
 
-        # Warning when sigma_sacred between 0.93 and 0.96
-        - alert: MercurySigmaSacredWarning
+        # Warning when sigma_alignment between 0.93 and 0.96
+        - alert: MercurySigmaAlignmentWarning
           expr: |
-            mercury_agent_sigma_sacred >= 0.93 and mercury_agent_sigma_sacred < 0.96
+            mercury_agent_sigma_alignment >= 0.93 and mercury_agent_sigma_alignment < 0.96
           for: 5m
           labels:
             severity: warning
             component: ethical
           annotations:
-            summary: "σ_Sacred below target (0.96)"
+            summary: "σ_Alignment below target (0.96)"
             description: |
-              Mercury Agent σ_Sacred score {{ `{{ $value | printf "%.3f" }}` }}
+              Mercury Agent σ_Alignment score {{ `{{ $value | printf "%.3f" }}` }}
               is above hard limit but below target of 0.96.
 
     # =========================================================================
