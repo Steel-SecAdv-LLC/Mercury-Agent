@@ -424,6 +424,8 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         raise RuntimeError("training produced no finite validation MAE; refusing to save")
     model.load_state_dict(best_state)
 
+    operating_point = _select_operating_point(model, ds, x_val=x_val, val_mask=val_mask)
+
     record = {
         "seed": ctx.seed,
         "epochs_run": epochs_run,
@@ -433,6 +435,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "train_years": list(SPLIT.train_years),
         "val_years": list(SPLIT.val_years),
         "train_storm_fraction": storm_frac,
+        "operating_point": operating_point,
     }
     payload: dict[str, Any] = {
         "geomag_predictor": model.state_dict(),
@@ -441,9 +444,153 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         "feature_mean": ds.feature_mean.tolist(),
         "feature_std": ds.feature_std.tolist(),
         "feature_fill": ds.feature_fill,
+        "operating_point": operating_point,
     }
     save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
     return record
+
+
+def _boyle_kp(fields: dict[str, float]) -> float:
+    """Boyle-index Kp for one observation (parity with the detector physics).
+
+    Mirrors ``SolarStormDetector._predict_geomagnetic_storm_physics`` exactly
+    (Boyle et al. 1997 polar-cap potential, empirical log map to Kp); used
+    only to compute the physics recall floor for operating-point selection on
+    the validation years. The evaluate stage still measures physics through
+    the public detector API.
+    """
+    v = float(fields.get("solar_wind_speed_km_s", 400.0))
+    bz = float(fields.get("bz_imf_nt", 0.0))
+    by = float(fields.get("by_imf_nt", 0.0))
+    b_transverse = float(np.hypot(by, bz))
+    clock_angle = float(np.arctan2(abs(by), bz))
+    coupling = np.sin(clock_angle / 2.0) ** 3
+    boyle_kv = 1e-4 * v**2 + 11.7 * b_transverse * coupling
+    return float(np.clip(8.93 * np.log10(max(boyle_kv, 1e-9)) - 12.55, 0.0, 9.0))
+
+
+def _select_operating_point(
+    model: Any,
+    ds: GeomagDataset,
+    *,
+    x_val: torch.Tensor,
+    val_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Choose the storm-onset threshold for the storm-probability head.
+
+    Policy (documented for owner ratification): on the VALIDATION years
+    only, require the dual-rule decision ``(kp_pred >= 5) OR
+    (storm_prob >= tau)`` to reach a storm recall of at least
+    ``max(physics validation recall, 0.55)`` AND a false-alarm rate of at
+    most ``0.8 * physics validation FAR`` (the 20% headroom guards the
+    val->test distribution shift the ship gate's hard FAR constraint does
+    not forgive); among feasible thresholds pick the one maximizing CSI
+    (ties -> higher tau, i.e. fewer false alarms). Both selection targets
+    mirror the ship gate's secondary constraints — an operating point chosen
+    against only one of them can win recall while regressing FAR by a
+    rounding error and be refused (the first candidate did exactly that:
+    test FAR 3.183% vs physics 3.139%). This machinery exists because the
+    MSE-trained Kp point estimate regresses toward the mean on a ~3%-storm
+    dataset, so thresholding it at Kp>=5 halves recall versus physics even
+    though its ranking (AUC) is far better; the BCE-trained storm head
+    carries that ranking and must drive the onset decision.
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar (threshold, policy, and the validation-year
+        recall/FAR/CSI for both the learned dual rule and physics).
+    """
+    val_idx = np.flatnonzero(val_mask)
+    storm_true = ds.storm[val_mask].astype(bool)
+    if not storm_true.any() or storm_true.all():
+        raise RuntimeError(
+            "validation years contain a single class; cannot select an " "operating point honestly"
+        )
+
+    model.eval()
+    with torch.no_grad():
+        storm_prob_t, kp_pred_t = model(x_val)
+    storm_prob = storm_prob_t.squeeze(-1).numpy().astype(np.float64)
+    kp_pred = kp_pred_t.squeeze(-1).numpy().astype(np.float64)
+
+    kp_phys = np.array([_boyle_kp(ds.raw_fields[i]) for i in val_idx])
+    phys_detect = kp_phys >= 5.0
+    physics_recall = float(np.mean(phys_detect[storm_true]))
+    physics_far = float(np.mean(phys_detect[~storm_true]))
+
+    recall_floor = max(physics_recall, 0.55)
+    far_ceiling = 0.8 * physics_far
+    kp_detect = kp_pred >= 5.0
+
+    def _dual_metrics(tau: float) -> tuple[float, float, float]:
+        detect = kp_detect | (storm_prob >= tau)
+        tp = float(np.sum(detect & storm_true))
+        fn = float(np.sum(~detect & storm_true))
+        fp = float(np.sum(detect & ~storm_true))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~storm_true)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    # Candidate thresholds from the storm-probability quantile grid, restricted
+    # to finite values strictly inside (0, 1): the 0.0/1.0 quantiles (the min/max
+    # storm probability) would degenerate to a detect-all / detect-none-extra
+    # rule AND, if the head saturates to exactly 0 or 1, would produce a boundary
+    # tau that SolarStormDetector.load_neural_weights() later refuses (it requires
+    # 0 < tau < 1). Filtering here keeps the selected operating point loadable.
+    taus = np.unique(np.quantile(storm_prob, np.linspace(0.0, 1.0, 513)))
+    taus = taus[np.isfinite(taus) & (taus > 0.0) & (taus < 1.0)]
+    if taus.size == 0:
+        raise RuntimeError(
+            "no storm-probability threshold falls strictly inside (0, 1); the "
+            "storm head saturated to a constant and cannot yield a loadable "
+            "operating point -- refusing to record a boundary threshold"
+        )
+    best: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _dual_metrics(float(tau))
+        entry = {
+            "storm_prob_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        # Fallback if no threshold satisfies both floors: the most
+        # conservative feasible-on-FAR point with the best recall (a
+        # recall-maximizing fallback that blows the FAR ceiling would be
+        # selecting a point the ship gate is guaranteed to refuse).
+        if far <= far_ceiling and (fallback is None or recall > fallback["val_recall"]):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["storm_prob_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    chosen = best if best is not None else fallback
+    if chosen is None:
+        raise RuntimeError(
+            "no operating point satisfies even the FAR ceiling on validation; "
+            "the storm head is not usable for onset decisions -- refusing to "
+            "record a doomed operating point"
+        )
+    return {
+        **chosen,
+        "policy": "dual-rule (kp_pred>=5 OR storm_prob>=tau); tau maximizes val CSI "
+        "subject to val recall >= max(physics val recall, 0.55) AND "
+        "val FAR <= 0.8 * physics val FAR",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+    }
 
 
 def _g_bucket(kp: float) -> str:
@@ -499,6 +646,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         "learned": {"kp": [], "conf": []},
     }
     buckets: dict[str, list[str]] = {"physics": [], "learned": []}
+    detected: dict[str, list[bool]] = {"physics": [], "learned": []}
     for i in test_idx:
         case = {"magnetosphere_data": dict(ds.raw_fields[i])}
         for label, det in (("physics", physics_det), ("learned", learned_det)):
@@ -508,6 +656,10 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             results[label]["kp"].append(float(out.kp_index))
             results[label]["conf"].append(float(out.confidence))
             buckets[label].append(out.geomagnetic_storm_level)
+            # The deployed storm-onset decision is the emitted level: physics
+            # thresholds its Kp at 5; the learned path applies the dual rule
+            # (regressed Kp OR storm-probability >= ratified threshold).
+            detected[label].append(out.geomagnetic_storm_level != "none")
 
     bucket_true = [_g_bucket(float(k)) for k in kp_true]
 
@@ -515,6 +667,11 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         kp_pred = np.asarray(results[label]["kp"])
         conf = np.asarray(results[label]["conf"])
         bucket_pred = buckets[label]
+        detect = np.asarray(detected[label], dtype=bool)
+        is_storm = storm_true == 1.0
+        tp = float(np.sum(detect & is_storm))
+        fn = float(np.sum(~detect & is_storm))
+        fp = float(np.sum(detect & ~is_storm))
         return {
             "kp_mae": float(np.mean(np.abs(kp_pred - kp_true))),
             "kp_rmse": float(np.sqrt(np.mean((kp_pred - kp_true) ** 2))),
@@ -523,9 +680,12 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             ),
             "storm_auc": binary_auc(storm_true, conf),
             "storm_recall_kp5": float(
-                np.mean(kp_pred[storm_true == 1.0] >= 5.0) if storm_true.any() else np.nan
+                np.mean(kp_pred[is_storm] >= 5.0) if is_storm.any() else np.nan
             ),
-            "false_alarm_rate_kp5": float(np.mean(kp_pred[storm_true == 0.0] >= 5.0)),
+            "false_alarm_rate_kp5": float(np.mean(kp_pred[~is_storm] >= 5.0)),
+            "storm_recall_op": float(tp / max(tp + fn, 1.0)),
+            "false_alarm_rate_op": float(fp / max(float(np.sum(~is_storm)), 1.0)),
+            "storm_csi_op": float(tp / max(tp + fn + fp, 1.0)),
         }
 
     outcome = EvaluationOutcome(
@@ -540,7 +700,29 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "test_storm_fraction": float(storm_true.mean()),
             "comparison": "identical held-out OMNI2 hours through "
             "SolarStormDetector.predict_solar_storm, physics fallback vs loaded checkpoint",
+            "operating_point": "learned storm onset uses the dual rule carried by the "
+            "checkpoint (see payload['operating_point']); physics onset is its Kp>=5 "
+            "threshold — each path is scored on its own deployed decision rule",
         },
+        constraints=[
+            {
+                "metric": "storm_recall_op",
+                "higher_is_better": True,
+                "description": "storm recall at the deployed operating point must not "
+                "regress below physics (the first shipped checkpoint halved it)",
+            },
+            {
+                "metric": "false_alarm_rate_op",
+                "higher_is_better": False,
+                "description": "false-alarm rate at the deployed operating point must "
+                "not exceed physics",
+            },
+            {
+                "metric": "storm_auc",
+                "higher_is_better": True,
+                "description": "storm-hour ranking quality must not regress",
+            },
+        ],
     )
     save_evaluation(ctx.data_dir, outcome)
     logger.info(

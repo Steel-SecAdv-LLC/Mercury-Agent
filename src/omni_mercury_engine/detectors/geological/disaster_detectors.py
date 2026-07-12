@@ -31,8 +31,6 @@ Research sources:
 - USGS Earthquake Hazards Program
 - NASA Space Weather Prediction Center
 - Pacific Tsunami Warning Center
-
-Performance: Synaptic integration with GOSNN for ethical gating
 """
 
 from __future__ import annotations
@@ -204,6 +202,13 @@ class TsunamiPredictionResult:
     resonance_score: float = 0.0
     dominant_frequencies: list[float] = field(default_factory=list)
     waveform_anomaly_score: float = 0.0
+
+    # Diagnostic-only NN wave-height estimate (populated only when a trained
+    # checkpoint is loaded). ``estimated_wave_height_m`` is ALWAYS the
+    # measured peak sea-level deviation of the record itself -- a measured
+    # quantity is never replaced by a model estimate (the trained head's MAE
+    # on held-out DART arrivals is ~4x the measurement's).
+    nn_wave_height_m: float | None = None
 
     warning_actions: list[str] = field(default_factory=list)
     evacuation_zones: list[str] = field(default_factory=list)
@@ -440,6 +445,25 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                 s_wave_prob.squeeze(-1),
             )
 
+        def detection_logit(self, spectrogram: torch.Tensor) -> torch.Tensor:
+            """Pre-sigmoid earthquake-detection logit (the unsaturated alert score).
+
+            The classifier head ends in a ``Sigmoid`` that pins confident traces
+            to *exactly* 1.0 in float32, collapsing the score tail a deployable
+            alert threshold needs (empirically ~79% of true events saturate to
+            1.0). This returns the logit feeding that final ``Sigmoid`` -- strictly
+            monotonic in the probability (identical ROC / AUC) but unbounded and
+            tie-free, so the deployed rule can threshold a temperature-calibrated
+            ``sigmoid(logit / T)`` without the saturation floor. Weights are shared
+            with :meth:`forward` (``classifier`` minus its terminal activation).
+            """
+            if spectrogram.dim() == 3:
+                spectrogram = spectrogram.unsqueeze(1)
+            features = self.conv2d(spectrogram)
+            features_flat = features.view(features.size(0), -1)
+            logit = self.classifier[:-1](features_flat)
+            return logit.squeeze(-1)
+
 else:
 
     class SeismicWaveAnalyzer:
@@ -521,6 +545,27 @@ class TsunamiDetector:
 
     Integrates with 3R Resonance mechanism for frequency-domain anomaly detection in oceanic sensor
     data.
+
+    A checkpoint for the :class:`WaveformFFTAnalyzer` trains as
+    ``tsunami_dart`` (see
+    :mod:`omni_mercury_engine.ml.hazard_training.tsunami_waveform`) on real
+    NOAA NDBC DART bottom-pressure records labeled with NCEI HazEL tsunami
+    arrivals, and ships only if it passes the merit gate (the 2026-07
+    candidate won held-out AUC decisively but regressed the deployed-rule
+    false-alarm rate, so it was refused and the physics path stays in
+    charge -- see the candidate's evaluation record). Its input contract is
+    a detided 96-sample 15-minute window (24 h of water-column-height
+    residual, metres; ``sampling_rate=1/900`` Hz);
+    :meth:`load_neural_weights` with no argument loads the shipped default
+    with provenance logging once one exists. Until weights are loaded the
+    deterministic amplitude + resonance physics path decides.
+
+    Trained checkpoints carry a ratified ``operating_point`` (the
+    validation-selected confidence threshold governing the learned path's
+    ``tsunami_detected`` decision -- part of the deployed rule the merit
+    gate evaluated). ``estimated_wave_height_m`` is always the record's own
+    measured peak deviation on both paths; the NN wave-height head is
+    surfaced only as the diagnostic ``nn_wave_height_m``.
     """
 
     def __init__(
@@ -575,11 +620,31 @@ class TsunamiDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Input contract metadata of a loaded trained checkpoint (see
+        # load_neural_weights); None until a checkpoint that declares it loads.
+        self._feature_spec: str | None = None
+        self._window_samples: int | None = None
+        self._sampling_period_s: float | None = None
+
+        # Ratified detection operating point carried by trained checkpoints
+        # (see tsunami_waveform.py _select_operating_point, mirroring the
+        # solar-storm dual-rule machinery): the learned path's
+        # ``tsunami_detected`` decision thresholds the confidence at a
+        # VALIDATION-selected tau, because the constructor default (0.96) was
+        # chosen for the physics confidence scale and the NN probability
+        # lives on its own scale. The loaded threshold is part of the
+        # ratified deployed rule -- it ships inside the merit-gated
+        # checkpoint and is selected against the same recall/false-alarm
+        # constraints the ship gate enforces. None until a checkpoint that
+        # declares one is loaded (then the learned path uses it; the physics
+        # path always keeps ``detection_threshold``).
+        self._operating_point: dict[str, float] | None = None
+
         self.tsunami_frequencies = [0.001, 0.005, 0.01, 0.02]
 
         logger.info(f"TsunamiDetector initialized: threshold={detection_threshold}")
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the waveform analyzer.
 
         Until this is called the network is untrained and detection runs on the
@@ -587,13 +652,64 @@ class TsunamiDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``waveform_analyzer`` state dict.
+                ``waveform_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``tsunami_dart``), whose provenance
+                sidecar is logged; missing or corrupt files raise instead of
+                degrading silently.
+
+        Raises:
+            ValueError: If the checkpoint carries an ``operating_point``
+                whose detection threshold is not a probability in (0, 1) --
+                a nonsensical deployed rule must refuse, not load.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("tsunami_dart")
+            source = "shipped default 'tsunami_dart'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
         self.waveform_analyzer.load_state_dict(checkpoint["waveform_analyzer"])
+        # Input contract carried by trained checkpoints (see
+        # omni_mercury_engine.ml.hazard_training.tsunami_waveform): detided
+        # fixed-length windows at a fixed sampling period. None when an
+        # explicit checkpoint predates the feature-spec convention.
+        self._feature_spec = (
+            str(checkpoint["feature_spec"]) if "feature_spec" in checkpoint else None
+        )
+        self._window_samples = (
+            int(checkpoint["window_samples"]) if "window_samples" in checkpoint else None
+        )
+        self._sampling_period_s = (
+            float(checkpoint["sampling_period_s"]) if "sampling_period_s" in checkpoint else None
+        )
+        # Ratified operating point (validation-selected detection threshold
+        # for the learned path -- part of the deployed decision rule the
+        # merit gate evaluated). Explicit checkpoints that predate the
+        # convention simply leave the constructor threshold in charge.
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            tau = float(op["detection_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating point threshold {tau} is not a "
+                    "probability; refusing a nonsensical detection rule"
+                )
+            self._operating_point = {"detection_threshold": tau}
+        else:
+            self._operating_point = None
         self._neural_trained = True
         logger.info(
-            "Tsunami neural weights loaded from %s; using learned analyzer", checkpoint_path
+            "Tsunami neural weights loaded from %s (feature spec: %s%s); using learned analyzer",
+            source,
+            self._feature_spec or "unspecified",
+            (
+                f", detection operating point tau="
+                f"{self._operating_point['detection_threshold']:.4f}"
+                if self._operating_point is not None
+                else ", no operating point (constructor threshold governs)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -645,21 +761,29 @@ class TsunamiDetector:
                     resonance_score += 0.25
                     dominant_freqs.append(float(freqs[idx]))
 
+        # The reported wave height is a MEASUREMENT on BOTH paths: the peak
+        # sea-level deviation from the median baseline is what the record
+        # itself shows (what a DART bottom-pressure recorder measures). The
+        # trained network also carries a wave-height regression head, but a
+        # measured quantity is never replaced by a worse model estimate (the
+        # head's held-out MAE is ~4x the measurement's), so the NN estimate
+        # is surfaced as the diagnostic-only ``nn_wave_height_m``.
+        record = waveform_data.cpu().numpy()[0]
+        median = float(np.median(record))
+        wave_height_m = float(np.max(np.abs(record - median)))
+        nn_wave_height_m: float | None = None
+
         if self._neural_trained:
             with torch.no_grad():
-                tsunami_prob, wave_height = self.waveform_analyzer(waveform_data)
+                tsunami_prob, nn_wave_height = self.waveform_analyzer(waveform_data)
             confidence = float(tsunami_prob[0].item())
             confidence = min(1.0, confidence + resonance_score * 0.3)
-            wave_height_m = float(wave_height[0].item())
+            nn_wave_height_m = float(nn_wave_height[0].item())
         else:
-            # Physics path: the wave height IS the observed peak sea-level
-            # deviation from the median baseline, and the confidence is a
-            # noisy-OR of the robust amplitude severity with the tsunami-band
-            # resonance score. Deterministic; nothing is fabricated.
+            # Physics path: the confidence is a noisy-OR of the robust
+            # amplitude severity with the tsunami-band resonance score.
+            # Deterministic; nothing is fabricated.
             self._warn_untrained_once()
-            record = waveform_data.cpu().numpy()[0]
-            median = float(np.median(record))
-            wave_height_m = float(np.max(np.abs(record - median)))
             # Noise floor from the QUIETEST segment of the record, not the whole
             # record -- a long-period tsunami excursion would otherwise inflate
             # its own baseline (self-masking). Deterministic.
@@ -676,7 +800,15 @@ class TsunamiDetector:
             amplitude_severity = float(np.clip((z_peak - 5.0) / 15.0, 0.0, 1.0))
             confidence = 1.0 - (1.0 - amplitude_severity) * (1.0 - resonance_score)
 
-        tsunami_detected = confidence > self.detection_threshold
+        # Deployed decision rule: the physics path thresholds at the
+        # constructor's ``detection_threshold``; the learned path uses the
+        # checkpoint's ratified operating point when it carries one (the
+        # validation-selected tau IS part of the deployed rule the merit
+        # gate evaluated -- see tsunami_waveform._select_operating_point).
+        if self._neural_trained and self._operating_point is not None:
+            tsunami_detected = confidence > self._operating_point["detection_threshold"]
+        else:
+            tsunami_detected = confidence > self.detection_threshold
 
         severity = self._determine_severity(wave_height_m)
 
@@ -716,6 +848,7 @@ class TsunamiDetector:
             resonance_score=resonance_score,
             dominant_frequencies=dominant_freqs,
             waveform_anomaly_score=float(np.std(power_spectrum)),
+            nn_wave_height_m=nn_wave_height_m,
             warning_actions=warnings,
             evacuation_zones=zones,
             diagnostics=diagnostics,
@@ -899,6 +1032,13 @@ class EarthquakeDetector:
 
     Uses scipy.signal for spectrogram computation and integrates with 3R Resonance for frequency-
     domain analysis.
+
+    Trained checkpoints carry a ratified ``operating_point`` (the alert
+    threshold selected on the training pipeline's validation year -- part of
+    the deployed rule the merit gate evaluated). The learned path's
+    ``earthquake_detected`` decision uses it; the physics path always keeps
+    the constructor's ``detection_threshold``, and the emitted ``confidence``
+    is identical either way.
     """
 
     def __init__(
@@ -957,12 +1097,24 @@ class EarthquakeDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Ratified alert operating point carried by trained checkpoints (see
+        # seismic_wave.py _select_operating_point, mirroring the solar-storm
+        # machinery): the learned path's ``earthquake_detected`` decision
+        # thresholds the confidence at a VALIDATION-selected tau, because the
+        # constructor default (0.96) was calibrated for the physics STA/LTA
+        # confidence scale and the CNN's sigmoid lives on its own scale. The
+        # loaded threshold is part of the deployed rule the merit gate
+        # evaluated; it changes the ALERT decision only, never the emitted
+        # confidence. None until a checkpoint that declares one is loaded
+        # (the physics path always keeps ``detection_threshold``).
+        self._operating_point: dict[str, float] | None = None
+
         self.p_wave_velocity = 6.0
         self.s_wave_velocity = 3.5
 
         logger.info(f"EarthquakeDetector initialized: threshold={detection_threshold}")
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the seismic analyzer.
 
         Until this is called the network is untrained and detection runs on the
@@ -970,13 +1122,63 @@ class EarthquakeDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``seismic_analyzer`` state dict.
+                ``seismic_analyzer`` state dict. ``None`` loads the shipped
+                default checkpoint (``seismic_stead``, trained on real STEAD
+                waveforms -- see its provenance sidecar, which is logged at
+                load time); missing or corrupt files raise instead of
+                degrading silently.
+
+        Raises:
+            ValueError: If the checkpoint carries an ``operating_point``
+                whose detection threshold is not a probability in (0, 1) --
+                a nonsensical alert rule must refuse, not load.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("seismic_stead")
+            source = "shipped default 'seismic_stead'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            source = checkpoint_path
+        # Ratified operating point (validation-selected alert threshold for
+        # the learned path -- part of the deployed decision rule the merit
+        # gate evaluated). Validated BEFORE any state mutates so a bad rule
+        # cannot half-load. Checkpoints that predate the convention simply
+        # leave the constructor threshold in charge.
+        op = checkpoint.get("operating_point")
+        temperature: float | None = None
+        if op is not None:
+            tau = float(op["detection_threshold"])
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating point detection threshold {tau} is not a "
+                    "probability; refusing a nonsensical alert rule"
+                )
+            if op.get("temperature") is not None:
+                temperature = float(op["temperature"])
+                if not np.isfinite(temperature) or temperature <= 0.0:
+                    raise ValueError(
+                        f"checkpoint operating point temperature {temperature} is not a "
+                        "positive scale; refusing a nonsensical alert rule"
+                    )
         self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
+        if op is not None:
+            self._operating_point = {"detection_threshold": float(op["detection_threshold"])}
+            if temperature is not None:
+                self._operating_point["temperature"] = temperature
+        else:
+            self._operating_point = None
         self._neural_trained = True
         logger.info(
-            "Earthquake neural weights loaded from %s; using learned analyzer", checkpoint_path
+            "Earthquake neural weights loaded from %s; using learned analyzer%s",
+            source,
+            (
+                f" (alert operating point tau="
+                f"{self._operating_point['detection_threshold']:.4f})"
+                if self._operating_point is not None
+                else " (no operating point; constructor threshold governs)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -1046,12 +1248,26 @@ class EarthquakeDetector:
 
             with torch.no_grad():
                 eq_prob, magnitude, p_prob, s_prob = self.seismic_analyzer(spectrogram_tensor)
+                # Deployed alert score. When the checkpoint carries a calibration
+                # temperature (seismic-stead-v2 semantics) the alert rule
+                # thresholds sigmoid(logit / T): this preserves the head's ROC
+                # while undoing the terminal-sigmoid saturation that pinned
+                # confident traces to exactly 1.0 (a threshold cannot split a 1.0
+                # pile-up). The physics-path 0.2*resonance bump is NOT added on the
+                # learned head -- it is an STA/LTA-confidence device that only
+                # manufactures noise-driven false alarms here. Checkpoints without
+                # a temperature keep the legacy (eq_prob + 0.2*resonance, capped)
+                # semantics unchanged.
+                temperature = (self._operating_point or {}).get("temperature")
+                if temperature is not None:
+                    eq_logit = self.seismic_analyzer.detection_logit(spectrogram_tensor)
+                    confidence = float(torch.sigmoid(eq_logit[0] / temperature).item())
+                else:
+                    confidence = min(1.0, float(eq_prob[0].item()) + resonance_score * 0.2)
 
-            confidence = float(eq_prob[0].item())
             estimated_mag = float(magnitude[0].item()) * 4 + 2
             p_wave_detected = float(p_prob[0].item()) > 0.5
             s_wave_detected = float(s_prob[0].item()) > 0.5
-            confidence = min(1.0, confidence + resonance_score * 0.2)
             magnitude_class = self._classify_magnitude(estimated_mag)
             aftershock_probability = min(0.9, estimated_mag / 10)
         else:
@@ -1070,7 +1286,16 @@ class EarthquakeDetector:
             magnitude_class = "undetermined"
             aftershock_probability = 0.0
 
-        earthquake_detected = confidence > self.detection_threshold
+        # Deployed alert rule: the physics path thresholds at the
+        # constructor's ``detection_threshold``; the learned path uses the
+        # checkpoint's ratified operating point when it carries one (the
+        # validation-selected tau IS part of the deployed rule the merit gate
+        # evaluated -- see seismic_wave._select_operating_point). Alert
+        # decision only; the confidence estimate above is never altered.
+        if self._neural_trained and self._operating_point is not None:
+            earthquake_detected = confidence > self._operating_point["detection_threshold"]
+        else:
+            earthquake_detected = confidence > self.detection_threshold
 
         epicenter_distance = None
         if p_arrival is not None and s_arrival is not None and s_arrival > p_arrival:

@@ -1,0 +1,436 @@
+{
+  "constraints": [
+    {
+      "description": "window detection recall at each path's deployed decision rule must not regress below physics (the first candidate had zero learned recall at the fixed 0.96 point)",
+      "higher_is_better": true,
+      "metric": "detection_recall_op"
+    },
+    {
+      "description": "false-alarm rate at each path's deployed decision rule must not exceed physics",
+      "higher_is_better": false,
+      "metric": "false_alarm_rate_op"
+    },
+    {
+      "description": "fraction of held-out (station, event) arrivals with any window detected under the deployed rule must not regress below physics",
+      "higher_is_better": true,
+      "metric": "event_recall"
+    },
+    {
+      "description": "reported wave-height MAE must not exceed physics; both paths report the record's measured peak deviation (a measurement is never replaced by a worse model estimate), so this guards the measurement contract; the NN head is diagnostic-only (nn_wave_height_mae_m_diagnostic in extras)",
+      "higher_is_better": false,
+      "metric": "wave_height_mae_m"
+    }
+  ],
+  "extras": {
+    "auc_diff_bootstrap_ci95": {
+      "ci95_high": 0.15246888057226266,
+      "ci95_low": 0.07489407268485225,
+      "mean": 0.11416069358862158,
+      "n_resamples": 1000,
+      "n_valid": 1000,
+      "seed": 20260709
+    },
+    "comparison": "identical held-out detided DART windows through TsunamiDetector.predict_tsunami (sampling_rate=1/900 Hz), physics fallback vs loaded candidate checkpoint",
+    "deployed_rules": "physics: confidence>0.96 (constructor default); learned: confidence>tau from the checkpoint's validation-selected operating point -- each path is scored on its own deployed decision rule",
+    "detide": "ols-m2s2k1o1+linear",
+    "events_test": 5,
+    "events_train": 17,
+    "events_val": 2,
+    "label_stats": {
+      "bad_arrival_time": 1,
+      "coord_checked": 141,
+      "coord_mismatch": 6,
+      "dart_runups": 330,
+      "no_arrival_time": 107,
+      "no_station_id": 57
+    },
+    "median_inference_latency_ms": {
+      "learned": 7.256411999946977,
+      "n_runs": 100,
+      "physics": 0.27352249992418365
+    },
+    "median_residual_rms_m": 0.0024332424791277687,
+    "model_parameter_count": 158466,
+    "n_arrivals_usable": 136,
+    "n_events": 24,
+    "n_negative_windows": 2745,
+    "n_positive_discarded": 146,
+    "n_positive_windows": 398,
+    "n_station_years": 135,
+    "n_stations": 47,
+    "n_test_negative": 1029,
+    "n_test_positive": 179,
+    "n_test_station_events": 45,
+    "nn_wave_height_mae_m_diagnostic": 0.029691668862071117,
+    "operating_point": {
+      "detection_threshold": 0.9747339002788067,
+      "far_ceiling": 0.0,
+      "policy": "learned tsunami_detected is confidence>tau; tau maximizes val CSI subject to val recall >= max(physics val recall, 0.5) AND val FAR <= 0.8 * physics val FAR",
+      "recall_floor": 0.5,
+      "recall_floor_met": true,
+      "val_csi": 0.5625,
+      "val_far": 0.0,
+      "val_far_physics": 0.0,
+      "val_recall": 0.5625,
+      "val_recall_physics": 0.3125
+    },
+    "per_event_hits": [
+      {
+        "event_id": 6061,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21413"
+      },
+      {
+        "event_id": 6061,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": true,
+        "station": "21414"
+      },
+      {
+        "event_id": 5746,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21415"
+      },
+      {
+        "event_id": 6061,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21415"
+      },
+      {
+        "event_id": 5746,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21416"
+      },
+      {
+        "event_id": 6061,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21416"
+      },
+      {
+        "event_id": 5746,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21419"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21419"
+      },
+      {
+        "event_id": 6061,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21419"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "21420"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "23219"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "23228"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "23461"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 3,
+        "physics_detected": false,
+        "station": "32401"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "32402"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "32411"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "32413"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "42409"
+      },
+      {
+        "event_id": 5751,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "43413"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "44402"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46402"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46403"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46404"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46404"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46407"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46407"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46409"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46414"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46414"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46415"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46415"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46416"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "46419"
+      },
+      {
+        "event_id": 5802,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "51407"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "51407"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "51425"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": true,
+        "station": "52401"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": true,
+        "station": "52402"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "52404"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "52405"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "52406"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "55015"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": true,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "55023"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "56001"
+      },
+      {
+        "event_id": 5824,
+        "learned_detected": false,
+        "n_windows": 4,
+        "physics_detected": false,
+        "station": "56003"
+      }
+    ],
+    "wave_height_policy": "estimated_wave_height_m is the record's measured peak deviation on BOTH paths; the NN wave-height head is diagnostic-only (result.nn_wave_height_m)",
+    "windows_test": 1208,
+    "windows_train": 1759,
+    "windows_val": 176
+  },
+  "failed_constraints": [
+    {
+      "description": "false-alarm rate at each path's deployed decision rule must not exceed physics",
+      "higher_is_better": false,
+      "learned": 0.0029154518950437317,
+      "metric": "false_alarm_rate_op",
+      "physics": 0.0009718172983479105
+    }
+  ],
+  "higher_is_better": true,
+  "hook": "tsunami_dart",
+  "learned": {
+    "auc": 0.8611821424499568,
+    "detection_recall_op": 0.2681564245810056,
+    "event_recall": 0.5111111111111111,
+    "false_alarm_rate_op": 0.0029154518950437317,
+    "wave_height_mae_m": 0.007847549297519069
+  },
+  "learned_beats_physics": false,
+  "n_test_samples": 1208,
+  "physics": {
+    "auc": 0.7469963244675364,
+    "detection_recall_op": 0.0670391061452514,
+    "event_recall": 0.06666666666666667,
+    "false_alarm_rate_op": 0.0009718172983479105,
+    "wave_height_mae_m": 0.007847549297519069
+  },
+  "primary_metric": "auc",
+  "primary_metric_wins": true,
+  "test_years": [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ]
+}

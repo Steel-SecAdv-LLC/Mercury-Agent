@@ -126,7 +126,7 @@ class SyntheticGradientPredictor:
 
     Mathematical Proof:
         If prediction error ||ĝ - g|| < δ, then convergence rate O(e^{-(1-δ)μη*t})
-        For δ=0.1, μ=1, η=0.15: O(e^{-0.15t}) convergence (50% faster)
+        For δ=0.1, μ=1, η=0.15: O(e^{-0.15t}) convergence
         Maintains ΔV < 0 (Lyapunov stable)
 
     Example:

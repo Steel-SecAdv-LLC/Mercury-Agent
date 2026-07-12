@@ -24,7 +24,10 @@ Research sources:
 - NASA Solar Dynamics Observatory
 - ESA Space Weather Service
 
-Performance: 35% improved prediction via multi-modal solar + magnetosphere fusion
+Measured evaluation: on 25,846 held-out OMNI2 hours (test years 2022-2024) the
+shipped solar_storm_geomag checkpoint reaches Kp MAE 0.574 versus 1.054 for the
+physics fallback; see src/omni_mercury_engine/models/checkpoints/
+solar_storm_geomag.provenance.json.
 """
 
 from __future__ import annotations
@@ -807,6 +810,14 @@ class SolarStormDetector:
         self._feature_std: np.ndarray[Any, Any] | None = None
         self._feature_fill: dict[str, float] | None = None
 
+        # Ratified storm-onset operating point carried by trained checkpoints
+        # (see solar_storm.py _select_operating_point): the storm-probability
+        # head drives storm ONSET via a validation-selected threshold, because
+        # the MSE-trained Kp point estimate regresses toward the mean and
+        # thresholding it at Kp>=5 halves recall. None until a checkpoint that
+        # declares one is loaded (then the dual rule applies).
+        self._operating_point: dict[str, float] | None = None
+
         self.logger = logging.getLogger(__name__)
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
@@ -832,19 +843,66 @@ class SolarStormDetector:
         else:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             source = checkpoint_path
-        self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        # Parse + validate the entire payload into locals BEFORE mutating any
+        # instance attribute, so a load either fully replaces the prior weights,
+        # standardization stats, and operating point or leaves the detector
+        # untouched (a malformed operating point raises without half-applying).
+        # Loading is wholesale: a checkpoint that omits the feature stats or the
+        # operating point resets those to their untrained defaults rather than
+        # silently inheriting the previously loaded checkpoint's values.
+        feature_spec: str | None = None
+        feature_mean: np.ndarray[Any, Any] | None = None
+        feature_std: np.ndarray[Any, Any] | None = None
+        feature_fill: dict[str, float] | None = None
         if "feature_mean" in checkpoint and "feature_std" in checkpoint:
-            self._feature_spec = str(checkpoint.get("feature_spec", "unknown"))
-            self._feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
-            self._feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
+            feature_spec = str(checkpoint.get("feature_spec", "unknown"))
+            feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
+            feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
             fill = checkpoint.get("feature_fill") or {}
-            self._feature_fill = {str(k): float(v) for k, v in fill.items()}
+            feature_fill = {str(k): float(v) for k, v in fill.items()}
+
+        operating_point: dict[str, float] | None = None
+        op = checkpoint.get("operating_point")
+        if op is not None:
+            if not isinstance(op, dict) or "storm_prob_threshold" not in op:
+                raise ValueError(
+                    "checkpoint operating point must be a mapping carrying a "
+                    f"'storm_prob_threshold'; got {type(op).__name__}"
+                )
+            try:
+                tau = float(op["storm_prob_threshold"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"checkpoint operating point threshold {op['storm_prob_threshold']!r} "
+                    "is not a real number; refusing a nonsensical storm-onset rule"
+                ) from exc
+            if not np.isfinite(tau) or not (0.0 < tau < 1.0):
+                raise ValueError(
+                    f"checkpoint operating point threshold {tau} is not a "
+                    "probability in (0, 1); refusing a nonsensical storm-onset rule"
+                )
+            operating_point = {"storm_prob_threshold": tau}
+
+        # Commit: load the weights, then replace the standardization stats and
+        # operating point wholesale from the locals parsed above.
+        self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        self._feature_spec = feature_spec
+        self._feature_mean = feature_mean
+        self._feature_std = feature_std
+        self._feature_fill = feature_fill
+        self._operating_point = operating_point
         self._neural_trained = True
         self.logger.info(
-            "Geomagnetic neural weights loaded from %s (feature spec: %s); "
+            "Geomagnetic neural weights loaded from %s (feature spec: %s%s); "
             "using learned Kp prediction",
             source,
             self._feature_spec or "raw features, no standardization",
+            (
+                f", storm-onset operating point tau="
+                f"{self._operating_point['storm_prob_threshold']:.4f}"
+                if self._operating_point is not None
+                else ", no operating point (Kp-threshold onset only)"
+            ),
         )
 
     def _warn_untrained_once(self) -> None:
@@ -1075,12 +1133,29 @@ class SolarStormDetector:
         confidence = float(storm_prob[0].item())
 
         storm_level = self._classify_geostorm(kp_index)
+        method = "neural"
+        operating_point_triggered = False
+        if (
+            self._operating_point is not None
+            and storm_level == GeostormScale.G0.value
+            and confidence >= self._operating_point["storm_prob_threshold"]
+        ):
+            # Dual-rule storm onset: the BCE-trained storm-probability head
+            # crossed its validation-selected (owner-ratified) threshold while
+            # the regressed Kp stayed below 5. The LEVEL is an alert decision,
+            # so the onset floor (G1/"minor") comes from the classifier;
+            # kp_index remains the honest regression estimate and severity
+            # above G1 still requires the regressed Kp to earn it.
+            storm_level = GeostormScale.G1.value
+            method = "neural_dual_threshold"
+            operating_point_triggered = True
 
         return {
             "kp_index": kp_index,
             "storm_level": storm_level,
             "confidence": confidence,
-            "method": "neural",
+            "method": method,
+            "operating_point_triggered": operating_point_triggered,
         }
 
     def _predict_geomagnetic_storm_physics(

@@ -1,0 +1,410 @@
+{
+  "checkpoint": "volcanic_avo_seismic.pt",
+  "checkpoint_sha256": "f581f2499e6c87402e3ad033e551477c4e768faaa033f38d6226390826d5a6c6",
+  "created_utc": "2026-07-10T19:13:14+00:00",
+  "data_sources": [
+    {
+      "description": "Smithsonian GVP Holocene eruption catalog (labels: onsets, VEI)",
+      "sha256": "918ab8ffbef1132fda379994b71678ca8f6f70bd2c0ed51f94beb8c1357c47e6",
+      "url": "https://webservices.volcano.si.edu/geoserver/GVP-VOTW/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=GVP-VOTW:Smithsonian_VOTW_Holocene_Eruptions&outputFormat=csv"
+    },
+    {
+      "description": "EarthScope FDSN AV-network channel inventory (sensitivities)",
+      "sha256": "cf649987c21aa35483b09fc188364e0fbb2ae15467a1f824b34c757af9a917c1",
+      "url": "https://service.earthscope.org/fdsnws/station/1/query?net=AV&format=text&level=channel&cha=BHZ,EHZ,SHZ"
+    },
+    {
+      "description": "USGS HANS volcano list (volcano-code join for VAN cross-check)",
+      "sha256": "f81c91b32fd25cedd646a4de3a6c6473faa09cd421a99550f22dc079d322c7e0",
+      "url": "https://volcanoes.usgs.gov/hans-public/api/volcano/getUSVolcanoes"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.CEPE.SHZ, 1 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "db40f3c6c3ec321ebd447c4f7e89223790a1f04943a3a1fd8711d82a7d5f663f",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=CEPE&cha=SHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.CERB.BHZ, 12 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "123cae267d05dd200ed49c1efd392553ad5fb9eaa2e5054d52bf2c6a7d95a03f",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=CERB&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.CERB.SHZ, 82 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "321339f649d637657bee3d625eb7d70a92cf6cc8898a834198caeb70bce12d6c",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=CERB&cha=SHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.CLES.BHZ, 61 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "528224a2801e52f3f05ba1b8d3b410d9490a2aa1cb2ed94f9ba00e88577aedca",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=CLES&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.CLNE.BHZ, 1 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "204f91d8587c269ee1b855d261840abe83b18a1ee2226bbb43445d895ceb2c1a",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=CLNE&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.GSTD.BHZ, 28 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "caf9412ef5393be3a2594f2007142824a2c7e22ab8c5b74e972039927fc079ee",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=GSTD&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.GSTD.EHZ, 73 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "c0b9eea9b2392d3facf13952cd432e26696912189a9f0a76c0ced4987e43e0f7",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=GSTD&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.OKCE.BHZ, 29 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "4bcb956d2b67aab71fe01df11f821f0637e5b0ec82322c3ff05790c5e3a21785",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=OKCE&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.OKCF.EHZ, 14 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "f7c708d0c0f53faebc3b1f65d43d18614aca7d2339b6edd58743785f329bdb0e",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=OKCF&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.OKNC.BHZ, 1 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "54c9e49435dc22d7162621b129bc358ab241180b8115d27a74a84767de5afb18",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=OKNC&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.OKSO.BHZ, 43 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "58c6fd3d041c316886f9c8868fc1945108ec9de86934f94baf1ad72c4149cccf",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=OKSO&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.OKWR.EHZ, 3 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "cf211d803f4c4ab9d89df78c75d653422429ce788db38291406618f56c828017",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=OKWR&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.PN7A.BHZ, 5 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "1988661a08db602023bfe03662b1cba491acb0cdae0400dde2527dd266049a7d",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=PN7A&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.PN7A.EHZ, 2 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "3acd6391217f285fa6f1a442a3361d82386168c95d892a816baf51228d4d81b9",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=PN7A&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.PS4A.BHZ, 41 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "7138ef46ad179dab95dba3cf2b9f47ee6848b69e33eb84a895d67a16fc3342b5",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=PS4A&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.PVV.EHZ, 110 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "7ab64df31237eaedb3b10d735fba7a76d094591fedaf548c2121b5b42bb14f84",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=PVV&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.PVV.SHZ, 1 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "d388fd3f6f57755ef9924efb6400b3d7e506392a02f67b89323d3e9be7893602",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=PVV&cha=SHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.RDWB.BHZ, 60 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "9200fc3a5f1678eeedceea6fa40860732bc6823a0fa33a75e5505bf55ca25e15",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=RDWB&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.RED.BHZ, 12 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "f2c69889b1de8468c4f71526abe3cafb5aa96ac42b836c2b92e0f9fdbdfaa4c1",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=RED&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.REF.EHZ, 23 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "9c7cd1b62b11bbcb367bc2b43e266219f7407b2931063375b5d8daa97eecbd1c",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=REF&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.SSBA.BHZ, 74 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "d87eadb881bb8768fc0ffccbdfa7ef5d807a227dde70f9818b8f3fab58c26653",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=SSBA&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.SSLN.EHZ, 2 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "5b848aeca7cb8f071bdbc9502952d0018d67cd56a32c373f00eeca300a4c9801",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=SSLN&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.SSLS.BHZ, 8 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "95726eedc82f1fd6eacc6a7b4ca365a4be486446cfad27ccd3b41b76ced16b01",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=SSLS&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.SSLS.EHZ, 50 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "fd5889803df8ecb32308b52d5082778622699c36b27eed407ca0bc60373d0c48",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=SSLS&cha=EHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.VNCG.BHZ, 14 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "93aaab8d02ee18de2866ecd5c093901e67523d97cc3ce25a8d085f0e7e4841e3",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=VNCG&cha=BHZ&<per-day>"
+    },
+    {
+      "description": "EarthScope FDSN dataselect miniSEED, AV.VNSS.EHZ, 176 station-days (sha256 over sorted per-day sha256s; per-day URLs reconstructable from sample_plan.json)",
+      "sha256": "c25fcda78931a338d7f12633e672879c16e00513546b35e9881d7c8865d497e2",
+      "url": "https://service.earthscope.org/fdsnws/dataselect/1/query?net=AV&sta=VNSS&cha=EHZ&<per-day>"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "learned AUC must not fall below the classical RSAM-ratio threshold baseline's AUC (physics-side value IS that baseline)",
+        "higher_is_better": true,
+        "metric": "auc_vs_rsam_baseline"
+      },
+      {
+        "description": "eruption recall at the deployed alert rule (learned: the checkpoint-carried validation-selected threshold; physics: its seismic swarm alarm) must not regress on identical cases",
+        "higher_is_better": true,
+        "metric": "recall_op"
+      },
+      {
+        "description": "false-alarm rate at the deployed alert rule must not exceed the physics swarm alarm's on identical cases",
+        "higher_is_better": false,
+        "metric": "far_op"
+      },
+      {
+        "description": "confidence Brier score must not regress above the physics path",
+        "higher_is_better": false,
+        "metric": "brier"
+      }
+    ],
+    "extras": {
+      "auc_diff_bootstrap": {
+        "learned_minus_physics": {
+          "ci95_high": 0.318562893907563,
+          "ci95_low": 0.1398349964985995,
+          "ci_excludes_zero": true,
+          "n_resamples": 1000,
+          "note": "AUC difference (learned minus baseline, positive = learned better), stratified case-resampling bootstrap (positives and negatives resampled separately so AUC stays defined) over the identical held-out (volcano, day) cases",
+          "point_estimate": 0.23056722689075626,
+          "seed": 20260709
+        },
+        "learned_minus_rsam_baseline": {
+          "ci95_high": 0.3149728641456582,
+          "ci95_low": 0.1741027661064425,
+          "ci_excludes_zero": true,
+          "n_resamples": 1000,
+          "note": "AUC difference (learned minus baseline, positive = learned better), stratified case-resampling bootstrap (positives and negatives resampled separately so AUC stays defined) over the identical held-out (volcano, day) cases",
+          "point_estimate": 0.24238445378151263,
+          "seed": 20260709
+        }
+      },
+      "comparison": "identical held-out (volcano, day) cases through VolcanicEruptionDetector.predict_eruption; learned = candidate checkpoint on fused_features + hourly seismic_sequence; physics = un-weighted detector on the same day's per-minute RSAM series (robust-z swarm + HMM). Gas/InSAR/thermal are honestly absent for both paths. The physics noisy-OR forecast stage needs >= 2 indicators and therefore abstains on seismic-only input, so the documented RSAM-ratio threshold baseline (feature dim 19, threshold fitted on TRAIN years, see rsam_baseline) is included as the stronger classical comparison and gated via the auc_vs_rsam_baseline constraint. Each path is scored on its own deployed decision rule (see operating_points).",
+      "hmm_reset_per_case": true,
+      "label": "eruption onset within 14 d (GVP day-precision starts)",
+      "latency_note": "wall-clock seconds per learned-path predict_eruption call (case dict in, result out) over every held-out case, CPU, torch.set_num_threads(2); median reported in ms",
+      "lead_time_days": {
+        "max": 13.0,
+        "mean": 13.0,
+        "median": 13.0,
+        "min": 13.0,
+        "n_caught_onsets": 4
+      },
+      "median_inference_latency_ms": 2.2047704997021356,
+      "operating_points": {
+        "learned": {
+          "eruption_prob_threshold": 0.41722828964702785,
+          "far_ceiling": 0.3142857142857143,
+          "policy": "deployed rule eruption_head_prob >= tau; tau maximizes validation CSI subject to val recall >= physics val swarm recall AND val FAR <= 0.8 * physics val swarm FAR",
+          "recall_floor": 0.4807692307692308,
+          "recall_floor_met": true,
+          "val_csi": 0.8981481481481481,
+          "val_far": 0.047619047619047616,
+          "val_far_physics_swarm": 0.39285714285714285,
+          "val_recall": 0.9326923076923077,
+          "val_recall_physics_swarm": 0.4807692307692308
+        },
+        "learned_consumed_by": "VolcanicEruptionDetector.load_neural_weights (validated; drives the eruption_imminent decision only, never the confidence)",
+        "physics_alarm": "seismic_swarm_detected flag (robust-z exceedance)",
+        "rsam_tau_train_csi": -0.1944506112486124,
+        "rsam_train_fit": {
+          "csi": 0.5139949109414759,
+          "far": 0.676923076923077,
+          "recall": 0.9308755760368663
+        }
+      },
+      "parameter_count": 449525,
+      "parameter_count_note": "EruptionForecastModel + SeismicSwarmDetector, the two networks the loaded learned path runs",
+      "per_onset_hits": [
+        {
+          "days_with_data": 14,
+          "learned_earliest_lead_d": 13,
+          "learned_hit": true,
+          "onset": "2021-05-25",
+          "physics_hit": true,
+          "rsam_hit": true,
+          "volcano": "Great Sitkin"
+        },
+        {
+          "days_with_data": 14,
+          "learned_earliest_lead_d": 13,
+          "learned_hit": true,
+          "onset": "2021-08-05",
+          "physics_hit": true,
+          "rsam_hit": true,
+          "volcano": "Pavlof"
+        },
+        {
+          "days_with_data": 14,
+          "learned_earliest_lead_d": 13,
+          "learned_hit": true,
+          "onset": "2023-07-11",
+          "physics_hit": true,
+          "rsam_hit": true,
+          "volcano": "Shishaldin"
+        },
+        {
+          "days_with_data": 14,
+          "learned_earliest_lead_d": 13,
+          "learned_hit": true,
+          "onset": "2021-02-28",
+          "physics_hit": true,
+          "rsam_hit": true,
+          "volcano": "Veniaminof"
+        }
+      ],
+      "per_volcano_test": {
+        "Cleveland": {
+          "auc_learned": null,
+          "auc_physics": null,
+          "far_op_learned": 0.5,
+          "far_op_physics": 0.3333333333333333,
+          "n_neg": 30,
+          "n_pos": 0,
+          "n_test": 30,
+          "note": "no covered test-year eruption onset for this volcano; its test rows contribute false-alarm precision only",
+          "recall_op_learned": null,
+          "recall_op_physics": null,
+          "uncovered_test_onsets": [
+            "2020-06-01: onset in the test years but no pre-onset station-day had >=6h data -- absent from the hit table"
+          ]
+        },
+        "Great Sitkin": {
+          "auc_learned": 0.8809523809523809,
+          "auc_physics": 0.8660714285714286,
+          "far_op_learned": 0.0,
+          "far_op_physics": 0.4166666666666667,
+          "n_neg": 12,
+          "n_pos": 14,
+          "n_test": 26,
+          "recall_op_learned": 0.5714285714285714,
+          "recall_op_physics": 1.0
+        },
+        "Okmok": {
+          "auc_learned": null,
+          "auc_physics": null,
+          "far_op_learned": 0.0,
+          "far_op_physics": 0.6333333333333333,
+          "n_neg": 30,
+          "n_pos": 0,
+          "n_test": 30,
+          "note": "no covered test-year eruption onset for this volcano; its test rows contribute false-alarm precision only",
+          "recall_op_learned": null,
+          "recall_op_physics": null
+        },
+        "Pavlof": {
+          "auc_learned": 0.9672619047619048,
+          "auc_physics": 0.5372023809523809,
+          "far_op_learned": 0.041666666666666664,
+          "far_op_physics": 0.5416666666666666,
+          "n_neg": 24,
+          "n_pos": 14,
+          "n_test": 38,
+          "recall_op_learned": 0.9285714285714286,
+          "recall_op_physics": 0.5
+        },
+        "Redoubt": {
+          "auc_learned": null,
+          "auc_physics": null,
+          "far_op_learned": 0.0,
+          "far_op_physics": 0.6666666666666666,
+          "n_neg": 30,
+          "n_pos": 0,
+          "n_test": 30,
+          "note": "no covered test-year eruption onset for this volcano; its test rows contribute false-alarm precision only",
+          "recall_op_learned": null,
+          "recall_op_physics": null
+        },
+        "Semisopochnoi": {
+          "auc_learned": null,
+          "auc_physics": null,
+          "far_op_learned": 0.0,
+          "far_op_physics": 0.6111111111111112,
+          "n_neg": 18,
+          "n_pos": 0,
+          "n_test": 18,
+          "note": "no covered test-year eruption onset for this volcano; its test rows contribute false-alarm precision only",
+          "recall_op_learned": null,
+          "recall_op_physics": null
+        },
+        "Shishaldin": {
+          "auc_learned": 0.9952380952380953,
+          "auc_physics": 0.5345238095238095,
+          "far_op_learned": 0.0,
+          "far_op_physics": 0.5,
+          "n_neg": 30,
+          "n_pos": 14,
+          "n_test": 44,
+          "recall_op_learned": 0.9285714285714286,
+          "recall_op_physics": 0.6428571428571429
+        },
+        "Veniaminof": {
+          "auc_learned": 0.95,
+          "auc_physics": 0.8988095238095238,
+          "far_op_learned": 0.06666666666666667,
+          "far_op_physics": 0.5333333333333333,
+          "n_neg": 30,
+          "n_pos": 14,
+          "n_test": 44,
+          "recall_op_learned": 0.9285714285714286,
+          "recall_op_physics": 1.0
+        }
+      },
+      "rsam_baseline": {
+        "auc": 0.697829131652661,
+        "csi_op": 0.2810810810810811,
+        "far_op": 0.6323529411764706,
+        "recall_op": 0.9285714285714286
+      },
+      "scope": "trained/evaluated ONLY for the named AVO volcanoes: Shishaldin, Semisopochnoi, Pavlof, Great Sitkin, Veniaminof, Cleveland, Okmok, Redoubt",
+      "test_positive_fraction": 0.2153846174478531
+    },
+    "failed_constraints": [],
+    "higher_is_better": true,
+    "hook": "volcanic_eruption",
+    "learned": {
+      "auc": 0.9402135854341737,
+      "auc_vs_rsam_baseline": 0.9402135854341737,
+      "brier": 0.0674940155177902,
+      "csi_op": 0.6351351351351351,
+      "far_op": 0.08823529411764706,
+      "recall_op": 0.8392857142857143
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 260,
+    "physics": {
+      "auc": 0.7096463585434174,
+      "auc_vs_rsam_baseline": 0.697829131652661,
+      "brier": 0.2875859335347779,
+      "csi_op": 0.26666666666666666,
+      "far_op": 0.5343137254901961,
+      "recall_op": 0.7857142857142857
+    },
+    "primary_metric": "auc",
+    "primary_metric_wins": true,
+    "test_years": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "f2979397e3d586bd59d271161d16d05ef5d08e23",
+  "hook": "volcanic_eruption",
+  "seed": 20260709
+}

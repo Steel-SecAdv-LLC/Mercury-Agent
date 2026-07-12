@@ -1,0 +1,179 @@
+{
+  "metadata": {
+    "purpose": "Deterministic competitive-position guard: Mercury tier vs PyOD baselines on a fixed genuine-label ADBench subset. NOT the headline competitive benchmark (full 57-dataset run in competitive_benchmark.py).",
+    "mercury_method": "mercury_tier (MercuryAnomalyDetector, unsupervised fit)",
+    "eval_path": "competitive_benchmark.prepare_split + _run_mercury_tier",
+    "pyod_methods": [
+      "isolation_forest",
+      "ecod",
+      "copod",
+      "local_outlier_factor",
+      "knn",
+      "hbos"
+    ],
+    "seed": 42,
+    "dataset_source": "https://github.com/Minqi824/ADBench",
+    "dataset_license": "MIT",
+    "commit": "ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8",
+    "python": "3.11.15",
+    "pyod_version": "3.6.1",
+    "margins": {
+      "auc": 0.03,
+      "mean_auc": 0.02,
+      "competitive_gap": 0.02,
+      "justification": "measured-minus-margin floors; margins absorb cross-environment numerical drift (BLAS/scipy/sklearn versions) while real regressions (broken component, protocol leak) move AUC by >> 0.03"
+    }
+  },
+  "datasets": {
+    "breastw": {
+      "npz_sha256": "4f37ce07dbc25ddad8178fdc6d664ab46d2d0000ee28c2787c3c7ff3c03ef9f6",
+      "n_train": 222,
+      "n_test": 461,
+      "n_test_anomalies": 239,
+      "mercury_tier_auc": 0.991538,
+      "pyod_auc": {
+        "isolation_forest": 0.993234,
+        "ecod": 0.991066,
+        "copod": 0.992744,
+        "local_outlier_factor": 0.972803,
+        "knn": 0.99314,
+        "hbos": 0.987617
+      },
+      "best_pyod_method": "isolation_forest",
+      "best_pyod_auc": 0.993234
+    },
+    "cardio": {
+      "npz_sha256": "bc5009bde6930b4d298b594f31b34485a9a17210cff0e8fb00a8c3068b885a2d",
+      "n_train": 827,
+      "n_test": 1004,
+      "n_test_anomalies": 176,
+      "mercury_tier_auc": 0.951382,
+      "pyod_auc": {
+        "isolation_forest": 0.957524,
+        "ecod": 0.936416,
+        "copod": 0.923899,
+        "local_outlier_factor": 0.918622,
+        "knn": 0.922403,
+        "hbos": 0.850845
+      },
+      "best_pyod_method": "isolation_forest",
+      "best_pyod_auc": 0.957524
+    },
+    "Ionosphere": {
+      "npz_sha256": "bca46cb0cfd1bf9ddef6cde5ad2215d54fb0189508d0d4c4eb98e788cad69001",
+      "n_train": 112,
+      "n_test": 239,
+      "n_test_anomalies": 126,
+      "mercury_tier_auc": 0.941424,
+      "pyod_auc": {
+        "isolation_forest": 0.929133,
+        "ecod": 0.747507,
+        "copod": 0.818303,
+        "local_outlier_factor": 0.965234,
+        "knn": 0.983495,
+        "hbos": 0.772651
+      },
+      "best_pyod_method": "knn",
+      "best_pyod_auc": 0.983495
+    },
+    "WBC": {
+      "npz_sha256": "650f9dcb129248f67a291be0974f533ef259fcbde50fce5c8ad2a1cb2652d03b",
+      "n_train": 106,
+      "n_test": 117,
+      "n_test_anomalies": 10,
+      "mercury_tier_auc": 0.990654,
+      "pyod_auc": {
+        "isolation_forest": 0.994393,
+        "ecod": 0.993458,
+        "copod": 0.993458,
+        "local_outlier_factor": 0.981308,
+        "knn": 0.993458,
+        "hbos": 0.985981
+      },
+      "best_pyod_method": "isolation_forest",
+      "best_pyod_auc": 0.994393
+    },
+    "Lymphography": {
+      "npz_sha256": "dad977b04f4ea65b78ccd0e9f76b45175bad605165b37e63f3cc177845e67037",
+      "n_train": 71,
+      "n_test": 77,
+      "n_test_anomalies": 6,
+      "mercury_tier_auc": 0.983568,
+      "pyod_auc": {
+        "isolation_forest": 0.995305,
+        "ecod": 0.99061,
+        "copod": 0.992958,
+        "local_outlier_factor": 0.931925,
+        "knn": 0.93662,
+        "hbos": 0.995305
+      },
+      "best_pyod_method": "isolation_forest",
+      "best_pyod_auc": 0.995305
+    },
+    "Pima": {
+      "npz_sha256": "215454bb263a2f040945c9ea7bd7f06f1e89a61a3143bdb6f196e3887e801a7d",
+      "n_train": 250,
+      "n_test": 518,
+      "n_test_anomalies": 268,
+      "mercury_tier_auc": 0.704701,
+      "pyod_auc": {
+        "isolation_forest": 0.696313,
+        "ecod": 0.557537,
+        "copod": 0.627164,
+        "local_outlier_factor": 0.699313,
+        "knn": 0.727642,
+        "hbos": 0.733306
+      },
+      "best_pyod_method": "hbos",
+      "best_pyod_auc": 0.733306
+    },
+    "glass": {
+      "npz_sha256": "aa7a8db1d475ba01a10488af454bc15220a3d5951b010b03b7020567d8152cdc",
+      "n_train": 102,
+      "n_test": 112,
+      "n_test_anomalies": 9,
+      "mercury_tier_auc": 0.768069,
+      "pyod_auc": {
+        "isolation_forest": 0.807983,
+        "ecod": 0.714132,
+        "copod": 0.756203,
+        "local_outlier_factor": 0.790723,
+        "knn": 0.878101,
+        "hbos": 0.811758
+      },
+      "best_pyod_method": "knn",
+      "best_pyod_auc": 0.878101
+    },
+    "pendigits": {
+      "npz_sha256": "c4936b89dcdad59d303020e492f763a0f54170080d787c77497609acbb9c2d79",
+      "n_train": 3357,
+      "n_test": 3513,
+      "n_test_anomalies": 156,
+      "mercury_tier_auc": 0.874126,
+      "pyod_auc": {
+        "isolation_forest": 0.967825,
+        "ecod": 0.928775,
+        "copod": 0.90608,
+        "local_outlier_factor": 0.992396,
+        "knn": 0.99853,
+        "hbos": 0.9372
+      },
+      "best_pyod_method": "knn",
+      "best_pyod_auc": 0.99853
+    }
+  },
+  "aggregate": {
+    "mercury_tier_mean_auc": 0.900683,
+    "pyod_mean_auc": {
+      "isolation_forest": 0.917714,
+      "ecod": 0.857438,
+      "copod": 0.876351,
+      "local_outlier_factor": 0.906541,
+      "knn": 0.929174,
+      "hbos": 0.884333
+    },
+    "best_pyod_method": "knn",
+    "best_pyod_mean_auc": 0.929174,
+    "competitive_gap": 0.028491
+  }
+}

@@ -49,6 +49,23 @@ class TestOperationalEndpoints:
         assert response.headers["content-type"].startswith("text/plain")
         assert "omni_mercury_up" in response.text
 
+    def test_metrics_expose_ethical_gate_series(self, client: TestClient) -> None:
+        """The σ_Alignment / benevolence gauges the helm PrometheusRule alerts on
+        must actually be emitted (otherwise the ethical-gate alerts sit in
+        NoData). Both series appear with parseable float values."""
+        text = client.get("/metrics").text
+        assert "mercury_agent_sigma_alignment" in text
+        assert "mercury_agent_benevolence_score" in text
+        emitted = {}
+        for line in text.splitlines():
+            if line.startswith(
+                ("mercury_agent_sigma_alignment ", "mercury_agent_benevolence_score ")
+            ):
+                name, _, value = line.partition(" ")
+                emitted[name] = float(value)
+        assert emitted["mercury_agent_benevolence_score"] > 0.0
+        assert 0.0 <= emitted["mercury_agent_sigma_alignment"] <= 3.0
+
 
 class TestDetectionThroughTheApi:
     """Detection correctness across the full request/response path."""

@@ -24,8 +24,6 @@ Research sources:
 - BIS (Bank for International Settlements)
 - Federal Reserve Economic Data (FRED)
 - Academic research on financial crises
-
-Performance: 35% improved crisis prediction via multi-modal financial + network fusion
 """
 
 from __future__ import annotations

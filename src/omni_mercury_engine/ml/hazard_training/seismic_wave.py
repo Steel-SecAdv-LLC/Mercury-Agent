@@ -1,0 +1,1763 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Train the SeismicWaveAnalyzer on real STEAD waveforms (SeisBench mirror).
+
+Data source (hook ``seismic_wave``, ``EarthquakeDetector.load_neural_weights``):
+
+* **STEAD** -- the STanford EArthquake Dataset (Mousavi et al. 2019, IEEE
+  Access), 1,265,657 labeled 60 s three-component 100 Hz traces
+  (1,030,231 ``earthquake_local`` + 235,426 ``noise``), served by the public
+  SeisBench mirror at ``https://seisbench.gfz.de/mirror/datasets/stead/``
+  (fallback mirror: ``hifis-storage.desy.de``). ``metadata.csv``
+  (402,560,190 bytes) is downloaded whole and sha256-pinned;
+  ``waveforms.hdf5`` (91,127,786,704 bytes) is **never** downloaded whole --
+  a seekable HTTP-Range adapter streams only the selected trace subset
+  through ``h5py`` (see :class:`BlockCachedRangeReader`).
+
+Verified layout of the mirror's HDF5 (probed 2026-07-10, this pipeline
+re-asserts all of it at fetch time and fails loud on any change):
+
+* ``/data/bucket<N>`` datasets of shape ``(n_traces, 3, 6000)`` float32,
+  **contiguous and uncompressed** (``chunks=None``), addressed by
+  ``trace_name`` strings like ``bucket682$774,:3,:6000``.
+* ``/data_format``: ``component_order=b"ZNE"``, ``dimension_order=b"CW"``,
+  ``sampling_rate=100``. The vertical (Z) component is therefore **index 0**
+  -- NOT index 2 as in the original STEAD distribution (E,N,Z order); the
+  SeisBench conversion reorders components. Empirically confirmed on real
+  cataloged events (e.g. ``bucket890$227``, M2.7: P-onset/pre-noise ratio
+  37.5 on comp0 vs 23.3/19.3 on comps1-2; S onset strongest on the
+  horizontals) -- the impulsive P arrival rides the vertical, so comp 0 = Z.
+
+Task: classify earthquake vs noise from the single Z trace the public
+detector API consumes, reproducing the detector's **exact** preprocessing
+(``scipy.signal.spectrogram`` with ``nperseg=min(256, n//4)``,
+``noverlap=min(128, n//8)``, then ``log10(Sxx + 1e-10)`` and per-spectrogram
+z-normalization -- see :func:`detector_spectrogram`). Normalization is per
+sample only; no cross-sample statistics exist, so nothing can leak from
+validation/test years. The merit gate compares the trained network against
+the detector's deterministic STA/LTA + band-resonance physics fallback
+*through the public* ``predict_earthquake`` *API* on identical held-out
+waveforms.
+
+Temporal split (never random -- station deployments and catalog density
+autocorrelate across years): train <=2015, validation 2016, test 2017+
+(2017, 2018 and 2020; the archive has no 2019 traces). Magnitude head
+targets are ``(source_magnitude - 2) / 4`` clamped to [0, 1] to match the
+detector's fixed ``mag * 4 + 2`` inference scaling; the documented
+consequence is a magnitude floor of 2.0 / ceiling of 6.0 at inference
+(58% of STEAD magnitudes are below M2, so magnitude_mae carries that floor
+bias -- recorded in the evaluation extras; magnitude is a SECONDARY metric).
+Truncated 30 s window variants (first 3000 samples, only when the real
+P pick is inside and the real S pick is beyond the cut -- no padding, no
+fabrication) teach the s_wave head that P-without-S exists; matching noise
+truncations keep window length uninformative for the classifier.
+
+Deployed decision rule: the detector alerts on ``confidence >
+detection_threshold``. The default 0.96 is calibrated for the physics
+fallback's confidence scale (``clip((peak STA/LTA - 2.5) / 7.5)`` plus the
+0.2 band-resonance bump); the learned sigmoid lives on its own scale, so the
+train stage selects the learned alert threshold on the VALIDATION year
+(:func:`_select_operating_point`, mirroring ``solar_storm``) and carries it
+in the checkpoint payload. ``EarthquakeDetector.load_neural_weights``
+validates and applies it -- alert decision only, never the confidence
+estimate. The merit gate then enforces recall/false-alarm non-regression at
+each path's own deployed rule as secondary constraints beside the primary
+AUC comparison.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import logging
+import time
+from bisect import bisect_right
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from threading import Lock
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+import numpy as np
+import torch
+from scipy import signal as _scipy_signal
+
+from omni_mercury_engine.datasets.base import http_get_with_retry
+from omni_mercury_engine.ml.hazard_training.common import (
+    EvaluationOutcome,
+    PipelineContext,
+    TemporalSplit,
+    binary_auc,
+    cached_fetch,
+    candidate_paths,
+    save_candidate,
+    save_evaluation,
+    seed_everything,
+    sha256_file,
+    ship_checkpoint,
+)
+
+logger = logging.getLogger(__name__)
+
+HOOK_NAME = "seismic_stead"
+CHECKPOINT_NAME = "seismic_stead"
+FEATURE_SPEC_VERSION = "seismic-stead-v1"
+
+MIRRORS = (
+    "https://seisbench.gfz.de/mirror/datasets/stead",
+    "https://hifis-storage.desy.de/Helmholtz/HelmholtzAI/SeisBench/datasets/stead",
+)
+METADATA_FILENAME = "metadata.csv"
+WAVEFORMS_FILENAME = "waveforms.hdf5"
+
+#: Upstream sizes, verified 2026-07-10 on both mirrors. fetch() re-checks.
+EXPECTED_METADATA_BYTES = 402_560_190
+EXPECTED_WAVEFORMS_BYTES = 91_127_786_704
+
+SAMPLING_RATE_HZ = 100.0
+WINDOW_SAMPLES = 6000
+N_COMPONENTS = 3
+#: Z (vertical) is component 0 on the SeisBench mirror (ZNE order, see module
+#: docstring for the data_format + impulsive-P verification).
+Z_COMPONENT_INDEX = 0
+_ROW_BYTES = N_COMPONENTS * WINDOW_SAMPLES * 4  # float32
+_Z_BYTES = WINDOW_SAMPLES * 4
+
+#: Truncated-window variant: first TRUNC_SAMPLES of the trace, admissible only
+#: when the real P pick is comfortably inside and the real S pick beyond it.
+TRUNC_SAMPLES = 3000
+_TRUNC_P_MAX = 2800.0
+_TRUNC_S_MIN = 3200.0
+
+#: The detector's default alert threshold (``EarthquakeDetector.__init__``),
+#: calibrated for the physics confidence scale. Physics is always scored at
+#: this deployed threshold; the learned path is scored at the validated
+#: threshold carried in its checkpoint payload (see module docstring).
+PHYSICS_DETECTION_THRESHOLD = 0.96
+
+SPLIT = TemporalSplit(
+    train_years=tuple(range(1984, 2016)),
+    val_years=(2016,),
+    test_years=(2017, 2018, 2019, 2020),
+)
+
+#: Balanced per-class subset targets (traces per class per split). Totals
+#: 48,000 traces = 48,000 x 24,000 Z bytes ~= 1.1 GiB streamed, safely under
+#: the ~4 GiB transfer budget.
+SUBSET_TARGETS = {"train": 15_000, "val": 4_000, "test": 5_000}
+
+_METADATA_COLUMNS = [
+    "trace_name",
+    "trace_category",
+    "trace_start_time",
+    "source_magnitude",
+    "trace_p_arrival_sample",
+    "trace_s_arrival_sample",
+    "trace_snr_db",
+]
+
+
+class BlockCachedRangeReader(io.RawIOBase):
+    """Read-only seekable file over a ``fetch_range(start, end)`` callable.
+
+    Serves ``h5py`` (or any consumer of the file protocol) from two layers:
+
+    * an LRU cache of fixed-size **blocks**, each fetched with one
+      block-aligned range request (metadata walks, fallback reads);
+    * optional **preloaded ranges** (exact byte extents registered via
+      :meth:`add_preload`) so bulk waveform reads planned ahead of time are
+      served without per-read round trips.
+
+    The transport is injected, so tests exercise the block math against a
+    local file with zero network. Correctness never depends on the preload
+    planner: a read missing every preloaded range simply falls back to block
+    fetches (counted in ``preload_misses`` so cost regressions are visible).
+    """
+
+    def __init__(
+        self,
+        fetch_range: Callable[[int, int], bytes],
+        size: int,
+        *,
+        block_size: int = 256 * 1024,
+        max_cached_blocks: int = 64,
+    ) -> None:
+        """Initialize the reader.
+
+        Args:
+            fetch_range: Callable returning the inclusive byte range
+                ``[start, end]`` of the underlying resource.
+            size: Total size of the resource in bytes.
+            block_size: Bytes per block-aligned fetch.
+            max_cached_blocks: LRU capacity in blocks.
+        """
+        super().__init__()
+        if size <= 0 or block_size <= 0 or max_cached_blocks <= 0:
+            raise ValueError("size, block_size and max_cached_blocks must be positive")
+        self._fetch_range = fetch_range
+        self._size = size
+        self._block_size = block_size
+        self._max_cached_blocks = max_cached_blocks
+        self._blocks: OrderedDict[int, bytes] = OrderedDict()
+        self._preload_starts: list[int] = []
+        self._preloads: dict[int, bytes] = {}
+        self._pos = 0
+        self.block_fetches = 0
+        self.preload_misses = 0
+
+    # -- file protocol -------------------------------------------------------
+
+    def readable(self) -> bool:
+        """Report that the stream supports reads (h5py checks this)."""
+        return True
+
+    def seekable(self) -> bool:
+        """Report that the stream supports seeking (h5py checks this)."""
+        return True
+
+    def writable(self) -> bool:
+        """Report the stream as read-only."""
+        return False
+
+    def tell(self) -> int:
+        """Return the current byte position."""
+        return self._pos
+
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
+        """Move the position; supports SET/CUR/END like a regular file."""
+        if whence == io.SEEK_SET:
+            self._pos = offset
+        elif whence == io.SEEK_CUR:
+            self._pos += offset
+        elif whence == io.SEEK_END:
+            self._pos = self._size + offset
+        else:
+            raise ValueError(f"unsupported whence {whence}")
+        if self._pos < 0:
+            raise ValueError("negative seek position")
+        return self._pos
+
+    def read(self, size: int = -1) -> bytes:
+        """Read up to ``size`` bytes (all remaining bytes when negative)."""
+        n = self._size - self._pos if size is None or size < 0 else size
+        n = max(0, min(n, self._size - self._pos))
+        out = bytearray()
+        while n > 0:
+            buf, off, avail = self._source_for(self._pos)
+            take = min(n, avail)
+            out += buf[off : off + take]
+            self._pos += take
+            n -= take
+        return bytes(out)
+
+    def readinto(self, b: Any) -> int:
+        """Fill ``b`` from the current position (h5py's fileobj driver path)."""
+        data = self.read(len(b))
+        b[: len(data)] = data
+        return len(data)
+
+    # -- preload layer -------------------------------------------------------
+
+    def add_preload(self, start: int, data: bytes) -> None:
+        """Register an exact byte extent so reads inside it skip the network."""
+        self._preloads[start] = data
+        idx = bisect_right(self._preload_starts, start)
+        self._preload_starts.insert(idx, start)
+
+    def clear_preloads(self) -> None:
+        """Drop all preloaded extents (frees memory between planned batches)."""
+        self._preloads.clear()
+        self._preload_starts.clear()
+
+    # -- internals -----------------------------------------------------------
+
+    def _source_for(self, pos: int) -> tuple[bytes, int, int]:
+        """Return ``(buffer, offset, available)`` covering ``pos``."""
+        i = bisect_right(self._preload_starts, pos) - 1
+        if i >= 0:
+            start = self._preload_starts[i]
+            buf = self._preloads[start]
+            if pos < start + len(buf):
+                off = pos - start
+                return buf, off, len(buf) - off
+        if self._preload_starts:
+            # A read outside every preloaded extent while preloads are active
+            # means the planner missed a range; correctness is preserved by
+            # the block fallback, only transfer cost grows.
+            self.preload_misses += 1
+        block_idx, off = divmod(pos, self._block_size)
+        blk = self._get_block(block_idx)
+        return blk, off, len(blk) - off
+
+    def _get_block(self, block_idx: int) -> bytes:
+        """Fetch (or reuse) the block-aligned extent containing ``block_idx``."""
+        blk = self._blocks.get(block_idx)
+        if blk is not None:
+            self._blocks.move_to_end(block_idx)
+            return blk
+        start = block_idx * self._block_size
+        end = min(start + self._block_size, self._size) - 1
+        blk = self._fetch_range(start, end)
+        expected = end - start + 1
+        if len(blk) != expected:
+            raise RuntimeError(
+                f"range fetch returned {len(blk)} bytes for [{start}, {end}] "
+                f"(expected {expected}); the server ignored the Range header -- "
+                "refusing to continue (a full-body response would be 91 GB)"
+            )
+        self.block_fetches += 1
+        self._blocks[block_idx] = blk
+        while len(self._blocks) > self._max_cached_blocks:
+            self._blocks.popitem(last=False)
+        return blk
+
+
+class _HttpRangeFetcher:
+    """Thread-safe HTTP Range transport with mirror failover + byte counting.
+
+    Every byte of ``waveforms.hdf5`` this pipeline touches flows through
+    ``http_get_with_retry`` (SafeHTTPClient allowlist, HTTPS-only) via this
+    class, so ``bytes_fetched`` is the exact streamed-transfer figure that
+    lands in the fetch manifest.
+    """
+
+    def __init__(self, filename: str, *, timeout: float = 120.0) -> None:
+        """Initialize with the mirror-relative filename to stream."""
+        self._filename = filename
+        self._timeout = timeout
+        self._mirror_idx = 0
+        self._lock = Lock()
+        self.bytes_fetched = 0
+        self.calls = 0
+
+    @property
+    def url(self) -> str:
+        """Current mirror URL for the file."""
+        return f"{MIRRORS[self._mirror_idx]}/{self._filename}"
+
+    def __call__(self, start: int, end: int) -> bytes:
+        """Fetch inclusive byte range ``[start, end]``, failing over once."""
+        headers = {"Range": f"bytes={start}-{end}"}
+        try:
+            body = http_get_with_retry(self.url, headers=headers, timeout=self._timeout)
+        except Exception:
+            if self._mirror_idx + 1 >= len(MIRRORS):
+                raise
+            logger.warning(
+                "range fetch failed on %s; failing over to mirror %s",
+                self.url,
+                MIRRORS[self._mirror_idx + 1],
+            )
+            with self._lock:
+                self._mirror_idx = min(self._mirror_idx + 1, len(MIRRORS) - 1)
+            body = http_get_with_retry(self.url, headers=headers, timeout=self._timeout)
+        with self._lock:
+            self.bytes_fetched += len(body)
+            self.calls += 1
+        return body
+
+
+def detector_spectrogram(trace: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Reproduce ``EarthquakeDetector.predict_earthquake`` preprocessing exactly.
+
+    Keeping this in one helper guarantees train/serve parity for the tensors
+    the network is fitted on; the evaluation stage does NOT use it -- it goes
+    through the public detector API, which recomputes the identical pipeline.
+
+    Args:
+        trace: 1-D waveform (any length >= 4 samples; STEAD Z traces are
+            6000 samples @ 100 Hz).
+
+    Returns:
+        Per-spectrogram z-normalized ``log10`` spectrogram, float32
+        ``[freq_bins, time_bins]`` (129 x 45 for a 6000-sample trace).
+    """
+    trace = np.asarray(trace, dtype=np.float64)
+    _f, _t, sxx = _scipy_signal.spectrogram(
+        trace,
+        fs=SAMPLING_RATE_HZ,
+        nperseg=min(256, len(trace) // 4),
+        noverlap=min(128, len(trace) // 8),
+    )
+    sxx_log = np.log10(sxx + 1e-10)
+    sxx_norm = (sxx_log - sxx_log.mean()) / (sxx_log.std() + 1e-10)
+    return sxx_norm.astype(np.float32)
+
+
+def _peak_sta_lta_parity(trace: np.ndarray[Any, Any]) -> float:
+    """Peak STA/LTA trigger ratio (vectorized parity with the detector).
+
+    Mirrors ``EarthquakeDetector._peak_sta_lta`` -- 0.5 s short-term / 5 s
+    long-term sliding means of ``|x|``, ratio maximized over the identical
+    index range -- via cumulative sums (the detector's per-sample ``np.mean``
+    loop costs ~76 ms/trace, ~1000x this). Only floating-point summation
+    order differs (measured <2e-7 relative). Used solely for operating-point
+    selection on VALIDATION years; the evaluate stage measures physics
+    through the public detector API.
+
+    Args:
+        trace: 1-D waveform sampled at :data:`SAMPLING_RATE_HZ`.
+
+    Returns:
+        Peak STA/LTA ratio, or 0.0 when the record is shorter than one
+        STA+LTA window (the detector's convention).
+    """
+    x = np.abs(np.asarray(trace, dtype=np.float64))
+    sta_len = int(0.5 * SAMPLING_RATE_HZ)
+    lta_len = int(5.0 * SAMPLING_RATE_HZ)
+    if len(x) < lta_len + sta_len:
+        return 0.0
+    csum = np.concatenate(([0.0], np.cumsum(x)))
+    idx = np.arange(lta_len, len(x) - sta_len)
+    sta = (csum[idx + sta_len] - csum[idx]) / sta_len
+    lta = (csum[idx] - csum[idx - lta_len]) / lta_len
+    return float(np.max(sta / (lta + 1e-10)))
+
+
+def _resonance_score_parity(trace: np.ndarray[Any, Any]) -> float:
+    """Seismic-band resonance score (parity with the detector).
+
+    Mirrors ``EarthquakeDetector._compute_resonance_score`` on the raw
+    (unnormalized) spectrogram exactly as ``predict_earthquake`` computes it:
+    +0.33 for each of the 0.1-1 / 1-5 / 5-20 Hz bands whose mean power
+    exceeds 1.5x the overall mean, capped at 1.0. The trace is passed to
+    ``scipy.signal.spectrogram`` unconverted, as the detector does.
+    """
+    trace = np.asarray(trace)
+    freqs, _t, sxx = _scipy_signal.spectrogram(
+        trace,
+        fs=SAMPLING_RATE_HZ,
+        nperseg=min(256, len(trace) // 4),
+        noverlap=min(128, len(trace) // 8),
+    )
+    power_by_freq = sxx.mean(axis=1)
+    total_power = power_by_freq.mean() + 1e-10
+    score = 0.0
+    for low, high in ((0.1, 1.0), (1.0, 5.0), (5.0, 20.0)):
+        mask = (freqs >= low) & (freqs <= high)
+        if mask.any() and power_by_freq[mask].mean() / total_power > 1.5:
+            score += 0.33
+    return min(1.0, score)
+
+
+def _physics_confidence_parity(trace: np.ndarray[Any, Any]) -> tuple[float, float]:
+    """Return ``(physics confidence, resonance score)`` for one waveform.
+
+    Replicates the physics path of ``EarthquakeDetector.predict_earthquake``:
+    ``min(1, clip((peak STA/LTA - 2.5) / 7.5, 0, 1) + 0.2 * resonance)``.
+    The resonance score is returned as well because the learned path shares
+    the identical ``+ 0.2 * resonance`` confidence bump.
+    """
+    resonance = _resonance_score_parity(trace)
+    trigger = float(np.clip((_peak_sta_lta_parity(trace) - 2.5) / 7.5, 0.0, 1.0))
+    return min(1.0, trigger + resonance * 0.2), resonance
+
+
+# ---------------------------------------------------------------------------
+# fetch stage
+# ---------------------------------------------------------------------------
+
+
+def _stead_dir(ctx: PipelineContext) -> Path:
+    """On-disk cache directory for the STEAD subset."""
+    return ctx.data_dir / "stead"
+
+
+def _subset_path(ctx: PipelineContext, split: str) -> Path:
+    """Path of the cached per-split subset npz (seed-keyed)."""
+    return _stead_dir(ctx) / f"subset_seed{ctx.seed}_{split}.npz"
+
+
+def _manifest_path(ctx: PipelineContext) -> Path:
+    """Path of the fetch manifest (seed-keyed, like the subset files)."""
+    return _stead_dir(ctx) / f"manifest_seed{ctx.seed}.json"
+
+
+def _load_metadata(ctx: PipelineContext) -> Any:
+    """Load and validate the STEAD metadata CSV (columns this pipeline uses).
+
+    Returns:
+        DataFrame with ``year`` (int) and ``snr_db_mean`` (float, NaN for the
+        noise class) columns added.
+
+    Raises:
+        RuntimeError: On any malformed ``trace_start_time`` / ``trace_name``
+            or an unexpected label vocabulary -- refusing to guess.
+    """
+    import pandas as pd
+
+    path = _stead_dir(ctx) / METADATA_FILENAME
+    df = pd.read_csv(path, usecols=_METADATA_COLUMNS, low_memory=False)
+
+    categories = set(df["trace_category"].unique())
+    if categories != {"earthquake_local", "noise"}:
+        raise RuntimeError(
+            f"unexpected trace_category vocabulary {sorted(categories)}; "
+            "expected exactly {'earthquake_local', 'noise'} -- refusing to relabel"
+        )
+    year_str = df["trace_start_time"].astype(str).str[:4]
+    if not year_str.str.fullmatch(r"\d{4}").all():
+        bad = df.loc[~year_str.str.fullmatch(r"\d{4}"), "trace_start_time"].head(3).tolist()
+        raise RuntimeError(f"unparseable trace_start_time values (e.g. {bad}); refusing to guess")
+    df["year"] = year_str.astype(int)
+    if not df["trace_name"].str.fullmatch(r"bucket\d+\$\d+,:3,:6000").all():
+        raise RuntimeError("trace_name format changed upstream; refusing to parse waveform refs")
+
+    def _snr_mean(raw: Any) -> float:
+        if not isinstance(raw, str):
+            return float("nan")
+        try:
+            vals = [float(v) for v in raw.strip("[] ").split()]
+        except ValueError:
+            return float("nan")
+        return float(np.mean(vals)) if vals else float("nan")
+
+    df["snr_db_mean"] = df["trace_snr_db"].map(_snr_mean)
+    return df
+
+
+def _select_subset(df: Any, rng: np.random.Generator, limit: int | None) -> dict[str, Any]:
+    """Seeded, balanced per-split trace selection with quality filters.
+
+    Earthquake rows must carry a finite P pick and a finite source magnitude
+    (in this archive that is 100% of them -- asserted, not assumed). No SNR
+    filtering: cherry-picking high-SNR positives would inflate the evaluation,
+    so the selection is a uniform seeded sample and the SNR distribution is
+    reported in the manifest instead.
+
+    Args:
+        df: Metadata frame from :func:`_load_metadata`.
+        rng: Seeded generator (selection order is fixed: per split in
+            train/val/test order, earthquake class before noise).
+        limit: Optional per-class-per-split cap (``ctx.limit_samples``).
+
+    Returns:
+        Mapping split name -> selected metadata frame (fetch order: sorted by
+        bucket then row for read locality).
+
+    Raises:
+        RuntimeError: If any split-class pool is empty (temporal split no
+            longer matches the archive -- fail loud, never pad).
+    """
+    is_eq = df["trace_category"] == "earthquake_local"
+    quality = (~is_eq) | (
+        np.isfinite(df["trace_p_arrival_sample"].astype(float))
+        & np.isfinite(df["source_magnitude"].astype(float))
+    )
+    dropped = int((~quality).sum())
+    if dropped:
+        logger.info("quality filter dropped %d earthquake rows (no P pick/magnitude)", dropped)
+    df = df[quality]
+
+    masks = dict(zip(("train", "val", "test"), SPLIT.masks(df["year"].to_numpy()), strict=True))
+    out: dict[str, Any] = {}
+    for split in ("train", "val", "test"):
+        target = SUBSET_TARGETS[split]
+        if limit is not None:
+            target = min(target, limit)
+        parts = []
+        for want_eq in (True, False):
+            pool = df[masks[split] & (is_eq == want_eq)]
+            label = "earthquake_local" if want_eq else "noise"
+            if len(pool) == 0:
+                raise RuntimeError(
+                    f"no {label} traces in the {split} years "
+                    f"{SPLIT.__getattribute__(split + '_years')}; cannot build an honest split"
+                )
+            take = min(target, len(pool))
+            if take < target:
+                logger.warning(
+                    "%s/%s pool has only %d traces (target %d); shrinking honestly",
+                    split,
+                    label,
+                    len(pool),
+                    target,
+                )
+            picked = pool.iloc[np.sort(rng.choice(len(pool), size=take, replace=False))]
+            parts.append(picked)
+        import pandas as pd
+
+        sel = pd.concat(parts, ignore_index=True)
+        name_parts = sel["trace_name"].str.split("$", expand=True)
+        sel["bucket"] = name_parts[0]
+        sel["row"] = name_parts[1].str.split(",").str[0].astype(int)
+        out[split] = sel.sort_values(["bucket", "row"], kind="mergesort").reset_index(drop=True)
+    return out
+
+
+def _coalesce_ranges(
+    ranges: list[tuple[int, int]], *, max_gap: int = 128 * 1024
+) -> list[tuple[int, int]]:
+    """Merge sorted inclusive byte ranges whose gap is at most ``max_gap``."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if merged and start - merged[-1][1] - 1 <= max_gap:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _assert_stead_layout(h5file: Any) -> None:
+    """Fail loud unless the mirror's data_format matches the verified layout."""
+    fmt = h5file["data_format"]
+    component_order = bytes(fmt["component_order"][()])
+    dimension_order = bytes(fmt["dimension_order"][()])
+    sampling_rate = float(fmt["sampling_rate"][()])
+    if component_order != b"ZNE" or dimension_order != b"CW" or sampling_rate != 100.0:
+        raise RuntimeError(
+            f"STEAD mirror layout changed: component_order={component_order!r}, "
+            f"dimension_order={dimension_order!r}, sampling_rate={sampling_rate}; "
+            "expected ZNE/CW/100.0 -- the Z-component index would be wrong, refusing"
+        )
+
+
+def _bucket_dataset(data_group: Any, bucket: str) -> tuple[Any, int]:
+    """Return ``(dataset, contiguous byte offset)`` for a bucket, validated."""
+    ds = data_group[bucket]
+    if ds.shape[1:] != (N_COMPONENTS, WINDOW_SAMPLES) or str(ds.dtype) != "float32":
+        raise RuntimeError(
+            f"{bucket}: shape {ds.shape} dtype {ds.dtype}; expected (*, 3, 6000) float32"
+        )
+    if ds.chunks is not None or ds.compression is not None:
+        raise RuntimeError(
+            f"{bucket} is chunked/compressed; the contiguous-offset prefetch "
+            "planner no longer applies -- refusing to blow the transfer budget"
+        )
+    offset = ds.id.get_offset()
+    if offset is None:
+        raise RuntimeError(f"{bucket}: h5py reports no contiguous data offset")
+    return ds, int(offset)
+
+
+def _stream_split(
+    subset: Any,
+    data_group: Any,
+    reader: BlockCachedRangeReader,
+    fetcher: _HttpRangeFetcher,
+    *,
+    batch_traces: int = 4096,
+    prefetch_workers: int = 24,
+) -> np.ndarray[Any, Any]:
+    """Stream the Z component for every trace of one split, in fetch order.
+
+    Reads are planned from each bucket's contiguous data offset, coalesced,
+    prefetched in parallel, then served to ``h5py`` from the preload layer --
+    ``h5py`` still performs all format parsing, so a planner bug can only
+    cost bytes, never corrupt data.
+
+    Returns:
+        Float32 array ``[n, 6000]`` aligned with ``subset`` rows.
+
+    Raises:
+        RuntimeError: On any non-finite sample in a fetched trace (real
+            STEAD traces are finite; NaN would mean transport corruption).
+    """
+    n = len(subset)
+    z = np.empty((n, WINDOW_SAMPLES), dtype=np.float32)
+    datasets: dict[str, tuple[Any, int]] = {}
+    t0 = time.monotonic()
+    for batch_start in range(0, n, batch_traces):
+        batch = subset.iloc[batch_start : batch_start + batch_traces]
+        ranges: list[tuple[int, int]] = []
+        for bucket, row in zip(batch["bucket"], batch["row"], strict=True):
+            if bucket not in datasets:
+                datasets[bucket] = _bucket_dataset(data_group, bucket)
+            _, offset = datasets[bucket]
+            start = offset + int(row) * _ROW_BYTES
+            ranges.append((start, start + _Z_BYTES - 1))
+        coalesced = _coalesce_ranges(ranges)
+        with ThreadPoolExecutor(max_workers=prefetch_workers) as pool:
+            futures = [(s, pool.submit(fetcher, s, e)) for s, e in coalesced]
+            for start, fut in futures:
+                reader.add_preload(start, fut.result())
+        for i, (bucket, row) in enumerate(
+            zip(batch["bucket"], batch["row"], strict=True), start=batch_start
+        ):
+            ds, _ = datasets[bucket]
+            trace = ds[int(row), Z_COMPONENT_INDEX, :]
+            if not np.all(np.isfinite(trace)):
+                raise RuntimeError(
+                    f"non-finite samples in {bucket}${row}; refusing corrupted waveform"
+                )
+            z[i] = trace
+        reader.clear_preloads()
+        done = min(batch_start + batch_traces, n)
+        logger.info(
+            "streamed %d/%d traces (%.1f MB fetched, %d calls, %.0fs elapsed)",
+            done,
+            n,
+            fetcher.bytes_fetched / 1e6,
+            fetcher.calls,
+            time.monotonic() - t0,
+        )
+    if reader.preload_misses:
+        logger.warning(
+            "preload planner missed %d reads (served via block fallback; "
+            "data is correct, transfer cost was higher than planned)",
+            reader.preload_misses,
+        )
+    return z
+
+
+def _verify_streamed_traces(
+    subset: Any,
+    z: np.ndarray[Any, Any],
+    rng: np.random.Generator,
+    *,
+    n_check: int = 8,
+) -> int:
+    """Re-read a seeded sample of traces through a fresh session and compare.
+
+    The preload planner only redirects transport; this check proves the bytes
+    it served decode to the identical waveforms a plain (no-preload) h5py
+    session reads. Any mismatch is a hard failure.
+
+    Returns:
+        Number of traces verified.
+    """
+    import h5py  # type: ignore[import-untyped]  # mypy flags first import site only
+
+    idx = rng.choice(len(subset), size=min(n_check, len(subset)), replace=False)
+    fetcher = _HttpRangeFetcher(WAVEFORMS_FILENAME)
+    reader = BlockCachedRangeReader(fetcher, EXPECTED_WAVEFORMS_BYTES)
+    with h5py.File(reader, "r") as h5file:
+        data_group = h5file["data"]
+        for i in idx:
+            row = subset.iloc[int(i)]
+            fresh = data_group[row["bucket"]][int(row["row"]), Z_COMPONENT_INDEX, :]
+            if not np.array_equal(fresh, z[int(i)]):
+                raise RuntimeError(
+                    f"verification mismatch for {row['trace_name']}: independently "
+                    "re-read waveform differs from the streamed subset -- aborting"
+                )
+    logger.info(
+        "verified %d traces byte-identical via fresh no-preload session (%.1f MB)",
+        len(idx),
+        fetcher.bytes_fetched / 1e6,
+    )
+    return len(idx)
+
+
+def _snr_summary(values: np.ndarray[Any, Any]) -> dict[str, float]:
+    """Percentile summary of a (possibly NaN-laden) SNR array in dB."""
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return {"n": 0.0}
+    pct = np.percentile(finite, [5, 25, 50, 75, 95])
+    return {
+        "n": float(finite.size),
+        "mean": float(finite.mean()),
+        "p5": float(pct[0]),
+        "p25": float(pct[1]),
+        "p50": float(pct[2]),
+        "p75": float(pct[3]),
+        "p95": float(pct[4]),
+    }
+
+
+def fetch(ctx: PipelineContext) -> dict[str, Any]:
+    """Download STEAD metadata and stream the selected waveform subset.
+
+    Stages: cache ``metadata.csv`` whole (sha256-pinned, size-checked);
+    select the seeded balanced subset per temporal split; stream only those
+    traces' Z components out of the 91 GB ``waveforms.hdf5`` via HTTP Range
+    requests; independently re-verify a seeded sample; write per-split npz
+    caches plus a manifest with full provenance (URLs, hashes, byte counts,
+    year/SNR distributions).
+
+    Returns:
+        The fetch manifest (also written to disk).
+    """
+    import h5py
+
+    stead_dir = _stead_dir(ctx)
+    manifest_file = _manifest_path(ctx)
+    if manifest_file.exists() and all(
+        _subset_path(ctx, s).exists() for s in ("train", "val", "test")
+    ):
+        logger.info("fetch cache hit: %s", manifest_file)
+        return dict(json.loads(manifest_file.read_text()))
+
+    meta_path = cached_fetch(f"{MIRRORS[0]}/{METADATA_FILENAME}", stead_dir / METADATA_FILENAME)
+    if meta_path.stat().st_size != EXPECTED_METADATA_BYTES:
+        raise RuntimeError(
+            f"metadata.csv is {meta_path.stat().st_size} bytes; expected "
+            f"{EXPECTED_METADATA_BYTES} -- upstream changed, refusing to proceed blindly"
+        )
+    meta_sha = sha256_file(meta_path)
+
+    df = _load_metadata(ctx)
+    year_table = {
+        str(year): {
+            "earthquake_local": int(((df["year"] == year) & eq_mask).sum()),
+            "noise": int(((df["year"] == year) & ~eq_mask).sum()),
+        }
+        for eq_mask in (df["trace_category"] == "earthquake_local",)
+        for year in sorted(df["year"].unique())
+    }
+
+    rng = seed_everything(ctx.seed)
+    subsets = _select_subset(df, rng, ctx.limit_samples)
+    del df
+
+    fetcher = _HttpRangeFetcher(WAVEFORMS_FILENAME)
+    sig = fetcher(0, 7)
+    if sig != b"\x89HDF\r\n\x1a\n":
+        raise RuntimeError("waveforms.hdf5 signature mismatch; not an HDF5 file")
+    if len(fetcher(EXPECTED_WAVEFORMS_BYTES - 1, EXPECTED_WAVEFORMS_BYTES - 1)) != 1:
+        raise RuntimeError("waveforms.hdf5 shorter than the pinned upstream size")
+
+    reader = BlockCachedRangeReader(fetcher, EXPECTED_WAVEFORMS_BYTES)
+    subset_records: dict[str, Any] = {}
+    trace_lists: dict[str, list[str]] = {}
+    snr_report: dict[str, dict[str, float]] = {}
+    with h5py.File(reader, "r") as h5file:
+        _assert_stead_layout(h5file)
+        data_group = h5file["data"]
+        for split, subset in subsets.items():
+            logger.info("streaming %s split: %d traces", split, len(subset))
+            z = _stream_split(subset, data_group, reader, fetcher)
+            n_verified = _verify_streamed_traces(subset, z, rng)
+            is_eq = (subset["trace_category"] == "earthquake_local").to_numpy()
+            path = _subset_path(ctx, split)
+            np.savez_compressed(
+                path,
+                z=z,
+                label=is_eq.astype(np.uint8),
+                year=subset["year"].to_numpy(np.int32),
+                mag=subset["source_magnitude"].to_numpy(np.float32),
+                p_sample=subset["trace_p_arrival_sample"].to_numpy(np.float32),
+                s_sample=subset["trace_s_arrival_sample"].to_numpy(np.float32),
+                snr_db=subset["snr_db_mean"].to_numpy(np.float32),
+                trace_name=subset["trace_name"].to_numpy(str),
+            )
+            trace_lists[split] = subset["trace_name"].tolist()
+            snr_report[split] = _snr_summary(subset["snr_db_mean"].to_numpy(np.float64))
+            subset_records[split] = {
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "n_earthquake": int(is_eq.sum()),
+                "n_noise": int((~is_eq).sum()),
+                "years": sorted(int(y) for y in set(subset["year"])),
+                "n_independently_verified": n_verified,
+            }
+
+    trace_list_path = stead_dir / f"trace_names_seed{ctx.seed}.json"
+    trace_list_path.write_text(json.dumps(trace_lists, indent=0, sort_keys=True))
+
+    manifest = {
+        "hook": HOOK_NAME,
+        "seed": ctx.seed,
+        "sources": [
+            {
+                "url": f"{MIRRORS[0]}/{METADATA_FILENAME}",
+                "sha256": meta_sha,
+                "bytes": EXPECTED_METADATA_BYTES,
+                "description": "STEAD metadata (SeisBench GFZ mirror), all 1,265,657 rows",
+            },
+            {
+                "url": fetcher.url,
+                "sha256": "streamed-subset:see subset_files",
+                "upstream_bytes": EXPECTED_WAVEFORMS_BYTES,
+                "description": (
+                    "STEAD waveforms.hdf5 -- Z-component subset streamed via HTTP "
+                    "Range requests; per-split npz sha256 digests under subset_files, "
+                    "exact trace list in trace_names file"
+                ),
+            },
+        ],
+        "subset_files": subset_records,
+        "trace_list": {"path": str(trace_list_path), "sha256": sha256_file(trace_list_path)},
+        "component": {"order": "ZNE", "dimension_order": "CW", "used_index": Z_COMPONENT_INDEX},
+        "bytes_streamed_hdf5": fetcher.bytes_fetched,
+        "http_range_calls": fetcher.calls,
+        "snr_db_mean_by_split": snr_report,
+        "year_distribution_full_archive": year_table,
+        "split_years": {
+            "train": list(SPLIT.train_years),
+            "val": list(SPLIT.val_years),
+            "test": list(SPLIT.test_years),
+        },
+    }
+    manifest_file.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+    logger.info(
+        "fetch complete: %.2f GB streamed in %d range calls; manifest %s",
+        fetcher.bytes_fetched / 1e9,
+        fetcher.calls,
+        manifest_file,
+    )
+    return manifest
+
+
+# ---------------------------------------------------------------------------
+# build stage
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SpectrogramGroup:
+    """One same-shape batch group of spectrograms with aligned labels.
+
+    Attributes:
+        spec: Float32 spectrograms ``[n, freq, time]``.
+        label: 1.0 earthquake / 0.0 noise.
+        mag_target: ``clip((magnitude - 2) / 4, 0, 1)``; NaN for noise (the
+            magnitude loss is masked to positives).
+        p_label: 1.0 when a real P pick lies inside the window.
+        s_label: 1.0 when a real S pick lies inside the window.
+    """
+
+    spec: np.ndarray[Any, Any]
+    label: np.ndarray[Any, Any]
+    mag_target: np.ndarray[Any, Any]
+    p_label: np.ndarray[Any, Any]
+    s_label: np.ndarray[Any, Any]
+
+    @property
+    def n(self) -> int:
+        """Number of samples in the group."""
+        return int(self.spec.shape[0])
+
+
+@dataclass
+class SeismicDataset:
+    """Training-side dataset: precomputed spectrograms for train and val.
+
+    The test split is deliberately absent: :func:`evaluate` consumes raw
+    held-out waveforms through the public detector API, never precomputed
+    tensors.
+    """
+
+    train_full: SpectrogramGroup
+    train_trunc: SpectrogramGroup
+    val: SpectrogramGroup
+
+
+def _load_subset(ctx: PipelineContext, split: str) -> dict[str, np.ndarray[Any, Any]]:
+    """Load one split's cached subset npz, failing loud when absent."""
+    path = _subset_path(ctx, split)
+    if not path.exists():
+        raise FileNotFoundError(f"missing subset cache {path}; run the --fetch stage first")
+    with np.load(path, allow_pickle=False) as data:
+        return {key: data[key] for key in data.files}
+
+
+def _mag_target(mag: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Magnitude head target: ``(M - 2) / 4`` clamped to [0, 1] (see module doc)."""
+    return np.clip((mag - 2.0) / 4.0, 0.0, 1.0).astype(np.float32)
+
+
+def _group_from_arrays(
+    arrays: dict[str, np.ndarray[Any, Any]],
+    idx: np.ndarray[Any, Any],
+    *,
+    window: int,
+) -> SpectrogramGroup:
+    """Build a :class:`SpectrogramGroup` for ``idx`` rows cut to ``window`` samples.
+
+    Labels are derived from the REAL pick columns: a pick counts as present
+    only when its sample index falls inside the window actually fed to the
+    spectrogram. Noise rows have NaN picks and label 0 for both heads.
+    """
+    z = arrays["z"][idx, :window]
+    label = arrays["label"][idx].astype(np.float32)
+    p_sample = arrays["p_sample"][idx]
+    s_sample = arrays["s_sample"][idx]
+    p_label = (np.nan_to_num(p_sample, nan=np.inf) < window).astype(np.float32)
+    s_label = (np.nan_to_num(s_sample, nan=np.inf) < window).astype(np.float32)
+    mag_target = np.where(label > 0.5, _mag_target(arrays["mag"][idx]), np.float32(np.nan)).astype(
+        np.float32
+    )
+    if len(idx) == 0:
+        # Empty group (e.g. no truncation-eligible rows in a tiny run): keep
+        # the correct spectrogram shape via a shape probe -- no sample rows.
+        shape = detector_spectrogram(np.zeros(window, dtype=np.float32)).shape
+        spec = np.zeros((0, *shape), dtype=np.float32)
+    else:
+        spec = np.stack([detector_spectrogram(trace) for trace in z])
+    return SpectrogramGroup(
+        spec=spec, label=label, mag_target=mag_target, p_label=p_label, s_label=s_label
+    )
+
+
+def build_dataset(ctx: PipelineContext) -> SeismicDataset:
+    """Assemble train/val spectrogram groups from the cached subsets.
+
+    Preprocessing is byte-for-byte the detector's own pipeline
+    (:func:`detector_spectrogram`); the only cross-sample choice is the
+    seeded truncated-window assignment for the train split, drawn from
+    ``ctx.seed`` so the build is reproducible. Spectrograms are cached to
+    disk keyed by seed.
+
+    Returns:
+        The training-side dataset.
+    """
+    cache = _stead_dir(ctx) / f"spectrograms_seed{ctx.seed}.npz"
+    if cache.exists():
+        logger.info("spectrogram cache hit: %s", cache)
+        with np.load(cache, allow_pickle=False) as data:
+            return SeismicDataset(
+                train_full=SpectrogramGroup(
+                    *(data[f"train_full_{k}"] for k in ("spec", "label", "mag", "p", "s"))
+                ),
+                train_trunc=SpectrogramGroup(
+                    *(data[f"train_trunc_{k}"] for k in ("spec", "label", "mag", "p", "s"))
+                ),
+                val=SpectrogramGroup(
+                    *(data[f"val_{k}"] for k in ("spec", "label", "mag", "p", "s"))
+                ),
+            )
+
+    train = _load_subset(ctx, "train")
+    val = _load_subset(ctx, "val")
+    rng = np.random.default_rng([ctx.seed, 1])  # independent of the fetch stream
+
+    is_eq = train["label"].astype(bool)
+    p_sample = train["p_sample"]
+    s_sample = train["s_sample"]
+    eligible_eq = np.flatnonzero(
+        is_eq
+        & (np.nan_to_num(p_sample, nan=np.inf) <= _TRUNC_P_MAX)
+        & (np.nan_to_num(s_sample, nan=-np.inf) >= _TRUNC_S_MIN)
+    )
+    trunc_eq = rng.choice(eligible_eq, size=len(eligible_eq) // 2, replace=False)
+    noise_idx = np.flatnonzero(~is_eq)
+    trunc_noise = rng.choice(noise_idx, size=min(len(trunc_eq), len(noise_idx)), replace=False)
+    trunc_idx = np.sort(np.concatenate([trunc_eq, trunc_noise]))
+    full_idx = np.setdiff1d(np.arange(len(is_eq)), trunc_idx)
+    logger.info(
+        "train truncation: %d eligible eq, %d eq + %d noise truncated to %d samples",
+        len(eligible_eq),
+        len(trunc_eq),
+        len(trunc_noise),
+        TRUNC_SAMPLES,
+    )
+
+    ds = SeismicDataset(
+        train_full=_group_from_arrays(train, full_idx, window=WINDOW_SAMPLES),
+        train_trunc=_group_from_arrays(train, trunc_idx, window=TRUNC_SAMPLES),
+        val=_group_from_arrays(val, np.arange(len(val["label"])), window=WINDOW_SAMPLES),
+    )
+    np.savez(
+        cache,
+        **{
+            f"{name}_{k}": getattr(group, attr)
+            for name, group in (
+                ("train_full", ds.train_full),
+                ("train_trunc", ds.train_trunc),
+                ("val", ds.val),
+            )
+            for k, attr in (
+                ("spec", "spec"),
+                ("label", "label"),
+                ("mag", "mag_target"),
+                ("p", "p_label"),
+                ("s", "s_label"),
+            )
+        },
+    )
+    logger.info(
+        "built spectrograms: train_full=%d train_trunc=%d val=%d",
+        ds.train_full.n,
+        ds.train_trunc.n,
+        ds.val.n,
+    )
+    return ds
+
+
+# ---------------------------------------------------------------------------
+# train stage
+# ---------------------------------------------------------------------------
+
+
+def _group_tensors(group: SpectrogramGroup) -> dict[str, torch.Tensor]:
+    """Torch views of a group (spectrograms get the CNN channel dim)."""
+    return {
+        "spec": torch.from_numpy(group.spec).unsqueeze(1),
+        "label": torch.from_numpy(group.label),
+        "mag": torch.from_numpy(group.mag_target),
+        "p": torch.from_numpy(group.p_label),
+        "s": torch.from_numpy(group.s_label),
+    }
+
+
+def _val_auc(model: Any, val: dict[str, torch.Tensor], batch_size: int = 256) -> float:
+    """Classifier AUC on the validation split (model-level, full windows)."""
+    model.eval()
+    scores = []
+    with torch.no_grad():
+        for start in range(0, val["spec"].shape[0], batch_size):
+            eq_prob, _, _, _ = model(val["spec"][start : start + batch_size])
+            scores.append(eq_prob.reshape(-1).numpy())
+    return binary_auc(val["label"].numpy(), np.concatenate(scores))
+
+
+def _select_operating_point(
+    model: Any, ctx: PipelineContext, val: dict[str, torch.Tensor]
+) -> dict[str, Any]:
+    """Choose the learned alert threshold on the VALIDATION year.
+
+    The deployed alert is ``confidence > detection_threshold`` where the learned
+    confidence is ``sigmoid(eq_logit / T)`` -- the classifier's PRE-sigmoid
+    detection logit rescaled by a validation-fit calibration temperature ``T``
+    (Guo et al. 2017), and NO physics ``0.2 * resonance`` bump (that bump is an
+    STA/LTA-confidence device; on the learned head it only adds noise-driven
+    false alarms). ``T`` is strictly ROC-invariant: its only job is to undo the
+    terminal-sigmoid saturation that otherwise pins ~79% of confident traces to
+    exactly 1.0, which left the deployed score unthresholdable (an untunable
+    ~4.4% false-alarm floor). The threshold is selected on VALIDATION only:
+    require detection recall >= max(physics val recall + 0.02, 0.60) AND
+    false-alarm rate <= 0.8 * physics val FAR (mirroring the ship gate's
+    secondary constraints with val->test headroom); among feasible thresholds
+    pick the one maximizing CSI (ties -> higher threshold, fewer false alarms).
+    When physics is perfectly precise on validation (FAR = 0) the ``0.8 * FAR``
+    ceiling collapses to an unsatisfiable zero; because the calibrated score no
+    longer saturates, a genuine low-false-alarm point exists, so the selector
+    then maximizes CSI within an absolute 1% val-FAR budget (real val->test
+    headroom below physics' measured test FAR). The merit gate STILL adjudicates
+    learned <= physics FAR on the held-out TEST years independently -- this
+    selects a deployable point that can clear the gate at high recall, it does
+    not touch the gate. Physics recall/FAR on validation come from the exact
+    parity helpers (:func:`_physics_confidence_parity`); the evaluate stage
+    still measures both paths through the public detector API on the held-out
+    TEST years.
+
+    Args:
+        model: Trained ``SeismicWaveAnalyzer`` (best validation state).
+        ctx: Pipeline context (locates the cached validation waveforms).
+        val: Validation tensors from :func:`_group_tensors` (row-aligned with
+            the cached ``val`` subset).
+
+    Returns:
+        Operating-point record stored in the checkpoint payload and the
+        provenance sidecar (threshold, policy, and the validation-year
+        recall/FAR/CSI for both the learned rule and physics).
+
+    Raises:
+        RuntimeError: When validation has a single class, or when not even the
+            recall floor is reachable at any threshold (a classifier head that
+            cannot drive an alert decision must not be recorded).
+    """
+    raw = _load_subset(ctx, "val")
+    labels = raw["label"].astype(bool)
+    if not labels.any() or labels.all():
+        raise RuntimeError(
+            "validation year contains a single class; cannot select an operating point honestly"
+        )
+    if len(labels) != int(val["spec"].shape[0]):
+        raise RuntimeError(
+            "validation tensor/waveform row mismatch; refusing to select an operating point"
+        )
+
+    model.eval()
+    logits = []
+    with torch.no_grad():
+        for start in range(0, val["spec"].shape[0], 256):
+            logits.append(
+                model.detection_logit(val["spec"][start : start + 256])
+                .reshape(-1)
+                .numpy()
+                .astype(np.float64)
+            )
+    eq_logit_all = np.concatenate(logits)
+
+    # Temperature scaling (Guo et al. 2017): fit one positive scalar T that
+    # minimises the validation BCE of sigmoid(logit / T), then deploy that score.
+    # The NLL is 1-D and convex in 1/T, so a seeded coarse-to-fine search finds
+    # the optimum robustly and keeps the fit in pure numpy (no autograd for a
+    # single scalar). T is strictly ROC-invariant (monotonic), so it moves no
+    # recall/FAR trade-off -- its sole job is to undo the terminal-sigmoid
+    # saturation that pinned confident traces to exactly 1.0 (which left the
+    # deployed score unthresholdable). Calibration only: no constraint is relaxed.
+    _y = labels.astype(np.float64)
+
+    def _temperature_nll(t: float) -> float:
+        z = eq_logit_all / t
+        # numerically stable BCE-with-logits mean: softplus(z) - y * z
+        return float(np.mean(np.logaddexp(0.0, z) - _y * z))
+
+    _coarse = np.geomspace(0.05, 20.0, 400)
+    _t0 = float(_coarse[int(np.argmin([_temperature_nll(float(t)) for t in _coarse]))])
+    _fine = np.linspace(_t0 / 1.5, _t0 * 1.5, 200)
+    _t1 = float(_fine[int(np.argmin([_temperature_nll(float(t)) for t in _fine]))])
+    temperature = float(np.clip(_t1, 1e-3, 1e6))
+
+    physics_conf = np.empty(len(labels), dtype=np.float64)
+    for i, trace in enumerate(raw["z"]):
+        physics_conf[i], _ = _physics_confidence_parity(trace)
+    # Deployed learned alert score: the temperature-calibrated probability, with
+    # NO physics 0.2*resonance bump (an STA/LTA-confidence device that only adds
+    # noise-driven false alarms on the learned head). This mirrors
+    # EarthquakeDetector.predict_earthquake's learned path exactly.
+    learned_conf = 1.0 / (1.0 + np.exp(-eq_logit_all / temperature))
+
+    phys_detect = physics_conf > PHYSICS_DETECTION_THRESHOLD
+    physics_recall = float(np.mean(phys_detect[labels]))
+    physics_far = float(np.mean(phys_detect[~labels]))
+    recall_floor = max(physics_recall + 0.02, 0.60)
+    far_ceiling = 0.8 * physics_far
+    # Absolute false-alarm budget for the perfectly-precise-physics regime
+    # (physics val FAR = 0 makes 0.8*physics_far an unsatisfiable zero). 1% on
+    # validation leaves genuine val->test headroom below physics' measured test
+    # FAR; the merit gate still independently adjudicates learned <= physics FAR
+    # on the held-out TEST years -- this only picks a deployable point that can
+    # clear that gate at high recall, it does not touch the gate.
+    far_budget = 0.01
+
+    def _rule_metrics(tau: float) -> tuple[float, float, float]:
+        detect = learned_conf > tau
+        tp = float(np.sum(detect & labels))
+        fn = float(np.sum(~detect & labels))
+        fp = float(np.sum(detect & ~labels))
+        recall = tp / max(tp + fn, 1.0)
+        far = fp / max(float(np.sum(~labels)), 1.0)
+        csi = tp / max(tp + fn + fp, 1.0)
+        return recall, far, csi
+
+    taus = np.unique(
+        np.concatenate(
+            [
+                np.quantile(learned_conf, np.linspace(0.0, 1.0, 1025)),
+                [PHYSICS_DETECTION_THRESHOLD],  # keep 0.96 selectable if it is right
+            ]
+        )
+    )
+    best: dict[str, Any] | None = None
+    # Budgeted point for the perfectly-precise-physics regime. When physics posts
+    # zero validation false alarms, ``0.8 * physics_far`` collapses to an
+    # unsatisfiable zero. With the temperature-calibrated, resonance-free score
+    # the deployed confidence no longer saturates at 1.0, so a genuine
+    # low-false-alarm operating point exists: pick the MAX-CSI threshold within
+    # the absolute 1% val-FAR budget (ties -> higher tau) so the model deploys at
+    # high recall AND low FAR, with val->test headroom for the merit gate to
+    # adjudicate learned <= physics FAR honestly on the held-out test years. The
+    # last-resort ``fallback`` (lowest-FAR at the recall floor) only fires if even
+    # the 1% budget is somehow unreachable.
+    budgeted: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
+    for tau in taus:
+        recall, far, csi = _rule_metrics(float(tau))
+        entry = {
+            "detection_threshold": float(tau),
+            "val_recall": recall,
+            "val_far": far,
+            "val_csi": csi,
+        }
+        if recall >= recall_floor and (
+            fallback is None
+            or far < fallback["val_far"]
+            or (far == fallback["val_far"] and csi > fallback["val_csi"])
+            or (
+                far == fallback["val_far"]
+                and csi == fallback["val_csi"]
+                and entry["detection_threshold"] > fallback["detection_threshold"]
+            )
+        ):
+            fallback = entry
+        if (
+            recall >= recall_floor
+            and far <= far_budget
+            and (
+                budgeted is None
+                or csi > budgeted["val_csi"]
+                or (csi == budgeted["val_csi"] and tau > budgeted["detection_threshold"])
+            )
+        ):
+            budgeted = entry
+        if (
+            recall >= recall_floor
+            and far <= far_ceiling
+            and (
+                best is None
+                or csi > best["val_csi"]
+                or (csi == best["val_csi"] and tau > best["detection_threshold"])
+            )
+        ):
+            best = entry
+    floor_met = best is not None
+    # Precedence: the strict 0.8*physics ceiling if satisfiable; else the
+    # max-CSI point within the 1% val-FAR budget; else the lowest-FAR point at
+    # the recall floor.
+    chosen = best if best is not None else (budgeted if budgeted is not None else fallback)
+    if chosen is None:
+        raise RuntimeError(
+            "no learned threshold reaches the recall floor on validation; the "
+            "classifier head cannot drive an earthquake alert decision -- "
+            "refusing to record a doomed operating point"
+        )
+    logger.info(
+        "operating point: threshold %.6f (T=%.3f; val recall %.4f / FAR %.4f / CSI %.4f; "
+        "physics recall %.4f / FAR %.4f at %.2f)",
+        chosen["detection_threshold"],
+        temperature,
+        chosen["val_recall"],
+        chosen["val_far"],
+        chosen["val_csi"],
+        physics_recall,
+        physics_far,
+        PHYSICS_DETECTION_THRESHOLD,
+    )
+    return {
+        **chosen,
+        "temperature": temperature,
+        "policy": "confidence > tau where confidence = sigmoid(eq_logit / T), T a "
+        "validation-fit calibration temperature (undoes terminal-sigmoid saturation; strictly "
+        "ROC-invariant) with NO physics resonance bump on the learned head; tau maximizes val "
+        "CSI subject to val recall >= max(physics val recall + 0.02, 0.60) AND val FAR <= "
+        "0.8*physics val FAR; when physics posts zero val FAR that ceiling is unsatisfiable, "
+        "so tau maximizes val CSI within an absolute 1% val-FAR budget (val->test headroom) "
+        "and the merit gate still adjudicates learned <= physics FAR on the held-out test years",
+        "recall_floor": recall_floor,
+        "recall_floor_met": floor_met,
+        "far_ceiling": far_ceiling,
+        "far_budget": far_budget,
+        "val_recall_physics": physics_recall,
+        "val_far_physics": physics_far,
+        "physics_detection_threshold": PHYSICS_DETECTION_THRESHOLD,
+    }
+
+
+def train(ctx: PipelineContext) -> dict[str, Any]:
+    """Train the detector's own SeismicWaveAnalyzer with early stopping.
+
+    Losses: BCE on the earthquake classifier, BCE on the P/S-pick-presence
+    heads, MSE on the magnitude head masked to positives. Batches are drawn
+    within a spectrogram-shape group (full 60 s vs truncated 30 s windows)
+    and the batch order is shuffled across groups each epoch. Early stopping
+    maximizes validation AUC (patience 6) under the ``ctx.max_epochs`` cap.
+
+    Returns:
+        Training record (epochs run, best validation AUC, sample counts).
+    """
+    from omni_mercury_engine.detectors.geological.disaster_detectors import SeismicWaveAnalyzer
+
+    rng = seed_everything(ctx.seed)
+    ds = build_dataset(ctx)
+    groups = [_group_tensors(g) for g in (ds.train_full, ds.train_trunc) if g.n > 0]
+    val = _group_tensors(ds.val)
+
+    model = SeismicWaveAnalyzer()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    bce = torch.nn.BCELoss()
+    batch_size = 64
+    n_train = sum(int(g["spec"].shape[0]) for g in groups)
+    pos_frac = float(sum(float(g["label"].sum()) for g in groups) / max(1, n_train))
+    logger.info(
+        "training on %d spectrograms (%.1f%% earthquake) in %d shape groups; val=%d",
+        n_train,
+        100 * pos_frac,
+        len(groups),
+        int(val["spec"].shape[0]),
+    )
+
+    best_auc = -np.inf
+    best_state: dict[str, torch.Tensor] | None = None
+    patience, bad_epochs = 6, 0
+    epochs_run = 0
+    for epoch in range(ctx.max_epochs):
+        epochs_run = epoch + 1
+        model.train()
+        batches: list[tuple[int, torch.Tensor]] = []
+        for gi, g in enumerate(groups):
+            perm = torch.from_numpy(rng.permutation(int(g["spec"].shape[0])))
+            batches.extend((gi, perm[s : s + batch_size]) for s in range(0, len(perm), batch_size))
+        order = rng.permutation(len(batches))
+        epoch_loss = 0.0
+        for bi in order:
+            gi, idx = batches[int(bi)]
+            g = groups[gi]
+            eq_prob, mag, p_prob, s_prob = model(g["spec"][idx])
+            eq_prob = eq_prob.reshape(-1).clamp(1e-6, 1 - 1e-6)
+            p_prob = p_prob.reshape(-1).clamp(1e-6, 1 - 1e-6)
+            s_prob = s_prob.reshape(-1).clamp(1e-6, 1 - 1e-6)
+            loss = (
+                bce(eq_prob, g["label"][idx]) + bce(p_prob, g["p"][idx]) + bce(s_prob, g["s"][idx])
+            )
+            mag_true = g["mag"][idx]
+            pos = torch.isfinite(mag_true)
+            if bool(pos.any()):
+                loss = loss + torch.nn.functional.mse_loss(mag.reshape(-1)[pos], mag_true[pos])
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            epoch_loss += float(loss.item()) * int(idx.shape[0])
+
+        auc = _val_auc(model, val)
+        logger.info("epoch %d: train loss %.4f, val AUC %.5f", epoch + 1, epoch_loss / n_train, auc)
+        if auc > best_auc + 1e-5:
+            best_auc = auc
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                logger.info("early stop at epoch %d (patience %d)", epoch + 1, patience)
+                break
+
+    if best_state is None or not np.isfinite(best_auc):
+        raise RuntimeError("training produced no finite validation AUC; refusing to save")
+    model.load_state_dict(best_state)
+
+    operating_point = _select_operating_point(model, ctx, val)
+
+    record = {
+        "seed": ctx.seed,
+        "epochs_run": epochs_run,
+        "max_epochs": ctx.max_epochs,
+        "best_val_auc": float(best_auc),
+        "n_train": n_train,
+        "n_train_truncated": ds.train_trunc.n,
+        "n_val": ds.val.n,
+        "train_years": list(SPLIT.train_years),
+        "val_years": list(SPLIT.val_years),
+        "train_earthquake_fraction": pos_frac,
+        "operating_point": operating_point,
+    }
+    payload: dict[str, Any] = {
+        "seismic_analyzer": model.state_dict(),
+        "feature_spec": FEATURE_SPEC_VERSION,
+        "sampling_rate_hz": SAMPLING_RATE_HZ,
+        "window_samples": WINDOW_SAMPLES,
+        "component": "Z",
+        "operating_point": operating_point,
+    }
+    save_candidate(ctx.data_dir, HOOK_NAME, payload, record)
+    return record
+
+
+# ---------------------------------------------------------------------------
+# evaluate stage
+# ---------------------------------------------------------------------------
+
+_EVAL_DETECTORS: dict[str, Any] = {}
+
+
+def _eval_worker_init(candidate_path: str) -> None:
+    """Per-process initializer: build one physics and one learned detector."""
+    torch.set_num_threads(1)
+    from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
+
+    physics = EarthquakeDetector()
+    learned = EarthquakeDetector()
+    learned.load_neural_weights(candidate_path)
+    _EVAL_DETECTORS["physics"] = physics
+    _EVAL_DETECTORS["learned"] = learned
+
+
+def _eval_worker(chunk: np.ndarray[Any, Any]) -> dict[str, list[float]]:
+    """Run a chunk of held-out waveforms through both detector paths.
+
+    Returns:
+        Per-path lists (confidence, detected, p/s flags, magnitude) aligned
+        with the chunk order; magnitude is NaN where the path abstains.
+    """
+    out: dict[str, list[float]] = {
+        f"{label}_{key}": []
+        for label in ("physics", "learned")
+        for key in ("conf", "det", "p", "s", "mag")
+    }
+    for trace in chunk:
+        for label in ("physics", "learned"):
+            result = _EVAL_DETECTORS[label].predict_earthquake(trace)
+            out[f"{label}_conf"].append(float(result.confidence))
+            out[f"{label}_det"].append(float(result.earthquake_detected))
+            out[f"{label}_p"].append(float(result.p_wave_detected))
+            out[f"{label}_s"].append(float(result.s_wave_detected))
+            mag = result.estimated_magnitude
+            out[f"{label}_mag"].append(float("nan") if mag is None else float(mag))
+    return out
+
+
+def _median_latency_ms(detector: Any, traces: np.ndarray[Any, Any], n_runs: int = 100) -> float:
+    """Median wall-clock latency of ``predict_earthquake`` on single traces.
+
+    Cycles through ``traces`` for ``n_runs`` timed calls after a short
+    warm-up, so the figure reflects steady-state single-trace inference (the
+    deployed usage pattern), not batch throughput.
+    """
+    for i in range(5):
+        detector.predict_earthquake(traces[i % len(traces)])
+    times = np.empty(n_runs, dtype=np.float64)
+    for i in range(n_runs):
+        trace = traces[i % len(traces)]
+        t0 = time.perf_counter()
+        detector.predict_earthquake(trace)
+        times[i] = (time.perf_counter() - t0) * 1e3
+    return float(np.median(times))
+
+
+def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
+    """Compare learned vs physics through the public detector API.
+
+    Both paths receive the *identical* held-out Z waveforms for every test
+    trace (years 2017+). Physics is a fresh :class:`EarthquakeDetector` with
+    no weights (STA/LTA trigger + band resonance, magnitude abstained);
+    learned is an identical detector after ``load_neural_weights`` on the
+    candidate checkpoint (which also applies the checkpoint's validated
+    alert threshold). Primary metric: classification AUC of the public
+    ``confidence`` field (higher is better). Secondary NON-REGRESSION
+    constraints at each path's own deployed alert rule: detection recall
+    (higher) and false-alarm rate (lower). Extras record a seeded 1000-
+    resample bootstrap 95% CI on the AUC difference, parameter count, median
+    single-trace latency, and SNR-stratified recall/AUC (the scientific
+    value-add: showing WHERE the CNN beats STA/LTA); ``magnitude_mae`` stays
+    a SECONDARY metric (physics abstains -> NaN) outside the constraint set.
+
+    Returns:
+        The evaluation outcome (persisted next to the candidate).
+    """
+    import multiprocessing as mp
+
+    cand_path, _ = candidate_paths(ctx.data_dir, HOOK_NAME)
+    if not cand_path.exists():
+        raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
+    cand_payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    operating_point = cand_payload.get("operating_point")
+    parameter_count = int(sum(v.numel() for v in cand_payload["seismic_analyzer"].values()))
+
+    test = _load_subset(ctx, "test")
+    n_test = len(test["label"])
+    if ctx.limit_samples is not None:
+        n_test = min(n_test, ctx.limit_samples)
+    z = test["z"][:n_test]
+    label = test["label"][:n_test].astype(np.float64)
+    mag_true = test["mag"][:n_test].astype(np.float64)
+    p_present = (np.nan_to_num(test["p_sample"][:n_test], nan=np.inf) < WINDOW_SAMPLES).astype(
+        np.float64
+    )
+    s_present = (np.nan_to_num(test["s_sample"][:n_test], nan=np.inf) < WINDOW_SAMPLES).astype(
+        np.float64
+    )
+
+    chunks = [z[start : start + 64] for start in range(0, n_test, 64)]
+    t0 = time.monotonic()
+    n_workers = min(4, mp.cpu_count())
+    # fork (not spawn/forkserver): those two re-import the caller's __main__,
+    # which breaks REPL/heredoc callers. Fork-after-OpenMP hangs are avoided
+    # because each child pins torch.set_num_threads(1) before its first torch
+    # op, so no OpenMP parallel region is ever entered in the children.
+    mp_ctx = mp.get_context("fork")
+    with mp_ctx.Pool(
+        processes=n_workers, initializer=_eval_worker_init, initargs=(str(cand_path),)
+    ) as pool:
+        results = pool.map(_eval_worker, chunks)
+    collected = {
+        key: np.asarray([v for r in results for v in r[key]], dtype=np.float64)
+        for key in results[0]
+    }
+    logger.info(
+        "evaluated %d held-out traces through predict_earthquake x2 paths in %.0fs",
+        n_test,
+        time.monotonic() - t0,
+    )
+
+    def _metrics(path_label: str) -> dict[str, float]:
+        conf = collected[f"{path_label}_conf"]
+        det = collected[f"{path_label}_det"]
+        mag_est = collected[f"{path_label}_mag"]
+        is_eq = label == 1.0
+        mag_err = np.abs(mag_est[is_eq] - mag_true[is_eq])
+        finite_err = mag_err[np.isfinite(mag_err)]
+        return {
+            "auc": binary_auc(label, conf),
+            # Each path is scored at its OWN deployed alert rule: physics at
+            # the 0.96 default, learned at the validated threshold its
+            # checkpoint carries (applied by load_neural_weights).
+            "detection_recall_op": float(det[is_eq].mean()),
+            "false_alarm_rate_op": float(det[~is_eq].mean()),
+            "p_wave_accuracy": float((collected[f"{path_label}_p"] == p_present).mean()),
+            "s_wave_accuracy": float((collected[f"{path_label}_s"] == s_present).mean()),
+            "magnitude_mae": (float(finite_err.mean()) if finite_err.size else float("nan")),
+        }
+
+    is_eq_mask = label == 1.0
+
+    # Seeded paired bootstrap on the AUC difference (1000 resamples): the
+    # primary-metric win must be shown to be resolvable, not a tie broken by
+    # sampling luck.
+    boot_rng = np.random.default_rng([ctx.seed, 2])
+    n_resamples = 1000
+    auc_diffs = np.empty(n_resamples, dtype=np.float64)
+    for b in range(n_resamples):
+        idx = boot_rng.integers(0, n_test, n_test)
+        auc_diffs[b] = binary_auc(label[idx], collected["learned_conf"][idx]) - binary_auc(
+            label[idx], collected["physics_conf"][idx]
+        )
+    ci_low, ci_high = np.percentile(auc_diffs, [2.5, 97.5])
+
+    # SNR-stratified recall/AUC: terciles of the earthquake traces' catalog
+    # SNR (mean of the per-component trace_snr_db values). Low-SNR events are
+    # where a spectrogram CNN should beat the STA/LTA trigger.
+    snr = test["snr_db"][:n_test].astype(np.float64)
+    pos_idx = np.flatnonzero(is_eq_mask & np.isfinite(snr))
+    edges = np.percentile(snr[pos_idx], [100.0 / 3.0, 200.0 / 3.0])
+    strata: dict[str, Any] = {}
+    for name, lo, hi in (
+        ("low", -np.inf, edges[0]),
+        ("mid", edges[0], edges[1]),
+        ("high", edges[1], np.inf),
+    ):
+        in_stratum = pos_idx[(snr[pos_idx] > lo) & (snr[pos_idx] <= hi)]
+        stratum_and_noise = np.concatenate([in_stratum, np.flatnonzero(~is_eq_mask)])
+        strata[name] = {
+            "snr_db_range": [
+                float(snr[in_stratum].min()) if in_stratum.size else None,
+                float(snr[in_stratum].max()) if in_stratum.size else None,
+            ],
+            "n_earthquakes": int(in_stratum.size),
+            "learned_recall_op": float(collected["learned_det"][in_stratum].mean()),
+            "physics_recall_op": float(collected["physics_det"][in_stratum].mean()),
+            "learned_auc": binary_auc(
+                label[stratum_and_noise], collected["learned_conf"][stratum_and_noise]
+            ),
+            "physics_auc": binary_auc(
+                label[stratum_and_noise], collected["physics_conf"][stratum_and_noise]
+            ),
+        }
+
+    # Median single-trace inference latency through the public API (the
+    # deployed usage pattern), measured in this parent process AFTER the
+    # worker pool has finished.
+    from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
+
+    latency_physics_det = EarthquakeDetector()
+    latency_learned_det = EarthquakeDetector()
+    latency_learned_det.load_neural_weights(str(cand_path))
+    latency_traces = z[: min(100, n_test)]
+    latency = {
+        "learned": _median_latency_ms(latency_learned_det, latency_traces),
+        "physics": _median_latency_ms(latency_physics_det, latency_traces),
+        "n_runs": 100,
+        "torch_num_threads": torch.get_num_threads(),
+    }
+
+    manifest_file = _manifest_path(ctx)
+    manifest = json.loads(manifest_file.read_text()) if manifest_file.exists() else {}
+    test_years = sorted({int(y) for y in test["year"][:n_test]})
+    outcome = EvaluationOutcome(
+        hook=HOOK_NAME,
+        primary_metric="auc",
+        higher_is_better=True,
+        learned=_metrics("learned"),
+        physics=_metrics("physics"),
+        n_test_samples=int(n_test),
+        test_years=SPLIT.test_years,
+        constraints=[
+            {
+                "metric": "detection_recall_op",
+                "higher_is_better": True,
+                "description": "detection recall at the deployed alert rule (physics at "
+                "its 0.96 default, learned at the validated threshold carried in the "
+                "checkpoint) must not regress below physics",
+            },
+            {
+                "metric": "false_alarm_rate_op",
+                "higher_is_better": False,
+                "description": "false-alarm rate on noise traces at the deployed alert "
+                "rule must not exceed physics",
+            },
+        ],
+        extras={
+            "n_test_earthquake": int(label.sum()),
+            "n_test_noise": int((1.0 - label).sum()),
+            "test_years_observed": test_years,
+            "test_earthquake_snr_db_mean": _snr_summary(
+                test["snr_db"][:n_test][label == 1.0].astype(np.float64)
+            ),
+            "bytes_streamed_hdf5": manifest.get("bytes_streamed_hdf5"),
+            "operating_point": operating_point,
+            "parameter_count": parameter_count,
+            "auc_diff_bootstrap": {
+                "mean": float(auc_diffs.mean()),
+                "ci95_low": float(ci_low),
+                "ci95_high": float(ci_high),
+                "n_resamples": n_resamples,
+                "seed": [ctx.seed, 2],
+                "method": "seeded paired bootstrap over test traces; "
+                "difference = learned AUC - physics AUC per resample",
+            },
+            "median_inference_latency_ms": latency,
+            "snr_stratified": {
+                "tercile_edges_db": [float(edges[0]), float(edges[1])],
+                "n_positives_without_snr": int(is_eq_mask.sum() - pos_idx.size),
+                "strata": strata,
+                "note": "terciles over the test earthquakes' catalog snr_db; recall at "
+                "each path's deployed rule, AUC vs the full noise pool -- low SNR is "
+                "where the spectrogram CNN should beat the STA/LTA trigger",
+            },
+            "physics_magnitude_abstention": (
+                "the physics fallback emits estimated_magnitude=None by design "
+                "(an uncalibrated single station has no honest Richter estimate), "
+                "so physics magnitude_mae is NaN; magnitude_mae is a SECONDARY "
+                "metric and does not enter the merit gate"
+            ),
+            "magnitude_scale_note": (
+                "learned magnitudes are clamped to [2, 6] by the detector's "
+                "mag*4+2 scaling of the [0,1]-trained head; 58% of STEAD "
+                "magnitudes are below M2, so the learned MAE carries that floor"
+            ),
+            "comparison": (
+                "identical held-out STEAD Z waveforms through "
+                "EarthquakeDetector.predict_earthquake, physics fallback vs "
+                "loaded candidate checkpoint"
+            ),
+        },
+    )
+    save_evaluation(ctx.data_dir, outcome)
+    logger.info(
+        "evaluation: learned AUC %.5f vs physics %.5f on %d held-out traces (%s)",
+        outcome.learned["auc"],
+        outcome.physics["auc"],
+        outcome.n_test_samples,
+        "LEARNED WINS" if outcome.learned_beats_physics else "PHYSICS WINS",
+    )
+    return outcome
+
+
+# ---------------------------------------------------------------------------
+# ship stage
+# ---------------------------------------------------------------------------
+
+
+def ship(ctx: PipelineContext) -> tuple[Any, Any]:
+    """Promote the candidate through the merit gate (may refuse loudly)."""
+    from omni_mercury_engine.ml.hazard_training.common import load_evaluation
+
+    outcome = load_evaluation(ctx.data_dir, HOOK_NAME)
+    manifest_file = _manifest_path(ctx)
+    if not manifest_file.exists():
+        raise FileNotFoundError(f"missing fetch manifest {manifest_file}; run --fetch first")
+    manifest = json.loads(manifest_file.read_text())
+    data_sources = [dict(src) for src in manifest["sources"]]
+    for split, record in manifest["subset_files"].items():
+        data_sources.append(
+            {
+                "url": f"{manifest['sources'][1]['url']}#subset-{split}",
+                "sha256": record["sha256"],
+                "description": (
+                    f"STEAD {split} subset npz ({record['n_earthquake']} earthquake + "
+                    f"{record['n_noise']} noise Z traces, years {record['years']})"
+                ),
+            }
+        )
+    data_sources.append(
+        {
+            "url": f"{manifest['sources'][1]['url']}#trace-names",
+            "sha256": manifest["trace_list"]["sha256"],
+            "description": "exact trace_name list per split (subset provenance)",
+        }
+    )
+    return ship_checkpoint(
+        hook=HOOK_NAME,
+        checkpoint_name=CHECKPOINT_NAME,
+        data_dir=ctx.data_dir,
+        outcome=outcome,
+        data_sources=data_sources,
+        seed=ctx.seed,
+        out_dir=ctx.ship_dir,
+    )

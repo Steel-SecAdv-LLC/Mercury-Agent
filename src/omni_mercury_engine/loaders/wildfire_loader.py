@@ -115,6 +115,10 @@ class WildfireLoader(BaseDomainLoader):
     LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = True
     API_KEY_ENV_VAR: str = "NASA_FIRMS_MAP_KEY"
+    # The canonical name is ``NASA_FIRMS_MAP_KEY`` (see ``.env.example``); the
+    # repository Actions secret is named ``FIRMS_MAP_KEY``. Accept both so the
+    # loader stays wired regardless of which one the environment provides.
+    API_KEY_ENV_FALLBACKS: tuple[str, ...] = ("FIRMS_MAP_KEY",)
     FEATURE_COLUMNS: list[str] = [
         "brightness",
         "frp",
@@ -409,10 +413,11 @@ class WildfireLoader(BaseDomainLoader):
         """
         if not self._api_key:
             raise OSError(
-                "NASA_FIRMS_MAP_KEY not set. The wildfire domain loader requires a "
+                "NASA FIRMS MAP key not set. The wildfire domain loader requires a "
                 "free NASA FIRMS MAP key. Register at "
                 "https://firms.modaps.eosdis.nasa.gov/api/map_key/ "
-                "and set the NASA_FIRMS_MAP_KEY environment variable."
+                "and set the NASA_FIRMS_MAP_KEY environment variable "
+                "(the FIRMS_MAP_KEY name is also accepted)."
             )
 
     def _fetch_firms_csv(self, url: str) -> pd.DataFrame:

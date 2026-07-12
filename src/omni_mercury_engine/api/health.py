@@ -561,6 +561,32 @@ async def health_metrics() -> Response:
             metric = f'omni_mercury_component_latency_ms{{component="{component.name}"}}'
             lines.append(f"{metric} {component.latency_ms}")
 
+    # Ethical-gate observability: emit the live σ_Alignment score and enforced
+    # benevolence scalar so the helm PrometheusRule alerts
+    # (mercury_agent_sigma_alignment / mercury_agent_benevolence_score) evaluate
+    # real series instead of NoData. Best-effort: the scalar network is a
+    # singleton and reading it must never break the scrape.
+    try:
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            get_global_scalar_network,
+        )
+
+        snapshot = get_global_scalar_network().ethical_observability()
+        lines += [
+            "",
+            "# HELP mercury_agent_sigma_alignment Live σ_Alignment ethical-gate score "
+            "(target 0.96, hard limit 0.93)",
+            "# TYPE mercury_agent_sigma_alignment gauge",
+            f"mercury_agent_sigma_alignment {snapshot['sigma_alignment']:.6f}",
+            "",
+            "# HELP mercury_agent_benevolence_score Enforced benevolence scalar "
+            "(immutable floor 0.99)",
+            "# TYPE mercury_agent_benevolence_score gauge",
+            f"mercury_agent_benevolence_score {snapshot['benevolence_score']:.6f}",
+        ]
+    except Exception:  # pragma: no cover - metrics must never break the scrape
+        pass
+
     content = "\n".join(lines) + "\n"
 
     # Append the prometheus_client default registry exposition (http_requests_total,

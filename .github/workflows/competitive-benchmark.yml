@@ -1,0 +1,135 @@
+# Mercury-Agent Competitive Benchmark Lane
+# Head-to-head: Mercury tier + fusion vs PyOD baselines on ADBench, plus the
+# deterministic competitive-position regression guard.
+# Copyright (C) 2025 Steel Security Advisors LLC
+#
+# schedule / workflow_dispatch ONLY -- this lane downloads ADBench datasets
+# from raw.githubusercontent.com, so it is network-dependent by construction
+# and deliberately NOT a PR gate (PR gates must be deterministic and offline;
+# see benchmark.yml + anomaly_regression_guard for the PR-gating lanes). The
+# committed artefacts (benchmarks/competitive_results.json,
+# benchmarks/COMPETITIVE_BENCHMARK.md, benchmarks/competitive_baseline.json)
+# are produced by full local runs; this lane re-verifies the competitive
+# position on a schedule with the documented --quick subset and fails loudly
+# if Mercury's absolute floors or its distance to the best PyOD baseline
+# regress.
+
+name: Competitive Benchmark
+
+permissions:
+  contents: read
+
+concurrency:
+  group: competitive-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_run:
+        description: 'Run the full 57-dataset suite (hours) instead of --quick'
+        required: false
+        default: 'false'
+        type: boolean
+  schedule:
+    # Weekly, Sunday 4 AM UTC (after the 2 AM benchmark.yml run so the two
+    # network-heavy lanes do not compete for the ADBench rate limit).
+    - cron: '0 4 * * 0'
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_CACHE_DIR: ~/.cache/pip
+  # No silent synthetic fallbacks: a dataset that fails to load is recorded
+  # as skipped with a reason, never fabricated.
+  MERCURY_ALLOW_SYNTHETIC: "false"
+
+jobs:
+  competitive-benchmark:
+    name: Mercury vs PyOD (ADBench)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-competitive-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-competitive-
+
+      - name: Cache ADBench datasets
+        uses: actions/cache@v6
+        with:
+          # Cache the Classical NPZs AND the CV/NLP embedding NPZs
+          # (competitive_benchmark.py --quick downloads the latter under
+          # data/adbench_embeddings/); without it the scheduled lane re-downloads
+          # every run. Key bumped so the embeddings directory is populated once.
+          path: |
+            data/adbench
+            data/adbench_embeddings
+          key: adbench-classical-embeddings-v2
+          restore-keys: |
+            adbench-classical-
+
+      - name: Install dependencies (core + ML + PyOD benchmark extra)
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml,benchmark]"
+          pip install pytest
+
+      - name: Prefetch ADBench guard datasets
+        # The guard subset (8 Classical sets) is all --check needs; --quick
+        # additionally pulls 2 embedding sets which competitive_benchmark
+        # fetches (and caches) itself on first use. ``wine`` is added so the
+        # test_pyod_comparison end-to-end fixture (which skips offline by
+        # design) actually exercises the real comparison in this network lane.
+        run: |
+          python scripts/prefetch_datasets.py --adbench \
+            breastw cardio Ionosphere WBC Lymphography Pima glass pendigits wine
+
+      - name: PyOD comparison layer unit tests
+        run: |
+          python -m pytest tests/test_pyod_comparison.py -q
+
+      - name: Competitive guard gate tests (offline logic tier)
+        run: |
+          python -m pytest tests/benchmarks/test_competitive_guard.py -q -m "not network"
+
+      - name: Run competitive benchmark (--quick documented subset)
+        if: ${{ github.event_name == 'schedule' || inputs.full_run != true }}
+        run: |
+          python benchmarks/competitive_benchmark.py --quick \
+            -o benchmarks/competitive_results_quick.json
+
+      - name: Run competitive benchmark (full 57-dataset suite)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_run == true }}
+        run: |
+          python benchmarks/competitive_benchmark.py \
+            -o benchmarks/competitive_results_full_ci.json
+
+      - name: Competitive-position regression guard (--check)
+        # Re-measures Mercury tier + PyOD on the pinned guard subset and fails
+        # if any absolute AUC floor breaks or the Mercury-to-best-PyOD gap
+        # widens past the pinned ceiling (competitive position gate).
+        run: |
+          python benchmarks/competitive_regression_guard.py --check
+
+      - name: Upload competitive results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: competitive-results-${{ github.sha }}
+          path: |
+            benchmarks/competitive_results_quick.json
+            benchmarks/competitive_results_full_ci.json
+          if-no-files-found: ignore
+          retention-days: 90

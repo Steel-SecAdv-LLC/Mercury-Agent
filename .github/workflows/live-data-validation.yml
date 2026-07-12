@@ -1,0 +1,65 @@
+name: live-data-validation
+
+# Exercises every KEYED Mercury loader against its real endpoint and asserts
+# real rows come back, so the wired GitHub Actions secrets are proven effective
+# (not merely present). Network-dependent and secret-dependent -- NEVER a PR
+# gate. Runs weekly and on demand; a keyed loader whose secret is absent is
+# reported SKIP, and any keyed-and-configured loader that returns empty/errors
+# fails the job so live-wiring drift is caught within a week.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"  # Mondays 06:17 UTC (offset from the other weekly lanes)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-data-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  keyed-loader-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Mercury Agent with the ml extra (loaders + torch import path)
+        run: |
+          # Floor pip to >=26.1 (CVE-2026-6357).
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+
+      # AMA Cryptography is Mercury's mandatory PQC backend: importing
+      # omni_mercury_engine runs the fail-closed PQC production gate, so even a
+      # loader smoke aborts at import without the native backend.
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.3.0
+
+      - name: Keyed-loader live-data smoke
+        env:
+          # Live-data API keys. Every value is a repo secret injected only in
+          # CI -- never committed, echoed, or written to any artifact. Where the
+          # loader's env var differs from the secret name, BOTH are set to the
+          # same secret (WildfireLoader reads NASA_FIRMS_MAP_KEY; the secret is
+          # named FIRMS_MAP_KEY).
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+          # USGS EROS M2M (login-token) needs BOTH the application token and the ERS username.
+          USGS_KEY: ${{ secrets.USGS_KEY }}
+          EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
+        run: |
+          python scripts/live_data_smoke.py

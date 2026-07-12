@@ -59,6 +59,15 @@ class BaseDomainLoader(ABC):
     #: Environment variable name for API key (if required)
     API_KEY_ENV_VAR: str = ""
 
+    #: Additional environment-variable names accepted for the API key, tried in
+    #: order after :attr:`API_KEY_ENV_VAR` is found unset. This exists so a loader
+    #: stays wired when the deployment/secret name differs from the canonical one
+    #: (e.g. the NASA FIRMS key is documented as ``NASA_FIRMS_MAP_KEY`` but the
+    #: repository secret is ``FIRMS_MAP_KEY``). The canonical name remains
+    #: :attr:`API_KEY_ENV_VAR`; fallbacks are a compatibility safety net, not a
+    #: rename. Empty by default, so loaders that don't set it are unchanged.
+    API_KEY_ENV_FALLBACKS: tuple[str, ...] = ()
+
     #: Cache TTL in seconds (default 1 hour)
     CACHE_TTL: int = 3600
 
@@ -97,11 +106,16 @@ class BaseDomainLoader(ABC):
         self.retry_backoff = retry_backoff
         self.timeout = timeout
 
-        # Resolve API key
+        # Resolve API key: explicit arg, then the canonical env var, then any
+        # documented fallback names (deployment/secret-name compatibility).
         if api_key:
             self._api_key = api_key
         elif self.REQUIRES_API_KEY and self.API_KEY_ENV_VAR:
             self._api_key = os.environ.get(self.API_KEY_ENV_VAR, "")
+            for fallback in self.API_KEY_ENV_FALLBACKS:
+                if self._api_key:
+                    break
+                self._api_key = os.environ.get(fallback, "")
         else:
             self._api_key = ""
 

@@ -18,16 +18,17 @@ from omni_mercury_engine.utils.constants import OmniCodes
 
 @dataclass
 class EthicalScalars:
-    """Comprehensive ethical scalar configuration incorporating ancient cultural wisdom (Thoth, Ma'at,.
+    """Weighted ethical-priority configuration for engine decision-making.
 
-    Athena) and modern technological principles (CRISPR, quantum resilience, regenerative design).
-    Doctorate-level omni- variations organized thematically. ~150+ key scalars (135 existing + 20
-    PhD-inspired) from research.
+    Defines ~150 scalar multipliers, organized thematically, that weight the
+    engine's decision-making priorities across ethics, safety, science, and
+    governance domains. Higher values give a principle more influence in
+    downstream scoring.
 
-    Research sources: Wikipedia (verified October 2025)
-    - Ancient Egyptian deities: Thoth (wisdom, writing), Ma'at (truth, justice, balance)
-    - Ancient Greek deities: Athena (wisdom, strategy, handicraft, protection)
-    - See docs/RESEARCH_FINDINGS.md for comprehensive citations
+    The ethical weights are anchored to modern AI-ethics principles --
+    beneficence, non-maleficence, autonomy, justice, and explicability -- as
+    unified in Floridi & Cowls (2019), "A Unified Framework of Five Principles
+    for AI in Society", Harvard Data Science Review 1(1).
 
     These scalars guide the engine's decision-making processes, ensuring alignment
     with compassionate and just AI principles across multiple domains.
@@ -140,8 +141,8 @@ class EthicalScalars:
     omni_nuclear_threat_mitigation: float = 1.20
     omni_off_planet_life_protection: float = 1.20
     omni_global_threat_guard: float = 1.20
-    omni_ineffable_transcendence: float = 1.32
-    omni_seraphic_elevation: float = 1.30
+    omni_aspirational_excellence: float = 1.32
+    omni_benevolent_uplift: float = 1.30
     omni_sedulous_diligence: float = 1.28
 
     omni_love: float = 1.30
@@ -167,17 +168,17 @@ class EthicalScalars:
     omni_neurochip_ethics: float = 1.30
     omni_quantum_teleport_medicine: float = 1.30
 
-    omni_scribe_precision: float = 1.32
-    omni_hermetic_truth: float = 1.30
-    omni_lunar_wisdom: float = 1.28
+    omni_record_precision: float = 1.32
+    omni_truthfulness_integrity: float = 1.30
+    omni_reflective_deliberation: float = 1.28
     omni_arbitration: float = 1.30
-    omni_hieroglyphic_reasoning: float = 1.28
+    omni_symbolic_reasoning: float = 1.28
 
-    omni_cosmic_balance: float = 1.35
-    omni_isfet_prevention: float = 1.38
-    omni_weighing_judgment: float = 1.32
-    omni_pharaonic_accountability: float = 1.28
-    omni_seasonal_regulation: float = 1.25
+    omni_systemic_equilibrium: float = 1.35
+    omni_disorder_prevention: float = 1.38
+    omni_proportional_judgment: float = 1.32
+    omni_executive_accountability: float = 1.28
+    omni_cyclical_regulation: float = 1.25
 
     omni_strategic_intelligence: float = 1.32
     omni_rational_warfare: float = 1.28

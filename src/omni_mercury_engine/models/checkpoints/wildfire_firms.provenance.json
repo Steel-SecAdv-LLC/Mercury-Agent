@@ -1,0 +1,337 @@
+{
+  "checkpoint": "wildfire_firms.pt",
+  "checkpoint_sha256": "39d5887226078b426bfb98ce963aec61ddb64d2022b8869b1b97d018a9b3adc3",
+  "created_utc": "2026-07-10T18:46:36+00:00",
+  "data_sources": [
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2012",
+      "sha256": "a53d3cd248de33920a6eac8bfcb7c6d67642ec4adbf2162427b2021ec4ea8a4d",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2012/viirs-snpp_2012_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2013",
+      "sha256": "04a0b6ee7238bf349a2383fcecfa7c07d6df53ae99c4d46d634508b352fe741f",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2013/viirs-snpp_2013_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2014",
+      "sha256": "f6689df5187d3965dd16483736487bc42f714e683684fdeebddd40733bc5ba18",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2014/viirs-snpp_2014_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2015",
+      "sha256": "40239627dbcd773dda85e80d4ded6c2ef747c40d9c413cc3755be266f30e08ae",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2015/viirs-snpp_2015_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2016",
+      "sha256": "beb561086694f612700a97c093f551a83835c53ab534fe430ddcfd0b4f301820",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2016/viirs-snpp_2016_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2017",
+      "sha256": "72b71216f7d53afd8fd57384f2618e0805807208e9de88a76ea2e80c059ee7f4",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2017/viirs-snpp_2017_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2018",
+      "sha256": "38963a7315959b2d6db42246c88ba06735e280507e47a70b16ead0620f967b79",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2018/viirs-snpp_2018_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2019",
+      "sha256": "368ddcfce96b63e6a61791809b959ea7e1d0322ff3de04bbd241a8fe75a43eef",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2019/viirs-snpp_2019_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2020",
+      "sha256": "309c1c97f0d81013a4ed28768c3078aafcf1cd49bc453b4591d66a5227dc8128",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2020/viirs-snpp_2020_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2021",
+      "sha256": "4130c8ce327424bb9b1a54e09667f56fbe52d20649a09dcdd8f64d5e5689b9a9",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2021/viirs-snpp_2021_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2022",
+      "sha256": "ec3dad0560ac49ae6111bc6981af65cf0debe9379b03737489f6b1e3775ccf6c",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2022/viirs-snpp_2022_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2023",
+      "sha256": "d419abfb7d39d8040fd4487aee7e8003b1940ae5eb0cd95aa244cd7e303d4b4d",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2023/viirs-snpp_2023_United_States.csv"
+    },
+    {
+      "description": "NASA FIRMS VIIRS-SNPP US active-fire detections, 2024",
+      "sha256": "b282c996b6929facc1d5726045e2ad14235a8ac10900daff08edaee9a8f2b200",
+      "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2024/viirs-snpp_2024_United_States.csv"
+    }
+  ],
+  "evaluation": {
+    "constraints": [
+      {
+        "description": "alert recall at each path's deployed decision rule must not regress below physics -- a forecaster that misses fires physics catches does not ship on a ranking win",
+        "higher_is_better": true,
+        "metric": "recall_deployed"
+      },
+      {
+        "description": "false-alarm rate at each path's deployed decision rule must not exceed physics",
+        "higher_is_better": false,
+        "metric": "false_alarm_deployed"
+      },
+      {
+        "description": "probability quality of the deployed confidence output must not regress below the physics confidence",
+        "higher_is_better": false,
+        "metric": "brier"
+      }
+    ],
+    "extras": {
+      "auc_diff_bootstrap": {
+        "ci95_high": 0.2324999821287074,
+        "ci95_low": 0.19657282268471266,
+        "delta_auc_point": 0.21385215419501136,
+        "n_resamples": 1000,
+        "n_valid": 1000,
+        "seed": 20260709
+      },
+      "channels": [
+        "bt_max_t_kelvin",
+        "log1p_frp_3d",
+        "log1p_count_7d"
+      ],
+      "comparison": "identical held-out FIRMS-derived patches through WildfireDetector.predict_wildfire, physics fallback vs loaded checkpoint",
+      "deployed_thresholds": "learned: fire probability > the checkpoint's validation-selected operating point (payload['operating_point'], default 0.6 when absent), installed by load_neural_weights for the alert decision only; physics: its own absolute+contextual brightness-temperature decision",
+      "feature_spec": "wildfire-firms-v1",
+      "inference_latency_note": "median of 100 timed single-patch predict_wildfire calls on the learned path (CPU, torch threads as configured by the caller)",
+      "label": "center 2x2 any type-0 detection day t+1",
+      "median_inference_latency_ms": 1.0459360000822926,
+      "operating_point": {
+        "default_threshold": 0.6,
+        "default_threshold_feasible": false,
+        "far_ceiling": 0.2676285714285714,
+        "fire_prob_threshold": 0.5786004588007927,
+        "policy": "alert rule prob>tau; tau maximizes val CSI subject to val recall >= physics val recall + 0.01 AND val FAR <= 0.85 * physics val FAR (headroom guards the val->test shift)",
+        "recall_floor": 0.7485714285714286,
+        "recall_floor_met": true,
+        "val_csi": 0.5592315901814301,
+        "val_csi_default": 0.5599128540305011,
+        "val_csi_physics": 0.4132693844924061,
+        "val_far": 0.13542857142857143,
+        "val_far_default": 0.12457142857142857,
+        "val_far_physics": 0.31485714285714284,
+        "val_recall": 0.7485714285714286,
+        "val_recall_default": 0.7342857142857143,
+        "val_recall_physics": 0.7385714285714285
+      },
+      "parameter_count": 634753,
+      "per_test_year_metrics": {
+        "2022": {
+          "base_rate": 0.2857142984867096,
+          "learned": {
+            "auc": 0.8839869387755102,
+            "brier": 0.12847678593675857,
+            "csi_deployed": 0.5250596658711217,
+            "false_alarm_deployed": 0.07885714285714286,
+            "recall_deployed": 0.6285714285714286
+          },
+          "n_test_samples": 1225,
+          "physics": {
+            "auc": 0.6470024489795918,
+            "brier": 0.22962808271754775,
+            "csi_deployed": 0.33665008291873966,
+            "false_alarm_deployed": 0.28914285714285715,
+            "recall_deployed": 0.58
+          }
+        },
+        "2023": {
+          "base_rate": 0.2857142984867096,
+          "learned": {
+            "auc": 0.8817534693877551,
+            "brier": 0.13414079417001956,
+            "csi_deployed": 0.5532879818594104,
+            "false_alarm_deployed": 0.104,
+            "recall_deployed": 0.6971428571428572
+          },
+          "n_test_samples": 1225,
+          "physics": {
+            "auc": 0.6749371428571429,
+            "brier": 0.21480878666659659,
+            "csi_deployed": 0.359349593495935,
+            "false_alarm_deployed": 0.3028571428571429,
+            "recall_deployed": 0.6314285714285715
+          }
+        },
+        "2024": {
+          "base_rate": 0.2857142984867096,
+          "learned": {
+            "auc": 0.8608326530612245,
+            "brier": 0.13911822382311195,
+            "csi_deployed": 0.54421768707483,
+            "false_alarm_deployed": 0.104,
+            "recall_deployed": 0.6857142857142857
+          },
+          "n_test_samples": 1225,
+          "physics": {
+            "auc": 0.6608342857142857,
+            "brier": 0.2163432601128003,
+            "csi_deployed": 0.334453781512605,
+            "false_alarm_deployed": 0.28,
+            "recall_deployed": 0.5685714285714286
+          }
+        }
+      },
+      "per_year_counts": {
+        "2012": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 154988,
+          "hard_negatives": 525,
+          "positive_pool": 15772,
+          "positives": 350
+        },
+        "2013": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 190884,
+          "hard_negatives": 525,
+          "positive_pool": 20051,
+          "positives": 350
+        },
+        "2014": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 171972,
+          "hard_negatives": 525,
+          "positive_pool": 16581,
+          "positives": 350
+        },
+        "2015": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 214568,
+          "hard_negatives": 525,
+          "positive_pool": 24335,
+          "positives": 350
+        },
+        "2016": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 203933,
+          "hard_negatives": 525,
+          "positive_pool": 20738,
+          "positives": 350
+        },
+        "2017": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 247975,
+          "hard_negatives": 525,
+          "positive_pool": 29153,
+          "positives": 350
+        },
+        "2018": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 242067,
+          "hard_negatives": 525,
+          "positive_pool": 29100,
+          "positives": 350
+        },
+        "2019": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 216041,
+          "hard_negatives": 525,
+          "positive_pool": 20697,
+          "positives": 350
+        },
+        "2020": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 299924,
+          "hard_negatives": 525,
+          "positive_pool": 50371,
+          "positives": 350
+        },
+        "2021": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 277339,
+          "hard_negatives": 525,
+          "positive_pool": 40490,
+          "positives": 350
+        },
+        "2022": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 230513,
+          "hard_negatives": 525,
+          "positive_pool": 22993,
+          "positives": 350
+        },
+        "2023": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 236194,
+          "hard_negatives": 525,
+          "positive_pool": 24920,
+          "positives": 350
+        },
+        "2024": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 205138,
+          "hard_negatives": 525,
+          "positive_pool": 20529,
+          "positives": 350
+        }
+      },
+      "physics_baseline_interpretation": "the physics brightness-threshold path reads ch0 = TODAY's max brightness temperature, so on this next-day task it acts as a persistence forecaster of tomorrow -- the honest baseline",
+      "test_base_rate": 0.2857142984867096,
+      "test_year_counts": {
+        "2022": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 230513,
+          "hard_negatives": 525,
+          "n_test_samples": 1225,
+          "positive_pool": 22993,
+          "positives": 350
+        },
+        "2023": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 236194,
+          "hard_negatives": 525,
+          "n_test_samples": 1225,
+          "positive_pool": 24920,
+          "positives": 350
+        },
+        "2024": {
+          "easy_negatives": 350,
+          "hard_negative_pool": 205138,
+          "hard_negatives": 525,
+          "n_test_samples": 1225,
+          "positive_pool": 20529,
+          "positives": 350
+        }
+      }
+    },
+    "failed_constraints": [],
+    "higher_is_better": true,
+    "hook": "wildfire_ignition",
+    "learned": {
+      "auc": 0.8750214965986395,
+      "brier": 0.13391193464329668,
+      "csi_deployed": 0.5411222136817833,
+      "false_alarm_deployed": 0.09561904761904762,
+      "recall_deployed": 0.6704761904761904
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 3675,
+    "physics": {
+      "auc": 0.6611693424036281,
+      "brier": 0.2202600431656482,
+      "csi_deployed": 0.3436293436293436,
+      "false_alarm_deployed": 0.2906666666666667,
+      "recall_deployed": 0.5933333333333334
+    },
+    "primary_metric": "auc",
+    "primary_metric_wins": true,
+    "test_years": [
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "eb97b17e1562a5888b0c1de8e1cd2c14cf496dd6",
+  "hook": "wildfire_ignition",
+  "seed": 20260709
+}

@@ -25,8 +25,6 @@ Research sources:
 - GISAID (viral genome database)
 - CDC Epidemic Intelligence Service
 - ECDC Surveillance Systems
-
-Performance: 40% faster outbreak detection via temporal + genomic fusion
 """
 
 from __future__ import annotations

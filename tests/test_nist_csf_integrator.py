@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
+import requests
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -432,8 +433,6 @@ def test_fetch_payload_rejects_non_xlsx_response(
 def test_fetch_payload_wraps_request_exceptions(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import requests
-
     class _ExplodingSession:
         def get(self, *args: Any, **kwargs: Any) -> Any:
             raise requests.RequestException("network down")
@@ -464,10 +463,43 @@ def test_fetch_payload_uses_cache_when_fresh(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _skip_only_if_nist_upstream_down(exc: NISTCSFReferenceError) -> None:
+    """Skip on a genuine csrc.nist.gov outage; re-raise on schema drift.
+
+    The fetcher wraps transport/HTTP failures -- ``raise_for_status`` on a
+    5xx, plus connection/DNS/timeout errors -- as a ``NISTCSFReferenceError``
+    raised ``from`` a :class:`requests.RequestException`. Those are
+    upstream-availability problems and are the one acceptable skip: a NIST CSRC
+    server outage should not red-X the weekly lane.
+
+    Every other ``NISTCSFReferenceError`` comes from a *reachable* service and
+    is real schema drift the lane exists to catch -- a refused redirect, an
+    empty or non-XLSX payload, a missing data sheet, an empty/short parsed
+    tree. A 4xx (other than 429) means the published endpoint moved or was
+    removed, which is likewise drift, not an outage. All of those re-raise and
+    fail loudly. This mirrors ``test_live_wiring_network._fetch_or_loud``:
+    unavailability skips, drift never does.
+    """
+    cause = exc.__cause__
+    if isinstance(cause, requests.RequestException):
+        response = getattr(cause, "response", None)
+        status = getattr(response, "status_code", None)
+        # No response object => connection/DNS/TLS/timeout (pure transport
+        # outage). A 5xx or 429 is a server-side availability problem. Both
+        # are legitimate skips; a 4xx endpoint change falls through to raise.
+        if status is None or status >= 500 or status == 429:
+            pytest.skip(f"csrc.nist.gov upstream unavailable ({cause}); retried weekly")
+    raise exc
+
+
 @pytest.mark.network
 def test_live_reference_fetch_returns_full_csf2(tmp_path: Path) -> None:
     fetcher = NISTCSFReferenceFetcher(cache_dir=tmp_path)
-    tree = fetcher.load_reference_tree()
+    try:
+        tree = fetcher.load_reference_tree()
+    except NISTCSFReferenceError as exc:
+        _skip_only_if_nist_upstream_down(exc)
+        raise  # unreachable: the helper either skips or re-raises
     assert set(tree.keys()) == set(NISTFunction)
     total_subcats = sum(len(c.subcategories) for cats in tree.values() for c in cats)
     # CSF 2.0 final publication has 106 subcategories. The Reference
@@ -479,7 +511,13 @@ def test_live_reference_fetch_returns_full_csf2(tmp_path: Path) -> None:
 @pytest.mark.network
 def test_live_integrator_passes_coverage(tmp_path: Path) -> None:
     fetcher = NISTCSFReferenceFetcher(cache_dir=tmp_path)
-    integ = NISTCSFIntegrator(reference_source="live", fetcher=fetcher)
+    # The live fetch happens in the integrator constructor (_load_categories),
+    # so an upstream outage surfaces here, not in verify_coverage.
+    try:
+        integ = NISTCSFIntegrator(reference_source="live", fetcher=fetcher)
+    except NISTCSFReferenceError as exc:
+        _skip_only_if_nist_upstream_down(exc)
+        raise  # unreachable: the helper either skips or re-raises
     counts = integ.verify_coverage(minimum_subcategories=100)
     assert counts["_total"] >= 100
     for func in NISTFunction:

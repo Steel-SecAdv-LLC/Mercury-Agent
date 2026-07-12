@@ -1,0 +1,5631 @@
+{
+  "metadata": {
+    "benchmark": "competitive_benchmark (Mercury vs PyOD, ADBench 47 Classical + 10 CV/NLP)",
+    "protocol": "per dataset: stratified cap to 2*MAX_SAMPLES (seed 42); normal-only train half; test = remaining normals + all anomalies capped to MAX_SAMPLES; fixed-seed de-leak shuffle of test rows (batch-order leakage guard, applied to every method identically); StandardScaler fit on train only; library defaults for every method; no per-dataset tuning; unsupervised-fair (no method sees labels)",
+    "mercury_fusion_protocol": "fit_fusion(X_train, y=None): label-free detector-consensus path; semi-supervised mode NOT used because PyOD baselines get no labels",
+    "deep_baselines_note": "PyOD deep baselines (AutoEncoder) excluded: under the defaults-only, CPU-only, no-tuning budget they measure the budget cap rather than the method; see pyod_integration.DEFAULT_BASELINES",
+    "embedding_variant_note": "CV/NLP corpora use one representative ADBench variant per source: _0 where per-class variants exist; MNIST-C_brightness / MVTec-AD_bottle (no _0 variant exists upstream); amazon/imdb/yelp ship a single file",
+    "mode": "full",
+    "seed": 42,
+    "max_samples": 10000,
+    "fusion_epochs": 50,
+    "git_commit": "ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8",
+    "command_line": "benchmarks/competitive_benchmark.py",
+    "timestamp": "2026-07-11T05:00:51.232042+00:00",
+    "runtime_seconds": 0.0,
+    "versions": {
+      "python": "3.11.15",
+      "numpy": "2.4.6",
+      "torch": "2.13.0+cu130",
+      "pyod": "3.6.1",
+      "scikit_learn": "1.9.0"
+    },
+    "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
+    "methods": [
+      "mercury_tier",
+      "mercury_fusion",
+      "isolation_forest",
+      "ecod",
+      "copod",
+      "local_outlier_factor",
+      "knn",
+      "hbos"
+    ],
+    "git_commit_note": "per-dataset measured at cb3dacdbea7b3bd4e33d62a9a677e7af4bfab569 (resumable-run commit); summary aggregation and this file produced by ac2e7d0e20e00cd2d33c4cac0a46a22a6a51e2b8 (summarize deferred-cell fix). Re-stamp to the squash commit on merge."
+  },
+  "summary": {
+    "n_datasets_attempted": 57,
+    "n_datasets_measured": 57,
+    "n_datasets_complete_for_ranks": 42,
+    "per_method": {
+      "mercury_tier": {
+        "n_datasets": 57,
+        "mean_auc": 0.8118601226791843,
+        "median_auc": 0.8192133333333332,
+        "std_auc": 0.15924326212699624,
+        "mean_ap": 0.524733315760196,
+        "median_ap": 0.49224269242735985,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 3.7857142857142856
+      },
+      "mercury_fusion": {
+        "n_datasets": 42,
+        "mean_auc": 0.7715175220240441,
+        "median_auc": 0.8366339767789515,
+        "std_auc": 0.208420757091979,
+        "mean_ap": 0.4779794382489791,
+        "median_ap": 0.48688441837943586,
+        "errors": [],
+        "deferred": [
+          {
+            "dataset": "ALOI",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "backdoor",
+            "wall_seconds": 300.0
+          },
+          {
+            "dataset": "celeba",
+            "wall_seconds": 300.0
+          },
+          {
+            "dataset": "census",
+            "wall_seconds": 300.0
+          },
+          {
+            "dataset": "InternetAds",
+            "wall_seconds": 300.0
+          },
+          {
+            "dataset": "speech",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "cv:CIFAR10_0",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "cv:FashionMNIST_0",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "cv:SVHN_0",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "cv:MNIST-C_brightness",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:20news_0",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:agnews_0",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:amazon",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:imdb",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:yelp",
+            "wall_seconds": 300.0
+          }
+        ],
+        "mean_rank": 5.309523809523809
+      },
+      "isolation_forest": {
+        "n_datasets": 57,
+        "mean_auc": 0.7748010821641573,
+        "median_auc": 0.807982740021575,
+        "std_auc": 0.17447748787214662,
+        "mean_ap": 0.44461539684054424,
+        "median_ap": 0.3758885162645849,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 3.9404761904761907
+      },
+      "ecod": {
+        "n_datasets": 57,
+        "mean_auc": 0.7237970489647324,
+        "median_auc": 0.7141316073354909,
+        "std_auc": 0.1889781718942545,
+        "mean_ap": 0.4157411286476732,
+        "median_ap": 0.38029767602787257,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 6.107142857142857
+      },
+      "copod": {
+        "n_datasets": 57,
+        "mean_auc": 0.7290888350864808,
+        "median_auc": 0.7335918989769608,
+        "std_auc": 0.18965294016116124,
+        "mean_ap": 0.40251165705251574,
+        "median_ap": 0.32098806306961863,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 5.619047619047619
+      },
+      "local_outlier_factor": {
+        "n_datasets": 57,
+        "mean_auc": 0.8168563008064553,
+        "median_auc": 0.8516,
+        "std_auc": 0.16530032839186035,
+        "mean_ap": 0.5457534499921758,
+        "median_ap": 0.5969317800825302,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 3.6904761904761907
+      },
+      "knn": {
+        "n_datasets": 57,
+        "mean_auc": 0.8315661122050413,
+        "median_auc": 0.8771941418110377,
+        "std_auc": 0.15780374161506844,
+        "mean_ap": 0.5635278981751606,
+        "median_ap": 0.5743817547567296,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 2.4047619047619047
+      },
+      "hbos": {
+        "n_datasets": 57,
+        "mean_auc": 0.7412249501539998,
+        "median_auc": 0.7406394126825159,
+        "std_auc": 0.17695731052585975,
+        "mean_ap": 0.4208163054042708,
+        "median_ap": 0.3677204110612394,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 5.142857142857143
+      }
+    },
+    "head_to_head": {
+      "mercury_tier": {
+        "isolation_forest": {
+          "n_compared": 57,
+          "wins": 36,
+          "losses": 21,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.12981097097088856
+            },
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.10394138755980864
+            },
+            {
+              "dataset": "annthyroid",
+              "auc_margin": 0.10100111134708967
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.09369820428801656
+            },
+            {
+              "dataset": "Cardiotocography",
+              "auc_margin": 0.04965180840868377
+            }
+          ]
+        },
+        "ecod": {
+          "n_compared": 57,
+          "wins": 48,
+          "losses": 9,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.05464853387105384
+            },
+            {
+              "dataset": "mammography",
+              "auc_margin": 0.02488768554770049
+            },
+            {
+              "dataset": "Cardiotocography",
+              "auc_margin": 0.01944742489270379
+            },
+            {
+              "dataset": "smtp",
+              "auc_margin": 0.015029017410446377
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.007042253521126751
+            }
+          ]
+        },
+        "copod": {
+          "n_compared": 57,
+          "wins": 46,
+          "losses": 11,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.13288875598086114
+            },
+            {
+              "dataset": "WPBC",
+              "auc_margin": 0.03583426651735727
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.03195389656515646
+            },
+            {
+              "dataset": "Stamps",
+              "auc_margin": 0.026638917793964656
+            },
+            {
+              "dataset": "mammography",
+              "auc_margin": 0.024048319860293654
+            }
+          ]
+        },
+        "local_outlier_factor": {
+          "n_compared": 57,
+          "wins": 28,
+          "losses": 27,
+          "ties": 2,
+          "worst_losses": [
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.2707759456524266
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.17285695486248187
+            },
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.17116028708133968
+            },
+            {
+              "dataset": "ALOI",
+              "auc_margin": 0.13898872518378547
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.11826989910099817
+            }
+          ]
+        },
+        "knn": {
+          "n_compared": 57,
+          "wins": 21,
+          "losses": 35,
+          "ties": 1,
+          "worst_losses": [
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.27895801861088554
+            },
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.16433014354066988
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.14542176602184498
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.12440327520756467
+            },
+            {
+              "dataset": "skin",
+              "auc_margin": 0.11965977823608809
+            }
+          ]
+        },
+        "hbos": {
+          "n_compared": 57,
+          "wins": 44,
+          "losses": 12,
+          "ties": 1,
+          "worst_losses": [
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.226444302177073
+            },
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.10943181818181813
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.09771022502960924
+            },
+            {
+              "dataset": "satellite",
+              "auc_margin": 0.08929585640292914
+            },
+            {
+              "dataset": "WPBC",
+              "auc_margin": 0.06438969764837638
+            }
+          ]
+        }
+      },
+      "mercury_fusion": {
+        "isolation_forest": {
+          "n_compared": 42,
+          "wins": 12,
+          "losses": 30,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.6966666666666667
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.4006461376496908
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.20064724919093846
+            },
+            {
+              "dataset": "letter",
+              "auc_margin": 0.15901333333333334
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.12129512571990442
+            }
+          ]
+        },
+        "ecod": {
+          "n_compared": 42,
+          "wins": 25,
+          "losses": 17,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.5983333333333332
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.18953941308066857
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.10679611650485432
+            },
+            {
+              "dataset": "letter",
+              "auc_margin": 0.09405333333333332
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.08411214953271029
+            }
+          ]
+        },
+        "copod": {
+          "n_compared": 42,
+          "wins": 23,
+          "losses": 19,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.73
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.26944466377154896
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.1488673139158575
+            },
+            {
+              "dataset": "Waveform",
+              "auc_margin": 0.12411483253588518
+            },
+            {
+              "dataset": "WPBC",
+              "auc_margin": 0.09042553191489366
+            }
+          ]
+        },
+        "local_outlier_factor": {
+          "n_compared": 42,
+          "wins": 10,
+          "losses": 32,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.8233333333333334
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.5564061060665877
+            },
+            {
+              "dataset": "letter",
+              "auc_margin": 0.37906666666666666
+            },
+            {
+              "dataset": "Wilt",
+              "auc_margin": 0.30464571992965067
+            },
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.23251329296455836
+            }
+          ]
+        },
+        "knn": {
+          "n_compared": 42,
+          "wins": 7,
+          "losses": 35,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.825
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.5289709172259508
+            },
+            {
+              "dataset": "letter",
+              "auc_margin": 0.38839999999999986
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.2707659115426104
+            },
+            {
+              "dataset": "Wilt",
+              "auc_margin": 0.2628523226040869
+            }
+          ]
+        },
+        "hbos": {
+          "n_compared": 42,
+          "wins": 22,
+          "losses": 20,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "wine",
+              "auc_margin": 0.7766666666666666
+            },
+            {
+              "dataset": "optdigits",
+              "auc_margin": 0.48125937623371506
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.20442286947141308
+            },
+            {
+              "dataset": "landsat",
+              "auc_margin": 0.1881816494892048
+            },
+            {
+              "dataset": "satellite",
+              "auc_margin": 0.14280061171637792
+            }
+          ]
+        }
+      }
+    },
+    "datasets_where_mercury_loses": {
+      "mercury_tier": [
+        {
+          "dataset": "landsat",
+          "mercury_auc": 0.4795430531486262,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.27895801861088554,
+          "beaten_by": {
+            "isolation_forest": 0.12981097097088856,
+            "local_outlier_factor": 0.2707759456524266,
+            "knn": 0.27895801861088554,
+            "hbos": 0.226444302177073
+          }
+        },
+        {
+          "dataset": "optdigits",
+          "mercury_auc": 0.8000052638505066,
+          "n_baselines_beating": 4,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.17285695486248187,
+          "beaten_by": {
+            "isolation_forest": 0.017096986445584994,
+            "local_outlier_factor": 0.17285695486248187,
+            "knn": 0.14542176602184498,
+            "hbos": 0.09771022502960924
+          }
+        },
+        {
+          "dataset": "Waveform",
+          "mercury_auc": 0.6002691387559809,
+          "n_baselines_beating": 6,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.17116028708133968,
+          "beaten_by": {
+            "isolation_forest": 0.10394138755980864,
+            "ecod": 0.005149521531100487,
+            "copod": 0.13288875598086114,
+            "local_outlier_factor": 0.17116028708133968,
+            "knn": 0.16433014354066988,
+            "hbos": 0.10943181818181813
+          }
+        },
+        {
+          "dataset": "ALOI",
+          "mercury_auc": 0.5510724495659582,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.13898872518378547,
+          "beaten_by": {
+            "local_outlier_factor": 0.13898872518378547,
+            "knn": 0.0704496776436554
+          }
+        },
+        {
+          "dataset": "pendigits",
+          "mercury_auc": 0.8741263949038749,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.12440327520756467,
+          "beaten_by": {
+            "isolation_forest": 0.09369820428801656,
+            "ecod": 0.05464853387105384,
+            "copod": 0.03195389656515646,
+            "local_outlier_factor": 0.11826989910099817,
+            "knn": 0.12440327520756467,
+            "hbos": 0.06307333318057173
+          }
+        },
+        {
+          "dataset": "skin",
+          "mercury_auc": 0.8715930418827672,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.11965977823608809,
+          "beaten_by": {
+            "isolation_forest": 0.014155315978364502,
+            "knn": 0.11965977823608809
+          }
+        },
+        {
+          "dataset": "annthyroid",
+          "mercury_auc": 0.8186346724560096,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.11409118439933885,
+          "beaten_by": {
+            "isolation_forest": 0.10100111134708967,
+            "local_outlier_factor": 0.11403162788188936,
+            "knn": 0.11409118439933885
+          }
+        },
+        {
+          "dataset": "glass",
+          "mercury_auc": 0.7680690399137001,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.11003236245954684,
+          "beaten_by": {
+            "isolation_forest": 0.03991370010787487,
+            "local_outlier_factor": 0.02265372168284785,
+            "knn": 0.11003236245954684,
+            "hbos": 0.043689320388349495
+          }
+        },
+        {
+          "dataset": "fault",
+          "mercury_auc": 0.6849996015768183,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 0.10982183452782168,
+          "beaten_by": {
+            "knn": 0.10982183452782168
+          }
+        },
+        {
+          "dataset": "satellite",
+          "mercury_auc": 0.7742190569744597,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.10297508483657802,
+          "beaten_by": {
+            "isolation_forest": 0.024931237721021682,
+            "local_outlier_factor": 0.06741069833898916,
+            "knn": 0.10297508483657802,
+            "hbos": 0.08929585640292914
+          }
+        },
+        {
+          "dataset": "donors",
+          "mercury_auc": 0.92515891395653,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.06658593983376693,
+          "beaten_by": {
+            "local_outlier_factor": 0.025273246195622767,
+            "knn": 0.06658593983376693
+          }
+        },
+        {
+          "dataset": "WPBC",
+          "mercury_auc": 0.4832026875699888,
+          "n_baselines_beating": 6,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.06438969764837638,
+          "beaten_by": {
+            "isolation_forest": 0.01595744680851069,
+            "ecod": 0.0016797312430011369,
+            "copod": 0.03583426651735727,
+            "local_outlier_factor": 0.025195968645016775,
+            "knn": 0.0310750279955207,
+            "hbos": 0.06438969764837638
+          }
+        },
+        {
+          "dataset": "Cardiotocography",
+          "mercury_auc": 0.7653613171382141,
+          "n_baselines_beating": 3,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.04965180840868377,
+          "beaten_by": {
+            "isolation_forest": 0.04965180840868377,
+            "ecod": 0.01944742489270379,
+            "local_outlier_factor": 0.02691909037876583
+          }
+        },
+        {
+          "dataset": "magic.gamma",
+          "mercury_auc": 0.7916979313756403,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.04428681759112163,
+          "beaten_by": {
+            "local_outlier_factor": 0.03988412407866959,
+            "knn": 0.04428681759112163
+          }
+        },
+        {
+          "dataset": "cover",
+          "mercury_auc": 0.9486282737121119,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.04290528032794794,
+          "beaten_by": {
+            "local_outlier_factor": 0.04290528032794794,
+            "knn": 0.019868434466735696
+          }
+        },
+        {
+          "dataset": "smtp",
+          "mercury_auc": 0.9001400840504302,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.04212527516509912,
+          "beaten_by": {
+            "isolation_forest": 0.015689413648188988,
+            "ecod": 0.015029017410446377,
+            "copod": 0.023033820292175378,
+            "knn": 0.04212527516509912
+          }
+        },
+        {
+          "dataset": "Ionosphere",
+          "mercury_auc": 0.9414243573535608,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.042070515521843266,
+          "beaten_by": {
+            "local_outlier_factor": 0.023809523809523947,
+            "knn": 0.042070515521843266
+          }
+        },
+        {
+          "dataset": "letter",
+          "mercury_auc": 0.8192133333333332,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.04171999999999998,
+          "beaten_by": {
+            "local_outlier_factor": 0.032386666666666786,
+            "knn": 0.04171999999999998
+          }
+        },
+        {
+          "dataset": "SpamBase",
+          "mercury_auc": 0.8020111617071644,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.03684004191765755,
+          "beaten_by": {
+            "isolation_forest": 0.01874726705920504,
+            "local_outlier_factor": 0.0074114527182395085,
+            "knn": 0.03684004191765755
+          }
+        },
+        {
+          "dataset": "vowels",
+          "mercury_auc": 0.9426173541963014,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.033257467994310175,
+          "beaten_by": {
+            "local_outlier_factor": 0.019800853485064107,
+            "knn": 0.033257467994310175
+          }
+        },
+        {
+          "dataset": "Pima",
+          "mercury_auc": 0.7047014925373135,
+          "n_baselines_beating": 2,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.028604477611940182,
+          "beaten_by": {
+            "knn": 0.022940298507462598,
+            "hbos": 0.028604477611940182
+          }
+        },
+        {
+          "dataset": "Stamps",
+          "mercury_auc": 0.9267429760665973,
+          "n_baselines_beating": 3,
+          "worst_baseline": "copod",
+          "worst_margin": 0.026638917793964656,
+          "beaten_by": {
+            "isolation_forest": 0.021852237252861673,
+            "copod": 0.026638917793964656,
+            "knn": 0.009365244536940764
+          }
+        },
+        {
+          "dataset": "nlp:20news_0",
+          "mercury_auc": 0.7659285537350933,
+          "n_baselines_beating": 1,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.025168972716656635,
+          "beaten_by": {
+            "local_outlier_factor": 0.025168972716656635
+          }
+        },
+        {
+          "dataset": "wine",
+          "mercury_auc": 0.9500000000000001,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.02499999999999991,
+          "beaten_by": {
+            "local_outlier_factor": 0.023333333333333317,
+            "knn": 0.02499999999999991
+          }
+        },
+        {
+          "dataset": "mammography",
+          "mercury_auc": 0.8813012280652339,
+          "n_baselines_beating": 2,
+          "worst_baseline": "ecod",
+          "worst_margin": 0.02488768554770049,
+          "beaten_by": {
+            "ecod": 0.02488768554770049,
+            "copod": 0.024048319860293654
+          }
+        },
+        {
+          "dataset": "nlp:imdb",
+          "mercury_auc": 0.4932867368421053,
+          "n_baselines_beating": 5,
+          "worst_baseline": "copod",
+          "worst_margin": 0.023571789473684157,
+          "beaten_by": {
+            "isolation_forest": 0.004425684210526359,
+            "copod": 0.023571789473684157,
+            "local_outlier_factor": 0.011975578947368393,
+            "knn": 0.015300631578947399,
+            "hbos": 0.011480842105263067
+          }
+        },
+        {
+          "dataset": "yeast",
+          "mercury_auc": 0.4553349225364327,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.022664294962548848,
+          "beaten_by": {
+            "local_outlier_factor": 0.022664294962548848,
+            "knn": 0.01613404161776033
+          }
+        },
+        {
+          "dataset": "backdoor",
+          "mercury_auc": 0.9409496866057143,
+          "n_baselines_beating": 1,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.01850870559291673,
+          "beaten_by": {
+            "local_outlier_factor": 0.01850870559291673
+          }
+        },
+        {
+          "dataset": "PageBlocks",
+          "mercury_auc": 0.9527725586549116,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.016584766584766597,
+          "beaten_by": {
+            "local_outlier_factor": 0.016584766584766597,
+            "knn": 0.011559152735623357
+          }
+        },
+        {
+          "dataset": "mnist",
+          "mercury_auc": 0.9295505710975004,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 0.014701622247972224,
+          "beaten_by": {
+            "knn": 0.014701622247972224
+          }
+        },
+        {
+          "dataset": "census",
+          "mercury_auc": 0.7077304388187227,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 0.014155117171491316,
+          "beaten_by": {
+            "knn": 0.014155117171491316
+          }
+        },
+        {
+          "dataset": "Lymphography",
+          "mercury_auc": 0.9835680751173709,
+          "n_baselines_beating": 4,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.011737089201877993,
+          "beaten_by": {
+            "isolation_forest": 0.011737089201877993,
+            "ecod": 0.007042253521126751,
+            "copod": 0.009389671361502483,
+            "hbos": 0.011737089201877993
+          }
+        },
+        {
+          "dataset": "thyroid",
+          "mercury_auc": 0.9781907433380084,
+          "n_baselines_beating": 4,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.010092332865825226,
+          "beaten_by": {
+            "isolation_forest": 0.010092332865825226,
+            "ecod": 0.0014843384759233302,
+            "knn": 0.008216456287985174,
+            "hbos": 0.006323048153342725
+          }
+        },
+        {
+          "dataset": "cardio",
+          "mercury_auc": 0.9513820267896356,
+          "n_baselines_beating": 1,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.006141578831796224,
+          "beaten_by": {
+            "isolation_forest": 0.006141578831796224
+          }
+        },
+        {
+          "dataset": "cv:SVHN_0",
+          "mercury_auc": 0.6575850382438904,
+          "n_baselines_beating": 1,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.0046763260991231625,
+          "beaten_by": {
+            "local_outlier_factor": 0.0046763260991231625
+          }
+        },
+        {
+          "dataset": "http",
+          "mercury_auc": 0.9949612012496221,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.004526962877313245,
+          "beaten_by": {
+            "local_outlier_factor": 0.004423534902963322,
+            "knn": 0.004526962877313245
+          }
+        },
+        {
+          "dataset": "shuttle",
+          "mercury_auc": 0.9944089986166754,
+          "n_baselines_beating": 4,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.0043120966925654924,
+          "beaten_by": {
+            "isolation_forest": 0.001589914794478342,
+            "copod": 0.00014905991897296023,
+            "local_outlier_factor": 0.0043120966925654924,
+            "knn": 0.00399381959337719
+          }
+        },
+        {
+          "dataset": "cv:FashionMNIST_0",
+          "mercury_auc": 0.9053703703703704,
+          "n_baselines_beating": 1,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.004016931216931252,
+          "beaten_by": {
+            "local_outlier_factor": 0.004016931216931252
+          }
+        },
+        {
+          "dataset": "WBC",
+          "mercury_auc": 0.9906542056074766,
+          "n_baselines_beating": 4,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0037383177570092796,
+          "beaten_by": {
+            "isolation_forest": 0.0037383177570092796,
+            "ecod": 0.002803738317756932,
+            "copod": 0.002803738317757043,
+            "knn": 0.002803738317756932
+          }
+        },
+        {
+          "dataset": "nlp:yelp",
+          "mercury_auc": 0.6869722105263159,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 0.002660631578947248,
+          "beaten_by": {
+            "knn": 0.002660631578947248
+          }
+        },
+        {
+          "dataset": "Hepatitis",
+          "mercury_auc": 0.7986425339366516,
+          "n_baselines_beating": 1,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.002262443438914019,
+          "beaten_by": {
+            "hbos": 0.002262443438914019
+          }
+        },
+        {
+          "dataset": "breastw",
+          "mercury_auc": 0.9915375626672698,
+          "n_baselines_beating": 3,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0016962569263825333,
+          "beaten_by": {
+            "isolation_forest": 0.0016962569263825333,
+            "copod": 0.001206227147649619,
+            "knn": 0.0016020204304724173
+          }
+        },
+        {
+          "dataset": "WDBC",
+          "mercury_auc": 0.9983240223463687,
+          "n_baselines_beating": 1,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0011173184357541333,
+          "beaten_by": {
+            "isolation_forest": 0.0011173184357541333
+          }
+        },
+        {
+          "dataset": "satimage-2",
+          "mercury_auc": 0.9984519819545324,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 0.00025063149307569255,
+          "beaten_by": {
+            "knn": 0.00025063149307569255
+          }
+        },
+        {
+          "dataset": "nlp:amazon",
+          "mercury_auc": 0.6133743157894737,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 8.421052631879533e-07,
+          "beaten_by": {
+            "knn": 8.421052631879533e-07
+          }
+        }
+      ],
+      "mercury_fusion": [
+        {
+          "dataset": "wine",
+          "mercury_auc": 0.15,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.825,
+          "beaten_by": {
+            "isolation_forest": 0.6966666666666667,
+            "ecod": 0.5983333333333332,
+            "copod": 0.73,
+            "local_outlier_factor": 0.8233333333333334,
+            "knn": 0.825,
+            "hbos": 0.7766666666666666
+          }
+        },
+        {
+          "dataset": "optdigits",
+          "mercury_auc": 0.4164561126464008,
+          "n_baselines_beating": 6,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.5564061060665877,
+          "beaten_by": {
+            "isolation_forest": 0.4006461376496908,
+            "ecod": 0.18953941308066857,
+            "copod": 0.26944466377154896,
+            "local_outlier_factor": 0.5564061060665877,
+            "knn": 0.5289709172259508,
+            "hbos": 0.48125937623371506
+          }
+        },
+        {
+          "dataset": "letter",
+          "mercury_auc": 0.47253333333333336,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.38839999999999986,
+          "beaten_by": {
+            "isolation_forest": 0.15901333333333334,
+            "ecod": 0.09405333333333332,
+            "copod": 0.08145333333333338,
+            "local_outlier_factor": 0.37906666666666666,
+            "knn": 0.38839999999999986,
+            "hbos": 0.13069333333333333
+          }
+        },
+        {
+          "dataset": "Wilt",
+          "mercury_auc": 0.36080922252340003,
+          "n_baselines_beating": 4,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.30464571992965067,
+          "beaten_by": {
+            "isolation_forest": 0.11003007418754485,
+            "ecod": 0.03170242418763014,
+            "local_outlier_factor": 0.30464571992965067,
+            "knn": 0.2628523226040869
+          }
+        },
+        {
+          "dataset": "glass",
+          "mercury_auc": 0.6073354908306365,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.2707659115426104,
+          "beaten_by": {
+            "isolation_forest": 0.20064724919093846,
+            "ecod": 0.10679611650485432,
+            "copod": 0.1488673139158575,
+            "local_outlier_factor": 0.18338727076591144,
+            "knn": 0.2707659115426104,
+            "hbos": 0.20442286947141308
+          }
+        },
+        {
+          "dataset": "landsat",
+          "mercury_auc": 0.5178057058364944,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.24069536592301732,
+          "beaten_by": {
+            "isolation_forest": 0.09154831828302035,
+            "local_outlier_factor": 0.23251329296455836,
+            "knn": 0.24069536592301732,
+            "hbos": 0.1881816494892048
+          }
+        },
+        {
+          "dataset": "fault",
+          "mercury_auc": 0.5559597076980045,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.23886172840663544,
+          "beaten_by": {
+            "isolation_forest": 0.10778987630132053,
+            "local_outlier_factor": 0.1265368588316359,
+            "knn": 0.23886172840663544
+          }
+        },
+        {
+          "dataset": "vowels",
+          "mercury_auc": 0.7516073968705548,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.22426742532005683,
+          "beaten_by": {
+            "isolation_forest": 0.02941678520625879,
+            "local_outlier_factor": 0.21081081081081077,
+            "knn": 0.22426742532005683
+          }
+        },
+        {
+          "dataset": "Ionosphere",
+          "mercury_auc": 0.8078381795195955,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.17565669335580858,
+          "beaten_by": {
+            "isolation_forest": 0.12129512571990442,
+            "copod": 0.01046495294282912,
+            "local_outlier_factor": 0.15739570164348926,
+            "knn": 0.17565669335580858
+          }
+        },
+        {
+          "dataset": "skin",
+          "mercury_auc": 0.8259360293542467,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.1653167907646086,
+          "beaten_by": {
+            "isolation_forest": 0.059812328506885004,
+            "local_outlier_factor": 0.02796820003913003,
+            "knn": 0.1653167907646086
+          }
+        },
+        {
+          "dataset": "Waveform",
+          "mercury_auc": 0.6090430622009568,
+          "n_baselines_beating": 5,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.16238636363636372,
+          "beaten_by": {
+            "isolation_forest": 0.09516746411483268,
+            "copod": 0.12411483253588518,
+            "local_outlier_factor": 0.16238636363636372,
+            "knn": 0.15555622009569392,
+            "hbos": 0.10065789473684217
+          }
+        },
+        {
+          "dataset": "satellite",
+          "mercury_auc": 0.7207143016610109,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.1564798401500268,
+          "beaten_by": {
+            "isolation_forest": 0.07843599303447046,
+            "local_outlier_factor": 0.12091545365243794,
+            "knn": 0.1564798401500268,
+            "hbos": 0.14280061171637792
+          }
+        },
+        {
+          "dataset": "magic.gamma",
+          "mercury_auc": 0.7036854579790288,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.13229929098773308,
+          "beaten_by": {
+            "isolation_forest": 0.06424510976136988,
+            "local_outlier_factor": 0.12789659747528104,
+            "knn": 0.13229929098773308,
+            "hbos": 0.03062818060472916
+          }
+        },
+        {
+          "dataset": "WPBC",
+          "mercury_auc": 0.4286114221724524,
+          "n_baselines_beating": 6,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.11898096304591277,
+          "beaten_by": {
+            "isolation_forest": 0.07054871220604708,
+            "ecod": 0.05627099664053753,
+            "copod": 0.09042553191489366,
+            "local_outlier_factor": 0.07978723404255317,
+            "knn": 0.08566629339305709,
+            "hbos": 0.11898096304591277
+          }
+        },
+        {
+          "dataset": "pendigits",
+          "mercury_auc": 0.9093570266492519,
+          "n_baselines_beating": 5,
+          "worst_baseline": "knn",
+          "worst_margin": 0.08917264346218767,
+          "beaten_by": {
+            "isolation_forest": 0.05846757254263957,
+            "ecod": 0.019417902125676845,
+            "local_outlier_factor": 0.08303926735562117,
+            "knn": 0.08917264346218767,
+            "hbos": 0.02784270143519474
+          }
+        },
+        {
+          "dataset": "donors",
+          "mercury_auc": 0.9046190949745181,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.08712575881577889,
+          "beaten_by": {
+            "local_outlier_factor": 0.045813065177634726,
+            "knn": 0.08712575881577889
+          }
+        },
+        {
+          "dataset": "annthyroid",
+          "mercury_auc": 0.8473319242036563,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.08539393265169215,
+          "beaten_by": {
+            "isolation_forest": 0.07230385959944297,
+            "local_outlier_factor": 0.08533437613424266,
+            "knn": 0.08539393265169215
+          }
+        },
+        {
+          "dataset": "WBC",
+          "mercury_auc": 0.9093457943925233,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.08504672897196264,
+          "beaten_by": {
+            "isolation_forest": 0.08504672897196264,
+            "ecod": 0.08411214953271029,
+            "copod": 0.0841121495327104,
+            "local_outlier_factor": 0.07196261682242999,
+            "knn": 0.08411214953271029,
+            "hbos": 0.07663551401869173
+          }
+        },
+        {
+          "dataset": "Pima",
+          "mercury_auc": 0.6556268656716419,
+          "n_baselines_beating": 4,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.07767910447761184,
+          "beaten_by": {
+            "isolation_forest": 0.040686567164179066,
+            "local_outlier_factor": 0.04368656716417896,
+            "knn": 0.07201492537313425,
+            "hbos": 0.07767910447761184
+          }
+        },
+        {
+          "dataset": "campaign",
+          "mercury_auc": 0.7123724707893988,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.07273805246137244,
+          "beaten_by": {
+            "isolation_forest": 0.020186105294460077,
+            "ecod": 0.059452959470677746,
+            "copod": 0.07271897109296588,
+            "local_outlier_factor": 0.002695955741137568,
+            "knn": 0.07273805246137244,
+            "hbos": 0.06316775496549232
+          }
+        },
+        {
+          "dataset": "Lymphography",
+          "mercury_auc": 0.9248826291079812,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.07042253521126762,
+          "beaten_by": {
+            "isolation_forest": 0.07042253521126762,
+            "ecod": 0.06572769953051638,
+            "copod": 0.06807511737089211,
+            "local_outlier_factor": 0.007042253521126751,
+            "knn": 0.011737089201877882,
+            "hbos": 0.07042253521126762
+          }
+        },
+        {
+          "dataset": "musk",
+          "mercury_auc": 0.9331461025644591,
+          "n_baselines_beating": 6,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.06685389743554093,
+          "beaten_by": {
+            "isolation_forest": 0.020451717402033998,
+            "ecod": 0.021946319455547703,
+            "copod": 0.011595331280283006,
+            "local_outlier_factor": 0.06685389743554093,
+            "knn": 0.06685389743554093,
+            "hbos": 0.06685389743554093
+          }
+        },
+        {
+          "dataset": "cv:MVTec-AD_bottle",
+          "mercury_auc": 0.9020013802622499,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.06211180124223603,
+          "beaten_by": {
+            "isolation_forest": 0.06211180124223603,
+            "ecod": 0.027881297446514797,
+            "copod": 0.05521048999309863,
+            "local_outlier_factor": 0.048861283643892306,
+            "knn": 0.04761904761904756,
+            "hbos": 0.05507246376811592
+          }
+        },
+        {
+          "dataset": "Hepatitis",
+          "mercury_auc": 0.751131221719457,
+          "n_baselines_beating": 3,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.04977375565610864,
+          "beaten_by": {
+            "local_outlier_factor": 0.040723981900452455,
+            "knn": 0.0339366515837104,
+            "hbos": 0.04977375565610864
+          }
+        },
+        {
+          "dataset": "mnist",
+          "mercury_auc": 0.8948102549246814,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.049441938420791254,
+          "beaten_by": {
+            "local_outlier_factor": 0.032950463499420546,
+            "knn": 0.049441938420791254
+          }
+        },
+        {
+          "dataset": "SpamBase",
+          "mercury_auc": 0.7959756033202403,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.042875600304581596,
+          "beaten_by": {
+            "isolation_forest": 0.024782825446129086,
+            "local_outlier_factor": 0.013447011105163553,
+            "knn": 0.042875600304581596
+          }
+        },
+        {
+          "dataset": "cardio",
+          "mercury_auc": 0.9282979249011858,
+          "n_baselines_beating": 2,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.029225680720246006,
+          "beaten_by": {
+            "isolation_forest": 0.029225680720246006,
+            "ecod": 0.00811786341677645
+          }
+        },
+        {
+          "dataset": "WDBC",
+          "mercury_auc": 0.9720670391061452,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.027374301675977653,
+          "beaten_by": {
+            "isolation_forest": 0.027374301675977653,
+            "ecod": 0.006703910614525133,
+            "copod": 0.025139664804469275,
+            "local_outlier_factor": 0.02625698324022352,
+            "knn": 0.02402234636871514,
+            "hbos": 0.01787709497206702
+          }
+        },
+        {
+          "dataset": "cover",
+          "mercury_auc": 0.9684822209463919,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.023051333093667914,
+          "beaten_by": {
+            "local_outlier_factor": 0.023051333093667914,
+            "knn": 1.4487232455673293e-05
+          }
+        },
+        {
+          "dataset": "mammography",
+          "mercury_auc": 0.8834658338731938,
+          "n_baselines_beating": 2,
+          "worst_baseline": "ecod",
+          "worst_margin": 0.022723079739740637,
+          "beaten_by": {
+            "ecod": 0.022723079739740637,
+            "copod": 0.021883714052333803
+          }
+        },
+        {
+          "dataset": "breastw",
+          "mercury_auc": 0.9732933770590674,
+          "n_baselines_beating": 5,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.019940442534584935,
+          "beaten_by": {
+            "isolation_forest": 0.019940442534584935,
+            "ecod": 0.01777300312865171,
+            "copod": 0.01945041275585202,
+            "knn": 0.01984620603867482,
+            "hbos": 0.014323947378340751
+          }
+        },
+        {
+          "dataset": "smtp",
+          "mercury_auc": 0.9227136281769062,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.019551731038623177,
+          "beaten_by": {
+            "copod": 0.00046027616569943586,
+            "knn": 0.019551731038623177
+          }
+        },
+        {
+          "dataset": "fraud",
+          "mercury_auc": 0.9547856652010778,
+          "n_baselines_beating": 5,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.01654716946709711,
+          "beaten_by": {
+            "ecod": 0.009383418775351315,
+            "copod": 0.00797560189492752,
+            "local_outlier_factor": 0.006966109013068489,
+            "knn": 0.012791977572230384,
+            "hbos": 0.01654716946709711
+          }
+        },
+        {
+          "dataset": "PageBlocks",
+          "mercury_auc": 0.9536164506752742,
+          "n_baselines_beating": 2,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.015740874564403984,
+          "beaten_by": {
+            "local_outlier_factor": 0.015740874564403984,
+            "knn": 0.010715260715260744
+          }
+        },
+        {
+          "dataset": "Stamps",
+          "mercury_auc": 0.9425598335067638,
+          "n_baselines_beating": 2,
+          "worst_baseline": "copod",
+          "worst_margin": 0.01082206035379818,
+          "beaten_by": {
+            "isolation_forest": 0.006035379812695196,
+            "copod": 0.01082206035379818
+          }
+        },
+        {
+          "dataset": "satimage-2",
+          "mercury_auc": 0.9901860570260361,
+          "n_baselines_beating": 3,
+          "worst_baseline": "knn",
+          "worst_margin": 0.008516556421572008,
+          "beaten_by": {
+            "isolation_forest": 0.001169613634353306,
+            "local_outlier_factor": 0.00588738291577795,
+            "knn": 0.008516556421572008
+          }
+        },
+        {
+          "dataset": "shuttle",
+          "mercury_auc": 0.9939422671814698,
+          "n_baselines_beating": 4,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.004778828127771084,
+          "beaten_by": {
+            "isolation_forest": 0.002056646229683934,
+            "copod": 0.000615791354178552,
+            "local_outlier_factor": 0.004778828127771084,
+            "knn": 0.004460551028582782
+          }
+        },
+        {
+          "dataset": "thyroid",
+          "mercury_auc": 0.9865532959326788,
+          "n_baselines_beating": 1,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0017297802711547794,
+          "beaten_by": {
+            "isolation_forest": 0.0017297802711547794
+          }
+        },
+        {
+          "dataset": "http",
+          "mercury_auc": 0.9994086041466661,
+          "n_baselines_beating": 1,
+          "worst_baseline": "knn",
+          "worst_margin": 7.955998026920597e-05,
+          "beaten_by": {
+            "knn": 7.955998026920597e-05
+          }
+        }
+      ]
+    },
+    "deferred_cells": [
+      {
+        "dataset": "ALOI",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "backdoor",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.0
+      },
+      {
+        "dataset": "celeba",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.0
+      },
+      {
+        "dataset": "census",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.0
+      },
+      {
+        "dataset": "InternetAds",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.0
+      },
+      {
+        "dataset": "speech",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "cv:CIFAR10_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "cv:FashionMNIST_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "cv:SVHN_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "cv:MNIST-C_brightness",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:20news_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:agnews_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:amazon",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:imdb",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:yelp",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.0
+      }
+    ],
+    "skipped": []
+  },
+  "per_dataset": [
+    {
+      "name": "ALOI",
+      "family": "adbench_classical",
+      "n_samples": 49534,
+      "n_features": 27,
+      "anomaly_ratio": 0.030443735615940565,
+      "npz_sha256": "792d0b5bd1147bfc9574a1974f157b39fbd4cbed8ecd04cf983fd554498ed477",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/1_ALOI.npz",
+      "n_train": 9695,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.5510724495659582,
+          "average_precision": 0.06827658324832687,
+          "fit_seconds": 0.3562563890000092,
+          "score_seconds": 0.0537315799992939,
+          "wall_seconds": 0.5
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.5345395951586203,
+          "average_precision": 0.06395824758541947,
+          "fit_seconds": 0.2805128629997853,
+          "score_seconds": 0.051230574999863165,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.5214552961373081,
+          "average_precision": 0.06333558318063143,
+          "fit_seconds": 0.4287573949995931,
+          "score_seconds": 0.11414325199984887,
+          "wall_seconds": 0.6
+        },
+        "copod": {
+          "roc_auc": 0.5022564043441998,
+          "average_precision": 0.060311543978065534,
+          "fit_seconds": 0.40935427000022173,
+          "score_seconds": 0.11423109400038811,
+          "wall_seconds": 0.6
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6900611747497437,
+          "average_precision": 0.13565071333106493,
+          "fit_seconds": 0.6297981280004024,
+          "score_seconds": 0.5573874210003851,
+          "wall_seconds": 1.2
+        },
+        "knn": {
+          "roc_auc": 0.6215221272096136,
+          "average_precision": 0.09352310311144901,
+          "fit_seconds": 0.520950181000444,
+          "score_seconds": 0.4894691990002684,
+          "wall_seconds": 1.0
+        },
+        "hbos": {
+          "roc_auc": 0.5220329976167787,
+          "average_precision": 0.06381039109672108,
+          "fit_seconds": 2.7075234269996145,
+          "score_seconds": 0.010173670999392925,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "annthyroid",
+      "family": "adbench_classical",
+      "n_samples": 7200,
+      "n_features": 6,
+      "anomaly_ratio": 0.07416666666666667,
+      "npz_sha256": "e738f7c58a8740d2c4aac4c71ff49ce5e1d1aa16f44178135fc9c09df05fad1b",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/2_annthyroid.npz",
+      "n_train": 3333,
+      "n_test": 3867,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8186346724560096,
+          "average_precision": 0.49224269242735985,
+          "fit_seconds": 0.08421004399951926,
+          "score_seconds": 0.015567281999210536,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8473319242036563,
+          "average_precision": 0.5569550570482993,
+          "fit_seconds": 34.435942050999984,
+          "score_seconds": 6.43756644899986,
+          "epochs_trained": 23,
+          "wall_seconds": 41.3
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9196357838030993,
+          "average_precision": 0.6072788342530798,
+          "fit_seconds": 0.2302979719997893,
+          "score_seconds": 0.031390704999466834,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.7863426792117414,
+          "average_precision": 0.39755212091337383,
+          "fit_seconds": 0.33925505000024714,
+          "score_seconds": 0.010669631000382651,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.7760781696147143,
+          "average_precision": 0.29729685429198727,
+          "fit_seconds": 0.33642858999974123,
+          "score_seconds": 0.010825070999999298,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.932666300337899,
+          "average_precision": 0.6843265577683842,
+          "fit_seconds": 0.09372200300003897,
+          "score_seconds": 0.08398228799978824,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9327258568553485,
+          "average_precision": 0.6837694904990014,
+          "fit_seconds": 0.05992938300005335,
+          "score_seconds": 0.05073006200018426,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.6728349801272262,
+          "average_precision": 0.4134291137113992,
+          "fit_seconds": 2.793498295000063,
+          "score_seconds": 0.0015508830001635943,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "backdoor",
+      "family": "adbench_classical",
+      "n_samples": 95329,
+      "n_features": 196,
+      "anomaly_ratio": 0.02443118043827167,
+      "npz_sha256": "164481cd9688306b0742c25e996c876ba561ee975629b9fdb53f8ee51b1ed911",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/3_backdoor.npz",
+      "n_train": 9755,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9409496866057143,
+          "average_precision": 0.8212510791501684,
+          "fit_seconds": 5.080848610999965,
+          "score_seconds": 1.0126738310000292,
+          "wall_seconds": 6.2
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7633628270167669,
+          "average_precision": 0.09213081405772874,
+          "fit_seconds": 0.3637003730000288,
+          "score_seconds": 0.09389488900069409,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.8521701550514147,
+          "average_precision": 0.1690713336283736,
+          "fit_seconds": 0.7801404780002485,
+          "score_seconds": 1.0303082640002685,
+          "wall_seconds": 1.9
+        },
+        "copod": {
+          "roc_auc": 0.8001620578925679,
+          "average_precision": 0.13006818487222047,
+          "fit_seconds": 0.7459822370001348,
+          "score_seconds": 1.0377282890003698,
+          "wall_seconds": 1.9
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.959458392198631,
+          "average_precision": 0.5120344869289198,
+          "fit_seconds": 1.2604680210006336,
+          "score_seconds": 1.2686452510006347,
+          "wall_seconds": 2.6
+        },
+        "knn": {
+          "roc_auc": 0.93298489195111,
+          "average_precision": 0.35722372301685035,
+          "fit_seconds": 1.321364731000358,
+          "score_seconds": 1.1948392710000917,
+          "wall_seconds": 2.6
+        },
+        "hbos": {
+          "roc_auc": 0.725659548708699,
+          "average_precision": 0.08378136957073147,
+          "fit_seconds": 3.3151966390005327,
+          "score_seconds": 0.0825093809999089,
+          "wall_seconds": 3.5
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "breastw",
+      "family": "adbench_classical",
+      "n_samples": 683,
+      "n_features": 9,
+      "anomaly_ratio": 0.34992679355783307,
+      "npz_sha256": "4f37ce07dbc25ddad8178fdc6d664ab46d2d0000ee28c2787c3c7ff3c03ef9f6",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/4_breastw.npz",
+      "n_train": 222,
+      "n_test": 461,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9915375626672698,
+          "average_precision": 0.9910951005761413,
+          "fit_seconds": 0.06127620000006573,
+          "score_seconds": 0.009090315999856102,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9732933770590674,
+          "average_precision": 0.9318222961536764,
+          "fit_seconds": 2.8741151360000003,
+          "score_seconds": 0.6815456839995022,
+          "epochs_trained": 15,
+          "wall_seconds": 3.9
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9932338195936523,
+          "average_precision": 0.9928024273250248,
+          "fit_seconds": 0.18187047599985817,
+          "score_seconds": 0.013652878999891982,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9910663801877191,
+          "average_precision": 0.9910601559601754,
+          "fit_seconds": 0.3300301959998251,
+          "score_seconds": 0.002223280000180239,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9927437898149194,
+          "average_precision": 0.9922469816497831,
+          "fit_seconds": 0.3260426369997731,
+          "score_seconds": 0.0021184880006330786,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9728033472803346,
+          "average_precision": 0.9535289305538655,
+          "fit_seconds": 0.010564436999629834,
+          "score_seconds": 0.004923435000819154,
+          "wall_seconds": 0.0
+        },
+        "knn": {
+          "roc_auc": 0.9931395830977422,
+          "average_precision": 0.9932552737087191,
+          "fit_seconds": 0.009477825999965717,
+          "score_seconds": 0.002606367000225873,
+          "wall_seconds": 0.0
+        },
+        "hbos": {
+          "roc_auc": 0.9876173244374081,
+          "average_precision": 0.9827091113857592,
+          "fit_seconds": 3.090516380000736,
+          "score_seconds": 0.0008494650001011905,
+          "wall_seconds": 3.2
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "campaign",
+      "family": "adbench_classical",
+      "n_samples": 41188,
+      "n_features": 62,
+      "anomaly_ratio": 0.11265417111780131,
+      "npz_sha256": "74dd4d0072d6c6f1aabab63bc102f9633454f32bb936fa9bcfbd38f9f2386bcd",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/5_campaign.npz",
+      "n_train": 8873,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.798322264487591,
+          "average_precision": 0.5279697423855226,
+          "fit_seconds": 0.7981725300005564,
+          "score_seconds": 0.13812028499978624,
+          "wall_seconds": 1.0
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.7123724707893988,
+          "average_precision": 0.4599091880092322,
+          "fit_seconds": 197.41865670799962,
+          "score_seconds": 67.41082306799944,
+          "epochs_trained": 24,
+          "wall_seconds": 265.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7325585760838589,
+          "average_precision": 0.4697538959201242,
+          "fit_seconds": 0.3147832839995317,
+          "score_seconds": 0.07537870199939789,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.7718254302600766,
+          "average_precision": 0.5054849925482714,
+          "fit_seconds": 0.4987624680006775,
+          "score_seconds": 0.2954961909999838,
+          "wall_seconds": 0.9
+        },
+        "copod": {
+          "roc_auc": 0.7850914418823647,
+          "average_precision": 0.5234923551838515,
+          "fit_seconds": 0.49683861100038484,
+          "score_seconds": 0.313611986000069,
+          "wall_seconds": 0.9
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7150684265305364,
+          "average_precision": 0.43942834992127433,
+          "fit_seconds": 0.6195742909994806,
+          "score_seconds": 0.6695869669993044,
+          "wall_seconds": 1.3
+        },
+        "knn": {
+          "roc_auc": 0.7851105232507712,
+          "average_precision": 0.5094807817152831,
+          "fit_seconds": 0.5832865900001707,
+          "score_seconds": 0.5784947610000017,
+          "wall_seconds": 1.2
+        },
+        "hbos": {
+          "roc_auc": 0.7755402257548911,
+          "average_precision": 0.5108029040517819,
+          "fit_seconds": 3.2381114879999586,
+          "score_seconds": 0.02267876200039609,
+          "wall_seconds": 3.4
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "cardio",
+      "family": "adbench_classical",
+      "n_samples": 1831,
+      "n_features": 21,
+      "anomaly_ratio": 0.0961223375204806,
+      "npz_sha256": "bc5009bde6930b4d298b594f31b34485a9a17210cff0e8fb00a8c3068b885a2d",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/6_cardio.npz",
+      "n_train": 827,
+      "n_test": 1004,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9513820267896356,
+          "average_precision": 0.8179565480774426,
+          "fit_seconds": 0.08577313200021308,
+          "score_seconds": 0.010894680999626871,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9282979249011858,
+          "average_precision": 0.7150678971645629,
+          "fit_seconds": 8.840974779000135,
+          "score_seconds": 1.3664847250001912,
+          "epochs_trained": 14,
+          "wall_seconds": 10.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9575236056214318,
+          "average_precision": 0.831124894402261,
+          "fit_seconds": 0.18970655700013594,
+          "score_seconds": 0.017811982000239368,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9364157883179622,
+          "average_precision": 0.7143187709110762,
+          "fit_seconds": 0.3304550940001718,
+          "score_seconds": 0.007481655000447063,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.923899319279754,
+          "average_precision": 0.7105955979605488,
+          "fit_seconds": 0.32920994099913514,
+          "score_seconds": 0.007636309999725199,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9186223649538866,
+          "average_precision": 0.6680332080828927,
+          "fit_seconds": 0.03665957300017908,
+          "score_seconds": 0.010632468999574485,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9224033816425121,
+          "average_precision": 0.7485111532399231,
+          "fit_seconds": 0.03602384700025141,
+          "score_seconds": 0.00572047300011036,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.8508454106280193,
+          "average_precision": 0.612496834614698,
+          "fit_seconds": 3.020535170000585,
+          "score_seconds": 0.0013546979998864117,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "Cardiotocography",
+      "family": "adbench_classical",
+      "n_samples": 2114,
+      "n_features": 21,
+      "anomaly_ratio": 0.22043519394512773,
+      "npz_sha256": "5ae84910430f05923e11b6f537243263977c9136949dabd891e3570aeec51e29",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/7_Cardiotocography.npz",
+      "n_train": 824,
+      "n_test": 1290,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7653613171382141,
+          "average_precision": 0.6871567064923663,
+          "fit_seconds": 0.076555474000088,
+          "score_seconds": 0.012282668999432644,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8174845826909454,
+          "average_precision": 0.6832977253518614,
+          "fit_seconds": 8.333243949999996,
+          "score_seconds": 1.9959434480006166,
+          "epochs_trained": 13,
+          "wall_seconds": 10.7
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8150131255468979,
+          "average_precision": 0.6963793331981745,
+          "fit_seconds": 0.19024130500019965,
+          "score_seconds": 0.019416263000493927,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.7848087420309179,
+          "average_precision": 0.662270435967524,
+          "fit_seconds": 0.3331870110005184,
+          "score_seconds": 0.00847831999999471,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.6626057335722322,
+          "average_precision": 0.551175666095622,
+          "fit_seconds": 0.32853726600023947,
+          "score_seconds": 0.008449977999589464,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7922804075169799,
+          "average_precision": 0.7014394533456324,
+          "fit_seconds": 0.036648430000241206,
+          "score_seconds": 0.012905257000056736,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.7203789741239218,
+          "average_precision": 0.6519879693016254,
+          "fit_seconds": 0.031756925999616215,
+          "score_seconds": 0.007200451999779034,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.6795465436059837,
+          "average_precision": 0.5702942789024716,
+          "fit_seconds": 3.041202023000551,
+          "score_seconds": 0.0015995860003386042,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "mercury_fusion"
+    },
+    {
+      "name": "celeba",
+      "family": "adbench_classical",
+      "n_samples": 202599,
+      "n_features": 39,
+      "anomaly_ratio": 0.022443348683853327,
+      "npz_sha256": "1cadfdea14cd8d240eca715a70c09c88af8621d086a7478c63f602d97adef0b5",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/8_celeba.npz",
+      "n_train": 9775,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7837201549865583,
+          "average_precision": 0.16560530020183167,
+          "fit_seconds": 0.4304501389997313,
+          "score_seconds": 0.08546421300070506,
+          "wall_seconds": 0.6
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6968372750982754,
+          "average_precision": 0.1308417556583741,
+          "fit_seconds": 0.3295235169998705,
+          "score_seconds": 0.07587803299975349,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.7366752011477373,
+          "average_precision": 0.16638206354544877,
+          "fit_seconds": 0.4533064380002543,
+          "score_seconds": 0.17973245999928622,
+          "wall_seconds": 0.7
+        },
+        "copod": {
+          "roc_auc": 0.7335918989769608,
+          "average_precision": 0.16545333363047657,
+          "fit_seconds": 0.4249579739998808,
+          "score_seconds": 0.16857426000024134,
+          "wall_seconds": 0.7
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.4550578620623452,
+          "average_precision": 0.03926523139760739,
+          "fit_seconds": 0.6302857660002701,
+          "score_seconds": 0.6136888109995198,
+          "wall_seconds": 1.3
+        },
+        "knn": {
+          "roc_auc": 0.7348282525232119,
+          "average_precision": 0.13948458256827312,
+          "fit_seconds": 0.5928166510002484,
+          "score_seconds": 0.549084399000094,
+          "wall_seconds": 1.2
+        },
+        "hbos": {
+          "roc_auc": 0.7406394126825159,
+          "average_precision": 0.1662245421813702,
+          "fit_seconds": 3.285392824000155,
+          "score_seconds": 0.013124503000653931,
+          "wall_seconds": 3.4
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "census",
+      "family": "adbench_classical",
+      "n_samples": 299285,
+      "n_features": 500,
+      "anomaly_ratio": 0.062041198189017155,
+      "npz_sha256": "6739999359a3b8c285ea902943732c3d6a331d776e6333a7d991198bd2686b56",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/9_census.npz",
+      "n_train": 9379,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7077304388187227,
+          "average_precision": 0.20258274009389773,
+          "fit_seconds": 19.77821211599985,
+          "score_seconds": 5.823205615000006,
+          "wall_seconds": 25.7
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6543407046744407,
+          "average_precision": 0.15151935863579974,
+          "fit_seconds": 0.42952779100050975,
+          "score_seconds": 0.12105862699991121,
+          "wall_seconds": 0.6
+        },
+        "ecod": {
+          "roc_auc": 0.6617878199396445,
+          "average_precision": 0.15603019442014796,
+          "fit_seconds": 2.3127913929993156,
+          "score_seconds": 4.04343103500014,
+          "wall_seconds": 6.5
+        },
+        "copod": {
+          "roc_auc": 0.6755790077058729,
+          "average_precision": 0.16227593861802164,
+          "fit_seconds": 2.167196012000204,
+          "score_seconds": 4.032636840000123,
+          "wall_seconds": 6.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.5637282011040323,
+          "average_precision": 0.12430143756849851,
+          "fit_seconds": 2.410281206000036,
+          "score_seconds": 2.4957329050002954,
+          "wall_seconds": 5.0
+        },
+        "knn": {
+          "roc_auc": 0.721885555990214,
+          "average_precision": 0.2145161314849348,
+          "fit_seconds": 2.660092891000204,
+          "score_seconds": 2.390860726000028,
+          "wall_seconds": 5.1
+        },
+        "hbos": {
+          "roc_auc": 0.6236191833389217,
+          "average_precision": 0.1393031123409495,
+          "fit_seconds": 3.9294939530000192,
+          "score_seconds": 0.26690073999998276,
+          "wall_seconds": 4.3
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "cover",
+      "family": "adbench_classical",
+      "n_samples": 286048,
+      "n_features": 10,
+      "anomaly_ratio": 0.009603283365029646,
+      "npz_sha256": "945a097c3542ae81a551bf1c06dcad78a755d94f84fcaf1d60687e42d1a656df",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/10_cover.npz",
+      "n_train": 9903,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9486282737121119,
+          "average_precision": 0.18764579012060625,
+          "fit_seconds": 0.172430555999199,
+          "score_seconds": 0.03267814999981056,
+          "wall_seconds": 0.3
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9684822209463919,
+          "average_precision": 0.23991809146490842,
+          "fit_seconds": 162.65903599099966,
+          "score_seconds": 23.97455207599978,
+          "epochs_trained": 30,
+          "wall_seconds": 187.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9096495699438217,
+          "average_precision": 0.11002482141089058,
+          "fit_seconds": 0.31659325799955695,
+          "score_seconds": 0.06820002700078476,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.9109641521481346,
+          "average_precision": 0.1717643519778497,
+          "fit_seconds": 0.3700790720004079,
+          "score_seconds": 0.03839609700025903,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.8686882615857617,
+          "average_precision": 0.10685166155873806,
+          "fit_seconds": 0.3901368229999207,
+          "score_seconds": 0.036308189000010316,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9915335540400598,
+          "average_precision": 0.7827192112592386,
+          "fit_seconds": 0.6654037449998214,
+          "score_seconds": 0.6368388049995701,
+          "wall_seconds": 1.3
+        },
+        "knn": {
+          "roc_auc": 0.9684967081788476,
+          "average_precision": 0.43418901581734204,
+          "fit_seconds": 0.4022959530002481,
+          "score_seconds": 0.38020749099996465,
+          "wall_seconds": 0.8
+        },
+        "hbos": {
+          "roc_auc": 0.699622795391987,
+          "average_precision": 0.04357394492507003,
+          "fit_seconds": 3.3188551709999956,
+          "score_seconds": 0.004482936000385962,
+          "wall_seconds": 3.4
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "donors",
+      "family": "adbench_classical",
+      "n_samples": 619326,
+      "n_features": 10,
+      "anomaly_ratio": 0.05927411411760527,
+      "npz_sha256": "5824ec854465f2763b4bfe3da1ae9f25ed5433b5c6e265d42e37da4f82a58679",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/11_donors.npz",
+      "n_train": 9407,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.92515891395653,
+          "average_precision": 0.4496170533293356,
+          "fit_seconds": 0.16323531200032448,
+          "score_seconds": 0.03256555000007211,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9046190949745181,
+          "average_precision": 0.3981628712679174,
+          "fit_seconds": 94.330651794,
+          "score_seconds": 22.797185385000375,
+          "epochs_trained": 18,
+          "wall_seconds": 117.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8789145849947195,
+          "average_precision": 0.37017326339880463,
+          "fit_seconds": 0.30153347800023766,
+          "score_seconds": 0.06874030200015113,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.8872650080703333,
+          "average_precision": 0.41702825354445167,
+          "fit_seconds": 0.3498675639993962,
+          "score_seconds": 0.04083220199936477,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.8102706245710779,
+          "average_precision": 0.3369565334105624,
+          "fit_seconds": 0.3534350930003711,
+          "score_seconds": 0.040214063999883365,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9504321601521528,
+          "average_precision": 0.5035507247349008,
+          "fit_seconds": 0.3163824579996799,
+          "score_seconds": 0.30858586100021057,
+          "wall_seconds": 0.7
+        },
+        "knn": {
+          "roc_auc": 0.991744853790297,
+          "average_precision": 0.8454067239581657,
+          "fit_seconds": 0.2514092299998083,
+          "score_seconds": 0.2460108899995248,
+          "wall_seconds": 0.5
+        },
+        "hbos": {
+          "roc_auc": 0.8037961284557756,
+          "average_precision": 0.3677204110612394,
+          "fit_seconds": 3.084781034000116,
+          "score_seconds": 0.0035802110005533905,
+          "wall_seconds": 3.2
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "fault",
+      "family": "adbench_classical",
+      "n_samples": 1941,
+      "n_features": 27,
+      "anomaly_ratio": 0.3467284904688305,
+      "npz_sha256": "ec27301f9a4cf7c5d8b22c360cf37ddb043b7fb062465723dfd8b34e2771e5dd",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/12_fault.npz",
+      "n_train": 634,
+      "n_test": 1307,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6849996015768183,
+          "average_precision": 0.6722030776923772,
+          "fit_seconds": 0.08202496100057033,
+          "score_seconds": 0.01455809499930183,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.5559597076980045,
+          "average_precision": 0.581336587148059,
+          "fit_seconds": 9.053154711999923,
+          "score_seconds": 2.054040631999669,
+          "epochs_trained": 24,
+          "wall_seconds": 11.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.663749583999325,
+          "average_precision": 0.6528271485566026,
+          "fit_seconds": 0.1890853730001254,
+          "score_seconds": 0.020418850999703864,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.4634153772598797,
+          "average_precision": 0.4835843273829845,
+          "fit_seconds": 0.33150472800025454,
+          "score_seconds": 0.011090015999798197,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.4550648961052962,
+          "average_precision": 0.4731030282741671,
+          "fit_seconds": 0.33890401600001496,
+          "score_seconds": 0.011427292000007583,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6824965665296404,
+          "average_precision": 0.6537433993756268,
+          "fit_seconds": 0.0347179190002862,
+          "score_seconds": 0.012260539000635617,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.79482143610464,
+          "average_precision": 0.7671986725059712,
+          "fit_seconds": 0.03163122200021462,
+          "score_seconds": 0.006136471999525384,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.5280653976497719,
+          "average_precision": 0.5384645457119792,
+          "fit_seconds": 3.0335157419995085,
+          "score_seconds": 0.0018107149999195826,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "fraud",
+      "family": "adbench_classical",
+      "n_samples": 284807,
+      "n_features": 29,
+      "anomaly_ratio": 0.001727485630620034,
+      "npz_sha256": "353b9a156b3f20e0739fafacdff76ef5cad1eeb7323be0ae71d384bf0e2594a6",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/13_fraud.npz",
+      "n_train": 9982,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9719257597042065,
+          "average_precision": 0.458088263455587,
+          "fit_seconds": 0.355444486000124,
+          "score_seconds": 0.060338674999911746,
+          "wall_seconds": 0.5
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9547856652010778,
+          "average_precision": 0.08809490425527826,
+          "fit_seconds": 154.8413038179997,
+          "score_seconds": 40.37232004099951,
+          "epochs_trained": 16,
+          "wall_seconds": 195.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9542201059359399,
+          "average_precision": 0.3065380204039299,
+          "fit_seconds": 0.3058702540001832,
+          "score_seconds": 0.06353870000020834,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.9641690839764291,
+          "average_precision": 0.4365203699519498,
+          "fit_seconds": 0.40461027000037575,
+          "score_seconds": 0.12987175500074954,
+          "wall_seconds": 0.6
+        },
+        "copod": {
+          "roc_auc": 0.9627612670960053,
+          "average_precision": 0.47656742502225136,
+          "fit_seconds": 0.4065133969997987,
+          "score_seconds": 0.1280571620000046,
+          "wall_seconds": 0.6
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9617517742141463,
+          "average_precision": 0.7341960935826071,
+          "fit_seconds": 0.6118633979995138,
+          "score_seconds": 0.5806903140000941,
+          "wall_seconds": 1.2
+        },
+        "knn": {
+          "roc_auc": 0.9675776427733082,
+          "average_precision": 0.540847678995775,
+          "fit_seconds": 0.5551738510002906,
+          "score_seconds": 0.4992075919999479,
+          "wall_seconds": 1.1
+        },
+        "hbos": {
+          "roc_auc": 0.9713328346681749,
+          "average_precision": 0.4594192859587412,
+          "fit_seconds": 2.6594622829998116,
+          "score_seconds": 0.012945840000611497,
+          "wall_seconds": 2.7
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "glass",
+      "family": "adbench_classical",
+      "n_samples": 214,
+      "n_features": 7,
+      "anomaly_ratio": 0.04205607476635514,
+      "npz_sha256": "aa7a8db1d475ba01a10488af454bc15220a3d5951b010b03b7020567d8152cdc",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/14_glass.npz",
+      "n_train": 102,
+      "n_test": 112,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7680690399137001,
+          "average_precision": 0.27177826248145487,
+          "fit_seconds": 0.046008407000044826,
+          "score_seconds": 0.006468696000411001,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.6073354908306365,
+          "average_precision": 0.13083293919042122,
+          "fit_seconds": 1.918231122999714,
+          "score_seconds": 0.1673899489996984,
+          "epochs_trained": 17,
+          "wall_seconds": 2.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.807982740021575,
+          "average_precision": 0.21899078863431234,
+          "fit_seconds": 0.17519927000012103,
+          "score_seconds": 0.011740741999346938,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.7141316073354909,
+          "average_precision": 0.25345558871008056,
+          "fit_seconds": 0.3449507770001219,
+          "score_seconds": 0.0015596339999319753,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.756202804746494,
+          "average_precision": 0.19205975240209763,
+          "fit_seconds": 0.3359746099995391,
+          "score_seconds": 0.0015281360001608846,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.790722761596548,
+          "average_precision": 0.21027571196781658,
+          "fit_seconds": 0.010523949999878823,
+          "score_seconds": 0.0018174409997300245,
+          "wall_seconds": 0.0
+        },
+        "knn": {
+          "roc_auc": 0.878101402373247,
+          "average_precision": 0.3012175670221647,
+          "fit_seconds": 0.008575503999963985,
+          "score_seconds": 0.0011122050000267336,
+          "wall_seconds": 0.0
+        },
+        "hbos": {
+          "roc_auc": 0.8117583603020496,
+          "average_precision": 0.21812671405314663,
+          "fit_seconds": 2.729896491000545,
+          "score_seconds": 0.0006449129996326519,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "Hepatitis",
+      "family": "adbench_classical",
+      "n_samples": 80,
+      "n_features": 19,
+      "anomaly_ratio": 0.1625,
+      "npz_sha256": "4a87a2f7d8013e5bfde63294fae61ec7a612322de72f338a7f9491749025ad98",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/15_Hepatitis.npz",
+      "n_train": 33,
+      "n_test": 47,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7986425339366516,
+          "average_precision": 0.6680466101309774,
+          "fit_seconds": 0.04133212499982619,
+          "score_seconds": 0.006474461999459891,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.751131221719457,
+          "average_precision": 0.4966619981325864,
+          "fit_seconds": 2.0106983129999207,
+          "score_seconds": 0.07519239999965066,
+          "epochs_trained": 50,
+          "wall_seconds": 2.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7104072398190046,
+          "average_precision": 0.4718742109433183,
+          "fit_seconds": 0.16507298200031073,
+          "score_seconds": 0.009433098000044993,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.6945701357466063,
+          "average_precision": 0.4205490223884873,
+          "fit_seconds": 0.33142989200041484,
+          "score_seconds": 0.0015244559999700869,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.746606334841629,
+          "average_precision": 0.536126192344743,
+          "fit_seconds": 0.33036863100005576,
+          "score_seconds": 0.0017487350005467306,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7918552036199095,
+          "average_precision": 0.5969317800825302,
+          "fit_seconds": 0.027116598000247905,
+          "score_seconds": 0.0012016950004181126,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.7850678733031674,
+          "average_precision": 0.5817813856052128,
+          "fit_seconds": 0.026494964999983495,
+          "score_seconds": 0.0007191969998530112,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.8009049773755657,
+          "average_precision": 0.6014880615336081,
+          "fit_seconds": 2.6997891289993277,
+          "score_seconds": 0.0009036569999807398,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "hbos"
+    },
+    {
+      "name": "http",
+      "family": "adbench_classical",
+      "n_samples": 567498,
+      "n_features": 3,
+      "anomaly_ratio": 0.003896048972859816,
+      "npz_sha256": "9d98710091551587f4740cfc851a6b064fff6319a337c2dc77ee6da4bcc2e02c",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/16_http.npz",
+      "n_train": 9961,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9949612012496221,
+          "average_precision": 0.4157726104602234,
+          "fit_seconds": 0.116705818999435,
+          "score_seconds": 0.026889347000178532,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9994086041466661,
+          "average_precision": 0.8171878562455286,
+          "fit_seconds": 61.45864765099941,
+          "score_seconds": 18.374417880000692,
+          "epochs_trained": 11,
+          "wall_seconds": 80.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9858224115160419,
+          "average_precision": 0.20160899101716862,
+          "fit_seconds": 0.3092079729995021,
+          "score_seconds": 0.0676064179997411,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.979379379113914,
+          "average_precision": 0.14925203040259194,
+          "fit_seconds": 0.3456740259998696,
+          "score_seconds": 0.016494557999976678,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9906994383065393,
+          "average_precision": 0.28017075277933945,
+          "fit_seconds": 0.3436718330003714,
+          "score_seconds": 0.016146128000400495,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9993847361525854,
+          "average_precision": 0.7983643560123425,
+          "fit_seconds": 0.11366324399932637,
+          "score_seconds": 0.09015891299986833,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9994881641269353,
+          "average_precision": 0.8218793880306564,
+          "fit_seconds": 0.07365164500060928,
+          "score_seconds": 0.0568893300005584,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.9872955971506919,
+          "average_precision": 0.217979633022078,
+          "fit_seconds": 2.7449212259998603,
+          "score_seconds": 0.0017102090005209902,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "InternetAds",
+      "family": "adbench_classical",
+      "n_samples": 1966,
+      "n_features": 1555,
+      "anomaly_ratio": 0.1871820956256358,
+      "npz_sha256": "bdd8ad5cf5bf2cb96cba53dde30d522d0f6a279083a8e2bc7efbac5981b04385",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/17_InternetAds.npz",
+      "n_train": 799,
+      "n_test": 1167,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9031942101539969,
+          "average_precision": 0.8507525828845365,
+          "fit_seconds": 15.437396369999988,
+          "score_seconds": 5.934807352000462,
+          "wall_seconds": 21.5
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.5126771915981934,
+          "average_precision": 0.35694434373687406,
+          "fit_seconds": 0.2179648379997161,
+          "score_seconds": 0.03717451400007121,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.6742871524187843,
+          "average_precision": 0.6163431544323494,
+          "fit_seconds": 0.62150703899988,
+          "score_seconds": 0.8842518479996215,
+          "wall_seconds": 1.6
+        },
+        "copod": {
+          "roc_auc": 0.6736307612776842,
+          "average_precision": 0.6150883142507049,
+          "fit_seconds": 0.6110121920000893,
+          "score_seconds": 0.8939897210002528,
+          "wall_seconds": 1.6
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7851577379332861,
+          "average_precision": 0.6860534456093247,
+          "fit_seconds": 0.08390306599994801,
+          "score_seconds": 0.08065913700011151,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.7559415301735866,
+          "average_precision": 0.6503520227447963,
+          "fit_seconds": 0.12358786599997984,
+          "score_seconds": 0.08172505800030194,
+          "wall_seconds": 0.3
+        },
+        "hbos": {
+          "roc_auc": 0.44611300810796106,
+          "average_precision": 0.2718896611078633,
+          "fit_seconds": 3.0469817180000973,
+          "score_seconds": 0.08565875899967068,
+          "wall_seconds": 3.2
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "Ionosphere",
+      "family": "adbench_classical",
+      "n_samples": 351,
+      "n_features": 32,
+      "anomaly_ratio": 0.358974358974359,
+      "npz_sha256": "bca46cb0cfd1bf9ddef6cde5ad2215d54fb0189508d0d4c4eb98e788cad69001",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/18_Ionosphere.npz",
+      "n_train": 112,
+      "n_test": 239,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9414243573535608,
+          "average_precision": 0.9465180841382956,
+          "fit_seconds": 0.0594506099996579,
+          "score_seconds": 0.007933988999866415,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8078381795195955,
+          "average_precision": 0.8167751407927824,
+          "fit_seconds": 3.8137358559997665,
+          "score_seconds": 0.3572195249998913,
+          "epochs_trained": 50,
+          "wall_seconds": 4.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9291333052394999,
+          "average_precision": 0.9387955672368318,
+          "fit_seconds": 0.1715641199998572,
+          "score_seconds": 0.013085498000691587,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.7475066722854333,
+          "average_precision": 0.7766907936440679,
+          "fit_seconds": 0.33729273400058446,
+          "score_seconds": 0.003140259999781847,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.8183031324624246,
+          "average_precision": 0.813877821900885,
+          "fit_seconds": 0.3343577750001714,
+          "score_seconds": 0.0031820129997868207,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9652338811630847,
+          "average_precision": 0.9688656746938482,
+          "fit_seconds": 0.028803954999602865,
+          "score_seconds": 0.0023581609993925667,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.983494872875404,
+          "average_precision": 0.9866149596339504,
+          "fit_seconds": 0.02810208299979422,
+          "score_seconds": 0.0012990169998374768,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.7726506531816266,
+          "average_precision": 0.7273235554419967,
+          "fit_seconds": 2.7772266279998803,
+          "score_seconds": 0.0014985830002842704,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "landsat",
+      "family": "adbench_classical",
+      "n_samples": 6435,
+      "n_features": 36,
+      "anomaly_ratio": 0.20714840714840715,
+      "npz_sha256": "ba17e2158c07469597b89db49d3982c874c6b713ff6670721ddc88969da77987",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/19_landsat.npz",
+      "n_train": 2551,
+      "n_test": 3884,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.4795430531486262,
+          "average_precision": 0.32846872039528063,
+          "fit_seconds": 0.16597799499959365,
+          "score_seconds": 0.03474941900003614,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.5178057058364944,
+          "average_precision": 0.36441888634170205,
+          "fit_seconds": 23.517208053000104,
+          "score_seconds": 11.39310841599945,
+          "epochs_trained": 14,
+          "wall_seconds": 35.3
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6093540241195148,
+          "average_precision": 0.4306980580959263,
+          "fit_seconds": 0.22040594999998575,
+          "score_seconds": 0.03797894899980747,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.3712999006317632,
+          "average_precision": 0.28155600215752036,
+          "fit_seconds": 0.36309278499993525,
+          "score_seconds": 0.04852890900019702,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.4264717688634232,
+          "average_precision": 0.30032154532821387,
+          "fit_seconds": 0.3648784999995769,
+          "score_seconds": 0.046900539000489516,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7503189988010528,
+          "average_precision": 0.6946143657201733,
+          "fit_seconds": 0.08340333300020575,
+          "score_seconds": 0.08064022500002466,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.7585010717595118,
+          "average_precision": 0.5743817547567296,
+          "fit_seconds": 0.07190346399966074,
+          "score_seconds": 0.057947598000282596,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.7059873553256992,
+          "average_precision": 0.5316180992810541,
+          "fit_seconds": 2.731841052999698,
+          "score_seconds": 0.0077085679995434475,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "letter",
+      "family": "adbench_classical",
+      "n_samples": 1600,
+      "n_features": 32,
+      "anomaly_ratio": 0.0625,
+      "npz_sha256": "f986d3da80cf1fa2aea83a5ebe73b7d4800e0d4c01fdd1ae074b58d20f10d039",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/20_letter.npz",
+      "n_train": 750,
+      "n_test": 850,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8192133333333332,
+          "average_precision": 0.3691879916276587,
+          "fit_seconds": 0.08734199799982889,
+          "score_seconds": 0.012064572999406664,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.47253333333333336,
+          "average_precision": 0.11327330529042062,
+          "fit_seconds": 9.978727660000004,
+          "score_seconds": 1.2810695039997881,
+          "epochs_trained": 20,
+          "wall_seconds": 11.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6315466666666667,
+          "average_precision": 0.1585477467338646,
+          "fit_seconds": 0.19639120099964202,
+          "score_seconds": 0.01786666200041509,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.5665866666666667,
+          "average_precision": 0.1403096424276561,
+          "fit_seconds": 0.3429134439993504,
+          "score_seconds": 0.01104646300063905,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.5539866666666667,
+          "average_precision": 0.1265347836181689,
+          "fit_seconds": 0.3525444950000747,
+          "score_seconds": 0.011156944000504154,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8516,
+          "average_precision": 0.45571101328197644,
+          "fit_seconds": 0.03679035200002545,
+          "score_seconds": 0.009064003000275989,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.8609333333333332,
+          "average_precision": 0.4113264691385831,
+          "fit_seconds": 0.03360353700009,
+          "score_seconds": 0.005015986000216799,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.6032266666666667,
+          "average_precision": 0.15058398303703632,
+          "fit_seconds": 2.9063829200003966,
+          "score_seconds": 0.002399513999989722,
+          "wall_seconds": 3.0
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "Lymphography",
+      "family": "adbench_classical",
+      "n_samples": 148,
+      "n_features": 18,
+      "anomaly_ratio": 0.04054054054054054,
+      "npz_sha256": "dad977b04f4ea65b78ccd0e9f76b45175bad605165b37e63f3cc177845e67037",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/21_Lymphography.npz",
+      "n_train": 71,
+      "n_test": 77,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9835680751173709,
+          "average_precision": 0.8486111111111112,
+          "fit_seconds": 0.04911566299961123,
+          "score_seconds": 0.006869681000353012,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9248826291079812,
+          "average_precision": 0.38475135975135977,
+          "fit_seconds": 2.6944765110001754,
+          "score_seconds": 0.10553092899954208,
+          "epochs_trained": 50,
+          "wall_seconds": 3.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9953051643192489,
+          "average_precision": 0.9484126984126984,
+          "fit_seconds": 0.17295529300008639,
+          "score_seconds": 0.010486596999726316,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9906103286384976,
+          "average_precision": 0.8972222222222223,
+          "fit_seconds": 0.3542719239994767,
+          "score_seconds": 0.0017595540002730559,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9929577464788734,
+          "average_precision": 0.915079365079365,
+          "fit_seconds": 0.35104444899934606,
+          "score_seconds": 0.0017842799998106784,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.931924882629108,
+          "average_precision": 0.37059884559884554,
+          "fit_seconds": 0.028653676000431005,
+          "score_seconds": 0.0013562269996327814,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9366197183098591,
+          "average_precision": 0.38495069745069743,
+          "fit_seconds": 0.02734037200025341,
+          "score_seconds": 0.000848486999529996,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.9953051643192489,
+          "average_precision": 0.9484126984126984,
+          "fit_seconds": 2.8097430689995235,
+          "score_seconds": 0.0007450430002791109,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "magic.gamma",
+      "family": "adbench_classical",
+      "n_samples": 19020,
+      "n_features": 10,
+      "anomaly_ratio": 0.3516298633017876,
+      "npz_sha256": "0be375984d7af9ea7a63b12206c240840d8b7daa3607021c5fb8756407dd86f1",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/22_magic.gamma.npz",
+      "n_train": 6166,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7916979313756403,
+          "average_precision": 0.8235476283024821,
+          "fit_seconds": 0.14850887700049498,
+          "score_seconds": 0.03591811000023881,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.7036854579790288,
+          "average_precision": 0.7616233440582771,
+          "fit_seconds": 66.76838537100048,
+          "score_seconds": 22.795033363000584,
+          "epochs_trained": 23,
+          "wall_seconds": 90.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7679305677403987,
+          "average_precision": 0.8012437039554801,
+          "fit_seconds": 0.2695312110008672,
+          "score_seconds": 0.06960351300040202,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.6415745903955776,
+          "average_precision": 0.681592376456394,
+          "fit_seconds": 0.3572168219998275,
+          "score_seconds": 0.03754403700077091,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.6831835966835711,
+          "average_precision": 0.7235013369591305,
+          "fit_seconds": 0.35242237799957365,
+          "score_seconds": 0.03489515899946127,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8315820554543099,
+          "average_precision": 0.862396559263314,
+          "fit_seconds": 0.29369970799962175,
+          "score_seconds": 0.4669644600007814,
+          "wall_seconds": 0.8
+        },
+        "knn": {
+          "roc_auc": 0.8359847489667619,
+          "average_precision": 0.8604740442141036,
+          "fit_seconds": 0.22110841399990022,
+          "score_seconds": 0.3177331279994178,
+          "wall_seconds": 0.6
+        },
+        "hbos": {
+          "roc_auc": 0.734313638583758,
+          "average_precision": 0.7663284334244636,
+          "fit_seconds": 2.70586646799984,
+          "score_seconds": 0.005059823999545188,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "mammography",
+      "family": "adbench_classical",
+      "n_samples": 11183,
+      "n_features": 6,
+      "anomaly_ratio": 0.023249575248144506,
+      "npz_sha256": "a0308ac9712d78321073b1c2dc98dc37665c0f35c1cc33019416fe8f8d7de7ea",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/23_mammography.npz",
+      "n_train": 5461,
+      "n_test": 5722,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8813012280652339,
+          "average_precision": 0.473332579770336,
+          "fit_seconds": 0.1071129590000055,
+          "score_seconds": 0.019299288999718556,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8834658338731938,
+          "average_precision": 0.3080671849045826,
+          "fit_seconds": 32.53644549100045,
+          "score_seconds": 9.976111599999967,
+          "epochs_trained": 11,
+          "wall_seconds": 42.9
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8769593414641017,
+          "average_precision": 0.3660256916864072,
+          "fit_seconds": 0.2691171310007121,
+          "score_seconds": 0.05043471900080476,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.9061889136129344,
+          "average_precision": 0.5589189010551898,
+          "fit_seconds": 0.35027293900020595,
+          "score_seconds": 0.01791802999923675,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9053495479255276,
+          "average_precision": 0.5525861736216464,
+          "fit_seconds": 0.3599877389997346,
+          "score_seconds": 0.01734052700066968,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8349301467481622,
+          "average_precision": 0.3252689604766827,
+          "fit_seconds": 0.11190683500080922,
+          "score_seconds": 0.09646956599954137,
+          "wall_seconds": 0.3
+        },
+        "knn": {
+          "roc_auc": 0.8733881643804748,
+          "average_precision": 0.4197621733202577,
+          "fit_seconds": 0.08348333899994032,
+          "score_seconds": 0.0713732969998091,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.8455869926485086,
+          "average_precision": 0.21923237431579548,
+          "fit_seconds": 2.7864016559997253,
+          "score_seconds": 0.0021424429996841354,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "ecod"
+    },
+    {
+      "name": "mnist",
+      "family": "adbench_classical",
+      "n_samples": 7603,
+      "n_features": 100,
+      "anomaly_ratio": 0.09206892016309351,
+      "npz_sha256": "be7706272325fdd3592c1be555ae1a82f916a2f8545f4f8cbaa548ab102cc44c",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/24_mnist.npz",
+      "n_train": 3451,
+      "n_test": 4152,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9295505710975004,
+          "average_precision": 0.7467098572159239,
+          "fit_seconds": 0.5454879290000463,
+          "score_seconds": 0.12895957799992175,
+          "wall_seconds": 0.7
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8948102549246814,
+          "average_precision": 0.65469989861429,
+          "fit_seconds": 95.50480604699987,
+          "score_seconds": 24.644817356999738,
+          "epochs_trained": 19,
+          "wall_seconds": 120.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8703645919549743,
+          "average_precision": 0.5455464762221754,
+          "fit_seconds": 0.25596135899922956,
+          "score_seconds": 0.0477704149998317,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.7477892732991227,
+          "average_precision": 0.30296620808151487,
+          "fit_seconds": 0.4239962009996816,
+          "score_seconds": 0.17533123399971373,
+          "wall_seconds": 0.7
+        },
+        "copod": {
+          "roc_auc": 0.7767550902168516,
+          "average_precision": 0.3552999297775178,
+          "fit_seconds": 0.41329647099973954,
+          "score_seconds": 0.17969003400048678,
+          "wall_seconds": 0.7
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9277607184241019,
+          "average_precision": 0.7342340296185895,
+          "fit_seconds": 0.1541520370001308,
+          "score_seconds": 0.14440510400072526,
+          "wall_seconds": 0.3
+        },
+        "knn": {
+          "roc_auc": 0.9442521933454726,
+          "average_precision": 0.7792068906263864,
+          "fit_seconds": 0.1434462370007168,
+          "score_seconds": 0.12291884600017511,
+          "wall_seconds": 0.3
+        },
+        "hbos": {
+          "roc_auc": 0.6135730839265022,
+          "average_precision": 0.21491609227528824,
+          "fit_seconds": 2.7263006929997573,
+          "score_seconds": 0.017051195999556512,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "musk",
+      "family": "adbench_classical",
+      "n_samples": 3062,
+      "n_features": 166,
+      "anomaly_ratio": 0.03167864141084259,
+      "npz_sha256": "2ed3f4392197b76a1e59116ff880c7720a4b026cf4842073a53b56fdea265017",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/25_musk.npz",
+      "n_train": 1482,
+      "n_test": 1580,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 1.0,
+          "average_precision": 1.0,
+          "fit_seconds": 0.5755161619999853,
+          "score_seconds": 0.11348717399960151,
+          "wall_seconds": 0.7
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9331461025644591,
+          "average_precision": 0.353742001715433,
+          "fit_seconds": 48.025496227000076,
+          "score_seconds": 11.778030708000188,
+          "epochs_trained": 16,
+          "wall_seconds": 60.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9535978199664931,
+          "average_precision": 0.5247374218012153,
+          "fit_seconds": 0.22279219200027,
+          "score_seconds": 0.02885299700028554,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9550924220200068,
+          "average_precision": 0.628540822016699,
+          "fit_seconds": 0.3875362140006473,
+          "score_seconds": 0.11174562800079002,
+          "wall_seconds": 0.6
+        },
+        "copod": {
+          "roc_auc": 0.9447414338447421,
+          "average_precision": 0.5049246410402791,
+          "fit_seconds": 0.38086277000002156,
+          "score_seconds": 0.11048367000057624,
+          "wall_seconds": 0.6
+        },
+        "local_outlier_factor": {
+          "roc_auc": 1.0,
+          "average_precision": 1.0,
+          "fit_seconds": 0.0629757589995279,
+          "score_seconds": 0.03676629999972647,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 1.0,
+          "average_precision": 1.0,
+          "fit_seconds": 0.06493960500029061,
+          "score_seconds": 0.028532534000078158,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 1.0,
+          "average_precision": 1.0,
+          "fit_seconds": 2.802954225000576,
+          "score_seconds": 0.015177522000158206,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "optdigits",
+      "family": "adbench_classical",
+      "n_samples": 5216,
+      "n_features": 64,
+      "anomaly_ratio": 0.028757668711656442,
+      "npz_sha256": "60de17a375a278ba220a7849727d998aa02b5e2f9fd17732a004bba28de4656e",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/26_optdigits.npz",
+      "n_train": 2533,
+      "n_test": 2683,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8000052638505066,
+          "average_precision": 0.12455467914662789,
+          "fit_seconds": 0.29424778100019466,
+          "score_seconds": 0.04665534400010074,
+          "wall_seconds": 0.4
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.4164561126464008,
+          "average_precision": 0.043538992884426385,
+          "fit_seconds": 30.253451368000242,
+          "score_seconds": 9.409973879000063,
+          "epochs_trained": 18,
+          "wall_seconds": 40.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8171022502960916,
+          "average_precision": 0.14230231859736103,
+          "fit_seconds": 0.2289176429994768,
+          "score_seconds": 0.033555746999809344,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.6059955257270694,
+          "average_precision": 0.06522681228085364,
+          "fit_seconds": 0.36259927500032063,
+          "score_seconds": 0.06486559100085287,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.6859007764179498,
+          "average_precision": 0.0815250982706326,
+          "fit_seconds": 0.3693712690001121,
+          "score_seconds": 0.0644498849997035,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9728622187129885,
+          "average_precision": 0.4770165258964158,
+          "fit_seconds": 0.08989864399973158,
+          "score_seconds": 0.06281228999978339,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9454270298723516,
+          "average_precision": 0.32067321698074736,
+          "fit_seconds": 0.08175789300003089,
+          "score_seconds": 0.04878653500054497,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.8977154888801159,
+          "average_precision": 0.3658850560957624,
+          "fit_seconds": 2.73081356900002,
+          "score_seconds": 0.008308091999424505,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "PageBlocks",
+      "family": "adbench_classical",
+      "n_samples": 5393,
+      "n_features": 10,
+      "anomaly_ratio": 0.09456703133691823,
+      "npz_sha256": "10a9b4d5bb5d3b9083caab4c4062f665610eada703c3d927bf7c34b1f2d0d223",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/27_PageBlocks.npz",
+      "n_train": 2441,
+      "n_test": 2952,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9527725586549116,
+          "average_precision": 0.7611260083564305,
+          "fit_seconds": 0.08423308900000848,
+          "score_seconds": 0.014728541999829758,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9536164506752742,
+          "average_precision": 0.8180453436182044,
+          "fit_seconds": 20.02891186299985,
+          "score_seconds": 4.783032059999641,
+          "epochs_trained": 18,
+          "wall_seconds": 25.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9319635143164555,
+          "average_precision": 0.7050533078227258,
+          "fit_seconds": 0.21017559800020535,
+          "score_seconds": 0.02708625299965206,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9106229223876282,
+          "average_precision": 0.6512804787769968,
+          "fit_seconds": 0.34065226599977905,
+          "score_seconds": 0.012649059999603196,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.8744511891570717,
+          "average_precision": 0.5206938684840199,
+          "fit_seconds": 0.33657254400077363,
+          "score_seconds": 0.012588303000484302,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9693573252396782,
+          "average_precision": 0.8769435012992682,
+          "fit_seconds": 0.06678236500010826,
+          "score_seconds": 0.06272242799968808,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.964331711390535,
+          "average_precision": 0.8582471928901049,
+          "fit_seconds": 0.044387598000867,
+          "score_seconds": 0.03964156699930754,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.7598035200976377,
+          "average_precision": 0.340047651646675,
+          "fit_seconds": 2.7554421849999926,
+          "score_seconds": 0.0019018319999304367,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "pendigits",
+      "family": "adbench_classical",
+      "n_samples": 6870,
+      "n_features": 16,
+      "anomaly_ratio": 0.022707423580786028,
+      "npz_sha256": "c4936b89dcdad59d303020e492f763a0f54170080d787c77497609acbb9c2d79",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/28_pendigits.npz",
+      "n_train": 3357,
+      "n_test": 3513,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8741263949038749,
+          "average_precision": 0.18580748125322177,
+          "fit_seconds": 0.11828888999934861,
+          "score_seconds": 0.018809633000273607,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9093570266492519,
+          "average_precision": 0.22810916235884238,
+          "fit_seconds": 61.91887402199973,
+          "score_seconds": 7.191998610000155,
+          "epochs_trained": 29,
+          "wall_seconds": 69.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9678245991918915,
+          "average_precision": 0.4963563288751437,
+          "fit_seconds": 0.24858406800012744,
+          "score_seconds": 0.03648203199918498,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9287749287749287,
+          "average_precision": 0.38029767602787257,
+          "fit_seconds": 0.36724034100006975,
+          "score_seconds": 0.02368931999990309,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.9060802914690314,
+          "average_precision": 0.2861982903140003,
+          "fit_seconds": 0.39597703800063755,
+          "score_seconds": 0.023317468000641384,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9923962940048731,
+          "average_precision": 0.803225853276226,
+          "fit_seconds": 0.10565433299962024,
+          "score_seconds": 0.07833446099994035,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9985296701114396,
+          "average_precision": 0.9702704737335033,
+          "fit_seconds": 0.08810833999996248,
+          "score_seconds": 0.05906424400018295,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.9371997280844466,
+          "average_precision": 0.403988387978288,
+          "fit_seconds": 2.7991144540001187,
+          "score_seconds": 0.003555452000000514,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "Pima",
+      "family": "adbench_classical",
+      "n_samples": 768,
+      "n_features": 8,
+      "anomaly_ratio": 0.3489583333333333,
+      "npz_sha256": "215454bb263a2f040945c9ea7bd7f06f1e89a61a3143bdb6f196e3887e801a7d",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/29_Pima.npz",
+      "n_train": 250,
+      "n_test": 518,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7047014925373135,
+          "average_precision": 0.6963489412553951,
+          "fit_seconds": 0.057210386999940965,
+          "score_seconds": 0.00824178299990308,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.6556268656716419,
+          "average_precision": 0.663120756787068,
+          "fit_seconds": 7.235494190999816,
+          "score_seconds": 0.7644511110001986,
+          "epochs_trained": 50,
+          "wall_seconds": 8.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6963134328358209,
+          "average_precision": 0.6877182818236478,
+          "fit_seconds": 0.18105982700035383,
+          "score_seconds": 0.014702559999932419,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.5575373134328359,
+          "average_precision": 0.5963866826041726,
+          "fit_seconds": 0.3444432410005902,
+          "score_seconds": 0.0025886900002660695,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.6271641791044776,
+          "average_precision": 0.6619244238593461,
+          "fit_seconds": 0.3691300279997449,
+          "score_seconds": 0.002612403999592061,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6993134328358208,
+          "average_precision": 0.679169932103807,
+          "fit_seconds": 0.012205146000269451,
+          "score_seconds": 0.004965330000231916,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.7276417910447761,
+          "average_precision": 0.7097082002900298,
+          "fit_seconds": 0.011065582999435719,
+          "score_seconds": 0.0030925860000934335,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.7333059701492537,
+          "average_precision": 0.7438724447889954,
+          "fit_seconds": 2.8118802540002434,
+          "score_seconds": 0.0012818080003853538,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "hbos"
+    },
+    {
+      "name": "satellite",
+      "family": "adbench_classical",
+      "n_samples": 6435,
+      "n_features": 36,
+      "anomaly_ratio": 0.3163947163947164,
+      "npz_sha256": "1f048f5686f1b8c16a227fdfa3c81a62cd9a92715714a6b24c69b1c5ad96b46e",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/30_satellite.npz",
+      "n_train": 2199,
+      "n_test": 4236,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7742190569744597,
+          "average_precision": 0.8421873324925666,
+          "fit_seconds": 0.14998543900037475,
+          "score_seconds": 0.03661780499987799,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.7207143016610109,
+          "average_precision": 0.7994112614241115,
+          "fit_seconds": 51.21051315600016,
+          "score_seconds": 12.336429701999805,
+          "epochs_trained": 36,
+          "wall_seconds": 63.9
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7991502946954814,
+          "average_precision": 0.8444029413300611,
+          "fit_seconds": 0.21665448299972923,
+          "score_seconds": 0.04041044899986446,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.581791614574031,
+          "average_precision": 0.6593887324560836,
+          "fit_seconds": 0.37539046900019457,
+          "score_seconds": 0.05105137700047635,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.6320747008394356,
+          "average_precision": 0.6960133973280039,
+          "fit_seconds": 0.3740107570001783,
+          "score_seconds": 0.05257255600008648,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8416297553134489,
+          "average_precision": 0.8776987003080534,
+          "fit_seconds": 0.07073180200040952,
+          "score_seconds": 0.07981013300013728,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.8771941418110377,
+          "average_precision": 0.8932815178354878,
+          "fit_seconds": 0.06083931099965412,
+          "score_seconds": 0.0549813150000773,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.8635149133773888,
+          "average_precision": 0.8810486588841827,
+          "fit_seconds": 2.74012305999986,
+          "score_seconds": 0.008798902000307862,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "satimage-2",
+      "family": "adbench_classical",
+      "n_samples": 5803,
+      "n_features": 36,
+      "anomaly_ratio": 0.0122350508357746,
+      "npz_sha256": "1b056e357f801b8b20c3f380a30224a3c4088d7ed764ec5a24828dc9b1918d6f",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/31_satimage-2.npz",
+      "n_train": 2866,
+      "n_test": 2937,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9984519819545324,
+          "average_precision": 0.9624238412911306,
+          "fit_seconds": 0.206736754999838,
+          "score_seconds": 0.026913420999335358,
+          "wall_seconds": 0.3
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9901860570260361,
+          "average_precision": 0.6398660675788629,
+          "fit_seconds": 48.33005145399966,
+          "score_seconds": 7.2396144690001165,
+          "epochs_trained": 21,
+          "wall_seconds": 55.9
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9913556706603894,
+          "average_precision": 0.9338659212196375,
+          "fit_seconds": 0.22581020899997384,
+          "score_seconds": 0.03163532400049007,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9651327364044701,
+          "average_precision": 0.7576166407352993,
+          "fit_seconds": 0.360248154999681,
+          "score_seconds": 0.039327919999777805,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.9744994741652988,
+          "average_precision": 0.8336656648967667,
+          "fit_seconds": 0.3486345720002646,
+          "score_seconds": 0.03838280299987673,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9960734399418141,
+          "average_precision": 0.9189077127583538,
+          "fit_seconds": 0.09331954399931419,
+          "score_seconds": 0.06539627999973163,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9987026134476081,
+          "average_precision": 0.9782627649235491,
+          "fit_seconds": 0.08046213499983423,
+          "score_seconds": 0.049176237000210676,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.9785488927985218,
+          "average_precision": 0.8341728605940647,
+          "fit_seconds": 2.680176924999614,
+          "score_seconds": 0.005797808000352234,
+          "wall_seconds": 2.7
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "shuttle",
+      "family": "adbench_classical",
+      "n_samples": 49097,
+      "n_features": 9,
+      "anomaly_ratio": 0.0715114976475141,
+      "npz_sha256": "26900b0f6be45d9ddb7a402c9b2f956ceda42d23a8ca4cf4406b8bc1352823d1",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/32_shuttle.npz",
+      "n_train": 9284,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9944089986166754,
+          "average_precision": 0.9838034567202116,
+          "fit_seconds": 0.16848481600027299,
+          "score_seconds": 0.03027723499963031,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9939422671814698,
+          "average_precision": 0.9527488607932154,
+          "fit_seconds": 129.3219297959995,
+          "score_seconds": 22.53053108200038,
+          "epochs_trained": 28,
+          "wall_seconds": 152.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9959989134111538,
+          "average_precision": 0.986072725659604,
+          "fit_seconds": 0.3053654799996366,
+          "score_seconds": 0.0708614610002769,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.993580042062062,
+          "average_precision": 0.9555303239800337,
+          "fit_seconds": 0.3580379790000734,
+          "score_seconds": 0.03910270899996249,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.9945580585356484,
+          "average_precision": 0.9817658430635718,
+          "fit_seconds": 0.3569216830001096,
+          "score_seconds": 0.03908935399977054,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9987210953092409,
+          "average_precision": 0.9700461774443883,
+          "fit_seconds": 0.7399047429998973,
+          "score_seconds": 0.7903658240002187,
+          "wall_seconds": 1.6
+        },
+        "knn": {
+          "roc_auc": 0.9984028182100526,
+          "average_precision": 0.9585249421317558,
+          "fit_seconds": 0.4950080700000399,
+          "score_seconds": 0.5311958100000993,
+          "wall_seconds": 1.1
+        },
+        "hbos": {
+          "roc_auc": 0.986820395341856,
+          "average_precision": 0.9746332945908239,
+          "fit_seconds": 2.6909263240004293,
+          "score_seconds": 0.004195085999526782,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "skin",
+      "family": "adbench_classical",
+      "n_samples": 245057,
+      "n_features": 3,
+      "anomaly_ratio": 0.20753947040892526,
+      "npz_sha256": "d02aa01ffc1b6bf2b8b1ac250c90e8a8eacd0cefc962940ed5cc4bf5deac9c95",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/33_skin.npz",
+      "n_train": 7924,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8715930418827672,
+          "average_precision": 0.6213850613182245,
+          "fit_seconds": 0.09715812200010987,
+          "score_seconds": 0.02720221599975048,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.8259360293542467,
+          "average_precision": 0.5471091504667737,
+          "fit_seconds": 72.63601907599968,
+          "score_seconds": 18.547409714000423,
+          "epochs_trained": 20,
+          "wall_seconds": 91.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8857483578611317,
+          "average_precision": 0.6304054297685404,
+          "fit_seconds": 0.2851244079993194,
+          "score_seconds": 0.06628743800047232,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.49257248230945805,
+          "average_precision": 0.30487715574509455,
+          "fit_seconds": 0.3494180289999349,
+          "score_seconds": 0.014905727000041225,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.48071055554146375,
+          "average_precision": 0.2996546121120264,
+          "fit_seconds": 0.34630241300055786,
+          "score_seconds": 0.015246490000208723,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8539042293933767,
+          "average_precision": 0.6016908506886326,
+          "fit_seconds": 0.060496437000438164,
+          "score_seconds": 0.061827808000089135,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9912528201188553,
+          "average_precision": 0.9603042211497427,
+          "fit_seconds": 0.03455716400003439,
+          "score_seconds": 0.03528679299961368,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.7666603415946844,
+          "average_precision": 0.511690549664281,
+          "fit_seconds": 2.6847688849993574,
+          "score_seconds": 0.002266915000291192,
+          "wall_seconds": 2.7
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "smtp",
+      "family": "adbench_classical",
+      "n_samples": 95156,
+      "n_features": 3,
+      "anomaly_ratio": 0.0003152717642607928,
+      "npz_sha256": "d2569fc9bc12115419e3f5b37d19921e10e6c26e5ad1e61064cfb0fbc402dfdd",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/34_smtp.npz",
+      "n_train": 9996,
+      "n_test": 9999,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9001400840504302,
+          "average_precision": 0.565914887519702,
+          "fit_seconds": 0.11295158499979152,
+          "score_seconds": 0.025437818000682455,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9227136281769062,
+          "average_precision": 0.007604264548056041,
+          "fit_seconds": 151.71561711100003,
+          "score_seconds": 18.458838426999137,
+          "epochs_trained": 36,
+          "wall_seconds": 170.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9158294976986192,
+          "average_precision": 0.008546428455870824,
+          "fit_seconds": 0.314884407000136,
+          "score_seconds": 0.06405384599929675,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.9151691014608766,
+          "average_precision": 0.8002356267672008,
+          "fit_seconds": 0.35937032500078203,
+          "score_seconds": 0.0166659480000817,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9231739043426056,
+          "average_precision": 0.008490949327929638,
+          "fit_seconds": 0.3496831989996281,
+          "score_seconds": 0.015926713998851483,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8737842705623375,
+          "average_precision": 0.0992481073603338,
+          "fit_seconds": 0.11047109699939028,
+          "score_seconds": 0.08637484399878304,
+          "wall_seconds": 0.2
+        },
+        "knn": {
+          "roc_auc": 0.9422653592155293,
+          "average_precision": 0.5436798336798336,
+          "fit_seconds": 0.06470812299994577,
+          "score_seconds": 0.04737956300050428,
+          "wall_seconds": 0.2
+        },
+        "hbos": {
+          "roc_auc": 0.8837602561536921,
+          "average_precision": 0.008373343226924748,
+          "fit_seconds": 2.724725236001177,
+          "score_seconds": 0.002048918000582489,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "SpamBase",
+      "family": "adbench_classical",
+      "n_samples": 4207,
+      "n_features": 57,
+      "anomaly_ratio": 0.39909674352270025,
+      "npz_sha256": "d0c46c7928e43f6496bcd06e09de0b70f6bc8143792dfa0a43f450263d254e9b",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/35_SpamBase.npz",
+      "n_train": 1264,
+      "n_test": 2943,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8020111617071644,
+          "average_precision": 0.8558670332766096,
+          "fit_seconds": 0.14882493100049032,
+          "score_seconds": 0.045219615998576046,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.7959756033202403,
+          "average_precision": 0.8124189932643467,
+          "fit_seconds": 17.89226962599969,
+          "score_seconds": 9.63720092299991,
+          "epochs_trained": 14,
+          "wall_seconds": 27.9
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8207584287663694,
+          "average_precision": 0.8534206908282311,
+          "fit_seconds": 0.18983689400010917,
+          "score_seconds": 0.025669861999631394,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.665021090763791,
+          "average_precision": 0.6902722871740021,
+          "fit_seconds": 0.3479167259993119,
+          "score_seconds": 0.046130446000461234,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.6966529956800688,
+          "average_precision": 0.7120251563428461,
+          "fit_seconds": 0.3772462029992312,
+          "score_seconds": 0.046975171000667615,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8094226144254039,
+          "average_precision": 0.8376912166572608,
+          "fit_seconds": 0.04759658600050898,
+          "score_seconds": 0.04206861499915249,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.8388512036248219,
+          "average_precision": 0.8726820701134822,
+          "fit_seconds": 0.04299935800008825,
+          "score_seconds": 0.027736981999623822,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.7603107259444666,
+          "average_precision": 0.7748621431202249,
+          "fit_seconds": 2.7616450550012814,
+          "score_seconds": 0.007175759999881848,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "speech",
+      "family": "adbench_classical",
+      "n_samples": 3686,
+      "n_features": 400,
+      "anomaly_ratio": 0.016549104720564298,
+      "npz_sha256": "aa647e9e3af9b021fc991bdf091e02ec8724fa8e9d3e8edf5394a8e6fe840190",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/36_speech.npz",
+      "n_train": 1812,
+      "n_test": 1874,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.5069398605698372,
+          "average_precision": 0.050422704293696545,
+          "fit_seconds": 2.510027114998593,
+          "score_seconds": 0.6421944789999543,
+          "wall_seconds": 3.2
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.4486269474559873,
+          "average_precision": 0.05086319612306137,
+          "fit_seconds": 0.2533833500001492,
+          "score_seconds": 0.04019522599992342,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.46000198927599395,
+          "average_precision": 0.040734296551395655,
+          "fit_seconds": 0.5637158580011601,
+          "score_seconds": 0.4310460910000984,
+          "wall_seconds": 1.1
+        },
+        "copod": {
+          "roc_auc": 0.48054578499543366,
+          "average_precision": 0.037456172416926045,
+          "fit_seconds": 0.532287740999891,
+          "score_seconds": 0.40849308600081713,
+          "wall_seconds": 1.0
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.4885571419529265,
+          "average_precision": 0.05289572479804845,
+          "fit_seconds": 0.1322370560010313,
+          "score_seconds": 0.10085657499985246,
+          "wall_seconds": 0.3
+        },
+        "knn": {
+          "roc_auc": 0.47122331431464926,
+          "average_precision": 0.03757883714717778,
+          "fit_seconds": 0.14834714199969312,
+          "score_seconds": 0.08708522499910032,
+          "wall_seconds": 0.3
+        },
+        "hbos": {
+          "roc_auc": 0.4601918747117811,
+          "average_precision": 0.040148683909416866,
+          "fit_seconds": 3.1350297649987624,
+          "score_seconds": 0.058004855000035604,
+          "wall_seconds": 3.3
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "Stamps",
+      "family": "adbench_classical",
+      "n_samples": 340,
+      "n_features": 9,
+      "anomaly_ratio": 0.09117647058823529,
+      "npz_sha256": "99fe739447284f613fa54bf2dccdb51c5120175ce6260adec6dad77576c42509",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/37_Stamps.npz",
+      "n_train": 154,
+      "n_test": 186,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9267429760665973,
+          "average_precision": 0.5853096757992913,
+          "fit_seconds": 0.07581996099906974,
+          "score_seconds": 0.009390191999045783,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9425598335067638,
+          "average_precision": 0.6611702005135458,
+          "fit_seconds": 3.3197549269989395,
+          "score_seconds": 0.3323200180002459,
+          "epochs_trained": 25,
+          "wall_seconds": 4.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.948595213319459,
+          "average_precision": 0.6441950119376381,
+          "fit_seconds": 0.18611190899900976,
+          "score_seconds": 0.013034412999331835,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.8847034339229969,
+          "average_precision": 0.5356569509829668,
+          "fit_seconds": 0.38218116400094004,
+          "score_seconds": 0.0020428369989531348,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9533818938605619,
+          "average_precision": 0.6641595288199289,
+          "fit_seconds": 0.37499388799915323,
+          "score_seconds": 0.0018749200007732725,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.92528616024974,
+          "average_precision": 0.5869095384398328,
+          "fit_seconds": 0.0143203560000984,
+          "score_seconds": 0.0023710250006843125,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.936108220603538,
+          "average_precision": 0.6291308936750756,
+          "fit_seconds": 0.012773180000294815,
+          "score_seconds": 0.001454617999115726,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.9144640998959417,
+          "average_precision": 0.5105204869998212,
+          "fit_seconds": 2.860573455998747,
+          "score_seconds": 0.0007669930000702152,
+          "wall_seconds": 2.9
+        }
+      },
+      "best_method": "copod"
+    },
+    {
+      "name": "thyroid",
+      "family": "adbench_classical",
+      "n_samples": 3772,
+      "n_features": 6,
+      "anomaly_ratio": 0.024655355249204668,
+      "npz_sha256": "8de161b3f235b7647bb0b39a836d983ff61d67bf234edac461da2d71e889cb87",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/38_thyroid.npz",
+      "n_train": 1839,
+      "n_test": 1933,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9781907433380084,
+          "average_precision": 0.6958085889684321,
+          "fit_seconds": 0.07339458800015564,
+          "score_seconds": 0.01115570399997523,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9865532959326788,
+          "average_precision": 0.8347550126522304,
+          "fit_seconds": 13.27428457699898,
+          "score_seconds": 3.0656024049985717,
+          "epochs_trained": 14,
+          "wall_seconds": 16.8
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9882830762038336,
+          "average_precision": 0.774362195746567,
+          "fit_seconds": 0.20739840300120704,
+          "score_seconds": 0.022413284999856842,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9796750818139317,
+          "average_precision": 0.6495016361175522,
+          "fit_seconds": 0.3490549190009915,
+          "score_seconds": 0.006374479999067262,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9426601215521271,
+          "average_precision": 0.32098806306961863,
+          "fit_seconds": 0.35031716999947093,
+          "score_seconds": 0.006540886999573559,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9672335203366058,
+          "average_precision": 0.677982834837044,
+          "fit_seconds": 0.047388078999574645,
+          "score_seconds": 0.033153194999613333,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9864071996259935,
+          "average_precision": 0.7977904018060641,
+          "fit_seconds": 0.032568501999776345,
+          "score_seconds": 0.020136866998655023,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.9845137914913511,
+          "average_precision": 0.8026928358633156,
+          "fit_seconds": 2.751937717999681,
+          "score_seconds": 0.0014302079998742556,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "vertebral",
+      "family": "adbench_classical",
+      "n_samples": 240,
+      "n_features": 6,
+      "anomaly_ratio": 0.125,
+      "npz_sha256": "0816286f92b96fe6867664a41a031ac7228dcfbf1a5feefe50ca3883b2e9073d",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/39_vertebral.npz",
+      "n_train": 105,
+      "n_test": 135,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.5253968253968253,
+          "average_precision": 0.2538254377981838,
+          "fit_seconds": 0.049493631999212084,
+          "score_seconds": 0.007511763998991228,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.5644444444444444,
+          "average_precision": 0.2951736833834515,
+          "fit_seconds": 3.8380382249997638,
+          "score_seconds": 0.20229790799930925,
+          "epochs_trained": 50,
+          "wall_seconds": 4.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.4784126984126984,
+          "average_precision": 0.2113382627898076,
+          "fit_seconds": 0.17878126999858068,
+          "score_seconds": 0.011863760000778711,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.4492063492063492,
+          "average_precision": 0.20890648686737553,
+          "fit_seconds": 0.3419313369995507,
+          "score_seconds": 0.0015896229997451883,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.3831746031746031,
+          "average_precision": 0.17564421105449368,
+          "fit_seconds": 0.3377309419993253,
+          "score_seconds": 0.0015779570003360277,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.419047619047619,
+          "average_precision": 0.2081324583983109,
+          "fit_seconds": 0.012699626000539865,
+          "score_seconds": 0.001853908001066884,
+          "wall_seconds": 0.0
+        },
+        "knn": {
+          "roc_auc": 0.5117460317460316,
+          "average_precision": 0.2259973995194974,
+          "fit_seconds": 0.012812130999009241,
+          "score_seconds": 0.0011921980003535282,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.4590476190476191,
+          "average_precision": 0.20442032342924132,
+          "fit_seconds": 2.7130433170004835,
+          "score_seconds": 0.0010523349992581643,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "mercury_fusion"
+    },
+    {
+      "name": "vowels",
+      "family": "adbench_classical",
+      "n_samples": 1456,
+      "n_features": 12,
+      "anomaly_ratio": 0.034340659340659344,
+      "npz_sha256": "4bfc4244d1c882773bbbc50d4a5db5e52276e53506e46b2d45e02d074cfcb1b6",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/40_vowels.npz",
+      "n_train": 703,
+      "n_test": 753,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9426173541963014,
+          "average_precision": 0.7474258095128944,
+          "fit_seconds": 0.07151167899974098,
+          "score_seconds": 0.009584367000570637,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.7516073968705548,
+          "average_precision": 0.17174112857691193,
+          "fit_seconds": 8.726352892999785,
+          "score_seconds": 1.105570400999568,
+          "epochs_trained": 19,
+          "wall_seconds": 10.2
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7810241820768136,
+          "average_precision": 0.19497151726415624,
+          "fit_seconds": 0.1955309759996453,
+          "score_seconds": 0.016611455001111608,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.5978093883357041,
+          "average_precision": 0.14147306567895623,
+          "fit_seconds": 0.34304220199919655,
+          "score_seconds": 0.004820897000172408,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.495846372688478,
+          "average_precision": 0.06529570645583396,
+          "fit_seconds": 0.34182496100038406,
+          "score_seconds": 0.004853705999266822,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9624182076813655,
+          "average_precision": 0.7128143358647381,
+          "fit_seconds": 0.024806216000797576,
+          "score_seconds": 0.013011552999159903,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9758748221906116,
+          "average_precision": 0.7702295617427779,
+          "fit_seconds": 0.020112824999159784,
+          "score_seconds": 0.00941186700038088,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.6970981507823613,
+          "average_precision": 0.1538009126920844,
+          "fit_seconds": 2.761149835001561,
+          "score_seconds": 0.0014802559999225195,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "Waveform",
+      "family": "adbench_classical",
+      "n_samples": 3443,
+      "n_features": 21,
+      "anomaly_ratio": 0.02904443799012489,
+      "npz_sha256": "6c9d867337ad1a2f8372c1d27f4c032f0401237e2041b7c45f00de8d319ff30f",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/41_Waveform.npz",
+      "n_train": 1671,
+      "n_test": 1772,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6002691387559809,
+          "average_precision": 0.09593828548088552,
+          "fit_seconds": 0.1017302269992797,
+          "score_seconds": 0.014710364999700687,
+          "wall_seconds": 0.2
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.6090430622009568,
+          "average_precision": 0.08427873791332921,
+          "fit_seconds": 25.15338169899951,
+          "score_seconds": 3.5222920539999905,
+          "epochs_trained": 21,
+          "wall_seconds": 29.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7042105263157895,
+          "average_precision": 0.10714460224865265,
+          "fit_seconds": 0.22685564699895622,
+          "score_seconds": 0.026020670999059803,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.6054186602870814,
+          "average_precision": 0.07767255805428286,
+          "fit_seconds": 0.37735935599994264,
+          "score_seconds": 0.016577779000726878,
+          "wall_seconds": 0.5
+        },
+        "copod": {
+          "roc_auc": 0.733157894736842,
+          "average_precision": 0.1062518577085983,
+          "fit_seconds": 0.3817633079997904,
+          "score_seconds": 0.017071323998607113,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7714294258373205,
+          "average_precision": 0.34227585135102934,
+          "fit_seconds": 0.05846024099992064,
+          "score_seconds": 0.029299239999090787,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.7645992822966508,
+          "average_precision": 0.316205567454681,
+          "fit_seconds": 0.05085192099977576,
+          "score_seconds": 0.018322362999242614,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.709700956937799,
+          "average_precision": 0.09606143417170768,
+          "fit_seconds": 3.008089418999589,
+          "score_seconds": 0.0026677679998101667,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "WBC",
+      "family": "adbench_classical",
+      "n_samples": 223,
+      "n_features": 9,
+      "anomaly_ratio": 0.04484304932735426,
+      "npz_sha256": "650f9dcb129248f67a291be0974f533ef259fcbde50fce5c8ad2a1cb2652d03b",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/42_WBC.npz",
+      "n_train": 106,
+      "n_test": 117,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9906542056074766,
+          "average_precision": 0.9426315789473685,
+          "fit_seconds": 0.05032163699979719,
+          "score_seconds": 0.0068874120006512385,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9093457943925233,
+          "average_precision": 0.3368056689612417,
+          "fit_seconds": 1.7939624919999915,
+          "score_seconds": 0.2044160630011902,
+          "epochs_trained": 13,
+          "wall_seconds": 2.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9943925233644859,
+          "average_precision": 0.9503174603174603,
+          "fit_seconds": 0.17293681299997843,
+          "score_seconds": 0.011496840001200326,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9934579439252336,
+          "average_precision": 0.9290262515262515,
+          "fit_seconds": 0.344538752000517,
+          "score_seconds": 0.0017038500009221025,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9934579439252337,
+          "average_precision": 0.9290262515262515,
+          "fit_seconds": 0.3495563600008609,
+          "score_seconds": 0.0017750330007402226,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9813084112149533,
+          "average_precision": 0.8411111111111111,
+          "fit_seconds": 0.010297912998794345,
+          "score_seconds": 0.0021496230001503136,
+          "wall_seconds": 0.0
+        },
+        "knn": {
+          "roc_auc": 0.9934579439252336,
+          "average_precision": 0.9525000000000001,
+          "fit_seconds": 0.00948040199909883,
+          "score_seconds": 0.0011859289988933597,
+          "wall_seconds": 0.0
+        },
+        "hbos": {
+          "roc_auc": 0.985981308411215,
+          "average_precision": 0.8303102453102453,
+          "fit_seconds": 2.726786434001042,
+          "score_seconds": 0.000636463999398984,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "WDBC",
+      "family": "adbench_classical",
+      "n_samples": 367,
+      "n_features": 30,
+      "anomaly_ratio": 0.027247956403269755,
+      "npz_sha256": "78d4606a1ab516f5b60b00c196497f3bbd6bd5e4548fd04cf5f2475209b34b85",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/43_WDBC.npz",
+      "n_train": 178,
+      "n_test": 189,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9983240223463687,
+          "average_precision": 0.9733333333333334,
+          "fit_seconds": 0.06783761599945137,
+          "score_seconds": 0.007480410999050946,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9720670391061452,
+          "average_precision": 0.4835185566067919,
+          "fit_seconds": 2.8807293889985885,
+          "score_seconds": 0.2926687660001335,
+          "epochs_trained": 17,
+          "wall_seconds": 3.5
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9994413407821229,
+          "average_precision": 0.9909090909090909,
+          "fit_seconds": 0.182614700999693,
+          "score_seconds": 0.012346601999524864,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9787709497206704,
+          "average_precision": 0.72949016563147,
+          "fit_seconds": 0.3362671409995528,
+          "score_seconds": 0.0030557660011254484,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9972067039106145,
+          "average_precision": 0.9614285714285715,
+          "fit_seconds": 0.3346679989990662,
+          "score_seconds": 0.0031403979992319364,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9983240223463687,
+          "average_precision": 0.976923076923077,
+          "fit_seconds": 0.02928473599968129,
+          "score_seconds": 0.0021064749998913612,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9960893854748604,
+          "average_precision": 0.9464285714285714,
+          "fit_seconds": 0.027559610000025714,
+          "score_seconds": 0.00121653699898161,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.9899441340782122,
+          "average_precision": 0.8553711484593837,
+          "fit_seconds": 2.6980853589993785,
+          "score_seconds": 0.0007967619985720376,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "isolation_forest"
+    },
+    {
+      "name": "Wilt",
+      "family": "adbench_classical",
+      "n_samples": 4819,
+      "n_features": 5,
+      "anomaly_ratio": 0.05333056650757419,
+      "npz_sha256": "c70b72aa611ec87b20efb400943ef3ce4f8bf7aa58fcef825fbd28cc5cee3cc9",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/44_Wilt.npz",
+      "n_train": 2281,
+      "n_test": 2538,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6993041825808533,
+          "average_precision": 0.1516417088100678,
+          "fit_seconds": 0.07159373399917968,
+          "score_seconds": 0.013530833000913844,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.36080922252340003,
+          "average_precision": 0.07299772966309259,
+          "fit_seconds": 14.421620138000435,
+          "score_seconds": 4.17828818199996,
+          "epochs_trained": 12,
+          "wall_seconds": 19.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.4708392967109449,
+          "average_precision": 0.08647114335240727,
+          "fit_seconds": 0.2114906120004889,
+          "score_seconds": 0.02589008900031331,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.39251164671103017,
+          "average_precision": 0.07988971101104331,
+          "fit_seconds": 0.3580475329999899,
+          "score_seconds": 0.0067018909994658316,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.3409727114703258,
+          "average_precision": 0.07055458701773189,
+          "fit_seconds": 0.3457200079992617,
+          "score_seconds": 0.00674274199991487,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6654549424530507,
+          "average_precision": 0.15019105263082688,
+          "fit_seconds": 0.037464757999259746,
+          "score_seconds": 0.029067835999740055,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.623661545127487,
+          "average_precision": 0.11926234040271491,
+          "fit_seconds": 0.024385902999711107,
+          "score_seconds": 0.01641677699990396,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.3566904405706419,
+          "average_precision": 0.07353329816415236,
+          "fit_seconds": 2.7668551880015,
+          "score_seconds": 0.0010371689986641286,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "wine",
+      "family": "adbench_classical",
+      "n_samples": 129,
+      "n_features": 13,
+      "anomaly_ratio": 0.07751937984496124,
+      "npz_sha256": "d5ad8965d92cc57122fe1e6572bb301adbaf795b3e166d187ae00a704d8f6e20",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/45_wine.npz",
+      "n_train": 59,
+      "n_test": 70,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9500000000000001,
+          "average_precision": 0.7113797313797314,
+          "fit_seconds": 0.04337202799979423,
+          "score_seconds": 0.006434795001041493,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.15,
+          "average_precision": 0.09029341704865193,
+          "fit_seconds": 1.1626546469997265,
+          "score_seconds": 0.10511647299972537,
+          "epochs_trained": 11,
+          "wall_seconds": 1.6
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8466666666666667,
+          "average_precision": 0.42723229739853785,
+          "fit_seconds": 0.16527424400010204,
+          "score_seconds": 0.010936586000752868,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.7483333333333332,
+          "average_precision": 0.35678829253167865,
+          "fit_seconds": 0.33655279599952337,
+          "score_seconds": 0.0017156129997601965,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.88,
+          "average_precision": 0.5563821892393321,
+          "fit_seconds": 0.3360242750004545,
+          "score_seconds": 0.0015759369998704642,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9733333333333334,
+          "average_precision": 0.8367704517704517,
+          "fit_seconds": 0.010134554000615026,
+          "score_seconds": 0.0016978889998426894,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.975,
+          "average_precision": 0.8524450549450548,
+          "fit_seconds": 0.008996776001367834,
+          "score_seconds": 0.0011030069999833358,
+          "wall_seconds": 0.0
+        },
+        "hbos": {
+          "roc_auc": 0.9266666666666666,
+          "average_precision": 0.7001154401154401,
+          "fit_seconds": 2.720636657000796,
+          "score_seconds": 0.0006425550000130897,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "WPBC",
+      "family": "adbench_classical",
+      "n_samples": 198,
+      "n_features": 33,
+      "anomaly_ratio": 0.23737373737373738,
+      "npz_sha256": "68a6d67242643855713bcdad07d89ecc472bd00000dccc17ba87916eb2693d19",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/46_WPBC.npz",
+      "n_train": 75,
+      "n_test": 123,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.4832026875699888,
+          "average_precision": 0.38125836182284645,
+          "fit_seconds": 0.054783076000603614,
+          "score_seconds": 0.0070660519995726645,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.4286114221724524,
+          "average_precision": 0.3578716793538017,
+          "fit_seconds": 2.7338653529986914,
+          "score_seconds": 0.19086415700076031,
+          "epochs_trained": 50,
+          "wall_seconds": 3.3
+        },
+        "isolation_forest": {
+          "roc_auc": 0.4991601343784995,
+          "average_precision": 0.3758885162645849,
+          "fit_seconds": 0.17005860199969902,
+          "score_seconds": 0.01171904100010579,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.48488241881298993,
+          "average_precision": 0.3556682488903615,
+          "fit_seconds": 0.3363909279996733,
+          "score_seconds": 0.0021581390010396717,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.5190369540873461,
+          "average_precision": 0.37630024112429866,
+          "fit_seconds": 0.33473039799901017,
+          "score_seconds": 0.0021486779987753835,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.5083986562150056,
+          "average_precision": 0.38126697642587987,
+          "fit_seconds": 0.028091981001125532,
+          "score_seconds": 0.0015795269991940586,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.5142777155655095,
+          "average_precision": 0.380083224266268,
+          "fit_seconds": 0.027192135001314455,
+          "score_seconds": 0.0008739869990677107,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.5475923852183652,
+          "average_precision": 0.3991058292842728,
+          "fit_seconds": 2.668143188999238,
+          "score_seconds": 0.0014044210001884494,
+          "wall_seconds": 2.7
+        }
+      },
+      "best_method": "hbos"
+    },
+    {
+      "name": "yeast",
+      "family": "adbench_classical",
+      "n_samples": 1484,
+      "n_features": 8,
+      "anomaly_ratio": 0.341644204851752,
+      "npz_sha256": "bbb15c873d78a4f6a589f46d0f75814595e2282d2ae7ce7779c750f276c3770d",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/47_yeast.npz",
+      "n_train": 488,
+      "n_test": 996,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.4553349225364327,
+          "average_precision": 0.48267315536208144,
+          "fit_seconds": 0.06000397000025259,
+          "score_seconds": 0.009549304999382002,
+          "wall_seconds": 0.1
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.4834989089354356,
+          "average_precision": 0.4902502801520798,
+          "fit_seconds": 5.193452201001492,
+          "score_seconds": 1.5189824699991732,
+          "epochs_trained": 12,
+          "wall_seconds": 7.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.4186703129600722,
+          "average_precision": 0.4734964544160133,
+          "fit_seconds": 0.1865435890013032,
+          "score_seconds": 0.016842873999848962,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.44681614856225516,
+          "average_precision": 0.4997502845995965,
+          "fit_seconds": 0.3424270699997578,
+          "score_seconds": 0.003670038000564091,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.385966610600872,
+          "average_precision": 0.4678333566875284,
+          "fit_seconds": 0.33838397699946654,
+          "score_seconds": 0.0038696920000802493,
+          "wall_seconds": 0.4
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.47799921749898155,
+          "average_precision": 0.49556010571510334,
+          "fit_seconds": 0.01570597300087684,
+          "score_seconds": 0.012727185001494945,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.47146896415419304,
+          "average_precision": 0.49257725045737666,
+          "fit_seconds": 0.012592266999490676,
+          "score_seconds": 0.00916360200062627,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.4303594261121396,
+          "average_precision": 0.503715470550349,
+          "fit_seconds": 2.6821447189995524,
+          "score_seconds": 0.0009054679994733306,
+          "wall_seconds": 2.7
+        }
+      },
+      "best_method": "mercury_fusion"
+    },
+    {
+      "name": "cv:CIFAR10_0",
+      "family": "adbench_cv_embedding",
+      "n_samples": 5263,
+      "n_features": 512,
+      "anomaly_ratio": 0.04997149914497435,
+      "npz_sha256": "f0e89be5576c37e5c2f7393f7a478d8ec0cc348559fc177c273ff076ef10db00",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/CIFAR10_0.npz",
+      "n_train": 2500,
+      "n_test": 2763,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7493627376425855,
+          "average_precision": 0.2528173046011306,
+          "fit_seconds": 5.248668539999926,
+          "score_seconds": 1.5087849440005812,
+          "wall_seconds": 6.8
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.7274053231939164,
+          "average_precision": 0.21856045122980639,
+          "fit_seconds": 0.23668598299991572,
+          "score_seconds": 0.039863883999714744,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.7112091254752851,
+          "average_precision": 0.21777974321170884,
+          "fit_seconds": 0.7318621670001448,
+          "score_seconds": 1.0485201720002806,
+          "wall_seconds": 1.9
+        },
+        "copod": {
+          "roc_auc": 0.6989216730038024,
+          "average_precision": 0.21150468971459452,
+          "fit_seconds": 0.818362766998689,
+          "score_seconds": 1.0438842719995591,
+          "wall_seconds": 2.0
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7438114068441064,
+          "average_precision": 0.25997761716815654,
+          "fit_seconds": 0.21694264100005967,
+          "score_seconds": 0.20388904900028137,
+          "wall_seconds": 0.5
+        },
+        "knn": {
+          "roc_auc": 0.7429840304182509,
+          "average_precision": 0.2442794939815661,
+          "fit_seconds": 0.27856017800149857,
+          "score_seconds": 0.18960850099938398,
+          "wall_seconds": 0.5
+        },
+        "hbos": {
+          "roc_auc": 0.6934965779467681,
+          "average_precision": 0.20989331977874573,
+          "fit_seconds": 2.873942903999705,
+          "score_seconds": 0.0988552079998044,
+          "wall_seconds": 3.0
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "cv:FashionMNIST_0",
+      "family": "adbench_cv_embedding",
+      "n_samples": 6315,
+      "n_features": 512,
+      "anomaly_ratio": 0.0498812351543943,
+      "npz_sha256": "71d2f1e9d732b8eaa7e60fe5530957d1a2bd72f5aaf387f838798cc105e419cb",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/FashionMNIST_0.npz",
+      "n_train": 3000,
+      "n_test": 3315,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9053703703703704,
+          "average_precision": 0.4437251486311338,
+          "fit_seconds": 6.200291041999662,
+          "score_seconds": 1.79909951099944,
+          "wall_seconds": 8.1
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.8333238095238094,
+          "average_precision": 0.28830838341536347,
+          "fit_seconds": 0.2537191109986452,
+          "score_seconds": 0.05392854799902125,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.8199682539682539,
+          "average_precision": 0.2786045008885677,
+          "fit_seconds": 0.9049014539996278,
+          "score_seconds": 1.3020932349991199,
+          "wall_seconds": 2.3
+        },
+        "copod": {
+          "roc_auc": 0.79604126984127,
+          "average_precision": 0.25587825362210115,
+          "fit_seconds": 0.8222142180002265,
+          "score_seconds": 1.1805190009999933,
+          "wall_seconds": 2.1
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9093873015873016,
+          "average_precision": 0.5149559340860835,
+          "fit_seconds": 0.2926691690008738,
+          "score_seconds": 0.29326240500085987,
+          "wall_seconds": 0.6
+        },
+        "knn": {
+          "roc_auc": 0.8938761904761905,
+          "average_precision": 0.4488664355049126,
+          "fit_seconds": 0.3609735259997251,
+          "score_seconds": 0.2704366210000444,
+          "wall_seconds": 0.7
+        },
+        "hbos": {
+          "roc_auc": 0.7518677248677249,
+          "average_precision": 0.21803495636213718,
+          "fit_seconds": 2.98207581799943,
+          "score_seconds": 0.11565241800053627,
+          "wall_seconds": 3.2
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "cv:SVHN_0",
+      "family": "adbench_cv_embedding",
+      "n_samples": 5208,
+      "n_features": 512,
+      "anomaly_ratio": 0.04992319508448541,
+      "npz_sha256": "3526704c19ae4c62337a37f1f9294e3ec065d9f7a8e21f9e7c881b5acab13579",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/SVHN_0.npz",
+      "n_train": 2474,
+      "n_test": 2734,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6575850382438904,
+          "average_precision": 0.15846282454983535,
+          "fit_seconds": 5.3040669719994185,
+          "score_seconds": 1.4869606500014925,
+          "wall_seconds": 6.8
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.5453982961258629,
+          "average_precision": 0.11330974905434935,
+          "fit_seconds": 0.2537662350005121,
+          "score_seconds": 0.04952133299957495,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.5465906970959518,
+          "average_precision": 0.11191095282132194,
+          "fit_seconds": 0.7351433329986321,
+          "score_seconds": 0.9861357290010346,
+          "wall_seconds": 1.8
+        },
+        "copod": {
+          "roc_auc": 0.5186679932839997,
+          "average_precision": 0.10704485232220166,
+          "fit_seconds": 0.7397474629997305,
+          "score_seconds": 0.9901045070000691,
+          "wall_seconds": 1.8
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6622613643430135,
+          "average_precision": 0.16829806974048783,
+          "fit_seconds": 0.21368953000092006,
+          "score_seconds": 0.20095955900069384,
+          "wall_seconds": 0.5
+        },
+        "knn": {
+          "roc_auc": 0.6243548286798085,
+          "average_precision": 0.1456013944819721,
+          "fit_seconds": 0.27559125299922016,
+          "score_seconds": 0.18276874399998633,
+          "wall_seconds": 0.5
+        },
+        "hbos": {
+          "roc_auc": 0.49283315714196874,
+          "average_precision": 0.0972764340141557,
+          "fit_seconds": 2.967808833998788,
+          "score_seconds": 0.09646463900025992,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "cv:MNIST-C_brightness",
+      "family": "adbench_cv_embedding",
+      "n_samples": 10000,
+      "n_features": 512,
+      "anomaly_ratio": 0.05,
+      "npz_sha256": "8d2d354eff2080ee2cfb33f2d11f9c2da6169dbd2afada00ab49eefc3c5ef584",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/MNIST-C_brightness.npz",
+      "n_train": 4750,
+      "n_test": 5250,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.8888037894736842,
+          "average_precision": 0.380504895394706,
+          "fit_seconds": 9.940368891000617,
+          "score_seconds": 2.9616306360003364,
+          "wall_seconds": 13.0
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.696296,
+          "average_precision": 0.1692560321707821,
+          "fit_seconds": 0.2978856059999089,
+          "score_seconds": 0.06616348399984417,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.6457204210526316,
+          "average_precision": 0.13941646463493948,
+          "fit_seconds": 1.2094681919988943,
+          "score_seconds": 2.7619387049999204,
+          "wall_seconds": 4.1
+        },
+        "copod": {
+          "roc_auc": 0.6387482105263158,
+          "average_precision": 0.13506178635985028,
+          "fit_seconds": 1.1823284860001877,
+          "score_seconds": 2.2797648579999077,
+          "wall_seconds": 3.6
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.8769313684210526,
+          "average_precision": 0.3790532714813126,
+          "fit_seconds": 0.6684422140006063,
+          "score_seconds": 0.7098368279985152,
+          "wall_seconds": 1.4
+        },
+        "knn": {
+          "roc_auc": 0.8279612631578948,
+          "average_precision": 0.3105184760579946,
+          "fit_seconds": 0.8084021389986447,
+          "score_seconds": 0.6696421340002416,
+          "wall_seconds": 1.5
+        },
+        "hbos": {
+          "roc_auc": 0.6205242105263158,
+          "average_precision": 0.12335594321133395,
+          "fit_seconds": 3.0231850360014505,
+          "score_seconds": 0.17064827200010768,
+          "wall_seconds": 3.3
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "cv:MVTec-AD_bottle",
+      "family": "adbench_cv_embedding",
+      "n_samples": 292,
+      "n_features": 512,
+      "anomaly_ratio": 0.21575342465753425,
+      "npz_sha256": "9eb7a78f1f6ecfcd00391ea01fe06f998e3fb7b8e89a34c06d69786ee38a8059",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/MVTec-AD_bottle.npz",
+      "n_train": 114,
+      "n_test": 178,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9642512077294685,
+          "average_precision": 0.9536339050256524,
+          "fit_seconds": 0.5116996520009707,
+          "score_seconds": 0.09849406800094584,
+          "wall_seconds": 0.7
+        },
+        "mercury_fusion": {
+          "roc_auc": 0.9020013802622499,
+          "average_precision": 0.8277089250069104,
+          "fit_seconds": 25.93355789599991,
+          "score_seconds": 12.11090639699978,
+          "epochs_trained": 22,
+          "wall_seconds": 38.4
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9641131815044859,
+          "average_precision": 0.9584940817368262,
+          "fit_seconds": 0.17558732200086524,
+          "score_seconds": 0.013356180001210305,
+          "wall_seconds": 0.2
+        },
+        "ecod": {
+          "roc_auc": 0.9298826777087646,
+          "average_precision": 0.9082042134428016,
+          "fit_seconds": 0.34938998100005847,
+          "score_seconds": 0.028388188000462833,
+          "wall_seconds": 0.4
+        },
+        "copod": {
+          "roc_auc": 0.9572118702553485,
+          "average_precision": 0.948697823967624,
+          "fit_seconds": 0.382479379999495,
+          "score_seconds": 0.028121032999479212,
+          "wall_seconds": 0.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9508626639061422,
+          "average_precision": 0.9289903023572226,
+          "fit_seconds": 0.028199285001392127,
+          "score_seconds": 0.002988337999340729,
+          "wall_seconds": 0.1
+        },
+        "knn": {
+          "roc_auc": 0.9496204278812974,
+          "average_precision": 0.9289270266521136,
+          "fit_seconds": 0.028073583000150393,
+          "score_seconds": 0.0019334560001880163,
+          "wall_seconds": 0.1
+        },
+        "hbos": {
+          "roc_auc": 0.9570738440303658,
+          "average_precision": 0.9493691779050871,
+          "fit_seconds": 2.7238113390012586,
+          "score_seconds": 0.005701512998712133,
+          "wall_seconds": 2.8
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "nlp:20news_0",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 3090,
+      "n_features": 768,
+      "anomaly_ratio": 0.04983818770226537,
+      "npz_sha256": "eb804cf85f3dc18a726ffc9df333aed7324f6838408c5bdb1d86fbe21d7ca5d9",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/20news_0.npz",
+      "n_train": 1468,
+      "n_test": 1622,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7659285537350933,
+          "average_precision": 0.21603860626513466,
+          "fit_seconds": 6.773814771000616,
+          "score_seconds": 1.936721440999463,
+          "wall_seconds": 8.8
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6204262358894511,
+          "average_precision": 0.12641777584111336,
+          "fit_seconds": 0.2340838750005787,
+          "score_seconds": 0.04086473400093382,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.5922228316642485,
+          "average_precision": 0.12012116271085352,
+          "fit_seconds": 0.6585410389998287,
+          "score_seconds": 0.7226314349991299,
+          "wall_seconds": 1.5
+        },
+        "copod": {
+          "roc_auc": 0.5952262995859727,
+          "average_precision": 0.11779201627300094,
+          "fit_seconds": 0.6508035860006203,
+          "score_seconds": 0.7311688690006122,
+          "wall_seconds": 1.5
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7910975264517499,
+          "average_precision": 0.26673511965499674,
+          "fit_seconds": 0.12311829200007196,
+          "score_seconds": 0.10900066899921512,
+          "wall_seconds": 0.3
+        },
+        "knn": {
+          "roc_auc": 0.7153340528681128,
+          "average_precision": 0.18501749682254295,
+          "fit_seconds": 0.16488236700024572,
+          "score_seconds": 0.09498256000006222,
+          "wall_seconds": 0.3
+        },
+        "hbos": {
+          "roc_auc": 0.5910639088432004,
+          "average_precision": 0.1155617158331967,
+          "fit_seconds": 2.925763363000442,
+          "score_seconds": 0.09528889899956994,
+          "wall_seconds": 3.1
+        }
+      },
+      "best_method": "local_outlier_factor"
+    },
+    {
+      "name": "nlp:agnews_0",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 10000,
+      "n_features": 768,
+      "anomaly_ratio": 0.05,
+      "npz_sha256": "7762d761ba9d45b59884d0df3869977ccead5926aabe87d8a077ec2714e7deaa",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/agnews_0.npz",
+      "n_train": 4750,
+      "n_test": 5250,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6910964210526316,
+          "average_precision": 0.16965304173313164,
+          "fit_seconds": 20.765513617998295,
+          "score_seconds": 6.394156002001182,
+          "wall_seconds": 27.3
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.551072,
+          "average_precision": 0.10756658147005659,
+          "fit_seconds": 0.3214553279995016,
+          "score_seconds": 0.09918703699986509,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.5115671578947368,
+          "average_precision": 0.09659530210324901,
+          "fit_seconds": 1.8160890589988412,
+          "score_seconds": 3.7534780519999913,
+          "wall_seconds": 5.8
+        },
+        "copod": {
+          "roc_auc": 0.532144,
+          "average_precision": 0.10259516578941517,
+          "fit_seconds": 1.7775470600008703,
+          "score_seconds": 3.6982278680006857,
+          "wall_seconds": 5.7
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6703671578947368,
+          "average_precision": 0.1833073998377481,
+          "fit_seconds": 0.9907596330012893,
+          "score_seconds": 1.032890721999138,
+          "wall_seconds": 2.1
+        },
+        "knn": {
+          "roc_auc": 0.6316357894736842,
+          "average_precision": 0.13930757704247348,
+          "fit_seconds": 1.2558211340001435,
+          "score_seconds": 0.959756592001213,
+          "wall_seconds": 2.3
+        },
+        "hbos": {
+          "roc_auc": 0.529474947368421,
+          "average_precision": 0.10215472388713219,
+          "fit_seconds": 3.3788790729995526,
+          "score_seconds": 0.3318985900004918,
+          "wall_seconds": 3.8
+        }
+      },
+      "best_method": "mercury_tier"
+    },
+    {
+      "name": "nlp:amazon",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 10000,
+      "n_features": 768,
+      "anomaly_ratio": 0.05,
+      "npz_sha256": "e74d1afae54bdf523dc6955a2a636b0e4f3829dcb9a32d2ba3c208ef82b63c2c",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/amazon.npz",
+      "n_train": 4750,
+      "n_test": 5250,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6133743157894737,
+          "average_precision": 0.12122424079264367,
+          "fit_seconds": 21.047793227999136,
+          "score_seconds": 6.544451329000367,
+          "wall_seconds": 27.7
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.5736075789473684,
+          "average_precision": 0.11199120217960555,
+          "fit_seconds": 0.3430465910005296,
+          "score_seconds": 0.09694803599995794,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.543357894736842,
+          "average_precision": 0.10452525658884408,
+          "fit_seconds": 1.9468349019989546,
+          "score_seconds": 3.804445054000098,
+          "wall_seconds": 5.9
+        },
+        "copod": {
+          "roc_auc": 0.5738130526315789,
+          "average_precision": 0.11359815141255841,
+          "fit_seconds": 1.9068638830012787,
+          "score_seconds": 3.836790839999594,
+          "wall_seconds": 5.9
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.5847814736842105,
+          "average_precision": 0.11237677337811687,
+          "fit_seconds": 0.9272760629992263,
+          "score_seconds": 1.00160449500072,
+          "wall_seconds": 2.0
+        },
+        "knn": {
+          "roc_auc": 0.6133751578947368,
+          "average_precision": 0.1195785063406938,
+          "fit_seconds": 1.1935751360015274,
+          "score_seconds": 0.964228966000519,
+          "wall_seconds": 2.2
+        },
+        "hbos": {
+          "roc_auc": 0.5678004210526315,
+          "average_precision": 0.11183260716123765,
+          "fit_seconds": 3.231578069000534,
+          "score_seconds": 0.2745114839999587,
+          "wall_seconds": 3.6
+        }
+      },
+      "best_method": "knn"
+    },
+    {
+      "name": "nlp:imdb",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 10000,
+      "n_features": 768,
+      "anomaly_ratio": 0.05,
+      "npz_sha256": "a29c8393f5b3abc2fbb7cb96c07a92014582811a03af8ab1f026f34b4feff5e0",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/imdb.npz",
+      "n_train": 4750,
+      "n_test": 5250,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.4932867368421053,
+          "average_precision": 0.09022978810986822,
+          "fit_seconds": 20.70810984400123,
+          "score_seconds": 6.432093908000752,
+          "wall_seconds": 27.2
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.49771242105263164,
+          "average_precision": 0.09230207323197608,
+          "fit_seconds": 0.3192427220001264,
+          "score_seconds": 0.09469203200023912,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.47408968421052633,
+          "average_precision": 0.08655392867052188,
+          "fit_seconds": 1.8185716910011251,
+          "score_seconds": 3.9173614060000546,
+          "wall_seconds": 5.9
+        },
+        "copod": {
+          "roc_auc": 0.5168585263157894,
+          "average_precision": 0.09631400484393066,
+          "fit_seconds": 1.9981157979982527,
+          "score_seconds": 3.6825323670000216,
+          "wall_seconds": 5.8
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.5052623157894737,
+          "average_precision": 0.09362707566941268,
+          "fit_seconds": 0.9656727919991681,
+          "score_seconds": 0.9753336379999382,
+          "wall_seconds": 2.0
+        },
+        "knn": {
+          "roc_auc": 0.5085873684210527,
+          "average_precision": 0.09288087619905172,
+          "fit_seconds": 1.1984774850006943,
+          "score_seconds": 0.9474014560000796,
+          "wall_seconds": 2.2
+        },
+        "hbos": {
+          "roc_auc": 0.5047675789473683,
+          "average_precision": 0.09200890485224966,
+          "fit_seconds": 3.221562049999193,
+          "score_seconds": 0.2850167409997084,
+          "wall_seconds": 3.6
+        }
+      },
+      "best_method": "copod"
+    },
+    {
+      "name": "nlp:yelp",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 10000,
+      "n_features": 768,
+      "anomaly_ratio": 0.05,
+      "npz_sha256": "ce1feb6cf48b4eb945687b83335589eaaac0fe32498e9170900fe1e29b2f7c0d",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/yelp.npz",
+      "n_train": 4750,
+      "n_test": 5250,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.6869722105263159,
+          "average_precision": 0.16802543331975994,
+          "fit_seconds": 20.83453160800127,
+          "score_seconds": 6.536612752999645,
+          "wall_seconds": 27.5
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.0
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6292787368421052,
+          "average_precision": 0.14275865314985328,
+          "fit_seconds": 0.31100791999961075,
+          "score_seconds": 0.092889675999686,
+          "wall_seconds": 0.5
+        },
+        "ecod": {
+          "roc_auc": 0.5866597894736842,
+          "average_precision": 0.12606272492698845,
+          "fit_seconds": 1.580425751999428,
+          "score_seconds": 3.3174669569998514,
+          "wall_seconds": 5.0
+        },
+        "copod": {
+          "roc_auc": 0.6120757894736842,
+          "average_precision": 0.13943395349147214,
+          "fit_seconds": 1.6314916499995888,
+          "score_seconds": 3.321431204001783,
+          "wall_seconds": 5.1
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.6733595789473685,
+          "average_precision": 0.16062044994632763,
+          "fit_seconds": 0.9042660069990234,
+          "score_seconds": 0.9661874260000332,
+          "wall_seconds": 1.9
+        },
+        "knn": {
+          "roc_auc": 0.6896328421052631,
+          "average_precision": 0.16890772386048303,
+          "fit_seconds": 1.1575735370006441,
+          "score_seconds": 0.9319394329995703,
+          "wall_seconds": 2.1
+        },
+        "hbos": {
+          "roc_auc": 0.6131604210526316,
+          "average_precision": 0.13874197408056427,
+          "fit_seconds": 3.239304759001243,
+          "score_seconds": 0.2812390269991738,
+          "wall_seconds": 3.6
+        }
+      },
+      "best_method": "knn"
+    }
+  ]
+}

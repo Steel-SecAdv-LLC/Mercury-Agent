@@ -97,6 +97,31 @@ class NABLoader(DatasetLoader):
             "speed_7578.csv",
             "speed_t4013.csv",
         ],
+        # The remaining two *real* NAB categories (file inventory matches the
+        # upstream labels/combined_windows.json keys). Additive only: neither
+        # is in the default ``categories`` selection, so existing callers are
+        # byte-for-byte unaffected; benchmarks/nab_competitive.py opts in to
+        # cover all five real categories.
+        "realAdExchange": [
+            "exchange-2_cpc_results.csv",
+            "exchange-2_cpm_results.csv",
+            "exchange-3_cpc_results.csv",
+            "exchange-3_cpm_results.csv",
+            "exchange-4_cpc_results.csv",
+            "exchange-4_cpm_results.csv",
+        ],
+        "realTweets": [
+            "Twitter_volume_AAPL.csv",
+            "Twitter_volume_AMZN.csv",
+            "Twitter_volume_CRM.csv",
+            "Twitter_volume_CVS.csv",
+            "Twitter_volume_FB.csv",
+            "Twitter_volume_GOOG.csv",
+            "Twitter_volume_IBM.csv",
+            "Twitter_volume_KO.csv",
+            "Twitter_volume_PFE.csv",
+            "Twitter_volume_UPS.csv",
+        ],
     }
 
     FEATURE_NAMES = ["value", "timestamp_hour", "timestamp_day", "timestamp_month"]

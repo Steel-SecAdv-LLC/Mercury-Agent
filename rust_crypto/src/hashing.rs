@@ -11,8 +11,9 @@ use sha3::Sha3_256;
 
 /// Compute BLAKE3 hash of data.
 ///
-/// BLAKE3 is extremely fast (up to 7x faster than SHA-256 on modern CPUs)
-/// while maintaining security equivalent to SHA-256.
+/// The BLAKE3 project reports BLAKE3 as much faster than SHA-256 (up to ~7x on
+/// modern CPUs per its published benchmarks) while maintaining security
+/// equivalent to SHA-256.
 pub fn blake3_hash(data: &[u8]) -> Vec<u8> {
     let mut hasher = Blake3Hasher::new();
     hasher.update(data);

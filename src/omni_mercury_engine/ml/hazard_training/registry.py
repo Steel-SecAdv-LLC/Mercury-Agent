@@ -94,122 +94,270 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
         name="earthquake_precursor",
         detector="space.disaster_precursor_detector.DisasterPrecursorDetector",
         architecture="EarthquakePrecursorAnalyzer(128)",
-        category="b",
+        category="a",
         data_requirement=(
-            "USGS FDSN event catalog (earthquake.usgs.gov, public — reachable "
-            "here) reshaped into regional seismicity-sequence samples with "
-            "did-M6+-follow-within-window labels. Trainable in principle from "
-            "this environment; deliberately NOT shipped from this pass because "
-            "a transparent evaluation needs multi-decade regional feature "
-            "engineering reviewed against the seismology literature — a "
-            "half-reviewed earthquake forecaster is worse than the physics "
-            "fallback that abstains. Run this hook's stages once the feature "
-            "spec is reviewed; the catalog fetcher (features.py seams) is real."
+            "USGS ComCat FDSN event catalog (earthquake.usgs.gov, public — "
+            "reachable here), California 1980-2024 M≥2.5, reshaped into "
+            "0.5-degree (cell, epoch) samples labeled P(M≥5.0 within 30 d) "
+            "per the binding feature-spec review "
+            "(docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md). The "
+            "trained head is a catalog-statistical seismicity-rate forecast "
+            "— never EM/Schumann precursor detection, never per-event "
+            "magnitude/time prediction. The merit gate compares against a "
+            "Reasenberg-Jones/ETAS-lite clustering baseline (not bare "
+            "Poisson) with auc/brier/reliability_ece non-regression "
+            "constraints; 'clustering baseline wins, not shipped' is a valid "
+            "recorded outcome — and is the CURRENT one (2026-07-10, "
+            "seismicity-catalog-v2 stacked-RJ candidate): the learned model "
+            "wins held-out log-loss (0.00414 vs 0.00629, bootstrap 95% CI "
+            "excludes zero) but its ranking AUC (0.8895) stays below the RJ "
+            "baseline (0.8975), so the gate refused the ship and the "
+            "abstaining physics fallback stays in charge. Honest record: "
+            "artifacts/hazard_training/earthquake_precursor.eval.json (committed)."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.earthquake_precursor",
+        checkpoint_name="earthquake_precursor_ca",
     ),
     "seismic_wave": HookEntry(
         name="seismic_wave",
         detector="detectors.geological.disaster_detectors.EarthquakeDetector",
-        architecture="SeismicWaveAnalyzer (spectrogram encoder)",
-        category="b",
+        architecture="SeismicWaveAnalyzer (spectrogram CNN; eq/magnitude/P/S heads)",
+        category="a",
         data_requirement=(
-            "Real labeled waveforms: EarthScope/IRIS FDSN dataselect "
-            "(service.iris.edu) miniSEED windows around USGS-cataloged events "
-            "plus noise windows. service.iris.edu is not reachable from this "
-            "environment's proxy allowlist."
+            "STEAD -- the STanford EArthquake Dataset (Mousavi et al. 2019, "
+            "CC-BY-4.0): 1.27M labeled 60 s 100 Hz traces served by the public "
+            "SeisBench mirror (seisbench.gfz.de). metadata.csv is downloaded "
+            "whole and sha256-pinned; the balanced Z-component subset is "
+            "streamed out of the 91 GB waveforms.hdf5 via HTTP Range requests "
+            "(never downloaded whole). The merit gate compares against the "
+            "detector's STA/LTA + band-resonance physics fallback through the "
+            "public predict_earthquake API with deployed-rule recall/FAR "
+            "non-regression constraints; 'physics wins, not shipped' is a "
+            "valid recorded outcome -- but is NOT the current one (2026-07-12, "
+            "temperature-calibrated alert rule on the seismic-stead-v1 "
+            "spectrogram CNN): the learned analyzer wins held-out AUC (0.9949 "
+            "vs 0.9227, seeded bootstrap 95% CI [0.067, 0.077] excludes zero), "
+            "detection recall (0.968 vs 0.442 at the deployed rule; "
+            "low-SNR-tercile recall 0.915 vs 0.103 -- the spectrogram CNN's "
+            "scientific payoff), AND deployed-rule false-alarm rate (1.58% vs "
+            "the ultra-conservative STA/LTA trigger's 2.84%) on the 2017-2020 "
+            "test years, so the gate PASSED and seismic_stead shipped. The "
+            "alert rule thresholds a validation-calibrated sigmoid(logit / T) "
+            "(T=1.27, no physics resonance bump), undoing the terminal-sigmoid "
+            "saturation that had pinned the earlier deployed FAR at 3.70%. "
+            "Honest record: the shipped checkpoint's provenance sidecar "
+            "(seismic_stead.provenance.json, evaluation block)."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.seismic_wave",
+        checkpoint_name="seismic_stead",
     ),
     "tsunami_waveform": HookEntry(
         name="tsunami_waveform",
         detector="detectors.geological.disaster_detectors.TsunamiDetector",
-        architecture="WaveformFFTAnalyzer",
-        category="b",
+        architecture="WaveformFFTAnalyzer (Conv1d+LSTM over detided DART windows)",
+        category="a",
         data_requirement=(
-            "NOAA NDBC/DART bottom-pressure records for tsunamigenic events "
-            "(historical DART archives at ndbc.noaa.gov) with event windows "
-            "labeled from the NOAA tsunami event database. ndbc.noaa.gov "
-            "historical archives are not reachable from this environment."
+            "NOAA NDBC DART historical bottom-pressure archives "
+            "(www.ndbc.noaa.gov/data/historical/dart/, public) as detided "
+            "24 h windows, labeled with deep-ocean BPR arrival times and "
+            "measured amplitudes from the NCEI HazEL tsunami event/runup "
+            "database (www.ngdc.noaa.gov/hazel/, public), station ids "
+            "cross-checked against the NDBC station table. The merit gate "
+            "adds deployed-rule recall/FAR, event recall, and wave-height "
+            "MAE non-regression constraints; 'physics wins, not shipped' is "
+            "a valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.tsunami_waveform",
+        checkpoint_name="tsunami_dart",
     ),
     "hurricane_wind": HookEntry(
         name="hurricane_wind",
         detector="detectors.geological.hurricane_detector.HurricaneDetector",
         architecture="WindPatternAnalyzer (CNN+LSTM over wind fields)",
-        category="b",
+        category="a",
         data_requirement=(
-            "Gridded reanalysis wind fields (ERA5, cds.climate.copernicus.eu — "
-            "requires a CDS API key) labeled with IBTrACS best-track cyclone "
-            "positions/intensities."
+            "ERA5 10 m u/v wind patch sequences streamed as raw zarr-2 chunk "
+            "GETs from the public ARCO-ERA5 mirror (storage.googleapis.com, "
+            "no CDS key required) labeled with IBTrACS v04r01 best-track "
+            "positions, USA_WIND intensities, and USA_SSHS classes "
+            "(www.ncei.noaa.gov, public)."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.hurricane_wind",
+        checkpoint_name="hurricane_era5",
     ),
     "landslide_stability": HookEntry(
         name="landslide_stability",
         detector="detectors.geological.landslide.LandslideDetector",
-        architecture="SlopeStabilityModel",
-        category="b",
+        architecture="SlopeStabilityModel (64-feature MLP; failure + type heads)",
+        category="a",
         data_requirement=(
-            "NASA Global Landslide Catalog / COOLR event records joined with "
-            "site geotechnical and antecedent-rainfall covariates; the joined "
-            "covariates require GPM/soil archives not reachable here."
+            "NASA Global Landslide Catalog / COOLR events via the public AGOL "
+            "mirror (services1.arcgis.com, layer "
+            "nasa_global_landslide_catalog_point; rain-family triggers, "
+            "2007-2024, |lat| <= 50, location accuracy <= 25 km) joined with "
+            "CHIRPS v2.0 global daily 0.25-deg precipitation "
+            "(data.chc.ucsb.edu, public) as the landslide-coolr-v1 rainfall "
+            "feature vector; every percentile uses the fixed 1981-2006 "
+            "climatology and no site geotechnical dims are fabricated (they "
+            "stay zero with presence flags 0). The detector's physics path "
+            "abstains on rainfall-only inputs, so the merit gate compares "
+            "against the STRONGER of that API path and a documented "
+            "Caine-1980-style antecedent-rainfall percentile threshold "
+            "fitted on TRAIN years only, with deployed-rule recall/FAR and "
+            "Brier non-regression constraints; the deployed rule carries a "
+            "validation-selected operating point consumed decision-only by "
+            "load_neural_weights. 'Physics wins, not shipped' is a valid "
+            "recorded outcome -- and is NOT the current one (2026-07-10): "
+            "the learned model won held-out 2018-2024 AUC 0.8498 vs 0.8064 "
+            "(bootstrap 95% CI on the difference excludes zero) with all "
+            "constraints passing, so landslide_coolr shipped."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.landslide_stability",
+        checkpoint_name="landslide_coolr",
     ),
     "tornado_radar": HookEntry(
         name="tornado_radar",
         detector="detectors.geological.tornado_detector.TornadoDetector",
         architecture="DopplerRadarAnalyzer (LSTM+attention over velocity fields)",
-        category="b",
+        category="a",
         data_requirement=(
-            "NEXRAD Level-II Doppler velocity volumes (AWS Open Data "
-            "noaa-nexrad-level2) labeled with SPC tornado reports; the S3 "
-            "bucket is not reachable from this environment."
+            "NEXRAD Level-II Doppler velocity volumes from the public Unidata "
+            "mirror (unidata-nexrad-level2.s3.amazonaws.com, anonymous, "
+            "per-scan objects; the AWS noaa-nexrad-level2 bucket itself is "
+            "not allowlisted here) labeled with SPC WCM tornado reports "
+            "(www.spc.noaa.gov), SPC wind/hail reports for storm-day hard "
+            "negatives, and the NCEI HOMR WSR-88D site table for "
+            "range/azimuth geometry. Both models are scored through the public "
+            "TornadoDetector.predict_tornado API on identical held-out "
+            "sectors; the deployed learned rule carries a validation-selected "
+            "mesocyclone operating point (meso_prob >= tau) consumed "
+            "decision-only by load_neural_weights, and the merit gate demands a "
+            "primary held-out AUC win plus deployed-rule recall/false-alarm "
+            "non-regression against the velocity-couplet physics. 'Physics "
+            "wins, not shipped' is a valid recorded outcome -- but is NOT the "
+            "current one (2026-07-10, tornado-nexrad-v1): the learned LSTM won "
+            "held-out 2022-2023 AUC 0.8099 vs 0.6866 with mesocyclone recall "
+            "0.35 vs 0.225 and false-alarm rate 0.034 vs 0.138 (both "
+            "constraints passing; the paired-bootstrap 95% CI on the AUC delta "
+            "[-0.002, 0.245] marginally includes zero and is recorded in the "
+            "eval for transparency -- the gate is a point-estimate primary "
+            "win), so tornado_nexrad shipped."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.tornado_radar",
+        checkpoint_name="tornado_nexrad",
     ),
     "volcanic_eruption": HookEntry(
         name="volcanic_eruption",
         detector="detectors.geological.volcanic.VolcanicEruptionDetector",
         architecture="EruptionForecastModel(128) + SeismicSwarmDetector LSTM",
-        category="b",
+        category="a",
         data_requirement=(
-            "Observatory-grade multiparameter monitoring series (seismic RSAM, "
-            "SO2 flux, deformation) for labeled eruptive/non-eruptive periods "
-            "— e.g. USGS/AVO and INGV archives distributed per-volcano on "
-            "request; no public bulk archive is reachable here."
+            "Smithsonian GVP Holocene eruption catalog "
+            "(webservices.volcano.si.edu, public WFS CSV) for day-precision "
+            "eruption-onset labels + VEI, EarthScope FDSN station/"
+            "availability/dataselect services (service.earthscope.org, "
+            "public) for AV-network station-day miniSEED near each volcano, "
+            "and the USGS HANS VAN notice archive (volcanoes.usgs.gov) as an "
+            "onset cross-check for 1-2 day-uncertain starts. SCOPED "
+            "deliverable: the checkpoint is trained ONLY for the named "
+            "AVO volcano set in volcanic_eruption.VOLCANOES (Shishaldin, "
+            "Semisopochnoi, Pavlof, Great Sitkin, Veniaminof, Cleveland, "
+            "Okmok, Redoubt), never as a universal eruption forecaster. The "
+            "merit gate compares against the detector's seismic physics "
+            "path AND an RSAM-ratio threshold baseline through the public "
+            "predict_eruption API, with deployed-rule recall/FAR and Brier "
+            "non-regression constraints; 'physics wins, not shipped' is a "
+            "valid recorded outcome."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.volcanic_eruption",
+        checkpoint_name="volcanic_avo_seismic",
     ),
     "wildfire_ignition": HookEntry(
         name="wildfire_ignition",
         detector="detectors.geological.wildfire.WildfireDetector",
         architecture="FireIgnitionDetector CNN (+optional WildfireCNN)",
-        category="b",
+        category="a",
         data_requirement=(
-            "NASA FIRMS active-fire granules (firms.modaps.eosdis.nasa.gov — "
-            "requires a MAP_KEY) as thermal rasters with confirmed-fire labels."
+            "NASA FIRMS VIIRS-SNPP science-quality active-fire country CSVs "
+            "(firms.modaps.eosdis.nasa.gov/data/country/, keyless, US "
+            "2012-2024) rasterized to a 0.04-degree daily California grid: "
+            "32x32 detection-derived patches (brightness-temperature / FRP / "
+            "count channels from days <= t only) labeled with next-day "
+            "confirmed fire activity in the center 2x2 cells. The archive is "
+            "a census of satellite-confirmed fires, so absence means 'no "
+            "confirmed fire', never a fabricated background class; the "
+            "physics persistence baseline must be beaten on held-out years "
+            "with recall/false-alarm/Brier non-regression at the deployed "
+            "alert decision."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.wildfire_ignition",
+        checkpoint_name="wildfire_firms",
     ),
     "schumann_harmonics": HookEntry(
         name="schumann_harmonics",
         detector="space.schumann_resonance.SchumannResonanceDetector",
         architecture="1D CNN + LSTM(512) over harmonic spectra",
-        category="b",
+        category="a",
         data_requirement=(
-            "Calibrated ELF station spectrograms (e.g. HeartMath GCMS or "
-            "university ELF observatories) with anomaly annotations; no such "
-            "labeled public corpus is downloadable here — the BGS ELF client "
-            "in data_sources is explicitly simulated and must never be used "
-            "as training data."
+            "Sierra Nevada (Spain) ELF observatory raw int16 ADC hour files "
+            "(Zenodo records 6348691/6348773/6348838/6348930, CC-BY-4.0; "
+            "Salinas et al. 2022, Comput. Geosci. 165:105148), read as "
+            "ranged-GET remote-ZIP member prefixes (the 26-28 GB year "
+            "archives are never downloaded whole), labeled with GFZ Potsdam "
+            "definitive Kp (kp.gfz.de): disturbed Kp>=5 vs quiet Kp<=2, "
+            "intermediate hours excluded — the simulated BGS ELF client is "
+            "never training data. The merit gate compares against the "
+            "detector's deterministic FFT-physics assessment through the "
+            "public detect_resonance_anomaly API on identical held-out "
+            "2016-2017 hours with deployed-rule recall/FAR and "
+            "anomaly-type-agreement non-regression constraints; 'physics "
+            "wins, not shipped' is a valid recorded outcome — and is the "
+            "CURRENT one (2026-07-10, schumann-sn-v1): the learned model "
+            "wins held-out ranking AUC (0.5684 vs 0.3738, bootstrap 95% CI "
+            "on the difference [0.132, 0.257] excludes zero) and "
+            "anomaly-type accuracy (0.6017 vs 0.2427), but the physics rule "
+            "alarms on every held-out hour (recall 1.0 at false-alarm rate "
+            "1.0), so the learned deployed rule's recall 0.7897 < 1.0 "
+            "failed the non-regression constraint and the gate refused the "
+            "ship — the physics fallback stays in charge. Honest record: "
+            "artifacts/hazard_training/schumann_sierra_nevada.eval.json."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.schumann_harmonics",
+        checkpoint_name="schumann_sierra_nevada",
     ),
     "consciousness_field": HookEntry(
         name="consciousness_field",
-        detector="models.parapsychology.ConsciousnessField",
-        architecture="LSTM field analyzer",
-        category="c",
+        detector="models.parapsychology.ParapsychologyDetector",
+        architecture="ConsciousnessFieldAnalyzer (LSTM+attention over 100 s REG composites)",
+        category="a",
         data_requirement=(
-            "No real labeled corpus exists for this architecture's input "
-            "contract; any training set would be fabricated. The hook remains "
-            "for research checkpoints supplied by the operator; the shipped "
-            "default stays the physics/statistics fallback permanently."
+            "Global Consciousness Project per-second per-egg REG trials "
+            "(noosphere.princeton.edu day files 2012-2024, fetched from the "
+            "Internet Archive Wayback Machine, sha256-pinned) -- each value "
+            "the sum of 200 XOR-whitened hardware-RNG bits, Binomial(200, "
+            "0.5) under the null. Fault-injection methodology: labels are "
+            "true by mathematical construction -- the null class is the real "
+            "measured stream and the anomaly class is the SAME windows "
+            "passed through seeded, recorded hardware-failure channels "
+            "(single-egg bit-bias, common-mode correlated bias, stuck bits); "
+            "nothing is fabricated, and the trained head is a REG "
+            "statistical-deviation detector only. The consciousness-field "
+            "interpretation (PEAR / Stargate / GCP / Koestler) is the "
+            "contested hypothesis under study, neither asserted nor denied. "
+            "Merit gate: the pre-registered closed-form |Stouffer Z| + "
+            "chi-square rule (models.gcp_ingest) must be beaten on "
+            "mixed-fault AUC with power@1%FAR and Brier non-regression; on "
+            "PURE bias faults that z-test is Neyman-Pearson-optimal, so "
+            "'closed form wins, not shipped' is a valid recorded outcome -- "
+            "and is NOT the current one (2026-07-10, reg-gcp-v1): the learned "
+            "model won held-out 2022-2024 mixed-fault AUC 0.7875 vs 0.7246 "
+            "(paired case-resampling bootstrap 95% CI on the difference "
+            "[0.043, 0.080] excludes zero) with power@1%FAR 0.368 vs 0.337 "
+            "and Brier 0.183 vs 0.267 both non-regressing, so reg_deviation_gcp "
+            "shipped."
         ),
+        pipeline_module="omni_mercury_engine.ml.hazard_training.consciousness_field",
+        checkpoint_name="reg_deviation_gcp",
     ),
 }
 

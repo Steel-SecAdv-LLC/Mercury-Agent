@@ -42,17 +42,20 @@ from omni_mercury_engine.core.config import ThresholdConfig
 _thresholds = ThresholdConfig()
 
 
-class WisdomArchetype(Enum):
-    """Archetypal wisdom patterns from various traditions."""
+class GeometricPattern(Enum):
+    """Geometric pattern statistics scored by the geometry processor.
 
-    MAAT = "maat"
-    ATHENA = "athena"
-    THOTH = "thoth"
-    SOPHIA = "sophia"
-    MINERVA = "minerva"
-    SARASWATI = "saraswati"
-    ODIN = "odin"
-    HERMES = "hermes"
+    Each member names the geometry statistic it scores (see
+    :class:`GeometryAnalysis`): golden-ratio alignment, Platonic-solid
+    ratio harmony, Fibonacci-sequence matching, vesica piscis (sqrt(3))
+    ratio alignment, and the weighted overall geometry score.
+    """
+
+    GOLDEN_RATIO = "golden_ratio"
+    PLATONIC_HARMONY = "platonic_harmony"
+    FIBONACCI_SPIRAL = "fibonacci_spiral"
+    OVERALL_GEOMETRY = "overall_geometry"
+    VESICA_PISCIS = "vesica_piscis"
 
 
 class VerificationDimension(Enum):
@@ -124,11 +127,11 @@ class GeometryAnalysis:
 
 
 @dataclass
-class ArchetypalAnalysis:
-    """Archetypal pattern analysis result."""
+class GeometricPatternAnalysis:
+    """Geometric pattern analysis result."""
 
-    dominant_archetype: WisdomArchetype
-    archetype_scores: dict[str, float]
+    dominant_pattern: GeometricPattern
+    pattern_scores: dict[str, float]
     pattern_strength: float
     alignment_vector: np.ndarray[Any, Any]
     recommendations: list[str] = field(default_factory=list)
@@ -576,7 +579,7 @@ class ImmutableGeometryProcessor:
             patterns_detected=patterns,
         )
 
-    def compute_divine_proportion(self, a: float, b: float) -> float:
+    def compute_golden_ratio(self, a: float, b: float) -> float:
         """Compute how close the ratio a/b is to the golden ratio.
 
         Args:
@@ -950,38 +953,38 @@ class ImmutableWisdomEngine:
         self,
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
-    ) -> ArchetypalAnalysis:
-        """Perform archetypal pattern analysis.
+    ) -> GeometricPatternAnalysis:
+        """Score the geometry statistics and identify the dominant pattern.
 
         Args:
             data: Input data for analysis
             context: Optional analysis context
 
         Returns:
-            ArchetypalAnalysis with dominant archetype and scores
+            GeometricPatternAnalysis with dominant pattern and scores
         """
-        archetype_scores = {}
+        pattern_scores = {}
 
         geometry = self.geometry_processor.analyze_geometry(data, context)
 
-        archetype_scores[WisdomArchetype.MAAT.value] = geometry.golden_ratio_alignment
-        archetype_scores[WisdomArchetype.ATHENA.value] = geometry.platonic_harmony
-        archetype_scores[WisdomArchetype.THOTH.value] = geometry.fibonacci_spiral_score
-        archetype_scores[WisdomArchetype.SOPHIA.value] = geometry.overall_geometry_score
-        archetype_scores[WisdomArchetype.HERMES.value] = geometry.vesica_piscis_score
+        pattern_scores[GeometricPattern.GOLDEN_RATIO.value] = geometry.golden_ratio_alignment
+        pattern_scores[GeometricPattern.PLATONIC_HARMONY.value] = geometry.platonic_harmony
+        pattern_scores[GeometricPattern.FIBONACCI_SPIRAL.value] = geometry.fibonacci_spiral_score
+        pattern_scores[GeometricPattern.OVERALL_GEOMETRY.value] = geometry.overall_geometry_score
+        pattern_scores[GeometricPattern.VESICA_PISCIS.value] = geometry.vesica_piscis_score
 
-        dominant = max(archetype_scores.items(), key=lambda x: x[1])
-        dominant_archetype = WisdomArchetype(dominant[0])
+        dominant = max(pattern_scores.items(), key=lambda x: x[1])
+        dominant_pattern = GeometricPattern(dominant[0])
 
-        alignment_vector = np.array(list(archetype_scores.values()))
+        alignment_vector = np.array(list(pattern_scores.values()))
 
         recommendations = self._generate_archetypal_recommendations(
-            dominant_archetype, archetype_scores
+            dominant_pattern, pattern_scores
         )
 
-        return ArchetypalAnalysis(
-            dominant_archetype=dominant_archetype,
-            archetype_scores=archetype_scores,
+        return GeometricPatternAnalysis(
+            dominant_pattern=dominant_pattern,
+            pattern_scores=pattern_scores,
             pattern_strength=float(dominant[1]),
             alignment_vector=alignment_vector,
             recommendations=recommendations,
@@ -1082,21 +1085,27 @@ class ImmutableWisdomEngine:
 
     def _generate_archetypal_recommendations(
         self,
-        dominant: WisdomArchetype,
+        dominant: GeometricPattern,
         scores: dict[str, float],
     ) -> list[str]:
-        """Generate recommendations based on archetypal analysis."""
+        """Generate recommendations based on the geometry pattern scores."""
         recommendations = []
 
-        if dominant == WisdomArchetype.MAAT:
-            recommendations.append("Strong Ma'at alignment - maintain balance and truth focus")
-        elif dominant == WisdomArchetype.ATHENA:
-            recommendations.append("Strong Athena alignment - leverage strategic intelligence")
-        elif dominant == WisdomArchetype.THOTH:
-            recommendations.append("Strong Thoth alignment - emphasize knowledge and writing")
+        if dominant == GeometricPattern.GOLDEN_RATIO:
+            recommendations.append(
+                "Strong golden-ratio alignment - score ratios track phi; maintain balance"
+            )
+        elif dominant == GeometricPattern.PLATONIC_HARMONY:
+            recommendations.append(
+                "Strong Platonic-harmony score - distribution matches Platonic solid ratios"
+            )
+        elif dominant == GeometricPattern.FIBONACCI_SPIRAL:
+            recommendations.append(
+                "Strong Fibonacci-spiral score - values align with the Fibonacci sequence"
+            )
 
         low_scores = [(k, v) for k, v in scores.items() if v < 0.5]
-        for archetype, score in sorted(low_scores, key=lambda x: x[1]):
-            recommendations.append(f"Consider strengthening {archetype} alignment ({score:.2f})")
+        for pattern, score in sorted(low_scores, key=lambda x: x[1]):
+            recommendations.append(f"Consider strengthening {pattern} alignment ({score:.2f})")
 
         return recommendations

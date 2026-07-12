@@ -23,8 +23,6 @@ Research sources:
 - DOE Electromagnetic Pulse Resilience Action Plan
 - NERC (North American Electric Reliability Corporation)
 - IEEE Standards for EMP Protection
-
-Performance: 40% improved attack detection via multi-sensor fusion
 """
 
 from __future__ import annotations
