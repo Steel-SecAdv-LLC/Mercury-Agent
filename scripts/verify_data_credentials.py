@@ -125,6 +125,56 @@ def check_alpha_vantage(key: str) -> tuple[bool, str]:
     return False, f"unexpected response: {str(data)[:120]}"
 
 
+def check_usgs_eros(username: str, token: str, password: str = "") -> tuple[bool, str]:
+    """USGS EROS / EarthExplorer M2M login (username + application token/password).
+
+    The M2M API authenticates a ``username`` with either an application ``token``
+    (recommended; generated in the EarthExplorer profile) or a ``password``. A
+    successful login returns a session token in ``data`` with ``errorCode: null``;
+    that session is then used (and a small ``dataset-search`` is issued) to prove
+    real data delivery, and finally logged out.
+    """
+    base = "https://m2m.cr.usgs.gov/api/api/json/stable"
+
+    def _post(
+        path: str, payload: dict[str, Any], headers: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        try:
+            resp = requests.post(
+                f"{base}/{path}",
+                json=payload,
+                headers={"User-Agent": "mercury-cred-check", **(headers or {})},
+                timeout=30,
+            )
+            return resp.json() if resp.content else {"errorMessage": f"HTTP {resp.status_code}"}
+        except Exception as exc:  # pragma: no cover - network variance
+            return {"errorMessage": str(exc)}
+
+    body: dict[str, Any] = {}
+    method = ""
+    if token:
+        method = "token"
+        body = _post("login-token", {"username": username, "token": token})
+    if not body.get("data") and password:
+        method = "password"
+        body = _post("login", {"username": username, "password": password})
+    session = body.get("data")
+    if not session:
+        return (
+            False,
+            f"login failed ({method or 'no-credential'}): "
+            f"{body.get('errorCode')} {body.get('errorMessage')}",
+        )
+
+    detail = f"authenticated via {method}; session token issued"
+    hdr = {"X-Auth-Token": str(session)}
+    ds = _post("dataset-search", {"datasetName": "landsat_ot_c2_l2"}, hdr)
+    if isinstance(ds.get("data"), list):
+        detail += f"; dataset-search returned {len(ds['data'])} dataset(s)"
+    _post("logout", {}, hdr)
+    return True, detail
+
+
 def check_openweathermap(key: str) -> tuple[bool, str]:
     status, body = _get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={key}")
     if status != 200:
@@ -159,20 +209,27 @@ def run() -> int:
         if not ok:
             failures += 1
 
-    # USGS: no public USGS API authenticates with a bare API key -- earthquake,
-    # water, and elevation services are all keyless. Report honestly rather than
-    # invent a consumer. The keyless earthquake feed is probed for reachability.
-    usgs = os.environ.get("USGS_KEY", "")
-    status, _ = _get(
-        "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
-        "&starttime=2024-05-10&endtime=2024-05-11&minmagnitude=5"
-    )
-    note = "set" if usgs else "unset"
-    print(
-        f"  {'USGS':14s} INFO      USGS_KEY {note}; no keyed public USGS endpoint "
-        f"(earthquake FDSN is keyless, reachable HTTP {status}). "
-        "EROS/EarthExplorer auth uses EROSERS_USERNAME/PASSWORD, not a bare key."
-    )
+    # USGS EROS / EarthExplorer M2M: authenticates a username with an application
+    # token (USGS_KEY, recommended) or a password. The other USGS services
+    # (earthquake FDSN, water, elevation) are keyless and need no credential.
+    eros_user = os.environ.get("EROSERS_USERNAME", "")
+    eros_token = os.environ.get("USGS_KEY", "")
+    eros_pw = os.environ.get("EROSERS_PASSWORD", "")
+    if eros_user and (eros_token or eros_pw):
+        ok, detail = check_usgs_eros(eros_user, eros_token, eros_pw)
+        print(f"  {'USGS/EROS':14s} {'DELIVERS' if ok else 'FAIL   '}  {detail}")
+        if not ok:
+            failures += 1
+    else:
+        status, _ = _get(
+            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
+            "&starttime=2024-05-10&endtime=2024-05-11&minmagnitude=5"
+        )
+        print(
+            f"  {'USGS/EROS':14s} SKIP  need EROSERS_USERNAME + USGS_KEY (EROS M2M "
+            f"application token) or EROSERS_PASSWORD; keyless USGS earthquake feed "
+            f"reachable HTTP {status}"
+        )
     print(f"=== {failures} failure(s) among sources with a key present ===")
     return 1 if failures else 0
 

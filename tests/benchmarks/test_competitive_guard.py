@@ -263,6 +263,11 @@ def test_check_fails_against_mutated_stricter_baseline(
 @pytest.mark.network
 @pytest.mark.slow
 def test_live_guard_clears_floors() -> None:
+    # The guard measures Mercury against real PyOD baselines, so it needs the
+    # [benchmark] extra (pyod). Lanes that don't install it (e.g. network-tests
+    # installs [compliance,dev,ml]) skip cleanly rather than hard-failing on the
+    # ImportError raised by run_pyod_baselines.
+    pytest.importorskip("pyod")
     mod = _load_guard()
     violations = mod.check()
     assert not violations, "competitive position regressed below pinned bounds:\n" + "\n".join(

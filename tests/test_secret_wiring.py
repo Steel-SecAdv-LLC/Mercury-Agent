@@ -117,6 +117,16 @@ class TestWorkflowInjection:
                 m.group(1) == secret
             ), f"{env_var} must be fed from secrets.{secret}, got secrets.{m.group(1)}"
 
+    def test_eros_credentials_injected(self) -> None:
+        # USGS EROS/EarthExplorer M2M needs a username + token (or password);
+        # all three must be injected for the credential-delivery check to run.
+        env = _collect_step_env(_load_workflow())
+        for env_var in ("EROSERS_USERNAME", "USGS_KEY", "EROSERS_PASSWORD"):
+            assert env_var in env, f"network-tests must inject {env_var} for the EROS check"
+            assert _SECRET_RE.search(
+                env[env_var]
+            ), f"{env_var} must be fed from a repository secret"
+
     def test_workflow_not_fork_pr_triggered(self) -> None:
         wf = _load_workflow()
         # PyYAML parses the bare ``on:`` key as boolean True; handle both.
