@@ -10,7 +10,7 @@ secret material leaks into error messages -- all against a fake
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -20,6 +20,9 @@ from omni_mercury_engine.integrations.usgs_eros import (
     USGSErosError,
     USGSErosM2MClient,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 #: A fake application token used throughout; a variable (not a literal at the
 #: call site) so flake8-bandit does not flag every ``token=`` argument.
@@ -44,7 +47,9 @@ class _FakeM2M:
 
 
 @pytest.fixture
-def install_fake(monkeypatch: pytest.MonkeyPatch):
+def install_fake(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Callable[[dict[str, Any]], _FakeM2M]:
     """Install a fake transport over SafeHTTPClient.post_json; return it."""
 
     def _install(envelopes: dict[str, Any]) -> _FakeM2M:
