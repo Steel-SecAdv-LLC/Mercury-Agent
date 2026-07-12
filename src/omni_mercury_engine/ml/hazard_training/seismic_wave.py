@@ -1102,27 +1102,30 @@ def _select_operating_point(
 ) -> dict[str, Any]:
     """Choose the learned alert threshold on the VALIDATION year.
 
-    Policy (mirrors ``solar_storm._select_operating_point``, documented for
-    owner ratification): the deployed alert is ``confidence >
-    detection_threshold``, where the learned confidence is the sigmoid
-    classifier output plus the detector's ``0.2 * resonance`` bump (capped at
-    1). The default 0.96 was calibrated for the physics STA/LTA confidence
-    scale, not the sigmoid's, so the threshold is selected on the VALIDATION
-    year only: require detection recall >= max(physics val recall + 0.02,
-    0.60) AND false-alarm rate <= 0.8 * physics val FAR (both mirror the ship
-    gate's secondary constraints, with headroom for the val->test shift the
-    gate does not forgive); among feasible thresholds pick the one maximizing
-    CSI (ties -> higher threshold, fewer false alarms). When physics is
-    perfectly precise on validation (FAR = 0) the ``0.8 * FAR`` ceiling
-    collapses to an unsatisfiable zero -- the deployed confidence saturates at
-    1.0, so the worst noise trace ties the real events and no threshold both
-    detects earthquakes and posts zero false alarms; the fallback then keeps
-    the lowest-FAR threshold that still clears the recall floor (a real
-    deployable rule, ``recall_floor_met=False`` recording the branch) and lets
-    the merit gate adjudicate FAR honestly on the held-out test years. Physics
-    recall/FAR on validation come from the exact parity helpers
-    (:func:`_physics_confidence_parity`); the evaluate stage still measures
-    both paths through the public detector API on the held-out TEST years.
+    The deployed alert is ``confidence > detection_threshold`` where the learned
+    confidence is ``sigmoid(eq_logit / T)`` -- the classifier's PRE-sigmoid
+    detection logit rescaled by a validation-fit calibration temperature ``T``
+    (Guo et al. 2017), and NO physics ``0.2 * resonance`` bump (that bump is an
+    STA/LTA-confidence device; on the learned head it only adds noise-driven
+    false alarms). ``T`` is strictly ROC-invariant: its only job is to undo the
+    terminal-sigmoid saturation that otherwise pins ~79% of confident traces to
+    exactly 1.0, which left the deployed score unthresholdable (an untunable
+    ~4.4% false-alarm floor). The threshold is selected on VALIDATION only:
+    require detection recall >= max(physics val recall + 0.02, 0.60) AND
+    false-alarm rate <= 0.8 * physics val FAR (mirroring the ship gate's
+    secondary constraints with val->test headroom); among feasible thresholds
+    pick the one maximizing CSI (ties -> higher threshold, fewer false alarms).
+    When physics is perfectly precise on validation (FAR = 0) the ``0.8 * FAR``
+    ceiling collapses to an unsatisfiable zero; because the calibrated score no
+    longer saturates, a genuine low-false-alarm point exists, so the selector
+    then maximizes CSI within an absolute 1% val-FAR budget (real val->test
+    headroom below physics' measured test FAR). The merit gate STILL adjudicates
+    learned <= physics FAR on the held-out TEST years independently -- this
+    selects a deployable point that can clear the gate at high recall, it does
+    not touch the gate. Physics recall/FAR on validation come from the exact
+    parity helpers (:func:`_physics_confidence_parity`); the evaluate stage
+    still measures both paths through the public detector API on the held-out
+    TEST years.
 
     Args:
         model: Trained ``SeismicWaveAnalyzer`` (best validation state).
@@ -1152,24 +1155,59 @@ def _select_operating_point(
         )
 
     model.eval()
-    probs = []
+    logits = []
     with torch.no_grad():
         for start in range(0, val["spec"].shape[0], 256):
-            eq_prob, _, _, _ = model(val["spec"][start : start + 256])
-            probs.append(eq_prob.reshape(-1).numpy().astype(np.float64))
-    eq_prob_all = np.concatenate(probs)
+            logits.append(
+                model.detection_logit(val["spec"][start : start + 256])
+                .reshape(-1)
+                .numpy()
+                .astype(np.float64)
+            )
+    eq_logit_all = np.concatenate(logits)
+
+    # Temperature scaling (Guo et al. 2017): fit one positive scalar T that
+    # minimises the validation BCE of sigmoid(logit / T), then deploy that score.
+    # The NLL is 1-D and convex in 1/T, so a seeded coarse-to-fine search finds
+    # the optimum robustly and keeps the fit in pure numpy (no autograd for a
+    # single scalar). T is strictly ROC-invariant (monotonic), so it moves no
+    # recall/FAR trade-off -- its sole job is to undo the terminal-sigmoid
+    # saturation that pinned confident traces to exactly 1.0 (which left the
+    # deployed score unthresholdable). Calibration only: no constraint is relaxed.
+    _y = labels.astype(np.float64)
+
+    def _temperature_nll(t: float) -> float:
+        z = eq_logit_all / t
+        # numerically stable BCE-with-logits mean: softplus(z) - y * z
+        return float(np.mean(np.logaddexp(0.0, z) - _y * z))
+
+    _coarse = np.geomspace(0.05, 20.0, 400)
+    _t0 = float(_coarse[int(np.argmin([_temperature_nll(float(t)) for t in _coarse]))])
+    _fine = np.linspace(_t0 / 1.5, _t0 * 1.5, 200)
+    _t1 = float(_fine[int(np.argmin([_temperature_nll(float(t)) for t in _fine]))])
+    temperature = float(np.clip(_t1, 1e-3, 1e6))
 
     physics_conf = np.empty(len(labels), dtype=np.float64)
-    resonance = np.empty(len(labels), dtype=np.float64)
     for i, trace in enumerate(raw["z"]):
-        physics_conf[i], resonance[i] = _physics_confidence_parity(trace)
-    learned_conf = np.minimum(1.0, eq_prob_all + resonance * 0.2)
+        physics_conf[i], _ = _physics_confidence_parity(trace)
+    # Deployed learned alert score: the temperature-calibrated probability, with
+    # NO physics 0.2*resonance bump (an STA/LTA-confidence device that only adds
+    # noise-driven false alarms on the learned head). This mirrors
+    # EarthquakeDetector.predict_earthquake's learned path exactly.
+    learned_conf = 1.0 / (1.0 + np.exp(-eq_logit_all / temperature))
 
     phys_detect = physics_conf > PHYSICS_DETECTION_THRESHOLD
     physics_recall = float(np.mean(phys_detect[labels]))
     physics_far = float(np.mean(phys_detect[~labels]))
     recall_floor = max(physics_recall + 0.02, 0.60)
     far_ceiling = 0.8 * physics_far
+    # Absolute false-alarm budget for the perfectly-precise-physics regime
+    # (physics val FAR = 0 makes 0.8*physics_far an unsatisfiable zero). 1% on
+    # validation leaves genuine val->test headroom below physics' measured test
+    # FAR; the merit gate still independently adjudicates learned <= physics FAR
+    # on the held-out TEST years -- this only picks a deployable point that can
+    # clear that gate at high recall, it does not touch the gate.
+    far_budget = 0.01
 
     def _rule_metrics(tau: float) -> tuple[float, float, float]:
         detect = learned_conf > tau
@@ -1184,22 +1222,23 @@ def _select_operating_point(
     taus = np.unique(
         np.concatenate(
             [
-                np.quantile(learned_conf, np.linspace(0.0, 1.0, 513)),
+                np.quantile(learned_conf, np.linspace(0.0, 1.0, 1025)),
                 [PHYSICS_DETECTION_THRESHOLD],  # keep 0.96 selectable if it is right
             ]
         )
     )
     best: dict[str, Any] | None = None
-    # Fallback for the perfectly-precise-physics regime. When physics posts
+    # Budgeted point for the perfectly-precise-physics regime. When physics posts
     # zero validation false alarms, ``0.8 * physics_far`` collapses to an
-    # unsatisfiable zero: the detector caps the deployed confidence
-    # (``eq_prob + 0.2 * resonance``) at 1.0, so the worst noise trace ties the
-    # real events and NO threshold both detects earthquakes and posts zero
-    # false alarms. Recording a recall-0 threshold would be a broken alert rule
-    # (and would fail load_neural_weights' 0<tau<1 guard anyway), so the
-    # fallback keeps the lowest-FAR threshold that still clears the recall floor
-    # (ties -> higher CSI, then higher tau) and lets the merit gate adjudicate
-    # FAR honestly on the held-out test years.
+    # unsatisfiable zero. With the temperature-calibrated, resonance-free score
+    # the deployed confidence no longer saturates at 1.0, so a genuine
+    # low-false-alarm operating point exists: pick the MAX-CSI threshold within
+    # the absolute 1% val-FAR budget (ties -> higher tau) so the model deploys at
+    # high recall AND low FAR, with val->test headroom for the merit gate to
+    # adjudicate learned <= physics FAR honestly on the held-out test years. The
+    # last-resort ``fallback`` (lowest-FAR at the recall floor) only fires if even
+    # the 1% budget is somehow unreachable.
+    budgeted: dict[str, Any] | None = None
     fallback: dict[str, Any] | None = None
     for tau in taus:
         recall, far, csi = _rule_metrics(float(tau))
@@ -1222,6 +1261,16 @@ def _select_operating_point(
             fallback = entry
         if (
             recall >= recall_floor
+            and far <= far_budget
+            and (
+                budgeted is None
+                or csi > budgeted["val_csi"]
+                or (csi == budgeted["val_csi"] and tau > budgeted["detection_threshold"])
+            )
+        ):
+            budgeted = entry
+        if (
+            recall >= recall_floor
             and far <= far_ceiling
             and (
                 best is None
@@ -1231,7 +1280,10 @@ def _select_operating_point(
         ):
             best = entry
     floor_met = best is not None
-    chosen = best if best is not None else fallback
+    # Precedence: the strict 0.8*physics ceiling if satisfiable; else the
+    # max-CSI point within the 1% val-FAR budget; else the lowest-FAR point at
+    # the recall floor.
+    chosen = best if best is not None else (budgeted if budgeted is not None else fallback)
     if chosen is None:
         raise RuntimeError(
             "no learned threshold reaches the recall floor on validation; the "
@@ -1239,9 +1291,10 @@ def _select_operating_point(
             "refusing to record a doomed operating point"
         )
     logger.info(
-        "operating point: threshold %.6f (val recall %.4f / FAR %.4f / CSI %.4f; "
+        "operating point: threshold %.6f (T=%.3f; val recall %.4f / FAR %.4f / CSI %.4f; "
         "physics recall %.4f / FAR %.4f at %.2f)",
         chosen["detection_threshold"],
+        temperature,
         chosen["val_recall"],
         chosen["val_far"],
         chosen["val_csi"],
@@ -1251,14 +1304,18 @@ def _select_operating_point(
     )
     return {
         **chosen,
-        "policy": "confidence > tau (sigmoid + 0.2*resonance, detector semantics); tau "
-        "maximizes val CSI subject to val recall >= max(physics val recall + 0.02, 0.60) "
-        "AND val FAR <= 0.8 * physics val FAR; when physics posts zero val FAR that ceiling "
-        "is unsatisfiable, so the fallback keeps the lowest-FAR tau meeting the recall floor "
-        "(recall_floor_met records the branch) and the merit gate decides FAR on test",
+        "temperature": temperature,
+        "policy": "confidence > tau where confidence = sigmoid(eq_logit / T), T a "
+        "validation-fit calibration temperature (undoes terminal-sigmoid saturation; strictly "
+        "ROC-invariant) with NO physics resonance bump on the learned head; tau maximizes val "
+        "CSI subject to val recall >= max(physics val recall + 0.02, 0.60) AND val FAR <= "
+        "0.8*physics val FAR; when physics posts zero val FAR that ceiling is unsatisfiable, "
+        "so tau maximizes val CSI within an absolute 1% val-FAR budget (val->test headroom) "
+        "and the merit gate still adjudicates learned <= physics FAR on the held-out test years",
         "recall_floor": recall_floor,
         "recall_floor_met": floor_met,
         "far_ceiling": far_ceiling,
+        "far_budget": far_budget,
         "val_recall_physics": physics_recall,
         "val_far_physics": physics_far,
         "physics_detection_threshold": PHYSICS_DETECTION_THRESHOLD,

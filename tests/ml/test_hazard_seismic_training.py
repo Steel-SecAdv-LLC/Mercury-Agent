@@ -319,7 +319,18 @@ class TestDetectorCheckpointWiring:
         assert provenance["evaluation"]["learned_beats_physics"] is True
         detector = EarthquakeDetector()
         detector.load_neural_weights()  # no path -> shipped default
-        assert detector._operating_point == {"detection_threshold": tau}
+        assert detector._operating_point is not None
+        assert detector._operating_point["detection_threshold"] == tau
+        # The temperature-calibrated alert rule (confidence = sigmoid(logit / T))
+        # carries its validation-fit T into the deployed operating point; it must
+        # be consumed decision-only alongside the threshold. Checkpoints predating
+        # the calibration convention carry no temperature and consume only tau.
+        temperature = op.get("temperature")
+        if temperature is not None:
+            assert detector._operating_point["temperature"] == float(temperature)
+            assert set(detector._operating_point) == {"detection_threshold", "temperature"}
+        else:
+            assert set(detector._operating_point) == {"detection_threshold"}
         # The constructor threshold (physics rule) is never overwritten.
         assert detector.detection_threshold == PHYSICS_DETECTION_THRESHOLD
 
@@ -445,3 +456,51 @@ class TestMagnitudeIsInformational:
         outcome = self._outcome(constraints)
         assert outcome.learned_beats_physics is False
         assert [c["metric"] for c in outcome.failed_constraints] == ["magnitude_mae"]
+
+
+class TestCalibratedAlertRule:
+    """Regression guard for the temperature-calibrated, saturation-free alert rule.
+
+    The deployed learned alert is ``confidence = sigmoid(eq_logit / T)``. These
+    lock the two invariants the fix depends on: the exposed logit is the genuine
+    pre-sigmoid score, and a nonsensical temperature refuses to load. Together
+    they prevent silent regression to the old ``min(1, sigmoid + 0.2*resonance)``
+    rule, whose terminal-sigmoid saturation pinned ~79% of confident traces to
+    exactly 1.0 and left the deployed score unthresholdable.
+    """
+
+    def test_detection_logit_is_the_presigmoid_logit(self) -> None:
+        """``sigmoid(detection_logit)`` reproduces the head's probability exactly.
+
+        If the logit were not the true pre-sigmoid score (tie-free, unbounded),
+        the saturation that made the deployed FAR untunable would return.
+        """
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            SeismicWaveAnalyzer,
+        )
+
+        analyzer = SeismicWaveAnalyzer().eval()
+        x = torch.randn(8, 129, 45)
+        with torch.no_grad():
+            logit = analyzer.detection_logit(x)
+            prob, *_ = analyzer(x)
+        assert torch.allclose(torch.sigmoid(logit), prob, atol=1e-6)
+
+    def test_load_neural_weights_rejects_nonpositive_temperature(self, tmp_path: Path) -> None:
+        """A non-positive calibration temperature is a nonsensical alert rule."""
+        from omni_mercury_engine.detectors.geological.disaster_detectors import (
+            EarthquakeDetector,
+            SeismicWaveAnalyzer,
+        )
+
+        ckpt = tmp_path / "bad_temperature.pt"
+        torch.save(
+            {
+                "seismic_analyzer": SeismicWaveAnalyzer().state_dict(),
+                "operating_point": {"detection_threshold": 0.6, "temperature": 0.0},
+            },
+            ckpt,
+        )
+        detector = EarthquakeDetector()
+        with pytest.raises(ValueError, match="temperature"):
+            detector.load_neural_weights(str(ckpt))

@@ -28,9 +28,9 @@ first-class recorded result, not a failure of the pipeline.
 
 Every one of the eleven hooks now has a **real, reachable data path** (all
 category **a**) and has been driven through the full fetch → build → train →
-evaluate → gate pipeline on real measured data. Outcome: **7 shipped through
-the merit gate, 4 honest "physics-wins" refusals** — each refusal backed by a
-committed evaluation record under `artifacts/hazard_training/`. Four shipped
+evaluate → gate pipeline on real measured data. Outcome: **8 shipped through
+the merit gate, 3 honest "physics-wins" refusals** — each refusal backed by a
+committed evaluation record under `artifacts/hazard_training/`. Five shipped
 checkpoints carry a **validation-selected operating point** (the storm/alert
 decision threshold chosen on the validation years against the same
 non-regression constraints the gate enforces, then consumed decision-only by
@@ -52,7 +52,7 @@ for owner ratification in the PR, not silently discarded.
 | `tornado_radar` | `tornado_nexrad` | **a** | NEXRAD Level-II velocity (Unidata mirror) + SPC WCM tornado reports, 2011–2023 | **SHIPPED** — AUC **0.810 vs 0.687**; mesocyclone recall 0.35 vs 0.225, FAR **0.034 vs 0.138** (4× lower); op point τ=0.895. *Caveat: paired-bootstrap 95% CI on the AUC delta [−0.002, 0.245] marginally includes zero on a small test set (n=98) — recorded for transparency, flagged for owner review* |
 | `consciousness_field` | `reg_deviation_gcp` | **a** | Global Consciousness Project per-second REG streams (Wayback archive, 2012–2024); fault-injection labels (bias / common-mode / stuck-bit), true by construction | **SHIPPED** — REG statistical-deviation detector; mixed-fault AUC **0.7875 vs 0.7246** vs the pre-registered closed-form Stouffer+χ² rule (CI [0.043, 0.080]); power@1%FAR 0.368 vs 0.337, Brier 0.183 vs 0.267. Consciousness-field reading is the *contested hypothesis under study*, neither asserted nor denied |
 | `earthquake_precursor` | (`earthquake_precursor_ca`) | **a** | USGS ComCat FDSN, California 1980–2024 M≥2.5; `seismicity-catalog-v2` stacks the Reasenberg–Jones causal forecast as inputs | **REFUSED — clustering baseline wins ranking**: learned wins log-loss 0.00414 vs 0.00629 (CI excludes 0) but AUC 0.8895 < RJ 0.8975; auc constraint refused. Record: `artifacts/hazard_training/earthquake_precursor.eval.json` |
-| `seismic_wave` | (`seismic_stead`) | **a** | STEAD (Mousavi et al. 2019, CC-BY-4.0), SeisBench mirror; balanced Z-component subset streamed via HTTP Range | **REFUSED — deployed-rule FAR regresses**: learned wins AUC **0.983 vs 0.923** and recall **0.995 vs 0.442** (low-SNR recall **0.986 vs 0.103**) but FAR 3.70% vs 2.84% at the deployed rule. A recall/FAR trade favouring the learned model for early warning — **flagged for owner ratification.** Record: `artifacts/hazard_training/seismic_stead.eval.json` |
+| `seismic_wave` | `seismic_stead` | **a** | STEAD (Mousavi et al. 2019, CC-BY-4.0), SeisBench mirror; balanced Z-component subset streamed via HTTP Range | **SHIPPED** — AUC **0.995 vs 0.923** (bootstrap 95% CI [0.067, 0.077] excludes 0), recall **0.968 vs 0.442** (low-SNR recall **0.915 vs 0.103**), deployed-rule FAR **1.58% vs 2.84%** (lower on every gated metric); op point τ=0.9984 on a validation-calibrated `sigmoid(logit/T)` (T=1.27, no physics resonance bump) that undoes the terminal-sigmoid saturation which had pinned the earlier deployed FAR at 3.70% |
 | `tsunami_waveform` | (`tsunami_dart`) | **a** | NOAA NDBC DART bottom-pressure archives + NCEI HazEL arrival labels; detided 24 h windows | **REFUSED — deployed-rule FAR regresses**: learned wins AUC 0.861 vs 0.747 (CI [0.075, 0.152]) and event recall 51% vs 6.7%, but deployed FAR 0.29% vs 0.097% (validation cannot resolve FAR below the ceiling). Record: `artifacts/hazard_training/tsunami_dart.eval.json` |
 | `schumann_harmonics` | (`schumann_sierra_nevada`) | **a** | Sierra Nevada ELF observatory raw int16 (Zenodo, CC-BY-4.0; Salinas et al. 2022), ranged remote-ZIP reads; GFZ Kp labels | **REFUSED — physics alarms always**: learned wins ranking AUC 0.568 vs 0.374 and type accuracy 0.60 vs 0.24, but the deterministic FFT physics alarms on every held-out hour (recall 1.0 at FAR 1.0), so the recall floor is unbeatable. The alarm-always physics is itself a detector defect the record documents. Record: `artifacts/hazard_training/schumann_sierra_nevada.eval.json` |
 
@@ -113,7 +113,7 @@ corrupt or missing files raise).
 learned model must **match or beat** physics (not merely win the primary
 metric). `ship_checkpoint` refuses if any constraint regresses, so a
 checkpoint cannot ship on a primary-metric win while quietly regressing an
-operational metric. This is why the four refused hooks above did not ship:
+operational metric. This is why the three refused hooks above did not ship:
 each wins its primary metric but regresses a deployed-rule constraint
 (false-alarm rate for seismic/tsunami, recall against an alarm-always
 baseline for schumann, ranking AUC for earthquake). The refusal, with its

@@ -445,6 +445,25 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                 s_wave_prob.squeeze(-1),
             )
 
+        def detection_logit(self, spectrogram: torch.Tensor) -> torch.Tensor:
+            """Pre-sigmoid earthquake-detection logit (the unsaturated alert score).
+
+            The classifier head ends in a ``Sigmoid`` that pins confident traces
+            to *exactly* 1.0 in float32, collapsing the score tail a deployable
+            alert threshold needs (empirically ~79% of true events saturate to
+            1.0). This returns the logit feeding that final ``Sigmoid`` -- strictly
+            monotonic in the probability (identical ROC / AUC) but unbounded and
+            tie-free, so the deployed rule can threshold a temperature-calibrated
+            ``sigmoid(logit / T)`` without the saturation floor. Weights are shared
+            with :meth:`forward` (``classifier`` minus its terminal activation).
+            """
+            if spectrogram.dim() == 3:
+                spectrogram = spectrogram.unsqueeze(1)
+            features = self.conv2d(spectrogram)
+            features_flat = features.view(features.size(0), -1)
+            logit = self.classifier[:-1](features_flat)
+            return logit.squeeze(-1)
+
 else:
 
     class SeismicWaveAnalyzer:
@@ -1128,6 +1147,7 @@ class EarthquakeDetector:
         # cannot half-load. Checkpoints that predate the convention simply
         # leave the constructor threshold in charge.
         op = checkpoint.get("operating_point")
+        temperature: float | None = None
         if op is not None:
             tau = float(op["detection_threshold"])
             if not np.isfinite(tau) or not (0.0 < tau < 1.0):
@@ -1135,9 +1155,18 @@ class EarthquakeDetector:
                     f"checkpoint operating point detection threshold {tau} is not a "
                     "probability; refusing a nonsensical alert rule"
                 )
+            if op.get("temperature") is not None:
+                temperature = float(op["temperature"])
+                if not np.isfinite(temperature) or temperature <= 0.0:
+                    raise ValueError(
+                        f"checkpoint operating point temperature {temperature} is not a "
+                        "positive scale; refusing a nonsensical alert rule"
+                    )
         self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
         if op is not None:
             self._operating_point = {"detection_threshold": float(op["detection_threshold"])}
+            if temperature is not None:
+                self._operating_point["temperature"] = temperature
         else:
             self._operating_point = None
         self._neural_trained = True
@@ -1219,12 +1248,26 @@ class EarthquakeDetector:
 
             with torch.no_grad():
                 eq_prob, magnitude, p_prob, s_prob = self.seismic_analyzer(spectrogram_tensor)
+                # Deployed alert score. When the checkpoint carries a calibration
+                # temperature (seismic-stead-v2 semantics) the alert rule
+                # thresholds sigmoid(logit / T): this preserves the head's ROC
+                # while undoing the terminal-sigmoid saturation that pinned
+                # confident traces to exactly 1.0 (a threshold cannot split a 1.0
+                # pile-up). The physics-path 0.2*resonance bump is NOT added on the
+                # learned head -- it is an STA/LTA-confidence device that only
+                # manufactures noise-driven false alarms here. Checkpoints without
+                # a temperature keep the legacy (eq_prob + 0.2*resonance, capped)
+                # semantics unchanged.
+                temperature = (self._operating_point or {}).get("temperature")
+                if temperature is not None:
+                    eq_logit = self.seismic_analyzer.detection_logit(spectrogram_tensor)
+                    confidence = float(torch.sigmoid(eq_logit[0] / temperature).item())
+                else:
+                    confidence = min(1.0, float(eq_prob[0].item()) + resonance_score * 0.2)
 
-            confidence = float(eq_prob[0].item())
             estimated_mag = float(magnitude[0].item()) * 4 + 2
             p_wave_detected = float(p_prob[0].item()) > 0.5
             s_wave_detected = float(s_prob[0].item()) > 0.5
-            confidence = min(1.0, confidence + resonance_score * 0.2)
             magnitude_class = self._classify_magnitude(estimated_mag)
             aftershock_probability = min(0.9, estimated_mag / 10)
         else:
