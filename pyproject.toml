@@ -339,6 +339,12 @@ benchmark = [
     "hypothesis>=6.0.0",
     # ``joblib`` removed in v1.7.0 (see ``optimization`` extra above).
     "matplotlib>=3.10.9",
+    # Competitive benchmarking lane (benchmarks/competitive_benchmark.py +
+    # omni_mercury_engine.comparison.pyod_integration): real PyOD baselines
+    # run head-to-head against Mercury on ADBench/NAB. PyOD pulls
+    # scikit-learn transitively; Mercury's core detection pipeline stays
+    # sklearn-free (only this optional lane imports pyod, lazily).
+    "pyod>=2.0",
 ]
 
 # Development tools
@@ -567,6 +573,9 @@ module = [
     "psutil.*",
     "timm.*",
     "transformers.*",
+    # PyOD (optional [benchmark] extra) ships no py.typed marker; only the
+    # lazy imports inside comparison/pyod_integration.py touch it.
+    "pyod.*",
     "stumpy.*",
     "nixtla.*",
     "chronos.*",

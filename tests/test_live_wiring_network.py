@@ -117,8 +117,19 @@ class TestRealSourcesLive:
         assert result.data_points, "NeoWs 7-day feed always has close approaches"
 
     def test_jpl_fireball(self) -> None:
-        result = _fetch_or_loud(JPLFireballSource())
-        assert result.data_points, "CNEOS fireball archive is never empty"
+        # CNEOS publishes the fireball table in lagging batches, so a short
+        # recent window can be legitimately empty on a perfectly healthy
+        # upstream -- the default 30-day window therefore spuriously red-X'd
+        # the weekly lane. Query a decade so "never empty" is a genuine
+        # invariant: a real outage still skips via result.unreachable inside
+        # _fetch_or_loud, schema drift is raised as DataSourceError by the
+        # source (and fails loudly there), and an empty, reachable 200-OK over
+        # ten years is real breakage this assert is right to catch.
+        result = _fetch_or_loud(JPLFireballSource(days_back=3650))
+        assert result.data_points, (
+            "CNEOS fireball archive over a 10-year window is never empty; an "
+            "empty but reachable response indicates upstream/schema breakage"
+        )
 
     def test_jpl_sentry(self) -> None:
         result = _fetch_or_loud(JPLSentrySource())

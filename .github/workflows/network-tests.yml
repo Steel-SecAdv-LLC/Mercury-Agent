@@ -70,6 +70,26 @@ jobs:
           # skip every week and live-wiring drift goes unwatched.
           pip install -e ".[compliance,dev,ml]"
 
+      # Prove the injected data-source secrets DELIVER real data (not merely
+      # exist). Import-light (requests only, no engine/AMA), so it runs before
+      # the native-crypto build and its per-source verdict is visible directly
+      # in the log. Secrets are step-scoped; this lane is schedule/dispatch only
+      # (never a fork-PR trigger). An absent key reports SKIP; a present-but-
+      # failing key fails the step. USGS EROS/EarthExplorer authenticates a
+      # username with an application token (USGS_KEY) or password.
+      - name: Verify data-source credential delivery
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+          NASA_FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+          EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
+          EROSERS_PASSWORD: ${{ secrets.EROSERS_PASSWORD }}
+          USGS_KEY: ${{ secrets.USGS_KEY }}
+        run: python scripts/verify_data_credentials.py
+
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs the fail-closed _enforce_pqc_production_gate(),
       # and tests/conftest.py imports the engine at collection time -- so even
@@ -84,9 +104,12 @@ jobs:
         env:
           MERCURY_NETWORK_TESTS: "1"
           # Live-data API keys for the keyed loaders. Every value is a repo
-          # secret injected only in CI -- never committed, echoed, or written to
-          # any artifact. Where the loader's env var differs from the secret
-          # name, BOTH are set to the same secret (documented per line).
+          # secret injected only into this schedule/workflow_dispatch step (never
+          # a fork-PR trigger, so never exposed to untrusted pull requests) --
+          # never committed, echoed, or written to any artifact. An absent secret
+          # resolves to an empty string and the loader skips/fail-softs. Where the
+          # loader's env var differs from the secret name, BOTH are set to the
+          # same secret (documented per line).
           #
           # NASA FIRMS: WildfireLoader reads NASA_FIRMS_MAP_KEY; the repo secret
           # is named FIRMS_MAP_KEY. Checkpoint training uses the keyless yearly
@@ -105,8 +128,10 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           # OpenWeatherMap -- weather loader reads OPENWEATHERMAP_API_KEY.
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
-          # USGS EROS M2M (login-token) needs BOTH the application token and the ERS username.
+          # USGS EROS M2M (login-token) needs BOTH the application token and the
+          # ERS username (and optional password).
           USGS_KEY: ${{ secrets.USGS_KEY }}
           EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
+          EROSERS_PASSWORD: ${{ secrets.EROSERS_PASSWORD }}
         run: |
           pytest -m network -v --tb=short

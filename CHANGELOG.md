@@ -27,6 +27,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### AI/bot review-alert remediation — root-cause fixes, no suppressions
+
+A pass over every open Copilot review alert on the competitive-benchmark work,
+resolving each at the root (no debt-for-debt, no suppression, no silenced check)
+and proving the fix with an offline, deterministic test. Full triage table,
+per-alert root-cause notes, sandbox deployment steps and validation artifacts in
+[`docs/PR335_AI_ALERT_REMEDIATION.md`](docs/PR335_AI_ALERT_REMEDIATION.md).
+
+- **Credential-check transport errors were opaque.**
+  `scripts/verify_data_credentials.py` collapsed a transport failure — `_get()`
+  returns `(0, <exception text>)` on DNS/TLS/timeout — to the useless report line
+  `"HTTP 0"`, discarding the one detail that explains a credential-delivery
+  failure in CI. A new `_fail_detail(status, body)` helper surfaces the transport
+  error text when the status is `0`, and appends a short provider-body preview
+  (typically the API's own error message) on a real HTTP error; every keyed
+  checker (EIA/FRED/NASA/AlphaVantage/OpenWeatherMap) routes its non-200 path
+  through it. **Because a `requests` transport error embeds the full request URL
+  (whose query string carries the API key), the surfaced text is first scrubbed
+  by a new `_redact()` helper** — the value of any credential-bearing query
+  parameter (`api_key`/`apikey`/`appid`/`token`/`password`/`secret`/`key`) is
+  replaced with `***`, so the fix cannot leak a secret into CI logs (honouring the
+  module's "secret values are never printed" contract). `run()`'s docstring was
+  also corrected to match its actual exit-code contract (1 on any failure, else
+  0). New offline suite `tests/test_data_credentials_offline.py` (28 cases) drives
+  each checker through a monkeypatched `_get` and asserts the transport reason
+  reaches the report, `"HTTP 0"` never does, and the key is never echoed.
+- **A broad `except` in the secret-wiring guard could mask a real regression.**
+  `tests/test_secret_wiring.py`'s behavioural loader check caught every
+  `RuntimeError` on engine import and skipped, so a non-PQC `RuntimeError` from a
+  loader refactor would go green as an "offline skip". A new
+  `_import_skip_reason()` predicate skips only the two genuine "environment not
+  provisioned" cases — an optional/transitive `ImportError` or the native-crypto
+  PQC gate (`AMA/PQC is mandatory …`, mirroring `tests/test_calibration_brief.py`)
+  — and re-raises everything else (a non-PQC `RuntimeError`, a `NameError`) so a
+  real regression fails loudly. Six unit tests (`TestImportSkipClassification`)
+  pin the narrow contract; the stale module docstring that claimed an
+  `importorskip` guard was corrected to describe the actual try/except policy.
+- **Docstring / pydocstyle hygiene.** The four remaining `check_*` helpers and
+  `run()` in `verify_data_credentials.py` gained one-line Google-style docstrings,
+  making the module fully `pydocstyle --convention=google` clean.
+- The remaining open alerts were already fixed at the root in earlier commits of
+  this branch (the `data/adbench_embeddings` cache key, the forked-child metrics
+  reduction that keeps the full score vector off the IPC boundary, the
+  `WildfireLoader` comment, the `"fail-softed"` typo, and the `git_commit`
+  provenance-label clarification); this pass verified each against the current
+  tree and resolved the threads. Validated end-to-end in a sandbox: the offline
+  synthetic orchestration (tier + fusion + six PyOD baselines through the forked
+  wall-clock-guarded cells) and the live-data competitive regression guard
+  (`--check` PASS on the real 8-dataset ADBench subset).
+
 ### Independent verification pass — CI red-to-green + fail-loud hardening
 
 An adversarial re-verification of this branch fixed every defect it surfaced
