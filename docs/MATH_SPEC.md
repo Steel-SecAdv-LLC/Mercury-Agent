@@ -96,7 +96,7 @@ $$
 > than the correct $3.236$), silently producing $(0.5, 0.309, 0.191)$; that
 > drift has been removed.
 
-**Implementation:** `core/three_r/fusion.py`, lines 104--111.
+**Implementation:** `core/three_r/fusion.py`, lines 150--156.
 
 #### 2.1.2 Ethical Exponent $p$
 
@@ -842,8 +842,8 @@ $$
 w_R + w_H + w_O = \frac{\phi_{\text{sum}}}{\phi_{\text{sum}}} = 1 \quad \square
 $$
 
-For non-default weights, the constructor normalizes: `{k: v / total for k, v in initial_weights.items()}` (line 114). The `update_weights()` method also
-re-normalizes after each update (line 226).
+For non-default weights, the constructor normalizes: `{k: v / total for k, v in initial_weights.items()}` (line 159). The `update_weights()` method also
+re-normalizes after each update (lines 294--295).
 
 ---
 

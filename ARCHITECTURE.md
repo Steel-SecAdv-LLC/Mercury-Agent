@@ -4,7 +4,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 162 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 172 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -939,7 +939,7 @@ conda install -c conda-forge qutip
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (569 `test_*.py` modules as of 2026-07-05).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (586 `test_*.py` modules as of 2026-07-12).
 
 ```bash
 # Run specific test
@@ -1267,8 +1267,8 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   loaders, medical, metrics, ml, models, narrative, ocean,
   quantum_computing, reasoning, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation, verifiers)
-- **~373,000 LOC** in `src/omni_mercury_engine/` (734 source files)
-- **569 test modules** under `tests/`; 8,789 tests collected with the
+- **~391,000 LOC** in `src/omni_mercury_engine/` (746 source files)
+- **586 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
   modules skip. See the README "Testing and Quality Assurance" section
@@ -1276,9 +1276,10 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 25 % / FULL ≥ 50 %; the aspirational target is 85 %.
-- **Documentation:** 68 markdown documents at the project surface
-  (7 top-level, 51 in `docs/` plus the drone/medical SETUP runbooks,
-  7 in `benchmarks/`, and the `rust_crypto/` README)
+- **Documentation:** 72 markdown documents at the project surface
+  (7 top-level, 56 in `docs/` — including the drone/medical SETUP
+  runbooks and the research literature review — 8 in `benchmarks/`,
+  and the `rust_crypto/` README)
 - **Optimization experiments:** logged under `benchmarks/`
   (3R fusion, ethical scalars, fibring composer, seven-axis matrix)
 
