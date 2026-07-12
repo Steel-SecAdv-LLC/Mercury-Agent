@@ -37,6 +37,30 @@ def _get(url: str, timeout: int = 30) -> tuple[int, bytes]:
         return 0, str(exc).encode()
 
 
+def _fail_detail(status: int, body: bytes) -> str:
+    """Render a non-200 ``_get`` result into an actionable failure string.
+
+    ``_get`` reports a transport failure (DNS/TLS/timeout/connection-reset) as
+    ``(0, <exception text>)``: the ``0`` is not an HTTP status, and collapsing it
+    to a bare ``"HTTP 0"`` throws away the one thing that explains the failure in
+    CI. So on ``status == 0`` we surface the transport error text; on a real HTTP
+    error we report the status plus a short body preview (which for these APIs is
+    typically the provider's own error message, e.g. an invalid-key JSON).
+
+    Args:
+        status: The status code from :func:`_get` (``0`` means transport error).
+        body: The response body, or the transport exception text when ``status``
+            is ``0``.
+
+    Returns:
+        A single-line, non-sensitive diagnostic suitable for the CI report.
+    """
+    text = body.decode(errors="replace").strip()
+    if status == 0:
+        return f"transport error: {text[:200]}" if text else "transport error (no detail)"
+    return f"HTTP {status}" + (f": {text[:160]}" if text else "")
+
+
 def check_eia(key: str) -> tuple[bool, str]:
     """EIA API v2 hourly grid demand for one balancing authority."""
     q = urllib.parse.urlencode(
@@ -54,7 +78,7 @@ def check_eia(key: str) -> tuple[bool, str]:
     )
     status, body = _get(f"https://api.eia.gov/v2/electricity/rto/region-data/data/?{q}")
     if status != 200:
-        return False, f"HTTP {status}"
+        return False, _fail_detail(status, body)
     try:
         rows = json.loads(body)["response"]["data"]
     except Exception as exc:
@@ -69,6 +93,7 @@ def check_eia(key: str) -> tuple[bool, str]:
 
 
 def check_fred(key: str) -> tuple[bool, str]:
+    """FRED 10-Year Treasury (DGS10) latest observations."""
     q = urllib.parse.urlencode(
         {
             "series_id": "DGS10",
@@ -80,7 +105,7 @@ def check_fred(key: str) -> tuple[bool, str]:
     )
     status, body = _get(f"https://api.stlouisfed.org/fred/series/observations?{q}")
     if status != 200:
-        return False, f"HTTP {status}"
+        return False, _fail_detail(status, body)
     try:
         obs = json.loads(body)["observations"]
     except Exception as exc:
@@ -92,9 +117,10 @@ def check_fred(key: str) -> tuple[bool, str]:
 
 
 def check_nasa(key: str) -> tuple[bool, str]:
+    """NASA DONKI space-weather notifications feed."""
     status, body = _get(f"https://api.nasa.gov/DONKI/notifications?type=all&api_key={key}")
     if status != 200:
-        return False, f"HTTP {status}"
+        return False, _fail_detail(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
@@ -103,11 +129,12 @@ def check_nasa(key: str) -> tuple[bool, str]:
 
 
 def check_alpha_vantage(key: str) -> tuple[bool, str]:
+    """Alpha Vantage GLOBAL_QUOTE for a single symbol (SPY)."""
     status, body = _get(
         f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=SPY&apikey={key}"
     )
     if status != 200:
-        return False, f"HTTP {status}"
+        return False, _fail_detail(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
@@ -176,9 +203,10 @@ def check_usgs_eros(username: str, token: str, password: str = "") -> tuple[bool
 
 
 def check_openweathermap(key: str) -> tuple[bool, str]:
+    """Current weather for one city (London) via the OpenWeatherMap API."""
     status, body = _get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={key}")
     if status != 200:
-        return False, f"HTTP {status}: {body[:120].decode(errors='replace')}"
+        return False, _fail_detail(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
@@ -197,6 +225,7 @@ CHECKS: dict[str, tuple[tuple[str, ...], Any]] = {
 
 
 def run() -> int:
+    """Run every keyed data-source delivery check; return the failure count as exit code."""
     print("=== Mercury data-source credential delivery check ===")
     failures = 0
     for name, (env_vars, checker) in CHECKS.items():
