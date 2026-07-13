@@ -1,6 +1,6 @@
 # Governed Recursive Self-Improvement — Phases 1–3
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 > Status of this document: **Phases 1–3 implemented.** Phase 1 closed the
 > measurement-provenance problem. Phase 2 added the governed promotion gate.
@@ -57,7 +57,7 @@ proceeds from reality.
 Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
-* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8251**, Mean F1 **0.5975**. *(`docs/BENCHMARKS.md`, `README.md` L182)*
+* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8251**, Mean F1 **0.5975**. *(`docs/BENCHMARKS.md`, README.md § "Label provenance and comparability")*
 * **Governed-fusion live suite (23 events, mixed regime — historical).** Macro-mean AUROC **0.8231**, F1 **0.2768**. This number is the headline before Phase 1's leakage-split: it blends 2 ground-truth-labelled events with 21 statistical-labelled ones.
 * **Governed-fusion live suite, provenance split (Phase 1 result):**
 

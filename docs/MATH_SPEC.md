@@ -35,7 +35,7 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 - `core/ethical_governor.py` -- Sigma Directive
 - `core/calibration.py` -- ECE, Platt, Temperature scaling
 - `core/conformal_prediction.py` -- Conformal prediction
-- `detectors/statistical.py` -- Z-score, IQR, Isolation Forest
+- `detectors/statistical.py` -- Resonance / Kinematic / Info-Geometry ensemble
 - `core/global_omni_scalar_network.py` -- GOSNN hierarchical aggregation
 
 ---
@@ -123,7 +123,7 @@ floor).
 > derivation. It should be validated via parameter sweep or replaced with an
 > empirically optimized value. See Section 5 for sensitivity analysis.
 
-**Implementation:** `core/three_r/fusion.py`, line 184.
+**Implementation:** `core/three_r/fusion.py`, lines 128--130 (default), applied at line 251.
 
 #### 2.1.3 Sigmoid Benevolence Gate
 
@@ -159,7 +159,7 @@ $$
 monotonically increasing with $\eta(b_0) = 0.5$.
 
 **Overflow protection:** The exponent is clamped to $[-500, 500]$ before
-evaluation (line 238).
+evaluation (line 246).
 
 **Provenance:** Logistic function (Verhulst, 1845). Domain parameters are design
 choices. **UNJUSTIFIED:** Domain-specific $b_0$ and $k$ values require empirical
@@ -285,7 +285,7 @@ $$
 
 The bound decays exponentially: at $t = 10$, $V \leq e^{-2.5} \approx 0.082$.
 
-**Implementation:** `core/three_r/fusion.py`, line 189.
+**Implementation:** `core/three_r/fusion.py`, line 259.
 
 #### 2.2.2 Stability Condition
 
@@ -377,7 +377,7 @@ For $\alpha = 0.5$ and $d = 10$: $\text{err} \leq \frac{0.5^{10}}{0.5} \cdot \|x
 
 For $\alpha = 0.85$ and $d = 50$: $\text{err} \leq \frac{0.85^{50}}{0.15} \cdot \|x_0 - R(x_0)\| \approx 0.0003 \cdot \|x_0 - R(x_0)\|$.
 
-**Implementation:** `core/three_r/fusion.py`, method `BanachRecursion.compute_error_bound()`, lines 443--458.
+**Implementation:** `core/three_r/fusion.py`, method `BanachRecursion.compute_error_bound()`, lines 625--640.
 
 #### 2.3.4 Convergence Proof Sketch (Banach Fixed-Point Theorem)
 
@@ -435,7 +435,7 @@ structured periodic behavior; low ratios indicate anomalous or aperiodic signals
 | Security | Adaptive (MUSIC/ESPRIT) | No predefined fundamentals |
 | Financial | Adaptive (MUSIC/ESPRIT) | No predefined fundamentals |
 
-**Implementation:** `core/centralized_constants.py`, class `DomainHarmonicConstants`, lines 248--270.
+**Implementation:** `core/centralized_constants.py`, class `DomainHarmonicConstants`, lines 257--276.
 
 #### 2.4.3 Adaptive Spectral Peak Detection
 
@@ -465,7 +465,7 @@ $\text{ECE} = 0$ indicates perfect calibration. Target: $\text{ECE} < 0.05$.
 
 **Provenance:** Naeini et al. (2015) "Obtaining Well Calibrated Probabilities Using Bayesian Binning into Quantiles."
 
-**Implementation:** `core/calibration.py`, function `compute_ece()`, lines 62--91.
+**Implementation:** `core/calibration.py`, function `compute_ece()`, lines 54--84.
 
 #### 2.5.2 Platt Scaling
 
@@ -495,7 +495,7 @@ $[0.1, 10]$ to minimize negative log-likelihood.
 
 **Provenance:** Guo et al. (2017) "On Calibration of Modern Neural Networks."
 
-**Implementation:** `core/calibration.py`, lines 314--316.
+**Implementation:** `core/calibration.py`, class `TemperatureScaling`, line 568 (grid search lines 630--638).
 
 #### 2.5.4 Conformal Prediction Quantile
 
@@ -519,7 +519,7 @@ $$
 
 **Provenance:** Vovk et al. (2005) "Algorithmic Learning in a Random World."
 
-**Implementation:** `core/conformal_prediction.py`, lines 109--111 (quantile), lines 144--145 (interval).
+**Implementation:** `core/conformal_prediction.py`, lines 101--106 (quantile), lines 144--145 (interval).
 
 #### 2.5.5 Adaptive Conformal Inference
 
@@ -556,9 +556,10 @@ $$
 I_z = \frac{\text{clip}\!\left(\frac{\max(|z|)}{z_{\text{threshold}} + \varepsilon},\; 0,\; 3\right)}{3}
 $$
 
-Maps the maximum z-score to $[0, 1]$ for fusion compatibility.
+Maps the maximum z-score to $[0, 1]$; this z-score intensity feeds the kinematic
+component of the ensemble (§2.6.4).
 
-**Implementation:** `detectors/statistical.py`, lines 107, 117--118, 179--180.
+**Implementation:** `detectors/statistical.py`, z-score intensity lines 2320--2322 (`z_threshold` line 191).
 
 #### 2.6.2 IQR Method
 
@@ -570,7 +571,7 @@ Points above $T_{\text{upper}}$ or below $Q_1 - 1.5 \cdot \text{IQR}$ are flagge
 
 **Provenance:** Tukey (1977) "Exploratory Data Analysis."
 
-**Implementation:** `detectors/statistical.py`, lines 108--109.
+**Implementation:** `detectors/statistical.py`, lines 395--396.
 
 #### 2.6.3 Adaptive Contamination Estimation
 
@@ -579,22 +580,30 @@ c = \text{clip}\!\left(\text{outlier\_frac} \times 2 + 0.001,\; 0.001,\; 0.5\rig
 $$
 
 where $\text{outlier\_frac}$ is the fraction of training samples with $|z| > 3$ on any feature.
-This provides data-driven contamination for the Isolation Forest.
+This contamination estimate feeds the detector's contamination-aware percentile
+threshold (the shipped ensemble is Resonance/Kinematic/InfoGeometry, not an
+Isolation Forest; `isolation_forest_scores` is a deprecated backward-compatibility
+alias for the combined ensemble score).
 
-**Implementation:** `detectors/statistical.py`, lines 116--120.
+**Implementation:** `detectors/statistical.py`, contamination-aware thresholding in `_adaptive_operating_point()`.
 
 #### 2.6.4 Combined Statistical Score
 
 $$
-S = 0.4 \cdot z_{\text{score}} + 0.3 \cdot \text{iqr}_{\text{score}} + 0.3 \cdot \text{if}_{\text{score}}
+S = 0.40 \cdot S_{\text{resonance}} + 0.30 \cdot S_{\text{kinematic}} + 0.30 \cdot S_{\text{infogeo}}
 $$
 
-where each component is normalized to $[0, 1]$.
+where the three ensemble components are the FFT harmonic-resonance score (§2.1,
+§2.4), the physics kinematic score (built on the z-score jerk/acceleration
+dynamics of §2.6.1), and the information-geometry score, each normalized to
+$[0, 1]$. The default weights live in `_adaptive_weights` and are adapted during
+`fit()`.
 
-> **UNJUSTIFIED:** Weights $0.4/0.3/0.3$ are hard-coded without empirical
-> optimization. Should be learned via cross-validation or domain-specific tuning.
+> **UNJUSTIFIED:** Default weights $0.40/0.30/0.30$ are hard-coded without
+> empirical optimization. Should be learned via cross-validation or
+> domain-specific tuning.
 
-**Implementation:** `detectors/statistical.py`, line 197.
+**Implementation:** `detectors/statistical.py`, default weights line 269, combination line 2399.
 
 ---
 
@@ -618,7 +627,7 @@ All components $\in [0, 1]$. Weights $w_J, w_A, w_C, w_T$ are sourced from
 
 **Gate threshold:** $S \geq 0.8$ (from `SIGMA_DIRECTIVE_THRESHOLD`).
 
-**Implementation:** `core/ethical_governor.py`, class `SigmaDirective.apply_directive()`, lines 129--134.
+**Implementation:** `core/ethical_governor.py`, class `SigmaDirective.apply_directive()`, lines 109--114 (method at line 94).
 
 #### 2.7.2 Ethical Gate Thresholds by Domain
 
@@ -676,9 +685,9 @@ Scalars are assigned to one of 8 groups:
 | Security | ~6 | Threat detection and defense |
 | Software Engineering | ~45 | Code quality and 3R synergy |
 | Medical | ~10 | Healthcare and diagnostics |
-| Advanced Reasoning | ~15 | Logic, inference, knowledge synthesis |
+| Advanced Reasoning | ~16 | Logic, inference, knowledge synthesis |
 
-**Implementation:** `core/global_omni_scalar_network.py`, class `ScalarGroup`, lines 92--113.
+**Implementation:** `core/global_omni_scalar_network.py`, class `ScalarGroup`, lines 98--114.
 
 #### 2.8.2 Level 2: Within-Category Score (NumPy Fallback)
 
@@ -698,7 +707,7 @@ where:
 > **UNJUSTIFIED:** Weights $0.4/0.4/0.2$ and threshold $0.93$ are ad-hoc design
 > choices without empirical basis.
 
-**Implementation:** `core/global_omni_scalar_network.py`, lines 188--197 (score), line 145 (threshold).
+**Implementation:** `core/global_omni_scalar_network.py`, lines 240--247 (score), line 166 (threshold).
 
 #### 2.8.3 Level 3: Cross-Category Aggregation
 
@@ -760,7 +769,7 @@ The five ethical pillars are:
 | $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py` `OmniAvaEquation` (`w_H` weight init) | Golden ratio proportion (§2.1.1) | Mathematically grounded |
 | $w_O$ (OAE Optimization) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py` `OmniAvaEquation` (`w_O` weight init) | Golden ratio proportion (§2.1.1) | Mathematically grounded |
 | $p$ (ethical exponent) | $\Phi = 1.618$ | `core/three_r/fusion.py` `OmniAvaEquation.ethical_exponent` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
-| Statistical fusion weights | 0.4 / 0.3 / 0.3 | `detectors/statistical.py` `_adaptive_weights` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
+| Statistical fusion weights | 0.40 / 0.30 / 0.30 | `detectors/statistical.py` `_adaptive_weights` | Resonance / Kinematic / InfoGeometry combination | **UNJUSTIFIED:** needs cross-validation |
 | Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py` `FusionConstants.NEURAL_WEIGHT` / `SYMBOLIC_WEIGHT` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |
 | Ensemble decay | 0.9 | `centralized_constants.py` `FusionConstants.ENSEMBLE_DECAY` | Temporal weight decay $w_t = 0.9^t$ | Exponential decay convention |
 | GOSNN gate weights | 0.4 / 0.4 / 0.2 | `core/global_omni_scalar_network.py` (ethical gate score) | Ethical gate score | **UNJUSTIFIED:** ad-hoc combination |
@@ -771,7 +780,7 @@ The five ethical pillars are:
 | Weight update LR | 0.01 | `core/three_r/fusion.py` `OmniAvaEquation` (attention EMA) | Attention weight EMA rate | Standard EMA practice |
 | Optimizer LR | 0.01 | `core/three_r/fusion.py` (weight optimizer) | Weight optimization | Standard SGD practice |
 | Optimizer momentum | 0.9 | `core/three_r/fusion.py` (weight optimizer) | Momentum coefficient | Polyak (1964) |
-| Weight decay | $10^{-4}$ | `fusion.py:276` | L2 regularization | Standard regularization |
+| Weight decay | $10^{-4}$ | `fusion.py:351` | L2 regularization | Standard regularization |
 
 ---
 
@@ -800,7 +809,7 @@ converges to a unique fixed point for $\alpha \in (0, 0.95)$.
    for any real-valued input, making divergence impossible under the model. $\square$
 
 **Runtime safeguard:** If the empirical contraction ratio exceeds $1.0$ at any
-step, the system raises `RuntimeError` and halts recursion (line 534).
+step, the system raises `RuntimeError` and halts recursion (line 721).
 
 ### 4.2 Lyapunov Stability Proof
 
@@ -981,7 +990,7 @@ $$
 This avoids computing $e^{|x|}$ for large $|x|$, preventing overflow in both
 branches.
 
-**Implementation:** `core/three_r/fusion.py`, lines 421--429.
+**Implementation:** `core/three_r/fusion.py`, lines 604--611.
 
 #### Lyapunov bound:
 
@@ -1030,7 +1039,7 @@ in $(0, 1]$. No overflow risk.
 | SOFA weights | resp=0.20, coag=0.15, liver=0.15, cardio=0.20, CNS=0.15, renal=0.15 | -- | JAMA 2016 |
 | Alert fatigue window | 300 | seconds | Design choice |
 
-**Implementation:** `core/centralized_constants.py`, class `MedicalDomainConstants`, lines 448--480.
+**Implementation:** `core/centralized_constants.py`, class `MedicalDomainConstants`, lines 463--494.
 
 ### 7.3 Financial Domain Constants
 
@@ -1039,7 +1048,7 @@ in $(0, 1]$. No overflow risk.
 | Benford's Law $P(d) = \log_{10}(1 + 1/d)$ | [0.301, 0.176, 0.125, 0.097, 0.079, 0.067, 0.058, 0.051, 0.046] | Benford (1938) |
 | Harmonic detection | Adaptive (MUSIC/ESPRIT) | No predefined fundamentals |
 
-**Implementation:** `core/centralized_constants.py`, class `FinancialDomainConstants`, lines 483--497.
+**Implementation:** `core/centralized_constants.py`, class `FinancialDomainConstants`, lines 498--522.
 
 ### 7.4 Space Domain Constants
 
@@ -1047,7 +1056,7 @@ in $(0, 1]$. No overflow risk.
 |-----------|-------|------------|
 | Harmonic fundamentals | 0.001, 0.01, 0.1, 11.0 Hz | Solar cycle + orbital mechanics |
 
-**Implementation:** `core/centralized_constants.py`, line 266.
+**Implementation:** `core/centralized_constants.py`, line 274.
 
 ---
 

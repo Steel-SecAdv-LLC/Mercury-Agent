@@ -1,6 +1,6 @@
 # Mercury-Agent Data Sources
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 Last verified: 2026-07-11 (loader catalog refresh; the per-dataset
 tables below still derive from the legacy 2026-02-15 sweep — the
@@ -20,7 +20,7 @@ committed run; NOAA StormEvents and NOAA ERDDAP recovered). See `docs/BENCHMARKS
 
 ### ADBench Tabular (47 datasets)
 
-Source: `https://github.com/Minqi824/ADBench/raw/main/adbench/datasets/Classical/{index}_{name}.npz`
+Source: `https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/{index}_{name}.npz`
 Auth: None
 Loader: `ADBenchLoader` in `src/omni_mercury_engine/datasets/adbench.py`
 Status: All 47 datasets download and evaluate successfully
@@ -160,7 +160,7 @@ Loader: `SMAPMSLLoader` in `src/omni_mercury_engine/datasets/timeseries.py`
 Source (attempted, in priority order):
 1. Hugging Face: `bvk/CICIDS-2017`
 2. Distrinet: `https://intrusion-detection.distrinet-research.be/Dataset/dataset.zip`
-3. CIC Official: `http://205.174.165.80/CICDataset/CIC-IDS-2017/Dataset/MachineLearningCSV.zip`
+3. CIC Official: `https://cicresearch.ca/CICDataset/CIC-IDS-2017/Dataset/MachineLearningCSV.zip`
 
 Issue: All known mirrors are dead or require institutional access.
 To access: Request from https://www.unb.ca/cic/datasets/ids-2017.html or place `kaggle.json` in `~/.kaggle/`.

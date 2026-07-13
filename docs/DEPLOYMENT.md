@@ -1,6 +1,6 @@
 # Mercury-Agent Deployment Guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 This guide covers deploying Mercury-Agent from a local Docker environment through
 production Kubernetes/Helm. It documents every required configuration value, the
@@ -147,7 +147,7 @@ The `stream` worker wires the production `StreamingAnomalyPipeline` (back-pressu
 handling, circuit breaker, throughput/latency observability) to a configurable
 backend and runs until it receives `SIGTERM`/`SIGINT`, then drains and shuts down
 cleanly. It serves its live stats as Prometheus exposition on `:9090/metrics`
-(the port the engine deployment's `prometheus.io/path` annotation scrapes).
+(the port the engine deployment's `prometheus.io/port` annotation scrapes).
 
 `STREAMING_BACKEND` defaults to the in-process `memory` backend, so the base
 manifests and the default Helm values run with **no external broker**. The
@@ -394,13 +394,13 @@ kubectl create secret generic mercury-agent-secrets \
 
 The Helm chart renders a plain `Secret` from `config.secrets.*`; it does **not**
 wire External Secrets Operator (ESO) through values. To source secrets from a
-vault, apply your own `ExternalSecret` targeting the same `mercury-agent` Secret
-the Deployment reads (via `envFrom`), so the operator populates `API_SECRET_KEY`
+vault, apply your own `ExternalSecret` targeting the same `mercury-agent-secrets`
+Secret the Deployment reads (via `envFrom`), so the operator populates `API_SECRET_KEY`
 / `JWT_SECRET_KEY`. A commented starting template ships in
 [`k8s/base/secret.yaml`](../k8s/base/secret.yaml):
 
 ```yaml
-apiVersion: external-secrets.io/v1
+apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: mercury-agent
@@ -409,7 +409,7 @@ spec:
     name: cluster-secret-store
     kind: ClusterSecretStore
   target:
-    name: mercury-agent          # the Secret the Deployment reads via envFrom
+    name: mercury-agent-secrets  # the Secret the Deployment reads via envFrom
   data:
     - secretKey: JWT_SECRET_KEY
       remoteRef: { key: mercury-agent/prod, property: jwt_secret_key }
@@ -437,7 +437,8 @@ docker pull ghcr.io/steel-secadv-llc/mercury-agent:latest
 # 2. For Helm deployments — upgrade in place (rolling update)
 helm upgrade mercury-agent ./helm/mercury-agent \
   --namespace mercury \
-  --set image.tag=<new-tag>
+  --set api.image.tag=<new-tag> \
+  --set engine.image.tag=<new-tag>
 
 # 3. Monitor rollout
 kubectl rollout status deployment/mercury-agent -n mercury

@@ -363,8 +363,8 @@ tests; no behavior was suppressed or cosmetically patched.
 - **`mercury-agent detect --threshold` now governs the fusion decision** (it was
   parsed and ignored); out-of-range values are rejected and the statistical
   path reports it as inapplicable.
-- **`GET /export/metrics` rejects a non-JSON `format`** with 400 instead of
-  silently returning JSON.
+- **`GET /export/metrics` rejects an unsupported `format`** with 400 (valid:
+  json, csv, jsonl) instead of silently returning JSON.
 
 ### Removed
 

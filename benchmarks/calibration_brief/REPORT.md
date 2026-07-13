@@ -1,6 +1,6 @@
 # Mercury Calibration–Alignment: Validation & Exploration Report
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 Independent reimplementation from the brief's formulas (no prior-session code reused —
 independent reimplementation *is* the validation). All code in this directory; results
@@ -196,7 +196,7 @@ the tree and not wired into CI.
   five stale "requires scikit-learn" messages reworded (V12c). Existing classes untouched.
 - (`tools/lint_no_eta_score_multiply.py`: X12a gate-hardening lint — **authored in PR #275, deliberately not ported**; see X12a above.)
 - `docs/MATH_SPEC.md`: φ_sum arithmetic truth-up + weight reconciliation (V12b/X8).
-- `tests/test_calibration_brief.py`: tests for the ported `StrictIsotonicCalibration` (X1 survivor). `BetaCalibration` was not ported — `main` ships its own accept-gated implementation, covered by `tests/test_beta_calibration.py` — and the X12a eta-multiply lint was not ported (see above).
+- `tests/test_calibration_brief.py`: tests for the ported `StrictIsotonicCalibration` (X1 survivor). `BetaCalibration` was ported as a standalone class (see above) but is not exercised by *this brief's* test file — `main`'s accept-gated Beta (`fit_accept_gated_mca`) and the standalone `BetaCalibration` are both covered by `tests/test_beta_calibration.py` — and the X12a eta-multiply lint was not ported (see above).
 - `benchmarks/calibration_brief/`: this suite + `results/`.
 
 > **Not changed (flagged for a follow-up with its own Standard Track):** removing the η

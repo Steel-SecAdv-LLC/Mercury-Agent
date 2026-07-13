@@ -1,6 +1,6 @@
 # Compliance Modules
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 `omni_mercury_engine.compliance` is the consumer-facing surface for
 governance and policy frameworks. It hosts three first-party modules
@@ -136,9 +136,9 @@ National Weather Service Rothfusz regression in opposite directions:
 | T = 90 °F, RH = 20% | ~100 °F | ~88 °F (adjusted down) | under-report (no low-RH adjustment) |
 
 Both directions cause OSHA-relevant misclassification. The port
-replaces the heuristic with the full 6-term Rothfusz polynomial plus
-the two standard adjustments (low-humidity below 13% RH, low-
-temperature below 80 °F). Call it directly:
+replaces the heuristic with the full 9-term Rothfusz polynomial plus
+the two standard adjustments (low-humidity for RH < 13%, high-humidity
+for RH > 85% in the 80–87 °F band). Call it directly:
 
 ```python
 from omni_mercury_engine.compliance import compute_heat_index_fahrenheit
@@ -153,11 +153,11 @@ hi = compute_heat_index_fahrenheit(temperature_f=95.0, relative_humidity=70.0)
 |--------|------|---------|
 | `OSHASector` | `Enum` | 6 sectors (construction, healthcare, manufacturing, maritime, agriculture, general industry) |
 | `HazardCategory` | `Enum` | 12 hazard categories (heat stress, fall, chemical, …) |
-| `ComplianceLevel` | `Enum` | `COMPLIANT`, `MINOR`, `MAJOR`, `CRITICAL` |
+| `ComplianceLevel` | `Enum` | `CRITICAL_VIOLATION`, `SERIOUS_VIOLATION`, `OTHER_THAN_SERIOUS`, `DE_MINIMIS`, `COMPLIANT` |
 | `OSHAStandard` | dataclass | CFR citation record |
 | `OSHAHazard` | dataclass | Detected hazard with severity / citation |
 | `OSHATrainingRecommendation` | dataclass | Training output |
-| `ECFRClient` | class | Live eCFR API client (60 req/min, cached) |
+| `ECFRClient` | class | Live eCFR API client (not self-throttled; in-process cache) |
 | `ECFRClientError` | exception | eCFR fetch / parse failure |
 | `OSHAComplianceDetector` | class | Top-level detector |
 | `compute_heat_index_fahrenheit()` | function | NWS Rothfusz regression |
@@ -165,10 +165,12 @@ hi = compute_heat_index_fahrenheit(temperature_f=95.0, relative_humidity=70.0)
 
 ### Live eCFR citation lookup
 
-`ECFRClient` validates referenced 29 CFR §1910 (general industry),
-§1926 (construction), and §1928 (agriculture) parts against the live
-eCFR API at `https://www.ecfr.gov`. The client is rate-limited to
-60 req/min and on-disk cached. Validation is opt-in via the
+`ECFRClient` validates referenced 29 CFR §1910 (general industry) and
+§1926 (construction) parts against the live
+eCFR API at `https://www.ecfr.gov`. The client does not enforce the
+eCFR's published 60 req/min guidance programmatically; callers must
+pace/limit concurrency. An in-process cache reduces duplicate lookups.
+Validation is opt-in via the
 `ecfr_client` argument; the detector works without it (citations are
 emitted from a known-good in-tree table, just not re-verified
 against the API).

@@ -302,13 +302,13 @@ the numbers to compare against other detectors.
 
 | Domain | Datasets | Mean AUC | Mean F1 | Oracle Active |
 |--------|----------|----------|---------|---------------|
-| **ADBench (47 datasets)** | 47 | **0.8251** | **0.5975** | 29 |
+| **ADBench (47 datasets)** | 47 | **0.8251** | **0.5975** | 2 |
 | Academic (CWRU, MSDS)‡ | 2 | 1.0000 | 1.0000 | 0 |
 | General (ADRepository) | 1 | 0.7086 | 0.3468 | 0 |
 | Industrial (BATADAL) | 1 | 0.9114 | 0.5545 | 0 |
 | Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | 0.7423 | 0 |
-| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 | 2 |
-| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 | 2 |
+| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 | 1 |
+| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 | 0 |
 
 *‡ The Academic / General rows are genuinely labeled but tiny; the Academic
 1.0000 AUC reflects easy separability at that size, not headline accuracy. The
@@ -1994,7 +1994,7 @@ Mercury Agent transcends single-domain limitations by providing specialized dete
 |--------|---------|--------------|
 | Medical | 4 | Sepsis, cardiology, neurocritical, pandemic |
 | Security | 4 | Threat, intelligence, cyber, traffic |
-| Space | 4 | Solar flare (HMM), Schumann, cosmic ray, meteor (Bayesian) |
+| Space | 4 | Solar flare (Kp/NOAA G-scale physics), Schumann, cosmic ray, meteor (Bayesian) |
 | Infrastructure | 4 | CISA, crisis, climate, economic |
 | Environmental | 6 | Tsunami (FFT), earthquake (P/S-wave), landslide (SVM/RF), wildfire (CNN/NDVI), volcanic (HMM), disaster |
 | Statistical | 8 | MAD, LOF, DBSCAN, MCD, Grubbs, CUSUM, GESD, Dynamic Threshold |

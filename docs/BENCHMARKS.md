@@ -1,6 +1,6 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **66 successful /
@@ -504,11 +504,11 @@ fixed defaults, with mean delta of only +0.003 F1.
 ## CI Integration
 
 The CI pipeline (`.github/workflows/benchmark.yml`) gates on `mercury_benchmark.py`
-(Mercury detector in isolation) with regression thresholds set ~7% margin below
+(Mercury detector in isolation) with regression thresholds set ~9% margin below
 measured performance:
 
-- **MIN_ROC_AUC: 0.75** — fail if mean AUC drops below this (measured: 0.803)
-- **MIN_F1: 0.55** — fail if mean F1 drops below this (measured: 0.589)
+- **MIN_ROC_AUC: 0.75** — fail if mean AUC drops below this (measured: 0.8259)
+- **MIN_F1: 0.55** — fail if mean F1 drops below this (measured: 0.6046)
 - **MERCURY_ALLOW_SYNTHETIC: false** — the deployment-level policy gate for the
   production data loaders (`validation/data_loaders.py`); CI keeps it off.
 
