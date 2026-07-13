@@ -556,10 +556,11 @@ $$
 I_z = \frac{\text{clip}\!\left(\frac{\max(|z|)}{z_{\text{threshold}} + \varepsilon},\; 0,\; 3\right)}{3}
 $$
 
-Maps the maximum z-score to $[0, 1]$; this z-score intensity feeds the kinematic
-component of the ensemble (§2.6.4).
+Maps the maximum z-score to $[0, 1]$. This z-score intensity is a **diagnostic**
+signal surfaced on the result as `z_score_continuous`; it is not one of the three
+fusion-ensemble components (§2.6.4).
 
-**Implementation:** `detectors/statistical.py`, z-score intensity lines 2320--2322 (`z_threshold` line 191).
+**Implementation:** `detectors/statistical.py`, z-score intensity lines 2320--2322 (`z_threshold` line 191; surfaced as `z_score_continuous`).
 
 #### 2.6.2 IQR Method
 
@@ -567,25 +568,32 @@ $$
 T_{\text{upper}} = Q_3 + 1.5 \cdot \text{IQR}, \qquad \text{IQR} = Q_3 - Q_1
 $$
 
-Points above $T_{\text{upper}}$ or below $Q_1 - 1.5 \cdot \text{IQR}$ are flagged as anomalies.
+Points above $T_{\text{upper}}$ or below $Q_1 - 1.5 \cdot \text{IQR}$ are surfaced
+as the legacy `iqr_scores` / `iqr_flags` diagnostics; the detector's actual
+anomaly decision comes from the combined score and adaptive operating point
+(§2.6.3–§2.6.4), not from the IQR fence.
 
 **Provenance:** Tukey (1977) "Exploratory Data Analysis."
 
-**Implementation:** `detectors/statistical.py`, lines 395--396.
+**Implementation:** `detectors/statistical.py`, quartiles lines 395--396; `_detect_iqr_anomalies()`.
 
-#### 2.6.3 Adaptive Contamination Estimation
+#### 2.6.3 Adaptive Operating Point
 
-$$
-c = \text{clip}\!\left(\text{outlier\_frac} \times 2 + 0.001,\; 0.001,\; 0.5\right)
-$$
+A fixed $0.5$ cut lands arbitrarily relative to the ensemble's data-dependent
+normal-cluster location (strong ranking / AUROC, broken F1), so the decision
+threshold is selected from the score distribution itself:
 
-where $\text{outlier\_frac}$ is the fraction of training samples with $|z| > 3$ on any feature.
-This contamination estimate feeds the detector's contamination-aware percentile
-threshold (the shipped ensemble is Resonance/Kinematic/InfoGeometry, not an
-Isolation Forest; `isolation_forest_scores` is a deprecated backward-compatibility
-alias for the combined ensemble score).
+- **Bimodal / high-contamination:** if the Otsu between-class split sits in a
+  deep histogram valley, cut at the Otsu threshold.
+- **Low-contamination / upper tail:** otherwise cut a robust number of MADs above
+  the median, $\text{median} + 2 \cdot 1.4826 \cdot \text{MAD}$.
 
-**Implementation:** `detectors/statistical.py`, contamination-aware thresholding in `_adaptive_operating_point()`.
+The transform is **rank-preserving** — only the cut location moves, so AUROC/AUPRC
+are unchanged. (The shipped ensemble is Resonance/Kinematic/InfoGeometry, not an
+Isolation Forest; `isolation_forest_scores` / `isolation_forest_flags` are deprecated
+backward-compatibility aliases for the combined score and its flags.)
+
+**Implementation:** `detectors/statistical.py`, `_adaptive_operating_point()` (lines 2618--2676), `_otsu_threshold()` / `_robust_tail_threshold()`.
 
 #### 2.6.4 Combined Statistical Score
 
@@ -594,16 +602,17 @@ S = 0.40 \cdot S_{\text{resonance}} + 0.30 \cdot S_{\text{kinematic}} + 0.30 \cd
 $$
 
 where the three ensemble components are the FFT harmonic-resonance score (§2.1,
-§2.4), the physics kinematic score (built on the z-score jerk/acceleration
-dynamics of §2.6.1), and the information-geometry score, each normalized to
-$[0, 1]$. The default weights live in `_adaptive_weights` and are adapted during
-`fit()`.
+§2.4), the physics kinematic score (per-sample acceleration/jerk z-scores vs. the
+training baseline, each mapped by $\text{clip}(\max|z|/3,\, 0,\, 1)$ and combined
+as $\max(0.4\,S_{\text{accel}},\, 0.6\,S_{\text{jerk}})$), and the
+information-geometry score, each normalized to $[0, 1]$. The default weights
+live in `_adaptive_weights` and are adapted during `fit()`.
 
 > **UNJUSTIFIED:** Default weights $0.40/0.30/0.30$ are hard-coded without
 > empirical optimization. Should be learned via cross-validation or
 > domain-specific tuning.
 
-**Implementation:** `detectors/statistical.py`, default weights line 269, combination line 2399.
+**Implementation:** `detectors/statistical.py`, combination line 2399, default weights line 269; kinematic `_compute_kinematic_score()` line 2819.
 
 ---
 
