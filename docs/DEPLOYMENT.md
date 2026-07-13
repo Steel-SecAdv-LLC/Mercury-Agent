@@ -396,8 +396,9 @@ The Helm chart renders a plain `Secret` from `config.secrets.*`; it does **not**
 wire External Secrets Operator (ESO) through values. To source secrets from a
 vault, apply your own `ExternalSecret` targeting the same `mercury-agent-secrets`
 Secret the Deployment reads (via `envFrom`), so the operator populates `API_SECRET_KEY`
-/ `JWT_SECRET_KEY`. A commented starting template ships in
-[`k8s/base/secret.yaml`](../k8s/base/secret.yaml):
+/ `JWT_SECRET_KEY`. [`k8s/base/secret.yaml`](../k8s/base/secret.yaml) ships a fuller
+commented ESO template wired for a Vault backend; a minimal `ClusterSecretStore`
+example is:
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1

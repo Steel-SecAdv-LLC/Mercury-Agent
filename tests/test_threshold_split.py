@@ -122,7 +122,7 @@ class TestBackwardCompatAndFallback:
         # A clustered-anomaly time series: anomalies live in the first ~60% of
         # samples, so the contiguous test split (last 40%) is all-normal
         # (single-class). AUC/recall on it are degenerate; the evaluator must
-        # fall back to in-sample rather than return AUC=0.5 as an "transparent"
+        # fall back to in-sample rather than return AUC=0.5 as a "transparent"
         # number (mirrors AnomalyMetrics._compute_all_split's both-splits guard).
         n = 100
         y = np.zeros(n, dtype=int)

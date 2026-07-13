@@ -68,7 +68,7 @@ N_FEATURES = 16
 # range of sizes, dimensionalities and anomaly ratios. Used only for the opt-in
 # ``--source real`` prior; never the self-labelled (threshold-derived) loaders,
 # whose AUC is inflated by label leakage and would teach the prior nothing
-# transparent.
+# genuine.
 REAL_DATASETS = (
     "cardio",
     "mammography",

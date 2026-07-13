@@ -2287,7 +2287,7 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
 def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
-    """Generate transparent assessment of Mercury-Agent performance."""
+    """Generate honest assessment of Mercury-Agent performance."""
     assessment: dict[str, Any] = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",

@@ -2917,7 +2917,7 @@ the surface, it is rebuilt as a thin head over the canonical co-trained module:
   applies its learned detector reliabilities. `NeurosymbolicEngine.ltn` is built
   when torch is importable (transparently reported by `get_statistics`:
   `ltn_available`, `ltn_backend="symbolic_constraint_module"`).
-* The raw-feature `neural_inference` is **kept** as an transparently-labelled
+* The raw-feature `neural_inference` is **kept** as a transparently-labelled
   deterministic dispersion heuristic (it is a per-feature statistic, *not* a
   trained signal, and says so) — distinct from the trained-capable detector
   consensus now reachable via `ltn.predict`.
@@ -3126,7 +3126,7 @@ The prior implementation was a no-op that always returned `completed` with
   to that tool for real, with genuine success / failure (a raising tool →
   `status="failed"` with the error captured; the analysed batch is injected
   as `data=` for tools that accept it);
-* marks a task with no bound tool as an transparent `status="skipped"` — never a
+* marks a task with no bound tool as a transparent `status="skipped"` — never a
   fabricated `completed`.  `_execute_plan` now measures `success_rate` over
   *executed* tasks, so a pure-reasoning plan reports `0.0`, not `1.0`.
 

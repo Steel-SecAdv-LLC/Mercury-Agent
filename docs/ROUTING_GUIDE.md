@@ -360,11 +360,17 @@ async def geological_detection(request, detector_type):
 Use fallback chains for resilient data loading:
 
 ```python
+import logging
+
+import numpy as np
+
 from omni_mercury_engine.integrations.routing import FallbackChain
 from omni_mercury_engine.validation.data_loaders import (
     USGSEarthquakeLoader,
-    NOAASpaceWeatherLoader
+    NOAASpaceWeatherLoader,
 )
+
+logger = logging.getLogger(__name__)
 
 data_chain = FallbackChain(name="earthquake_data")
 
@@ -380,9 +386,11 @@ async def load_from_usgs(params):
 
 @data_chain.handler(priority=1, timeout=10.0)
 async def load_from_cache(params):
-    """Fallback: Load from local cache."""
+    """Fallback: load a cache written by a prior successful primary run."""
     cache_path = f"/data/cache/earthquakes_{params.get('days', 30)}d.npz"
-    return np.load(cache_path)
+    cached = np.load(cache_path)
+    # Normalize to the same (features, labels, metadata) shape the loaders return.
+    return cached["features"], cached["labels"], {"source": "cache", "path": cache_path}
 
 @data_chain.handler(priority=2)
 async def load_synthetic(params):

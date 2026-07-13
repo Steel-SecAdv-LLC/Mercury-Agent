@@ -96,7 +96,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     if args.adversarial == "byzantine":
         # Peer 0 is the adversary: flip the sign and scale.  The MLE
         # aggregator should clip or down-weight the outlier so the
-        # aggregate stays close to the transparent mean.
+        # aggregate stays close to the honest mean.
         node_updates[0] = -float(args.byzantine_scale) * node_updates[0]
     elif args.adversarial == "gradient_inversion":
         # A naive gradient-inversion attack: the adversary observes the
@@ -153,7 +153,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     noise_delta = aggregated - noiseless_mean
     adversarial_summary: dict[str, Any] = {"mode": args.adversarial}
     if args.adversarial == "byzantine":
-        # The transparent reference (without the adversary) is held aside.
+        # The honest reference (without the adversary) is held aside.
         # The aggregator's job is to stay near it despite the flipped peer.
         deviation = float(np.linalg.norm(aggregated - honest_mean))
         baseline = float(np.linalg.norm(honest_mean) + 1e-12)
@@ -161,7 +161,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         adversarial_summary["deviation_ratio"] = deviation / baseline
         # If the aggregator forwards the adversary's contribution un-clipped,
         # the deviation explodes (≥ byzantine_scale).  Permit up to 0.5 of
-        # the transparent baseline.
+        # the honest baseline.
         adversarial_summary["survived"] = adversarial_summary["deviation_ratio"] <= 0.5
     elif args.adversarial == "gradient_inversion" and secret_input is not None:
         # Naive inversion: subtract every other peer's update from the
