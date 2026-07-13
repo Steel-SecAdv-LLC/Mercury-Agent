@@ -172,474 +172,174 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 ## Current Benchmarks and Visual Proof
 
 <details>
-<summary><strong>Click to expand benchmarks</strong></summary>
+<summary><strong>Detailed benchmarks and methodology</strong></summary>
 
-### Empirical Benchmark Results (MercuryAnomalyDetector)
+Snapshot of the committed `mercury_benchmark_results.json` run (2026-06-21). The
+[*Latest Benchmark Results*](#latest-benchmark-results) block at the top of this
+README is the CI-refreshed current headline; the tables here are the detailed
+breakdown. All numbers are measured on real data — no synthetic substitution, no
+hyperparameter tuning.
 
-Measured on **66 reproducible real-world datasets\*** (of 75 attempted: 47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning. The tables below are a snapshot of the committed `mercury_benchmark_results.json` run (2026-06-21); the CI-refreshed *Latest Benchmark Results* block at the top of this README is always the current headline. All numbers are measured, not estimated.
+### Methodology and comparability
 
-#### Label provenance and comparability
+`MercuryAnomalyDetector` was run untuned over **66 of 75 attempted real-world
+datasets** across 12 domains (the 9 failures were unreachable external sources,
+tracked by a two-lane reachability harness, `.github/workflows/dataset-reachability.yml`).
+Results fall into two regimes, and **only the first is comparable** to published
+detectors:
 
-Not every row below is comparable to a published baseline, and the README is
-explicit about why. Datasets fall into two regimes:
+- **Externally-labeled (comparable).** Labels come from a source independent of
+  the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU/MSDS). The
+  headline is the 47-dataset ADBench result: **Mean AUC 0.8251 / Mean F1 0.5975**.
+- **Self-labeled / threshold-derived (not comparable).** Some environmental
+  loaders manufacture labels by thresholding a feature they also score, so the
+  detector recovers them almost trivially (0.97–1.00 AUC). That is **label
+  leakage**, not accuracy — reported below for pipeline transparency only.
 
-- **Externally-labeled (comparable).** Anomaly labels come from a source
-  independent of the features Mercury scores: ADBench's standardized labels,
-  NSL-KDD attack flags, BATADAL/iTrust attack windows, SMD/NAB annotations,
-  CWRU/MSDS fault labels. These are the numbers you can line up against other
-  detectors. **The externally labelled headline is the 47-dataset ADBench result: Mean AUC
-  0.8251 / Mean F1 0.5975.**
-- **Self-labeled / threshold-derived (unsupervised-eval-only — *not*
-  comparable).** Several environmental loaders have no ground-truth anomaly
-  labels, so they manufacture labels from the data itself: EPA air labels
-  "daily mean PM2.5 > 35.4 µg/m³" (a threshold on a feature that is also scored),
-  and the NOAA ocean / NOAA-GSOD climate / FEMA disaster loaders flag points
-  beyond a ±3σ statistical threshold. When the label is a deterministic function
-  of a scored feature, the detector can recover it almost trivially, which is
-  why these rows sit at 0.97–1.00 AUC. That is **label leakage**, not
-  state-of-the-art accuracy: treat these as an internal pipeline/regression
-  sanity check, never as held-out benchmark performance, and do not average
-  them into a headline metric you intend to compare against other methods.
+The same provenance discipline extends to the live-API loaders: of 20 concrete
+loaders, only 2 (`network_security`, `sepsis`) produce labels independent of any
+scored feature, and the governed-fusion suite gates self-improvement on those 2
+alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
+see [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) for the
+governed self-improvement rollout.
 
-The tables below are split along this line. The auto-generated block above now
-reports the **genuine-only** comparable headline (Mean AUC 0.8251 / Median
-0.8747); the "aggregate over all datasets" figures (Mean AUC 0.8454 / Median
-0.8968) blend both regimes and are therefore **not** a comparable benchmark
-headline.
+### Headline results
 
-**Live-API loaders (`src/omni_mercury_engine/loaders/`).** Phase 1 of the
-governed recursive self-improvement work extends the same label-provenance
-discipline to the live-API loader path that the governed-fusion suite
-(`research/governed_fusion/`) consumes. Of the 20 concrete loaders (the 21 `*Loader` classes measured in the [Codebase Scale](#codebase-scale-measured-not-estimated) block, minus the abstract `BaseDomainLoader` base), only
-**2** produce labels independent of any scored feature — `network_security`
-(NSL-KDD `label`, BATADAL `ATT_FLAG`) and `sepsis` (PhysioNet SepsisLabel).
-The remaining 18 threshold a scored column or reconstruct the entire series
-and are tagged `LABEL_SOURCE = "statistical"`. The governed-fusion manifest
-(`research/governed_fusion/manifest.json`) carries this audit per-event: of
-the 23 live events, **2 are eligible for the transparent fitness signal** Phases 2–3
-gate self-improvement against; the other 21 are reported separately as
-leakage-flagged. CI enforces this split via the loader audit
-(`python -m omni_mercury_engine.loaders.label_provenance --check`) and the
-manifest-integrity tests under `tests/research/`. See
-[docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) for the full
-rollout narrative.
-
-**Governed promotion gate.** Phase 2 adds
-`research/governed_fusion/promotion_gate.py`: a deterministic held-out replay
-gate that promotes only `external_label` improvements, enforces σ_Immutable /
-benevolence / conformal / Lyapunov floors, checks capability regressions,
-respects the marginal-ablation ledger, and emits explicit rollback decisions
-for failed canaries. See
-[docs/GOVERNED_PROMOTION_GATE.md](docs/GOVERNED_PROMOTION_GATE.md).
-
-**Phase 3 governed execution.** Phase 3 wires the live self-improvement arrows
-through a fail-closed governance seam **at the point a change would take effect**.
-`src/omni_mercury_engine/governance/self_improvement.py` defines the engine-owned
-`ThresholdGovernance` / `RecalibrationGovernance` interfaces; the reflexion critic
-in `agentic/orchestration.py` and the drift/performance triggers in
-`ml/online_learning.py` now hand each proposed change to a governance policy
-instead of applying it. The default policy withholds every autonomous mutation;
-the gate-backed policy
-(`research/governed_fusion/phase3_governance_adapters.py`) routes a proposal
-through the Phase 2 promotion gate, and even a gate `promote` is queued for human
-approval rather than auto-applied. The recurring
-`.github/workflows/phase3-governance.yml` job measures dormant-module revival on
-real labels and routes every verdict through the gate. The live wiring is proven
-end-to-end in `tests/research/test_phase3_live_wiring.py`. See
-[docs/PHASE3_GOVERNANCE.md](docs/PHASE3_GOVERNANCE.md).
-
-> **\*Reproducibility note.** 9 of the 75 attempted datasets are not currently
-> reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
-> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
-> FEMA HazardMitigation) are unavailable or rate-limited from this build
-> environment. The comparable headline (Mean AUC 0.8251, Median AUC 0.8747) is
-> the genuine-only figure; the aggregate over all **66 successful** datasets
-> (which blends in the leakage-flagged self-labeled rows) is Mean AUC 0.8454. As of v1.7.0, the FEMA
-> Disaster label-polarity bug previously called out here is fixed
-> (`FEMADisasterLoader._select_anomaly_polarity` now enforces the
-> minority-as-anomaly convention used everywhere else in Mercury, locked
-> by `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`);
-> the headline-table AUC for "Disaster (FEMA)" is rerun on the next
-> benchmark refresh. **USGS Geochemistry** is no longer a synthetic-only
-> stub: `USGSGeochemistryLoader._download_from_usgs` downloads the real
-> NURE-HSSR bulk CSV from `mrdata.usgs.gov`. It remains on the
-> watch list because the harness's job is to detect future upstream
-> outages on top of loader-code regressions, but it now contributes
-> real data when `mrdata.usgs.gov` is reachable. The 11 watch-listed
-> loaders have a two-lane reachability harness — an always-on offline
-> lane (`tests/datasets/test_unreachable_loaders_offline.py`) plus a
-> nightly network lane
-> (`tests/datasets/test_unreachable_loaders_network.py` +
-> `.github/workflows/dataset-reachability.yml`, 04:17 UTC) — so an
-> upstream provider outage surfaces as a failed nightly run rather than
-> as a benchmark silently dropping a dataset. See `docs/ROADMAP.md` for
-> status and `CHANGELOG.md` for the full landing notes.
-
-**Statistical Detector Ensemble:**
+**Ensemble** — unsupervised, three-component weighted fusion:
 
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7665 | 0.8294 |
-| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6009 | 0.6116 |
-| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8267 | 0.8760 |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8294 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.6116 |
+| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8267 | 0.8760 |
 | **Ensemble** | **100%** | **Weighted combination** | **0.8251** | **0.8747** |
 
-**Aggregate Results:**
-
-| Metric | Value |
-|--------|-------|
-| Datasets tested | 66 successful / 75 total |
-| Mean AUC | 0.8251 |
-| Median AUC | 0.8747 |
+| Aggregate (66 successful datasets) | Value |
+|------------------------------------|-------|
+| Mean AUC / Median AUC | 0.8251 / 0.8747 |
 | Std AUC | 0.1638 |
-| Mean Oracle F1 | 0.5998 |
-| Median Oracle F1 | 0.6747 |
+| Mean / Median Oracle F1 | 0.5998 / 0.6747 |
 
-**Domain-Level Performance — externally-labeled (comparable):**
+*Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
+operational performance.*
 
-These rows use labels from a source independent of the scored features and are
-the numbers to compare against other detectors.
+### Comparable domain results (externally-labeled)
 
-| Domain | Datasets | Mean AUC | Mean F1 | Oracle Active |
-|--------|----------|----------|---------|---------------|
-| **ADBench (47 datasets)** | 47 | **0.8251** | **0.5975** | 2 |
-| Academic (CWRU, MSDS)‡ | 2 | 1.0000 | 1.0000 | 0 |
-| General (ADRepository) | 1 | 0.7086 | 0.3468 | 0 |
-| Industrial (BATADAL) | 1 | 0.9114 | 0.5545 | 0 |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | 0.7423 | 0 |
-| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 | 1 |
-| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 | 0 |
+These rows use labels independent of the scored features — the numbers to line up
+against other detectors.
 
-*‡ The Academic / General rows are genuinely labeled but tiny; the Academic
-1.0000 AUC reflects easy separability at that size, not headline accuracy. The
-representative externally-labeled figure is the 47-dataset ADBench row.*
+| Domain | Datasets | Mean AUC | Mean F1 |
+|--------|----------|----------|---------|
+| **ADBench** | 47 | **0.8251** | **0.5975** |
+| Industrial (BATADAL) | 1 | 0.9114 | 0.5545 |
+| Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | 0.7423 |
+| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 |
+| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 |
+| General (ADRepository) | 1 | 0.7086 | 0.3468 |
+| Academic (CWRU, MSDS)† | 2 | 1.0000 | 1.0000 |
 
-**Domain-Level Performance — self-labeled / threshold-derived (unsupervised-eval-only, NOT comparable):**
+*† Academic/General rows are genuinely labeled but tiny; the 1.0000 AUC reflects
+easy separability at that size, not headline accuracy. The representative
+comparable figure is the 47-dataset ADBench row.*
 
-These loaders synthesize labels by thresholding the signal they score, so high
-AUC here is label leakage (see *Label provenance and comparability* above), not
-benchmark performance. Listed for pipeline transparency only.
+### Competitive positioning (ADBench, one identical unsupervised protocol)
 
-| Domain | Datasets | Mean AUC | Mean F1 | Label rule (leaky) |
-|--------|----------|----------|---------|--------------------|
-| Air Quality (EPA) | 1 | 0.9975 | 0.7958 | PM2.5 > 35.4 µg/m³ threshold |
-| Climate (NOAA GSOD, StormEvents, ERDDAP) | 3 | 0.9939 | 0.9210 | ±3σ statistical threshold |
-| Ocean (NOAA Buoy) | 1 | 0.8510 | 0.6921 | ±3σ statistical threshold |
-| Environmental (USGS/NOAA/EPA) | 3 | 0.8856 | 0.6858 | threshold-derived |
-| Disaster (FEMA) | 1 | 0.9993 | 0.9943 | threshold/polarity-derived |
+Against PyOD baselines on the full 57-dataset ADBench suite, Mercury's tier
+detector places **3rd of 8 by mean rank (3.79)** — behind `knn` (2.40) and
+`local_outlier_factor` (3.69), and **ahead of** `isolation_forest` (3.94),
+`hbos` (5.14), `copod` (5.62), and `ecod` (6.11). Mercury is strong-to-dominant
+on high-dimensional sets where distance methods collapse, and weaker on
+low-dimensional local-density sets. Full method-by-method tables:
+[benchmarks/COMPETITIVE_BENCHMARK.md](benchmarks/COMPETITIVE_BENCHMARK.md).
 
-*† The FEMA Disaster loader's label-polarity bug (formerly produced AUC ≈ 0)
-is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`, see
-`CHANGELOG.md` → "FEMA Disaster loader — label-polarity correction"); the
-committed run above reflects the corrected score. This row stays in the
-self-labeled group because its labels are threshold-derived, not externally
-sourced.*
+Untuned 5-fold-CV spot check versus standard baselines (regenerated from
+license-clean scikit-learn datasets, deterministic at `--seed 42`, via
+`python -m benchmarks.empirical_benchmark --readme-subset`):
 
-**Empirical Comparison vs Near-Peer Baselines (5-Fold CV):**
-
-| Detector | breast_cancer AUC | covtype AUC | digits_8 AUC |
-|----------|-------------------|-------------|--------------|
+| Detector | breast_cancer | covtype | digits_8 |
+|----------|---------------|---------|----------|
 | **Mercury-Agent** | 0.796 | 0.896 | 0.489 |
 | One-Class SVM | 0.662 | **0.901** | **0.767** |
 | LOF | 0.544 | 0.667 | 0.571 |
 | Elliptic Envelope | 0.888 | 0.899 | 0.503 |
-| TranAD (SOTA) | 0.940 | 0.892 | 0.742 |
-| MAAT (SOTA) | **0.946** | — | 0.747 |
+| TranAD (supervised SOTA ref) | 0.940 | 0.892 | 0.742 |
+| MAAT (supervised SOTA ref) | **0.946** | — | 0.747 |
 
-*Bold marks the best AUC in each column; "—" denotes a dataset not evaluated for
-that method. Mercury-Agent is run untuned against standard unsupervised baselines
-(One-Class SVM, LOF, Elliptic Envelope) and stays competitive on tabular data; the
-supervised SOTA references (TranAD, MAAT) are the performance ceiling and
-outperform on labeled tasks, as expected.*
+*AUC; bold = best per column, "—" = not evaluated. Mercury is unsupervised and
+untuned; TranAD/MAAT (Tuli et al., VLDB 2022; Kang & Kang, 2023) are supervised
+published references marking the ceiling, not re-run here.*
 
-> **Reproduce this table.** The Mercury and unsupervised-baseline columns are
-> regenerated from license-clean scikit-learn datasets by the harness — no
-> committed data, no synthetic substitution:
-> ```bash
-> python -m benchmarks.empirical_benchmark --readme-subset \
->     -o benchmarks/empirical_benchmark_results.json
-> ```
-> The run is deterministic for the default `--seed 42` and a fixed
-> NumPy/scikit-learn version. The `TranAD`/`MAAT` rows are published references
-> (Tuli et al., VLDB 2022; Kang & Kang, 2023), not re-run here.
-
-**Calibration Validation (MD-011 / MD-003 / MD-005):**
+### Calibration and conformal validation
 
 | Validation | Result |
 |------------|--------|
-| MD-011: Threshold calibration | 33/52 datasets improved (71.2%), mean F1 +0.097 |
-| MD-003: Fusion weight CV | Adaptive weights within 0.007 F1 of L-BFGS optimal |
-| MD-005: Conformal coverage (CrossConformal@0.90) | 69.2% empirical coverage (36/52 datasets) |
-| MD-005: Conformal coverage (CrossConformal@0.95) | 69.2% empirical coverage (36/52 datasets) |
-| MD-003: Default weights validated | 82.7% of datasets within 0.02 F1 of optimal |
+| Threshold calibration (MD-011) | 33/52 datasets improved (71.2%), mean F1 +0.097 |
+| Fusion-weight CV (MD-003) | adaptive weights within 0.007 F1 of L-BFGS optimal; 82.7% of datasets within 0.02 F1 |
+| Conformal coverage (MD-005, CrossConformal @0.90/0.95) | 69.2% empirical (36/52 datasets) |
 
-**Domain-Specific Benchmarks (15 Domains via `run_all_benchmarks.py`):**
+### Domain-specific hazard benchmarks
 
-| Domain | Mean AUC | Status |
-|--------|----------|--------|
-| Earthquake | 0.9367 | Passed |
-| Tsunami | 0.8905 | Passed |
-| Tornado | 0.8803 | Passed |
-| Pandemic | 0.8588 | Passed |
-| Energy | 0.8038 | Passed |
-| Network Security | 0.7983 | Passed |
-| Hurricane | 0.7233 | Passed |
-| Flood | 0.6837 | Passed |
-| FEMA | 0.6573 | Passed |
-| Marine | 0.3540 | Gate Fail |
-| Wildfire | - | No data (API key required) |
-| Volcanic | - | No data (USGS API unavailable) |
-| Landslide | - | No data (API timeout) |
-| Sepsis | - | No data (API unavailable) |
-| Financial | - | No data (API unavailable) |
+Per-domain results from `run_all_benchmarks.py`:
 
-**Transparent Positioning:**
-- **Compare only the externally-labeled rows.** The self-labeled / threshold-derived domain loaders (air, climate, ocean, environmental, disaster) report 0.97–1.00 AUC because their labels are a deterministic threshold on the scored signal — that is label leakage, not accuracy. The comparable headline is ADBench Mean AUC 0.8251.
-- Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
-- Oracle F1 is an upper bound (best of multi-strategy threshold sweep), not operational performance
-- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.60)
-- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
-- No hyperparameter tuning was performed
-- SpectralDomainOracle auto-activates for temporal/spectral domains
-- FEMA Disaster loader label-polarity bug fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity` now enforces minority-as-anomaly; the committed run above reflects the corrected score)
-- 10/75 datasets failed due to unavailable external data sources (covered by the offline + nightly reachability harness as of v1.7.0)
+| Domain | Mean AUC | Domain | Mean AUC |
+|--------|----------|--------|----------|
+| Earthquake | 0.9367 | Network Security | 0.7983 |
+| Tsunami | 0.8905 | Hurricane | 0.7233 |
+| Tornado | 0.8803 | Flood | 0.6837 |
+| Pandemic | 0.8588 | FEMA | 0.6573 |
+| Energy | 0.8038 | Marine | 0.3540 (gate fail) |
 
-**When to Use Mercury-Agent:**
-- When interpretability of anomaly decisions is required
-- When dealing with diverse data types requiring adaptive profiling
-- When no labeled anomaly data is available (unsupervised setting)
+*Wildfire, Volcanic, Landslide, Sepsis, and Financial reported no data in this
+run (API key required or upstream unavailable).*
 
-**When to Use Alternatives:**
-- When labeled anomaly data is available (use supervised classifiers)
-- When memory is constrained (use simpler methods)
+### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 
-*Full results: `benchmarks/mercury_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
+Labels here are a deterministic threshold on a scored feature, so high AUC is
+leakage, not accuracy. Listed for pipeline transparency only — never averaged
+into a headline.
 
-### Comprehensive Multi-Panel Visualizations
+| Domain | Datasets | Mean AUC | Label rule (leaky) |
+|--------|----------|----------|--------------------|
+| Air Quality (EPA) | 1 | 0.9975 | PM2.5 > 35.4 µg/m³ |
+| Climate (NOAA GSOD/StormEvents/ERDDAP) | 3 | 0.9939 | ±3σ threshold |
+| Environmental (USGS/NOAA/EPA) | 3 | 0.8856 | ±3σ threshold |
+| Ocean (NOAA Buoy) | 1 | 0.8510 | ±3σ threshold |
+| Disaster (FEMA) | 1 | 0.9993 | threshold/polarity-derived |
 
-The panels below visualize an **earlier** committed benchmark run (2026-03-04; Mean AUC 0.8285 over 64 datasets) and are retained as illustrative; the current committed headline is the *Latest Benchmark Results* block at the top of this README. No synthetic data.
+### When to use Mercury
 
-#### Neuro-Symbolic Benchmark Report
+**Use Mercury when** anomaly decisions must be interpretable, data types are
+diverse and need adaptive profiling, or no labeled anomaly data is available.
+**Prefer alternatives when** labeled data exists (use a supervised classifier) or
+memory is tightly constrained. Caveats, stated plainly: KinematicScore is
+near-random on shuffled tabular data (mean AUC 0.60); 6 datasets fall below 0.50
+AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 
-9-panel report: AUC/F1 distributions, component boxplots, domain performance, top/bottom dataset rankings, scatter analysis, and summary statistics across that run's 64 datasets:
+### Visual proof
 
+Panels visualize an **earlier** committed run (2026-03-04; Mean AUC 0.8285 over
+64 datasets), retained as illustrative — the current headline is the *Latest
+Benchmark Results* block at the top.
+
+*Neuro-symbolic report — AUC/F1 distributions, component boxplots, domain performance, dataset rankings:*
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
-#### Anomaly Detection Analysis
-
-Per-component AUC breakdown (resonance, kinematic, info_geometry) for top-10 and bottom-10 datasets, ensemble vs best component scatter, threshold strategy usage, anomaly ratio and feature count impact:
-
+*Anomaly-detection analysis — per-component AUC breakdown, ensemble-vs-best scatter, threshold usage:*
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
-#### Performance Dashboard
-
-Timing scatter plots, AUC distribution by category, dataset size analysis, adaptive weight distribution, precision-recall scatter, oracle influence analysis, and data type performance:
-
+*Performance dashboard — timing, AUC by category, dataset size, adaptive weights, precision-recall:*
 ![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
-#### Benchmark Summary (All 64 Datasets)
-
-AUC bar chart for all datasets sorted by performance, with that run's mean line:
-
+*Benchmark summary — per-dataset AUC bar chart with the run mean line:*
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
-#### Calibration & Conformal Validation
-
-MD-011 threshold calibration improvement and MD-005 conformal prediction coverage guarantee rates:
-
+*Calibration and conformal — MD-011 calibration lift and MD-005 coverage:*
 ![Calibration Improvement](docs/images/calibration_improvement.png)
 
-#### Adaptive Weight Analysis
-
-Distribution of unsupervised adaptive weights across all datasets, and mean weights by domain category:
-
+*Adaptive weights — unsupervised weight distribution and mean weights by domain:*
 ![Adaptive Weight Distribution](docs/images/adaptive_weight_distribution.png)
 
-### Domain Loader Validation (28 Real-World Domain Loaders)
-
-Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). These 28 are benchmark *dataset* entries exercised through the concrete domain loaders — a single `*Loader` class can serve several datasets — and are therefore distinct from the 21 `*Loader` classes counted structurally in [Codebase Scale](#codebase-scale-measured-not-estimated). Domain-level results (committed `mercury_benchmark_results.json` run, 2026-06-21):
-
-Label column: **ext** = externally-labeled (comparable); **self** =
-self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
-*Label provenance and comparability* above).
-
-| Domain | Datasets | Mean AUC | Labels | Data Sources |
-|--------|----------|----------|--------|-------------|
-| ADBench | 47 | **0.8251** | ext | ADBench standardized |
-| Academic (CWRU, MSDS) | 2 | 1.0000 | ext | Public repositories |
-| General (ADRepository) | 1 | 0.7086 | ext | ADBench collection |
-| Industrial (BATADAL) | 1 | 0.9114 | ext | iTrust |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | ext | Public datasets |
-| Space (NASA, Solar) | 2 | 0.8753 | ext | NASA APIs |
-| Time Series (SMD, NAB) | 2 | 0.6807 | ext | OmniAnomaly / Numenta |
-| Air Quality | 1 | 0.9975 | self | EPA AQS |
-| Climate | 2 | 0.9939 | self | NOAA GSOD, StormEvents |
-| Ocean | 1 | 0.8510 | self | NOAA NDBC / buoys |
-| Environmental | 3 | 0.8856 | self | USGS / NOAA / EPA |
-| Disaster (FEMA) | 1 | 0.9993 | self | OpenFEMA API |
-
-*† The FEMA Disaster label-polarity bug (formerly AUC ≈ 0) is fixed in v1.7.0;
-the committed run reflects the corrected score. See the reproducibility note
-above and `CHANGELOG.md` for details.*
-
-**9 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
-
-### Federated Learning (Privacy-Preserving Detection)
-
-Mercury now supports federated anomaly detection — nodes train locally and
-exchange only sufficient statistics (13 fitted attributes), never raw data.
-
-```python
-from omni_mercury_engine.federation import FederatedNode, FederatedAggregator
-
-# Each node trains on local data
-node = FederatedNode("hospital_A")
-node.fit(local_patient_data)
-stats = node.export_statistics(epsilon=1.0)  # with differential privacy
-
-# Aggregator combines statistics from multiple nodes
-aggregator = FederatedAggregator(min_nodes=2)
-aggregator.submit(stats_a)
-aggregator.submit(stats_b)
-global_detector = aggregator.to_detector(aggregator.aggregate())
-
-# Global detector is ready for inference
-result = global_detector.detect(new_data)
-```
-
-**Key properties:**
-- No external FL frameworks (Flower, PySyft, etc.) — uses Mercury's native math
-- Gaussian mechanism differential privacy with clipping-norm-based sensitivity
-- Mathematically exact aggregation for means (MLE) and stds (parallel variance formula)
-- Precision-weighted averaging for Fisher information geometry
-- Oracle state round-trip serialization via `get_oracle_statistics()` / `from_statistics()`
-- 15 tests covering correctness, privacy, serialization, and dimension validation (`tests/test_federation.py`)
-
-### Recent Quality Improvements (v1.6.0 Patch)
-
-A comprehensive test failure investigation and fix cycle resolved 100+ test failures across the suite:
-
-| Category | Tests Fixed | Root Cause | Resolution |
-|----------|-------------|------------|------------|
-| API/Auth Module | 15 | Missing FastAPI dependency in import chain | Added FastAPI to test dependencies |
-| Federation Pipeline | 3 | Missing `_oracle_detector` init in `to_detector()` | Added attribute initialization |
-| Solar Data Loader | 1 | Synthetic label thresholds unreachable | Adjusted `xray_short` threshold for exponential distribution |
-| Oracle Config | Multiple | Type mismatch in Oracle configuration | Fixed config type handling |
-| Benchmark Pipeline | All 75 | Oracle influence pipeline incomplete | Wired spectral influence multiplier end-to-end |
-
-**Benchmark improvement:** Mean AUC rose from 0.8030 (51-dataset legacy CI gate) after the Oracle pipeline fix and dataset expansion; the current committed run is **Mean AUC 0.8251 / Median 0.8747** over 66/75 datasets (see the *Latest Benchmark Results* block above). The median indicates strong performance on the majority of datasets with a few challenging outliers pulling the mean down.
-
-### Real-World Data Benchmarks
-
-Mercury Agent has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
-
-#### NSL-KDD (Security Domain)
-
-Network intrusion detection benchmark (standalone real-world-data run):
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Dataset** | NSL-KDD | Network intrusion detection |
-| **Samples** | 50,000 | Synthetic fallback (real data download unavailable) |
-| **Features** | 41 | Network connection attributes |
-| **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **F1 Score** | 0.1069 | Measured (unsupervised, no tuning) |
-| **ROC-AUC** | 0.4952 | Measured (challenging on synthetic fallback) |
-| **Bias Check** | Passed | Demographic parity DPD=0.004 < 0.1 |
-
-*Note: Real NSL-KDD data was unavailable; synthetic fallback data was used. Real data results expected to differ significantly. Citation: Tavallaee et al. (2009).*
-
-#### MIMIC-III Demo (Medical Domain)
-
-Medical ICU anomaly detection benchmark (standalone real-world-data run):
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Dataset** | MIMIC-III Demo | ICU vital signs simulation |
-| **Patients** | 2,000 | Simulated patient records |
-| **Features** | 30 | Vital sign statistics |
-| **Sepsis Ratio** | 15% | Anomaly prevalence |
-| **F1 Score** | 0.6889 | Measured (unsupervised, no tuning) |
-| **ROC-AUC** | 1.0000 | Measured (perfect separation on simulated data) |
-| **Bias Check** | Warning | Age-based DPD=0.157 > 0.1 (expected clinical disparity) |
-
-*Note: Full MIMIC-III requires PhysioNet credentials. Demo uses simulated data based on MIMIC-III patterns. High AUC reflects synthetic data regularity, not clinical performance.*
-
-**Combined Real-World Summary:** Average F1=0.3979, Average ROC-AUC=0.7476 across 2 benchmarks.
-
-#### Ethical AI Compliance
-
-All benchmarks include Fairlearn bias auditing:
-
-- **Demographic Parity Difference (DPD)**: Measures selection rate differences across sensitive groups
-- **Threshold**: DPD < 0.1 for passing bias check
-- **Sensitive Attributes**: Protocol type (security), Age group (medical)
-- **NSL-KDD**: DPD=0.004 (passed)
-- **MIMIC-III**: DPD=0.157 (warning — expected for age-based medical data)
-
-Run benchmarks: `python benchmarks/real_data_benchmarks.py`
-
-### Live Anomaly Detection Demo
-
-Mercury Agent includes a live demonstration script that showcases real-time anomaly detection across multiple domains:
-
-#### Quick Start
-
-```bash
-# Run security domain demo (network intrusion detection)
-python examples/live_anomaly_demo.py --domain security --samples 30
-
-# Run medical domain demo (vital signs anomaly detection)
-python examples/live_anomaly_demo.py --domain medical --samples 30
-
-# Run environmental domain demo (sensor anomaly detection)
-python examples/live_anomaly_demo.py --domain environmental --samples 30
-
-# Run all domains
-python examples/live_anomaly_demo.py --all --samples 20
-```
-
-#### Demo Features
-
-The live demo demonstrates:
-
-- **Real-time streaming data processing** with configurable sample rates
-- **Multi-domain anomaly detection** (security, medical, environmental)
-- **Ethical AI governance** with benevolence scoring (target: 0.99+)
-- **Threat classification** with severity levels (LOW/MEDIUM/HIGH/CRITICAL)
-- **JSON output** for integration with monitoring systems
-
-A recorded demo session is available at [`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
-
-#### Sample Output
-
-```
-[  1/15] 2026-01-06 02:21:17.325 | ANOMALY | Score: 1.000 | Conf: 0.990 | Benev: 0.990
-         Threat: HIGH | Bytes: 9246/600
-[  2/15] 2026-01-06 02:21:17.442 | NORMAL  | Score: 0.797 | Conf: 0.831 | Benev: 0.990
-...
-======================================================================
-  DETECTION SUMMARY
-======================================================================
-  Total Samples:      15
-  Anomalies Detected: 4
-  Detection Rate:     26.67%
-  Avg Confidence:     0.8701
-  Avg Benevolence:    0.9900
-  Runtime:            1.94s
-======================================================================
-```
-
-#### Command Line Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--domain` | Detection domain (security/medical/environmental) | security |
-| `--all` | Run demo for all domains | False |
-| `--samples` | Number of samples to process | 30 |
-| `--delay` | Delay between samples in ms | 150 |
-| `--output` | Output JSON file path | None |
-| `--quiet` | Suppress verbose output | False |
+*Full results: `benchmarks/mercury_benchmark_results.json` · Methodology: [docs/BENCHMARKS.md](docs/BENCHMARKS.md) · Competitive detail: [benchmarks/COMPETITIVE_BENCHMARK.md](benchmarks/COMPETITIVE_BENCHMARK.md).*
 
 </details>
 
@@ -1173,6 +873,52 @@ mercury-agent biometric --help
 # Security analysis
 mercury-agent security --help
 ```
+
+</details>
+
+<details>
+<summary><strong>Live Anomaly Detection Demo</strong></summary>
+
+A live demonstration script showcases real-time anomaly detection across
+security, medical, and environmental domains.
+
+```bash
+# Run a single-domain demo (security / medical / environmental)
+python examples/live_anomaly_demo.py --domain security --samples 30
+
+# Run all domains
+python examples/live_anomaly_demo.py --all --samples 20
+```
+
+**Demo features:** real-time streaming with configurable sample rates,
+multi-domain detection, ethical-governance benevolence scoring (target 0.99+),
+threat classification (LOW/MEDIUM/HIGH/CRITICAL), and JSON output for monitoring
+integration. A recorded session is at
+[`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
+
+**Sample output:**
+
+```
+[  1/15] 2026-01-06 02:21:17.325 | ANOMALY | Score: 1.000 | Conf: 0.990 | Benev: 0.990
+         Threat: HIGH | Bytes: 9246/600
+[  2/15] 2026-01-06 02:21:17.442 | NORMAL  | Score: 0.797 | Conf: 0.831 | Benev: 0.990
+...
+  Total Samples:      15
+  Anomalies Detected: 4
+  Detection Rate:     26.67%
+  Avg Confidence:     0.8701
+  Avg Benevolence:    0.9900
+  Runtime:            1.94s
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--domain` | Detection domain (security/medical/environmental) | security |
+| `--all` | Run demo for all domains | False |
+| `--samples` | Number of samples to process | 30 |
+| `--delay` | Delay between samples in ms | 150 |
+| `--output` | Output JSON file path | None |
+| `--quiet` | Suppress verbose output | False |
 
 </details>
 
@@ -1920,6 +1666,40 @@ bandit -r src/
 ---
 
 ## Unique Features
+
+<details>
+<summary><strong>Federated Learning</strong> - Privacy-Preserving Distributed Detection</summary>
+
+Nodes train locally and exchange only sufficient statistics (13 fitted
+attributes), never raw data.
+
+```python
+from omni_mercury_engine.federation import FederatedNode, FederatedAggregator
+
+# Each node trains on local data
+node = FederatedNode("hospital_A")
+node.fit(local_patient_data)
+stats = node.export_statistics(epsilon=1.0)  # with differential privacy
+
+# Aggregator combines statistics from multiple nodes
+aggregator = FederatedAggregator(min_nodes=2)
+aggregator.submit(stats_a)
+aggregator.submit(stats_b)
+global_detector = aggregator.to_detector(aggregator.aggregate())
+
+# Global detector is ready for inference
+result = global_detector.detect(new_data)
+```
+
+**Key properties:**
+- No external FL frameworks (Flower, PySyft, etc.) — uses Mercury's native math
+- Gaussian-mechanism differential privacy with clipping-norm-based sensitivity
+- Mathematically exact aggregation for means (MLE) and stds (parallel variance formula)
+- Precision-weighted averaging for Fisher information geometry
+- Oracle state round-trip serialization via `get_oracle_statistics()` / `from_statistics()`
+- 15 tests covering correctness, privacy, serialization, and dimension validation (`tests/test_federation.py`)
+
+</details>
 
 <details>
 <summary><strong>Ethical AI Governance</strong> - Mathematically-Bound Fairness Constraints</summary>
