@@ -805,7 +805,14 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.base_url = config.base_url or "https://api.anthropic.com"
-        self.model = config.model_name or "claude-3-5-sonnet-20241022"
+        # Fallback model used only when the operator did not set ``model_name``.
+        # It MUST be a currently-served Claude id: the previous default
+        # ``claude-3-5-sonnet-20241022`` was retired on 2025-10-28 and now
+        # returns ``404 not_found_error`` from ``/v1/messages``, so any operator
+        # who selected the Anthropic provider without naming a model hit a hard
+        # 404 on the very first call. ``claude-opus-4-8`` is the current
+        # first-party default; operators still override it via ``model_name``.
+        self.model = config.model_name or "claude-opus-4-8"
 
         if self.api_key:
             self._is_available = True

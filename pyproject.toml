@@ -1130,6 +1130,12 @@ ignore = [
 "tests/**/*.py" = ["S101", "ARG", "PLR2004", "S105", "S108", "S603", "S607", "S608"]
 "__init__.py" = ["F401"]
 "benchmarks/**/*.py" = ["S102", "S108", "S310", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
+# Model-integration proof harnesses (research/model_integration_obsv) are
+# structurally test doubles: they monkeypatch the HTTP boundary and assert on
+# real adapter behaviour. The unused test-double lambda args (ARG005) and the
+# sys.path-bootstrap pathlib preference (PTH100) are ignored here for the same
+# reason tests/** ignores ARG.
+"research/model_integration_obsv/**/*.py" = ["ARG005", "PTH100"]
 "docs/**/*.py" = ["RUF015"]
 # scripts/persist_benchmark_to_pr.py: every urllib.urlopen call targets the
 # hardcoded ``GITHUB_API = "https://api.github.com"`` constant defined at

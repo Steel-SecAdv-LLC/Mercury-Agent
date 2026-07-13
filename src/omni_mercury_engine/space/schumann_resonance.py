@@ -617,7 +617,16 @@ class SchumannResonanceDetector:
         power = np.abs(yf[: n // 2]) ** 2
         xf = fftfreq(n, 1.0 / self.sampling_rate)[: n // 2]
 
-        power = power / np.max(power)
+        # Normalise by the spectral peak, but guard the degenerate window: a
+        # flat or all-zero ELF segment has ``max(power) == 0`` (and an
+        # ``n < 2`` window has an empty ``power``), so an unguarded
+        # ``power / np.max(power)`` produces NaN/Inf that then poisons the
+        # downstream fundamental-frequency search (peak-picking over NaNs).
+        # Leave such a spectrum at zero -- a truthful "no resonance power"
+        # result -- instead of propagating non-finite values.
+        peak = float(np.max(power)) if power.size else 0.0
+        if peak > 0.0 and np.isfinite(peak):
+            power = power / peak
 
         return power, xf
 
