@@ -317,9 +317,11 @@ AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 
 ### Visual proof
 
-Panels visualize an **earlier** committed run (2026-03-04; Mean AUC 0.8285 over
-64 datasets), retained as illustrative — the current headline is the *Latest
-Benchmark Results* block at the top.
+The benchmark panels below are generated from the current committed
+`mercury_benchmark_results.json` run (2026-06-21; Mean AUC 0.8251 over 66
+successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
+calibration panel comes from the MD-011/MD-005 calibration-validation run
+(52 datasets).
 
 *Neuro-symbolic report — AUC/F1 distributions, component boxplots, domain performance, dataset rankings:*
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
