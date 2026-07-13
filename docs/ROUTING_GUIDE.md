@@ -366,10 +366,7 @@ from pathlib import Path
 import numpy as np
 
 from omni_mercury_engine.integrations.routing import FallbackChain
-from omni_mercury_engine.validation.data_loaders import (
-    USGSEarthquakeLoader,
-    NOAASpaceWeatherLoader,
-)
+from omni_mercury_engine.validation.data_loaders import USGSEarthquakeLoader
 
 logger = logging.getLogger(__name__)
 
