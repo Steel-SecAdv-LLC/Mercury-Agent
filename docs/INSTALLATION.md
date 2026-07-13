@@ -19,7 +19,8 @@ importing `omni_mercury_engine`:
 ```bash
 export MERCURY_ENV=production
 export AMA_REQUIRE_REAL_PQC=true
-export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
+# AMA_REQUIRE_CONSTANT_TIME is a deprecated no-op with the pinned AMA v3.3.0
+# (native-only constant-time operation is now unconditional); leave it unset.
 ```
 
 `AMA_REQUIRE_REAL_PQC` is retained for legacy workflow readability, but
@@ -52,7 +53,7 @@ downgrades.
 | `AMA_CRYPTO_VERSION` | `3.3.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.3.0`, `3.3.0.post1`, `3.3` are accepted; `3.1.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
-| `AMA_REQUIRE_CONSTANT_TIME` | `true` | Refuse non-constant-time PQC primitives. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Deprecated no-op with the pinned AMA v3.3.0.** AMA now enforces native-only operation unconditionally (INVARIANT-7), so its constant-time C primitives are always in use and this variable has no effect — AMA logs a removal notice if it is set. Mercury's mandatory import-time PQC gate already guarantees the native backend is loaded before the process runs, so `security.pqc_backends.require_constant_time()`'s "AMA unavailable" branch is unreachable at runtime. Retained only to keep legacy configs readable. |
 | `MERCURY_GATE_AUDIT_LOG` | durable path | Persistent JSONL sink for every harm-gate decision. |
 | `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
 | `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
@@ -63,7 +64,7 @@ downgrades.
 # Tier 0 minimal production env
 export MERCURY_ENV=production
 export AMA_CRYPTO_VERSION=3.3.0
-export AMA_REQUIRE_CONSTANT_TIME=true
+# AMA_REQUIRE_CONSTANT_TIME omitted: deprecated no-op with the pinned AMA v3.3.0.
 export MERCURY_GATE_AUDIT_LOG=/var/lib/mercury/audit/gate_decisions.jsonl
 export MERCURY_GATE_AUDIT_SECURELOG=1
 export MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1
@@ -145,7 +146,8 @@ loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 ```bash
 # Requires git, gcc/g++ >= 12, and cmake >= 4.3.2 on PATH.
 bash scripts/build_ama_native.sh
-export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
+# AMA_REQUIRE_CONSTANT_TIME is a deprecated no-op with AMA v3.3.0 (native-only
+# constant-time is unconditional); no need to export it.
 ```
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
