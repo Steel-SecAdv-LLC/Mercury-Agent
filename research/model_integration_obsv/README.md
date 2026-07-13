@@ -71,12 +71,46 @@ print(expl.text, ledger.totals())
 ## Scripts
 
 - **`anthropic_wire_proof.py`** — the adapter in isolation (request format,
-  parse robustness, error path, live transport).
+  parse robustness, error path, live transport). Exits `0` only if every
+  assertion held.
 - **`mercury_claude_reasoning_e2e.py`** — the full Mercury reasoning chain
   served by Claude (routing, provenance, ethics enforcement, usage accounting,
-  air-gap fail-closed, truthful fallback).
+  air-gap fail-closed, truthful fallback). Exits `0` only if every assertion held.
+- **`live_llm_smoke.py`** — the operator's recurring "is Mercury doing real LLM
+  generation *right now*?" check. Auto-detects whatever real backend is present
+  — a local **Ollama** server *or* an **Anthropic** key — runs a genuine
+  ethics-gated `explain()` through Mercury's chain, and prints the model's
+  actual prose + token usage. Exits `0` if a real model answered, `2` if only
+  the deterministic template was available (and prints the runbook below).
 
-Each exits `0` only if every assertion held.
+## Runbook — turn on a live model proof (operator-supplied, no shared secret)
+
+Like any LLM-backed system, the model endpoint is the operator's to provide.
+Mercury needs **one** of these; `live_llm_smoke.py` flips to a live completion
+the moment either is present:
+
+**(A) Ollama — zero cost, zero secret (recommended for dev/CI):**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve &            # loopback daemon on 127.0.0.1:11434 (SafeHTTPClient loopback-gated)
+ollama pull llama3.2:1b   # any chat model; ~1.3 GB
+python research/model_integration_obsv/live_llm_smoke.py   # -> LIVE ollama:llama3.2:1b completion
+```
+
+**(B) Anthropic (Claude) key** — there is **no anonymous/free key**; create one at
+`https://console.claude.com/` → API keys (a workspace-scoped key with a spend
+cap keeps it off your personal account):
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+export MERCURY_ANTHROPIC_MODEL=claude-opus-4-8   # optional; the default
+python research/model_integration_obsv/live_llm_smoke.py            # -> LIVE cloud:anthropic completion
+python research/model_integration_obsv/anthropic_wire_proof.py      # PART 4 becomes a live completion
+python research/model_integration_obsv/mercury_claude_reasoning_e2e.py
+```
+
+Any other shipped provider works the same way via its own key
+(`OPENAI_API_KEY`, `GEMINI_API_KEY`, `COHERE_API_KEY`, `DEEPSEEK_API_KEY`,
+`XAI_API_KEY`, …) — see `models/llm_registry.PROVIDER_CATALOG`.
 
 ## Related fix shipped alongside this harness
 
