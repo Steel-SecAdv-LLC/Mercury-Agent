@@ -1081,7 +1081,7 @@ class VolcanicEruptionDetector:
                     swarm_probability = float(seismic_result["confidence"])
                 elif np.asarray(seismic_result.get("robust_z_series", [])).size:
                     # Physics path: persist the robust z-score series the swarm
-                    # decision was actually computed from. Honestly named — it
+                    # decision was actually computed from. Transparently named — it
                     # is not attention, and none exists on this path.
                     seismic_series = np.asarray(seismic_result["robust_z_series"], dtype=float)
                     seismic_series_name = "seismic_robust_z"
@@ -1254,7 +1254,7 @@ class VolcanicEruptionDetector:
             "attention_weights": [],
             # The per-sample robust z series the decision is computed from
             # (the exceed fraction over this series IS the detection) — the
-            # physics path's honestly-named diagnostics series.
+            # physics path's transparently-named diagnostics series.
             "robust_z_series": robust_z,
             "method": "physics",
         }

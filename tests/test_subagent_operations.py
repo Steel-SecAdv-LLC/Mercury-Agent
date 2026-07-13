@@ -9,7 +9,7 @@ all 28 coordinators, that
 * the **real-op** path runs the member's actual ``omni_mercury_engine``
   entrypoint with valid payload-derived inputs (``mode == "operation"``, with the
   concrete entrypoint named in ``output["operation"]``) — *not* the fallback; and
-* the **no-input fallback** still returns the honest live binding report
+* the **no-input fallback** still returns the transparent live binding report
   (``mode == "binding"``) via the explicit ``mode="introspect"`` readiness probe.
 
 A coordinator whose only passing path is the fallback is a gap — every member
@@ -305,7 +305,7 @@ def test_coordinator_real_op_runs(
 
 @pytest.mark.parametrize("agent_id", _CASE_IDS)
 def test_coordinator_introspect_fallback_binding(agent_id: str) -> None:
-    """The honest no-input fallback still returns the live binding report."""
+    """The transparent no-input fallback still returns the live binding report."""
     result = _dispatch(agent_id, {"mode": "introspect"})
     assert result.status == "completed", f"{agent_id} fallback failed: {result.error}"
     out = result.output
@@ -383,7 +383,7 @@ def test_hestia_normalize_and_stability_are_both_real() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Fail-closed: malformed inputs are surfaced honestly, never fabricated.
+# Fail-closed: malformed inputs are surfaced transparently, never fabricated.
 # ---------------------------------------------------------------------------
 
 

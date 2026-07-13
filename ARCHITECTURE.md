@@ -1,10 +1,10 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 130 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 172 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -331,7 +331,7 @@ Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata
 The **decision / abstention / response** stage is the closed
 `identify → interpret → decide → deter` loop (`omni_mercury_engine.decision`).
 It is a pure, deterministic function of the certificate above: it reuses the
-engine-wide `ThreeState` honesty contract to make abstention first-class (a
+engine-wide `ThreeState` transparency contract to make abstention first-class (a
 calibrated "don't-know" gate split into a *resolvable* deferral and a
 *fail-closed* hold), then attaches a bounded response that recommends and
 escalates but never autonomously executes a destructive action. It is an exact
@@ -820,15 +820,15 @@ anchors, and design contract live in
   **operator** (not merely a binding): an adapter in
   `agentic/subagents/operations.py` invokes the member's real
   `omni_mercury_engine` entrypoint with `task.payload`-derived inputs and returns
-  its honest result (`mode="operation"`) — e.g. `Helios_XVII` computes real
+  its transparent result (`mode="operation"`) — e.g. `Helios_XVII` computes real
   telemetry metrics, `Kronos_XXII` fits and runs a real detector, `Artemis_VI`
   genuinely probes data-source reachability. It fails closed
   (`SubAgentExecutionError`) on malformed inputs and never fabricates signal.
   When the entrypoint is input-gated and the payload lacks its inputs — or the
   caller requests a readiness probe (`payload["mode"]="introspect"`) — it falls
-  back to the honest live **binding report** (`mode="binding"`): importing each
+  back to the transparent live **binding report** (`mode="binding"`): importing each
   declared subsystem, introspecting its public API, and failing closed when no
-  subsystem binds. The binding report is the honest no-input floor, never the
+  subsystem binds. The binding report is the transparent no-input floor, never the
   whole behavior. (Phase 2 deepened all 28 coordinators from binding to operator;
   the per-member operation + payload contract is tabulated in
   [`docs/SUBAGENT_PANTHEON.md`](docs/SUBAGENT_PANTHEON.md).)
@@ -843,7 +843,7 @@ anchors, and design contract live in
 - **Dual-gate commit.** Results are committed through the same
   [dual hard ethical gate](#dual-gate-hard-ethical-enforcement) — benevolence
   floor **and** σ-Immutable — used on the engine and orchestrator boundaries;
-  fail-closed. Mass dispatch aggregates honestly (failures surfaced, dissent
+  fail-closed. Mass dispatch aggregates transparently (failures surfaced, dissent
   shown; no reordering or fabricated agreement).
 
 ## Deployment Architecture
@@ -939,7 +939,7 @@ conda install -c conda-forge qutip
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (487 `test_*.py` modules as of 2026-07-05).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (586 `test_*.py` modules as of 2026-07-12).
 
 ```bash
 # Run specific test
@@ -1209,7 +1209,7 @@ is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 
 ## Roadmap Capabilities
 
-The authoritative per-capability status (Designed / Stubbed / Functional, with test citations) is the capability table in [`docs/ROADMAP.md`](docs/ROADMAP.md). Summary as of 2026-06-10:
+The authoritative per-capability status (Designed / Stubbed / Functional, with test citations) is the capability table in [`docs/ROADMAP.md`](docs/ROADMAP.md). Summary as of 2026-07-11:
 
 1. **Distributed Processing** — Functional: native pure-stdlib `TCPMessageTransport` (`distributed/tcp_transport.py`) with per-message Ed25519 signatures; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes
 2. **Additional Biometric Modalities** — iris/fingerprint Functional; narrative-voice LLM requires an explicit `llm_provider=`
@@ -1267,8 +1267,8 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   loaders, medical, metrics, ml, models, narrative, ocean,
   quantum_computing, reasoning, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation, verifiers)
-- **~340,000 LOC** in `src/omni_mercury_engine/` (674 source files)
-- **487 test modules** under `tests/`; 8,789 tests collected with the
+- **~391,000 LOC** in `src/omni_mercury_engine/` (746 source files)
+- **586 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
   modules skip. See the README "Testing and Quality Assurance" section
@@ -1276,9 +1276,10 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 25 % / FULL ≥ 50 %; the aspirational target is 85 %.
-- **Documentation:** 41 markdown documents at the project surface
-  (7 top-level, 29 in `docs/` plus the drone/medical SETUP runbooks,
-  2 in `benchmarks/`, and the `rust_crypto/` README)
+- **Documentation:** 72 markdown documents at the project surface
+  (7 top-level, 56 in `docs/` — including the drone/medical SETUP
+  runbooks and the research literature review — 8 in `benchmarks/`,
+  and the `rust_crypto/` README)
 - **Optimization experiments:** logged under `benchmarks/`
   (3R fusion, ethical scalars, fibring composer, seven-axis matrix)
 

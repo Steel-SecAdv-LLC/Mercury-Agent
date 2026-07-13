@@ -167,7 +167,7 @@ class TestInfeasibilityBarrier:
                 assert float(raising_model(cf.counterfactual.reshape(1, -1))[0]) < 0.5
 
     def test_search_failure_is_honest_never_a_fabricated_success(self) -> None:
-        """A model erroring on every candidate yields an honest failure.
+        """A model erroring on every candidate yields a transparent failure.
 
         Real detectors raise data-dependent errors on extreme candidates
         (e.g. np.histogram on all-NaN intermediates); the search logs the
@@ -197,7 +197,7 @@ class TestInfeasibilityBarrier:
 
         x = np.array([1.5, 0.0])  # finite score at the original point
         result = explain_detection_counterfactual(score_fn, x, 0.5, method="dice", seed=0)
-        # Honest outcome either way: a genuine flip or an explicit failure.
+        # Transparent outcome either way: a genuine flip or an explicit failure.
         if result.flipped:
             rescored = float(score_fn(result.counterfactual_x.reshape(1, -1))[0])
             assert np.isfinite(rescored) and rescored <= 0.5

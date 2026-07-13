@@ -11,7 +11,7 @@ Two tiers:
   ``MERCURY_NETWORK_TESTS=1`` (see ``tests/conftest.py``).
 
 Context: issue #261's apparent regression (AUC 0.8466->0.8259) was the PR #255
-eval-honesty de-leak, not a detector regression (see
+eval-transparency de-leak, not a detector regression (see
 ``docs/ANOMALY_REGRESSION_WS_A.md``).  This guard pins the *real* per-dataset
 metric floor so a genuine future regression cannot land silently.
 """

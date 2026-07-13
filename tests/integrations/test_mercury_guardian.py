@@ -662,7 +662,7 @@ class TestPostureStatusHonestyOnEvaluatorFailure:
     def test_stale_success_does_not_mask_an_actively_failing_evaluator(self) -> None:
         """A last-known-good evaluation must not keep reporting its level
         while the evaluator is failing (consecutive failures > 0): the stale
-        picture cannot refresh, so the honest report is UNKNOWN."""
+        picture cannot refresh, so the transparent report is UNKNOWN."""
         from unittest.mock import patch
 
         from omni_mercury_engine.integrations.mercury_amacrypto import (

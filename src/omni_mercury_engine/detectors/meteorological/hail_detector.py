@@ -21,7 +21,7 @@ formulations:
   :class:`~omni_mercury_engine.data_sources.earth_science.NWSWeatherAlertsSource`
   or raw ``api.weather.gov`` GeoJSON.
 
-Scope note (honest input contract): this detector consumes **precomputed**
+Scope note (transparent input contract): this detector consumes **precomputed**
 sounding-derived quantities (MUCAPE, most-unstable-parcel mixing ratio,
 700-500 hPa lapse rate, 500 hPa temperature, 0-6 km bulk shear, freezing
 level) as produced by SPC mesoanalysis, model soundings, or an upstream
@@ -469,7 +469,7 @@ class HailDetector:
     def extract_features(self, data: Any) -> torch.Tensor:
         """Extract a fixed-width feature vector for the fusion registry.
 
-        Two honest input paths:
+        Two transparent input paths:
 
         * ``dict`` with the required convective keys -> physics features
           derived from the real SHIP computation (SHIP value, clamped

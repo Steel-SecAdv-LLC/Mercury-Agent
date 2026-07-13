@@ -382,7 +382,7 @@ class NeurosymbolicEngine:
 
         # Neuro-symbolic inference head, wired to the canonical co-trained
         # SymbolicConstraintModule (no random-init network). Built eagerly when
-        # torch is importable; ``None`` (honestly reported by get_statistics) in
+        # torch is importable; ``None`` (transparently reported by get_statistics) in
         # a torch-free environment, since the canonical module is a torch module.
         self.ltn: LogicTensorNetwork | None
         try:
@@ -490,7 +490,7 @@ class NeurosymbolicEngine:
         .. note:: **Distinct from the trained consensus path (2026-06-02).**
             This is a deterministic, reproducible statistic of *raw features* —
             a robust standardized-dispersion signal through a logistic (bounded,
-            feature-responsive) — **not** a trained signal, and it is honestly
+            feature-responsive) — **not** a trained signal, and it is transparently
             labelled as such. It is NOT the retired random-init network: the
             ``LogicTensorNetwork`` surface is now re-wired to the canonical
             :class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`

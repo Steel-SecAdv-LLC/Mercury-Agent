@@ -173,7 +173,7 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     }
     bp = ax2.boxplot(
         comp_data.values(),
-        labels=comp_data.keys(),
+        tick_labels=comp_data.keys(),
         patch_artist=True,
         boxprops=dict(linewidth=0.5),
         whiskerprops=dict(color="#8b949e"),
@@ -589,7 +589,7 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     cat_data = [c[1] for c in sorted_cats[:8]]
     bp = ax2.boxplot(
         cat_data,
-        labels=[n.replace("_", "\n") for n in cat_names],
+        tick_labels=[n.replace("_", "\n") for n in cat_names],
         patch_artist=True,
         whiskerprops=dict(color="#8b949e"),
         capprops=dict(color="#8b949e"),

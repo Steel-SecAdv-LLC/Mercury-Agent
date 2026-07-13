@@ -442,7 +442,7 @@ class MultiHopReasoner:
         """Rank candidate hypotheses by lexical-overlap explanatory score.
 
         .. note::
-            **Scope/honesty:** this is a LEXICAL HEURISTIC, not probabilistic or
+            **Scope/transparency:** this is a LEXICAL HEURISTIC, not probabilistic or
             causal inference. The "likelihood" P(O|H) is approximated by Jaccard
             token overlap between the observation and hypothesis text
             (``0.3 + 0.7*overlap``; see :meth:`_compute_likelihood`), multiplied

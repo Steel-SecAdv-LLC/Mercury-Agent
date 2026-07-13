@@ -411,7 +411,7 @@ def run_benchmark(
     # (ground-truth / expert-annotated). Datasets whose anomaly labels were
     # manufactured by thresholding a detector-like score/feature are circular:
     # scoring a detector against them inflates AUC. They are reported separately
-    # under ``unsupervised_eval`` so the headline number is honest, and the
+    # under ``unsupervised_eval`` so the headline number is transparent, and the
     # inflation delta the exclusion removes is stated explicitly.
     from omni_mercury_engine.datasets.metadata import is_supervised_eval_safe
 
@@ -427,7 +427,7 @@ def run_benchmark(
         r for r in successful if not is_supervised_eval_safe(r.get("label_source", "ground_truth"))
     ]
 
-    headline_aucs = _aucs(genuine)  # honest headline: genuine labels only
+    headline_aucs = _aucs(genuine)  # transparent headline: genuine labels only
     manufactured_aucs = _aucs(manufactured)
     all_aucs = _aucs(successful)
     f1s = [r["oracle_f1"] for r in genuine if r["oracle_f1"] > 0]
@@ -988,7 +988,7 @@ def run_detection_tier_section(*, max_files: int | None = None) -> dict[str, Any
 
     Wraps :func:`benchmarks.detection_tier_benchmark.run_realdata_benchmark` -- the
     tier's real-data streaming evaluation over the Numenta Anomaly Benchmark real
-    categories -- and stamps it with run metadata, so the tier's honest real-data
+    categories -- and stamps it with run metadata, so the tier's transparent real-data
     numbers live in the one canonical ``mercury_benchmark_results.json`` under the
     ``detection_tier`` key rather than a separate silo. Fail-soft: a data/download
     failure is recorded as ``status: unavailable``, never fatal to the headline run.

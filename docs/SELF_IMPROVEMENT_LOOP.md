@@ -1,5 +1,7 @@
 # Governed Recursive Self-Improvement — Phases 1–3
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+
 > Status of this document: **Phases 1–3 implemented.** Phase 1 closed the
 > measurement-provenance problem. Phase 2 added the governed promotion gate.
 > Phase 3 wires Reflexion threshold recommendations, high/critical-drift
@@ -55,7 +57,7 @@ proceeds from reality.
 Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
-* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8251**, Mean F1 **0.5975**. *(`docs/BENCHMARKS.md`, `README.md` L182)*
+* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8251**, Mean F1 **0.5975**. *(`docs/BENCHMARKS.md`, README.md § "Label provenance and comparability")*
 * **Governed-fusion live suite (23 events, mixed regime — historical).** Macro-mean AUROC **0.8231**, F1 **0.2768**. This number is the headline before Phase 1's leakage-split: it blends 2 ground-truth-labelled events with 21 statistical-labelled ones.
 * **Governed-fusion live suite, provenance split (Phase 1 result):**
 
@@ -120,10 +122,10 @@ justification.
   `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader` (a
   provenance-declaration default; loaders must override to declare
   their actual source).
-* All 15 concrete loaders updated:
+* All 20 concrete loaders updated:
   * `ground_truth` (2): `network_security_loader.NetworkSecurityLoader`,
     `sepsis_loader.SepsisLoader`.
-  * `statistical` (13): every other live-API loader. The justification on
+  * `statistical` (18): every other live-API loader. The justification on
     each `LABEL_SOURCE` block names the exact circular pattern (e.g.
     earthquake labels `magnitude >= mainshock_mag - 1.0` against
     feature[0] = `magnitude`).
@@ -295,7 +297,7 @@ The wiring, surface by surface:
   through the gate** (`--dormant-revival`) instead of only uploading it. A module
   below the pre-registered signal bar is archived; one that clears it but lacks
   promotion-gate candidate evidence is recorded as a fail-closed reject — the
-  honest disposition until the full ablation+gate evidence exists.
+  transparent disposition until the full ablation+gate evidence exists.
 * Every routing decision is written to an append-only store, and human approval
   is preserved for every `promote`.
 

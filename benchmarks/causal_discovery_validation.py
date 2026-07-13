@@ -4,7 +4,7 @@ r"""Causal-discovery validation: does the dormant ``causal_discovery`` engine re
 
 `causal_discovery.py` was orphaned and, judged by the anomaly-AUC lens, looked
 un-revivable -- it emits a causal *graph*, not a per-sample anomaly score. That
-is the wrong metric. The honest test for a constraint-based causal-discovery
+is the wrong metric. The transparent test for a constraint-based causal-discovery
 algorithm is **structural recovery against a known ground-truth DAG**: generate a
 linear-Gaussian structural equation model with a known graph, sample from it,
 run discovery, and compare the recovered skeleton to the truth.

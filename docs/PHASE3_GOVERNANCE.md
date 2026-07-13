@@ -1,5 +1,7 @@
 # Phase 3 Governance: Reflexion, Drift Recalibration, Dormant Revival
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Phase 3 closes the next governed self-improvement loop **at the point a change
 would take effect**. Reflexion threshold adaptation, drift-/performance-triggered
 recalibration, and dormant-module revival can no longer mutate Mercury's live
@@ -100,7 +102,7 @@ The scheduled workflow `.github/workflows/phase3-governance.yml` now **closes th
 loop**: it runs the real benchmark on schedule, then routes every measured
 verdict through the gate (`--dormant-revival`) and publishes both the measurement
 and the routing decisions. A candidate that carries signal but lacks held-out
-promotion evidence is recorded as a fail-closed reject — the honest disposition.
+promotion evidence is recorded as a fail-closed reject — the transparent disposition.
 Pull requests run the deterministic routing tests without network downloads.
 
 ## CLI

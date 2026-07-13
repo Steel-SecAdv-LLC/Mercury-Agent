@@ -99,7 +99,7 @@ jobs:
         # raw measurement. No --check: this is the recurring measurement+record
         # job, so a fail-closed reject is recorded for human review, not a CI
         # failure. The gate fails a candidate that carries signal but lacks
-        # held-out-replay promotion evidence — the honest disposition.
+        # held-out-replay promotion evidence — the transparent disposition.
         run: |
           python research/governed_fusion/phase3_governance.py \
             --dormant-revival artifacts/dormant_module_revival.json \

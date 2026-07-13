@@ -1,10 +1,12 @@
 # WS-A — Anomaly-score "regression" (#261): root cause and guard
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 ## TL;DR
 
 The drop reported in **#261** — mean ROC-AUC `0.8466 → 0.8259`, Oracle-F1
 `0.6428 → 0.6046` — is **not a detector regression**. It is the direct,
-intended consequence of **PR #255 making the headline metric honest** by
+intended consequence of **PR #255 making the headline metric transparent** by
 excluding circular *manufactured-label* datasets from the supervised headline.
 On an apples-to-apples basis the detector is **flat-to-slightly-up**.
 
@@ -28,7 +30,7 @@ between those states: the **#255 merge**. So #255 is the isolating change.
 
 Two changes shipped in #255 touch this number:
 
-1. **Eval-honesty de-leak (`mercury_benchmark.py`).** The headline `mean_auc` /
+1. **Eval-transparency de-leak (`mercury_benchmark.py`).** The headline `mean_auc` /
    `mean_oracle_f1` are now computed over **genuine-label** datasets only
    (`ground_truth | expert_annotated`). 13 datasets whose anomaly labels were
    *manufactured* by thresholding a detector-like feature (USGS_Earthquake,
@@ -47,7 +49,7 @@ The new harness records the exact split in its own `deleak_delta` field
 
 ```
 mean_auc_all_datasets : 0.8495   <- apples-to-apples with the old 0.8466
-mean_auc_genuine_only : 0.8259   <- new honest headline
+mean_auc_genuine_only : 0.8259   <- new transparent headline
 mean_auc_delta        : -0.0237  <- removing 13 circular datasets (mean AUC 0.9479)
 ```
 
@@ -67,9 +69,9 @@ without any change in detector quality.
 The ≥ 84 / ≥ 64 bar was measured on a **label-contaminated** dataset set.
 Re-including the manufactured-label datasets to recover `0.8466` would
 re-introduce circular-label inflation — exactly the theater the operating
-contract forbids. The honest genuine-only headline is `0.8259 / 0.6046`, and
+contract forbids. The transparent genuine-only headline is `0.8259 / 0.6046`, and
 that is the number the repo should carry. The committed
-`mercury_benchmark_results.json` is CI-managed and refreshes to the honest
+`mercury_benchmark_results.json` is CI-managed and refreshes to the transparent
 format on the next `main` benchmark run.
 
 ## The guard (so a *real* regression is caught)

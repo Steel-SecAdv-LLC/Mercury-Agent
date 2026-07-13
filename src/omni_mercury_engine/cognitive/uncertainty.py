@@ -81,7 +81,7 @@ class UncertaintyEstimate:
     predictive_entropy: float = 0.0  # Total predictive uncertainty
     mc_samples: int = 0  # Number of MC samples used
     is_overconfident: bool = False  # High confidence despite poor calibration
-    # Honesty flags: whether epistemic/aleatoric were *measured* (ensemble / MC
+    # Transparency flags: whether epistemic/aleatoric were *measured* (ensemble / MC
     # variance, heteroscedastic residual) versus a default placeholder used when
     # no ensemble/model/features were supplied. ``confidence_calibrated`` is True
     # only when a fitted calibrator (not the uncalibrated monotone prior) drove
@@ -617,7 +617,7 @@ class UncertaintyQuantifier:
             component was actually measured (ensemble/MC variance, heteroscedastic
             residuals) versus a default placeholder used when no such information
             was supplied -- so a caller passing only a single scalar gets an
-            *honest* "unmeasured" signal instead of a fabricated constant.
+            *transparent* "unmeasured" signal instead of a fabricated constant.
         """
         self._stats["estimates_computed"] += 1
 

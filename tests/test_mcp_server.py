@@ -4,7 +4,7 @@
 
 Drives the server with crafted JSON-RPC 2.0 messages (the same wire an MCP client
 speaks) and asserts the protocol handshake, tool discovery, tool execution, and
-fail-closed/honest behaviour, all offline.
+fail-closed/transparent behaviour, all offline.
 """
 
 from __future__ import annotations
@@ -174,7 +174,7 @@ class TestToolCalls:
     def test_research_is_failclosed_offline(self) -> None:
         server = MercuryMCPServer(assistant=_offline_assistant())
         result = _call(server, "mercury_research", {"query": "anything"})
-        assert result["isError"] is False  # honest report, not a transport error
+        assert result["isError"] is False  # transparent report, not a transport error
         payload = json.loads(result["content"][0]["text"])
         assert payload["available"] is False
 

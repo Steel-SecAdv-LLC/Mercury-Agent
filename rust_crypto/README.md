@@ -9,7 +9,7 @@
 > (pinned to `v3.3.0` in
 > `.github/workflows/pqc-production-check.yml` and the
 > `[pqc]` extra of `pyproject.toml`). See
-> [`SECURITY.md`](../SECURITY.md) §"Post-Quantum Cryptography
+> [`SECURITY.md`](../SECURITY.md) §"Post-Quantum Cryptography (PQC)
 > Backend Audit Status" and [`docs/INSTALLATION.md`](../docs/INSTALLATION.md)
 > §"Post-Quantum Cryptography backend".
 >
@@ -18,7 +18,7 @@
 > enable the import-time production gate. This `mercury_crypto`
 > crate is the classical workhorse alongside that PQC backend.
 
-Implemented in Rust with Python bindings using PyO3. Last updated: 2026-05-19.
+Implemented in Rust with Python bindings using PyO3. Last updated: 2026-07-11.
 
 ## Features
 

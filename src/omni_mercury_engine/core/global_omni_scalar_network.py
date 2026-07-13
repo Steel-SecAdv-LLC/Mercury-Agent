@@ -370,7 +370,7 @@ class MultiHeadAttentionFusion:
         There is no optimizer, no training loop, no loaded checkpoint, and it
         runs only under ``torch.no_grad()``. Functionally it is a fixed random
         linear projection followed by averaging -- it is *not* a learned
-        attention model. The numpy fallback (when torch is absent) is the honest
+        attention model. The numpy fallback (when torch is absent) is the transparent
         reference behaviour: a deterministic phi-weighted average. Treat the
         torch path as a structured-averaging placeholder, not learned fusion,
         until weights are actually trained/loaded. (Mirrors the untrained-network
@@ -446,7 +446,7 @@ class MultiHeadAttentionFusion:
                     "MultiHeadAttentionFusion: torch attention is random-initialised "
                     "and never trained (no_grad, no checkpoint) -- functionally a fixed "
                     "random projection + averaging, not learned attention. The numpy "
-                    "phi-weighted average is the honest reference behaviour."
+                    "phi-weighted average is the transparent reference behaviour."
                 )
                 self._warned_untrained_attention = True
             with torch.no_grad():

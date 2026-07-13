@@ -5,7 +5,7 @@
 Runs the protocol in ``docs/PARAPSYCH_PREREGISTRATION.md``:
 
 1. Attempt **real** GCP raw-stream ingestion for a fixed event window and report
-   reachability honestly (the archive host is unreachable in this environment).
+   reachability transparently (the archive host is unreachable in this environment).
 2. Apply the **pre-registered** statistics (network variance, Stouffer Z) to a
    clearly-labelled **synthetic true-random** stream across fixed seeds, showing
    the expected **null**.
@@ -58,7 +58,7 @@ def main() -> int:
     ap.add_argument("--out", default="artifacts/parapsych_eval.json")
     args = ap.parse_args()
 
-    # 1. Honest real-ingestion attempt (fixed window from the pre-registration).
+    # 1. Transparent real-ingestion attempt (fixed window from the pre-registration).
     ingest = fetch_egg_stream(2020, 1, 1, "00:00:00", "00:05:00")
 
     # 2. Pre-registered statistics on the synthetic null, fixed seeds.

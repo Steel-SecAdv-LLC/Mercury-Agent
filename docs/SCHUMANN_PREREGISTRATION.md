@@ -1,5 +1,7 @@
 # WS-C — Schumann sub-net: pre-registration
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Registered **before** running the evaluation, to prevent post-hoc flexibility.
 Commit this file in the same change as the evaluation harness; do not edit the
 protocol after seeing results (edits must be dated and justified below).
@@ -15,7 +17,8 @@ geomagnetically-quiet windows better than chance.
 * **Labels (real, public domain):** NOAA SWPC planetary **Kp index** (storm =
   `Kp ≥ 5`) and **GOES X-ray long band** (M-class `≥ 1e-5 W/m²`, X-class
   `≥ 1e-4`). Built by `space/schumann_labeling.py`; provenance (URL + SHA-256 +
-  fetch time + thresholds + lag) recorded in `artifacts/schumann_label_catalog.json`.
+  fetch time + thresholds + lag) recorded in `artifacts/schumann_eval.json`
+  under `metadata.label_provenance`.
   Labels are **proxy / event-coincidence**, not ground truth; noise disclosed by
   `label_noise_disclosure()`.
 * **Physical lag (fixed):** flares → `[onset, onset+60min]` (prompt SID);
@@ -34,7 +37,8 @@ geomagnetically-quiet windows better than chance.
   available labelled-event distribution makes a fold single-class (space-weather
   events are often temporally clustered, so a short window can put all positives
   on one side), fall back to a fixed seeded (`12345`) stratified split and record
-  `split_used` in the artifact. This is anticipated here and is not post-hoc.
+  the outcome under the `split` field of the artifact (`metadata.split`). This is
+  anticipated here and is not post-hoc.
 * **Metric:** ROC-AUC of the encoder's anomaly score vs the weak label
   (primary); oracle-F1 secondary. Computed with `mercury_ml` (no sklearn).
 * **Seeds:** 0, 1, 2; report mean ± spread.
@@ -69,7 +73,7 @@ cleared; otherwise `QUARANTINE` with the result and the data blocker recorded.
 
 ## Results (added post-run — protocol above unchanged)
 
-Run: `python benchmarks/schumann_eval.py --n 1000 --epochs 40`
+Run: `python benchmarks/schumann_eval.py --n 600 --epochs 30`
 (live NOAA fetch; content hashes recorded in `artifacts/schumann_eval.json`).
 
 * **Real labels built successfully** — the prior session's "no labels possible"
@@ -77,7 +81,7 @@ Run: `python benchmarks/schumann_eval.py --n 1000 --epochs 40`
   (0 storms; a quiet week), positive fraction ≈ 0.10.
 * **Temporal-split degeneracy observed (as anticipated):** events were
   temporally clustered, so the registered stratified fallback was used
-  (`split_used = stratified_fallback_temporal_degenerate`).
+  (recorded as `metadata.split = stratified_fallback_temporal_degenerate`).
 * **Synthetic encoder run (original, PR #262):** per-seed ROC-AUC
   `[0.974, 1.000, 0.227]`, mean **0.734** — and **seed-unstable** (one seed
   collapsed to a sign-inverted solution).

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 r"""Deterministic scenario-set builder for the hazard regression guard.
 
-Two kinds of committed scenario sets, honestly labelled in the manifest:
+Two kinds of committed scenario sets, transparently labelled in the manifest:
 
 **Real recorded data** (``label_source: "measured"``) -- the solar domain.
 Raw NOAA SWPC snapshots (planetary Kp, propagated real-time solar wind, GOES
@@ -23,7 +23,7 @@ gauge/precip observations, multi-parameter volcano monitoring) for which no
 allow-listed feed provides labelled raw series. Each scenario is built with
 a fixed seed (NumPy ``default_rng`` -- stream-stable across versions by
 NumPy's RNG policy) against the detector's DOCUMENTED input contract,
-mirroring the honesty-test fixtures (``tests/detectors/test_*_honesty.py``).
+mirroring the transparency-test fixtures (``tests/detectors/test_*_honesty.py``).
 Labels are the physical ground truth of the constructed situation (e.g. a
 25 m/s Doppler velocity couplet IS a mesocyclone signature; a flat noise
 field is not), never the detector's own output.
@@ -106,7 +106,7 @@ def _flare_class(flux_wm2: float) -> str:
 def build_tornado() -> dict[str, Any]:
     """Doppler-radar mesocyclone scenarios for ``TornadoDetector``.
 
-    Input contract (see ``predict_tornado`` + honesty tests): a radar
+    Input contract (see ``predict_tornado`` + transparency tests): a radar
     velocity sequence ``[frames, gates]`` in m/s. A mesocyclone appears as an
     inbound/outbound couplet whose rotational velocity ``(Vmax - Vmin)/2``
     exceeds ~15 m/s (WSR-88D operational threshold).
@@ -437,7 +437,7 @@ def build_flood() -> dict[str, Any]:
     ``gauge_data`` (stages in ft vs NWS-style action/flood stages), and
     ``soil_data``. Static scenarios use NWS flash-flood (2 in/hr) and flood
     (4 in/24 h) climatology and gauge exceedance physics; timed series ramp
-    rainfall ahead of the river crest so the first honest alert precedes
+    rainfall ahead of the river crest so the first transparent alert precedes
     stage exceedance by a known margin. Fully explicit -- no RNG.
 
     Returns:
@@ -628,7 +628,7 @@ def build_flood() -> dict[str, Any]:
             }
         )
 
-    # Timed series: rainfall ramps ahead of the river crest, so an honest
+    # Timed series: rainfall ramps ahead of the river crest, so a transparent
     # detector alerts (flash-flood rain rate) before stage exceedance.
     series = []
     for idx, (ramp_start, ramp_rate, crest_hour) in enumerate(
@@ -683,7 +683,7 @@ def build_flood() -> dict[str, Any]:
 def build_volcano() -> dict[str, Any]:
     """Multi-parameter unrest scenarios for ``VolcanicEruptionDetector``.
 
-    Input contract (see ``predict_eruption`` + honesty tests): seismic
+    Input contract (see ``predict_eruption`` + transparency tests): seismic
     sequence, gas fluxes (SO2/CO2 t/d vs 100/500 baselines), InSAR
     displacement (cm), and thermal brightness temperatures (K). Four
     scenarios per intended USGS alert level, constructed from the number and

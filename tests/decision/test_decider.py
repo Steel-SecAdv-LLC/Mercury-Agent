@@ -249,7 +249,7 @@ class TestDemotionOverlays:
 
 
 class TestUncalibratedFallback:
-    """With no certificate, the threshold band decides -- honestly flagged."""
+    """With no certificate, the threshold band decides -- transparently flagged."""
 
     def test_near_threshold_band_defers(self, responder: DecisionAbstentionResponder) -> None:
         rec = responder.decide(_result(anomaly_prob=0.52, is_anomaly=True, threshold_used=0.5))

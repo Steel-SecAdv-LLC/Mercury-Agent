@@ -1,5 +1,7 @@
 # Mercury Agent — Migration guide: v1.6.x → v1.7.0
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This guide enumerates every breaking or behavioural change between
 Mercury Agent v1.6.x and v1.7.0, with a verified replacement for each
 removed surface.  Each entry links to the test that locks the new

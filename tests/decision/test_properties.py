@@ -9,7 +9,7 @@ must obey for every input the certificate can take:
   hold over any score, certificate, severity, agreement or drift.
 * **Monotonicity** -- more uncertainty (less neuro-symbolic agreement, a wider
   indecision band) never yields *less* abstention.
-* **Structural soundness** -- the three-state honesty contract, the
+* **Structural soundness** -- the three-state transparency contract, the
   disposition projection, and the bounded/non-destructive response hold for
   arbitrary evidence; every record is deterministic and round-trips through
   ``to_dict`` / ``from_dict`` and JSON.
@@ -123,7 +123,7 @@ class TestMonotonicity:
 
 
 class TestStructuralSoundness:
-    """The honesty contract and the bounded response hold for arbitrary evidence."""
+    """The transparency contract and the bounded response hold for arbitrary evidence."""
 
     @given(res=_results())
     def test_three_state_and_response_invariants(self, res: dict[str, Any]) -> None:
@@ -136,10 +136,10 @@ class TestStructuralSoundness:
         if grounded:
             assert rec.decision_label in (0, 1)
         else:
-            # An honest abstention never claims a confidence in a label it didn't make.
+            # A transparent abstention never claims a confidence in a label it didn't make.
             assert rec.decision_confidence is None
 
-        # The disposition is the action projection of the honesty state.
+        # The disposition is the action projection of the transparency state.
         expected = {
             ThreeState.GROUNDED: {Disposition.ACT, Disposition.CLEAR},
             ThreeState.UNAVAILABLE: {Disposition.DEFER},

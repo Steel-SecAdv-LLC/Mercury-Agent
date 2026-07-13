@@ -1,5 +1,7 @@
 # Omni-Equation — Measured Findings (real detector, real data)
 
+Last updated: 2026-07-11.
+
 **What this is.** A direct measurement to decide whether the "omni-equation"
 direction clears a speed/cost/accuracy bar — run on Mercury's **real**
 `MercuryAnomalyDetector`, its **real** internal streams, the **real**
@@ -34,7 +36,7 @@ all 15 events**.
 | 4 | Does η^Φ ever change a verdict? | rank-flip / abs-flip / ΔAUC | **0.003 / 0.003 / −0.0002** — inert |
 
 Means: ensemble AUC **0.836**, best-single **0.909**. And from the earthquake
-honest benchmark: mean **AUC 0.937 / F1 ≈ 0.09** — ranking is good, thresholding
+benchmark (`benchmarks/earthquake_honest_benchmark.py`): mean **AUC 0.937 / F1 ≈ 0.09** — ranking is good, thresholding
 is broken.
 
 ---

@@ -1,5 +1,7 @@
 # WS-E — Neural-submodule completeness sweep
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 > **GENERATED — do not edit by hand.** Regenerate with
 > `python scripts/neural_coverage.py --update`; CI runs
 > `python scripts/neural_coverage.py --check`, which fails if this file is out of
@@ -30,7 +32,7 @@ off-path/quarantine contract.
 |---|---|---|---|---|---|---|---|
 | `label_provenance (WS-A leak gate)` | all 40 dataset loaders | — | circular-label audit | registry in-module | `test_label_provenance_gate` (11) | repo-wide; CI `--check` | **ACTIVE (gate)** |
 | `ablation_guard (WS-B confound guard)` | paired ablation AUCs | — | inverted-ranking detection | wired into both ablations | `test_ablation_guard` (10) | forces QUARANTINE on confound | **ACTIVE (gate)** |
-| `event_coincidence (WS-D null-test)` | any score stream + event catalog | permutation null | pre-registered p, FDR/Bonferroni | `spaceweather_coincidence.json` | `test_event_coincidence` (offline) | pre-registered; honest null | **ACTIVE (gate)** |
+| `event_coincidence (WS-D null-test)` | any score stream + event catalog | permutation null | pre-registered p, FDR/Bonferroni | `spaceweather_coincidence.json` | `test_event_coincidence` (offline) | pre-registered; transparent null | **ACTIVE (gate)** |
 
 ## Off-path / determinism invariants (asserted in tests)
 
@@ -61,8 +63,10 @@ runs in CI and as `tests/docs/test_neural_coverage_gate.py`.
 
 ## Out of scope (flagged, not silently skipped)
 
-The wider tree has ~40 additional `nn.Module` classes (visual/VLM, SOTA
-TranAD/MAAT, geological detectors, etc.). They are **not** part of the
-neuro-symbolic-fusion scope and were not re-audited here. A full-tree neural
-audit is a separate, larger effort; this table is exhaustive for the modules in
-scope.
+The wider tree contains 171 `nn.Module` subclasses in total (measured and
+CI-gated in the README Codebase Scale block); the neuro-symbolic-fusion
+submodules audited here are the critical subset. The remainder — visual/VLM,
+SOTA TranAD/MAAT, the streaming/statistical detector tier, and the
+geological/space detectors — are **not** part of that scope and were not
+re-audited here. A full-tree neural audit is a separate, larger effort; this
+table is exhaustive for the modules in scope.

@@ -1687,7 +1687,7 @@ def intel_cascade() -> None:
 
     Reuses the same ``evaluate()`` the ``confidence_cascade`` value metric and CI
     lane use (single source of truth), so the operator sees the real routing
-    outcome -- not a re-derived number. Degrades honestly when run from an
+    outcome -- not a re-derived number. Degrades transparently when run from an
     installed wheel that does not ship the ``benchmarks`` tree.
     """
     import sys

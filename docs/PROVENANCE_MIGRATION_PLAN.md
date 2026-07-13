@@ -1,5 +1,7 @@
 # Provenance-as-Type: Migration Plan and Timebox Decision
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 The design record for `omni_mercury_engine.intel.provenance`: the endpoint we
 want (provenance as an *unrepresentable-without-it* type), the three-week timebox
 that forced a decision, what shipped, and the phased path from the shipped

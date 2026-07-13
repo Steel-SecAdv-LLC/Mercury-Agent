@@ -1,5 +1,7 @@
 # Mercury Agent — Subagent Pantheon
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 The Mercury Agent hosts an **internal-only fleet of 33 named subagents** that the
 root agent delegates work to — singly, across a batch, or to many replicas at
 once ("in the masses"). This document is the canonical roster and the design
@@ -43,15 +45,15 @@ for normalization, and **Eleos** (mercy) for survivor support.
     [`operations.py`](../src/omni_mercury_engine/agentic/subagents/operations.py)
     invokes the member's **real** `omni_mercury_engine` entrypoint with inputs
     derived from `task.payload` (the "operation + inputs" column below) and
-    returns the honest result of that call (`output["mode"] == "operation"`). It
+    returns the transparent result of that call (`output["mode"] == "operation"`). It
     **fails closed** (`SubAgentExecutionError`) on malformed inputs and never
     fabricates signal. When the entrypoint is input-gated and the payload lacks
     its inputs — or the caller asks for a readiness probe via
-    `payload["mode"] == "introspect"` — it falls back to the honest live
+    `payload["mode"] == "introspect"` — it falls back to the transparent live
     **binding report** (`output["mode"] == "binding"`): it imports each declared
     subsystem, introspects its live public API, reports genuine
     availability/capability, and fails closed when *no* subsystem binds. The
-    binding report is the honest no-input floor, never the whole behavior.
+    binding report is the transparent no-input floor, never the whole behavior.
 - **Access boundary (internal-only).** Nothing here is exported from the public
   `omni_mercury_engine` surface. `SubAgent` / `SubAgentRegistry` / `SubAgentFleet`
   require the package-private access sentinel; direct construction raises
@@ -143,7 +145,7 @@ Every one of the 28 `coordinator` members is a genuine subsystem **operator**:
 its adapter in
 [`operations.py`](../src/omni_mercury_engine/agentic/subagents/operations.py)
 invokes the real `omni_mercury_engine` entrypoint below with the listed
-`task.payload` inputs and returns the honest result (`mode="operation"`). An
+`task.payload` inputs and returns the transparent result (`mode="operation"`). An
 *input-gated* member with no inputs — or any member asked for a readiness probe
 (`payload["mode"]="introspect"`) — falls back to the live binding report
 (`mode="binding"`). Each member has a real-op test (valid inputs, asserts the

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """R7: the Lyapunov surface is a measured decay-schedule monitor, not a guarantee.
 
-These tests pin the honesty contract:
+These tests pin the transparency contract:
 
 * ``verify_lyapunov_stability`` reports ``is_stable`` from a *measured*
   contraction of the score trajectory, and returns ``False`` (never a hardcoded
@@ -67,7 +67,7 @@ def test_learnable_result_defaults_to_not_stable() -> None:
         learned_weights={"w_R": 0.4472, "w_H": 0.2764, "w_O": 0.2764},
         learned_phi=1.618033988749895,
     )
-    assert r.is_stable is False  # honest default: not asserted until measured
+    assert r.is_stable is False  # transparent default: not asserted until measured
 
 
 def test_learnable_engine_monitor_requires_contraction() -> None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Hurricane domain honest benchmark.
+"""Hurricane domain transparent benchmark.
 
 Fetches real tropical cyclone data from IBTrACS, runs MercuryAnomalyDetector,
 and reports metrics for rapid intensification detection.

@@ -1,6 +1,6 @@
 # Performance Profiling
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 `omni_mercury_engine.utils.profiling` is the first-party profiling
 toolkit ported from Omni-AXA-Engine and hardened for Mercury Agent's
@@ -11,9 +11,11 @@ for measuring CPU time, memory consumption, and wall-clock execution.
 **Locking tests:** `tests/test_profiling.py` (32 unit tests).
 
 > **All entry points are no-ops when profiling is globally disabled.**
-> The default is **disabled**; enable explicitly via
-> `set_profiling_enabled(True)`. This keeps Mercury's production hot
-> paths instrumentation-free unless an operator opts in.
+> The global flag defaults to **enabled** at import
+> (`_profiling_enabled = True`); call `set_profiling_enabled(False)` to
+> turn instrumentation off, and `set_profiling_enabled(True)` to
+> re-enable it. Deployments that require instrumentation-free production
+> hot paths must disable profiling explicitly at startup.
 
 ---
 
@@ -21,7 +23,7 @@ for measuring CPU time, memory consumption, and wall-clock execution.
 
 | Symbol | Kind | Measures |
 |--------|------|----------|
-| `set_profiling_enabled(enabled: bool)` | toggle | Global on/off (default off) |
+| `set_profiling_enabled(enabled: bool)` | toggle | Global on/off (default on) |
 | `is_profiling_enabled()` | query | Current state |
 | `set_profiling_logger(logger)` | injection | Override the default logger |
 | `get_profiling_logger()` | query | Current logger |
@@ -54,7 +56,7 @@ for measuring CPU time, memory consumption, and wall-clock execution.
 - Exception-path cleanup in `profile_func` was hardened so
   `profiler.disable()` runs even when stats emission raises.
 - Added `@profile_time_async` for Mercury's asyncio paths.
-- Added the opt-in global enable flag exposed via
+- Added the global enable flag exposed via
   `set_profiling_enabled(...)` / `is_profiling_enabled()`.
 
 ---
@@ -108,7 +110,7 @@ with PerformanceBenchmark("oracle_pipeline_warmup") as bench:
     detector.fit(training_data)
     detector.detect(validation_data)
 
-print(bench.elapsed_seconds, bench.peak_memory_bytes)
+print(bench.elapsed_ms, bench.peak_mb)
 ```
 
 The context manager records start/stop wall-clock and peak

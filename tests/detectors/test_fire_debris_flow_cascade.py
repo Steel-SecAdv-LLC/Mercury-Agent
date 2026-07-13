@@ -201,7 +201,7 @@ class TestRainfallReduction:
 
 
 class TestCascadeComposition:
-    """Staged composition with honest omissions."""
+    """Staged composition with transparent omissions."""
 
     def _storm(self) -> np.ndarray:
         """5-min gauge storm peaking at 24 mm / 15 min (96 mm/h i15)."""

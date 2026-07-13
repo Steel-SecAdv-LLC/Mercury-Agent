@@ -654,7 +654,7 @@ class TestConsensusMethodContract:
 
 class TestHonestStageRewards:
     """TD rewards must reflect delivered value: an all-abstention batch
-    completes the plan honestly but earns no decide-stage reward."""
+    completes the plan transparently but earns no decide-stage reward."""
 
     def test_abstained_batch_earns_zero_decide_reward(self) -> None:
         orch, X_test, _ = _fitted_orchestrator(0)
@@ -667,7 +667,7 @@ class TestHonestStageRewards:
         assert episode.coordination.abstained.all()
         assert episode.plan.executed_actions[-1] == "issue_decisions"
         assert episode.plan.stage_rewards[-1] == 0.0
-        assert episode.plan.goal_status == "completed"  # honest completion
+        assert episode.plan.goal_status == "completed"  # transparent completion
 
     def test_quorum_backed_batch_earns_full_decide_reward(self) -> None:
         orch, X_test, _ = _fitted_orchestrator(0)
@@ -710,7 +710,7 @@ class TestThresholdSweepExtremes:
 
 class TestReflectionRobustness:
     """Reflection enrichment must not abort on non-numeric task payloads
-    (review finding): it records honest payload evidence instead."""
+    (review finding): it records transparent payload evidence instead."""
 
     def test_non_numeric_data_does_not_abort_loop(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import ReflexionEngine

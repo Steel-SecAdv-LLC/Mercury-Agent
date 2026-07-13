@@ -161,7 +161,7 @@ class MercuryEquationEngine:
 
         self.ethical_matrix = self._initialize_ethical_matrix()
 
-        # Term weights - renamed from misleading "quantum" terminology to honest names
+        # Term weights - renamed from misleading "quantum" terminology to transparent names
         self.term_weights = {
             "hamiltonian_projection": 0.15,  # Was "vqe" - matrix gradient descent
             "boltzmann_sampling": 0.12,  # Was "qbm" - temperature-scheduled noise

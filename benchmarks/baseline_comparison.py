@@ -294,7 +294,7 @@ def benchmark_accuracy(
     - Correlation with bug density or maintainability metrics
     """
     # Return NaN to indicate accuracy is not measurable without ground truth
-    # This is more honest than returning fake 100% accuracy
+    # This is more transparent than returning fake 100% accuracy
     return np.full(len(functions), np.nan)
 
 

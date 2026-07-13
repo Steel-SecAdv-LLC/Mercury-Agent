@@ -77,8 +77,8 @@ class BaseDomainLoader(ABC):
     # ``kp >= 7``, ``FRP >= p90``, a z-score fence) or by synthetic
     # reconstruction MUST override this to ``"statistical"`` so the
     # governed-fusion headline excludes them as circular and the autonomous
-    # fitness signal reads only honestly-labelled events. Defaults to
-    # ``"ground_truth"``; override to be honest. The frozen audit lives in
+    # fitness signal reads only transparently-labelled events. Defaults to
+    # ``"ground_truth"``; override to be transparent. The frozen audit lives in
     # ``omni_mercury_engine.loaders.label_provenance.LABEL_PROVENANCE_REGISTRY``
     # and the CI gate in ``tests/loaders/test_label_provenance_gate.py``.
     LABEL_SOURCE: str = "ground_truth"

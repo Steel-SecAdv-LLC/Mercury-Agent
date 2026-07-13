@@ -5,7 +5,7 @@
 
 ``scripts/fit_weapons_gate_calibration.py`` fits the Axis-B offensive-confidence
 logistic and reports ECE/Brier on a *single fixed* val holdout. That is enough to
-pin one operating point but not to measure calibration honestly on a *rolling*
+pin one operating point but not to measure calibration transparently on a *rolling*
 corpus, where the fit and the metric must never see the same row: an in-sample
 ECE is optimistically biased. This harness closes that with **out-of-fold**
 evaluation -- every prediction is made by a model that never trained on that row:
@@ -20,7 +20,7 @@ evaluation -- every prediction is made by a model that never trained on that row
   cross-validation.
 * **Held-out adversarial** -- the 41-case adversarial set (never folded into
   training) is scored by a full-corpus fit and reported as recall / FN-rate /
-  Brier, so the paraphrase/obfuscation slice has its own honest number.
+  Brier, so the paraphrase/obfuscation slice has its own transparent number.
 
 Features come from the real gate (``compute_gate_features``) so the harness
 measures Mercury's shipped confidence surface end to end -- it therefore requires
@@ -229,7 +229,7 @@ def gate_level_eval(rows: list[dict[str, Any]]) -> dict[str, float]:
     reports calibration on the gate's own ``confidence`` plus the decision quality
     of its ``blocks`` disposition. It is not fold-based because the gate is
     deterministic (it does not train on the corpus), so there is nothing to hold
-    out -- it is the honest end-to-end operating point, reported alongside the OOF
+    out -- it is the transparent end-to-end operating point, reported alongside the OOF
     numbers so both the calibrated probability and the realized disposition are
     visible.
     """

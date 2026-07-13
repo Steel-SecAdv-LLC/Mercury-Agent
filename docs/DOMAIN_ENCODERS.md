@@ -1,5 +1,7 @@
 # WS-B — Differentiable domain encoders (Target 2)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 ## What landed (machinery, opt-in, off by default)
 
 The production `MercuryAnomalyDetector` computes three **static** feature
@@ -38,7 +40,7 @@ So the strongest *true* statement is: off-path is **structurally identical** and
 `atol=1e-6` agreement with the default — far below any real effect, far above
 the baseline noise floor.
 
-## The ablation — and its honest verdict
+## The ablation — and its transparent verdict
 
 `benchmarks/domain_encoder_ablation.py` runs the **faithful** comparison: the
 real fusion path **without** vs **with** the encoder
@@ -82,7 +84,7 @@ shipped:
 
 Both were replaced by the wired-path comparison above, where the robust
 supervised fusion net removes the inversion artifact and both arms are
-apples-to-apples. Reporting the +0.48 would have been theater; the honest signal
+apples-to-apples. Reporting the +0.48 would have been theater; the transparent signal
 is the sub-threshold +0.005.
 
 ## Follow-on round: confound guard promoted + design space swept
@@ -121,7 +123,7 @@ learnable encoder is most plausible) and a **ceiling** family (cardio, thyroid �
 saturated), crossed with low-data (0.25) vs full-data. Every cell is run through
 the confound guard.
 
-**Finding (honest, not what I first expected).** The stratified verdict is
+**Finding (transparent, not what I first expected).** The stratified verdict is
 computed from the run and recorded verbatim in
 `artifacts/domain_encoder_sweep.json` (`verdict` field). It is **not** a flat
 quarantine:
@@ -187,7 +189,7 @@ differentiable encoder shows no robust, generalizable detection gain across the
 swept design space; `domain_encoder=False` stays the default. The one genuine
 secondary observation —
 the wired encoder *resists* the baseline's low-data inverted-ranking collapse
-(the Pima effect) — is a training-stability property, recorded honestly but **not**
+(the Pima effect) — is a training-stability property, recorded transparently but **not**
 advanced as a detection-AUC claim. The machinery + config surface are kept
 (genuine, reusable). This is the symmetric-rigor outcome: the `INVESTIGATE` flag
 was run to ground, not dismissed, and the negative is justified by a mechanism
@@ -197,8 +199,8 @@ was run to ground, not dismissed, and the negative is justified by a mechanism
 
 - Data: ADBench (MIT), `https://github.com/Minqi824/ADBench`; seeds 0/1/2;
   metric ROC-AUC via `mercury_ml` (**no sklearn**).
-- Tests: 16 (encoders) + 5 (fusion wiring, incl. off-path parity) + 10
-  (confound guard) + 5 (sweep verdict) + 5 (ablation guard integration) — all
+- Tests: 16 (encoders) + 7 (fusion wiring, incl. off-path parity) + 10
+  (confound guard) + 5 (sweep verdict) + 4 (ablation guard integration) — all
   green; `flake8` + `ruff` + `mypy` clean; the pre-existing fusion tests still
   pass.
 - Artifacts: `artifacts/domain_encoder_ablation.json`,

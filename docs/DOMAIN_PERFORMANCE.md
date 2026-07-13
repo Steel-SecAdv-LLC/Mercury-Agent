@@ -1,18 +1,27 @@
 # Domain Performance Analysis
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Per-domain precision/recall analysis from real benchmark data.
 
-> **v1.7 update.** The per-domain tables below are an older
+> **Authoritative source.** The per-domain tables below are an older
 > illustrative snapshot. The committed
 > `benchmarks/mercury_benchmark_results.json` run (66 successful / 75
-> attempted, Mean AUC 0.8251, Median 0.8747, Mean Oracle F1 0.5998,
-> 2026-06-21) is surfaced in the README "Latest Benchmark Results"
-> block and is the authoritative source; its `domain_summary` is the
-> per-domain ground truth. The CI regression-gate floor is the
-> historical 0.803 AUC / 0.589 F1 baseline. The FEMA Disaster row's
-> former pre-fix AUC ≈ 0 is corrected in v1.7.0
+> attempted under the `genuine_labels_only` headline policy,
+> n_genuine_labeled 53, Mean AUC 0.8251, Median 0.8747, Mean Oracle F1
+> 0.5998, Median Oracle F1 0.6747, and an unsupervised subset of 13
+> datasets at Mean AUC 0.9281, 2026-06-21) is surfaced in the README
+> "Latest Benchmark Results" block and is the authoritative source; its
+> `domain_summary` is the per-domain ground truth. The CI regression
+> gate applies coarse headline backstop floors of ROC-AUC ≥ 0.75 and
+> Mean Oracle F1 ≥ 0.55 (`MIN_ROC_AUC`/`MIN_F1` in
+> `.github/workflows/benchmark.yml`, holding a ~9% margin under the
+> post-de-leak baseline mean AUC 0.8259 / mean F1 0.6046); fine-grained,
+> per-dataset regression protection is provided by the deterministic
+> `benchmarks/anomaly_regression_guard.py`, not these coarse floors.
+>
+> Historical note (FEMA polarity fix, v1.7.0): the FEMA Disaster row's
+> former pre-fix AUC ≈ 0 was corrected in v1.7.0
 > (`FEMADisasterLoader._select_anomaly_polarity` enforces the
 > minority-as-anomaly convention); the committed run reflects the
 > corrected score (disaster AUC 0.9993).
@@ -57,21 +66,32 @@ available, e.g. when every dataset in the domain `n_failed`'d):
 
 ## Active Domains
 
+The `Datasets` column below reports the measured `n_datasets` from the
+committed run's `domain_summary`, consistent with the "All metrics
+sourced from `domain_summary`" statement above. Load availability
+varies per run, so these counts reflect what actually loaded and
+measured in the committed 2026-06-21 run, not configured-loader
+capacity.
+
 | Domain | Datasets | Source Types |
 |--------|----------|-------------|
 | adbench | 47 | Local download (ADBench repository) |
-| environmental | 4 | USGS, NOAA, MODIS APIs |
+| environmental | 3 | USGS, NOAA, MODIS APIs |
 | ocean | 1 | NOAA NDBC buoy data |
 | climate | 3 | NOAA Storm Events, GSOD, ERDDAP |
 | air_quality | 1 | EPA AQS |
-| disaster | 2 | FEMA OpenFEMA |
+| disaster | 1 | FEMA OpenFEMA |
 | space | 2 | NASA Exoplanet Archive, NOAA SWPC |
-| academic | 3 | UCR Archive, CWRU, MSDS |
-| security | 3 | NSL-KDD, CICIDS-2017, OSINT feeds |
+| academic | 2 | UCR Archive, CWRU, MSDS |
+| security | 2 | NSL-KDD, CICIDS-2017, OSINT feeds |
 | general | 1 | AD Repository |
-| timeseries | 4 | SMD, NAB, SMAP, MSL |
-| industrial | 3 | BATADAL, SWaT, WADI |
-| medical | 1 | PhysioNet MIT-BIH |
+| timeseries | 2 | SMD, NAB, SMAP, MSL |
+| industrial | 1 | BATADAL, SWaT, WADI |
+
+The `medical` domain (PhysioNet MIT-BIH) is configured in
+`ORACLE_DOMAIN_POLICY` but produced no measured dataset in the
+committed run; it is therefore absent from that run's `domain_summary`
+and is not listed as an active/measured domain here.
 
 ## Component Performance by Domain
 
@@ -103,7 +123,7 @@ The Oracle is auto-activated for temporal data based on the
 | financial | disabled | Oracle skipped |
 | humanitarian | disabled | Oracle skipped |
 
-## F1 Precision Improvements (Merged from o33Fu)
+## F1 Precision Improvements
 
 ### Threshold Strategy Analysis
 

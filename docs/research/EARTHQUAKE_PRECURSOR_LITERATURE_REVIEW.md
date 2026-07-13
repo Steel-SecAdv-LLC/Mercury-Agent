@@ -2,7 +2,7 @@
 
 **Scope:** `earthquake_precursor` hook — `EarthquakePrecursorAnalyzer` in
 `src/omni_mercury_engine/space/disaster_precursor_detector.py`; registry entry in
-`src/omni_mercury_engine/ml/hazard_training/registry.py` (category `b`).
+`src/omni_mercury_engine/ml/hazard_training/registry.py` (category `a`).
 **Purpose:** This review gates whether the hook is trained at all, and on what.
 **Date:** 2026-07-10. All citations below were verified against the published record
 (publisher pages, DOIs, or indexed abstracts) during this review; none are from memory alone.

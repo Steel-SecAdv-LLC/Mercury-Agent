@@ -47,7 +47,7 @@ Composes real signals end to end:
      ``disaster_detectors``) and random-weight output must not gate a
      THREAT.
 
-Honesty notes on USGS event metadata:
+Transparency notes on USGS event metadata:
 
 - The basic USGS GeoJSON feed provides magnitude, hypocentre and a place
   string but **no focal mechanism**; a thrust-vs-strike-slip criterion is
@@ -581,7 +581,7 @@ class EqTsunamiCascadeDetector:
 
         Returns:
             Evidence dict, or None when torch/TsunamiDetector is
-            unavailable (recorded honestly by the caller as absent).
+            unavailable (recorded transparently by the caller as absent).
         """
         try:
             from omni_mercury_engine.detectors.geological.disaster_detectors import (

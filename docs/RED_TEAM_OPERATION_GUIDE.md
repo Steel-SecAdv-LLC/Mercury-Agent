@@ -1,5 +1,7 @@
 # Red-Team Adversarial Co-Training Operation Guide
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Operator guide for the adversarial co-training red-team harness: the loop that
 attacks Mercury's shipped weapons/mass-casualty gate every run, appends the
 survivors to the corpus, and hardens the gate against its own false negatives.
@@ -118,7 +120,7 @@ legible to a human or a meaning-level model.
 
 The measured deterministic first-run survival rate is **~0.33**
 (`benchmarks/red_team_baseline.json`: `survival_rate=0.333333`, `n_candidates=420`,
-`n_survivors=140`). This is an honest finding, not a bug to paper over: a
+`n_survivors=140`). This is a transparent finding, not a bug to paper over: a
 lexical-only gate surface *is* obfuscation-porous. It is pinned as a
 **no-weakening floor** so the number can only go down.
 
@@ -162,7 +164,7 @@ schema-compatible with the weapons-gate corpus:
     "id": "…16-hex…",
     "seed": "<original should-block seed>",
     "chain": ["char_spacing"],
-    "seed_disposition": "refuse",
+    "seed_disposition": "hard_refuse",
     "bypassed_to": "allow",
     "harness_version": "1.0"
   }

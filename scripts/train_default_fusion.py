@@ -67,8 +67,8 @@ N_FEATURES = 16
 # Genuinely-labelled ADBench datasets (external ground-truth labels) spanning a
 # range of sizes, dimensionalities and anomaly ratios. Used only for the opt-in
 # ``--source real`` prior; never the self-labelled (threshold-derived) loaders,
-# whose AUC is inflated by label leakage and would teach the prior nothing
-# honest.
+# whose label-leakage-inflated AUC would teach the prior a thresholding
+# artifact rather than genuine anomaly structure.
 REAL_DATASETS = (
     "cardio",
     "mammography",

@@ -4,7 +4,7 @@
 
 Drives the server with JSON-RPC 2.0 messages (the same wire an MCP client
 speaks) and validates the returned artifacts: base64 PNG that decodes to real
-PNG bytes, RFC 7946 GeoJSON with provenance, and honest isError results for
+PNG bytes, RFC 7946 GeoJSON with provenance, and transparent isError results for
 bad input -- the same rendering behind 'mercury-agent hazard-viz' and
 'POST /api/v1/hazard/visualize'.
 """

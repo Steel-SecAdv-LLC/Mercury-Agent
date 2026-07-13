@@ -42,7 +42,7 @@ class ExplorationResult:
         novelty_score: Novelty in ``[0, 1]``. A monotone function of the measured
             standardized distance from the observed distribution; ``0.5`` during
             warm-up (fewer than two prior observations, so no variance estimate
-            exists yet -- an honestly *undetermined* score, not a measured one).
+            exists yet -- a transparently *undetermined* score, not a measured one).
         is_novel: ``measured and novelty_score >= novelty_threshold``. An
             undetermined score is never novel, regardless of the threshold --
             otherwise a threshold below 0.5 would flag the neutral warm-up

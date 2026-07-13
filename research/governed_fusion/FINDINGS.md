@@ -1,10 +1,12 @@
 # Governed Fusion Substrate — Phase 2 correction pass (PR #278)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 All numbers below were reproduced **in this branch from committed code** on the
 real reachable suite (cold cache; `measure_*.py` + `build_manifest.py`). Nothing
 here is borrowed from FINDOYOU or any paper.
 
-## Honest correction this pass made (read first)
+## Transparent correction this pass made (read first)
 
 The earlier framing called the suite **"29 real events / 9 domains."** Re-running
 the loaders with synthetic-path instrumentation showed that is **not** accurate:
@@ -118,7 +120,7 @@ the flag is off — mirrored byte-for-byte in `measure_conformal.py`):
 | precision | 0.303 | 0.406 | 0.301 | −0.104 |
 | recall | 0.489 | 0.645 | 0.826 | +0.182 |
 
-**Conclusion (honest, committed):** against the operating point it displaces, the
+**Conclusion (transparent, committed):** against the operating point it displaces, the
 conformal threshold **loses F1 (−0.071)** — it is *not* an F1 win. It is a
 **recall/coverage-favouring** operating point: it trades precision (−0.104) for a
 large recall gain (+0.182) and a distribution-free class-1 coverage guarantee,
@@ -193,7 +195,7 @@ fusion-weighting lever is **conclusively killed** (I3: no clean full-suite gain 
 not wired into runtime). `core/robust_pooling.py` is retained as a tested
 prototype + the reproducible script; `detect()` is unchanged.
 
-## Item 1 — info-geometry certificate: scoped honestly, boundary-correct
+## Item 1 — info-geometry certificate: scoped transparently, boundary-correct
 
 `core/governed_fusion.py` (`InfoGeometryCertificate`) + `detectors/statistical.py`.
 `p_τ` is `g⁻¹(component_threshold)` using the info-geometry component's **own**
@@ -305,7 +307,7 @@ test, `tests/test_eta_decoupling.py`). The two fail-closed **hard** gates
 (`BenevolenceScorer` floor 0.70, `σ_Immutable`) are byte-untouched and remain the
 enforcement (I1); only the soft in-score multiplier is removed when on.
 
-**Suite measurement (honest scoping).** The reachable suite's detector score path
+**Suite measurement (transparent scoping).** The reachable suite's detector score path
 (`MercuryAnomalyDetector.detect`) has **no** soft η^Φ multiplier, so the
 suite-measurable form of "MCA owns the probability" is exactly the Stage 2
 `calibration_map="mca"` result (no-regression: AUROC exact tie 0.7957, Brier
@@ -386,9 +388,11 @@ underperforms the single best detector stream:
 
 (`results/reliability_fusion_results.json`: `overall.best_single = 0.8779`,
 `gap_to_best_single = −0.0350`.) The 75-dataset third-party benchmark echoes it:
-the weighted ensemble's **mean** AUC **0.8466** sits just under the best single
-component, `info_geometry` **0.8504** (`benchmarks/mercury_benchmark_results.json`
-→ `component_summary`).
+`component_summary` reports per-component mean AUCs of resonance **0.7665**,
+kinematic **0.6009** and info_geometry **0.8267** (there is no weighted-ensemble
+entry in `component_summary`), while the run-level headline mean AUC is **0.8251**
+(`summary.mean_auc`) — sitting just under the best single component, `info_geometry`
+(**0.8267**) (`benchmarks/mercury_benchmark_results.json`).
 
 **Why (measured, not assumed).** The components are too redundant on this suite.
 Where the best stream already separates the anomaly, a log-odds pool of three
@@ -467,7 +471,7 @@ non-improvement.**
   `+0.034 ≥ +0.01` — i.e. 20 events lack the power to *exclude* a sub-`+0.034`
   effect. That residual is a power limit, not evidence of a win: the point estimate
   is negative and SHIP is unreachable. Pooling all 27 events does not close it (one
-  hurricane outlier dominates the variance), so the honest statement is *power-
+  hurricane outlier dominates the variance), so the transparent statement is *power-
   limited on the exclusion side, decisive on the decision side*.
 
 **Engineering outcome (no deferment, no regression).** The decorrelation lever is

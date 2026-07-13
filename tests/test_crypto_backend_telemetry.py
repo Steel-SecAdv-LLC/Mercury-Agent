@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the crypto backend telemetry contract (`omni_mercury_engine.crypto.get_crypto_backend` / `is_rust_available`) and the honest Rust-vs-Python benchmark.  These pin the behaviour that replaces the previously unbenchmarked "6.5x faster" README claim: the active backend is always observable, and the Python fallback is explicit."""
+"""Tests for the crypto backend telemetry contract (`omni_mercury_engine.crypto.get_crypto_backend` / `is_rust_available`) and the transparent Rust-vs-Python benchmark.  These pin the behaviour that replaces the previously unbenchmarked "6.5x faster" README claim: the active backend is always observable, and the Python fallback is explicit."""
 
 from __future__ import annotations
 

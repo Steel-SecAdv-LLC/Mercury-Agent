@@ -27,6 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Dependency & static-analysis hardening (PR #336)
+
+- **OpenCV moved to the 5.x line.** `opencv-python-headless` is now pinned
+  `>=4.8.0,<6`. OpenCV 5.0.0 (2026-07) relocated the Haar/HOG detectors —
+  `cv2.CascadeClassifier` and the bundled `cv2.data.haarcascades` used by
+  `models/biometric_advanced.py` — into `opencv_contrib`, so they are absent
+  from the `-headless` 5.x wheel (at runtime and in the type stubs).
+  `biometric_advanced.py` now feature-detects those symbols via `getattr` and
+  degrades gracefully (the DNN face detector stays primary), keeping both the
+  runtime path and the blocking `mypy` gate safe on the 5.x line; every other
+  `cv2` symbol the code uses is unchanged. The 4.8 floor is retained as the
+  baseline API the code targets.
+- **Six high-severity CodeQL alerts resolved (#913–#918)** across
+  `api/routes/models.py`, `core/global_omni_scalar_network.py`,
+  `models/biometric_advanced.py`, and
+  `space/ionospheric_scintillation_detector.py`.
+
 ### AI/bot review-alert remediation — root-cause fixes, no suppressions
 
 A pass over every open Copilot review alert on the competitive-benchmark work,
@@ -114,8 +131,8 @@ at the root:
   cache-vs-split probe loader (a test-local fixture) tripped the full-suite
   ML lane because `__subclasses__` sweeps see any test module imported
   earlier in the same process. The probe also declares its manufactured
-  labels honestly (`LABEL_SOURCE = "statistical"`).
-- **Scenario regeneration test made environment-honest.** numpy dispatches
+  labels transparently (`LABEL_SOURCE = "statistical"`).
+- **Scenario regeneration test made environment-transparent.** numpy dispatches
   transcendental kernels by CPU capability, so seeded regeneration is not
   bit-stable across hardware (observed on CI). The slow-tier test now
   compares regenerated content exactly for integers/strings and to last-ulp
@@ -162,7 +179,7 @@ at the root:
   `.trivyignore` carries a time-boxed acceptance for CVE-2026-53615
   (unfixed Debian util-linux base-image CVE published 2026-07-09).
 
-### Hazard honesty wave — physics from observations, not untrained networks
+### Hazard transparency wave — physics from observations, not untrained networks
 
 Every natural-hazard forecast surface was audited for fabricated signal.
 Untrained neural networks (random weights, no labelled corpus) no longer
@@ -180,7 +197,7 @@ checkpoint is loaded:
   model exists (was: untrained-net output × 9.0 presented as magnitude).
 - **Tsunami + earthquake** — observed peak-vs-baseline wave analysis;
   unconditional STA/LTA triggering with real P/S arrival picks and S–P
-  distance; magnitude honestly `undetermined`.
+  distance; magnitude transparently `undetermined`.
 - **Tornado / wildfire / landslide / hurricane** — Doppler-couplet rotation,
   VIIRS/MODIS brightness-temperature ignition, geotechnical slope stability,
   and vorticity/max-wind from the previously ignored wind field; the dead
@@ -251,7 +268,7 @@ OMNI2 hourly solar wind + observed planetary Kp (2005–2024, GFZ Kp
 cross-checked). Held-out 2022–2024 (25,846 hours incl. the 2024-05 G5
 superstorm): Kp MAE 0.574 vs physics 1.054 (−45%), G-bucket accuracy 97.6%
 vs 94.8%, storm AUC 0.972 vs 0.845; the fixed-Kp5 recall/false-alarm
-trade-off is recorded honestly in the provenance sidecar.
+trade-off is recorded transparently in the provenance sidecar.
 `SolarStormDetector.load_neural_weights()` now loads the shipped default
 with train/serve feature parity.
 
@@ -346,8 +363,8 @@ tests; no behavior was suppressed or cosmetically patched.
 - **`mercury-agent detect --threshold` now governs the fusion decision** (it was
   parsed and ignored); out-of-range values are rejected and the statistical
   path reports it as inapplicable.
-- **`GET /export/metrics` rejects a non-JSON `format`** with 400 instead of
-  silently returning JSON.
+- **`GET /export/metrics` rejects an unsupported `format`** with 400 (valid:
+  json, csv, jsonl) instead of silently returning JSON.
 
 ### Removed
 
@@ -377,14 +394,14 @@ research claims and fixed every defect it surfaced:
   artifacts recorded a dirty-tree commit hash that was never pushed):
   rule evolution held-out test F1 0.5439 vs consensus 0.4119 (+0.1320);
   counterfactual validation wachter/prototype/genetic 1.00 flip / 1.00
-  verified minimality, dice/growing_spheres honest 0.00 on the piecewise
+  verified minimality, dice/growing_spheres transparent 0.00 on the piecewise
   regime.
 - **Wildfire hotspot count is spatial.** `fire_perimeter_km2` and
   `thermal_hotspots` now derive from the 2-D hotspot mask; the previous
   channel-summed exceedance count inflated the ground-area estimate up to
   C-fold for pixels hot in several bands (regression test with a
   3-band-hot block).
-- **Counterfactual searches harden honestly.** New `NonFiniteScoreError`
+- **Counterfactual searches harden transparently.** New `NonFiniteScoreError`
   lets the detection seam's fail-loud score wrapper participate in the
   Wachter/DiCE finite infeasibility barrier (previously the barrier was
   unreachable through the seam: the wrapper's ValueError aborted the whole
@@ -398,9 +415,10 @@ research claims and fixed every defect it surfaced:
   scored through the deployed `SymbolicConstraintModule` by tests.
 - **T4 detectors are discoverable.** All fifteen T4 detectors and all four
   cascades joined `DETECTOR_MANIFEST` (hail, winter_storm, derecho,
-  dust_storm, avalanche, rockfall, subsidence, cme_arrival, sep_storm,
-  ionospheric_scintillation, gic, surge_flood_cascade, eq_tsunami_cascade,
-  fire_debris_flow_cascade, solar_gic_cascade) — they were library-only,
+  dust_storm, drought, heatwave, atmospheric_river, lightning, avalanche,
+  rockfall, subsidence, cme_arrival, sep_storm, ionospheric_scintillation,
+  gic, surge_flood_cascade, eq_tsunami_cascade, fire_debris_flow_cascade,
+  solar_gic_cascade) — they were library-only,
   invisible to auto-discovery and every manifest-driven surface.
   `DroughtLoader`/`HeatwaveLoader` are exported from `loaders/__init__`.
 - **Benchmark gate vacuity closed.** `run_all_benchmarks.py` now counts a
@@ -410,7 +428,7 @@ research claims and fixed every defect it surfaced:
   deterministically disable the rate limiter (walking the built middleware
   chain) instead of escaping through `status in (200, 429)`; the 403
   ethical-gate branch asserts the refusal shape.
-- The dead `flood` branch of `build_hazard_geojson` was removed honestly
+- The dead `flood` branch of `build_hazard_geojson` was removed transparently
   (flood emits no diagnostics payload; validation rejects it upstream);
   the EHF core gained Nairn & Fawcett worked-example tests; the surge
   cascade gained a recorded-real CO-OPS observed/predicted fixture test
@@ -418,7 +436,7 @@ research claims and fixed every defect it surfaced:
   `swpc_planetary_kp_recent.json` fixture was removed; two pre-existing
   lint errors (F821 `Path` in tests/test_cli.py, SIM117 in the hail loader
   tests) were fixed.
-- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the honest
+- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the transparent
   Schumann 1-D-spectrum / no-track-cone / no-flood-GeoJSON scope notes) and
   `docs/COUNTERFACTUALS_AND_RULE_EVOLUTION.md` (reproduction commands).
 - **Typed test debt cleared for real.** The tests-lane mypy debt on this
@@ -714,7 +732,7 @@ pathological paths change. New shared module
 - **Ensemble seam:** `align_point_scores` sanitises member output as
   defence-in-depth, so one member emitting `NaN` can no longer poison the
   ensemble mean / stacking / BMA or crash `calibrate_scores`' histogram.
-- **Benchmark honesty:** `detection_tier_benchmark._crop_to_anomaly` re-centres on
+- **Benchmark transparency:** `detection_tier_benchmark._crop_to_anomaly` re-centres on
   the first anomaly when the midpoint window would retain none, so a labelled NAB
   series is never silently dropped from the run.
 
@@ -818,7 +836,7 @@ foundation; every gate is fail-closed.
 - **Adversarial co-training.** `intel.red_team` + `benchmarks/red_team_harness.py`:
   a deterministic paraphrase/obfuscation generator (`configs/red_team.yaml`,
   `MERCURY_RED_TEAM_CONFIG`) attacks the shipped gate; surviving bypasses are
-  appended to `corpus/pending` with triage metadata for the closed loop. Honest
+  appended to `corpus/pending` with triage metadata for the closed loop. Transparent
   finding: character obfuscation (spacing/punctuation) defeats lexical matching
   (~0.33 survival rate), pinned as a no-weakening floor
   (`benchmarks/red_team_baseline.json`).
@@ -914,7 +932,7 @@ suppression, no weakening. All CI lanes green on the native AMA backend.
   parsed view so their counts can never disagree (a mismatch would refuse a
   validly-signed trigger). `enqueue_many` reads the dedup ids once and appends the
   batch under a single lock + fsync — O(n+m), not O(n·m).
-- **Honest types & docstrings.** `SelfConsistencyResult.as_dict` renders the
+- **Transparent types & docstrings.** `SelfConsistencyResult.as_dict` renders the
   plurality answer as a string (JSON-safe, matching its contract);
   `CascadeInstrumentation.report` is typed `dict[str, float | int]` (the `n_*`
   fields are integer counts); `VerifierLoop.guard_emission` audits **every**
@@ -1007,12 +1025,12 @@ regression test). No suppression: every issue is resolved or documented.
 - `cognitive/harm_classifier.py`: the reasoning→probability adapter is built
   once per backend, not per `classify()` call on the hot gate path.
 
-**Evaluation & calibration honesty**
+**Evaluation & calibration transparency**
 
 - `evaluation/metrics.py`: `evaluate_anomaly_detection_split` now guards the
   **test** split's class composition (not just val), falling back to in-sample
   with a warning on a single-class test split instead of emitting AUC=0.5 as an
-  "honest" number; the `best_f1` docstring is corrected — it is the validation
+  "transparent" number; the `best_f1` docstring is corrected — it is the validation
   in-sample maximum (optimistic upper bound), and the leakage-free operating
   point is the `f1` field.
 - `core/confidence.py`: `fit` validates a scores/labels length mismatch up front
@@ -1094,7 +1112,7 @@ offline-safe (no new hard dependency).
   annotation in `infrastructure/streaming.py` is confirmed correct (matches
   redis-py's generic `memoryview[int]`) with its misleading comments corrected.
 
-### Neuro-symbolic calibration & honesty engineering + general-purpose capabilities
+### Neuro-symbolic calibration & transparency engineering + general-purpose capabilities
 
 Make Mercury's confidence *measured* rather than heuristic, harden the
 neuro-symbolic and ethics paths, scope-label uncalibrated heuristics, and add a
@@ -1110,19 +1128,19 @@ class) the routing point stays identity rather than fitting and accepting
 in-sample, where the no-regression gate would reward overfitting. The
 golden-ratio `exp(-φ·total)` confidence in
 `cognitive/uncertainty.py` is removed in favour of a parameter-free monotone
-prior routed through the calibrator; epistemic/aleatoric carry honest
+prior routed through the calibrator; epistemic/aleatoric carry transparent
 `*_measured` flags (the single-scalar path is flagged *unmeasured* instead of
 emitting a `0.1` placeholder as a measurement) and a new `ensemble_predictions`
 path gives measured cross-member variance. The decider's uncalibrated
 threshold-band fallback routes through an attached calibrator when present
 (wired via `engine.enable_decision_layer(confidence_calibrator=...)`).
 
-**Honest evaluation.** `evaluation/metrics.py` / `metrics/anomaly_metrics.py`
+**Transparent evaluation.** `evaluation/metrics.py` / `metrics/anomaly_metrics.py`
 gain a seeded stratified/temporal 3-way splitter, `fit_threshold` (tune on
 val), and `evaluate_anomaly_detection_split` / `compute_all(tune_on="val")` so
 operating-point metrics are reported on a disjoint test split — no more
 threshold tuning on the reported data. `BenchmarkEvaluator` defaults to the
-honest path. Legacy in-sample functions kept and documented as diagnostics.
+transparent path. Legacy in-sample functions kept and documented as diagnostics.
 
 **Drift recalibration.** `engine.enable_online_recalibration()` wires
 `AdaptiveConformalInference` into `detect_with_fusion` so the operating
@@ -1177,7 +1195,7 @@ pins both false-negative and false-positive rates; full policy, response ladder,
 and residual-risk statement in `docs/HARM_POLICY.md`. `RULESET_VERSION` bumped to
 4 (cache invalidation).
 
-**Honesty labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
+**Transparency labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
 `global_omni_scalar_network` diagnostic scalars + its untrained attention,
 `hierarchical_planning` (template/greedy, not search), and `multi_hop_reasoner`
 abduction (Jaccard, not Bayesian) are scope-labeled in-code and in
@@ -1210,7 +1228,7 @@ describing MCP tools — `mercury_detect_anomaly`, `mercury_score_ethics`,
 `mercury_research`, `mercury_answer`, `mercury_write_document`,
 `mercury_calibrate_confidence` — whose `tools/list` payload doubles as a
 machine-readable capability manifest (`MercuryMCPServer.manifest()`). Every tool
-is honest and fail-closed: outward tools pass the benevolence gate, an
+is transparent and fail-closed: outward tools pass the benevolence gate, an
 unavailable backing stack returns an MCP `isError` result rather than a fabricated
 capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
 search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
@@ -1271,7 +1289,7 @@ each candidate verified against the actual call sites) turned up and closed:
   freshly resolved `redis>=5.0.0`) surfaced 9 errors a CI run pinned to an
   older cached `redis` doesn't yet hit — the same class of gate fragility as
   the `.trivyignore` reconciliation above, here in a Python stub instead of
-  an OS CVE feed. Underneath the stub noise was a real type-honesty gap:
+  an OS CVE feed. Underneath the stub noise was a real type-transparency gap:
   `StreamMessage.offset` was typed `int | None`, but Redis Streams identifies
   entries by string IDs (`"<ms>-<seq>"`), not integers; the field silently
   carried a `str` through an `int`-typed slot on the Redis consume path.
@@ -1363,7 +1381,7 @@ changes; the fleet remains reachable only through the engine-mediated path.
 - **Operations adapter layer.** New
   `src/omni_mercury_engine/agentic/subagents/operations.py` maps each pantheon id
   to an adapter; `CoordinatorSubAgent._perform` dispatches to it, invoking the
-  real entrypoint with `task.payload`-derived inputs and returning the honest
+  real entrypoint with `task.payload`-derived inputs and returning the transparent
   result (`output["mode"]="operation"`). Examples: `Helios_XVII` →
   `metrics.AnomalyMetrics.compute_all`; `Kronos_XXII` →
   `detectors.MercuryAnomalyDetector.fit().detect()`; `Tyche_XX` →
@@ -1371,13 +1389,13 @@ changes; the fleet remains reachable only through the engine-mediated path.
   create+validate in-process; `Hecate_XXVIII` → `RequestRouter.match` in-process;
   `Atlas_XXX` → `DistributedMercuryCluster.detect_anomalies` via bounded
   `asyncio.run`; `Pan_XXV` → `GlobalOmniScalarNetwork` register + global score.
-- **Honest friction handling.** `Artemis_VI` genuinely attempts a bounded network
+- **Transparent friction handling.** `Artemis_VI` genuinely attempts a bounded network
   fetch over real data sources and reports true per-source reachability (green or
   red, never fabricated). `Nyx_XXIX` (crypto seal primary; `MercuryCrypto`
   signing-keypair secondary) and `Prometheus_XXVII` (lightweight scorer primary;
   `MercuryAutoML.fit` heavy/budget-gated) keep the always-safe primitive as the
   primary path.
-- **Binding report is the honest floor, not the whole behavior.** The
+- **Binding report is the transparent floor, not the whole behavior.** The
   import+introspect report is retained only as the fail-closed fallback —
   reached when an input-gated member lacks inputs or a caller requests the
   readiness probe (`payload["mode"]="introspect"`) — and as the unavailability
@@ -2313,7 +2331,7 @@ such instead of "optimized".
   makes scoring thread-independent: results are pinned bit-identical to
   serial (5-run repeat test), wall-clock 72.8 -> 62.2 ms on cardio-scale and
   285 -> 228 ms at 2.2k rows on the 4-core profiling box; the modest factor
-  is honest (the detectors' internal numba/BLAS parallelism already uses the
+  is transparent (the detectors' internal numba/BLAS parallelism already uses the
   cores). Per-agent failure exclusion and quorum semantics unchanged.
 * **Fusion checkpoint round-trip fidelity — ROADMAP row 16 CLOSED.**
   Measured root causes: a loaded engine auto-fit its base detectors on the
@@ -2352,7 +2370,7 @@ such instead of "optimized".
   existing torch cap in `tests/conftest.py`) — without it each worker
   spawned a full physical-core pool for the new GSIS prange lane and the
   oversubscription starved borderline-heavy tests past the 300 s timeout.
-* **Candidates re-profiled and *not* optimized (honest negative results):**
+* **Candidates re-profiled and *not* optimized (transparent negative results):**
   (1) the inherited "fit_fusion 610 s / 20 epochs on cardio" figure does
   not reproduce — measured 6.8 s (labels), 10.1 s (semi-supervised), 9.1 s
   (domain encoder) for 20 epochs on this 4-core box, with feature
@@ -2460,7 +2478,7 @@ fidelity 600/600).
   the global numpy/torch seeds per (dataset, seed) run — some live
   detectors carry stochastic components that follow the global seed
   (e.g. `DimensionalAnalyzer`'s autoencoder lane, instance-to-instance
-  spread ≈0.56 on identical fits), so the grid was honest but not
+  spread ≈0.56 on identical fits), so the grid was transparent but not
   bit-reproducible run-to-run before this.
 * **Environment/tooling:** the session-provisioning gap that made
   `pytest-asyncio`/`pytest-xdist`/`pytest-timeout` unavailable locally
@@ -2525,7 +2543,7 @@ under the same ablation discipline as every other revival.
   evidence-grounded balanced-accuracy sweep over recorded outcomes with
   minimum-evidence and hysteresis guards (measured: +0.079, and
   well-calibrated points are left untouched).
-* **Honesty semantics throughout:** below-quorum coordination abstains
+* **Transparency semantics throughout:** below-quorum coordination abstains
   explicitly (never "benign"); agent fit/score failures surface and the
   orchestrator refuses below quorum; an unexecutable plan raises instead of
   bypassing the planner; an unfaithful trace raises instead of shipping.
@@ -2537,7 +2555,7 @@ under the same ablation discipline as every other revival.
   enforcement, engine wiring). Full `tests/cognitive/` suite: 577 passed.
 * **Docs:** DORMANCY_LEDGER rows 10/11 updated to *revived (orchestration
   tier)* with the measured numbers; `chain_of_hindsight` and
-  `plasticity_engine` split into rows 10b/11b (still retained — no honest
+  `plasticity_engine` split into rows 10b/11b (still retained — no transparent
   harness yet); capability matrix "Multi-agent" row moved to
   **Shipped + measured** with the build-out item (B) closed.
 ### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
@@ -2652,7 +2670,7 @@ verifier/governance paths.
   result onto the existing `ThreeState` invariant
   (`verifiers/three_state.py`) and an operational `Disposition`:
   * the conformal certificate is **authoritative** — singleton `{1}`/`{0}` →
-    `GROUNDED` (`ACT`/`CLEAR`) with the coverage level as the honest
+    `GROUNDED` (`ACT`/`CLEAR`) with the coverage level as the transparent
     confidence; `{0,1}` → `UNAVAILABLE` (a *resolvable* don't‑know, `DEFER`);
     `{}` → `UNDECIDABLE` (an atypical point no class explains; fail‑closed
     `HOLD`);
@@ -2672,7 +2690,7 @@ verifier/governance paths.
   fail‑closed hold that always requires a human. A test invariant asserts the
   catalogue contains no destructive verbs (Civilization‑First made concrete).
 * **Auditable `DecisionRecord`.** A frozen, JSON‑safe record carrying the
-  grounded label or honest abstention, the calibrated confidence, the bounded
+  grounded label or transparent abstention, the calibrated confidence, the bounded
   response, ordered `reasons`/`caveats`, and the full evidence + active policy
   as `signals` provenance; `explain()` renders a one‑paragraph operator
   account. The operational sibling of the governance layer's `GovernanceScalar`.
@@ -2746,7 +2764,7 @@ independent axes and is now corrected to `numpy>=2.4.0`:
   that type-checks cleanly** across all three mypy lanes. Bumping the floor
   (rather than rewriting ~300 annotations to `np.ndarray[Any, Any]`, which
   would erase type precision and break the 145 `isinstance`/constructor sites
-  that must stay unsubscripted) keeps the contract honest without weakening it.
+  that must stay unsubscripted) keeps the contract transparent without weakening it.
 
 A new **"Run MyPy at the numpy floor"** step in the *Type Checking* CI job
 pins `numpy==2.4.0` and re-runs all three mypy lanes, so the declared minimum
@@ -2897,9 +2915,9 @@ the surface, it is rebuilt as a thin head over the canonical co-trained module:
   zero-initialised parameters yield a deterministic uniform-weight consensus; a
   co-trained module (e.g. restored from a fusion checkpoint via `module=`)
   applies its learned detector reliabilities. `NeurosymbolicEngine.ltn` is built
-  when torch is importable (honestly reported by `get_statistics`:
+  when torch is importable (transparently reported by `get_statistics`:
   `ltn_available`, `ltn_backend="symbolic_constraint_module"`).
-* The raw-feature `neural_inference` is **kept** as an honestly-labelled
+* The raw-feature `neural_inference` is **kept** as a transparently-labelled
   deterministic dispersion heuristic (it is a per-feature statistic, *not* a
   trained signal, and says so) — distinct from the trained-capable detector
   consensus now reachable via `ltn.predict`.
@@ -3108,7 +3126,7 @@ The prior implementation was a no-op that always returned `completed` with
   to that tool for real, with genuine success / failure (a raising tool →
   `status="failed"` with the error captured; the analysed batch is injected
   as `data=` for tools that accept it);
-* marks a task with no bound tool as an honest `status="skipped"` — never a
+* marks a task with no bound tool as a transparent `status="skipped"` — never a
   fabricated `completed`.  `_execute_plan` now measures `success_rate` over
   *executed* tasks, so a pure-reasoning plan reports `0.0`, not `1.0`.
 
@@ -3120,11 +3138,11 @@ paths):
   exploit-best-Q vs. explore-all-actions, experience-replay convergence
   logging, exploration decay, selection/learn Q-key consistency.
 * `tests/test_mercury_a_agent.py` (new, 12 tests) — real tool dispatch,
-  genuine tool failure, unregistered-tool failure, honest skip, fail-closed
+  genuine tool failure, unregistered-tool failure, transparent skip, fail-closed
   ethical block (and that the tool never runs on a blocked task),
   success-rate accounting, dependency gating, end-to-end `analyze`.
 
-### Detectors — VLM / visual base contracts are now honest ABCs (2026-06-02)
+### Detectors — VLM / visual base contracts are now transparent ABCs (2026-06-02)
 
 Closes ROADMAP v1.7.x deferred items **#3** (VLM detector surface) and
 **#4** (visual base detector).  Both bases previously raised
@@ -3140,7 +3158,7 @@ public path.  They are now genuine `@abstractmethod` declarations:
   PaDiM, STFPM, ReverseDistillation, CFlow) remain the concrete
   implementations.
 
-Direct instantiation of either base now raises `TypeError` (the honest
+Direct instantiation of either base now raises `TypeError` (the transparent
 Python idiom) rather than constructing an object whose methods explode at
 call time — no `NotImplementedError` remains on the public detector API.
 Concrete subclasses are unaffected (all already implement every contract
@@ -3214,7 +3232,7 @@ both at chance as detectors, a verdict left unchanged):
   in place.
 * `tests/cognitive/test_case_based_reasoning_behavioral.py` (11 tests) —
   retrieval ranking + retrieval-count bookkeeping, domain filtering, the
-  REUSE-vs-REVISE branch in `solve` (with the honest `no_matching_cases`
+  REUSE-vs-REVISE branch in `solve` (with the transparent `no_matching_cases`
   result on an empty base), proportional `adapt` (numeric solution params
   whose key references the changed feature scale; unrelated params untouched)
   + adaptation history, and `learn_from_outcome` state updates.
@@ -3229,7 +3247,7 @@ is the first concrete `AttentionProvider`, backed by a real
 caches the **per-head** `(num_heads, seq_len, seq_len)` attention weights
 (`average_attn_weights=False`); `get_attention()` returns them, or raises
 `RuntimeError` before any forward ("model not yet run") so the optimizer
-honestly skips the metric rather than scoring noise.  It defaults to 32 heads
+transparently skips the metric rather than scoring noise.  It defaults to 32 heads
 to match `AttentionOptimizer`'s triadic φ-weighting, so wiring it into
 `GOSNNOptimizer(attention_provider=…)` drives the real attention-overhead
 metric — the removed deterministic-random placeholder is fully replaced.
@@ -4631,7 +4649,7 @@ and regression tests:
     the sigmoid benevolence gate. Date refreshed.
   - `docs/index.md` — landing page rewritten to surface the dual-gate
     ethical contract, AMA Cryptography sole-backend hard-require,
-    honest-benchmark framing (64/75), and pickle-removal up front.
+    transparent-benchmark framing (64/75), and pickle-removal up front.
   - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
     gates run *inside* the prediction call and **must not** be
     masked by fallback handlers. "Fallback only applies to
@@ -4674,7 +4692,7 @@ and regression tests:
   suppressions are `[unused-ignore]`-paired so they auto-clear as
   third-party stubs improve). An interim CI run on this branch
   measured the actual full-suite line coverage at **36.03%**, so
-  the honest CI floor is set just below that — 35 — to defend the
+  the transparent CI floor is set just below that — 35 — to defend the
   measured baseline without immediately failing CI for unrelated
   reasons. CORE is set to 15 since the core job runs a strictly
   smaller subset of tests against the full source tree. The 85

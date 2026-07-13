@@ -134,7 +134,7 @@ ai_equation_library:
       equation: "ECE=sum_m |B_m|/n * |acc(B_m)-conf(B_m)|"
       purpose: "Measures probability calibration rather than raw ranking quality."
       source: "Guo et al., On Calibration of Modern Neural Networks, ICML 2017"
-      mercury_use: "Keeps fusion outputs operationally honest across anomaly fields and AI surfaces."
+      mercury_use: "Keeps fusion outputs operationally transparent across anomaly fields and AI surfaces."
     - id: cusum_drift
       equation: "S_t=max(0,S_{t-1}+x_t-mu_0-k)"
       purpose: "Sequential distribution-shift detection with tunable false-alarm behavior."

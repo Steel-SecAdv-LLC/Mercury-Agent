@@ -15,7 +15,7 @@ it pass:
   professional/defensive slice in the default (no-model) posture -- the posture
   that ships in CI/air-gapped.
 * **FN ceiling (always blocking).** The default-posture (lexical-only) false
-  negatives may not *regress upward* past the honestly-measured floor. This
+  negatives may not *regress upward* past the transparently-measured floor. This
   acknowledges the lexical-only leak rather than hiding it, and stops anyone
   making lexical coverage worse.
 * **Routing-rescue mechanism (always blocking).** Unit assertions that a
@@ -54,7 +54,7 @@ from omni_mercury_engine.cognitive.harm_classifier import (
     real_harm_classifier_available,
 )
 
-# Honest lexical-only floor (measured 2026-07-02, default posture): 15/29
+# Transparent lexical-only floor (measured 2026-07-02, default posture): 15/29
 # offensive rows are FN. The CEILING locks that in -- lexical/pattern changes
 # may only keep it the same or improve it, never make lexical coverage leakier.
 MAX_DEFAULT_FN = 15

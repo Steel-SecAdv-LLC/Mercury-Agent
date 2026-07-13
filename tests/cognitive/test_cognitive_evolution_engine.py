@@ -44,7 +44,7 @@ def _feed(engine: CuriosityEngine, vectors: np.ndarray) -> ExplorationResult:
 def test_warmup_score_is_neutral_not_a_constant_masquerade() -> None:
     engine = CuriosityEngine()
     first = engine.explore("obs", {"a": 1.0, "b": 2.0})
-    # No baseline yet -> honestly undetermined (0.5), not a fabricated novelty.
+    # No baseline yet -> transparently undetermined (0.5), not a fabricated novelty.
     assert first.novelty_score == 0.5
     assert first.is_novel is False
     assert first.n_observations == 1

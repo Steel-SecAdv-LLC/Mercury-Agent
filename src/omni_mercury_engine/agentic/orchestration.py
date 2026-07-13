@@ -32,7 +32,7 @@ live, measurable execution path:
   is contractually locked to the issued decision (trace fidelity), because
   the trace classifies against the same operating threshold.
 
-Honesty contract (anti-theater): no stage fabricates signal. Quorum failures
+Transparency contract (anti-theater): no stage fabricates signal. Quorum failures
 abstain explicitly instead of defaulting to "benign"; agent failures are
 surfaced, never silently dropped below quorum; the ethical gates
 (BenevolenceScorer + sigma_Immutable) run fail-closed at the decision
@@ -114,7 +114,7 @@ _MAX_REFERENCE_ROWS = 512
 
 
 class OrchestrationError(RuntimeError):
-    """Raised when the orchestration pipeline cannot proceed honestly.
+    """Raised when the orchestration pipeline cannot proceed transparently.
 
     This is the fail-closed alternative to fabricating a verdict: below
     quorum, with an unexecutable plan, or with an unfaithful reasoning
@@ -352,7 +352,7 @@ class CoordinationBatch:
     Attributes:
         consensus_scores: Confidence-weighted consensus score per sample.
         decisions: Issued boolean decisions at the operating threshold.
-        abstained: Per-sample abstention mask (no honest quorum verdict).
+        abstained: Per-sample abstention mask (no transparent quorum verdict).
         agreement: Per-sample consensus agreement ratio.
         per_agent_scores: Each participating agent's per-sample scores.
         dissent_counts: Number of dissenting agents per sample.
@@ -933,7 +933,7 @@ class MultiAgentOrchestrator:
                     raise OrchestrationError("plan reached consensus stage without scores")
                 state["consensus_reached"] = True
                 # Reward consensus formation by how much of the batch obtained
-                # a quorum verdict (abstentions are honest but unrewarded).
+                # a quorum verdict (abstentions are transparent but unrewarded).
                 reward = float(1.0 - np.mean(batch.abstained))
             elif action == _STAGE_DECIDE:
                 if batch is None:
@@ -942,7 +942,7 @@ class MultiAgentOrchestrator:
                 state["decisions_issued"] = True
                 # The TD reward reflects what was actually delivered: only
                 # quorum-backed (non-abstained) decisions count. An
-                # all-abstention batch completes the plan honestly but earns
+                # all-abstention batch completes the plan transparently but earns
                 # no value — abstaining is correct, not rewarding.
                 reward = float(1.0 - np.mean(batch.abstained))
             elif action == _STAGE_FIT:
@@ -966,7 +966,7 @@ class MultiAgentOrchestrator:
             )
 
         # Goal completion is judged on the goal's own postconditions against
-        # the real final state — the planner's contract, applied honestly.
+        # the real final state — the planner's contract, applied transparently.
         if all(bool(state.get(cond)) for cond in root_goal.postconditions):
             root_goal.status = GoalStatus.COMPLETED
         trace.goal_status = root_goal.status.value
@@ -1120,7 +1120,7 @@ class MultiAgentOrchestrator:
 
     @staticmethod
     def compute_metrics(batch: CoordinationBatch, y: np.ndarray[Any, Any]) -> dict[str, float]:
-        """Honest confusion metrics over the non-abstained decisions."""
+        """Transparent confusion metrics over the non-abstained decisions."""
         decided = ~batch.abstained
         if not np.any(decided):
             return {"n_decided": 0.0, "abstention_rate": 1.0}

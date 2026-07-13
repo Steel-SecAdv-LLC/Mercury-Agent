@@ -79,5 +79,5 @@ def test_provenance_and_license() -> None:
 def test_label_noise_is_disclosed() -> None:
     nz = label_noise_disclosure()
     assert {"false_positive", "false_negative", "timing", "implication"} <= set(nz)
-    # honesty: it must say these are not ground truth
+    # transparency: it must say these are not ground truth
     assert "ground truth" in nz["implication"].lower()

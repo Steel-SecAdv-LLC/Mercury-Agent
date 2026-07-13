@@ -5,7 +5,7 @@
 Where the number-theory verifiers confirm *instances*, this confirms a *theorem* -- but only
 when a proof object exists.  The proof script is the certificate; the Lean kernel is the oracle.
 A correct proof compiles (valid); a hallucinated or wrong proof fails to compile (refuted).
-That rejection is the point: it is exactly the apparatus that tells you, honestly, whether any
+That rejection is the point: it is exactly the apparatus that tells you, transparently, whether any
 candidate proof -- from a human, a search, or a model -- is real.
 
 This verifier never fakes a verdict.  If the Lean toolchain is absent it reports
@@ -63,7 +63,7 @@ def verify_lean_proof(source: str, *, timeout: float = 60.0) -> LeanVerdict:
     """Submit a Lean proof script to the kernel and report its verdict.
 
     Returns ``available=False`` (and ``valid=False``) when no Lean toolchain is installed --
-    an honest "no oracle here", never a fabricated pass.  Otherwise ``valid`` reflects whether
+    a transparent "no oracle here", never a fabricated pass.  Otherwise ``valid`` reflects whether
     Lean's kernel accepted the proof (exit code 0 with no error diagnostics).
     """
     lean = shutil.which("lean")

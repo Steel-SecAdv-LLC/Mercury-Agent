@@ -1,5 +1,7 @@
 # Mercury Agent — Operator Tools
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This document is the operator reference for the
 ``omni_mercury_engine.tools`` subpackage.  Every tool listed here is
 runnable in three equivalent ways:

@@ -38,7 +38,7 @@ environment via :meth:`WebResearcher.from_env`. The legacy singular
 ``search_provider`` (a single ``(query, max_results) -> [SearchResult]``) still
 fully replaces the built-in chain, for backward compatibility.
 
-Everything here is **fail-closed and honest**: a network error, a non-OK status,
+Everything here is **fail-closed and transparent**: a network error, a non-OK status,
 or an oversized body yields a :class:`FetchResult` carrying the error (never a
 fabricated body), and :meth:`WebResearcher.search` returns ``[]`` with the reason
 recorded rather than inventing results. Mercury never pretends it read a page it
@@ -464,7 +464,7 @@ class WebResearcher:
 
         Fail-closed throughout: returns ``[]`` (and logs the reason) on any
         network/parse failure, so a blocked or offline environment degrades
-        honestly rather than fabricating hits.
+        transparently rather than fabricating hits.
         """
         # (1) Legacy singular provider fully replaces the chain (back-compat).
         if self.search_provider is not None:

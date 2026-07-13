@@ -153,7 +153,7 @@ class TestFreezeThaw:
         assert ft.effective_cycles == 0  # never crosses zero
 
     def test_missing_moisture_input_raises(self) -> None:
-        """Refusing to assume wetness is the honest failure mode."""
+        """Refusing to assume wetness is the transparent failure mode."""
         with pytest.raises(ValueError, match="moisture"):
             RockfallDetector().analyze_freeze_thaw(self._oscillating_temps(2), 1.0)
 

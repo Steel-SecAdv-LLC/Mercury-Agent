@@ -8,7 +8,7 @@ Every outward action passes the same fail-closed benevolence gate the rest of
 Mercury uses, so a general capability cannot be used to research or author
 content the ethics gate refuses.
 
-Honest by construction:
+Transparent by construction:
 - It is NOT a language model. It does not generate prose; it extracts and
   organizes content that sources actually contain, and cites them.
 - It is fail-closed on the network: if no source is reachable, the report says
@@ -107,7 +107,7 @@ class GateVerdict:
     Carries the two-axis weapons/mass-casualty verdict alongside the scalar
     harm so callers can distinguish an outright HARD_REFUSE from an ESCALATE
     (a genuine gray-zone request a human-in-the-loop could authorize) and
-    surface an honest, auditable reason rather than a bare boolean.
+    surface a transparent, auditable reason rather than a bare boolean.
     """
 
     permitted: bool
@@ -379,7 +379,7 @@ class GeneralAssistant:
     # -- capabilities ------------------------------------------------------
 
     def summarize_url(self, url: str, max_sentences: int = 5) -> str:
-        """Fetch a single URL and return an extractive summary (or an honest error)."""
+        """Fetch a single URL and return an extractive summary (or a transparent error)."""
         result = self.researcher.fetch_text(url)
         if not result.ok:
             return f"[unavailable] could not read {url}: {result.error}"
@@ -427,7 +427,7 @@ class GeneralAssistant:
         Pipeline: benevolence gate -> web search -> fetch + extract each hit ->
         rank by relevance to the query -> extractive synthesis -> cited document.
         Fail-closed at every step: a refused query, an unreachable network, or
-        zero readable sources each yield an honest report (``refused`` /
+        zero readable sources each yield a transparent report (``refused`` /
         ``available=False``) rather than a fabricated answer.
         """
         # Pre-retrieval intent gate (spec §5.1). Score the RAW query for
@@ -646,10 +646,10 @@ class GeneralAssistant:
         )
 
     def answer(self, question: str, *, max_sources: int = 3) -> str:
-        """Extractively answer a question from researched sources (honest, cited).
+        """Extractively answer a question from researched sources (transparent, cited).
 
         Returns the most query-relevant sentences from the reachable sources, or
-        an honest unavailability message. Not a generated answer -- extracted,
+        a transparent unavailability message. Not a generated answer -- extracted,
         verbatim, from sources.
         """
         report = self.research_report(question, max_sources=max_sources, max_summary_sentences=4)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Self-consistency: an N-sample disagreement signal the calibrator can trust.
 
-A single sampled reasoning path gives one answer and no honest sense of how
+A single sampled reasoning path gives one answer and no transparent sense of how
 *load-bearing* that answer is. Drawing ``N`` independent paths and measuring how
 much they **disagree** does: unanimous paths are a strong agreement signal, a
 split vote is a red flag that the model is guessing. This module makes that

@@ -1,5 +1,7 @@
 # research/omni_equation
 
+*Last updated: 2026-07-11.*
+
 Measurement-first audit of the "omni-equation" direction for Mercury Agent —
 run against the **real** detector, **real** streams, **real** equation, and
 **real** live-API data. Built to decide, not to decorate.

@@ -305,7 +305,7 @@ class TestTierAdapter:
         # ``growing_spheres``: the tier's calibrated score is piecewise
         # constant in the point value (ECDF/rank calibration), so a sampling
         # search is the structurally correct method -- gradient-based Wachter
-        # sees a zero gradient on the plateaus and honestly reports no flip.
+        # sees a zero gradient on the plateaus and transparently reports no flip.
         ensemble, series = fitted
         scores = np.asarray(ensemble.score(series))
         flags = np.asarray(ensemble.predict(series))

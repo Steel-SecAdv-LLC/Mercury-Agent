@@ -9,7 +9,7 @@ Conceptually inspired by (NOT a literal implementation of):
 - "Feudal Reinforcement Learning" (Dayan & Hinton, 1993)
 
 .. note::
-    **Scope/honesty:** planning here is TEMPLATE-DRIVEN goal decomposition plus
+    **Scope/transparency:** planning here is TEMPLATE-DRIVEN goal decomposition plus
     greedy option selection, NOT a search algorithm. There is no MCTS, value
     iteration, policy optimization, MAXQ value decomposition, HAM, or Feudal
     control implemented as named -- the citations above are conceptual

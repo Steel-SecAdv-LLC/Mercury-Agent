@@ -253,7 +253,7 @@ class RedTeamResult:
         A mutation can weaken the gate's disposition (e.g. ``hard_refuse`` ->
         ``escalate``) while still not reaching an ALLOW disposition, so it never
         counts as a survivor. Such softening is a real weakening the survival rate
-        alone cannot see; surfacing it keeps the metric honest (the content is
+        alone cannot see; surfacing it keeps the metric transparent (the content is
         still gated, so it is reported, not gated on).
         """
         return [

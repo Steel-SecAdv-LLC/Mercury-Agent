@@ -15,7 +15,7 @@ returns a results dict that :mod:`benchmarks.mercury_benchmark` merges into the
 one canonical ``mercury_benchmark_results.json`` under the ``detection_tier``
 key (there is no separate committed results file).
 
-Protocol -- NAB is an **unsupervised streaming** benchmark, so the honest,
+Protocol -- NAB is an **unsupervised streaming** benchmark, so the transparent,
 non-leaking evaluation is:
 
 * **Members + ``average`` ensemble (headline).** Each 1-D member (and the
@@ -290,7 +290,7 @@ def _evaluate_unsupervised_ensemble(
     """One label-free ensemble (``consensus`` / ``average``): fit on warm-up, score all.
 
     The members are fitted on the initial *normal* warm-up window and the
-    calibrated ensemble scores the whole series -- the honest, non-leaking
+    calibrated ensemble scores the whole series -- the transparent, non-leaking
     unsupervised protocol. ``method="consensus"`` is the calibrated robust
     high-quantile combiner; ``method="average"`` is the calibrated mean.
     """

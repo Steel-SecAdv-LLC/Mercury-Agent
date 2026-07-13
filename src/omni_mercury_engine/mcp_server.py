@@ -13,14 +13,14 @@ with the standard library only (``json`` + ``sys``) -- no ``mcp`` package, no
 web framework, no new dependency. Newline-delimited JSON messages are read from
 stdin and written to stdout, exactly as the MCP stdio transport specifies.
 
-**Honest and fail-closed**, like the rest of Mercury:
+**Transparent and fail-closed**, like the rest of Mercury:
 
 * Every outward tool (research / answer / write_document) passes Mercury's own
   fail-closed benevolence gate before acting.
 * A tool whose backing stack is unavailable in the environment (e.g. the ML
   detection engine on a slim install) returns an ``isError`` result explaining
   why -- it never fabricates a capability it cannot deliver.
-* The research tools degrade honestly to "no sources reachable" offline rather
+* The research tools degrade transparently to "no sources reachable" offline rather
   than inventing answers.
 
 The tool surface (``tools/list``) doubles as a machine-readable **capability
@@ -440,7 +440,7 @@ class MercuryMCPServer:
                 description=(
                     "Research a question on the open web and return a cited report "
                     "(extractive, never fabricated). Harm-gated and fail-closed: returns "
-                    "an honest 'unavailable' when offline/blocked or 'refused' when the "
+                    "a transparent 'unavailable' when offline/blocked or 'refused' when the "
                     "ethics gate blocks the query."
                 ),
                 input_schema={
@@ -687,7 +687,7 @@ class MercuryMCPServer:
                 X, domain=domain, gdpr_report=gdpr_report, subject_id=subject_id
             )
         except EthicalConstraintViolationError as exc:
-            # Fail closed and honestly: the detection was *refused* by a hard
+            # Fail closed and transparently: the detection was *refused* by a hard
             # ethical gate, not merely errored -- say which gate and why.
             raise ToolError(
                 f"flagship detection blocked by the '{exc.check}' ethical gate: {exc}"
@@ -979,7 +979,7 @@ class MercuryMCPServer:
         disable gating**:
 
         * If the verifier stack is genuinely **unavailable** -- a slim install
-          where the module does not import -- the guard degrades honestly to allow
+          where the module does not import -- the guard degrades transparently to allow
           (``mode="unavailable"``): an *unavailable* check never blocks (the loop
           refutes, it never guesses).
         * If the stack imports but the verifier **raises at runtime** (a bug, an

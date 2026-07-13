@@ -8,7 +8,7 @@ monthly precipitation and temperature series for stations covering major US
 droughts (2011 Texas drought, 2012-2016 California drought).  GSOM ``access``
 CSVs report precipitation in millimetres and temperature in degrees Celsius.
 
-Ground-truth labelling is honestly *statistical*: a month is labelled
+Ground-truth labelling is transparently *statistical*: a month is labelled
 anomalous when its 6-month Standardized Precipitation Index (McKee et al.
 1993, computed with per-calendar-month gamma fits by the drought detector
 physics core) is at or below the US Drought Monitor D2 severe-drought

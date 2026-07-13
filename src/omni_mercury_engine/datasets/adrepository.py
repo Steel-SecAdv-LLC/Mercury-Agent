@@ -812,7 +812,7 @@ class ADRepositoryLoader(DatasetLoader):
             "original_url": info["url"],
             "is_real_data": self._is_real_data,
             # Explicit, positively-named flag so callers that check
-            # ``meta["synthetic"]`` (the harness convention) see the honest
+            # ``meta["synthetic"]`` (the harness convention) see the transparent
             # value rather than having to invert ``is_real_data``.
             "synthetic": not self._is_real_data,
             "citation": self.CITATION,

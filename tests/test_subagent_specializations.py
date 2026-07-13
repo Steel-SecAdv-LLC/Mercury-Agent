@@ -7,7 +7,7 @@ from FINDΩYOU™'s former agent layer as it is made agent-free): ``Hera_VII`` (
 BIPA/CCPA/CPRA compliance rule engine), ``Themis_I`` (the IEEE-EAD / EU-AI-Act
 ethics enforcer), ``Ares_XIV`` (prohibited-operation / manipulation guardrail),
 and ``Zeus_VIII`` (Mercury's own multi-agent detection) — exercised through the
-engine-mediated fleet, with honest failure on missing inputs.
+engine-mediated fleet, with transparent failure on missing inputs.
 """
 
 from __future__ import annotations

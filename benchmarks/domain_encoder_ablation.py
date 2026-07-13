@@ -24,7 +24,7 @@ This replaces an earlier self-contained design (a tiny head on the production
 confounded: on imbalanced datasets a small head on weak/random features
 converged to *inverted* rankings (AUC < 0.5), inflating the delta to a
 meaningless +0.4-0.9. The fusion net is a robust supervised learner, so the
-wired-path comparison is the honest one.
+wired-path comparison is the transparent one.
 
 The verdict uses the same conservative noise thresholds as
 ``neurosymbolic_ablation.py``: an improvement must clear noise on a majority of

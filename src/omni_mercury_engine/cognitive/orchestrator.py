@@ -71,7 +71,7 @@ class CognitiveAnalysisResult:
     aleatoric_uncertainty: float = 0.0
     confidence: float = 0.0
     is_reliable: bool = True
-    # Honesty flags: whether epistemic/aleatoric were measured (vs a placeholder
+    # Transparency flags: whether epistemic/aleatoric were measured (vs a placeholder
     # when no ensemble/model was supplied) and whether confidence came from a
     # fitted calibrator (vs an uncalibrated monotone prior).
     epistemic_measured: bool = True
@@ -405,7 +405,7 @@ class CognitiveOrchestrator(LoggerMixin):
             result.aleatoric_uncertainty = uncertainty_est.aleatoric
             result.confidence = uncertainty_est.confidence
             result.is_reliable = uncertainty_est.is_reliable
-            # Carry the honesty flags downstream so narrative/explanation layers
+            # Carry the transparency flags downstream so narrative/explanation layers
             # do not present a placeholder/uncalibrated number as a measurement.
             result.epistemic_measured = uncertainty_est.epistemic_measured
             result.aleatoric_measured = uncertainty_est.aleatoric_measured
@@ -596,7 +596,7 @@ class CognitiveOrchestrator(LoggerMixin):
                     # term saturates toward 1.0 via self-transition, so it is not
                     # a base-rate estimate. Surface the calibrated Bayesian
                     # probability (+ its interval) as the anomaly probability,
-                    # and keep the blend as a separate, honestly-labelled score.
+                    # and keep the blend as a separate, transparently-labelled score.
                     bayes_prob, bayes_interval = self.enhanced_detector.bayesian_predictor.predict(
                         domain_label
                     )

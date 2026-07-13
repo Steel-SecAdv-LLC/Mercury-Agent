@@ -19,7 +19,7 @@ lives in ``research/governed_fusion/phase3_governance.py``
 time. The dependency therefore points research → engine only, matching the rest
 of the codebase and keeping the engine wheel free of the research tree.
 
-Two built-in policies cover the two honest stances:
+Two built-in policies cover the two transparent stances:
 
 * :class:`FailClosedSelfImprovementGovernance` — the default. Every actionable
   autonomous change is *withheld*. A live operating point or model only moves

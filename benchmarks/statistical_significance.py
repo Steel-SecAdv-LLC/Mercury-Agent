@@ -24,7 +24,7 @@ artifacts (no re-run required):
 A claim is only "confirmed" when the paired mean both clears the
 pre-registered bar AND the 95% CI excludes 0 AND the paired t-test is
 significant at alpha=0.05.  Anything else is reported as within the noise
-floor — which is the honest reading of #265's KEEP decisions.
+floor — which is the transparent reading of #265's KEEP decisions.
 
 Dependencies: numpy only (scipy used opportunistically for Wilcoxon).
 

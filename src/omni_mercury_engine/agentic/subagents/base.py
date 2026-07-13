@@ -27,7 +27,7 @@ gate that *authorizes the controlled defensive action* of running the subagent
 conflated into the safety verdict), then delegates to :meth:`SubAgent._perform`
 (deep specializations override it with real domain logic; the
 :class:`~omni_mercury_engine.agentic.subagents.coordinator.CoordinatorSubAgent`
-binds and exercises its real subsystem), and packages an honest
+binds and exercises its real subsystem), and packages a transparent
 :class:`SubAgentResult` (completed / failed / blocked) — never a fabricated
 success.
 
@@ -85,7 +85,7 @@ class SubAgentAccessError(RuntimeError):
 
 
 class SubAgentExecutionError(RuntimeError):
-    """Raised when a subagent cannot complete a task honestly (fail-closed).
+    """Raised when a subagent cannot complete a task transparently (fail-closed).
 
     A specialization raises this from :meth:`SubAgent._perform` rather than
     returning a fabricated result; :meth:`SubAgent.handle` records it as a
@@ -168,7 +168,7 @@ class SubAgentTask:
 
 @dataclass
 class SubAgentResult:
-    """The honest outcome of one subagent handling one task.
+    """The transparent outcome of one subagent handling one task.
 
     ``status`` is one of ``"completed"`` (work produced a result), ``"failed"``
     (the specialization raised; ``error`` carries why), or ``"blocked"`` (the
@@ -178,7 +178,7 @@ class SubAgentResult:
         subagent_id: Unique runtime id of the subagent instance.
         specialty: The subagent's pantheon id.
         task_id: The task that was handled.
-        status: Honest disposition (see above).
+        status: Transparent disposition (see above).
         output: The specialization's result payload (``None`` unless completed).
         confidence: The subagent's self-assessed confidence in ``output``.
         benevolence_score: Measured benevolence of the authorized action.
@@ -286,7 +286,7 @@ class SubAgent(MercuryAgent):
     # ------------------------------------------------------------------
 
     def handle(self, task: SubAgentTask) -> SubAgentResult:
-        """Handle one task: gate, perform, package — honestly.
+        """Handle one task: gate, perform, package — transparently.
 
         The fail-closed benevolence gate runs first; a refusal yields a
         ``blocked`` result with no work performed. A specialization that raises
@@ -383,7 +383,7 @@ class SubAgent(MercuryAgent):
         the main agent.
 
         Raises:
-            SubAgentExecutionError: If the work cannot be completed honestly.
+            SubAgentExecutionError: If the work cannot be completed transparently.
         """
         analysis = self.analyze(
             data=task.payload.get("data"),

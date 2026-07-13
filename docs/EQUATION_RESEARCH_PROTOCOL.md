@@ -1,5 +1,7 @@
 # Equation Research Protocol
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This protocol implements a hard-governed path for strengthening Mercury's in-house equations without replacing them.
 
 ## What it enforces
