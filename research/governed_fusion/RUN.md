@@ -1,5 +1,7 @@
 # Reproducing the Governed Fusion Substrate measurements (PR #278)
 
+Last updated: 2026-07-11.
+
 Every figure in `FINDINGS.md` (and the PR body) is reproduced **in this branch
 from committed code** on the **real reachable suite**: a **live headline suite of
 23 real events / 7 domains** plus a separately-reported **reconstructed-from-live

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Space-weather event-coincidence: a real, mission-justified application of the WS-D pre-registered null-test machinery.
 
-WS-D built reusable scientific-integrity infrastructure (honest ingestion,
+WS-D built reusable scientific-integrity infrastructure (transparent ingestion,
 pre-registration, a permutation null, multiple-comparison correction) for the
 GCP/parapsychology question -- which returned a faithful null and is closed. This
 harness **harvests** that machinery onto a real, in-scope, life-safety problem:
@@ -15,7 +15,7 @@ infrastructure), so detecting real driver-coincident disturbance is squarely in
 Mercury's mission. The test is **non-circular**: the score stream (planetary Kp,
 a geomagnetic instrument) and the event catalog (GOES X-ray M/X flares, a solar
 instrument) are physically coupled but *independently measured* -- so a positive
-result is real, not a label leak, and a null is a valid, honest outcome.
+result is real, not a label leak, and a null is a valid, transparent outcome.
 
 Both the data sources are NOAA SWPC public domain (reused from
 ``space/schumann_labeling.py``). The harness:
@@ -23,7 +23,7 @@ Both the data sources are NOAA SWPC public domain (reused from
 1. runs a **deterministic synthetic positive-control + null** (always
    reproducible) to validate the machinery;
 2. attempts the **real** NOAA Kp-vs-flare test and reports reachability +
-   result honestly (a faithful null or weak/strong signal -- whatever the data
+   result transparently (a faithful null or weak/strong signal -- whatever the data
    says, Bonferroni-corrected).
 
 No overclaim: the pre-registration fixes the statistic and correction before the
@@ -93,7 +93,7 @@ def synthetic_validation() -> dict[str, Any]:
 
 
 def _fetch_real() -> dict[str, Any]:
-    """Attempt the real NOAA Kp-vs-flare coincidence test; honest on failure."""
+    """Attempt the real NOAA Kp-vs-flare coincidence test; transparent on failure."""
     from datetime import timedelta
 
     from omni_mercury_engine.datasets.base import http_get_with_retry
@@ -177,7 +177,7 @@ def main() -> int:
     elif real.get("result", {}).get("n_in_window", 0) == 0:
         verdict = (
             "DEGENERATE -- no GOES flare windows in the live Kp span (quiet period); "
-            "honest null. Machinery validated on synthetic control."
+            "transparent null. Machinery validated on synthetic control."
         )
     else:
         sig = real.get("significant_bonferroni", False)

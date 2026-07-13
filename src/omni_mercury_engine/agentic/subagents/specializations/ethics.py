@@ -16,7 +16,7 @@ fleet subagent. It performs *real* evaluation, not a stub:
 The evaluation is deterministic and side-effect free (no network, file, database,
 clock, logging, or thread I/O): violation identifiers are derived from the
 system identifier and the offended principle so identical inputs yield identical
-output. The subagent raises :class:`SubAgentExecutionError` on honest failure
+output. The subagent raises :class:`SubAgentExecutionError` on transparent failure
 (a missing required payload), never fabricating a clean bill of health.
 
 Payload contract (``task.payload``):

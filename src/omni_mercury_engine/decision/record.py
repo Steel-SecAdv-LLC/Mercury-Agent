@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The auditable artifact the closed loop emits for every event.
 
-A :class:`DecisionRecord` is the loop's "measurement, or honest abstention" --
+A :class:`DecisionRecord` is the loop's "measurement, or transparent abstention" --
 the operational sibling of the governance layer's ``GovernanceScalar``.  It
 carries the grounded label *or* an explicit abstention, the calibrated
 confidence (only when a coverage certificate backs it), the bounded response,
@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class DecisionRecord:
-    """A single closed-loop verdict: a grounded call or an honest abstention.
+    """A single closed-loop verdict: a grounded call or a transparent abstention.
 
     Attributes:
-        state: The honesty verdict -- ``GROUNDED`` / ``UNAVAILABLE`` /
+        state: The transparency verdict -- ``GROUNDED`` / ``UNAVAILABLE`` /
             ``UNDECIDABLE`` (the engine-wide three-state invariant).
         disposition: The operational stance (act / clear / defer / hold).
         decision_label: The grounded label (``1`` anomaly / ``0`` normal) when
@@ -41,14 +41,14 @@ class DecisionRecord:
         threshold: The decision threshold in play.
         decision_confidence: Confidence in the grounded label -- the
             distribution-free ``coverage`` when calibrated, a margin heuristic
-            when not, and ``None`` when abstaining (honest: no grounded label
+            when not, and ``None`` when abstaining (transparent: no grounded label
             to be confident about).
         coverage: The conformal coverage level, when a certificate was present.
         calibrated: Whether a coverage certificate backed this decision.
         severity: Event severity in ``[0, 1]``.
         response: The bounded, non-destructive :class:`ResponsePlan`.
         reasons: Ordered, human-readable drivers of the verdict.
-        caveats: Non-blocking honesty notes (e.g. ethical gate not run).
+        caveats: Non-blocking transparency notes (e.g. ethical gate not run).
         signals: Provenance -- the normalised evidence the verdict used.
         domain: Optional domain hint.
     """

@@ -14,7 +14,7 @@ self-contained safety layers ported from FINDΩYOU™'s former agent layer:
   analysis — no external rogue-AI defense system is consulted.
 
 The subagent performs genuine screening: it never fabricates an "allowed"
-verdict, and it fails honestly when there is nothing to screen.
+verdict, and it fails transparently when there is nothing to screen.
 """
 
 from __future__ import annotations

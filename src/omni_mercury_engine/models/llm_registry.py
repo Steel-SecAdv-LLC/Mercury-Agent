@@ -351,7 +351,7 @@ class LLMModelRegistry:
 
         When ``max_input_cost_per_mtok`` is given, local/builtin models always
         qualify (they are free); a cloud spec with **no declared price** cannot
-        honestly satisfy a budget, so it is excluded (unknown cost, sorted
+        transparently satisfy a budget, so it is excluded (unknown cost, sorted
         last) rather than assumed free.
 
         Args:
@@ -382,7 +382,7 @@ class LLMModelRegistry:
             if max_input_cost_per_mtok is not None:
                 effective_cost = _effective_input_cost(spec)
                 if effective_cost is None:
-                    # Undeclared cloud price: unknown, cannot honestly satisfy a
+                    # Undeclared cloud price: unknown, cannot transparently satisfy a
                     # budget. (Local/builtin are free and never reach here.)
                     continue
                 if effective_cost > max_input_cost_per_mtok:

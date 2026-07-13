@@ -1,5 +1,7 @@
 # Mercury Calibration–Alignment: Validation & Exploration Report
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+
 Independent reimplementation from the brief's formulas (no prior-session code reused —
 independent reimplementation *is* the validation). All code in this directory; results
 captured in `results/`. Deterministic (seeds fixed; byte-identical reruns verified).
@@ -9,10 +11,12 @@ captured in `results/`. Deterministic (seeds fixed; byte-identical reruns verifi
 > from `refs/pull/275/head`, commit `bc211a0`). Ported into the tree:
 > `StrictIsotonicCalibration` (X1 survivor), wired as
 > `core/calibration.py::calibrate_detector(..., method="strict_isotonic")`,
-> the five stale "requires scikit-learn" messages reworded (V12c), and this
-> evidence suite. **Not** ported, with reasons: the brief's `BetaCalibration`
-> (`main` has since shipped its own accept-gated Beta via PR #278 —
-> `fit_accept_gated_mca`); the X12a η-multiply lint (PR #278 settled the η^Φ
+> the brief's `BetaCalibration` (subsequently ported as a standalone class at
+> `core/calibration.py`, coexisting with `main`'s own accept-gated Beta shipped
+> via PR #278 — `fit_accept_gated_mca` — though not wired into the
+> `calibrate_detector` method dispatch), the five stale "requires scikit-learn"
+> messages reworded (V12c), and this evidence suite. **Not** ported, with
+> reasons: the X12a η-multiply lint (PR #278 settled the η^Φ
 > term as an opt-in decoupling, R6 default-off, so the lint would flag the
 > shipped intentional design); the MATH_SPEC φ_sum patch (superseded by the
 > `Φ + 2` single canonical derivation now in `docs/MATH_SPEC.md`). The X8
@@ -56,7 +60,7 @@ to **6.9e-18** — exact. V1's invariance Δ is **identically 0**. The scramble/
 reproduce: post-hoc maps recover information that was bijectively hidden (V8) but cannot
 create discrimination a folding destroyed (anti-claim, **G2**).
 
-### V9–V11 (real ADBench; IsolationForest-200; 50/25/25; seeds 0–4) — validated, 2 honest deviations
+### V9–V11 (real ADBench; IsolationForest-200; 50/25/25; seeds 0–4) — validated, 2 transparent deviations
 
 Six datasets: `6_cardio, 23_mammography, 38_thyroid, 31_satimage-2, 28_pendigits, 30_satellite`.
 
@@ -95,21 +99,35 @@ Six datasets: `6_cardio, 23_mammography, 38_thyroid, 31_satimage-2, 28_pendigits
 - **(a) Beta-calibration gap is real.** No score→probability Beta calibration anywhere in
   `src/`. (There is a `agentic/bayesian_calibrator.py` Beta-*Bernoulli* agent-reliability
   estimator — unrelated to calibration maps.) **Filled** in this PR.
-- **(b) Weight inconsistency — four ways, confirmed with receipts:**
-  - `fusion.py:139` (runtime default): `phi+2` → (0.4472, 0.2764, 0.2764) [equal H,O]
-  - `fusion.py:367` & `:430`: `phi+1+1/phi` = **2Φ** ≈ 3.236 → (0.5000, 0.3090, 0.1910)
-  - `docs/MATH_SPEC.md §2.1.1`: claimed `φ_sum ≈ 2.8944` → (0.559, 0.345, 0.214) —
-    **arithmetically wrong** (Φ+1+1/Φ = 2Φ ≈ 3.236; the 2.8944 = Φ+1+1/φ_sum, a
-    cross-mix of the two schemes). Its "authoritative" note is *also* wrong: no fusion.py
-    site computes 0.559/0.345/0.214.
-  - `README:666` writes formula `φ/(φ+1+1/φ) ≈ 0.447`, but φ/(φ+1+1/φ)=φ/2φ=**0.5** —
-    the README pairs the 2Φ denominator with the Φ+2 answer (internally contradictory).
-  - **Fixed** in `docs/MATH_SPEC.md` (truth-up table + reconciliation; see X8).
-- **(c) Stale "requires scikit-learn" messages** at calibration.py lines 149/227/331/434/494;
-  backing `ml/mercury_ml.py` imports only numpy/scipy. **Fixed** (reworded all five).
-- **(d) η^p multiply at fusion.py:236–237** (`ethical_scaling = eta**exponent;
-  fusion_score = weighted_sum * ethical_scaling`) — the calibration-corrupting dial (V6).
-  **Confirmed**; gate-hardening lint added (X12a) that flags exactly this line.
+- **(b) Weight inconsistency — flagged at the 2026-06-12 audit; since RESOLVED.** At audit
+  time the fusion-weight denominator was written four ways (`Φ+2`, `2Φ`, a cross-mixed
+  `φ_sum ≈ 2.8944`, and a README formula pairing the `2Φ` denominator with the `Φ+2`
+  answer). The tree has since been reconciled to a single canonical `PHI:1:1` derivation —
+  every weight-init site now computes `phi_sum = phi + 2.0  # canonical PHI:1:1`:
+  - `src/omni_mercury_engine/core/three_r/fusion.py:151` (runtime default,
+    `OmniAvaEquation.__init__`): `phi_sum = self.phi + 2.0  # ≈ 3.618` →
+    (0.4472, 0.2764, 0.2764).
+  - `src/omni_mercury_engine/core/three_r/fusion.py:388` and `:449` (the L-BFGS-B
+    `initial_weights` seed and `DomainAdaptiveOAEWeights._default_weights`): both use the
+    same `phi + 2.0` denominator — the former `2Φ ≈ 3.236` scheme is gone.
+  - `docs/MATH_SPEC.md`: the arithmetically-wrong `φ_sum ≈ 2.8944` value no longer appears
+    (grep returns no match); §2.1.1 and the constants table (line 78, table line 759) now
+    state `w_R = Φ/φ_sum ≈ 0.4472` and map it to `core/three_r/fusion.py`.
+  - `README.md:732`: now reads `w_R = φ/(φ+2) ≈ 0.447` (canonical `Φ:1:1`), self-consistent;
+    the earlier internally-contradictory `φ/(φ+1+1/φ)` form is gone.
+  - **Resolved** in `docs/MATH_SPEC.md` (truth-up table + reconciliation; see X8) and the
+    fusion sources; no live four-way inconsistency remains.
+- **(c) Stale "requires scikit-learn" messages** at `core/calibration.py` (now at lines
+  141/219/620/723/785 after the rewording); backing `ml/mercury_ml.py` imports only
+  numpy/scipy. **Fixed** (reworded all five to "pure numpy/scipy; no scikit-learn").
+- **(d) η^Φ multiply at `core/three_r/fusion.py:251–252`** — the calibration-corrupting dial
+  (V6). At audit time this was an unconditional `fusion_score = weighted_sum * eta**exponent`;
+  PR #278 settled it as an opt-in, default-off decoupling, so the site now reads
+  `ethical_scaling = 1.0 if self.decouple_ethical_scaling else eta**self.ethical_exponent`
+  (`decouple_ethical_scaling` default `False`, `three_r/fusion.py:67,138`; `ethical_exponent`
+  configurable, `:66`). **Confirmed** as the mechanism V6 damages; the X12a lint (authored in
+  PR #275) flags exactly this pattern but is deliberately not ported, since it would flag the
+  now-intentional gated design (see X12a).
 
 ---
 
@@ -171,21 +189,23 @@ the tree and not wired into CI.
 ---
 
 ## What changed in the repo (all additive / truth-up; no behavioural change to the engine)
-- `src/omni_mercury_engine/core/calibration.py`: **+`BetaCalibration`** (V12a/V10),
-  **+`StrictIsotonicCalibration`** (X1), `calibrate_detector` gains `beta`/`strict_isotonic`,
+- `src/omni_mercury_engine/core/calibration.py`: **+`BetaCalibration`** (V12a/V10, a
+  standalone class — not wired into the `calibrate_detector` method dispatch, whose
+  whitelist is `auto`/`platt`/`isotonic`/`strict_isotonic`/`temperature`),
+  **+`StrictIsotonicCalibration`** (X1), `calibrate_detector` gains `strict_isotonic`,
   five stale "requires scikit-learn" messages reworded (V12c). Existing classes untouched.
 - (`tools/lint_no_eta_score_multiply.py`: X12a gate-hardening lint — **authored in PR #275, deliberately not ported**; see X12a above.)
 - `docs/MATH_SPEC.md`: φ_sum arithmetic truth-up + weight reconciliation (V12b/X8).
-- `tests/test_calibration_brief.py`: dual-path tests for the new calibrators + the lint.
+- `tests/test_calibration_brief.py`: tests for the ported `StrictIsotonicCalibration` (X1 survivor). `BetaCalibration` was ported as a standalone class (see above) but is not exercised by *this brief's* test file — `main`'s accept-gated Beta (`fit_accept_gated_mca`) and the standalone `BetaCalibration` are both covered by `tests/test_beta_calibration.py` — and the X12a eta-multiply lint was not ported (see above).
 - `benchmarks/calibration_brief/`: this suite + `results/`.
 
 > **Not changed (flagged for a follow-up with its own Standard Track):** removing the η
-> multiply from `fusion.py:236–237` and enforcing η as a second hard veto beside
+> multiply from `core/three_r/fusion.py:251–252` and enforcing η as a second hard veto beside
 > σ_Immutable. This is behaviourally significant and needs the fusion test-suite (blocked
 > here by the mandatory PQC import gate — `ama_cryptography` unavailable). The X12a lint
 > makes the bug class detectable in the meantime.
 
-## Pre-registered but NOT yet run (honest scope; each retains its kill criterion)
+## Pre-registered but NOT yet run (transparent scope; each retains its kill criterion)
 X3 multicalibration/Mondrian · X4 BBSE/Saerens label-shift π̂ · X5 smooth/kernel ECE ·
 X6 anytime-valid e-process monitor · X7 decision calibration · X9 2-component Beta mixture ·
 X10 weighted/adaptive conformal · X11 logit-space calibration (needs torch) ·
@@ -195,7 +215,7 @@ warning · X16 MISE-optimal binning · X17 e-value-gated actions. None claimed; 
 ## Operating-rule compliance
 R1 pre-registration (metric+kill stated before each run) ✓ · R2 every number incl. losses
 (CIR, τ-detector, X1-clip bug) ✓ · R3 Φ swept, not assumed ✓ · R4 ethics gate only hardened,
-never in a loss ✓ · R5 determinism: byte-identical reruns verified ✓ · R6 honest naming (no
+never in a loss ✓ · R5 determinism: byte-identical reruns verified ✓ · R6 transparent naming (no
 "quantum"/"cosmic" claims made) ✓ · R7 new methods (Beta, StrictIsotonic) ran the full
 synthetic+real track before adoption ✓. Ceiling (G4): no method beats the conditional-mean
 oracle on any metric — all tie or fall short, as the theorem requires.

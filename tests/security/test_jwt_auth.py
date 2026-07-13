@@ -112,7 +112,7 @@ class TestJWTAuthMissingKey:
         and ``self.secret_key`` must be populated. Pre-PR-#167 the test
         asserted ValueError unconditionally, which silently masked the AMA
         success path the moment the upstream library landed; splitting the
-        contract into two paths surfaces both branches honestly.
+        contract into two paths surfaces both branches transparently.
         """
         with patch.dict(os.environ, {"MERCURY_AGENT_ENV": "production"}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)

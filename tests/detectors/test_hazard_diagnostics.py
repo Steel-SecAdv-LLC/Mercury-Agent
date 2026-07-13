@@ -210,7 +210,7 @@ class TestMeteorDiagnostics:
     def test_no_radar_no_diagnostics(self) -> None:
         detector = MeteorDetector(use_nasa_data=False, keep_diagnostics=True)
         result = detector.predict_meteor(optical_data=np.ones(64))
-        # No radar series -> no Doppler profile was computed -> honestly absent.
+        # No radar series -> no Doppler profile was computed -> transparently absent.
         assert result.diagnostics is None
 
 
@@ -306,7 +306,7 @@ class TestTornadoDiagnostics:
         np.testing.assert_allclose(field, radar_sequence, rtol=1e-6)
         # Attention weights exist only on the trained-LSTM path; the physics
         # couplet fallback (untrained default) consumes the same field but
-        # computes no attention, so none is captured (honestly absent).
+        # computes no attention, so none is captured (transparently absent).
         assert "radar_attention" not in diag.arrays
         # The located couplet is the injected gate pair.
         assert diag.context["couplet_row"] == 4
@@ -347,7 +347,7 @@ class TestHurricaneDiagnostics:
         assert diag.context["max_abs_vorticity"] == pytest.approx(3e-4, rel=1e-6)
         assert diag.context["max_wind_speed"] == pytest.approx(float(speed.max()))
         # No storm-track cone anywhere: the track model was removed as uncomputed
-        # (the honesty wave deleted the fabricated field entirely — lock its
+        # (the transparency wave deleted the fabricated field entirely — lock its
         # absence, not an empty value).
         assert "track" not in " ".join(diag.arrays)
         assert not hasattr(result, "track_forecast")
@@ -382,7 +382,7 @@ class TestVolcanicDiagnostics:
         self, seismic_sequence: np.ndarray[Any, Any]
     ) -> None:
         """Physics path (untrained default): the persisted series is the robust
-        z-score series the swarm decision is computed from, honestly named
+        z-score series the swarm decision is computed from, transparently named
         ``seismic_robust_z`` — no attention exists on this path and none is
         drawn. The HMM state belief is a real Bayesian intermediate updated
         from binary observations on every path, so it is captured too."""

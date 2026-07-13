@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Three-state honesty contract for descriptive (metric-only) governance scalars.
+"""Three-state transparency contract for descriptive (metric-only) governance scalars.
 
 Governance, medical, and AI-assurance frameworks *describe* a system; they do not drive
 the σ_Immutable decision boundary.  Every scalar defined under this contract is therefore
@@ -31,7 +31,7 @@ The distinction between the last two is a per-family **vetting judgment made onc
 design time** (see :class:`SignalClass` / :data:`GOVERNANCE_FAMILY_VET`), not a runtime
 computation.  Mapping the old two-state ``unavailable`` mechanically onto
 :attr:`ThreeState.UNAVAILABLE` would collapse three states back into two; a family is only
-honest-by-default if its abstention is UNAVAILABLE *because a real signal exists*.
+transparent-by-default if its abstention is UNAVAILABLE *because a real signal exists*.
 """
 
 from __future__ import annotations
@@ -242,7 +242,7 @@ GOVERNANCE_FAMILY_VET: dict[str, FamilyVet] = {
 
 @dataclass(frozen=True)
 class GovernanceScalar:
-    """A single descriptive governance measurement, or an honest abstention.
+    """A single descriptive governance measurement, or a transparent abstention.
 
     Attributes:
         name: Metric-only scalar key (must match a ``_METRIC_ONLY_PREFIXES`` entry).

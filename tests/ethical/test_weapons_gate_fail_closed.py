@@ -5,7 +5,7 @@
 Simulates missing dependencies/fits and internal faults and asserts the gate
 *refuses* rather than silently allows:
 
-* a MISSING calibration fit falls back to hand-set defaults (honest, not
+* a MISSING calibration fit falls back to hand-set defaults (transparent, not
   calibrated) -- and the B7-B10 HARD_REFUSE does not depend on the fit at all;
 * an internal fault in assessment fails closed to HARD_REFUSE;
 * the benevolence approval threshold cannot be lowered below its absolute floor.

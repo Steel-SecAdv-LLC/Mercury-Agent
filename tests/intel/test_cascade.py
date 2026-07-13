@@ -83,7 +83,7 @@ def test_instrumentation_and_compute_savings_meet_value_target() -> None:
 
 
 def test_report_count_fields_are_ints_and_json_serializable() -> None:
-    """report() is honestly typed dict[str, float | int]: the n_* fields are exact
+    """report() is transparently typed dict[str, float | int]: the n_* fields are exact
     integer counts (not floats masquerading as counts) and the whole mapping is
     JSON-serializable."""
     import json

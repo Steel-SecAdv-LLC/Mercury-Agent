@@ -6,7 +6,7 @@ Pins the contract the fleet exposes to the main agent: the engine-mediated
 access boundary (users cannot address subagents directly), deterministic
 capability routing to pantheon members, genuine delegated work (Mercury's own
 detection via ``Zeus_VIII``; real subsystem binding via coordinators), mass
-("in the masses") dispatch with honest aggregation and surfaced failures, the
+("in the masses") dispatch with transparent aggregation and surfaced failures, the
 fail-closed dual ethical gate at the commit boundary, governor enforcement, and
 the Omni-Code anchor surfaced on every result.
 """

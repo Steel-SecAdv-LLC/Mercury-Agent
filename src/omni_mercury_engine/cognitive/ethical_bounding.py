@@ -57,7 +57,7 @@ class BenevolenceCalibration:
     """Calibration knobs for the benevolence scorer.
 
     These parameters are meant to be *fit on labeled decisions* rather than
-    hand-set. The defaults below are honest fallbacks; a fitted set is produced
+    hand-set. The defaults below are transparent fallbacks; a fitted set is produced
     by ``scripts/fit_weapons_gate_calibration.py`` from the labeled corpus in
     ``benchmarks/weapons_gate_corpus.jsonl`` and written to
     ``configs/weapons_gate_calibration.json``, which :meth:`load_default` reads at
@@ -120,7 +120,7 @@ class BenevolenceCalibration:
         """Load fitted parameters from ``configs/weapons_gate_calibration.json``.
 
         Falls back to the hand-set defaults (``source="default"``) when the file
-        is absent or unreadable -- fail-safe and honest: an unfit deployment is
+        is absent or unreadable -- fail-safe and transparent: an unfit deployment is
         labelled ``default``, never silently presented as calibrated. Only known
         float fields are accepted from the file; unknown keys are ignored.
         """
@@ -889,7 +889,7 @@ def _offensive_confidence(
     + w_classifier*boost)``. Monotone increasing in offensive evidence, the
     hazard weight, and the classifier signal; decreasing in allow-signal. The
     coefficients are fit on the labeled corpus (see
-    :meth:`BenevolenceCalibration.load_default`); the defaults are honest
+    :meth:`BenevolenceCalibration.load_default`); the defaults are transparent
     fallbacks. Returns a value in ``(0, 1)``.
     """
     z = (

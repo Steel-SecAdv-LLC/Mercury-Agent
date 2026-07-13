@@ -348,7 +348,7 @@ class MultiHeadAttentionProvider(AttentionProvider):
     via ``average_attn_weights=False``), then :meth:`get_attention` returns the
     most-recent ``(num_heads, seq_len, seq_len)`` scores.  Before any forward,
     :meth:`get_attention` raises ``RuntimeError`` per the ABC contract — the
-    optimizer then honestly skips the metric rather than scoring noise.
+    optimizer then transparently skips the metric rather than scoring noise.
 
     ``num_heads`` defaults to 32 to match :class:`AttentionOptimizer`'s 32-head
     triadic φ-weighting, so the provider plugs straight into
@@ -417,7 +417,7 @@ class MultiHeadAttentionProvider(AttentionProvider):
 
         Raises:
             RuntimeError: If :meth:`observe` has not been run yet (no forward
-                pass), so the optimizer honestly skips the metric instead of
+                pass), so the optimizer transparently skips the metric instead of
                 scoring noise.
         """
         if self._last_attention is None:

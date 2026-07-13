@@ -333,7 +333,7 @@ class WinterStormDetector:
         snow cools the air toward the wet bulb by evaporation/melting
         (operational wet-bulb rule of thumb).
 
-        Honest limitation: surface-only data cannot detect an elevated warm
+        Transparent limitation: surface-only data cannot detect an elevated warm
         nose, so this method **cannot** discriminate freezing rain or sleet
         from snow -- those require the profile-based
         :meth:`precip_type_partial_thickness`.  This method therefore only

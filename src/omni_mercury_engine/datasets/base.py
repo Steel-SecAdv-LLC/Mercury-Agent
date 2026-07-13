@@ -364,7 +364,7 @@ class DatasetLoader(ABC):
     # anomaly labels by thresholding a score/feature (z-score, percentile,
     # domain cut) or by synthetic generation MUST override this to
     # ``"statistical"`` so headline supervised AUC excludes them as circular.
-    # Defaults to ``"ground_truth"``; override to be honest.
+    # Defaults to ``"ground_truth"``; override to be transparent.
     LABEL_SOURCE: str = "ground_truth"
 
     def __init__(self, config: DatasetConfig) -> None:

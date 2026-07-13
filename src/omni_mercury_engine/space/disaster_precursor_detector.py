@@ -173,7 +173,7 @@ class GeomageticCorrelator:
         Args:
             schumann_anomaly: Schumann resonance anomaly data
             geomagnetic_data: Observed Kp/Dst indices. When absent (or an
-                index is missing) the analysis reports honestly: status
+                index is missing) the analysis reports transparently: status
                 ``"unknown"``, ``kp_index``/``dst_index`` ``None``, and a
                 ``geomagnetic_data_unavailable`` indicator. No quiet-time
                 default is ever invented — a fabricated Kp 3.0 / Dst −20

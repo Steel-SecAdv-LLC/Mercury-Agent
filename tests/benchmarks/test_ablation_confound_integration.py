@@ -94,4 +94,4 @@ def test_neurosymbolic_clean_is_not_downgraded() -> None:
     ]
     v = ns_verdict(results)
     assert v["confound"]["confounded"] is False
-    assert v["passed"] is False  # honest quarantine (no improvement), not confound
+    assert v["passed"] is False  # transparent quarantine (no improvement), not confound

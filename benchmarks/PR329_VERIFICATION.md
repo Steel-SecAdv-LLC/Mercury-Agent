@@ -1,5 +1,7 @@
 # PR #329 — independent verification report
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This report records an **independent, end-to-end re-run** of the detector-tier
 hardening deliverables and the six wired-subsystem commits carried by PR #329,
 performed from a clean checkout with a freshly built real AMA Cryptography
@@ -112,8 +114,8 @@ python -m pytest tests/cognitive/ tests/ethical/ tests/test_drift_recalibration.
 | --- | --- | --- | --- |
 | `097d2e6` | AutoML optimizer fixes + Tree SHAP + interaction matrix | `test_optimizer.py` (f1 no-recursion, continuous-score AUC, seeded), `test_shap_tree.py` (SHAP additivity, global interaction) | ✅ |
 | `f587764` | `CachedBenevolenceScorer` on the engine ethics boundary | `test_benevolence_cache_wiring.py` (cached by default, repeat detection hits cache) | ✅ |
-| `72510ce` | GDPR Art. 22 report via `detect_with_fusion(gdpr_report=True)` | `test_gdpr_seam.py` (report attached when requested, absent by default, SHAP background captured by `fit_fusion`) | ✅ |
-| `1c4a64e` | `engine.tune_fusion` + `mercury-agent tune` CLI | `test_tune_fusion.py` (end-to-end small, CLI smoke, requires both classes) | ✅ |
+| `72510ce` | GDPR Art. 22 report via `detect_with_fusion(gdpr_report=True)` | `tests/explainability/test_gdpr_seam.py` (report attached when requested, absent by default, SHAP background captured by `fit_fusion`) | ✅ |
+| `1c4a64e` | `engine.tune_fusion` + `mercury-agent tune` CLI | `tests/automl/test_tune_fusion.py` (end-to-end small, CLI smoke, requires both classes) | ✅ |
 | `66eda45` | `CuriosityEngine` + `EnhancedAnomalyDetector` in `CognitiveOrchestrator.analyze()` | `test_orchestrator_novelty_wiring.py` (curiosity + enhanced detector invoked in `analyze`, no network I/O) | ✅ |
 | `81b5f82` | AutoML samplers honour `seed=` | `test_optimizer.py::test_seeding_is_reproducible` | ✅ |
 

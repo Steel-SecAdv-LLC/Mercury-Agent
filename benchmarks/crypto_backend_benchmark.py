@@ -126,7 +126,7 @@ def run(mb: float, iters: int) -> dict[str, Any]:
         result["measured_speedup_rust_vs_python"] = None
         result["claim"] = (
             "Rust backend built, but Python BLAKE3 reference is unavailable. "
-            "Install the `blake3` wheel to compute an honest like-for-like "
+            "Install the `blake3` wheel to compute a transparent like-for-like "
             "Rust-vs-Python BLAKE3 speedup; no speedup figure emitted."
         )
     else:

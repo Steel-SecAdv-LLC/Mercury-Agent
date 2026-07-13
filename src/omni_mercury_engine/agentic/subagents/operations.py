@@ -8,7 +8,7 @@ This module deepens each coordinator pantheon member from a *subsystem binding*
 :class:`~omni_mercury_engine.agentic.subagents.coordinator.CoordinatorSubAgent`
 dispatches to: each adapter invokes the member's **real**
 ``omni_mercury_engine`` entrypoint with inputs derived from
-``task.payload`` and returns the honest result of that call.
+``task.payload`` and returns the transparent result of that call.
 
 Contract of an adapter ``(agent, task) -> (output, confidence, reasoning) | None``:
 
@@ -17,7 +17,7 @@ Contract of an adapter ``(agent, task) -> (output, confidence, reasoning) | None
   JSON-friendly ``dict`` carrying the genuine result; the coordinator stamps it
   with ``mode="operation"`` and the member's identity/anchor.
 * It returns ``None`` when it is *input-gated* and the required inputs are absent
-  from the payload — the coordinator then falls back to the honest
+  from the payload — the coordinator then falls back to the transparent
   import+introspect *binding report* (``mode="binding"``). Members whose real
   entrypoint takes no input (e.g. ``Artemis_VI`` registry fetch, ``Rhea_XXXIII``
   resilience stats) never return ``None``: their no-input call *is* the real op,
@@ -27,10 +27,10 @@ Contract of an adapter ``(agent, task) -> (output, confidence, reasoning) | None
   but malformed, or the entrypoint refuses — it never substitutes synthetic
   output for a real failure.
 * It returns ``None`` when its subsystem is genuinely unimportable, so the
-  fallback binding report can surface that unavailability honestly (and fail
+  fallback binding report can surface that unavailability transparently (and fail
   closed if *no* subsystem of the member binds at all).
 
-Friction members are handled honestly, not papered over:
+Friction members are handled transparently, not papered over:
 
 * ``Artemis_VI`` genuinely attempts a bounded network fetch over real data
   sources and reports true per-source reachability — green or red, never faked.
@@ -70,7 +70,7 @@ _CLUSTER_TIMEOUT_S = 15.0
 
 
 # ---------------------------------------------------------------------------
-# Small honest helpers
+# Small transparent helpers
 # ---------------------------------------------------------------------------
 
 
@@ -278,7 +278,7 @@ _ARTEMIS_DEFAULT_SOURCES: tuple[str, ...] = ("USGSEarthquakeSource", "NASADONKIS
 
 
 def _op_artemis(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResult | None:
-    """Real op: genuinely attempt ``data_sources`` fetch; report honest reachability."""
+    """Real op: genuinely attempt ``data_sources`` fetch; report transparent reachability."""
     try:
         from omni_mercury_engine import data_sources
         from omni_mercury_engine.data_sources import DataSourceManager
@@ -303,7 +303,7 @@ def _op_artemis(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResu
         try:
             manager.register_source(cls())
             registered.append(name)
-        except Exception as exc:  # construction needs config we do not have — honest skip
+        except Exception as exc:  # construction needs config we do not have — transparent skip
             skipped[name] = f"{type(exc).__name__}: {exc}"
 
     if not registered:

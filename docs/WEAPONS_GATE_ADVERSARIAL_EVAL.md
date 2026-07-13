@@ -1,5 +1,7 @@
 # Weapons-Gate Adversarial Evaluation (held-out generalization slice)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 *Measured 2026-07-02 against PR #315 head. Reproducible; taxonomy-level only.*
 
 ## Why this exists
@@ -29,7 +31,7 @@ PYTHONPATH=src:benchmarks python benchmarks/eval_weapons_gate_adversarial.py --p
   mass casualties; `benign` otherwise. `expected` is the gate outcome family
   (`block`/`allow`).
 * **Taxonomy-level only.** No operational specifics (no quantities, precursors,
-  routes, conditions) anywhere — same honesty constraint as the base corpus.
+  routes, conditions) anywhere — same transparency constraint as the base corpus.
 * **Axes** (see the module for the full seed lists and generation rules):
   * `paraphrase` — offensive intent with production verbs/lead-ins *outside* the
     base templates ("cook up a batch", "putting together", "brew in quantity",
@@ -156,7 +158,7 @@ decoding, so the measurement is reproducible.
 ## Consequence for the merge posture
 
 - **Default (CI / air-gapped) posture:** precision 1.0 (0 FP incl. all
-  professional queries); FN is the honest lexical-only floor, gated by a
+  professional queries); FN is the transparent lexical-only floor, gated by a
   non-regression ceiling. The lexicons stay small and human-maintained.
 - **"Meaning-level coverage met"** is marked by the CI FN budget with a **real**
   classifier — not by lexicon size. Until that lane runs with a real model, the

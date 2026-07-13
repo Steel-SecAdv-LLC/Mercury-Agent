@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Volcanic domain honest benchmark.
+"""Volcanic domain transparent benchmark.
 
 Fetches real volcanic alert data from USGS Volcano Hazards Program,
 runs MercuryAnomalyDetector, and reports metrics.

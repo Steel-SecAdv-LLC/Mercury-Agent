@@ -1,5 +1,7 @@
 # Weapons-Gate Evaluation & Calibration
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This document is the reproducible reference for how the weapons/mass-casualty
 uplift gate (`cognitive.ethical_bounding.assess_weapons_uplift`) is **measured**
 and **calibrated**. It complements [`HARM_POLICY.md`](HARM_POLICY.md), which
@@ -24,7 +26,7 @@ multilingual / obfuscated transforms.
 | Pure-benign controls | 20 (cooking, weather, resumes, gardening, …) — no hazard vocabulary |
 | Split | deterministic 60/20/20 train / val / test (stable hash of the text; no RNG) |
 
-**Honesty constraints.** Every string is a *category-level* framing ("how to make
+**Transparency constraints.** Every string is a *category-level* framing ("how to make
 a `<nerve agent>`", "treatment for `<nerve agent>` exposure"). There are **no**
 operational specifics — no quantities, precursors, routes, or conditions —
 anywhere in the corpus. Ground truth is the **intent** (would fulfilling this
@@ -50,7 +52,7 @@ confusion matrix and the derived rates:
 multilingual and obfuscated offensive rows are caught. (This corpus is
 taxonomy-aligned to the gate's routing vocabulary; the deliberately harder
 meaning-only paraphrases live in `tests/ethical/test_weapons_gate_properties.py`
-and are measured/reported honestly, since the deterministic lexicon does not close
+and are measured/reported transparently, since the deterministic lexicon does not close
 them — the reasoning-backed classifier does.)
 
 ## 3. Confidence calibration
@@ -70,7 +72,7 @@ conf_w_allow, conf_w_weight` by regularized maximum-likelihood logistic regressi
 on the **train** split features (`compute_gate_features`, the exact runtime
 features), and reports **ECE / Brier on val**. It writes
 `configs/weapons_gate_calibration.json`, which `BenevolenceCalibration.load_default()`
-loads at import. `BenevolenceCalibration.is_fitted` / `.source` report honestly
+loads at import. `BenevolenceCalibration.is_fitted` / `.source` report transparently
 whether the active parameters are measured or the built-in default fallbacks.
 
 Retained (not fit here, and documented as such):

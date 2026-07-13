@@ -1,5 +1,7 @@
 # Detection Mechanisms Runbook
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Operational runbook for the streaming / statistical / state-space detector tier
 (package `omni_mercury_engine.detectors`, integration seam
 `omni_mercury_engine.detectors.detection_tier`). Read
@@ -10,12 +12,14 @@ runbooks: [`RETRAIN_RUNBOOK.md`](./RETRAIN_RUNBOOK.md),
 
 ## 1. What the tier is
 
-Eighteen `BaseDetector` detectors across six paradigms, auto-discovered through
+Sixteen `BaseDetector` detectors across six paradigms (the pure-NumPy
+`STREAMING_TIER`) plus two torch-gated members (`srcnn`, `diffusion_ad` in
+`TORCH_TIER`), auto-discovered through
 `core/detector_registry.py::DETECTOR_MANIFEST` and combined by
 `detection_tier.StreamingScoreEnsemble` into a calibrated, false-positive-bounded
-anomaly stream with graph-based root-cause attribution. Sixteen detectors are
-pure NumPy/SciPy and always available; `srcnn` and `diffusion_ad` require the
-`[ml]` (PyTorch) extra.
+anomaly stream with graph-based root-cause attribution. The sixteen paradigm
+detectors are pure NumPy/SciPy and always available; `srcnn` and `diffusion_ad`
+require the `[ml]` (PyTorch) extra.
 
 ## 2. Environment & configuration
 
@@ -73,10 +77,12 @@ uncertainty = ensemble.ensemble_uncertainty(live_series)
 ```
 
 On real streaming data without up-front labels, `average` is the recommended
-default combiner — it leads on the real-data NAB benchmark (ROC-AUC 0.613, ahead
-of `stacking` 0.571 / `bma` 0.563 on the labelled subset). Use `stacking` / `bma`
-only when abundant point labels are available to fit the meta-learner; on
-sparsely-labelled streams they do not beat `average`.
+default combiner: on the label-free 29-dataset NAB aggregate it reaches mean
+ROC-AUC 0.613. The two evaluations must be read on their own footing — on the
+15-dataset supervised subset (where the meta-learners can be fit) the three
+combiners are close and none dominates: `average` 0.569, `stacking` 0.571,
+`bma` 0.563 mean AUC. Use `stacking` / `bma` only when abundant point labels are
+available to fit the meta-learner; even then they do not reliably beat `average`.
 
 ### 3.3 Bound the false-positive rate
 
@@ -91,8 +97,11 @@ flags = conformal_flags(scores, calibration_scores=normal_scores, alpha=0.05)
 - Re-fit detectors on a fresh normal window whenever the baseline drifts; the
   `calibration_quantile` anchors the 0.5 boundary in the normal tail, so the FPR
   tracks `1 − calibration_quantile` without manual threshold tuning.
-- For labelled data, prefer stacking / BMA so the meta-learner reweights
-  detectors to the current regime. Follow [`RETRAIN_RUNBOOK.md`](./RETRAIN_RUNBOOK.md)
+- For labelled data, `stacking` / `bma` let the meta-learner reweight detectors
+  to the current regime, but the gain is marginal: on the 15-dataset supervised
+  subset `stacking` (0.571 mean AUC) is essentially tied with `average` (0.569)
+  and `bma` (0.563) trails both, so validate the lift on your own labelled window
+  before adopting a meta-learner. Follow [`RETRAIN_RUNBOOK.md`](./RETRAIN_RUNBOOK.md)
   for the staged deploy / rollback path.
 - Regenerate the benchmark after any detector change. A quick tier-only,
   real-data (NAB) summary — prints, does not commit:

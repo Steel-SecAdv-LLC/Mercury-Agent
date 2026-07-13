@@ -4,7 +4,7 @@
 
 Deterministic, literature-anchored analysis of the four observable channels
 used in operational rockfall monitoring. No neural network, no fabricated
-signal: every channel that lacks input data is honestly reported as
+signal: every channel that lacks input data is transparently reported as
 "not assessed" and contributes nothing to the hazard level.
 
 Channels implemented:
@@ -257,7 +257,7 @@ class RockfallDetector:
             ValueError: On a series shorter than 2 samples, non-finite
                 temperatures, shape mismatches, or when neither moisture
                 input is provided (moisture is a physical prerequisite —
-                refusing to guess it is the honest failure mode).
+                refusing to guess it is the transparent failure mode).
         """
         temp = np.asarray(rock_temperature_c, dtype=float)
         if temp.ndim != 1 or temp.size < 2:

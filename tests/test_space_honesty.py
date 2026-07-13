@@ -10,7 +10,7 @@ Regression locks for the anti-theater fixes:
   wind speed and IMF until real weights are loaded.
 * ``DisasterPrecursorDetector`` previously multiplied an untrained network's
   output by 9.0 to fabricate a Richter magnitude from EM features. No validated
-  physics supports that mapping, so the honest behaviour is to emit NO magnitude
+  physics supports that mapping, so the transparent behaviour is to emit NO magnitude
   (``estimated_magnitude=None``) until trained weights exist -- the real
   Schumann/geomagnetic/ionospheric/seismic correlation paths keep working.
 """

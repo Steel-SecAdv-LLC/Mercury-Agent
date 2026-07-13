@@ -1,6 +1,6 @@
 # Installation
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-16.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Requirements
 
@@ -185,10 +185,10 @@ into the runtime image with the virtualenv, and a build-time
 `import omni_mercury_engine` smoke test fails the build if the backend is
 missing. No extra steps are required to deploy a PQC-complete image.
 
-The inlined gate at
-`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate` runs at
-package import and refuses to proceed if the native library is
-unloadable — `import omni_mercury_engine` raises `RuntimeError` before
+The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
+imported and invoked from `__init__.py`) runs at package import and
+refuses to proceed if the native library is unloadable —
+`import omni_mercury_engine` raises `RuntimeError` before
 any other package state is materialised. There is no stub path and no
 fallback chain to a non-AMA backend.
 

@@ -1,6 +1,6 @@
 # Live Data Validation Guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 ## Overview
 
@@ -11,17 +11,23 @@ The committed `benchmarks/mercury_benchmark_results.json` run is the
 single source of truth:
 
 - **Committed benchmark run: 66 successful / 75 attempted.**
-  47 ADBench tabular + 28 domain loaders attempted; 10 external
+  47 ADBench tabular + 28 domain loaders attempted; 9 external
   sources unavailable / rate-limited. Measured **Mean AUC 0.8251 /
   Median 0.8747 / Mean Oracle F1 0.5998** (2026-06-21, commit
   a7a194b), surfaced in the README *Latest Benchmark Results* block
-  and regenerated on every push to `main`.
-- **CI regression-gate floor (historical): Mean AUC 0.803 / Mean
-  Oracle F1 0.589.** The benchmark workflow fails if ROC-AUC drops
-  below 0.75 or Mean Oracle F1 below 0.55 — ~7% margins below this
-  historical measured baseline (see `.github/workflows/benchmark.yml`).
+  and regenerated on every push to `main`. The 0.8251 headline is the
+  genuine-labels-only mean over the 53 genuine-labeled datasets
+  (`headline_label_policy = genuine_labels_only`, `n_genuine_labeled
+  = 53`).
+- **CI regression-gate floor: Mean AUC 0.8259 / Mean Oracle F1
+  0.6046** (post-de-leak baseline, commit e9feeec, #261). The
+  benchmark workflow fails if ROC-AUC drops below 0.75 or Mean Oracle
+  F1 below 0.55 — ~9% margins below this measured baseline (see
+  `.github/workflows/benchmark.yml`).
 - **Externally-comparable subset: ADBench Mean AUC 0.8251** — the
-  numbers comparable to published detectors (the self-labeled
+  numbers comparable to published detectors. The ADBench-comparable
+  figure coincides with the genuine-labels-only headline at 0.8251;
+  it is not a distinct ADBench-only subset (the self-labeled
   environmental loaders are threshold-derived; see the README
   "Label provenance and comparability" split).
 
@@ -145,8 +151,8 @@ appropriate timeouts in `.github/workflows/benchmark.yml`. If timeouts occur:
 
 The benchmark runs in CI via `.github/workflows/benchmark.yml` with regression gates:
 
-- `MIN_ROC_AUC: 0.75` (~7% margin from measured 0.803)
-- `MIN_F1: 0.55` (~7% margin from measured 0.589)
+- `MIN_ROC_AUC: 0.75` (~9% margin from measured 0.8259)
+- `MIN_F1: 0.55` (~9% margin from measured 0.6046)
 - `MERCURY_ALLOW_SYNTHETIC: false` (no synthetic data fallbacks)
 
 A PR that degrades detection performance below these thresholds will fail CI.

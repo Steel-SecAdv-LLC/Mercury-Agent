@@ -1,5 +1,7 @@
 # Fusion capacity sweep — evidence for the shipped `hidden_dim` default
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 `scripts/sweep_fusion_capacity.py` measures held-out AUC + ECE through the real
 `engine.fit_fusion` / `engine.score_fusion` path (i.e. the same path
 `detect_with_fusion` serves on the production decision boundary). This
@@ -59,7 +61,7 @@ genuinely-labelled ADBench datasets (`cardio`, `mammography`, `pendigits`,
 |   128 | −0.0010 | 0.0028 |    −0.35 |        1.00 | 11 / 11 |
 |   256 | −0.0139 | 0.0103 |    −1.35 |        0.52 |  9 / 13 |
 
-**Honest read of v3.** `dim = 64` has the highest mean AUC and the lowest mean
+**Transparent read of v3.** `dim = 64` has the highest mean AUC and the lowest mean
 ECE in this sweep. It is the empirical leader on the unpooled summary. But the
 paired analysis against `dim = 32` gives mean Δ = +0.0062 and paired t = +1.69
 — short of both the +0.02 delta threshold and the +2.0 t threshold. **None of
@@ -162,7 +164,7 @@ the +2.0 floor. **No dim passes the bump criterion**:
 
 The v3 "dim=64 wins by +0.006" and "dim=256 overfits by −0.014" stories were
 both noise — they shrunk to +0.0009 and −0.0027 respectively at 2.67× the
-power. The honest reading: across these 8 datasets, *no* dim in {32, 64,
+power. The transparent reading: across these 8 datasets, *no* dim in {32, 64,
 128, 256} can be distinguished from the others at α=0.05. Shipped width
 holds on positive evidence (deltas inside the noise floor by 6-20×), not
 on parsimony fallback.

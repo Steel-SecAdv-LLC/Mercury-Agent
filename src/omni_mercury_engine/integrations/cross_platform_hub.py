@@ -719,7 +719,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
         except ImportError:
             # No aiohttp → nothing was sent. Returning True here would make
             # send_batch() count this event as delivered (data loss masked as
-            # success). Report the failure honestly.
+            # success). Report the failure transparently.
             logger.error("aiohttp not installed; OTLP event was not delivered")
             return False
         except Exception as e:

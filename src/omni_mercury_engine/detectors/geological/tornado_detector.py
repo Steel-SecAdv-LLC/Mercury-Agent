@@ -811,14 +811,14 @@ class TornadoDetector:
             context["couplet_col"] = int(col)
             context["couplet_shear"] = float(gate_shear[row, col])
         else:
-            # A single-gate field has no adjacent-gate shear: say so honestly.
+            # A single-gate field has no adjacent-gate shear: say so transparently.
             context["couplet_row"] = None
             context["couplet_col"] = None
             context["couplet_shear"] = None
         arrays: dict[str, np.ndarray[Any, Any]] = {"doppler_velocity_field": field_2d}
         # Attention weights exist only on the trained-LSTM path; the physics
         # fallback consumes the same field but computes no attention, so none
-        # is included (honestly absent rather than fabricated).
+        # is included (transparently absent rather than fabricated).
         if "attention_weights" in radar_result:
             arrays["radar_attention"] = radar_result["attention_weights"]
         return HazardDiagnostics(

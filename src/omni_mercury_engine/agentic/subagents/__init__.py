@@ -18,7 +18,7 @@ engine-mediated path (``OmniMercuryEngine.enable_subagent_fleet`` /
 sentinel (:data:`base._INTERNAL`). Users never instantiate or address a subagent
 directly; the main agent calls on them.
 
-Honesty contract (anti-theater): no stage fabricates signal; subagent failures
+Transparency contract (anti-theater): no stage fabricates signal; subagent failures
 are surfaced, never silently dropped; the dual hard ethical gates (benevolence
 floor + σ-Immutable) run fail-closed at the fleet's commit boundary; and the
 autonomy governor enforces a real capability ceiling, ethical floor,

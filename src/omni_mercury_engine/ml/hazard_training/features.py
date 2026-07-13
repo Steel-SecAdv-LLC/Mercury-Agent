@@ -132,7 +132,7 @@ def build_geomag_feature_vector(
 
     Raises:
         ValueError: If speed or Bz is missing/non-finite -- there is no
-            honest fill for the two primary drivers.
+            transparent fill for the two primary drivers.
     """
     fill = fill or {}
     v_raw = fields.get("solar_wind_speed_km_s")

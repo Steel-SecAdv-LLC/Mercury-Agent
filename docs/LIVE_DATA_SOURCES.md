@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Live data sources & keyed loaders
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+
 Mercury's domain loaders fetch **real** measured data from public
 government/research/commercial APIs. Seven of these data sources authenticate
 with a key — and USGS EROS M2M uses **two** secrets (an application token *and*

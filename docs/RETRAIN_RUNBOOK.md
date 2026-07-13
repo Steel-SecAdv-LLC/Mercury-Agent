@@ -1,5 +1,7 @@
 # Closed-Loop Retrain Runbook
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Operator guide for Mercury's **accept-gated closed feedback loop**: the gated
 retrain and one-command rollback behind the harm gate. Package:
 `omni_mercury_engine.intel.feedback_loop`. Companion to

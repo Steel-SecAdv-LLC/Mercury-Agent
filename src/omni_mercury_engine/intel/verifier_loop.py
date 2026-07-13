@@ -9,7 +9,7 @@ oracle-validated verifier family (:mod:`omni_mercury_engine.verifiers`); this
 module routes *applicable* claims found in generated text through those oracles
 and, in ``hard`` mode, **blocks emission** when an oracle refutes one.
 
-The design mirrors the existing gate's honesty contract:
+The design mirrors the existing gate's transparency contract:
 
 * Only claims an oracle can *decide* participate. A claim the oracle cannot
   settle this run (a Collatz budget overrun, an unparseable formula) is recorded

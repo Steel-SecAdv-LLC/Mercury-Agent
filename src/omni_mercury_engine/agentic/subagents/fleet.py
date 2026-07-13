@@ -66,7 +66,7 @@ _MAX_POOL_WORKERS = 16
 
 @dataclass
 class AggregateResult:
-    """Honest aggregate over a homogeneous replica dispatch.
+    """Transparent aggregate over a homogeneous replica dispatch.
 
     Attributes:
         representative: Highest-confidence completed result (tie-broken by
@@ -181,7 +181,7 @@ class SubAgentFleet:
         """Route and run one task on one subagent, committed through the gate.
 
         The result is returned regardless of completed/failed/blocked status —
-        honest disposition — but only after the dual ethical gate authorizes the
+        transparent disposition — but only after the dual ethical gate authorizes the
         fleet to act in this domain (fail-closed; raises otherwise).
         """
         resolved = specialty or self._registry.match(task)
@@ -242,7 +242,7 @@ class SubAgentFleet:
 
         This is the "mine and dig … even in the masses" path: many full-
         capability subagents work the same task concurrently; the fleet
-        aggregates honestly (surfacing dissent and failures) and commits the
+        aggregates transparently (surfacing dissent and failures) and commits the
         aggregate through the dual ethical gate.
 
         Replicas are seeded ``base_seed + index`` for reproducibility; the
@@ -311,7 +311,7 @@ class SubAgentFleet:
 
     @staticmethod
     def _aggregate(results: Sequence[SubAgentResult]) -> AggregateResult:
-        """Honest aggregate over replicas: pick best, surface dissent/failures."""
+        """Transparent aggregate over replicas: pick best, surface dissent/failures."""
         completed = [r for r in results if r.status == "completed"]
         n_failed = sum(1 for r in results if r.status == "failed")
         n_blocked = sum(1 for r in results if r.status == "blocked")

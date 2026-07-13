@@ -8,7 +8,7 @@ the engine's live detector suite — so the main agent can fan detection work ou
 across the fleet (e.g. many replicas over shards of a stream) without
 re-implementing detection. It performs genuine planner-driven, consensus-based,
 ethically-gated detection; it never fabricates a verdict, and it abstains
-honestly below quorum.
+transparently below quorum.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ class DetectionSubAgent(SubAgent):
         ``payload['data']`` is the batch to score; optional ``payload['train']``
         supplies fit data (defaults to the batch itself — transductive). The
         episode runs the planner/consensus/critic tiers with the dual ethical
-        gate at its own decision boundary; this subagent surfaces the honest
+        gate at its own decision boundary; this subagent surfaces the transparent
         outcome (including abstention) and never substitutes synthetic signal.
         """
         raw = task.payload.get("data")
@@ -66,7 +66,7 @@ class DetectionSubAgent(SubAgent):
             episode = orchestrator.detect(X, domain=domain)
         except OrchestrationError as exc:
             # A fail-closed orchestration refusal (e.g. below quorum) is an
-            # honest failure of this task, surfaced — not a fabricated verdict.
+            # transparent failure of this task, surfaced — not a fabricated verdict.
             raise SubAgentExecutionError(f"detection orchestration refused: {exc}") from exc
 
         batch = episode.coordination

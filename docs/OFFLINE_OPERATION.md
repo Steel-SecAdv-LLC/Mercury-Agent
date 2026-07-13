@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Online and Offline Operation
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Mercury Agent runs in both connectivity modes. **Detection itself is fully
 local in either mode**: the engine, all detectors, fusion, the
 decision/abstention layer, the multi-agent orchestrator, the ethical gates,

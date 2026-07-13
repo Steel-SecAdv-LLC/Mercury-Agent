@@ -15,7 +15,7 @@ from benchmarks.neurosymbolic_ablation import (
 
 
 class TestFprAtRecall:
-    """fpr_at_recall must report a correct, honest operating point."""
+    """fpr_at_recall must report a correct, transparent operating point."""
 
     def test_perfect_separation_has_zero_fpr(self) -> None:
         y = np.array([0, 0, 0, 1, 1, 1])
@@ -118,7 +118,7 @@ def _afraction(
 
 
 class TestDeriveAdaptiveVerdict:
-    """The adaptive arm must earn default-on by dominance, honestly."""
+    """The adaptive arm must earn default-on by dominance, transparently."""
 
     def test_keep_on_low_lift_without_full_regression(self) -> None:
         results = [

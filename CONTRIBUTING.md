@@ -4,8 +4,8 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.7 |
-| Last Updated | 2026-06-17 |
+| Document Version | 2.8 |
+| Last Updated | 2026-07-11 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 | Applies to | Mercury Agent v2.1.x |
@@ -676,6 +676,7 @@ Contributors will be recognized in:
 | 2.5.0 | 2026-05-19 | Updated to v1.6.x / v1.7 development cycle. Added v1.7 do-not-restore items (SafeHTTPClient `allow_untrusted`, MockLLMAdapter silent fallback, `security/` vs `compliance/` boundary). Linked medical / drone / compliance integration-ready contracts. |
 | 2.6.0 | 2026-05-22 | Replaced aspirational 85 / 90 / 95 % coverage claims with the actual measured-floor merge gates (CORE 25 %, FULL 50 %) plus the 85 % aspirational target.  Aligned the PR-template and new-engine checklists with the same posture. |
 | 2.7.0 | 2026-06-17 | v1.7.0 released (2026-05-20); reconciled documentation with the shipped line and source tree. The "v1.7 development cycle" wording in row 2.5.0 predates the release. |
+| 2.8.0 | 2026-07-11 | Date/version refresh; verified all cited paths, gates, coverage floors, and scripts against the current source tree. No content changes. |
 
 ---
 

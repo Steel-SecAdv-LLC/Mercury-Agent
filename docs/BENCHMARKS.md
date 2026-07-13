@@ -1,18 +1,32 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-22.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
-> **v1.7 update.** The current public headline is the committed
+> **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **66 successful /
 > 75 attempted**, Mean ROC-AUC **0.8251**, Median **0.8747**, Mean
-> Oracle F1 **0.5998** (2026-06-21, commit a7a194b) — surfaced in the
+> Oracle F1 **0.5998** — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
-> Disaster label-polarity fix (v1.7.0) and the 11-loader reachability
+> Disaster label-polarity fix and the 11-loader reachability
 > harness are reflected in that run (disaster AUC 0.9993; 9 loaders
 > failed, NOAA StormEvents and NOAA ERDDAP recovered) — see `docs/ROADMAP.md`
 > cross-cutting entries "FEMA Disaster loader label polarity" and
 > "Dataset reachability harness (unreachable-11)".
+>
+> **Label-provenance of the headline.** The committed run records
+> `headline_label_policy = genuine_labels_only`: the headline AUC/F1 are
+> computed over the **53** datasets carrying genuine labels
+> (`n_genuine_labeled = 53`; ground-truth or expert-annotated), with
+> Median Oracle F1 **0.6747**. A separate 13-dataset **unsupervised**
+> subset (`USGS_Earthquake`, `NOAA_Weather`, `Wildfire`, `NOAA_Buoy`,
+> `NOAA_StormEvents`, `NOAA_GSOD`, `NOAA_ERDDAP`, `EPA_AirQuality`,
+> `FEMA_Disaster`, `NASA_Exoplanet`, `SolarDynamics`, `MSDS`, `ThreatIntel`)
+> scores Mean AUC **0.9281** but is **excluded from the headline as
+> circular**: its labels are manufactured by thresholding a detector-like
+> score/feature, so they are reported for unsupervised evaluation only and
+> never folded into the graded headline. All figures are from the `summary`
+> block of `benchmarks/mercury_benchmark_results.json`.
 
 > **Reproducibility note.** The aggregate / per-dataset tables further
 > down *this* document are a **legacy 51-success / 55-attempt run** of
@@ -27,11 +41,11 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-22.
 > comparable ADBench subset is Mean AUC **0.8251** on the hardened detector
 > (base `e118e1f` 0.8180; see the base-vs-current section below).
 
-> **Unreleased ensemble changes.** The Unreleased CHANGELOG entry
-> "fusion-margin sharpening, data-type gate correction, temporal
-> robustness" changes the data-type classification, the fusion-weight
-> margins, and restricts the temporal residual-frequency filter to
-> genuinely temporal data. These shift per-dataset numbers (e.g.
+> **Released ensemble changes (v2.1.0, 2026-07-08).** The `[2.1.0]`
+> CHANGELOG entry "fusion-margin sharpening, data-type gate correction,
+> temporal robustness" changes the data-type classification, the
+> fusion-weight margins, and restricts the temporal residual-frequency
+> filter to genuinely temporal data. These shift per-dataset numbers (e.g.
 > optdigits / ADBench-26 recovers from below-random; tabular sets that
 > were mis-treated as temporal change). The committed
 > `mercury_benchmark_results.json` and the per-dataset tables below are
@@ -111,7 +125,7 @@ USGS_Geochemistry, WADI).
 | All real datasets, excl. ADRepository artifact (n=65) | 0.8446 → 0.8475 (**+0.0029**) | 22/7/36 |
 | Naive all-both-scored (n=66) | 0.8470 → 0.8454 (−0.0016) | 22/7/37 |
 
-Read the decontaminated rows, not the naive −0.0016. Two honest caveats:
+Read the decontaminated rows, not the naive −0.0016. Two transparency caveats:
 
 1. **A live synthetic-contamination artifact.** On the base commit the *unfixed*
    ADRepository loader silently returns synthetic data and the detector scores a
@@ -147,7 +161,7 @@ Read the decontaminated rows, not the naive −0.0016. Two honest caveats:
 
 Net: positive on both protocols once synthetic contamination is removed. The
 ordering leak distorted individual inductive AUCs by up to ~0.11 (ensemble) and
-~0.41 (kinematic) **in both directions** — the de-leaked numbers are the honest
+~0.41 (kinematic) **in both directions** — the de-leaked numbers are the transparent
 ones. To regenerate the leak-free inductive base-vs-current, run `python
 benchmarks/mercury_benchmark.py` on the current tree and on a base (`e118e1f`)
 worktree with `632d3e5` cherry-picked, then diff per-dataset `ensemble_auc`.
@@ -193,7 +207,7 @@ python benchmarks/mercury_benchmark.py
 Results are saved to `benchmarks/mercury_benchmark_results.json`.
 The legacy aggregate / per-dataset tables below come from an earlier run of this
 command (the CI regression-gate baseline); the current committed run is
-summarized in the v1.7 update note above and the README "Latest Benchmark
+summarized in the current-run note above and the README "Latest Benchmark
 Results" block.
 
 ## Aggregate Results
@@ -328,7 +342,7 @@ function of the scored signal.
    (e.g., ADBench datasets), derivatives are meaningless noise. The kinematic
    component achieved mean AUC 0.6013 across all datasets — near-random on
    unordered tabular data, more useful on time-series.
-   *Mitigation (Unreleased):* the data-type gate now requires *strong*
+   *Mitigation (released in v2.1.0, 2026-07-08):* the data-type gate now requires *strong*
    autocorrelation (> 0.55) **or** adjacent-row coherence (> 0.75) before
    classifying `TEMPORAL`, so tabular sets that previously tripped the old 0.3
    gate are correctly `TABULAR` and zero out kinematic. Margin sharpening
@@ -338,7 +352,7 @@ function of the scored signal.
    On high-dimensional image-like features (optdigits, landsat, WPBC), the ensemble
    score can invert (anomalies score lower than normal). This manifests as
    ROC-AUC < 0.5 on 6 datasets.
-   *Mitigation (Unreleased):* a substantial part of the optdigits (ADBench-26)
+   *Mitigation (released in v2.1.0, 2026-07-08):* a substantial part of the optdigits (ADBench-26)
    inversion was the temporal `_residual_frequency_filter` firing on tabular rows
    via a shape proxy — measured to drag optdigits from 0.52 to 0.39. The filter
    is now gated on `_data_type == TEMPORAL`, removing that rank-altering pass from
@@ -490,11 +504,11 @@ fixed defaults, with mean delta of only +0.003 F1.
 ## CI Integration
 
 The CI pipeline (`.github/workflows/benchmark.yml`) gates on `mercury_benchmark.py`
-(Mercury detector in isolation) with regression thresholds set ~7% margin below
+(Mercury detector in isolation) with regression thresholds set ~9% margin below
 measured performance:
 
-- **MIN_ROC_AUC: 0.75** — fail if mean AUC drops below this (measured: 0.803)
-- **MIN_F1: 0.55** — fail if mean F1 drops below this (measured: 0.589)
+- **MIN_ROC_AUC: 0.75** — fail if mean AUC drops below this (measured: 0.8259)
+- **MIN_F1: 0.55** — fail if mean F1 drops below this (measured: 0.6046)
 - **MERCURY_ALLOW_SYNTHETIC: false** — the deployment-level policy gate for the
   production data loaders (`validation/data_loaders.py`); CI keeps it off.
 

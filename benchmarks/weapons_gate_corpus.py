@@ -10,7 +10,7 @@ the gate's operating point can be reported as measured FP/FN over a real
 held-out split (see ``benchmarks/eval_weapons_gate.py`` and
 ``scripts/fit_weapons_gate_calibration.py``).
 
-Honesty constraints, deliberately preserved:
+Transparency constraints, deliberately preserved:
 
 * **Taxonomy-level only.** Every string is a *category* framing ("how to make a
   <nerve agent>", "treatment for <nerve agent> exposure") -- the same class of

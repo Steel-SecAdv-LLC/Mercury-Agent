@@ -3,7 +3,7 @@
 """Empirical proof that the conformal coverage guarantee survives the gate.
 
 The decision layer projects the engine's conformal certificate onto the
-three-state honesty contract.  A projection is only honest if it *preserves the
+three-state transparency contract.  A projection is only transparent if it *preserves the
 guarantee*: a GROUNDED label must never contradict the certificate, the
 marginal coverage must still hold through the layer, and abstaining on the
 uncertain mass must make the calls the loop *does* make at least as accurate as

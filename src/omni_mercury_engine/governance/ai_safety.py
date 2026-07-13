@@ -16,7 +16,7 @@ The verdicts (recorded in :data:`omni_mercury_engine.governance.contract.GOVERNA
 * **MITRE ATLAS -- UNAVAILABLE-capable (kept).**  The engine observes adversary activity
   against its surface at runtime: ``security/threat_detection.py:135``
   ``ThreatDetector.detect_all`` (wired live at ``engine.py:2759``) emits
-  ``threat_type``/``confidence``.  Honestly scoped: this covers the conventional/input-layer
+  ``threat_type``/``confidence``.  Transparently scoped: this covers the conventional/input-layer
   tactics the web-payload detector surfaces (initial_access, discovery), **not** the
   adversarial-ML tactics (evasion/poisoning/model-extraction) -- the engine has no detector
   for those.
@@ -58,7 +58,7 @@ _NIST_MEASURE_METRICS: dict[str, str] = {
 
 # The ATLAS tactics this engine's threat detectors can actually surface, keyed by the
 # ``threat_type`` strings emitted by ``security/threat_detection.py`` ``detect_*`` methods.
-# This is an honest *subset* of the 14-tactic ATLAS matrix.
+# This is a transparent *subset* of the 14-tactic ATLAS matrix.
 _THREAT_TYPE_TO_ATLAS_TACTIC: dict[str, str] = {
     "sql_injection": "initial_access",
     "xss": "initial_access",

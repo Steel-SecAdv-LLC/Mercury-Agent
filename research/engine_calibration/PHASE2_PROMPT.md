@@ -1,5 +1,7 @@
 # Mercury Anomaly Engine — Phase 2 Build Prompt (reliability-weighted fusion + labels)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 **Read this whole file first. Everything below is measured on the REAL engine
 against REAL live-API data — reproduce it before trusting it. Ground every claim
 in a measured before/after on the full reachable suite; revert anything that
@@ -79,7 +81,7 @@ by a before/after measurement. Order of attack:
    anomaly score, keeping the ensemble structure. Riskier; measure hard.
 
 Also re-confirm the calibration ceiling: squeeze the unsupervised operating point
-to its max (~0.33–0.35 F1) and report it as the honest in-constraint floor that
+to its max (~0.33–0.35 F1) and report it as the transparent in-constraint floor that
 re-weighting/labels must beat. AUROC stays ~0.85 under pure calibration unless a
 ranking lever turns that dial.
 
@@ -138,7 +140,7 @@ ranking lever turns that dial.
   reference. (Use `mcp__claude-code-remote__list_repos` / `add_repo` if FINDOYOU
   isn't in scope.)
 - **Map the repo thoroughly** — the engine is large (`src/omni_mercury_engine/`
-  has ~48 subpackages). Existing machinery you should READ and likely REUSE rather
+  has ~49 subpackages). Existing machinery you should READ and likely REUSE rather
   than reinvent:
   - Fusion: `core/adaptive_fusion.py`, `core/fusion.py`, `core/stacking_fusion.py`,
     `core/fibring_fusion.py`, `core/global_omni_scalar_network.py`.
@@ -193,7 +195,7 @@ ranking lever turns that dial.
 ### Step D — Labels: supervised / semi-supervised calibration (SECONDARY)
 - Wire a labeled-subset path: `fit_with_calibration_subset` / `fit_with_labels` /
   conformal (`core/conformal_prediction.py`). Use a held-out labeled fraction to
-  set the operating point and/or learn fusion weights (stacking). Honestly
+  set the operating point and/or learn fusion weights (stacking). Transparently
   separate calibration data from evaluation data — no peeking.
 - **Target:** F1 at a fixed, stated FPR materially above the unsupervised ceiling
   (~0.33–0.38), moving toward the oracle 0.532, with AUROC ≥ Step C.
@@ -236,6 +238,6 @@ clearly-named successor); open a draft PR only when the numbers justify it.
 ## 7. Definition of done
 At least one of {Step C AUROC, Step D F1} shows a **measured** full-suite win over
 the Phase-1 numbers above, ethics provably intact, exact reduction-to-baseline
-preserved, per-domain regressions disclosed. If none beat Phase 1, the honest
+preserved, per-domain regressions disclosed. If none beat Phase 1, the transparent
 output is "re-weighting/labels did not beat calibration on this engine," with the
 numbers.

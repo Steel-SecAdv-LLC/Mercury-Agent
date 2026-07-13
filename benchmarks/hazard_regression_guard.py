@@ -4,7 +4,7 @@
 
 Why this exists
 ---------------
-The hazard honesty wave (volcanic 4a3ba33, space 30a5582, tsunami/earthquake
+The hazard transparency wave (volcanic 4a3ba33, space 30a5582, tsunami/earthquake
 1afd151, meteorological 56903a5) replaced untrained-network theater with
 deterministic physics paths in the hazard detectors -- but nothing pinned
 their *skill*. A future change could silently break the Doppler couplet
@@ -19,9 +19,9 @@ and fails non-zero if any metric crosses its pinned floor/ceiling.
 
 Fully offline and deterministic: scenario files are committed and verified
 against ``hazard_scenarios/manifest.json`` before use; detectors run their
-untrained-physics paths, which are RNG-free by the honesty-wave contract.
+untrained-physics paths, which are RNG-free by the transparency-wave contract.
 
-Honesty tripwires (fail loud, not a metric): the untrained
+Transparency tripwires (fail loud, not a metric): the untrained
 ``EarthquakeDetector`` must keep ``estimated_magnitude is None`` and the
 ``HurricanePredictionResult`` must not regrow the removed track-forecast
 fields. Hurricane track error is EXCLUDED from the registry -- see
@@ -129,7 +129,7 @@ HAZARD_METRICS: dict[str, dict[str, Any]] = {
                 "No track model exists. The honesty wave (56903a5) deliberately "
                 "REMOVED track_forecast/landfall_probability/time_to_landfall_hours "
                 "from HurricanePredictionResult because they were declared but never "
-                "computed; an honest track forecast needs steering-flow data and a "
+                "computed; a transparent track forecast needs steering-flow data and a "
                 "track model this detector does not have. Gating a track metric "
                 "would require fabricating that capability. A tripwire below fails "
                 "the guard if the dead fields ever regrow."
@@ -152,9 +152,9 @@ HAZARD_METRICS: dict[str, dict[str, Any]] = {
         },
         "exclusions": {
             "magnitude_mae": (
-                "The untrained detector honestly emits estimated_magnitude=None "
+                "The untrained detector transparently emits estimated_magnitude=None "
                 "(magnitude_class 'undetermined') -- an uncalibrated single station "
-                "has no honest Richter estimate (1afd151). Gate what it DOES "
+                "has no transparent Richter estimate (1afd151). Gate what it DOES "
                 "produce: detection skill and S-P distance error. A tripwire fails "
                 "the guard if a magnitude is ever fabricated while untrained."
             ),
@@ -372,7 +372,7 @@ def _run_hurricane(path: Path) -> dict[str, float]:
         HurricanePredictionResult,
     )
 
-    # Honesty tripwire: the removed (never-computed) track fields must not
+    # Transparency tripwire: the removed (never-computed) track fields must not
     # regrow without a real track model (see registry exclusion).
     dead_fields = {"track_forecast", "landfall_probability", "time_to_landfall_hours"}
     regrown = dead_fields & set(HurricanePredictionResult.__dataclass_fields__)
@@ -410,7 +410,7 @@ def _run_earthquake(path: Path) -> dict[str, float]:
     for i in range(len(data["labels"])):
         detector = EarthquakeDetector(sampling_rate=100.0)
         result = detector.predict_earthquake(data["traces"][i])
-        # Honesty tripwire: an untrained station must never fabricate a
+        # Transparency tripwire: an untrained station must never fabricate a
         # magnitude (1afd151); a regrown estimate fails the guard loudly.
         if result.estimated_magnitude is not None:
             raise RuntimeError(
@@ -534,7 +534,7 @@ def evaluate() -> dict[str, Any]:
         ``{"metadata": ..., "domains": {domain: {..., "metrics": ...}}}``.
 
     Raises:
-        RuntimeError: On any honesty-tripwire breach or undefined metric
+        RuntimeError: On any transparency-tripwire breach or undefined metric
             (collapsed detector) -- the guard fails loud, never scores quietly.
     """
     # The guard deliberately exercises the untrained-physics paths; each fresh

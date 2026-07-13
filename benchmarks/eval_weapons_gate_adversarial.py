@@ -7,7 +7,7 @@ Reports the confusion matrix, precision/recall/F1, and the Brier score of the
 gate's offensive-confidence, both overall and per adversarial axis (paraphrase /
 conjunction / obfuscation / out_of_lexicon / hard_benign). Unlike the base-corpus
 eval, this is a *generalization* test -- the slice is disjoint from the fit-on
-corpus -- so a nonzero FN rate here is the honest residual, not a regression.
+corpus -- so a nonzero FN rate here is the transparent residual, not a regression.
 
     PYTHONPATH=src:benchmarks python benchmarks/eval_weapons_gate_adversarial.py [--posture default|classifier] [--dump]
 """
@@ -109,7 +109,7 @@ def evaluate(
 
     * ``classifier=None`` (default) -- the **default posture** (no meaning-level
       model). This is what CI and air-gapped deployments run, so it is the FP
-      gate of record and the honest lexical-only FN floor.
+      gate of record and the transparent lexical-only FN floor.
     * ``classifier=<callable>`` -- inject a real ``Callable[[str], float]``
       meaning-level classifier (e.g. ``default_harm_classifier()`` with a real
       model serving). This is the measurement that marks "meaning-level coverage

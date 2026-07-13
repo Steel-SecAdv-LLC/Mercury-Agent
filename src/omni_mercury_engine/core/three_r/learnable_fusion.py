@@ -90,7 +90,7 @@ class Learnable3RResult:
     # Decay-schedule reference envelope epsilon*e^(-lambda*t): a design target,
     # NOT a measured/guaranteed bound on the fusion-score trajectory.
     lyapunov_bound: float = 0.0
-    # Honest default: stability is NOT asserted until the score trajectory is
+    # Transparent default: stability is NOT asserted until the score trajectory is
     # actually measured to contract (see Learnable3REngine._recent_contraction).
     is_stable: bool = False
     loss: float = 0.0
@@ -572,14 +572,14 @@ class Learnable3REngine:
             self.optimizer = None  # type: ignore[assignment, unused-ignore]
 
         self.training_history: list[float] = []
-        # Rolling fusion-score history for the honest stability monitor
+        # Rolling fusion-score history for the transparent stability monitor
         # (measures real contraction; not a Lyapunov guarantee).
         self._score_history: list[float] = []
 
         logger.info(f"Learnable3REngine initialized (device={device})")
 
     def _recent_contraction(self, window: int = 10) -> bool:
-        """Honest stability monitor (measured contraction, not a guarantee).
+        """Transparent stability monitor (measured contraction, not a guarantee).
 
         Returns True only if the recent fusion-score trajectory actually
         contracts (variance over the latest window is below the variance over

@@ -926,7 +926,7 @@ class ReflexionEngine:
                             reflection_enrichment["confidence_interval"] = (lo, hi)
                         except (TypeError, ValueError):
                             # Non-numeric payloads (generic tasks) cannot be
-                            # summarized statistically; record honest minimal
+                            # summarized statistically; record transparent minimal
                             # evidence about the payload instead of aborting
                             # the reflection loop.
                             reflection_enrichment["evidence"] = [

@@ -3,7 +3,7 @@
 | Property | Value |
 |----------|-------|
 | Document Version | 1.1 |
-| Last Updated | 2026-05-19 |
+| Last Updated | 2026-07-11 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 | Applies to | Mercury Agent v2.1.x |

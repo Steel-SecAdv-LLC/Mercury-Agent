@@ -9,7 +9,7 @@ This module provides:
 * :func:`fetch_egg_stream` -- ingestion targeting the documented raw-stream
   endpoint (``noosphere.princeton.edu`` ``eggdatareq``). It returns a structured
   result with provenance and an explicit ``reachable`` flag, so an unreachable
-  archive is reported honestly rather than silently faked.
+  archive is reported transparently rather than silently faked.
 * the **pre-registered** statistics (:func:`egg_sums_to_z`,
   :func:`network_variance`, :func:`stouffer_z`) fixed in
   ``docs/PARAPSYCH_PREREGISTRATION.md`` *before* any analysis -- this dataset's
@@ -45,7 +45,7 @@ NULL_STD = math.sqrt(BITS_PER_TRIAL / 4.0)  # sqrt(50)
 
 @dataclass
 class IngestResult:
-    """Outcome of a GCP ingestion attempt (honest about reachability)."""
+    """Outcome of a GCP ingestion attempt (transparent about reachability)."""
 
     reachable: bool
     reason: str
@@ -56,7 +56,7 @@ class IngestResult:
 def fetch_egg_stream(
     year: int, month: int, day: int, stime: str = "00:00:00", etime: str = "00:05:00"
 ) -> IngestResult:
-    """Attempt to fetch a real GCP egg-sum stream; report reachability honestly.
+    """Attempt to fetch a real GCP egg-sum stream; report reachability transparently.
 
     Returns ``reachable=False`` with a reason (not an exception) when the
     archive cannot be reached or the host is not on the trusted allowlist, so

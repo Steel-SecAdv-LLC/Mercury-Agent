@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Shared infrastructure for the hazard-checkpoint training pipeline.
 
-Everything here enforces the project's honesty rules for shipped neural
+Everything here enforces the project's transparency rules for shipped neural
 weights:
 
 * **Real data only** -- fetch helpers cache raw source bytes on disk and
@@ -67,7 +67,7 @@ class PipelineContext:
 class HazardDataUnavailableError(RuntimeError):
     """Raised when a hook's real training data cannot be obtained here.
 
-    This is the honest terminal state for category (b)/(c) hooks: the message
+    This is the transparent terminal state for category (b)/(c) hooks: the message
     carries the full data requirement so an operator with the missing
     credentials or archives can run the same pipeline stage themselves.
     """
@@ -439,7 +439,7 @@ def ship_checkpoint(
             f"beat physics {outcome.primary_metric}="
             f"{outcome.physics[outcome.primary_metric]:.6g} ({direction} is better) on held-out "
             f"years {list(outcome.test_years)}. The physics fallback stays in charge; the "
-            "honest deliverable is this evaluation record, not a shipped checkpoint."
+            "transparent deliverable is this evaluation record, not a shipped checkpoint."
         )
     cand_path, _ = candidate_paths(data_dir, hook)
     if not cand_path.exists():

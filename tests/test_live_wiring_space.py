@@ -107,14 +107,14 @@ class TestCanonicalSolarFlareDetector:
         assert detector.predict_solar_flare(5e-4).flare_class == "X"
 
     def test_offline_storm_fields_are_none_not_fabricated(self) -> None:
-        """No observed Kp -> NO Kp/Dst/storm-probability (honesty-wave rule)."""
+        """No observed Kp -> NO Kp/Dst/storm-probability (transparency-wave rule)."""
         detector = SolarFlareDetector()
         result = detector.predict_solar_flare(2e-4)
         assert result.kp_index_predicted is None
         assert result.dst_index_predicted is None
         assert result.geomagnetic_storm_probability is None
         assert result.storm_forecast_source is None
-        # The flare classification itself is honestly computable offline.
+        # The flare classification itself is transparently computable offline.
         assert result.flare_class == "X"
         assert result.flare_detected
 
@@ -241,7 +241,7 @@ class TestSolarStormDetectorLive:
 
 
 class TestSchumannDetectorLive:
-    """SchumannResonanceDetector live path against the honest BGS client."""
+    """SchumannResonanceDetector live path against the transparent BGS client."""
 
     def test_no_client_fails_loud(self) -> None:
         detector = SchumannResonanceDetector()

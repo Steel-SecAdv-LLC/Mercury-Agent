@@ -1,13 +1,15 @@
 # Mercury Agent - System Activation Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Supplement to the top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md). Covers the loader
 registry, Oracle pipeline, cognitive wiring, backend configuration,
 and cross-domain correlation introduced during the Mercury System
 Activation.
 
-> **What's new in v1.7.** Three governance framework modules
+> **Baseline established in v1.7** (retained for historical reference; the
+> subsystems below remain present in v2.1.x and are unchanged in scope). Three
+> governance framework modules
 > (`compliance.{nist_csf_integrator, osha_anomaly, tlp_handler}`),
 > two medical predictors (`medical.{endocrinology_detector,
 > anesthesiology_predictor}` plus the `CGMDataSource` /
@@ -216,8 +218,20 @@ TruthDecipherFramework
         ├─ Step 5: CaseBasedReasoner        (optional, default ON)
         ├─ Step 6: PlasticityEngine         (optional, default ON)
         ├─ Step 7: IndicatorDevelopmentSystem (optional, default ON)
-        └─ Step 8: IPBEngine                (optional, default ON)
+        ├─ Step 8: IPBEngine                (optional, default ON)
+        ├─ Step 9: CuriosityEngine          (optional, DEFAULT-OFF)
+        └─ Step 10: EnhancedAnomalyDetector (optional, DEFAULT-OFF)
 ```
+
+Steps 9 and 10 were added in PR #329 and are opt-in: `enable_curiosity`
+(`cognitive/orchestrator.py:209`) and `enable_enhanced_detection`
+(`cognitive/orchestrator.py:210`) both default to `False`, unlike Steps 4-8
+which default ON. Step 9 scores how novel a detected anomaly is relative to the
+distribution the `CuriosityEngine` has observed, setting `result.novelty_score`
+and `result.is_novel` (`cognitive/orchestrator.py:566-568`). Step 10 folds each
+observation into the `EnhancedAnomalyDetector` Bayesian/HMM predictive memory and
+surfaces a forecast for detected anomalies; it is constructed with
+`use_simulated_sources=False`, so it performs no network I/O on the runtime path.
 
 All cognitive modules are advisory — they augment results, never
 overwrite detector scores. Failure in any module is caught and logged;

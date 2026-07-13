@@ -19,7 +19,7 @@ pipeline already threads through:
 * ``drift_detection`` -- distribution-shift status (``is_drift`` / ``severity``).
 
 Extraction is defensive: every field is optional, missing keys collapse to
-``None`` (an honest "signal absent this run"), and nothing here raises on a
+``None`` (a transparent "signal absent this run"), and nothing here raises on a
 sparse or partial result.
 """
 

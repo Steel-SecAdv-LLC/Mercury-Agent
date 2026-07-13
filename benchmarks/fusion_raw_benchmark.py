@@ -30,7 +30,7 @@ import numpy as np
 
 # Genuinely-labelled ADBench datasets (ground-truth anomaly labels), small
 # enough to train quickly on CPU. Excludes any heuristically/threshold-labelled
-# source so the reported AUC is honest (see loaders de-leak work).
+# source so the reported AUC is transparent (see loaders de-leak work).
 DEFAULT_DATASETS = ["thyroid", "WBC", "cardio", "Pima", "breastw", "Ionosphere"]
 
 

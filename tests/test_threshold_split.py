@@ -3,7 +3,7 @@
 """Tests for leakage-free 3-way threshold tuning (val) / reporting (test).
 
 Covers the fix for the evaluation defect where the operating threshold was
-selected on the same data it was reported on (optimistic, leaky). The honest
+selected on the same data it was reported on (optimistic, leaky). The transparent
 path tunes on a validation split and reports on a disjoint test split.
 """
 
@@ -56,7 +56,7 @@ class TestSplitThreeWay:
 
 
 class TestThresholdLeakage:
-    """The core regression: in-sample F1 is optimistic vs the honest test F1."""
+    """The core regression: in-sample F1 is optimistic vs the transparent test F1."""
 
     def _leaky_dataset(self) -> tuple[np.ndarray, np.ndarray]:
         # Scores carry real but imperfect signal; a threshold perfectly tuned on
@@ -69,14 +69,14 @@ class TestThresholdLeakage:
 
     def test_split_reports_honest_not_optimistic_f1(self) -> None:
         y, score = self._leaky_dataset()
-        # Reconstruct the same test split the honest evaluator uses.
+        # Reconstruct the same test split the transparent evaluator uses.
         _, _, test_idx = split_three_way(len(y), y, val_frac=0.2, test_frac=0.4, random_state=0)
         # Oracle: the best achievable F1 on the *test* set if its threshold were
         # tuned in-sample (this is exactly what the leaky path would report).
         oracle_test_f1, _ = compute_best_f1(y[test_idx], score[test_idx])
 
         split = evaluate_anomaly_detection_split(y, score, random_state=0)
-        # The honest, val-tuned threshold can never beat the test-set oracle...
+        # The transparent, val-tuned threshold can never beat the test-set oracle...
         assert split.f1 <= oracle_test_f1 + 1e-9
         # ...and on noisy-but-separable data it is strictly worse: that gap is
         # precisely the optimism the in-sample path hides.
@@ -122,7 +122,7 @@ class TestBackwardCompatAndFallback:
         # A clustered-anomaly time series: anomalies live in the first ~60% of
         # samples, so the contiguous test split (last 40%) is all-normal
         # (single-class). AUC/recall on it are degenerate; the evaluator must
-        # fall back to in-sample rather than return AUC=0.5 as an "honest"
+        # fall back to in-sample rather than return AUC=0.5 as a "transparent"
         # number (mirrors AnomalyMetrics._compute_all_split's both-splits guard).
         n = 100
         y = np.zeros(n, dtype=int)
@@ -156,5 +156,5 @@ class TestBackwardCompatAndFallback:
         _, _, test_idx = split_three_way(n, y, val_frac=0.2, test_frac=0.4, random_state=0)
         oracle_test = AnomalyMetrics.compute_all(y[test_idx], score[test_idx])
         honest = AnomalyMetrics.compute_all(y, score, tune_on="val", random_state=0)
-        # Honest f1 on the held-out test split cannot beat the test-set oracle.
+        # Transparent f1 on the held-out test split cannot beat the test-set oracle.
         assert honest["f1_max"] <= oracle_test["f1_max"] + 1e-9

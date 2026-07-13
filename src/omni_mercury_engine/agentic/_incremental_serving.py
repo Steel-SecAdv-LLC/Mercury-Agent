@@ -22,7 +22,7 @@ score the full batch path assigns to the appended row, by separating
   the directive batch-level blend scalars), which are recomputed each call
   with the *same operations on the same arrays* as the reference path.
 
-Honesty contract (anti-theater):
+Transparency contract (anti-theater):
 
 * **Never an approximation.** Every serve either returns the bit-identical
   score or ``None``, in which case the caller falls back to the verbatim

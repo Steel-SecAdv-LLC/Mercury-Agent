@@ -7,7 +7,7 @@ Why this exists
 Issue #261 reported the headline benchmark dropping from AUC 0.8466 / F1 0.6428
 to AUC 0.8259 / F1 0.6046 after PR #255.  Investigation (see
 ``docs/ANOMALY_REGRESSION_WS_A.md``) showed this was **not** a detector
-regression: PR #255 made the headline *honest* by excluding 13 circular
+regression: PR #255 made the headline *transparent* by excluding 13 circular
 manufactured-label datasets (mean AUC 0.9479) from the supervised headline.
 On an apples-to-apples all-datasets basis the detector was flat-to-up
 (0.8466 -> 0.8495 AUC; 0.6428 -> 0.6422 F1) and the only ``statistical.py``

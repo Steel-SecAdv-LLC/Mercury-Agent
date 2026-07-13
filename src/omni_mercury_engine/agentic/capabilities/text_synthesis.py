@@ -3,13 +3,13 @@
 """Extractive text synthesis -- numpy-only, no language model.
 
 Mercury has no generative language model, so it does not *write* prose. What it
-can do honestly is **extract**: rank the sentences a source already contains by
+can do transparently is **extract**: rank the sentences a source already contains by
 how central they are to the document, and return the most representative ones
 verbatim. This is classic centroid/TF-based extractive summarization (the family
 behind TextRank/LexRank), implemented here with numpy + the standard library so
 there is no dependency and the output is deterministic.
 
-The contract is honest: every returned sentence is copied verbatim from the
+The contract is transparent: every returned sentence is copied verbatim from the
 input -- nothing is paraphrased, invented, or hallucinated.
 """
 
@@ -30,7 +30,7 @@ from omni_mercury_engine.agentic.capabilities.contract import Invariant, capabil
 # importing the ethics layer.
 SentenceGate = Callable[[str], bool]
 
-#: Placeholder substituted for a redacted sentence, so the output is honest
+#: Placeholder substituted for a redacted sentence, so the output is transparent
 #: about *where* content was withheld rather than silently dropping it.
 REDACTION_NOTICE = "[redacted: operational content withheld by the harm gate]"
 

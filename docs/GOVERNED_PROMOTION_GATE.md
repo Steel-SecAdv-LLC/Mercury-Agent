@@ -1,5 +1,7 @@
 # Governed Promotion Gate
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Phase 2 converts the transparent fitness substrate into an enforceable
 promotion boundary for recursive self-improvement candidates.
 Phase 3 consumes this same boundary for Reflexion threshold changes,

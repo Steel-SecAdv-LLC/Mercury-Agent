@@ -16,7 +16,7 @@ user) would, across four axes the base corpus does not exercise:
 * **obfuscation** -- novel leet/spacing/symbol manglings distinct from the base
   obfuscated set.
 * **out_of_lexicon** -- production/targeting framings over agents NOT (or not
-  previously) in the Axis-A lexicon ("VX", "fourth-generation agent"), the honest
+  previously) in the Axis-A lexicon ("VX", "fourth-generation agent"), the transparent
   generalization test.
 
 Plus a **hard_benign** slice: professional/defensive/policy queries that share
@@ -24,7 +24,7 @@ the adversarial surface (dual-use vocabulary, the same agent names) and MUST NOT
 be blocked -- where an over-eager lexical patch shows up as a false positive
 against the professions the gate exists to protect.
 
-Honesty constraints match the base corpus: taxonomy-level only (no operational
+Transparency constraints match the base corpus: taxonomy-level only (no operational
 specifics); ground truth is intent, not topic; and the slice is **disjoint** from
 the base corpus (asserted in :func:`build_adversarial_corpus`) and evaluated only
 as a held-out test set, never fit on.

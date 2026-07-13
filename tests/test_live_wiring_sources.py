@@ -6,7 +6,7 @@ Covers:
 
 - the :mod:`omni_mercury_engine.data_sources.live_ingestion` seam (fail-loud,
   simulated-source gate, provenance resolution);
-- the honest :class:`BGSELFStationSource` (explicit simulation labelling +
+- the transparent :class:`BGSELFStationSource` (explicit simulation labelling +
   real Welch DSP on caller-supplied instrument records);
 - the real-API :class:`USGSVolcanoSource` (HANS) parser;
 - the fixed :class:`NOAASWPCSource` parsers (dict-row Kp / X-ray products and

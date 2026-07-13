@@ -6,7 +6,7 @@ Two jobs, both CI-failing:
 
 * **Enforcement** -- the ``@capability_contract`` decorator must actually enforce
   ``fail_closed`` / ``cite_or_refuse`` / ``monotone_harm`` at runtime: a raising
-  capability yields a typed honest-negative, an uncited provenance-required
+  capability yields a typed transparent-negative, an uncited provenance-required
   emission is downgraded to a refusal, and a leaked gate-unsafe span is redacted.
 * **Regression** -- the three core capabilities must stay annotated. The
   marker/registry assertions fail CI if an annotation is deleted or its invariant

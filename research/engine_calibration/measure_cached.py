@@ -4,7 +4,7 @@
 
 Scores are rank-preserving under the calibration change, so the cached per-event
 scores (scores.pkl, one detector pass) are reused and the detector's actual
-_adaptive_operating_point() is applied to them. This reproduces the honest-
+_adaptive_operating_point() is applied to them. This reproduces the transparent-
 benchmark operating-point metrics exactly (verified against the live scripts)
 without re-running detect() on the 148k-row NSL-KDD event.
 

@@ -6,7 +6,7 @@ Confidence numbers in Mercury were historically heuristic -- ``0.5 + |margin|``
 in the decider, ``exp(-phi * total)`` in the uncertainty quantifier, dozens of
 ``min(0.95, 0.5 + k*len(...))`` across modules -- none calibrated against actual
 accuracy. This module is the one place a raw score becomes a *calibrated*
-probability, fit with an honest, cross-validated estimate of the map it actually
+probability, fit with a transparent, cross-validated estimate of the map it actually
 deploys, and reported with ECE/Brier so the number means what it says.
 
 It is a thin, opinionated wrapper over the calibrators already in
@@ -18,7 +18,7 @@ it adds on top is a **cross-validated accept-gate**:
    *all* the data. Its calibration is estimated out-of-fold (k-fold
    cross-validation): every row gets a calibrated prediction from a map fit on
    the *other* folds, and ECE/Brier are computed on those out-of-fold (OOF)
-   predictions. This is an honest estimate of the deployed map's generalization
+   predictions. This is a transparent estimate of the deployed map's generalization
    -- not the metrics of a one-off 70/30 holdout that is then thrown away (the
    previous behaviour, where the reported number described a map that was never
    shipped).
@@ -31,7 +31,7 @@ it adds on top is a **cross-validated accept-gate**:
    verdict of this contract is reproducible run to run; an operator can still
    override it.
 
-When the data cannot support an honest OOF estimate (too few samples, a single
+When the data cannot support a transparent OOF estimate (too few samples, a single
 class, or a single-sample minority class that cannot appear on both sides of a
 fold) the routing point stays identity (raw scores passed through, flagged
 uncalibrated). A confidence that cannot be *shown* to be better calibrated than
@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 # what it says". Callers can still override per instance.
 _DEFAULT_SEED = 0
 
-# Minimum samples below which no honest cross-validated estimate is attempted.
+# Minimum samples below which no transparent cross-validated estimate is attempted.
 _MIN_SAMPLES = 8
 # Default number of CV folds (capped by the minority-class count so every fold
 # carries both classes on each side).
@@ -74,9 +74,9 @@ _DEFAULT_FOLDS = 5
 class ConfidenceReport:
     """Cross-validated calibration quality for a fitted :class:`CalibratedConfidence`.
 
-    ``brier``/``ece`` are measured **out-of-fold** -- an honest estimate of the
+    ``brier``/``ece`` are measured **out-of-fold** -- a transparent estimate of the
     deployed (refit-on-all-data) map's generalization, not the metrics of a
-    discarded holdout. When ``held_out`` is ``False`` no honest out-of-sample
+    discarded holdout. When ``held_out`` is ``False`` no transparent out-of-sample
     estimate was possible (too few samples, a single class, or a single-sample
     minority class); in that case ``accepted`` is always ``False`` and the
     routing point stays identity -- an in-sample fit is never accepted, since its
@@ -93,7 +93,7 @@ class ConfidenceReport:
     held_out: bool = True
     note: str = ""
     # How the metrics above were obtained:
-    #   "cv_oof"       -- cross-validated out-of-fold (the honest default)
+    #   "cv_oof"       -- cross-validated out-of-fold (the transparent default)
     #   "insufficient" -- no out-of-sample estimate possible (stayed identity)
     eval_protocol: str = "cv_oof"
     n_folds: int = 0
@@ -156,7 +156,7 @@ class CalibratedConfidence:
     Until ``fit`` is called -- or when the cross-validated fit does not
     *significantly* beat raw scores -- ``transform`` is the identity (clipped to
     ``[0, 1]``) and :attr:`is_calibrated` is ``False``, so callers can stay
-    honest about whether a coverage/accuracy guarantee actually backs the number.
+    transparent about whether a coverage/accuracy guarantee actually backs the number.
     """
 
     def __init__(
@@ -234,7 +234,7 @@ class CalibratedConfidence:
 
         Round-robin stratified folding gives each fold ~``min_class / k`` of the
         minority class; capping ``k`` at the minority count guarantees at least
-        one minority sample per fold. ``k < 2`` means no honest out-of-sample
+        one minority sample per fold. ``k < 2`` means no transparent out-of-sample
         split exists (e.g. a single-sample minority class).
         """
         _, counts = np.unique(y, return_counts=True)
@@ -352,7 +352,7 @@ class CalibratedConfidence:
 
         from omni_mercury_engine.ml.mercury_ml import brier_score_loss
 
-        # Degenerate data: cannot calibrate, stay identity (honest).
+        # Degenerate data: cannot calibrate, stay identity (transparent).
         if n < _MIN_SAMPLES or len(np.unique(y)) < 2:
             return self._identity_report(
                 n=n,

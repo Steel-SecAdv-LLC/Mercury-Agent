@@ -207,7 +207,7 @@ jobs:
               # improving the docstring, and a monotone char-count gate blocks all
               # of it. Only fail when a docstring is GUTTED -- removed entirely, or
               # reduced below RETENTION_FLOOR of the base compacted length -- which
-              # still catches accidental deletion without penalising honest edits.
+              # still catches accidental deletion without penalising transparent edits.
               # (A base with no meaningful docstring imposes no floor.)
               retention_floor = 0.60
               if not base_compact:

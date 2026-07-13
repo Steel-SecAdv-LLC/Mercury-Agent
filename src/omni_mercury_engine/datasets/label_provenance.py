@@ -4,7 +4,7 @@
 
 PR #262 removed 13 *circular* manufactured-label datasets from the supervised
 headline by declaring ``LABEL_SOURCE = "statistical"`` on those loaders. That
-de-leak relied on each loader **honestly** declaring its provenance -- but the
+de-leak relied on each loader **transparently** declaring its provenance -- but the
 base class defaults ``LABEL_SOURCE = "ground_truth"`` (see ``base.py``), so a
 loader that manufactures anomaly labels (a feature threshold, a z-score fence, a
 synthetic generator) and simply *forgets* to override the attribute is silently
@@ -306,7 +306,7 @@ def scan_circular_label_construction(cls: type) -> bool:
     assignment to ``labels``/``y`` whose value compares a feature matrix
     (``features[...]`` / ``self.X`` / ``data[...]``) against a constant. Methods
     whose name contains ``synthetic`` are excluded: a clearly-labelled,
-    dependency-gated synthetic *fallback* is a separate honesty mechanism
+    dependency-gated synthetic *fallback* is a separate transparency mechanism
     (``ALLOW_SYNTHETIC`` / ``DataSourceUnavailableError``), not a circular
     real-label path.
     """
@@ -461,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             return 1
         return 0
-    print("\nclean: every loader is registered, declared honestly, and non-circular.")
+    print("\nclean: every loader is registered, declared transparently, and non-circular.")
     return 0
 
 

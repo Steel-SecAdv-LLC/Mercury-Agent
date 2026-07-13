@@ -5,7 +5,7 @@
 Before this suite ``MercuryAgent._execute_task`` was a no-op that always
 reported ``completed`` (success_rate forced to 1.0) and carried zero tests.
 These tests pin the truthed-up contract: real tool dispatch with genuine
-success / failure, honest ``skipped`` for unbound tasks, and a fail-closed
+success / failure, transparent ``skipped`` for unbound tasks, and a fail-closed
 ethical gate that cannot be swallowed by the execution ``try/except``.
 """
 
@@ -204,7 +204,7 @@ class TestAnalyzeFlow:
         assert result["agent"] == "t"
         assert "execution" in result
         assert "reasoning" in result
-        # A pure-reasoning plan (no tools bound) reports honest skips, not a
+        # A pure-reasoning plan (no tools bound) reports transparent skips, not a
         # fabricated success_rate of 1.0.
         assert result["execution"]["success_rate"] == 0.0
         assert result["execution"]["tasks_skipped"] >= 1

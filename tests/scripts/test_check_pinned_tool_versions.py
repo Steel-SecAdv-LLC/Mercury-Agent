@@ -9,7 +9,7 @@ appears in a different subset of the four surfaces (``pyproject.toml``,
 ``ci.yml``, ``format.yml``, ``.pre-commit-config.yaml``) -- ``black`` in all
 four, the others in fewer -- so the gate only cross-checks where a tool is
 actually pinned and enforces a >=2-surface floor.  These tests exercise the
-live repository (so the gate stays honest as the pins evolve) plus synthetic
+live repository (so the gate stays transparent as the pins evolve) plus synthetic
 fixtures covering each documented failure mode:
 
 1. the live repo's four surfaces agree;

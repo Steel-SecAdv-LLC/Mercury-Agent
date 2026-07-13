@@ -10,16 +10,16 @@ specialization. Its work is genuine and fail-closed. It is a true subsystem
 **real** engine entrypoint with inputs derived from ``task.payload`` (e.g.
 ``Helios_XVII`` computes real telemetry metrics, ``Kronos_XXII`` fits and runs a
 real detector, ``Artemis_VI`` genuinely probes data-source reachability). The
-result is the honest output of that call (``mode="operation"``); it is never
+result is the transparent output of that call (``mode="operation"``); it is never
 fabricated.
 
 When a member's entrypoint is *input-gated* and the payload lacks the required
 inputs — or the operator is asked for a readiness probe via
-``payload["mode"] == "introspect"`` — the coordinator falls back to the honest
+``payload["mode"] == "introspect"`` — the coordinator falls back to the transparent
 **binding report** (``mode="binding"``): it imports each declared subsystem,
 introspects its live public API, and reports genuine availability/capability.
 That report fails closed when *no* subsystem binds, so the signal is true by
-construction either way. The binding report is the honest no-input floor, never
+construction either way. The binding report is the transparent no-input floor, never
 the whole behavior.
 """
 
@@ -57,7 +57,7 @@ def _public_api(module: Any, module_path: str) -> list[str]:
 
 
 class CoordinatorSubAgent(SubAgent):
-    """A subagent that *operates* its real engine subsystem(s), honestly.
+    """A subagent that *operates* its real engine subsystem(s), transparently.
 
     Dispatches to the member's real-entrypoint adapter in
     :mod:`~omni_mercury_engine.agentic.subagents.operations`; falls back to a
@@ -69,7 +69,7 @@ class CoordinatorSubAgent(SubAgent):
 
         Dispatches to the operations adapter for this pantheon id, invoking the
         real ``omni_mercury_engine`` entrypoint with payload-derived inputs and
-        returning its honest output (``mode="operation"``). When the adapter is
+        returning its transparent output (``mode="operation"``). When the adapter is
         input-gated and the payload lacks its inputs, or the caller asks for a
         readiness probe (``payload["mode"] == "introspect"``), it falls back to
         the live binding report (``mode="binding"``). Fails closed throughout —
@@ -90,7 +90,7 @@ class CoordinatorSubAgent(SubAgent):
         return self._binding_report(task)
 
     def _binding_report(self, task: SubAgentTask) -> tuple[dict[str, Any], float, str]:
-        """Honest fallback: bind to each declared subsystem and report capability.
+        """Transparent fallback: bind to each declared subsystem and report capability.
 
         Imports each subsystem module, records whether it is available and its
         live public API, and returns a real capability report. Confidence is the

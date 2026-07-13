@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Marine biodiversity domain honest benchmark.
+"""Marine biodiversity domain transparent benchmark.
 
 Fetches real species occurrence data from OBIS,
 runs MercuryAnomalyDetector, and reports metrics.

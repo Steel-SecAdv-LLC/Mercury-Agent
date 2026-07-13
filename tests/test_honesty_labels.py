@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests pinning the honesty/scope labels (issue #8 cleanup).
+"""Tests pinning the transparency/scope labels (issue #8 cleanup).
 
 These make the "heuristic, not measured" status *executable* so future edits
 that re-introduce overstated claims are caught.
@@ -61,7 +61,7 @@ class TestHierarchicalPlannerScoped:
             level=AbstractionLevel.TACTICAL,
         )
         subs = dec._generate_generic_subgoals(goal)
-        # The honest, documented behaviour: fixed initialize/process/complete.
+        # The transparent, documented behaviour: fixed initialize/process/complete.
         assert any("initialize" in s for s in subs)
         assert any("process" in s for s in subs)
         assert any("complete" in s for s in subs)

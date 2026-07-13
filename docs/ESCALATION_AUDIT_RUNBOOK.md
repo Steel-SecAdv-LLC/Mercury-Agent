@@ -1,5 +1,7 @@
 # Escalation & Harm-Gate Audit Runbook
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 Operator guide for the human-in-the-loop escalation control and the durable,
 tamper-evident audit trail behind Mercury's harm gate. Companion to
 [`HARM_POLICY.md`](HARM_POLICY.md) (the policy) and
@@ -109,7 +111,7 @@ The general capabilities are wrapped by `@capability_contract`
 and audits any breach before repairing it to the safe result:
 
 - `fail_closed` — an unexpected error becomes the capability's typed
-  honest-negative, never an unguarded exception.
+  transparent-negative, never an unguarded exception.
 - `cite_or_refuse` — emitted content on a provenance-required topic must carry
   citations, or it is downgraded to a refusal.
 - `monotone_harm` — output never contains a gate-unsafe span; adding harmful

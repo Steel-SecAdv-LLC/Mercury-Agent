@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Competitive benchmark — Mercury vs PyOD (ADBench) + NAB streaming
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+
 On the full **57-dataset ADBench suite** (47 Classical + 10 CV/NLP embedding sets), under one identical unsupervised protocol for every method, **Mercury's tier detector places 3rd of 8 by mean rank (3.79)** — behind `knn` (2.40) and `local_outlier_factor` (3.69), and **ahead of** `isolation_forest` (3.94), `hbos` (5.14), `copod` (5.62) and `ecod` (6.11). This is a measurement of position, not a highlight reel: Mercury **wins** decisively against the statistical baselines and **loses** to the distance/local-density methods (k-NN, LOF). The signature is consistent and diagnosable — Mercury is strong-to-dominant on **high-dimensional** sets where distance methods collapse, and weaker on **low-dimensional local-density** sets where they excel.
 
 ## Per-method summary (mean over each method's successful datasets)

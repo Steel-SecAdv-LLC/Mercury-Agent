@@ -1,6 +1,6 @@
 # Routing Infrastructure Guide
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 
@@ -360,34 +360,50 @@ async def geological_detection(request, detector_type):
 Use fallback chains for resilient data loading:
 
 ```python
+import logging
+from pathlib import Path
+
+import numpy as np
+
 from omni_mercury_engine.integrations.routing import FallbackChain
-from omni_mercury_engine.validation.data_loaders import (
-    USGSEarthquakeLoader,
-    NOAASpaceWeatherLoader
-)
+from omni_mercury_engine.validation.data_loaders import USGSEarthquakeLoader
+
+logger = logging.getLogger(__name__)
 
 data_chain = FallbackChain(name="earthquake_data")
 
+
+def _cache_path(params) -> Path:
+    """Single source of truth for the cache path (read and write must agree)."""
+    return Path(f"/data/cache/earthquakes_{params.get('days', 30)}d.npz")
+
+
 @data_chain.handler(priority=0, timeout=30.0)
 async def load_from_usgs(params):
-    """Primary: Load from USGS API."""
-    loader = USGSEarthquakeLoader(use_synthetic=False)
-    return loader.load(
+    """Primary: load from the USGS API and warm the cache the fallback reads."""
+    loader = USGSEarthquakeLoader()
+    features, labels, metadata = loader.load(
+        use_synthetic=False,
         days_back=params.get("days", 30),
-        min_magnitude=params.get("min_mag", 2.5)
+        min_magnitude=params.get("min_mag", 2.5),
     )
+    cache = _cache_path(params)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(cache, features=features, labels=labels)
+    return features, labels, metadata
 
 @data_chain.handler(priority=1, timeout=10.0)
 async def load_from_cache(params):
-    """Fallback: Load from local cache."""
-    cache_path = f"/data/cache/earthquakes_{params.get('days', 30)}d.npz"
-    return np.load(cache_path)
+    """Fallback: load the cache the primary handler wrote on its last success."""
+    cached = np.load(_cache_path(params))
+    # Same (features, labels, metadata) shape the loaders return.
+    return cached["features"], cached["labels"], {"source": "cache"}
 
 @data_chain.handler(priority=2)
 async def load_synthetic(params):
-    """Final fallback: Generate synthetic data."""
-    loader = USGSEarthquakeLoader(use_synthetic=True)
-    return loader.load(n_samples=1000)
+    """Final fallback: generate synthetic data."""
+    loader = USGSEarthquakeLoader()
+    return loader.load(use_synthetic=True, n_samples=1000)
 
 # Use in detection pipeline
 async def run_earthquake_analysis(params):

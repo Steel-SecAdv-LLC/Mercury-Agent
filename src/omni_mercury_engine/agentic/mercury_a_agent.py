@@ -892,7 +892,7 @@ class MercuryAgent:
             specialty: Force a specialty; defaults to capability-based routing.
 
         Returns:
-            The fleet result with per-replica outcomes and an honest aggregate.
+            The fleet result with per-replica outcomes and a transparent aggregate.
         """
         return self.enable_fleet().scale_dispatch(task, replicas, specialty)
 
@@ -921,7 +921,7 @@ class MercuryAgent:
     def research(self, query: str, *, max_sources: int = 5, fmt: str = "markdown") -> Any:
         """Research a question on the open web and return a cited report.
 
-        Fail-closed and honest: an ethics-refused query, an unreachable network,
+        Fail-closed and transparent: an ethics-refused query, an unreachable network,
         or zero readable sources each yield a report flagged accordingly rather
         than a fabricated answer. Returns a
         :class:`~omni_mercury_engine.agentic.capabilities.assistant.ResearchReport`.
@@ -1062,7 +1062,7 @@ class MercuryAgent:
         """Execute a plan's tasks.
 
         ``success_rate`` is measured over *executed* tasks (completed +
-        failed); honestly-skipped tasks (no tool bound) do not inflate it, so
+        failed); transparently-skipped tasks (no tool bound) do not inflate it, so
         a plan of pure reasoning tasks no longer reports a fabricated 1.0.
         """
         tasks_completed: int = 0
@@ -1134,7 +1134,7 @@ class MercuryAgent:
           is executed for real with ``task.metadata.get('tool_args', {})``;
           a raising tool yields ``status="failed"`` with the error captured.
         * An unregistered tool yields ``status="failed"``.
-        * A task with no bound tool yields an honest ``status="skipped"`` —
+        * A task with no bound tool yields a transparent ``status="skipped"`` —
           never a fabricated ``completed``.
 
         ``context['data']`` is injected as ``data=`` for tools that accept it,

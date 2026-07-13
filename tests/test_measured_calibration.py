@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for measured calibration routing (issue #1).
 
-- Golden-ratio PHI confidence is gone; confidence is an honest monotone prior
+- Golden-ratio PHI confidence is gone; confidence is a transparent monotone prior
   until a calibrator is fitted, then routed through it.
-- epistemic/aleatoric are flagged measured vs placeholder honestly.
+- epistemic/aleatoric are flagged measured vs placeholder transparently.
 - The decider's uncalibrated fallback routes through an attached calibrator.
 """
 

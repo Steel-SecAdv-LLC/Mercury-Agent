@@ -1,5 +1,7 @@
 # Detector tier -- real NAB before/after analysis
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 - **Data source:** omni_mercury_engine.datasets.timeseries.NABLoader
 - **Series measured:** 30  |  **seed:** 0  |  **max_len:** 6000
 

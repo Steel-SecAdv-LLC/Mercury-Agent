@@ -1,5 +1,7 @@
 # Hazard checkpoint training (T5)
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+
 Reproducible pipeline for training the eleven `load_neural_weights()` hooks
 on **real data only**, with a hard merit gate: a checkpoint ships only when
 the trained model beats the detector's deterministic physics fallback on
@@ -30,7 +32,7 @@ Every one of the eleven hooks now has a **real, reachable data path** (all
 category **a**) and has been driven through the full fetch → build → train →
 evaluate → gate pipeline on real measured data. Outcome: **8 shipped through
 the merit gate, 3 honest "physics-wins" refusals** — each refusal backed by a
-committed evaluation record under `artifacts/hazard_training/`. Five shipped
+committed evaluation record under `artifacts/hazard_training/`. Six shipped
 checkpoints carry a **validation-selected operating point** (the storm/alert
 decision threshold chosen on the validation years against the same
 non-regression constraints the gate enforces, then consumed decision-only by
@@ -115,6 +117,6 @@ metric). `ship_checkpoint` refuses if any constraint regresses, so a
 checkpoint cannot ship on a primary-metric win while quietly regressing an
 operational metric. This is why the three refused hooks above did not ship:
 each wins its primary metric but regresses a deployed-rule constraint
-(false-alarm rate for seismic/tsunami, recall against an alarm-always
+(false-alarm rate for tsunami, recall against an alarm-always
 baseline for schumann, ranking AUC for earthquake). The refusal, with its
 full committed evaluation record, **is** the deliverable for those hooks.

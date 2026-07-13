@@ -3,6 +3,8 @@
 
 # Detector-tier hardening — process note & reproduction checklist
 
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+
 This note records the *decision boundary* for the **second** detector-tier
 hardening pass in this PR — the pivot that shaped it, what was audited, why the
 hardening approach was chosen, and a reproducible checklist a reviewer can run
@@ -12,7 +14,7 @@ and its `detectors/_calibration.py` primitives (see §5).
 ## 1. The pivot
 
 The original ask was framed around detector *scores* — nudge the tier's benchmark
-numbers up. Mining the repository, the honest finding was that the tier's
+numbers up. Mining the repository, the transparent finding was that the tier's
 individual detectors are already reasonable for what they are (classical,
 pure-NumPy streaming detectors on the notoriously hard NAB point-labels), and
 that chasing per-detector AUC would be low-leverage and easy to overfit.

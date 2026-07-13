@@ -165,7 +165,7 @@ def fetch_catalogs(
 def label_noise_disclosure() -> dict[str, str]:
     """Explicit, quantifiable failure modes of these proxy labels.
 
-    Honesty contract: these are event-coincidence labels, not verified Schumann
+    Transparency contract: these are event-coincidence labels, not verified Schumann
     anomalies. A model scored against them is scored against a *noisy* target.
     """
     return {
