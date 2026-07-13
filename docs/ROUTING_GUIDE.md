@@ -361,6 +361,7 @@ Use fallback chains for resilient data loading:
 
 ```python
 import logging
+from pathlib import Path
 
 import numpy as np
 
@@ -374,27 +375,36 @@ logger = logging.getLogger(__name__)
 
 data_chain = FallbackChain(name="earthquake_data")
 
+
+def _cache_path(params) -> Path:
+    """Single source of truth for the cache path (read and write must agree)."""
+    return Path(f"/data/cache/earthquakes_{params.get('days', 30)}d.npz")
+
+
 @data_chain.handler(priority=0, timeout=30.0)
 async def load_from_usgs(params):
-    """Primary: Load from USGS API."""
+    """Primary: load from the USGS API and warm the cache the fallback reads."""
     loader = USGSEarthquakeLoader()
-    return loader.load(
+    features, labels, metadata = loader.load(
         use_synthetic=False,
         days_back=params.get("days", 30),
-        min_magnitude=params.get("min_mag", 2.5)
+        min_magnitude=params.get("min_mag", 2.5),
     )
+    cache = _cache_path(params)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(cache, features=features, labels=labels)
+    return features, labels, metadata
 
 @data_chain.handler(priority=1, timeout=10.0)
 async def load_from_cache(params):
-    """Fallback: load a cache written by a prior successful primary run."""
-    cache_path = f"/data/cache/earthquakes_{params.get('days', 30)}d.npz"
-    cached = np.load(cache_path)
-    # Normalize to the same (features, labels, metadata) shape the loaders return.
-    return cached["features"], cached["labels"], {"source": "cache", "path": cache_path}
+    """Fallback: load the cache the primary handler wrote on its last success."""
+    cached = np.load(_cache_path(params))
+    # Same (features, labels, metadata) shape the loaders return.
+    return cached["features"], cached["labels"], {"source": "cache"}
 
 @data_chain.handler(priority=2)
 async def load_synthetic(params):
-    """Final fallback: Generate synthetic data."""
+    """Final fallback: generate synthetic data."""
     loader = USGSEarthquakeLoader()
     return loader.load(use_synthetic=True, n_samples=1000)
 
