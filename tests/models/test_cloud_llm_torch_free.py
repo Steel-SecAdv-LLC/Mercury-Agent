@@ -1,0 +1,70 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Laziness contract: the cloud LLM path must not import torch.
+
+The Anthropic/OpenAI/Cohere/Gemini adapters are pure ``requests``
+transports.  Historically ``llm_adapter.py`` imported torch at module top
+and ``models/foundation/__init__.py`` eagerly imported every
+tensor-surface adapter, so selecting a cloud provider dragged the ~2 GB
+ML stack into the process.  These tests pin the decoupling by importing
+the whole cloud chain in a subprocess and asserting torch was never
+pulled into ``sys.modules`` — which holds regardless of whether torch is
+installed, and therefore fails loudly if an eager import is ever
+reintroduced.  (Operational proof in a genuinely torch-free environment:
+a core-only venv drives ``AnthropicCloudAdapter`` end to end; see the
+[foundation]/[llm] extras notes in pyproject.toml.)
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+
+_PROOF = """
+import sys
+from omni_mercury_engine.models.foundation.ollama_adapter import (
+    AnthropicCloudAdapter,
+    FallbackLLMChain,
+    OpenAICloudAdapter,
+)
+from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
+from omni_mercury_engine.models.foundation import FallbackLLMChain as lazy_chain
+
+assert lazy_chain is FallbackLLMChain, "package __getattr__ must resolve the same class"
+
+import numpy as np
+
+adapter = AnthropicCloudAdapter(LLMConfig(provider=LLMProvider.ANTHROPIC, api_key="test-not-real"))
+prompt = adapter._build_anomaly_prompt(np.arange(24.0).reshape(6, 4), context={"k": "v"})
+assert "Numerical data" in prompt.user_prompt
+
+assert "torch" not in sys.modules, "cloud LLM path imported torch"
+print("torch-free-ok")
+"""
+
+
+def test_cloud_llm_chain_never_imports_torch() -> None:
+    """Importing + operating the cloud adapters must leave torch unloaded."""
+    result = subprocess.run(
+        [sys.executable, "-c", _PROOF],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    assert "torch-free-ok" in result.stdout
+
+
+def test_tensor_inputs_still_recognised_when_torch_present() -> None:
+    """With torch importable, a Tensor input keeps its dedicated prompt branch."""
+    torch = __import__("torch")
+
+    from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
+    from omni_mercury_engine.models.foundation.ollama_adapter import AnthropicCloudAdapter
+
+    adapter = AnthropicCloudAdapter(
+        LLMConfig(provider=LLMProvider.ANTHROPIC, api_key="test-not-real")
+    )
+    prompt = adapter._build_anomaly_prompt(torch.arange(12.0).reshape(3, 4), context=None)
+    assert "Tensor data" in prompt.user_prompt

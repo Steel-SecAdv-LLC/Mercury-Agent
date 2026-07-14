@@ -12,6 +12,13 @@ should import those names from ``compliance`` rather than from
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.security.intelligence_fusion import (
+        IntelligenceFusionEngine as IntelligenceFusionEngine,
+    )
+
 from omni_mercury_engine.security.crypto_api import (
     AlgorithmType,
     CryptoBackend,
@@ -34,20 +41,6 @@ from omni_mercury_engine.security.model_policy import (
     SafeHFLoader,
     UnsafeModelError,
 )
-from omni_mercury_engine.security.safe_exec import (
-    UnsafeSubprocessError,
-    safe_exec,
-)
-from omni_mercury_engine.security.safe_http import (
-    SafeHTTPClient,
-    UnsafeURLError,
-)
-
-try:
-    from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
-except ImportError:  # torch not installed
-    IntelligenceFusionEngine = None  # type: ignore[assignment, misc]
-
 from omni_mercury_engine.security.pqc_backends import (
     AMA_CRYPTOGRAPHY_AVAILABLE,
     DILITHIUM_AVAILABLE,
@@ -77,6 +70,14 @@ from omni_mercury_engine.security.pqc_guards import (
     check_pqc_production_readiness,
 )
 from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.safe_exec import (
+    UnsafeSubprocessError,
+    safe_exec,
+)
+from omni_mercury_engine.security.safe_http import (
+    SafeHTTPClient,
+    UnsafeURLError,
+)
 from omni_mercury_engine.security.safe_load import (
     DEFAULT_MAX_BYTES,
     NPZ_MAGIC,
@@ -164,3 +165,25 @@ __all__ = [
     "sphincs_verify",
     "verify_npz_signature",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Lazy (PEP 562) resolution for the torch-backed intelligence engine.
+
+    ``IntelligenceFusionEngine`` is the security package's sole torch
+    dependency.  Importing it eagerly dragged the ~2 GB ML stack into
+    every consumer of the lightweight primitives (``SafeHTTPClient``,
+    ``SafeHFLoader``, audit logging, PQC) — including the pure-``requests``
+    cloud LLM adapters, whose only security need is ``model_policy``.
+    Resolution preserves the historical contract exactly: the class when
+    torch is importable, ``None`` when it is not.
+    """
+    if name == "IntelligenceFusionEngine":
+        try:
+            from omni_mercury_engine.security.intelligence_fusion import (
+                IntelligenceFusionEngine as engine_cls,
+            )
+        except ImportError:  # torch not installed
+            return None
+        return engine_cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -22,10 +23,19 @@ from typing import Any
 from urllib.parse import urlparse
 
 import numpy as np
-import torch
 
 from omni_mercury_engine.models.foundation.llm_usage import LLMUsage, UsageLedger
 from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
+
+# torch is intentionally NOT imported at module top: the cloud adapters
+# built on BaseLLMAdapter (Anthropic / OpenAI / Cohere / Gemini in
+# ollama_adapter.py) are pure ``requests`` transports, and a hard torch
+# import here dragged the ~2 GB ML stack into that path.  The only two
+# torch touch points are (1) recognising an already-created
+# ``torch.Tensor`` input (checked via ``sys.modules`` -- a Tensor can
+# only exist if torch is already imported) and (2) the local
+# HuggingFace backend's ``_load_model``, which imports torch alongside
+# transformers when, and only when, a local model is actually loaded.
 
 logger = logging.getLogger(__name__)
 
@@ -247,10 +257,13 @@ Analyze carefully considering:
 - Historical baselines if provided
 - Domain-specific knowledge"""
 
-        # Convert data to string representation
+        # Convert data to string representation.  The Tensor branch resolves
+        # torch through sys.modules: a live Tensor implies torch is already
+        # imported, so this never forces the import in a torch-free process.
+        torch_mod = sys.modules.get("torch")
         if isinstance(data, np.ndarray):
             data_str = f"Numerical data: shape={data.shape}, mean={np.mean(data):.4f}, std={np.std(data):.4f}, min={np.min(data):.4f}, max={np.max(data):.4f}"
-        elif isinstance(data, torch.Tensor):
+        elif torch_mod is not None and isinstance(data, torch_mod.Tensor):
             data_np = data.detach().cpu().numpy()
             data_str = f"Tensor data: shape={data_np.shape}, mean={np.mean(data_np):.4f}, std={np.std(data_np):.4f}"
         elif isinstance(data, dict):
@@ -401,6 +414,7 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             )
 
         try:
+            import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             # Use revision for remote models, None for local paths.
