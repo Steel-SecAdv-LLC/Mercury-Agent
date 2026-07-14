@@ -365,16 +365,16 @@ class MultiHeadAttentionFusion:
     attention scores, creating coherent frequency patterns that enhance the
     H(omega) component of the weighted fusion Equation.
 
-    .. warning::
-        **The torch attention here is RANDOM-INITIALISED AND NEVER TRAINED.**
-        There is no optimizer, no training loop, no loaded checkpoint, and it
-        runs only under ``torch.no_grad()``. Functionally it is a fixed random
-        linear projection followed by averaging -- it is *not* a learned
-        attention model. The numpy fallback (when torch is absent) is the transparent
-        reference behaviour: a deterministic phi-weighted average. Treat the
-        torch path as a structured-averaging placeholder, not learned fusion,
-        until weights are actually trained/loaded. (Mirrors the untrained-network
-        disclosure pattern in docs/NEUROSYMBOLIC.md.)
+    Inference contract: the torch attention path runs **only when trained
+    weights have been loaded** via :meth:`load_trained_weights` (the
+    ``EthicalGate`` convention).  Until then, :meth:`fuse` uses the
+    deterministic phi-weighted reference average for every environment —
+    with or without torch.  Historically the torch path ran with its random
+    initialisation (a fixed random projection followed by averaging
+    masquerading as learned attention); that placeholder inference is no
+    longer reachable.  (Mirrors the untrained-network disclosure pattern in
+    docs/NEUROSYMBOLIC.md and the abstention pattern in
+    ``models/parapsychology.py``.)
     """
 
     def __init__(
@@ -398,8 +398,11 @@ class MultiHeadAttentionFusion:
         self.head_dim = d_model // num_heads
         self.enable_triadic_phi = enable_triadic_phi
         self.logger = logging.getLogger(__name__)
-        # One-time disclosure that the torch attention path is untrained.
-        self._warned_untrained_attention = False
+        # Learned path activates only after load_trained_weights() succeeds.
+        self._trained = False
+        # One-time disclosure that fusion is running the deterministic
+        # phi-weighted reference (no trained attention weights loaded).
+        self._disclosed_reference_path = False
 
         # Triadic phi-weighting for harmonic synergy
         self.triadic_weighting = TriadicPhiWeighting(num_heads) if enable_triadic_phi else None
@@ -440,15 +443,7 @@ class MultiHeadAttentionFusion:
         stacked = np.stack(padded_states)
         harmonic_synergy = 0.5
 
-        if self.attention is not None and TORCH_AVAILABLE:
-            if not self._warned_untrained_attention:
-                self.logger.warning(
-                    "MultiHeadAttentionFusion: torch attention is random-initialised "
-                    "and never trained (no_grad, no checkpoint) -- functionally a fixed "
-                    "random projection + averaging, not learned attention. The numpy "
-                    "phi-weighted average is the transparent reference behaviour."
-                )
-                self._warned_untrained_attention = True
+        if self.attention is not None and TORCH_AVAILABLE and self._trained:
             with torch.no_grad():
                 tensor_input = torch.tensor(stacked, dtype=torch.float32)
                 projected = self.projection(tensor_input)
@@ -467,7 +462,20 @@ class MultiHeadAttentionFusion:
                 fused = self.output_projection(attn_output.squeeze(0))
                 result = fused.mean(dim=0).numpy()
         else:
-            # NumPy fallback with phi-weighting
+            # Deterministic phi-weighted reference average — the documented
+            # inference behaviour whenever no trained attention weights are
+            # loaded (and the only behaviour when torch is absent).  The
+            # historical alternative — running the attention modules with
+            # their random initialisation — presented a fixed random
+            # projection as learned fusion and is deliberately unreachable.
+            if not self._disclosed_reference_path and self.attention is not None:
+                self.logger.info(
+                    "MultiHeadAttentionFusion: no trained attention weights "
+                    "loaded; using the deterministic phi-weighted reference "
+                    "average (call load_trained_weights() to activate the "
+                    "learned path)."
+                )
+                self._disclosed_reference_path = True
             weights = np.ones(len(padded_states)) / len(padded_states)
             if self.triadic_weighting is not None:
                 # Apply phi-based weighting to state averaging
@@ -482,6 +490,43 @@ class MultiHeadAttentionFusion:
             result = np.average(stacked, axis=0, weights=weights)
 
         return (result, harmonic_synergy) if return_synergy else result
+
+    def load_trained_weights(self, source: str | Path | dict[str, Any]) -> None:
+        """Load trained attention weights and activate the learned fusion path.
+
+        Follows the ``EthicalGate`` trained-weights convention: the learned
+        path is inert until a genuine checkpoint is supplied.  The payload
+        must carry the three module state dicts produced by a training run
+        of this exact architecture.
+
+        Args:
+            source: Path to a ``torch.save`` payload, or the already-loaded
+                payload dict, with keys ``"attention"``, ``"projection"`` and
+                ``"output_projection"``.
+
+        Raises:
+            RuntimeError: If torch is unavailable (no learned path exists).
+            KeyError: If the payload is missing a required module state dict.
+        """
+        if not TORCH_AVAILABLE or self.attention is None:
+            raise RuntimeError(
+                "MultiHeadAttentionFusion.load_trained_weights requires torch; "
+                "the deterministic phi-weighted reference is the only path "
+                "available without it"
+            )
+        payload: dict[str, Any]
+        if isinstance(source, (str, Path)):
+            payload = torch.load(source, map_location="cpu", weights_only=True)
+        else:
+            payload = source
+        self.projection.load_state_dict(payload["projection"])
+        self.attention.load_state_dict(payload["attention"])
+        self.output_projection.load_state_dict(payload["output_projection"])
+        self.projection.eval()
+        self.attention.eval()
+        self.output_projection.eval()
+        self._trained = True
+        self.logger.info("MultiHeadAttentionFusion: trained attention weights loaded")
 
 
 def get_sigma_immutable_threshold(domain: str | None = None) -> float:
