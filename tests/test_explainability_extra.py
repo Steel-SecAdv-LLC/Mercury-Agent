@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the explainability dependency contract (brief: "SHAP/LIME explainer revival").  The validated default path — IntegratedGradients + faithfulness evaluator (PR #265, benchmarks/explanation_fidelity.py) — must work with **no** third-party explainer installed, and SHAP/LIME must be clean opt-ins behind the new `[explainability]` extra that degrade gracefully when absent."""
+"""Tests for the explainability dependency contract (brief: "SHAP/LIME explainer revival").  The validated default path — IntegratedGradients + faithfulness evaluator (PR #265, benchmarks/explanation_fidelity.py) — must work with **no** third-party explainer installed.  SHAP is a clean opt-in behind the `[explainability]` extra; LIME degrades gracefully to the in-repo surrogate (the unmaintained ``lime`` package is kept out of the extras graph because its sole release cannot build on modern setuptools)."""
 
 from __future__ import annotations
 
@@ -49,12 +49,26 @@ def test_faithfulness_evaluator_is_self_contained() -> None:
     assert evaluator is not None  # constructs with no external explainer dep
 
 
-def test_explainability_extra_declares_shap_and_lime() -> None:
+def test_explainability_extra_declares_shap_only() -> None:
+    """The extra ships SHAP and must NOT reintroduce lime.
+
+    lime's only release (0.2.0.1, 2020, unmaintained) cannot build under
+    modern setuptools (``AttributeError: install_layout`` in its sdist
+    build), so declaring it broke every ``pip install .[explainability]`` /
+    ``.[all]`` / ``.[test]``.  The LIME adapter stays functional without the
+    pin: it uses the real library when an operator installs it manually and
+    otherwise falls back to the in-repo local linear surrogate.
+    """
     data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     extras = data["project"]["optional-dependencies"]
     assert "explainability" in extras, "missing [explainability] extra"
     joined = " ".join(extras["explainability"]).lower()
-    assert "shap" in joined and "lime" in joined
+    assert "shap" in joined
+    all_extras_joined = " ".join(dep.lower() for deps in extras.values() for dep in deps)
+    assert "lime" not in all_extras_joined, (
+        "lime must not re-enter the extras graph: its sole release cannot "
+        "build on modern setuptools and breaks pip install .[all]/.[test]"
+    )
     # It must be reachable from the umbrella `all` extra.
     assert any("explainability" in dep for dep in extras["all"])
 
