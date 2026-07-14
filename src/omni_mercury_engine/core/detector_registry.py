@@ -1135,9 +1135,15 @@ class DetectorRegistry:
 
         def _execute_detector() -> FeatureExtractionResult:
             """Inner function to execute detector, wrapped by circuit breaker."""
-            # Try to fit if needed
-            if hasattr(detector, "is_fitted") and not detector.is_fitted():
-                if hasattr(detector, "fit") and not isinstance(data, dict):
+            # Try to fit if needed. ``is_fitted`` is a method on the core
+            # detector contract (core/base.py), but this registry is a
+            # plugin boundary: registered detectors may expose it as a
+            # read-only property instead, so resolve both forms rather
+            # than crash calling a bool.
+            fitted_attr = getattr(detector, "is_fitted", None)
+            if fitted_attr is not None:
+                fitted = fitted_attr() if callable(fitted_attr) else bool(fitted_attr)
+                if not fitted and hasattr(detector, "fit") and not isinstance(data, dict):
                     detector.fit(data)
 
             # Extract features

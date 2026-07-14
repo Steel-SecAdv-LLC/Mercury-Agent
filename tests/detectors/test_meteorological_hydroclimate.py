@@ -245,6 +245,20 @@ class TestHeatwaveDetector:
         with pytest.raises((ValueError, RuntimeError)):
             detector.detect_heatwaves([dt.date(2021, 7, 1)], np.array([30.0]))
 
+    def test_is_fitted_is_a_callable_method(self) -> None:
+        """``is_fitted`` follows the core detector contract (a method).
+
+        Regression: as a property, every registry invocation
+        (``core/detector_registry.py`` calls ``detector.is_fitted()``)
+        crashed with ``'bool' object is not callable``.
+        """
+        detector = HeatwaveDetector()
+        assert callable(detector.is_fitted)
+        assert detector.is_fitted() is False
+        dates, tmax, tmin = _baseline_series()
+        detector.fit_baseline(dates, tmax, tmin_c=tmin)
+        assert detector.is_fitted() is True
+
     def test_short_baseline_rejected(self) -> None:
         detector = HeatwaveDetector()
         dates = [dt.date(2020, 1, 1) + dt.timedelta(days=i) for i in range(200)]

@@ -43,3 +43,39 @@ def test_power_spectrum_real_signal_stays_peak_normalized() -> None:
     power, xf = det._compute_power_spectrum(signal)
     assert np.all(np.isfinite(power))
     assert np.isclose(float(np.max(power)), 1.0), "real-signal spectrum must remain peak-normalized"
+
+
+def test_multichannel_input_declines_with_clear_message() -> None:
+    """A 2-D tabular window is off-modality: decline loudly, never index-crash.
+
+    Regression: an unvalidated 2-D input sent the FFT along the wrong axis and
+    the fundamental/harmonic peak searches then indexed the 1-D frequency array
+    with a flattened-2-D ``argmax`` (``index 40 is out of bounds for axis 0
+    with size 9``).
+    """
+    det = SchumannResonanceDetector(sampling_rate=100.0)
+    window = np.random.default_rng(42).normal(size=(200, 8))
+    with pytest.raises(ValueError, match="1-D ELF time series"):
+        det.extract_features(window)
+    with pytest.raises(ValueError, match="1-D ELF time series"):
+        det.detect_resonance_anomaly(window)
+
+
+def test_column_vector_input_matches_flat_input() -> None:
+    """Trivially-squeezable shapes like ``(n, 1)`` are accepted as one channel."""
+    det = SchumannResonanceDetector(sampling_rate=100.0)
+    t = np.arange(1024) / 100.0
+    signal = np.sin(2.0 * np.pi * 7.83 * t)
+    power_flat, xf_flat = det._compute_power_spectrum(signal)
+    power_col, xf_col = det._compute_power_spectrum(signal.reshape(-1, 1))
+    np.testing.assert_allclose(power_col, power_flat)
+    np.testing.assert_allclose(xf_col, xf_flat)
+
+
+def test_short_temporal_history_windows_are_zero_padded() -> None:
+    """Temporal-history spectra shorter than the 103-bin layout must zero-pad."""
+    det = SchumannResonanceDetector(sampling_rate=100.0)
+    short_history = [np.sin(2.0 * np.pi * 7.83 * np.arange(64) / 100.0) for _ in range(3)]
+    tensor = det._process_temporal_history(short_history)
+    assert tuple(tensor.shape) == (1, 3, 103)
+    assert bool(np.isfinite(tensor.numpy()).all())

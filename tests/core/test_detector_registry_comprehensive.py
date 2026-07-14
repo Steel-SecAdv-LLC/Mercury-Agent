@@ -152,6 +152,38 @@ class TestFeatureExtraction:
         assert result.success is False
         assert result.error is not None
 
+    def test_extract_features_property_style_is_fitted(self) -> None:
+        """A detector exposing ``is_fitted`` as a property must not be crashed.
+
+        The core contract (core/base.py) makes ``is_fitted`` a method, but the
+        registry is a plugin boundary: domain detectors have shipped it as a
+        read-only property (regression: the heatwave detector failed every
+        registry invocation with ``'bool' object is not callable``).
+        """
+
+        class _PropertyStyleDetector:
+            def __init__(self) -> None:
+                self.fit_calls = 0
+
+            @property
+            def is_fitted(self) -> bool:
+                return self.fit_calls > 0
+
+            def fit(self, data: np.ndarray) -> None:
+                self.fit_calls += 1
+
+            def extract_features(self, data: np.ndarray) -> np.ndarray:
+                return np.ones(4)
+
+        reg = DetectorRegistry(auto_discover=False)
+        detector = _PropertyStyleDetector()
+        reg.register("property_det", detector, DetectorCategory.BASE)
+
+        result = reg.extract_features("property_det", np.zeros((10, 2)))
+        assert result.success is True, result.error
+        assert detector.fit_calls == 1  # unfitted property triggered the fit path
+        assert result.features is not None
+
     def test_extract_all_features_sequential(self) -> None:
         """Test extracting features from all detectors sequentially."""
         reg = DetectorRegistry(auto_discover=False)

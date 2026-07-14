@@ -610,10 +610,27 @@ class SchumannResonanceDetector:
     def _compute_power_spectrum(
         self, elf_signal: np.ndarray[Any, Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Compute power spectrum using FFT (O(n log n) complexity)."""
-        n = len(elf_signal)
+        """Compute power spectrum using FFT (O(n log n) complexity).
 
-        yf = fft(elf_signal)
+        Raises:
+            ValueError: If ``elf_signal`` is not a single-channel (1-D)
+                time series. On multi-channel/tabular input the FFT would
+                run along the wrong axis and every downstream 1-D peak
+                search (``np.argmax`` over a flattened 2-D band window
+                indexed into the 1-D frequency array) would go out of
+                bounds or fabricate frequencies, so the detector declines
+                the modality instead.
+        """
+        signal = np.squeeze(np.asarray(elf_signal, dtype=np.float64))
+        if signal.ndim != 1:
+            raise ValueError(
+                "SchumannResonanceDetector expects a 1-D ELF time series "
+                f"(single channel, sampled at {self.sampling_rate:g} Hz); got "
+                f"shape {np.asarray(elf_signal).shape}. Pass one ELF channel."
+            )
+        n = signal.size
+
+        yf = fft(signal)
         power = np.abs(yf[: n // 2]) ** 2
         xf = fftfreq(n, 1.0 / self.sampling_rate)[: n // 2]
 
@@ -719,7 +736,10 @@ class SchumannResonanceDetector:
 
         for i, hist_signal in enumerate(temporal_history[-sequence_length:]):
             power, _freqs = self._compute_power_spectrum(hist_signal)
-            temporal_spectra[0, i, :] = power[:103]
+            # Zero-pad spectra from windows shorter than 206 samples so a
+            # short history record cannot break the fixed 103-bin layout.
+            k = min(power.size, 103)
+            temporal_spectra[0, i, :k] = power[:k]
 
         return torch.tensor(temporal_spectra, dtype=torch.float32)
 

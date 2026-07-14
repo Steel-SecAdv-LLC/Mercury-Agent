@@ -326,9 +326,14 @@ class HeatwaveDetector:
         self._ehf85: float | None = None
         self._baseline_years: int = 0
 
-    @property
     def is_fitted(self) -> bool:
-        """Whether a baseline climatology has been fitted."""
+        """Return whether a baseline climatology has been fitted.
+
+        A method, not a property: the detector-registry and fusion call
+        sites (``core/detector_registry.py``, ``engine.py``,
+        ``detectors/detection_tier.py``) invoke ``detector.is_fitted()``
+        per the core detector contract in ``core/base.py``.
+        """
         return self._ctx_thresholds is not None
 
     def fit_baseline(
