@@ -100,7 +100,7 @@ def part1_routing_provenance_and_usage() -> None:
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
         model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", "claude-opus-4-8"),
-        api_key=live_key or "sk-ant-UNIT-not-a-real-key",
+        api_key=live_key or "unit-test-placeholder-key",
         max_tokens=400,
     )
     backend = RemoteReasoningBackend(cloud_config=cfg, usage_ledger=ledger)
@@ -174,7 +174,9 @@ def part1_routing_provenance_and_usage() -> None:
 def part2_ethics_gate_is_enforced() -> None:
     print("[PART 2] Dual ethical gate is real (invoked per op; denial surfaces nothing)")
     cfg = LLMConfig(
-        provider=LLMProvider.ANTHROPIC, model_name="claude-opus-4-8", api_key="sk-ant-UNIT"
+        provider=LLMProvider.ANTHROPIC,
+        model_name="claude-opus-4-8",
+        api_key="unit-test-placeholder-key",
     )
     backend = RemoteReasoningBackend(cloud_config=cfg)
 
@@ -236,7 +238,9 @@ def part3_airgap_fail_closed() -> None:
         )
 
         cfg = LLMConfig(
-            provider=LLMProvider.ANTHROPIC, model_name="claude-opus-4-8", api_key="sk-ant-UNIT"
+            provider=LLMProvider.ANTHROPIC,
+            model_name="claude-opus-4-8",
+            api_key="unit-test-placeholder-key",
         )
         backend = RemoteReasoningBackend(cloud_config=cfg, ethics_enabled=False)
         # Under the air-gap the chain never even constructs the cloud adapter.

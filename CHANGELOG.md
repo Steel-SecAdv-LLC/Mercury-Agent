@@ -27,7 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Merit-gated winners serve by default: seismic checkpoint + trained GOSNN fusion (PR #339)
+### Review-hardening: edge-window crashes, sizing consistency, honest docs (PR #339)
+
+- **Schumann degenerate windows fixed end-to-end.** An empty ELF window
+  reached ``scipy.fft.fft`` (which raises on empty input) before any guard,
+  and a single-sample window was squeezed to a 0-d scalar and misclassified
+  as off-modality; ``extract_features`` additionally emitted NaN band power
+  (mean of an empty slice) on such windows. All three now yield the truthful
+  empty spectrum / zero band power, warning-free, with ``n in {0, 1}``
+  pinned by tests.
+- **AffectiveAnomalyModel rejects empty declared series.** A declared
+  emotion series with zero timesteps passed the shape check and produced
+  NaN anomaly/emotion scores via the temporal mean; it now fails loud.
+- **AllSourceFusionNetwork sizing follows the discipline enum.** The
+  cross-INT attention head count and the ``hidden_3`` rounding hard-coded 13
+  while the per-discipline encoders were built from ``IntelligenceDiscipline``;
+  both now derive from the enum (identical dimensions at the default) and a
+  divergent ``num_int_types`` fails loud instead of silently mis-sizing.
+- **Proof-harness honesty and hygiene.** The wire proof no longer claims the
+  SSRF gate was "engaged" in the leg where it is patched out; the live
+  transport leg catches only ``UnsafeURLError`` (the sole exception the
+  adapter lets escape) so real adapter bugs fail the proof; key-shaped
+  ``sk-ant-*`` dummy values replaced with neutral placeholders; the detector
+  sweep's exit-code contract is now stated precisely; ``curl | sh`` install
+  one-liners replaced with links to official instructions.
+- **`AMA_REQUIRE_CONSTANT_TIME` docs reconciled** (SECURITY.md previously
+  told operators to set it while INSTALLATION/DEPLOYMENT/.env.example called
+  it a no-op): all four now carry the same verified statement — AMA v3.3.0's
+  native-only operation is unconditional, the flag changes no cryptographic
+  behavior on a healthy install (AMA logs a deprecation warning), it fails
+  closed redundantly on a broken install, and Mercury reads it only for
+  diagnostics.
+
+### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses (PR #339)
 
 - **EarthquakeDetector defaults to the shipped merit-gate winner.** The
   ``seismic_stead`` checkpoint (real STEAD data: held-out recall 0.9745 vs
@@ -42,18 +74,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directions) and its baseline was re-pinned; the trained lane's low POD on
   the guard's synthetic toy waveforms (~0.14) is pinned deliberately as an
   out-of-distribution characterization, with the real-data surface cited.
-- **MultiHeadAttentionFusion trained on a non-circular objective.**
+- **MultiHeadAttentionFusion: non-circular training program, honest refusal.**
   ``scripts/train_gosnn_fusion.py`` records the dimensional-state lists the
   production ``fuse()`` actually receives while a real engine detects on
-  real cached ADBench windows, trains two candidates (masked-member
-  reconstruction; + temporal multitask) on the exact production module
-  stack, and merit-gates them against the deterministic phi-weighted
-  reference on held-out lists (MSE <= 0.95x reference + anti-collapse
-  floor; "reference wins, nothing ships" is a valid outcome). The winning
-  checkpoint ships as ``gosnn_attention_fusion`` with a full provenance
-  sidecar and auto-loads at construction (``load_shipped_weights=False``
-  pins the reference path); eval artifact committed at
-  ``artifacts/gosnn_fusion.eval.json``.
+  real cached ADBench windows and merit-gates masked-member-reconstruction
+  candidates against the deterministic phi-weighted reference. A forensic
+  audit of the first run found the harvest DEGENERATE — 1 unique state list
+  across 403 calls (static registry groups; empty per-call base member) and
+  a measured downstream effect on ``anomaly_prob`` of exactly 0 — so the
+  briefly-shipped checkpoint was withdrawn as a vacuous memoriser. The
+  program now measures harvest diversity first and refuses to train or ship
+  below 50 unique lists; the committed
+  ``artifacts/gosnn_fusion.eval.json`` carries the measured refusal
+  verdict, ``fuse()`` keeps the deterministic reference, and a new test
+  pins that the artifact's decision and the shipped-checkpoint state can
+  never disagree.
 
 ### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
 

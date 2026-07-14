@@ -16,7 +16,12 @@ fail-fast 30 s barrier that raises (and discards completed results) the moment
 per-detector table is always produced.
 
 Run: ``python research/model_integration_obsv/detector_operational_sweep.py``
-Exit 0 when every discovered detector executed operationally within budget.
+Exit 0 when every declared detector is discovered and loads (the hard
+invariant this sweep enforces); exit 1 when any manifest entry fails to load.
+The per-detector extraction verdicts on the generic tabular window are a
+diagnostic report, not part of the exit code: modality-specific detectors
+correctly DECLINE that input (never fabricate output), and each is validated
+on its proper modality by the test suite.
 """
 
 from __future__ import annotations

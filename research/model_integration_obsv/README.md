@@ -91,7 +91,8 @@ the moment either is present:
 
 **(A) Ollama — zero cost, zero secret (recommended for dev/CI):**
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
+# Install Ollama first: follow the official instructions for your platform
+# at https://ollama.com/download (avoid piping remote scripts to a shell).
 ollama serve &            # loopback daemon on 127.0.0.1:11434 (SafeHTTPClient loopback-gated)
 ollama pull llama3.2:1b   # any chat model; ~1.3 GB
 python research/model_integration_obsv/live_llm_smoke.py   # -> LIVE ollama:llama3.2:1b completion

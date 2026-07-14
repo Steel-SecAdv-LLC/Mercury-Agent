@@ -115,7 +115,7 @@ def part1_request_format_and_usage() -> None:
         cfg = LLMConfig(
             provider=LLMProvider.ANTHROPIC,
             model_name="claude-opus-4-8",
-            api_key="sk-ant-UNIT-not-a-real-key",
+            api_key="unit-test-placeholder-key",
             max_tokens=512,
             timeout=30.0,
         )
@@ -135,14 +135,17 @@ def part1_request_format_and_usage() -> None:
         _passed(f"POST target is the real Messages endpoint: {url}")
 
         assert headers["anthropic-version"] == "2023-06-01", headers
-        assert headers["x-api-key"] == "sk-ant-UNIT-not-a-real-key", "key must be sent verbatim"
+        assert headers["x-api-key"] == "unit-test-placeholder-key", "key must be sent verbatim"
         assert headers["Content-Type"] == "application/json", headers
         _passed("headers carry x-api-key + anthropic-version:2023-06-01 + JSON content-type")
 
         assert (
             captured.kwargs.get("user_configured") is True
-        ), "SafeHTTPClient SSRF gate must be engaged (user_configured=True)"
-        _passed("SafeHTTPClient SSRF gate engaged (user_configured=True)")
+        ), "adapter must pass user_configured=True to the SafeHTTPClient boundary"
+        _passed(
+            "adapter passes user_configured=True to the SafeHTTPClient boundary "
+            "(the gate itself is patched out in this leg; PART 4 exercises it live)"
+        )
 
         assert body["model"] == "claude-opus-4-8", body
         assert isinstance(body["max_tokens"], int) and body["max_tokens"] == 512, body
@@ -185,7 +188,7 @@ def part2_parse_robustness() -> None:
             cfg = LLMConfig(
                 provider=LLMProvider.ANTHROPIC,
                 model_name="claude-opus-4-8",
-                api_key="sk-ant-UNIT",
+                api_key="unit-test-placeholder-key",
             )
             adapter = AnthropicCloudAdapter(cfg)
             text = adapter.generate("probe", None)
@@ -222,7 +225,9 @@ def part3_error_path() -> None:
     safe_http.SafeHTTPClient.post_json = classmethod(_raise_401)  # type: ignore[assignment]
     try:
         cfg = LLMConfig(
-            provider=LLMProvider.ANTHROPIC, model_name="claude-opus-4-8", api_key="sk-ant-UNIT"
+            provider=LLMProvider.ANTHROPIC,
+            model_name="claude-opus-4-8",
+            api_key="unit-test-placeholder-key",
         )
         adapter = AnthropicCloudAdapter(cfg)
         text = adapter.generate("probe", None)
@@ -238,15 +243,18 @@ def part4_live_transport() -> None:
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
         model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", "claude-opus-4-8"),
-        api_key=live_key or "sk-ant-INVALID-transport-probe",
+        api_key=live_key or "invalid-transport-probe-key",
         max_tokens=32,
         timeout=30.0,
     )
     adapter = AnthropicCloudAdapter(cfg)
     try:
         text = adapter.generate("Reply with the single word PONG.", None)
-    except Exception as exc:  # network genuinely unreachable
-        print(f"  ! live endpoint unreachable ({exc!r}); transport leg skipped")
+    except safe_http.UnsafeURLError as exc:
+        # The only exception generate() lets escape (SSRF/egress policy);
+        # transport failures come back as documented error strings, and any
+        # other exception is a real adapter bug that must fail this proof.
+        print(f"  ! egress to api.anthropic.com blocked by policy ({exc!r}); transport leg skipped")
         return
 
     if live_key:

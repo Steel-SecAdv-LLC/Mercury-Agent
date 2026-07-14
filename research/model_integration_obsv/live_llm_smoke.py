@@ -59,7 +59,8 @@ builtin template (a real, honest offline fallback -- but not a model). To turn
 on a live end-to-end proof, give Mercury ONE of:
 
   (A) A local Ollama model  [zero cost, zero secret -- recommended for dev]
-        curl -fsSL https://ollama.com/install.sh | sh
+        # Install Ollama via the official instructions for your platform:
+        # https://ollama.com/download  (avoid piping remote scripts to a shell)
         ollama serve &                 # loopback daemon on 127.0.0.1:11434
         ollama pull llama3.2:1b        # ~1.3 GB; any chat model works
       then re-run this script.
