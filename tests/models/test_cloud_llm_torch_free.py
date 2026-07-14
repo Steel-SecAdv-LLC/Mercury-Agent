@@ -68,3 +68,29 @@ def test_tensor_inputs_still_recognised_when_torch_present() -> None:
     )
     prompt = adapter._build_anomaly_prompt(torch.arange(12.0).reshape(3, 4), context=None)
     assert "Tensor data" in prompt.user_prompt
+
+
+def test_anthropic_default_model_is_a_currently_served_id() -> None:
+    """With ``model_name`` unset, the adapter selects the documented default.
+
+    Regression: the previous fallback ``claude-3-5-sonnet-20241022`` was
+    retired upstream and 404'd on the first call for any operator who chose
+    the Anthropic provider without naming a model. Existing tests always
+    passed ``model_name`` explicitly, so a retired default could regress
+    silently -- this pins the selected id and that an explicit
+    ``model_name`` still wins.
+    """
+    from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
+    from omni_mercury_engine.models.foundation.ollama_adapter import AnthropicCloudAdapter
+
+    defaulted = AnthropicCloudAdapter(
+        LLMConfig(provider=LLMProvider.ANTHROPIC, api_key="test-not-real")
+    )
+    assert defaulted.model == "claude-opus-4-8"
+
+    explicit = AnthropicCloudAdapter(
+        LLMConfig(
+            provider=LLMProvider.ANTHROPIC, model_name="claude-haiku-4-5", api_key="test-not-real"
+        )
+    )
+    assert explicit.model == "claude-haiku-4-5"
