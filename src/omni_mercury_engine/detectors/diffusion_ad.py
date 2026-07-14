@@ -33,6 +33,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -169,7 +170,7 @@ class DiffusionReconstructionDetector(BaseDetector):
         n = windows.shape[0]
         generator = torch.Generator().manual_seed(self.seed)
         errors = torch.zeros(n)
-        with torch.no_grad():
+        with single_threaded_torch(), torch.no_grad():
             for step in self.eval_steps:
                 abar = float(self._alpha_bar[step])
                 noise = torch.randn(windows.shape, generator=generator)
@@ -204,16 +205,20 @@ class DiffusionReconstructionDetector(BaseDetector):
         generator = torch.Generator().manual_seed(self.seed)
         n = windows.shape[0]
         model.train()
-        for _ in range(self.epochs):
-            optimizer.zero_grad()
-            t = torch.randint(0, self.n_steps, (n,), generator=generator)
-            abar = torch.from_numpy(self._alpha_bar[t.numpy()].astype(np.float32)).unsqueeze(-1)
-            noise = torch.randn(windows.shape, generator=generator)
-            noisy = abar.sqrt() * windows + (1.0 - abar).sqrt() * noise
-            pred = model(noisy, t)
-            loss = loss_fn(pred, noise)
-            loss.backward()
-            optimizer.step()
+        # Tiny full-batch denoiser: pin to one intra-op thread (see
+        # detectors/_torch_perf.py) — the fork/join overhead of the default
+        # pool dominates at this tensor size.
+        with single_threaded_torch():
+            for _ in range(self.epochs):
+                optimizer.zero_grad()
+                t = torch.randint(0, self.n_steps, (n,), generator=generator)
+                abar = torch.from_numpy(self._alpha_bar[t.numpy()].astype(np.float32)).unsqueeze(-1)
+                noise = torch.randn(windows.shape, generator=generator)
+                noisy = abar.sqrt() * windows + (1.0 - abar).sqrt() * noise
+                pred = model(noisy, t)
+                loss = loss_fn(pred, noise)
+                loss.backward()
+                optimizer.step()
         model.eval()
         self._model = model
         self._scale = self._squash_scale(self._recon_error(windows))

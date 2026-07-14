@@ -197,12 +197,30 @@ class BOCPDDetector(BaseDetector):
         alpha = np.full(cap, self._alpha0, dtype=np.float64)
         beta = np.full(cap, self._beta0, dtype=np.float64)
 
+        # The recursion maintains ``alpha[r] = alpha0 + r/2`` exactly at every
+        # step (index 0 resets to the prior; index r inherits index r-1 plus
+        # 0.5, and halves are exactly representable in float64), so the two
+        # gammaln terms of the Student-t predictive are a fixed per-index
+        # table: gammaln(alpha[r] + 0.5) - gammaln(alpha[r]).  Precomputing it
+        # once replaces ~2 * cap * n gammaln evaluations per series with a
+        # slice lookup, with bit-identical inputs and therefore bit-identical
+        # scores (pinned by tests/detectors/test_bocpd_invariants.py).
+        alpha_grid = self._alpha0 + 0.5 * np.arange(cap, dtype=np.float64)
+        lgam_diff = gammaln(alpha_grid + 0.5) - gammaln(alpha_grid)
+
         for t in range(n):
             x = float(series[t])
             active = t + 1 if t + 1 < cap else cap
             sl = slice(0, active)
 
-            pred_logpdf = self._student_t_logpdf(x, mu[sl], kappa[sl], alpha[sl], beta[sl])
+            # Inline Student-t log-predictive (see _student_t_logpdf) with the
+            # loop-invariant gammaln difference read from the table above.
+            nu = 2.0 * alpha[sl]
+            scale_sq = beta[sl] * (kappa[sl] + 1.0) / (alpha[sl] * kappa[sl])
+            z = (x - mu[sl]) ** 2 / (nu * scale_sq)
+            pred_logpdf = (
+                lgam_diff[sl] - 0.5 * np.log(nu * np.pi * scale_sq) - (nu + 1.0) / 2.0 * np.log1p(z)
+            )
             pred = np.exp(pred_logpdf)
 
             growth = run_prob[sl] * pred * (1.0 - self.hazard)

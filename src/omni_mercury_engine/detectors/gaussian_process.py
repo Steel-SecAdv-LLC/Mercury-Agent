@@ -103,18 +103,30 @@ class GaussianProcessDetector(BaseDetector):
         d = xa.reshape(-1, 1) - xb.reshape(1, -1)
         return self._signal_var * np.exp(-0.5 * (d * d) / (self._length_scale**2))
 
-    def _predict_point(
-        self, x_ctx: np.ndarray[Any, Any], y_ctx: np.ndarray[Any, Any], x_star: float
-    ) -> tuple[float, float]:
-        """GP posterior mean/variance at ``x_star`` given a context window."""
-        k = self._rbf(x_ctx, x_ctx) + self._noise_var * np.eye(x_ctx.size)
-        k_star = self._rbf(x_ctx, np.array([x_star]))[:, 0]  # (n,)
+    def _stationary_weights(self) -> tuple[np.ndarray[Any, Any], float]:
+        """Projection weights and predictive variance for the fixed window geometry.
+
+        Every one-step-ahead prediction conditions on the same integer time
+        offsets ``0..window-1`` and predicts at ``x_star = window``, so the
+        kernel system is loop-invariant: ``K``, ``k_star``, the solve
+        ``w = K^{-1} k_star`` and the predictive variance are all constant
+        across the series — only the window *values* ``y_ctx`` change, and the
+        posterior mean reduces to the dot product ``w @ y_ctx`` (``K`` is
+        symmetric, so ``k_star^T K^{-1} y = (K^{-1} k_star)^T y``). Hoisting
+        this out of the per-point loop removes ~``n`` redundant ``window x
+        window`` factorisations per series with identical math.
+
+        Returns:
+            ``(w, var)``: projection weights ``(window,)`` and the (floored)
+            constant predictive variance.
+        """
+        offsets = np.arange(self.window, dtype=np.float64)
+        k = self._rbf(offsets, offsets) + self._noise_var * np.eye(self.window)
+        k_star = self._rbf(offsets, np.array([float(self.window)]))[:, 0]  # (n,)
         # Solve rather than invert for numerical stability.
-        alpha = np.linalg.solve(k, y_ctx)
-        mean = float(k_star @ alpha)
-        v = np.linalg.solve(k, k_star)
-        var = float(self._signal_var + self._noise_var - (k_star @ v))
-        return mean, max(var, 1e-9)
+        w = np.linalg.solve(k, k_star)
+        var = float(self._signal_var + self._noise_var - (k_star @ w))
+        return w, max(var, 1e-9)
 
     def _residuals(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Standardised one-step-ahead GP residuals for each observation."""
@@ -122,19 +134,19 @@ class GaussianProcessDetector(BaseDetector):
         out = np.zeros(n, dtype=np.float64)
         if n == 0:
             return out
-        offsets = np.arange(self.window, dtype=np.float64)
-        for t in range(n):
-            lo = t - self.window
-            if lo < 0:
-                # Not enough history: fall back to a robust local z-score.
-                ctx = series[:t] if t > 0 else series[:1]
-                mu = float(np.mean(ctx))
-                sd = float(np.std(ctx)) + 1e-9
-                out[t] = abs(series[t] - mu) / sd
-                continue
-            y_ctx = series[lo:t]
-            mean, var = self._predict_point(offsets, y_ctx, float(self.window))
-            out[t] = abs(series[t] - mean) / np.sqrt(var)
+        for t in range(min(self.window, n)):
+            # Not enough history: fall back to a robust local z-score.
+            ctx = series[:t] if t > 0 else series[:1]
+            mu = float(np.mean(ctx))
+            sd = float(np.std(ctx)) + 1e-9
+            out[t] = abs(series[t] - mu) / sd
+        if n > self.window:
+            w, var = self._stationary_weights()
+            # windows[i] = series[i : i + window] conditions the prediction
+            # for t = i + window; the last window has no successor to score.
+            windows = np.lib.stride_tricks.sliding_window_view(series, self.window)[:-1]
+            means = windows @ w
+            out[self.window :] = np.abs(series[self.window :] - means) / np.sqrt(var)
         return out
 
     def _log_marginal(self, series: np.ndarray[Any, Any]) -> float:
@@ -142,17 +154,13 @@ class GaussianProcessDetector(BaseDetector):
         n = series.size
         if n <= self.window:
             return -np.inf
-        offsets = np.arange(self.window, dtype=np.float64)
-        total = 0.0
-        count = 0
+        w, var = self._stationary_weights()
         step = max(1, (n - self.window) // 32)  # subsample windows for speed
-        for t in range(self.window, n, step):
-            y_ctx = series[t - self.window : t]
-            mean, var = self._predict_point(offsets, y_ctx, float(self.window))
-            resid = series[t] - mean
-            total += -0.5 * (resid * resid / var + np.log(2.0 * np.pi * var))
-            count += 1
-        return total / count if count else -np.inf
+        idx = np.arange(self.window, n, step)
+        windows = np.lib.stride_tricks.sliding_window_view(series, self.window)
+        resid = series[idx] - windows[idx - self.window] @ w
+        ll = -0.5 * (resid * resid / var + np.log(2.0 * np.pi * var))
+        return float(np.mean(ll)) if ll.size else -np.inf
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> GaussianProcessDetector:
         """Learn RBF hyperparameters (grid marginal likelihood) and squash scale.

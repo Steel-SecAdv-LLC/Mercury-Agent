@@ -34,6 +34,7 @@ from omni_mercury_engine.detectors._calibration import (
     bound_finite_config,
     finite_scores,
 )
+from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -190,12 +191,15 @@ class SRCNNDetector(BaseDetector):
         pos_weight = torch.tensor([(float(labels.size) - n_pos) / max(n_pos, 1.0)])
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         model.train()
-        for _ in range(self.epochs):
-            optimizer.zero_grad()
-            logits = model(features)
-            loss = loss_fn(logits, targets)
-            loss.backward()
-            optimizer.step()
+        # Tiny full-batch model: intra-op thread fan-out costs ~13x more than
+        # it saves here (see detectors/_torch_perf.py), so pin to one thread.
+        with single_threaded_torch():
+            for _ in range(self.epochs):
+                optimizer.zero_grad()
+                logits = model(features)
+                loss = loss_fn(logits, targets)
+                loss.backward()
+                optimizer.step()
         model.eval()
         self._model = model
         self._is_fitted = True
@@ -206,7 +210,7 @@ class SRCNNDetector(BaseDetector):
         if self._model is None:
             raise RuntimeError("call fit() before scoring")
         saliency = self._sr._saliency_map(series)
-        with torch.no_grad():
+        with single_threaded_torch(), torch.no_grad():
             logits = self._model(self._windows(saliency))
             probs = torch.sigmoid(logits).cpu().numpy()
         # finite_scores (not a bare np.clip, which passes NaN through): a huge
