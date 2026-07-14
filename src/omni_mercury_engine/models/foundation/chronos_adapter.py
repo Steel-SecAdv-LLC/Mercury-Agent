@@ -100,8 +100,11 @@ class ChronosAdapter(BaseFoundationModel):
         elif isinstance(config, dict):
             config = ChronosConfig(**config)
 
-        # Set model name based on size
-        if config.model_size in self.MODEL_SIZES:
+        # Resolve model_size to a Hub ID only when the caller left model_name
+        # at its default: an explicitly supplied model_name (a different
+        # amazon/chronos-t5-* ID or a local path) must win, not be silently
+        # clobbered by the default model_size="small".
+        if config.model_size in self.MODEL_SIZES and config.model_name == ChronosConfig.model_name:
             config.model_name = self.MODEL_SIZES[config.model_size]
 
         # Set typed config BEFORE calling super().__init__() to avoid AttributeError

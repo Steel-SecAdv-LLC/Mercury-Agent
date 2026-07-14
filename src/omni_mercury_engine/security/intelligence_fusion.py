@@ -35,6 +35,7 @@ Operational deployment requires security clearance and legal authorization.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -113,11 +114,15 @@ class AllSourceFusionNetwork(nn.Module):
             round(int(hidden_2 / phi) / 13) * 13
         )  # Round to nearest multiple of 13 for attention
 
+        encoder_in = input_dim // num_int_types
+        encoder_out = hidden_1 // num_int_types
+        fused_dim = encoder_out * num_int_types
+
         self.int_encoders = nn.ModuleDict(
             {
                 discipline.value: nn.Sequential(
-                    nn.Linear(input_dim // num_int_types, hidden_1 // num_int_types),
-                    nn.LayerNorm(hidden_1 // num_int_types),
+                    nn.Linear(encoder_in, encoder_out),
+                    nn.LayerNorm(encoder_out),
                     nn.ReLU(),
                     nn.Dropout(0.15),
                 )
@@ -126,7 +131,7 @@ class AllSourceFusionNetwork(nn.Module):
         )
 
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(hidden_1, hidden_2),
+            nn.Linear(fused_dim, hidden_2),
             nn.LayerNorm(hidden_2),
             nn.ReLU(),
             nn.Dropout(0.2),
@@ -421,6 +426,17 @@ class IntelligenceFusionEngine:
 
     def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
         """Extract features from intelligence reports (O(n) complexity)."""
+        if not isinstance(intel_reports, Mapping):
+            shape_hint = (
+                f" of shape {intel_reports.shape}" if hasattr(intel_reports, "shape") else ""
+            )
+            raise ValueError(
+                "IntelligenceFusionEngine expects a multi-INT report mapping "
+                "(dict keyed by discipline, e.g. "
+                "{'open_source': {...}, 'signals': {...}}), got "
+                f"{type(intel_reports).__name__}{shape_hint}."
+            )
+
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
 
@@ -452,7 +468,7 @@ class IntelligenceFusionEngine:
     def _process_temporal_context(self, temporal_context: list[dict[str, Any]]) -> torch.Tensor:
         """Process temporal threat progression."""
         sequence_length = min(len(temporal_context), 10)
-        feature_dim = 165
+        feature_dim = int(self.fusion_network.temporal_lstm.input_size)
 
         temporal_features = np.zeros((1, sequence_length, feature_dim), dtype=np.float32)
 

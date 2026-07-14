@@ -255,6 +255,72 @@ class TestMatrixProfileAdapter:
         assert discords is not None
         assert isinstance(discords, list)
 
+    def test_matrix_profile_rejects_2d_input(self) -> None:
+        """``compute_matrix_profile`` must reject non-1-D input with a
+        message naming the expected modality instead of crashing inside
+        STUMPY.
+        """
+        import numpy as np
+
+        pytest.importorskip("stumpy")
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
+
+        adapter = MatrixProfileAdapter()
+        with pytest.raises(ValueError, match=r"expects a 1-D time series; got shape \(10, 4\)"):
+            adapter.compute_matrix_profile(np.zeros((10, 4)))
+
+    def test_matrix_profile_rejects_series_shorter_than_window(self) -> None:
+        """A series shorter than the window must be rejected with an
+        actionable message (this is what a generic ``(200, 8)`` feature
+        array degenerates to on the registry's per-row batch path).
+        """
+        import numpy as np
+
+        pytest.importorskip("stumpy")
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
+
+        adapter = MatrixProfileAdapter()
+        with pytest.raises(
+            ValueError,
+            match=r"1-D time series longer than window_size=50; got 8 points",
+        ):
+            adapter.detect_anomalies(np.zeros(8))
+
+    def test_matrix_profile_long_series_localizes_injected_anomaly(self, monkeypatch: Any) -> None:
+        """On-modality drive: a >=512-point periodic series with an
+        injected motif-breaking segment must place the top discord at the
+        injection site, and the profile must be computed exactly once per
+        ``detect_anomalies`` call (regression for the profile-of-a-profile
+        recompute inside ``find_discords``).
+        """
+        import numpy as np
+
+        stumpy = pytest.importorskip("stumpy")
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
+
+        calls = {"n": 0}
+        original_stump = stumpy.stump
+
+        def counting_stump(*args: Any, **kwargs: Any) -> Any:
+            calls["n"] += 1
+            return original_stump(*args, **kwargs)
+
+        monkeypatch.setattr(stumpy, "stump", counting_stump)
+
+        rng = np.random.default_rng(42)
+        n = 1024
+        series = np.sin(2 * np.pi * np.arange(n) / 64) + 0.05 * rng.normal(size=n)
+        series[600:650] += 3.0 * np.sign(rng.normal(size=50))
+
+        adapter = MatrixProfileAdapter({"window_size": 50, "use_gpu": False})
+        result = adapter.detect_anomalies(series)
+
+        assert calls["n"] == 1
+        assert len(result["scores"]) == n
+        top_discord = result["discord_indices"][0]
+        assert 550 <= top_discord <= 660
+        assert len(result["motifs"]) > 0
+
 
 class TestFoundationEnsemble:
     """Tests for Foundation Model Ensemble."""
@@ -304,6 +370,72 @@ class TestFoundationEnsemble:
             result = ensemble.detect(univariate_data)
             assert "scores" in result
 
+    def test_ensemble_detect_runs_each_member_once(self, monkeypatch: Any) -> None:
+        """``detect`` must invoke each member's ``detect_anomalies``
+        exactly once per call (regression for the ``model_results``
+        comprehension that re-ran every member a second time).
+        """
+        import numpy as np
+
+        pytest.importorskip("stumpy")
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
+
+        ensemble = FoundationEnsemble()
+        ensemble._ensure_initialized()
+        member = ensemble._models["matrix_profile"]
+
+        calls = {"n": 0}
+        original = member.detect_anomalies
+
+        def counted(series: Any) -> Any:
+            calls["n"] += 1
+            return original(series)
+
+        monkeypatch.setattr(member, "detect_anomalies", counted)
+
+        rng = np.random.default_rng(7)
+        series = np.sin(2 * np.pi * np.arange(512) / 64) + 0.05 * rng.normal(size=512)
+        result = ensemble.detect(series)
+
+        assert calls["n"] == 1
+        assert "scores" in result
+        assert "adapter_scores" in result
+        assert "matrix_profile" in result["model_results"]
+
+    def test_ensemble_off_modality_fails_fast_with_member_error(self, monkeypatch: Any) -> None:
+        """A generic ``(20, 8)`` float batch must fail fast: the failing
+        member runs once (not once per batch row) and the raised error
+        carries the member's modality-naming rejection instead of
+        fabricated zero-score features.
+        """
+        import numpy as np
+
+        pytest.importorskip("stumpy")
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
+
+        ensemble = FoundationEnsemble()
+        ensemble._ensure_initialized()
+        member = ensemble._models["matrix_profile"]
+
+        calls = {"n": 0}
+        original = member.detect_anomalies
+
+        def counted(series: Any) -> Any:
+            calls["n"] += 1
+            return original(series)
+
+        monkeypatch.setattr(member, "detect_anomalies", counted)
+
+        rng = np.random.default_rng(7)
+        with pytest.raises(
+            RuntimeError,
+            match=r"All foundation ensemble members failed on batch row 0.*"
+            r"1-D time series longer than window_size",
+        ):
+            ensemble.extract_features(rng.normal(size=(20, 8)))
+
+        assert calls["n"] == 1
+
 
 class TestBaseFoundationAdapter:
     """Tests for base foundation model adapter class."""
@@ -325,3 +457,34 @@ class TestBaseFoundationAdapter:
         assert hasattr(adapter, "detect")
         assert hasattr(adapter, "forecast")
         assert hasattr(adapter, "fit")
+
+
+class TestChronosModelNamePrecedence:
+    """An explicit model_name must not be clobbered by the default model_size."""
+
+    def test_explicit_model_name_wins_over_default_size(self) -> None:
+        from omni_mercury_engine.models.foundation.chronos_adapter import (
+            ChronosAdapter,
+            ChronosConfig,
+        )
+
+        adapter = ChronosAdapter(ChronosConfig(model_name="amazon/chronos-t5-tiny"))
+        assert adapter.chronos_config.model_name == "amazon/chronos-t5-tiny"
+
+    def test_model_size_resolves_when_name_left_default(self) -> None:
+        from omni_mercury_engine.models.foundation.chronos_adapter import (
+            ChronosAdapter,
+            ChronosConfig,
+        )
+
+        adapter = ChronosAdapter(ChronosConfig(model_size="tiny"))
+        assert adapter.chronos_config.model_name == "amazon/chronos-t5-tiny"
+
+    def test_local_path_model_name_preserved(self) -> None:
+        from omni_mercury_engine.models.foundation.chronos_adapter import (
+            ChronosAdapter,
+            ChronosConfig,
+        )
+
+        adapter = ChronosAdapter(ChronosConfig(model_name="/local/path/chronos"))
+        assert adapter.chronos_config.model_name == "/local/path/chronos"

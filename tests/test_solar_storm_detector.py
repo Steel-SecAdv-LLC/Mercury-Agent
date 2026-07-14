@@ -140,6 +140,50 @@ class TestSolarFlareDetector:
         assert detector._classify_flare(1e-7)[0] == "B"
         assert detector._classify_flare(1e-9)[0] == "A"
 
+    def test_off_modality_matrix_rejected_cleanly(self) -> None:
+        """A generic 2-D feature matrix is not a GOES XRS flux series."""
+        detector = SolarFlareDetector()
+        matrix = np.zeros((200, 8))
+        with pytest.raises(ValueError, match=r"GOES XRS.*1-D time series.*\(200, 8\)"):
+            detector.predict_solar_flare(matrix)
+        with pytest.raises(ValueError, match=r"GOES XRS.*1-D time series.*\(200, 8\)"):
+            detector.extract_features(matrix)
+
+    def test_empty_flux_series_rejected_cleanly(self) -> None:
+        """An empty flux series carries no measurement to classify."""
+        detector = SolarFlareDetector()
+        with pytest.raises(ValueError, match="empty X-ray flux series"):
+            detector.predict_solar_flare(np.array([]))
+
+    def test_x_class_flux_curve_drive(self) -> None:
+        """A rising GOES-style flux curve peaking at X2.5 classifies as X."""
+        detector = SolarFlareDetector()
+        t = np.arange(201)
+        flux = 1e-7 + 2.5e-4 * np.exp(-0.5 * ((t - 200) / 30.0) ** 2)
+
+        offline = detector.predict_solar_flare(flux)
+        assert offline.flare_detected is True
+        assert offline.flare_class == "X"
+        assert offline.flux_class_index == 4
+        assert offline.confidence == pytest.approx(1.0)
+        assert offline.x_ray_flux == pytest.approx(flux[-1])
+        # Offline the storm-forecast fields are never fabricated.
+        assert offline.kp_index_predicted is None
+        assert offline.dst_index_predicted is None
+        assert offline.geomagnetic_storm_probability is None
+
+        observed = detector.predict_solar_flare(flux, observed_kp=7.0, kp_source="test_kp")
+        assert observed.kp_index_predicted == pytest.approx(7.0)
+        assert observed.dst_index_predicted == pytest.approx(-150.0)
+        assert observed.geomagnetic_storm_probability == pytest.approx(0.75)
+        assert observed.storm_forecast_source == "test_kp"
+
+        features = detector.extract_features(flux)
+        assert features.shape == (20,)
+        assert features[2] == pytest.approx(float(np.max(flux)))
+        assert features[5] == pytest.approx(1.0)  # confidence
+        assert features[6] == pytest.approx(1.0)  # X class index / 4
+
 
 class TestCMETracker:
     """Tests for CMETracker class."""

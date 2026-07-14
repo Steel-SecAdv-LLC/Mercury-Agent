@@ -11,14 +11,12 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
-
-if TYPE_CHECKING:
-    import numpy as np
 
 
 class LVLMType(Enum):
@@ -260,6 +258,61 @@ class BaseVLMDetector(BaseDetector):
         Abstract contract — concrete experimental subclasses must implement.
         """
         ...
+
+    def _validate_frames(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+    ) -> np.ndarray[Any, Any]:
+        """Validate and normalise detector input into a ``[T, C, H, W]`` batch.
+
+        Accepts a video clip ``[T, C, H, W]`` / ``[T, H, W, C]`` or a single
+        frame ``[C, H, W]`` / ``[H, W, C]`` (promoted to ``T = 1``) with 1 or
+        3 channels, and rejects any other modality before it can crash deep
+        inside the frame-processing pipeline.  Channel-last input is
+        transposed to channel-first so downstream consumers (context
+        providers, PIL conversion) see a single canonical layout.
+
+        Args:
+            data: Candidate video/image input.
+
+        Returns:
+            Frames as a 4-D ``[T, C, H, W]`` numpy array.
+
+        Raises:
+            ValueError: If the input is not image/video shaped.
+        """
+        name = self.__class__.__name__
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        frames = np.asarray(data)
+        if not np.issubdtype(frames.dtype, np.number):
+            raise ValueError(
+                f"{name} expects numeric pixel data (uint8 or float), "
+                f"got dtype {frames.dtype!s}."
+            )
+        if frames.ndim == 3:
+            frames = frames[np.newaxis, ...]
+        if frames.ndim != 4:
+            raise ValueError(
+                f"{name} expects video frames with shape [T, C, H, W] or "
+                f"[T, H, W, C] (C = 1 or 3 channels; a single frame "
+                f"[C, H, W] / [H, W, C] is also accepted), got shape "
+                f"{np.asarray(data).shape}. Pass an image clip, not a "
+                "generic feature matrix."
+            )
+        if 0 in frames.shape:
+            raise ValueError(
+                f"{name} requires at least one non-empty frame, got shape " f"{frames.shape}."
+            )
+        if frames.shape[1] in (1, 3):
+            return frames
+        if frames.shape[3] in (1, 3):
+            return np.transpose(frames, (0, 3, 1, 2))
+        raise ValueError(
+            f"{name} expects 1- or 3-channel frames ([T, C, H, W] or "
+            f"[T, H, W, C]), got shape {frames.shape}: neither axis 1 "
+            "nor axis 3 is a valid channel axis."
+        )
 
     def _sample_frames(
         self,

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
 # The dev venv's editable install may point at a sibling worktree that
@@ -297,3 +298,32 @@ class TestPrediction:
             CMEArrivalDetector(gamma_typical_per_km=9.0e-7)
         with pytest.raises(ValueError, match="Inverted"):
             CMEArrivalDetector(wind_range_km_s=(500.0, 300.0))
+
+    def test_off_modality_array_rejected_cleanly(self) -> None:
+        """A generic feature matrix is not a CME observation: fail loud."""
+        detector = CMEArrivalDetector()
+        with pytest.raises(ValueError, match=r"expects a CMEKinematics.*\(200, 8\)"):
+            detector.predict(np.zeros((200, 8)))  # type: ignore[arg-type]
+
+    def test_synthetic_800_km_s_head_on_drive(self) -> None:
+        """A head-on 800 km/s CME yields a physically plausible 2-5 day window."""
+        detector = CMEArrivalDetector()
+        kin = CMEKinematics(
+            speed_km_s=800.0,
+            latitude_deg=-12.0,
+            longitude_deg=8.0,
+            half_angle_deg=42.0,
+            time_21_5=datetime(2024, 5, 8, 9, 30, tzinfo=UTC),
+            cme_id="synthetic-800kms",
+        )
+        pred = detector.predict(kin)
+        assert pred.earth_directed
+        assert pred.directedness == "head_on"
+        # Fast-CME transit band: quicker than ballistic at the ambient wind
+        # (~104 h), slower than ballistic at the launch speed (~52 h).
+        assert 40.0 < pred.earliest_arrival_hours < pred.latest_arrival_hours < 120.0
+        assert pred.earliest_arrival < pred.most_probable_arrival < pred.latest_arrival
+        # Drag decelerates the CME toward (but not past) the ambient wind.
+        assert 400.0 < pred.arrival_speed_km_s < 800.0
+        assert 0.0 < pred.confidence <= 1.0
+        assert len(pred.model_predictions_hours) == 6

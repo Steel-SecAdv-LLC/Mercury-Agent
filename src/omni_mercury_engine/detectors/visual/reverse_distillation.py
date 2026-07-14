@@ -289,7 +289,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
             dataset,
             batch_size=self.rd_config.batch_size,
             shuffle=True,
-            drop_last=True,
+            drop_last=data.shape[0] >= self.rd_config.batch_size,
         )
 
         # Training loop

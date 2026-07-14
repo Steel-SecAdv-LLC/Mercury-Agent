@@ -207,7 +207,7 @@ class STFPMDetector(BaseVisualDetector):
         )
 
         scheduler = optim.lr_scheduler.StepLR(
-            optimizer, step_size=self.stfpm_config.num_epochs // 2, gamma=0.1
+            optimizer, step_size=max(1, self.stfpm_config.num_epochs // 2), gamma=0.1
         )
 
         # Create data loader
@@ -216,7 +216,7 @@ class STFPMDetector(BaseVisualDetector):
             dataset,
             batch_size=self.stfpm_config.batch_size,
             shuffle=True,
-            drop_last=True,
+            drop_last=n_samples >= self.stfpm_config.batch_size,
         )
 
         # Training loop

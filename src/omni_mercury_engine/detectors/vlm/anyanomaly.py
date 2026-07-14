@@ -334,14 +334,8 @@ EXPLANATION: [Your detailed explanation]
                 - features: Extracted features for fusion
                 - segment_results: Per-segment detection results
         """
-        if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-
-        # Ensure 4D: [T, C, H, W]
-        if data.ndim == 3:
-            data = data[np.newaxis, ...]
-
-        t, _c, _h, _w = data.shape
+        data = self._validate_frames(data)
+        t = data.shape[0]
 
         # Segment video
         segments = self._segment_video(data)

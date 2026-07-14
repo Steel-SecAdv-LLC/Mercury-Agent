@@ -189,9 +189,21 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Returns:
             Normalized tensor [B, 3, H, W] on device
+
+        Raises:
+            ValueError: If the input is not a 4-D image batch with 1 or 3
+                channels (off-modality input, e.g. a generic 2-D feature
+                array).
         """
         if isinstance(images, np.ndarray):
             images = torch.from_numpy(images).float()
+
+        if images.dim() != 4 or (images.shape[1] not in (1, 3) and images.shape[-1] not in (1, 3)):
+            raise ValueError(
+                f"{self._name} expects a batch of images with shape "
+                f"[B, C, H, W] or [B, H, W, C] where C is 1 or 3 channels; "
+                f"got input of shape {tuple(images.shape)}"
+            )
 
         # Handle channel-last format
         if images.dim() == 4 and images.shape[-1] in [1, 3]:

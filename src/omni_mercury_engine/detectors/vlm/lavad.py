@@ -289,13 +289,8 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         Returns:
             Detection results dict
         """
-        if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-
-        if data.ndim == 3:
-            data = data[np.newaxis, ...]
-
-        t, _c, _h, _w = data.shape
+        data = self._validate_frames(data)
+        t = data.shape[0]
 
         # Stage 1: Generate captions for each frame
         logger.info(f"Generating captions for {t} frames...")

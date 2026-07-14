@@ -21,6 +21,63 @@ except ImportError:
 
 pytestmark = pytest.mark.vlm
 
+OFF_MODALITY_MSG = r"expects video frames with shape \[T, C, H, W\]"
+
+
+def _synthetic_clip() -> np.ndarray:
+    """Build an 8-frame [T, C, H, W] clip with a bright anomaly at frame 5."""
+    rng = np.random.default_rng(42)
+    clip = (0.15 + 0.05 * rng.random((8, 3, 64, 64))).astype(np.float32)
+    clip[5] = (0.95 + 0.05 * rng.random((3, 64, 64))).astype(np.float32)
+    return clip
+
+
+class _ScriptedLVLM:
+    """Deterministic stand-in at the ``backend.generate`` network boundary.
+
+    The real Qwen2.5-VL load is gated (SafeHFLoader revision pin + multi-GB
+    weights), so on-modality drives script only the remote generation call;
+    segmentation, context providers, prompt construction, PIL conversion,
+    response parsing, score aggregation, and feature generation all run the
+    detector's real code.  A bright frame (mean pixel > 200 after uint8
+    conversion) is reported as anomalous.
+    """
+
+    def __init__(self) -> None:
+        self.calls: int = 0
+
+    def generate(self, images: list[Any], prompt: str) -> str:
+        """Answer a VQA / captioning / text-only reasoning query."""
+        self.calls += 1
+        if images:
+            bright = any(np.asarray(img).mean() > 200 for img in images)
+            if len(images) == 1:  # LAVAD captions one frame at a time
+                if bright:
+                    return "A person collapsing amid a blinding bright flash."
+                return "People walking normally through a dim hallway."
+            if bright:
+                return (
+                    "ANOMALY_DETECTED: YES\nCONFIDENCE: 0.9\nEXPLANATION: Bright anomalous flash."
+                )
+            return "ANOMALY_DETECTED: NO\nCONFIDENCE: 0.9\nEXPLANATION: Nominal."
+        # Text-only reasoning prompt (LAVAD stage 2): flag anomalous captions.
+        flagged = [
+            line.split(":")[0].split()[-1]
+            for line in prompt.splitlines()
+            if line.startswith("Frame ") and "collapsing" in line
+        ]
+        if flagged:
+            return (
+                "ANOMALY_DETECTED: YES\n"
+                f"ANOMALY_FRAMES: {', '.join(flagged)}\n"
+                "CONFIDENCE: 0.8\n"
+                "EXPLANATION: A person collapses in the flagged frames."
+            )
+        return (
+            "ANOMALY_DETECTED: NO\nANOMALY_FRAMES: none\n"
+            "CONFIDENCE: 0.7\nEXPLANATION: Only normal walking observed."
+        )
+
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 class TestAnyAnomalyDetector:
@@ -66,6 +123,66 @@ class TestAnyAnomalyDetector:
         frames = [sample_image_batch[i] for i in range(sample_image_batch.shape[0])]
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
+
+    def test_anyanomaly_off_modality_rejected(self) -> None:
+        """A generic 2-D feature matrix is rejected with a clean, named error.
+
+        Regression: this used to die deep in ``detect`` with the cryptic
+        ``not enough values to unpack (expected 4, got 2)``.
+        """
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+
+        detector = AnyAnomalyDetector()
+        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+            detector.extract_features(np.zeros((200, 8), dtype=np.float32))
+
+    def test_anyanomaly_rank4_without_channel_axis_rejected(self) -> None:
+        """A 4-D array with no 1- or 3-channel axis names the channel contract."""
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+
+        detector = AnyAnomalyDetector()
+        with pytest.raises(ValueError, match=r"1- or 3-channel frames"):
+            detector.detect(np.zeros((4, 8, 8, 8), dtype=np.float32))
+
+    def test_anyanomaly_detect_synthetic_clip(self) -> None:
+        """The real detect pipeline localises a bright anomalous frame.
+
+        Only the remote ``backend.generate`` call is scripted (the real LVLM
+        load is gated behind SafeHFLoader revision pins and multi-GB
+        weights); segmentation, context providers, prompting, PIL
+        conversion, parsing, aggregation, and feature generation are real.
+        """
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
+
+        detector = AnyAnomalyDetector(AnyAnomalyConfig(segment_length=2, segment_overlap=1))
+        backend = _ScriptedLVLM()
+        detector._backend = backend
+
+        clip = _synthetic_clip()
+        results = detector.detect(clip)
+
+        assert results["scores"].shape == (8,)
+        assert results["anomaly_frames"] == [5]
+        assert bool(results["is_anomaly"][5]) is True
+        assert results["features"].shape == (1, 128)
+        assert backend.calls > 0
+
+        feats = detector.extract_features(clip)
+        assert feats.shape == (1, 128)
+        assert torch.allclose(feats.norm(), torch.tensor(1.0))
+
+    def test_anyanomaly_channel_last_clip(self) -> None:
+        """A channel-last [T, H, W, C] clip is normalised and detected identically."""
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
+
+        detector = AnyAnomalyDetector(AnyAnomalyConfig(segment_length=2, segment_overlap=1))
+        detector._backend = _ScriptedLVLM()
+
+        clip = np.transpose(_synthetic_clip(), (0, 2, 3, 1))
+        results = detector.detect(clip)
+        assert results["anomaly_frames"] == [5]
 
     def test_anyanomaly_mock_backend_factory_hard_fails(self) -> None:
         """Failure-mode coverage on the detect-path:
@@ -137,6 +254,47 @@ class TestLAVADDetector:
             anomaly_types=["theft", "fighting", "falling"],
         )
         assert detector.scene_context is not None
+
+    def test_lavad_off_modality_rejected(self) -> None:
+        """A generic 2-D feature matrix is rejected with a clean, named error.
+
+        Regression: this used to die deep in ``detect`` with the cryptic
+        ``not enough values to unpack (expected 4, got 2)``.
+        """
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+
+        detector = LAVADDetector()
+        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+            detector.extract_features(np.zeros((200, 8), dtype=np.float32))
+
+    def test_lavad_detect_synthetic_clip(self) -> None:
+        """The caption + LLM-reasoning pipeline localises a bright anomalous frame.
+
+        Only the remote ``generate`` call is scripted; frame iteration,
+        captioning conversion, reasoning-prompt construction, response and
+        anomaly-frame parsing, windowed score aggregation, and feature
+        generation are the detector's real code.
+        """
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+
+        detector = LAVADDetector()
+        backend = _ScriptedLVLM()
+        detector._caption_model = backend
+
+        clip = _synthetic_clip()
+        results = detector.detect_video(clip)
+
+        assert results["scores"].shape == (8,)
+        assert np.array_equal(results["frame_scores"], results["scores"])
+        assert results["anomaly_frames"] == [5]
+        assert int(np.argmax(results["scores"])) == 5
+        assert "collapsing" in results["captions"][5]
+        assert results["features"].shape == (1, 128)
+        assert backend.calls > 0
+
+        feats = detector.extract_features(clip)
+        assert feats.shape == (1, 128)
+        assert torch.allclose(feats.norm(), torch.tensor(1.0))
 
     def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames: Any) -> None:
         """``LAVADDetector(config=LAVADConfig(llm_model="mock"))`` must

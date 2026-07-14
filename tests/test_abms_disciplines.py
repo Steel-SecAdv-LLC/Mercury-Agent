@@ -356,3 +356,66 @@ class TestEdgeCases:
 
         with pytest.raises((KeyError, ValueError)):
             self.detector.detect(data, specialty="invalid_specialty")
+
+
+class TestModalityContract:
+    """Tests for the patient-record modality contract of the extract/predict path."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.detector = ABMSAnomalyDetector()
+
+    def test_off_modality_array_extract_features_rejected(self) -> None:
+        """A generic float array must yield a clean, actionable ValueError."""
+        off_modality = np.random.rand(200, 8).astype(np.float32)
+
+        with pytest.raises(ValueError, match="patient-record mapping"):
+            self.detector.extract_features(off_modality)  # type: ignore[arg-type]
+
+    def test_off_modality_array_predict_rejected(self) -> None:
+        """The predict path must reject a generic float array cleanly."""
+        off_modality = np.random.rand(200, 8).astype(np.float32)
+
+        with pytest.raises(ValueError, match=r"shape \(200, 8\)"):
+            self.detector.predict(off_modality)  # type: ignore[arg-type]
+
+    def test_on_modality_patient_record_end_to_end(self) -> None:
+        """A real patient record drives extract_features, detect, and predict."""
+        patient = {
+            "vitals": {
+                "heart_rate_bpm": 122,
+                "blood_pressure_systolic": 168,
+                "blood_pressure_diastolic": 98,
+                "respiratory_rate_bpm": 26,
+                "temperature_f": 101.8,
+                "oxygen_saturation_pct": 89,
+            },
+            "labs": {
+                "wbc_count": 18.2,
+                "hemoglobin": 9.1,
+                "platelet_count": 90,
+                "glucose": 240,
+                "creatinine": 2.4,
+                "bilirubin": 2.1,
+            },
+            "symptoms": ["dyspnea", "fever", "confusion", "pain"],
+            "history": {
+                "chronic_conditions": 4,
+                "prior_surgeries": 2,
+                "medication_count": 9,
+                "age": 71,
+            },
+        }
+
+        features = self.detector.extract_features(patient)
+        assert tuple(features.shape) == (1, 64)
+
+        result = self.detector.detect_medical_anomaly(patient)
+        assert isinstance(result, MedicalAnomalyResult)
+        assert result.primary_board
+        assert 0.0 <= result.confidence <= 1.0
+        assert "hypoxemia" in result.clinical_indicators
+
+        prediction = self.detector.predict(patient)
+        assert prediction["anomaly_scores"].shape == (1,)
+        assert prediction["primary_specialty"] == result.primary_board

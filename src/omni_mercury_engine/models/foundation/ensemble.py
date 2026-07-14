@@ -174,6 +174,7 @@ class FoundationEnsemble(BaseFoundationModel):
         all_lowers = []
         all_uppers = []
         valid_weights = []
+        member_errors: dict[str, str] = {}
 
         for _i, (name, model) in enumerate(self._models.items()):
             try:
@@ -199,15 +200,14 @@ class FoundationEnsemble(BaseFoundationModel):
                 )
 
             except Exception as e:
+                member_errors[name] = f"{type(e).__name__}: {e}"
                 logger.warning(f"Forecast from {name} failed: {e}")
 
         if not all_forecasts:
-            # Fallback
-            return {
-                "forecast": np.full((1, horizon), series.flatten()[-1]),
-                "lower": np.full((1, horizon), series.flatten()[-1] * 0.9),
-                "upper": np.full((1, horizon), series.flatten()[-1] * 1.1),
-            }
+            raise RuntimeError(
+                "All foundation ensemble members failed to forecast: "
+                + self._format_member_errors(member_errors)
+            )
 
         # Normalize weights
         valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
@@ -224,68 +224,81 @@ class FoundationEnsemble(BaseFoundationModel):
             "upper": upper,
         }
 
-    def detect_anomalies(
+    @staticmethod
+    def _format_member_errors(member_errors: dict[str, str]) -> str:
+        """Render per-member failure reasons as a single message fragment."""
+        return "; ".join(f"{name}: {error}" for name, error in member_errors.items())
+
+    def _run_members(
         self,
-        series: np.ndarray[Any, Any] | torch.Tensor,
-    ) -> dict[str, Any]:
-        """Detect anomalies using ensemble.
+        series: np.ndarray[Any, Any],
+        member_errors: dict[str, str],
+    ) -> dict[str, dict[str, Any]]:
+        """Run each member's detection exactly once, skipping known failures.
 
         Args:
-            series: Input time series
+            series: Input series passed to each member
+            member_errors: Per-call record of failed members; members already
+                present are skipped and new failures are added, so a failing
+                member does its (failing) work at most once per public call
 
         Returns:
-            Aggregated detection results
+            Mapping of member name to its detection result
         """
-        self._ensure_initialized()
+        results: dict[str, dict[str, Any]] = {}
+        for name, model in self._models.items():
+            if name in member_errors:
+                continue
+            try:
+                results[name] = model.detect_anomalies(series)
+            except Exception as e:
+                member_errors[name] = f"{type(e).__name__}: {e}"
+                logger.warning(f"Detection from {name} failed: {e}")
+        return results
 
-        if isinstance(series, torch.Tensor):
-            series = series.cpu().numpy()
+    def _aggregate_detections(
+        self,
+        member_results: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Aggregate per-member detection results into ensemble scores.
 
+        Args:
+            member_results: Mapping of member name to its detection result
+
+        Returns:
+            Dict with aggregated scores, is_anomaly flags, and threshold
+        """
         all_scores = []
         all_anomalies = []
         valid_weights = []
 
-        for _i, (name, model) in enumerate(self._models.items()):
-            try:
-                result = model.detect_anomalies(series)
-                scores = result["scores"]
-                is_anomaly = result["is_anomaly"]
+        for name, result in member_results.items():
+            scores = np.asarray(result["scores"])
+            is_anomaly = np.asarray(result["is_anomaly"])
 
-                # Ensure 1D
-                if scores.ndim > 1:
-                    scores = scores.flatten()
-                if is_anomaly.ndim > 1:
-                    is_anomaly = is_anomaly.flatten()
+            # Ensure 1D
+            if scores.ndim > 1:
+                scores = scores.flatten()
+            if is_anomaly.ndim > 1:
+                is_anomaly = is_anomaly.flatten()
 
-                all_scores.append(scores)
-                all_anomalies.append(is_anomaly.astype(float))
+            all_scores.append(scores)
+            all_anomalies.append(is_anomaly.astype(float))
 
-                idx = (
-                    self.ensemble_config.models.index(name)
-                    if name in self.ensemble_config.models
-                    else 0
-                )
-                valid_weights.append(
-                    self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
-                )
+            idx = (
+                self.ensemble_config.models.index(name)
+                if name in self.ensemble_config.models
+                else 0
+            )
+            valid_weights.append(
+                self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
+            )
 
-            except Exception as e:
-                logger.warning(f"Detection from {name} failed: {e}")
-
-        if not all_scores:
-            # Fallback
-            length = len(series.flatten())
-            return {
-                "scores": np.zeros(length),
-                "is_anomaly": np.zeros(length, dtype=bool),
-                "threshold": 0.5,
-            }
-
-        valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
-        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
+        weights = np.array(valid_weights)
+        weights = weights / weights.sum()
 
         # Aggregate scores
-        scores = self._aggregate_1d(all_scores, valid_weights)
+        scores = self._aggregate_1d(all_scores, weights)
 
         # Aggregate anomaly decisions
         if self.ensemble_config.aggregation == "vote":
@@ -294,17 +307,101 @@ class FoundationEnsemble(BaseFoundationModel):
             is_anomaly = votes > len(all_anomalies) / 2
         else:
             # Weighted average then threshold
-            anomaly_scores = self._aggregate_1d(all_anomalies, valid_weights)
+            anomaly_scores = self._aggregate_1d(all_anomalies, weights)
             is_anomaly = anomaly_scores > 0.5
 
         return {
             "scores": scores,
             "is_anomaly": is_anomaly,
             "threshold": self.foundation_config.anomaly_threshold,
-            "model_results": {
-                name: model.detect_anomalies(series) for name, model in self._models.items()
-            },
         }
+
+    def detect_anomalies(
+        self,
+        series: np.ndarray[Any, Any] | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies using ensemble.
+
+        Each member runs exactly once per call; members that fail are
+        skipped and their errors recorded. When every member fails, the
+        underlying rejections are raised instead of fabricating scores.
+
+        Args:
+            series: Input time series
+
+        Returns:
+            Aggregated detection results
+
+        Raises:
+            RuntimeError: If all ensemble members fail on the input
+        """
+        self._ensure_initialized()
+
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
+
+        member_errors: dict[str, str] = {}
+        member_results = self._run_members(series, member_errors)
+
+        if not member_results:
+            raise RuntimeError(
+                "All foundation ensemble members failed: "
+                + self._format_member_errors(member_errors)
+            )
+
+        result = self._aggregate_detections(member_results)
+        result["model_results"] = member_results
+        if member_errors:
+            result["member_errors"] = dict(member_errors)
+        return result
+
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+        """Extract fusion features with per-call member failure tracking.
+
+        A member that fails for one series in the batch is not retried for
+        the remaining series of the same call, and when every member has
+        failed the call raises immediately instead of fabricating
+        zero-score features for the rest of the batch.
+
+        Args:
+            data: Input time series [T] or [B, T]
+
+        Returns:
+            Feature tensor [B, 128] for fusion
+
+        Raises:
+            RuntimeError: If all ensemble members fail on the input
+        """
+        self._ensure_initialized()
+
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        data = np.asarray(data)
+
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
+        member_errors: dict[str, str] = {}
+        features = []
+
+        for i in range(data.shape[0]):
+            series = data[i]
+            member_results = self._run_members(series, member_errors)
+            if not member_results:
+                raise RuntimeError(
+                    f"All foundation ensemble members failed on batch row {i}: "
+                    + self._format_member_errors(member_errors)
+                )
+            aggregated = self._aggregate_detections(member_results)
+            features.append(self._compute_feature_statistics(series, aggregated))
+
+        stacked = np.stack(features)
+
+        # Pad to 128D if needed
+        if stacked.shape[1] < 128:
+            stacked = np.pad(stacked, ((0, 0), (0, 128 - stacked.shape[1])))
+
+        return torch.from_numpy(stacked).float()
 
     def detect(
         self,

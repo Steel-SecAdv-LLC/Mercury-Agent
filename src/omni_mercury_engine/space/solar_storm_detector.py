@@ -345,7 +345,12 @@ class SolarFlareDetector:
 
         Returns:
             SolarFlarePredictionResult with transparent storm-forecast semantics.
+
+        Raises:
+            ValueError: If ``x_ray_flux`` is a multi-dimensional or empty
+                array rather than a scalar or 1-D flux series.
         """
+        self._validate_xray_flux(x_ray_flux)
         if isinstance(x_ray_flux, np.ndarray):
             current_flux = float(x_ray_flux[-1])
             flux_trend = float(np.diff(x_ray_flux).mean()) if len(x_ray_flux) > 1 else 0.0
@@ -399,6 +404,32 @@ class SolarFlareDetector:
             warning_actions=warnings,
             affected_systems=affected,
         )
+
+    @staticmethod
+    def _validate_xray_flux(x_ray_flux: float | np.ndarray[Any, Any]) -> None:
+        """Reject X-ray flux input that is not a scalar or a 1-D GOES series.
+
+        Args:
+            x_ray_flux: Candidate flux input.
+
+        Raises:
+            ValueError: If the array is multi-dimensional (e.g. a generic
+                feature matrix) or empty; a cryptic scalar-conversion crash
+                downstream is not an acceptable failure mode.
+        """
+        if isinstance(x_ray_flux, np.ndarray):
+            if x_ray_flux.ndim != 1:
+                raise ValueError(
+                    "SolarFlareDetector expects a GOES XRS X-ray flux scalar "
+                    "or 1-D time series in W/m^2; got array with shape "
+                    f"{x_ray_flux.shape}. Pass one flux channel (e.g. the "
+                    "0.1-0.8 nm long-band flux)."
+                )
+            if x_ray_flux.size == 0:
+                raise ValueError(
+                    "SolarFlareDetector received an empty X-ray flux series; "
+                    "cannot classify a flare without a measurement."
+                )
 
     @classmethod
     def _dst_from_kp(cls, kp: float) -> float:
@@ -505,7 +536,20 @@ class SolarFlareDetector:
         x_ray_flux: float | np.ndarray[Any, Any],
         proton_flux: float | np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Extract features for the fusion pipeline."""
+        """Extract features for the fusion pipeline.
+
+        Args:
+            x_ray_flux: X-ray flux in W/m^2 (scalar or 1-D time series).
+            proton_flux: Optional proton flux (scalar or series).
+
+        Returns:
+            Feature vector of length ``FEATURE_DIM``.
+
+        Raises:
+            ValueError: If ``x_ray_flux`` is a multi-dimensional or empty
+                array rather than a scalar or 1-D flux series.
+        """
+        self._validate_xray_flux(x_ray_flux)
         features = np.zeros(FEATURE_DIM)
 
         if isinstance(x_ray_flux, np.ndarray):

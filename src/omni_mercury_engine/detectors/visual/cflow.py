@@ -384,7 +384,7 @@ class CFlowDetector(BaseVisualDetector):
             dataset,
             batch_size=self.cflow_config.batch_size,
             shuffle=True,
-            drop_last=True,
+            drop_last=data.shape[0] >= self.cflow_config.batch_size,
         )
 
         # Training loop
@@ -490,8 +490,9 @@ class CFlowDetector(BaseVisualDetector):
 
                 pos_enc = self.position_encodings[layer](h, w).expand(b, -1, -1, -1)
 
-                # Get per-pixel log probability
-                z, _ = self.flows[layer].forward(feat, pos_enc)
+                # Get per-pixel log probability (inference only, no autograd)
+                with torch.no_grad():
+                    z, _ = self.flows[layer].forward(feat, pos_enc)
 
                 # Anomaly score = sum of squared latent (negative log prior)
                 pixel_scores = 0.5 * (z**2).sum(dim=1)  # [B, H, W]
