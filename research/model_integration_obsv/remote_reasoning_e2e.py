@@ -102,13 +102,24 @@ _WIRE_FIXTURE_MODEL = "claude-opus-4-8"
 def part1_routing_provenance_and_usage() -> None:
     print("[PART 1] Routing + provenance + governed Mercury shapes (real chain)")
     live_key = os.environ.get("ANTHROPIC_API_KEY")
+    live_model = os.environ.get("MERCURY_ANTHROPIC_MODEL")
+    if live_key and not live_model:
+        # Same operator contract as cloud_adapter_wire_proof.py PART 4:
+        # Mercury ships no vendor-default model, so a live call is never
+        # made with a model the operator did not name. The offline legs
+        # below still run in full against the mocked boundary.
+        print(
+            "  ! ANTHROPIC_API_KEY is set but MERCURY_ANTHROPIC_MODEL is not; "
+            "running the offline (mocked-boundary) legs only. Name the model "
+            "to turn this into a live proof."
+        )
+        live_key = None
     ledger = UsageLedger()
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
-        # Explicit test target (offline legs run against a mocked boundary);
-        # override for a live run with MERCURY_ANTHROPIC_MODEL. Mercury
-        # ships no vendor-default model.
-        model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", _WIRE_FIXTURE_MODEL),
+        # The fixture id is only ever used against the mocked boundary; a
+        # live run requires the operator-named MERCURY_ANTHROPIC_MODEL.
+        model_name=live_model or _WIRE_FIXTURE_MODEL,
         api_key=live_key or "unit-test-placeholder-key",
         max_tokens=400,
     )
