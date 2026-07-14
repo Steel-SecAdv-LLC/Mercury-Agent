@@ -1,12 +1,17 @@
-# Model-integration observability: proving Mercury ⇄ Claude end-to-end
+# Model-integration observability: proving Mercury ⇄ operator-supplied model end-to-end
 
 This directory is a committed, re-runnable proof that Mercury Agent's LLM
-integration works end-to-end when an operator wires in the **Anthropic (Claude)
-Messages API** as the reasoning engine — the exact scenario of *"a user wants to
-use the Claude API with Mercury Agent."*
+integration works end-to-end when an operator wires in a cloud reasoning
+backend. Mercury is provider-neutral — every shipped provider (OpenAI,
+Anthropic, Gemini, Cohere, DeepSeek, xAI, HuggingFace, local Ollama, …) is
+equally welcome and none is a default. The committed wire fixture here covers
+the **Anthropic Messages API** because that is the provider a recorded
+byte-accurate 200 payload was captured for; the same chain serves any other
+provider via its own adapter.
 
-It answers one question honestly: **how much of the Claude integration actually
-works, and what is the single thing standing between it and a live model call?**
+It answers one question honestly: **how much of the cloud-model integration
+actually works, and what is the single thing standing between it and a live
+model call?**
 
 ## What is proven, and how
 
@@ -39,14 +44,14 @@ the single missing input.
 
 ```bash
 # Fixture + live-transport mode (no key needed): proves everything except model weights
-python research/model_integration_obsv/anthropic_wire_proof.py
-python research/model_integration_obsv/mercury_claude_reasoning_e2e.py
+python research/model_integration_obsv/cloud_adapter_wire_proof.py
+python research/model_integration_obsv/remote_reasoning_e2e.py
 
 # Live Claude mode: real model calls end-to-end
 export ANTHROPIC_API_KEY=sk-ant-...            # your key
-export MERCURY_ANTHROPIC_MODEL=claude-opus-4-8 # optional; this is the default
-python research/model_integration_obsv/anthropic_wire_proof.py
-python research/model_integration_obsv/mercury_claude_reasoning_e2e.py
+export MERCURY_ANTHROPIC_MODEL=<model-id>      # required; Mercury ships no default model
+python research/model_integration_obsv/cloud_adapter_wire_proof.py
+python research/model_integration_obsv/remote_reasoning_e2e.py
 ```
 
 Or through Mercury's public surface, exactly as an operator would:
@@ -59,7 +64,7 @@ from omni_mercury_engine.reasoning.schemas import ReasoningContext
 
 ledger = UsageLedger()
 backend = RemoteReasoningBackend(
-    cloud_config=LLMConfig(provider=LLMProvider.ANTHROPIC, model_name="claude-opus-4-8"),
+    cloud_config=LLMConfig(provider=LLMProvider.ANTHROPIC, model_name="<model-id>"),
     usage_ledger=ledger,
 )  # reads ANTHROPIC_API_KEY from the environment
 print(backend.model)  # -> "cloud:anthropic" once a key is present and Ollama is absent
@@ -70,10 +75,10 @@ print(expl.text, ledger.totals())
 
 ## Scripts
 
-- **`anthropic_wire_proof.py`** — the adapter in isolation (request format,
+- **`cloud_adapter_wire_proof.py`** — the adapter in isolation (request format,
   parse robustness, error path, live transport). Exits `0` only if every
   assertion held.
-- **`mercury_claude_reasoning_e2e.py`** — the full Mercury reasoning chain
+- **`remote_reasoning_e2e.py`** — the full Mercury reasoning chain
   served by Claude (routing, provenance, ethics enforcement, usage accounting,
   air-gap fail-closed, truthful fallback). Exits `0` only if every assertion held.
 - **`live_llm_smoke.py`** — the operator's recurring "is Mercury doing real LLM
@@ -103,10 +108,10 @@ python research/model_integration_obsv/live_llm_smoke.py   # -> LIVE ollama:llam
 cap keeps it off your personal account):
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-export MERCURY_ANTHROPIC_MODEL=claude-opus-4-8   # optional; the default
+export MERCURY_ANTHROPIC_MODEL=<model-id>        # required; Mercury ships no default model
 python research/model_integration_obsv/live_llm_smoke.py            # -> LIVE cloud:anthropic completion
-python research/model_integration_obsv/anthropic_wire_proof.py      # PART 4 becomes a live completion
-python research/model_integration_obsv/mercury_claude_reasoning_e2e.py
+python research/model_integration_obsv/cloud_adapter_wire_proof.py      # PART 4 becomes a live completion
+python research/model_integration_obsv/remote_reasoning_e2e.py
 ```
 
 Any other shipped provider works the same way via its own key
@@ -115,12 +120,14 @@ Any other shipped provider works the same way via its own key
 
 ## Related fix shipped alongside this harness
 
-`AnthropicCloudAdapter`'s fallback model default was
-`claude-3-5-sonnet-20241022`, a model **retired on 2025-10-28** that now returns
-`404 not_found_error`. Any operator who selected the Anthropic provider without
-naming a model hit a hard 404 on the first call. The default is now
-`claude-opus-4-8` (a current first-party model); operators still override it via
-`LLMConfig.model_name`. See `src/omni_mercury_engine/models/foundation/ollama_adapter.py`.
+Mercury now ships **no default model id for any provider** — local or cloud.
+The historical hazard this closes: a hard-coded vendor default
+(`claude-3-5-sonnet-20241022`) was retired upstream and returned
+`404 not_found_error` on the very first call for any operator who had not
+named a model. Hard-coded vendor ids rot and privilege one vendor; instead,
+an adapter constructed without an explicit `LLMConfig.model_name` reports
+itself unavailable with an actionable message and the chain falls back to the
+deterministic template. See `src/omni_mercury_engine/models/foundation/ollama_adapter.py`.
 
 ## Results
 
@@ -130,7 +137,7 @@ plus the AMA-Cryptography v3.3.0 native PQC backend). **No live
 `ANTHROPIC_API_KEY` was available in the validation environment**, so the two
 scripts ran in fixture + live-transport mode; every assertion held.
 
-`anthropic_wire_proof.py` — **ALL ASSERTIONS PASSED**
+`cloud_adapter_wire_proof.py` — **ALL ASSERTIONS PASSED**
 - POST target is `https://api.anthropic.com/v1/messages`
 - headers carry `x-api-key` + `anthropic-version: 2023-06-01` + JSON content-type
 - SafeHTTPClient SSRF gate engaged (`user_configured=True`)
@@ -142,7 +149,7 @@ scripts ran in fixture + live-transport mode; every assertion held.
   and was auth-gated (`API error: invalid x-api-key`) — proving transport + the
   real endpoint work; only a valid key is missing.
 
-`mercury_claude_reasoning_e2e.py` — **ALL ASSERTIONS PASSED**
+`remote_reasoning_e2e.py` — **ALL ASSERTIONS PASSED**
 - chain routed to Claude and reported it truthfully (`model='cloud:anthropic'`)
 - `explain` / `propose_hypotheses` (3 parsed) / `synthesize_report` all returned
   provenance-stamped, gated Mercury shapes

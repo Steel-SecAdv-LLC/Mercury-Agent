@@ -71,7 +71,7 @@ on a live end-to-end proof, give Mercury ONE of:
         # can mint a WORKSPACE-scoped key with a spend cap so it is not your
         # personal umbrella key.
         export ANTHROPIC_API_KEY=sk-ant-...
-        export MERCURY_ANTHROPIC_MODEL=claude-opus-4-8   # optional; the default
+        export MERCURY_ANTHROPIC_MODEL=<model-id>       # required; Mercury ships no default
       then re-run this script.
 
 Either one flips every leg below from 'template' to a real, ethics-gated model
@@ -122,7 +122,7 @@ def main() -> int:
     remote = RemoteReasoningBackend(
         cloud_config=LLMConfig(
             provider=LLMProvider.ANTHROPIC,
-            model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", "claude-opus-4-8"),
+            model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", ""),
         ),
         usage_ledger=remote_ledger,
     )

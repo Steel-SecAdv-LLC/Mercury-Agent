@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """End-to-end proof of the full Mercury reasoning chain served by Claude.
 
-Where ``anthropic_wire_proof.py`` proves the adapter in isolation, this proves
+Where ``cloud_adapter_wire_proof.py`` proves the adapter in isolation, this proves
 the *whole* path a Mercury operator uses when they wire Claude in as the
 reasoning engine:
 
@@ -31,7 +31,7 @@ It asserts, on the real Mercury code:
 If ``ANTHROPIC_API_KEY`` is set, part 1 additionally performs a real Claude
 ``explain`` and prints the model's actual analyst prose.
 
-Run: ``python research/model_integration_obsv/mercury_claude_reasoning_e2e.py``
+Run: ``python research/model_integration_obsv/remote_reasoning_e2e.py``
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def _anthropic_payload(text: str) -> dict[str, Any]:
         "id": "msg_01ReasonChain",
         "type": "message",
         "role": "assistant",
-        "model": "claude-opus-4-8",
+        "model": _WIRE_FIXTURE_MODEL,
         "content": [{"type": "text", "text": text}],
         "stop_reason": "end_turn",
         "usage": {"input_tokens": 190, "output_tokens": 71},
@@ -93,13 +93,22 @@ def _ctx() -> ReasoningContext:
     )
 
 
+# Offline-leg test target: the model id recorded in the wire fixture below.
+# This is TEST DATA (a replayed real 200 payload), not a product default --
+# Mercury ships no default model for any provider; operators name the model.
+_WIRE_FIXTURE_MODEL = "claude-opus-4-8"
+
+
 def part1_routing_provenance_and_usage() -> None:
     print("[PART 1] Routing + provenance + governed Mercury shapes (real chain)")
     live_key = os.environ.get("ANTHROPIC_API_KEY")
     ledger = UsageLedger()
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
-        model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", "claude-opus-4-8"),
+        # Explicit test target (offline legs run against a mocked boundary);
+        # override for a live run with MERCURY_ANTHROPIC_MODEL. Mercury
+        # ships no vendor-default model.
+        model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", _WIRE_FIXTURE_MODEL),
         api_key=live_key or "unit-test-placeholder-key",
         max_tokens=400,
     )
@@ -175,7 +184,7 @@ def part2_ethics_gate_is_enforced() -> None:
     print("[PART 2] Dual ethical gate is real (invoked per op; denial surfaces nothing)")
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
-        model_name="claude-opus-4-8",
+        model_name=_WIRE_FIXTURE_MODEL,
         api_key="unit-test-placeholder-key",
     )
     backend = RemoteReasoningBackend(cloud_config=cfg)
@@ -239,7 +248,7 @@ def part3_airgap_fail_closed() -> None:
 
         cfg = LLMConfig(
             provider=LLMProvider.ANTHROPIC,
-            model_name="claude-opus-4-8",
+            model_name=_WIRE_FIXTURE_MODEL,
             api_key="unit-test-placeholder-key",
         )
         backend = RemoteReasoningBackend(cloud_config=cfg, ethics_enabled=False)
@@ -265,7 +274,9 @@ def part4_truthful_fallback() -> None:
     print("[PART 4] Truthful fallback (no key, no Ollama -> template, said plainly)")
     prev = os.environ.pop("ANTHROPIC_API_KEY", None)
     try:
-        cfg = LLMConfig(provider=LLMProvider.ANTHROPIC, model_name="claude-opus-4-8", api_key=None)
+        cfg = LLMConfig(
+            provider=LLMProvider.ANTHROPIC, model_name=_WIRE_FIXTURE_MODEL, api_key=None
+        )
         backend = RemoteReasoningBackend(cloud_config=cfg, ethics_enabled=False)
         assert (
             backend.model == "template"

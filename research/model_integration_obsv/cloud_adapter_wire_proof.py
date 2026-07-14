@@ -32,7 +32,7 @@ It runs in four parts:
    instead performs a real Claude completion and asserts a non-error response —
    this is the single flip that turns the whole proof into a live model call.
 
-Run: ``python research/model_integration_obsv/anthropic_wire_proof.py``
+Run: ``python research/model_integration_obsv/cloud_adapter_wire_proof.py``
 Exit code 0 == every assertion held.
 """
 
@@ -65,11 +65,16 @@ from omni_mercury_engine.security import safe_http
 
 # A byte-accurate Anthropic Messages API success payload (the shape documented
 # at platform.claude.com and returned by the live /v1/messages endpoint).
+
+# Offline-leg test target: the model id recorded in the wire fixture below.
+# This is TEST DATA (a replayed real 200 payload), not a product default --
+# Mercury ships no default model for any provider; operators name the model.
+_WIRE_FIXTURE_MODEL = "claude-opus-4-8"
 _REAL_ANTHROPIC_200 = {
     "id": "msg_01ABCdefWireProof",
     "type": "message",
     "role": "assistant",
-    "model": "claude-opus-4-8",
+    "model": _WIRE_FIXTURE_MODEL,
     "content": [
         {
             "type": "text",
@@ -114,7 +119,7 @@ def part1_request_format_and_usage() -> None:
         ledger = UsageLedger()
         cfg = LLMConfig(
             provider=LLMProvider.ANTHROPIC,
-            model_name="claude-opus-4-8",
+            model_name=_WIRE_FIXTURE_MODEL,
             api_key="unit-test-placeholder-key",
             max_tokens=512,
             timeout=30.0,
@@ -147,7 +152,7 @@ def part1_request_format_and_usage() -> None:
             "(the gate itself is patched out in this leg; PART 4 exercises it live)"
         )
 
-        assert body["model"] == "claude-opus-4-8", body
+        assert body["model"] == _WIRE_FIXTURE_MODEL, body
         assert isinstance(body["max_tokens"], int) and body["max_tokens"] == 512, body
         assert body["messages"] == [{"role": "user", "content": user_prompt}], body["messages"]
         assert body["system"] == system_prompt, body
@@ -187,7 +192,7 @@ def part2_parse_robustness() -> None:
             )
             cfg = LLMConfig(
                 provider=LLMProvider.ANTHROPIC,
-                model_name="claude-opus-4-8",
+                model_name=_WIRE_FIXTURE_MODEL,
                 api_key="unit-test-placeholder-key",
             )
             adapter = AnthropicCloudAdapter(cfg)
@@ -226,7 +231,7 @@ def part3_error_path() -> None:
     try:
         cfg = LLMConfig(
             provider=LLMProvider.ANTHROPIC,
-            model_name="claude-opus-4-8",
+            model_name=_WIRE_FIXTURE_MODEL,
             api_key="unit-test-placeholder-key",
         )
         adapter = AnthropicCloudAdapter(cfg)
@@ -240,9 +245,19 @@ def part3_error_path() -> None:
 def part4_live_transport() -> None:
     print("[PART 4] Live transport against the genuine api.anthropic.com")
     live_key = os.environ.get("ANTHROPIC_API_KEY")
+    live_model = os.environ.get("MERCURY_ANTHROPIC_MODEL")
+    if live_key and not live_model:
+        print(
+            "  ! ANTHROPIC_API_KEY is set but MERCURY_ANTHROPIC_MODEL is not; "
+            "live completion leg skipped (Mercury ships no vendor-default "
+            "model -- name the one to test against)."
+        )
+        return
     cfg = LLMConfig(
         provider=LLMProvider.ANTHROPIC,
-        model_name=os.environ.get("MERCURY_ANTHROPIC_MODEL", "claude-opus-4-8"),
+        # Without a live key this leg only proves the endpoint auth-gates
+        # (401 precedes model validation), so the id is a neutral probe.
+        model_name=live_model or "auth-probe-model",
         api_key=live_key or "invalid-transport-probe-key",
         max_tokens=32,
         timeout=30.0,
