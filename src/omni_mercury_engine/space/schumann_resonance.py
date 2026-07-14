@@ -621,7 +621,10 @@ class SchumannResonanceDetector:
                 bounds or fabricate frequencies, so the detector declines
                 the modality instead.
         """
-        signal = np.squeeze(np.asarray(elf_signal, dtype=np.float64))
+        # atleast_1d keeps a single-sample window 1-D: squeeze alone would
+        # collapse shape (1,) to a 0-d scalar and misclassify one honest
+        # (if degenerate) ELF sample as off-modality input.
+        signal = np.atleast_1d(np.squeeze(np.asarray(elf_signal, dtype=np.float64)))
         if signal.ndim != 1:
             raise ValueError(
                 "SchumannResonanceDetector expects a 1-D ELF time series "
@@ -629,18 +632,25 @@ class SchumannResonanceDetector:
                 f"shape {np.asarray(elf_signal).shape}. Pass one ELF channel."
             )
         n = signal.size
+        # A window shorter than two samples has no spectral content (zero
+        # usable bins below Nyquist) and ``scipy.fft.fft`` raises outright on
+        # an empty input, so return the truthful empty spectrum up front --
+        # exactly what an ``n == 1`` window already yields -- and let the
+        # downstream peak searches take their documented no-data fallbacks
+        # (fundamental 7.83 Hz at zero power, zero harmonic deviation).
+        if n < 2:
+            return np.zeros(0, dtype=np.float64), np.zeros(0, dtype=np.float64)
 
         yf = fft(signal)
         power = np.abs(yf[: n // 2]) ** 2
         xf = fftfreq(n, 1.0 / self.sampling_rate)[: n // 2]
 
         # Normalise by the spectral peak, but guard the degenerate window: a
-        # flat or all-zero ELF segment has ``max(power) == 0`` (and an
-        # ``n < 2`` window has an empty ``power``), so an unguarded
-        # ``power / np.max(power)`` produces NaN/Inf that then poisons the
-        # downstream fundamental-frequency search (peak-picking over NaNs).
-        # Leave such a spectrum at zero -- a truthful "no resonance power"
-        # result -- instead of propagating non-finite values.
+        # flat or all-zero ELF segment has ``max(power) == 0``, so an
+        # unguarded ``power / np.max(power)`` produces NaN/Inf that then
+        # poisons the downstream fundamental-frequency search (peak-picking
+        # over NaNs). Leave such a spectrum at zero -- a truthful "no
+        # resonance power" result -- instead of propagating non-finite values.
         peak = float(np.max(power)) if power.size else 0.0
         if peak > 0.0 and np.isfinite(peak):
             power = power / peak
@@ -960,8 +970,11 @@ class SchumannResonanceDetector:
         harmonic_devs = self._analyze_harmonics(power, freqs)
         features.extend(harmonic_devs[:4] if len(harmonic_devs) >= 4 else [0.0] * 4)
 
+        # A degenerate window yields an empty spectrum; report zero band
+        # power truthfully instead of NaN (mean of an empty slice).
         schumann_band = (freqs >= 5.0) & (freqs <= 40.0)
-        features.append(np.mean(power[schumann_band]))
+        band_power = power[schumann_band]
+        features.append(float(np.mean(band_power)) if band_power.size else 0.0)
 
         features_array = np.array(features[:8], dtype=np.float32)
         return torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)

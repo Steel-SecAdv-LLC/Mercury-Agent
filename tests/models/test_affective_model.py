@@ -298,6 +298,18 @@ class TestDeclaredAffectiveModality:
         with pytest.raises(ValueError, match="non-negative"):
             model.predict({"emotions": np.full((5, 6), -1.0)})
 
+    def test_empty_time_series_fails_loud_instead_of_nan(self) -> None:
+        """A declared series with zero timesteps must raise, not emit NaNs.
+
+        Regression: shape (batch, 0, 6) passed the shape check, then the
+        temporal mean over the empty axis produced NaN anomaly/emotion scores.
+        """
+        model = self._model()
+        with pytest.raises(ValueError, match="empty emotion time series"):
+            model.predict({"emotions": np.zeros((0, 6))})
+        with pytest.raises(ValueError, match="empty emotion time series"):
+            model.predict({"emotions": np.zeros((2, 0, 6))})
+
     def test_generic_dict_still_neutral(self) -> None:
         """Dicts without the declared key keep the neutral quarantine prior."""
         model = self._model()

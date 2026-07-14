@@ -103,16 +103,31 @@ class AllSourceFusionNetwork(nn.Module):
     optimization for optimal information synthesis.
     """
 
-    def __init__(self, input_dim: int = 128, num_int_types: int = 13) -> None:
-        """Initialize the instance."""
+    def __init__(
+        self, input_dim: int = 128, num_int_types: int = len(IntelligenceDiscipline)
+    ) -> None:
+        """Initialize the instance.
+
+        Raises:
+            ValueError: If ``num_int_types`` disagrees with
+                ``IntelligenceDiscipline`` -- the per-discipline encoders are
+                built from that enum, so a divergent count would silently
+                mis-size every downstream layer.
+        """
         super().__init__()
+        if num_int_types != len(IntelligenceDiscipline):
+            raise ValueError(
+                f"num_int_types={num_int_types} does not match the "
+                f"{len(IntelligenceDiscipline)} IntelligenceDiscipline members "
+                "the per-discipline encoders are built from"
+            )
 
         phi = 1.618
         hidden_1 = int(input_dim * phi)
         hidden_2 = int(hidden_1 * phi)
-        hidden_3 = (
-            round(int(hidden_2 / phi) / 13) * 13
-        )  # Round to nearest multiple of 13 for attention
+        # Round to a (nonzero) multiple of the discipline count so the
+        # cross-INT attention's embed_dim stays divisible by its head count.
+        hidden_3 = max(1, round(int(hidden_2 / phi) / num_int_types)) * num_int_types
 
         encoder_in = input_dim // num_int_types
         encoder_out = hidden_1 // num_int_types
@@ -141,7 +156,7 @@ class AllSourceFusionNetwork(nn.Module):
         )
 
         self.cross_int_attention = nn.MultiheadAttention(
-            embed_dim=hidden_3, num_heads=13, dropout=0.1, batch_first=True
+            embed_dim=hidden_3, num_heads=num_int_types, dropout=0.1, batch_first=True
         )
 
         self.temporal_lstm = nn.LSTM(
@@ -238,7 +253,7 @@ class IntelligenceFusionEngine:
         self.enable_cryptanalysis = enable_cryptanalysis
         self.golden_ratio = 1.618 if golden_ratio_weights else 1.0
 
-        self.fusion_network = AllSourceFusionNetwork(input_dim=128, num_int_types=13)
+        self.fusion_network = AllSourceFusionNetwork(input_dim=128)
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 

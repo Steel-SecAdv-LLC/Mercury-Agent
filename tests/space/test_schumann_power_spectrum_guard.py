@@ -35,6 +35,29 @@ def test_power_spectrum_zero_window_is_finite_and_warning_free() -> None:
     assert float(np.max(power)) == 0.0
 
 
+@pytest.mark.parametrize("n", [0, 1])
+def test_windows_shorter_than_two_samples_are_finite_end_to_end(n: int) -> None:
+    """Empty and single-sample windows must not crash or emit NaN anywhere.
+
+    Regression, two distinct failure modes: ``n == 0`` reached
+    ``scipy.fft.fft`` (which raises on empty input) before any guard, and
+    ``n == 1`` was squeezed to a 0-d scalar and misclassified as off-modality
+    input. Both now yield the truthful empty spectrum, and the public
+    detection/feature paths take their documented no-data fallbacks.
+    """
+    det = SchumannResonanceDetector(sampling_rate=100.0)
+    window = np.zeros(n, dtype=float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        power, xf = det._compute_power_spectrum(window)
+        result = det.detect_resonance_anomaly(window)
+        features = det.extract_features(window)
+    assert power.shape == (0,) and xf.shape == (0,)
+    assert result.anomaly_detected is False
+    assert result.confidence == 0.0
+    assert bool(np.isfinite(features.numpy()).all())
+
+
 def test_power_spectrum_real_signal_stays_peak_normalized() -> None:
     """A real Schumann-fundamental tone keeps the max-normalized-to-1.0 contract."""
     det = SchumannResonanceDetector(sampling_rate=100.0)

@@ -146,3 +146,34 @@ class TestFeatureWidthContract:
         empty = engine.extract_features({"not_a_discipline": {}})
         assert tuple(populated.shape) == (1, 128)
         assert tuple(empty.shape) == (1, 128)
+
+
+class TestNetworkDisciplineParameterization:
+    """AllSourceFusionNetwork sizing follows the IntelligenceDiscipline enum.
+
+    Regression: the cross-INT attention head count and the ``hidden_3``
+    rounding hard-coded 13 while the per-discipline encoders were built from
+    the enum, so a divergent ``num_int_types`` (or a changed enum) could
+    silently mis-size the stack or violate MultiheadAttention's
+    ``embed_dim % num_heads == 0`` constraint.
+    """
+
+    def test_attention_heads_and_rounding_follow_the_enum(self) -> None:
+        from omni_mercury_engine.security.intelligence_fusion import (
+            AllSourceFusionNetwork,
+            IntelligenceDiscipline,
+        )
+
+        net = AllSourceFusionNetwork(input_dim=128)
+        n = len(IntelligenceDiscipline)
+        assert net.cross_int_attention.num_heads == n
+        assert net.cross_int_attention.embed_dim % n == 0
+        assert len(net.int_encoders) == n
+
+    def test_divergent_num_int_types_fails_loud(self) -> None:
+        import pytest
+
+        from omni_mercury_engine.security.intelligence_fusion import AllSourceFusionNetwork
+
+        with pytest.raises(ValueError, match="IntelligenceDiscipline"):
+            AllSourceFusionNetwork(input_dim=128, num_int_types=5)

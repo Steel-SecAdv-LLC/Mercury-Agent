@@ -102,7 +102,8 @@ class AffectiveAnomalyModel:
 
         Raises:
             ValueError: If the declared series is not ``(time, 6)`` /
-                ``(batch, time, 6)``, is non-finite, or is negative.
+                ``(batch, time, 6)``, has an empty time axis, is non-finite,
+                or is negative.
         """
         if not isinstance(data, dict) or AFFECTIVE_EMOTIONS_KEY not in data:
             return None
@@ -114,6 +115,14 @@ class AffectiveAnomalyModel:
                 f"'{AFFECTIVE_EMOTIONS_KEY}' must be an emotion-probability time "
                 f"series of shape (time, 6) or (batch, time, 6); got shape "
                 f"{np.asarray(data[AFFECTIVE_EMOTIONS_KEY]).shape}"
+            )
+        if emotions.shape[1] == 0:
+            # An empty time axis would make the temporal mean NaN and poison
+            # every downstream score; declared-but-empty input fails loud.
+            raise ValueError(
+                f"'{AFFECTIVE_EMOTIONS_KEY}' declares an empty emotion time "
+                f"series (shape {emotions.shape}); at least one timestep is "
+                "required"
             )
         if not np.all(np.isfinite(emotions)):
             raise ValueError(f"'{AFFECTIVE_EMOTIONS_KEY}' contains non-finite values")
