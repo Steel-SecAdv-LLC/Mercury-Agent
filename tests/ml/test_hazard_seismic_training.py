@@ -246,7 +246,7 @@ class TestDetectorCheckpointWiring:
 
         ckpt = tmp_path / "cand.pt"
         torch.save({"seismic_analyzer": SeismicWaveAnalyzer().state_dict()}, ckpt)
-        detector = EarthquakeDetector()
+        detector = EarthquakeDetector(load_shipped_weights=False)
         assert detector._neural_trained is False
         detector.load_neural_weights(str(ckpt))
         assert detector._neural_trained is True
@@ -258,7 +258,7 @@ class TestDetectorCheckpointWiring:
 
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")
-        detector = EarthquakeDetector()
+        detector = EarthquakeDetector(load_shipped_weights=False)
         with pytest.raises((pickle.UnpicklingError, RuntimeError)):
             detector.load_neural_weights(str(bad))
         assert detector._neural_trained is False
@@ -278,7 +278,7 @@ class TestDetectorCheckpointWiring:
             EarthquakeDetector,
         )
 
-        physics = EarthquakeDetector()
+        physics = EarthquakeDetector(load_shipped_weights=False)
         learned = EarthquakeDetector()
         learned.load_neural_weights()  # no path -> shipped default
         assert physics._neural_trained is False
@@ -355,7 +355,7 @@ class TestOperatingPointConsumption:
             EarthquakeDetector,
         )
 
-        detector = EarthquakeDetector()
+        detector = EarthquakeDetector(load_shipped_weights=False)
         assert detector._operating_point is None
         ckpt = self._checkpoint(tmp_path / "op.pt", {"detection_threshold": 0.5})
         detector.load_neural_weights(ckpt)
@@ -369,7 +369,7 @@ class TestOperatingPointConsumption:
             EarthquakeDetector,
         )
 
-        detector = EarthquakeDetector()
+        detector = EarthquakeDetector(load_shipped_weights=False)
         ckpt = self._checkpoint(tmp_path / "bad_op.pt", {"detection_threshold": bad})
         with pytest.raises(ValueError, match=r"not a\s+probability"):
             detector.load_neural_weights(ckpt)

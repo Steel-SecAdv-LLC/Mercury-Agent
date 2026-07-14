@@ -137,12 +137,35 @@ HAZARD_METRICS: dict[str, dict[str, Any]] = {
         },
     },
     "earthquake": {
-        "detector": "EarthquakeDetector.predict_earthquake (STA/LTA + S-P physics)",
+        "detector": (
+            "EarthquakeDetector.predict_earthquake -- physics lane "
+            "(load_shipped_weights=False: STA/LTA + S-P physics) and trained "
+            "lane (default construction: shipped seismic_stead checkpoint)"
+        ),
         "scenario_files": ("earthquake_scenarios.npz",),
         "metrics": {
             "pod": {"direction": "higher", "margin_abs": RATE_MARGIN, "aspirational": 1.0},
             "far": {"direction": "lower", "margin_abs": RATE_MARGIN, "aspirational": 0.0},
             "csi": {"direction": "higher", "margin_abs": RATE_MARGIN, "aspirational": 1.0},
+            "trained_pod": {
+                "direction": "higher",
+                "margin_abs": RATE_MARGIN,
+                "aspirational": 1.0,
+            },
+            "trained_far": {"direction": "lower", "margin_abs": RATE_MARGIN, "aspirational": 0.0},
+            "trained_csi": {
+                "direction": "higher",
+                "margin_abs": RATE_MARGIN,
+                "aspirational": 1.0,
+            },
+            # OOD characterization, pinned deliberately: the trained lane's
+            # STEAD-trained CNN scores far below physics on these SYNTHETIC
+            # scenario waveforms (trained_pod ~0.14 vs physics 1.0) -- toy
+            # traces are out-of-distribution for it. Its ratified surface is
+            # real data: held-out STEAD recall 0.9745 vs physics 0.4795 at
+            # the deployed alert rules, learned FAR <= physics, AUC +0.072
+            # (seismic_stead.provenance.json). These pins keep the OOD
+            # behaviour visible and stop it drifting silently.
             "sp_distance_mae_km": {
                 "direction": "lower",
                 "margin_rel": MAE_MARGIN_REL,
@@ -401,14 +424,22 @@ def _run_hurricane(path: Path) -> dict[str, float]:
 
 
 def _run_earthquake(path: Path) -> dict[str, float]:
-    """STA/LTA detection skill + S-P epicentral-distance error."""
+    """Physics-lane STA/LTA skill + S-P error, plus trained-lane (shipped) skill.
+
+    Two lanes, both pinned: the physics configuration
+    (``load_shipped_weights=False``) is the surface every install gets when
+    the checkpoint is absent and carries the untrained honesty tripwire; the
+    default construction serves the shipped merit-gated ``seismic_stead``
+    checkpoint and is pinned as ``trained_*`` metrics with its own
+    capability tripwire (a trained station must estimate magnitudes).
+    """
     from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
 
     data = np.load(path)
     y_true, y_pred, distance_errors = [], [], []
     n_events_detected = 0
     for i in range(len(data["labels"])):
-        detector = EarthquakeDetector(sampling_rate=100.0)
+        detector = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         result = detector.predict_earthquake(data["traces"][i])
         # Transparency tripwire: an untrained station must never fabricate a
         # magnitude (1afd151); a regrown estimate fails the guard loudly.
@@ -433,6 +464,33 @@ def _run_earthquake(path: Path) -> dict[str, float]:
         )
     metrics["sp_distance_mae_km"] = float(np.mean(distance_errors))
     metrics["sp_distance_n"] = float(len(distance_errors))
+
+    # Trained lane: the shipped checkpoint is the default-construction
+    # surface, so its detection skill is pinned alongside the physics lane.
+    trained = EarthquakeDetector(sampling_rate=100.0)
+    if not trained._neural_trained:
+        raise RuntimeError(
+            "earthquake: default construction failed to load the shipped "
+            "seismic_stead checkpoint; the merit-gated winner is not serving"
+        )
+    t_true, t_pred = [], []
+    n_magnitudes = 0
+    for i in range(len(data["labels"])):
+        result = trained.predict_earthquake(data["traces"][i])
+        label = int(data["labels"][i])
+        t_true.append(label)
+        t_pred.append(int(result.earthquake_detected))
+        if result.earthquake_detected and result.estimated_magnitude is not None:
+            n_magnitudes += 1
+    trained_rates = _detection_rates(t_true, t_pred, "earthquake (trained)")
+    if sum(t_pred) > 0 and n_magnitudes == 0:
+        raise RuntimeError(
+            "earthquake: trained detector alerted without estimating a single "
+            "magnitude; the calibrated magnitude head is not serving"
+        )
+    metrics["trained_pod"] = trained_rates["pod"]
+    metrics["trained_far"] = trained_rates["far"]
+    metrics["trained_csi"] = trained_rates["csi"]
     return metrics
 
 
@@ -602,7 +660,7 @@ def evaluate() -> dict[str, Any]:
                 ),
             },
             "honesty_tripwires": [
-                "earthquake: estimated_magnitude must stay None while untrained",
+                "earthquake: estimated_magnitude must stay None on the physics lane (load_shipped_weights=False); the trained lane must estimate magnitudes",
                 "hurricane: removed track fields must not regrow without a track model",
                 "solar: kp_index must not be None on the offline Boyle physics path",
             ],

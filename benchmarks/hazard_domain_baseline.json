@@ -8,7 +8,10 @@
         "hss": 1.0,
         "pod": 1.0,
         "sp_distance_mae_km": 0.324,
-        "sp_distance_n": 14.0
+        "sp_distance_n": 14.0,
+        "trained_csi": 0.142857,
+        "trained_far": 0.0,
+        "trained_pod": 0.142857
       },
       "scenario_files": {
         "earthquake_scenarios.npz": "bef8586ec21fb0c19e9a8bb53021dcbcbb60be26c814fe4fc59957ec3368fb7f"
@@ -89,10 +92,10 @@
     }
   },
   "metadata": {
-    "commit": "d983c0d54a6849235af5350e3ce4b512f5a2d7e5",
+    "commit": "ebf02c4f117f2bad0efc082ff1d1d09a7dd1f8a6",
     "guard": "benchmarks/hazard_regression_guard.py",
     "honesty_tripwires": [
-      "earthquake: estimated_magnitude must stay None while untrained",
+      "earthquake: estimated_magnitude must stay None on the physics lane (load_shipped_weights=False); the trained lane must estimate magnitudes",
       "hurricane: removed track fields must not regrow without a track model",
       "solar: kp_index must not be None on the offline Boyle physics path"
     ],
