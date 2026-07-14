@@ -713,7 +713,13 @@ See `examples/decision_abstention_response_demo.py` and
 | Standard | ~250ms | ~25ms |
 | Fast (statistical only) | ~100ms | ~10ms |
 
-*Benchmarks: Synthetic data, Python 3.12, Ubuntu 22.04. Real-world performance may vary 20-40%.*
+*Historical snapshot: synthetic data, Python 3.12, Ubuntu 22.04; real-world
+performance may vary 20-40%. The GPU column was measured on the stated
+hardware and is not re-verified per release. Reproduce the CPU-side core
+claim on your host with ``mercury-agent tool detector_profiler``, which
+emits a provenance-stamped JSON latency/RSS profile (schema
+``mercury.tools.detector_profiler/v1``; most recent sandbox re-run: median
+47.7 ms, p95 56.3 ms — the ``<100ms`` fast-path claim holds).*
 
 </details>
 

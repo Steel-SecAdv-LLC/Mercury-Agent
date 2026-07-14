@@ -49,14 +49,20 @@ def _sample_data() -> np.ndarray:
     return x
 
 
-def _run_each(registry, data):  # type: ignore[no-untyped-def]
+def _run_each(registry, data, serial=False):  # type: ignore[no-untyped-def]
     """Run every detector under its own budget; never block on a stuck one.
 
     Returns ``{name: (status, result_or_none, latency_ms)}`` where status is
     ``"ok"`` / ``"failed"`` / ``"slow"``.
+
+    Measurement note: the default concurrent pool measures *throughput
+    conditions* — per-detector wall latencies are inflated by cross-detector
+    CPU contention (observed: a detector measuring ~0.1 s alone reports
+    ~10 s under the 8-way pool on 4 cores).  Pass ``serial=True`` (CLI:
+    ``--serial``) for clean per-detector latency measurements.
     """
     names = registry.list_all()
-    pool = ThreadPoolExecutor(max_workers=_MAX_WORKERS)
+    pool = ThreadPoolExecutor(max_workers=1 if serial else _MAX_WORKERS)
     future_to_name = {pool.submit(registry.extract_features, n, data): n for n in names}
     pending = set(future_to_name)
     out: dict[str, tuple[str, object, float]] = {}
@@ -103,7 +109,10 @@ def main() -> int:
     if by_cat:
         print(f"by category               : {by_cat}")
 
-    results = _run_each(registry, _sample_data())
+    serial = "--serial" in sys.argv[1:]
+    if serial:
+        print("mode                      : serial (clean per-detector latencies)")
+    results = _run_each(registry, _sample_data(), serial=serial)
 
     ok = [n for n, (s, _, _) in results.items() if s == "ok"]
     failed = [(n, r) for n, (s, r, _) in results.items() if s == "failed"]

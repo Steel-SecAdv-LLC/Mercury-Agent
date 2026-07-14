@@ -98,7 +98,7 @@ pip install -e ".[all]"
 | **Core** | `pip install -e .` | numpy, scipy, pandas, MercuryAnomalyDetector |
 | **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, OpenCV (headless) |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
-| **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
+| **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate. Ships SHA-pinned local BLIP backends (`blip_vqa`, `blip_caption`) that run the AnyAnomaly/LAVAD detectors on CPU; larger LVLMs (Qwen2-VL, MiniCPM-V, LLaVA) are configurable with an operator-supplied revision pin. |
 | **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |
 | **Explainability** | `pip install -e ".[explainability]"` | `shap`. The default explainer (IntegratedGradients + faithfulness evaluator) is self-contained and needs no extra. `lime` is deliberately not declared — its only release cannot build on modern setuptools; the LIME adapter uses the library if manually installed and otherwise falls back to its in-repo linear surrogate. |
 | **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |

@@ -27,6 +27,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
+
+- **Local VLM backends shipped (BSD-3-Clause BLIP), validated live.** New
+  ``blip_vqa`` (Salesforce/blip-vqa-base) and ``blip_caption``
+  (Salesforce/blip-image-captioning-base) backends — small, CPU-runnable,
+  SHA-pinned — registered in the LVLM factory. LAVAD's caption stage now
+  defaults to the real captioner instead of the hard-failing mock
+  placeholder (explicitly configuring ``mock`` still hard-fails, pinned by
+  test). The VQA backend scores the {yes, no} answer likelihood pair
+  instead of free generation (the margin discriminates where the generated
+  argmax is biased) and emits the model's own verdict probability. Driven
+  live with real transformers forwards: AnyAnomaly's frame scores peak on
+  an injected flash frame; LAVAD emits genuine prompt-free captions.
+  Network-marked regression tests pin both drives.
+- **AnyAnomaly outage honesty.** A backend exception previously mapped to
+  confidence 0.0, and ``score = 1 - confidence`` marked every covered
+  frame maximally anomalous — an outage silently alarmed the whole clip.
+  Failed segments now contribute no score, and frames left with no real
+  signal raise instead of being fabricated.
+- **Chronos shipped revision pins.** The five built-in
+  ``amazon/chronos-t5-*`` Hub IDs carry immutable in-repo SHA pins, so a
+  default-constructed adapter (plain registry discovery) satisfies
+  SafeHFLoader's mandatory-pin policy and is operational out of the box
+  (validated live: 13x anomaly separation); an explicit revision always
+  wins, and an explicit ``model_name`` is no longer clobbered by the
+  default ``model_size``.
+- **FoundationEnsemble.add_model instances survive lazy initialization**
+  (previously rebuilt from config with default settings);
+  ``IntelligenceFusionEngine.extract_features`` now emits its declared
+  ``(1, 128)`` width on every path (the populated path emitted 117);
+  stfpm/reverse_distillation LR schedulers step only for epochs that
+  stepped the optimizer; the dead pre-audit ``_mock_matrix_profile``
+  fallback is removed.
+- **Measurement/tooling honesty:** the detector operational sweep gained a
+  ``--serial`` mode (the concurrent pool inflates per-detector wall
+  latencies ~100x on small hosts and is now documented as a throughput
+  measurement); ``run_ci_gates.sh`` asserts the resolved mypy matches the
+  pyproject pin (a full ``[all,dev]`` install was observed leaving a
+  shadowing user-site mypy 1.19 whose off-pin runs fabricate type errors);
+  the README/ARCHITECTURE latency tables are labelled as historical
+  snapshots with the reproducible-path pointer
+  (``mercury-agent tool detector_profiler``; sandbox re-run: median
+  47.7 ms — the ``<100ms`` claim holds).
+
 ### Engineering audit: packaging, detector correctness, latency, torch-free cloud path (PR #339)
 
 - **`pip install .[all]` / `.[test]` un-broken (lime dropped from the extras

@@ -903,6 +903,13 @@ conda install -c conda-forge qutip
 
 ## Performance Benchmarks
 
+*The figures below are a historical snapshot (synthetic data; GPU rows
+measured on the stated hardware) and are not re-verified per release —
+they mirror the README "Latency Benchmarks" table. Reproduce the CPU-side
+core-detector claim on your host with ``mercury-agent tool
+detector_profiler`` (provenance-stamped JSON, schema
+``mercury.tools.detector_profiler/v1``).*
+
 ### Inference Latency (CPU)
 
 | Configuration | Latency | Notes |
