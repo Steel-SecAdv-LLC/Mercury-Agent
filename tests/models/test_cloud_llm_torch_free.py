@@ -70,27 +70,46 @@ def test_tensor_inputs_still_recognised_when_torch_present() -> None:
     assert "Tensor data" in prompt.user_prompt
 
 
-def test_anthropic_default_model_is_a_currently_served_id() -> None:
-    """With ``model_name`` unset, the adapter selects the documented default.
+def test_no_vendor_default_model_ships_for_any_cloud_provider() -> None:
+    """Every cloud adapter requires an explicit model_name; none ships a default.
 
-    Regression: the previous fallback ``claude-3-5-sonnet-20241022`` was
-    retired upstream and 404'd on the first call for any operator who chose
-    the Anthropic provider without naming a model. Existing tests always
-    passed ``model_name`` explicitly, so a retired default could regress
-    silently -- this pins the selected id and that an explicit
-    ``model_name`` still wins.
+    Vendor-neutral policy: Mercury privileges no provider. An adapter
+    constructed without a model_name reports itself unavailable (so the
+    chain falls back to the deterministic template) instead of silently
+    talking to a vendor-chosen model; an explicit model_name plus key makes
+    it available and is used verbatim. This also closes the retired-default
+    failure mode (a hard-coded vendor id rotted upstream and 404'd on the
+    first call).
     """
     from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
-    from omni_mercury_engine.models.foundation.ollama_adapter import AnthropicCloudAdapter
-
-    defaulted = AnthropicCloudAdapter(
-        LLMConfig(provider=LLMProvider.ANTHROPIC, api_key="test-not-real")
+    from omni_mercury_engine.models.foundation.ollama_adapter import (
+        AnthropicCloudAdapter,
+        CohereCloudAdapter,
+        DeepSeekAdapter,
+        GeminiCloudAdapter,
+        HuggingFaceCloudAdapter,
+        OpenAICloudAdapter,
+        XAIGrokAdapter,
     )
-    assert defaulted.model == "claude-opus-4-8"
 
-    explicit = AnthropicCloudAdapter(
-        LLMConfig(
-            provider=LLMProvider.ANTHROPIC, model_name="claude-haiku-4-5", api_key="test-not-real"
+    cases = [
+        (OpenAICloudAdapter, LLMProvider.OPENAI),
+        (AnthropicCloudAdapter, LLMProvider.ANTHROPIC),
+        (HuggingFaceCloudAdapter, LLMProvider.HUGGINGFACE),
+        (XAIGrokAdapter, LLMProvider.XAI),
+        (DeepSeekAdapter, LLMProvider.DEEPSEEK),
+        (CohereCloudAdapter, LLMProvider.COHERE),
+        (GeminiCloudAdapter, LLMProvider.GEMINI),
+    ]
+    for adapter_cls, provider in cases:
+        unset = adapter_cls(LLMConfig(provider=provider, api_key="test-not-real"))
+        assert unset.model == "", f"{adapter_cls.__name__} ships a default model"
+        assert unset.is_available() is False, f"{adapter_cls.__name__} available without a model"
+
+        explicit = adapter_cls(
+            LLMConfig(
+                provider=provider, model_name="operator-chosen-model", api_key="test-not-real"
+            )
         )
-    )
-    assert explicit.model == "claude-haiku-4-5"
+        assert explicit.model == "operator-chosen-model"
+        assert explicit.is_available() is True, f"{adapter_cls.__name__} rejected explicit model"

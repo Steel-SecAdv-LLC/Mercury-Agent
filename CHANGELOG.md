@@ -27,6 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Provider neutrality: no vendor-default models, anywhere (PR #339)
+
+- **Mercury ships no default model id for any provider — local or cloud.**
+  Every adapter (OpenAI, Anthropic, HuggingFace, xAI, DeepSeek, Cursor,
+  Cohere, Gemini, and local Ollama) previously fell back to a hard-coded
+  vendor model when ``model_name`` was unset; all nine literals are removed.
+  An adapter constructed without an explicit model now reports itself
+  unavailable with an actionable message and the chain falls back to the
+  deterministic template — nothing is ever silently sent to a model the
+  operator did not name, and no vendor is privileged. (This also closes the
+  historical failure where a hard-coded default rotted upstream and 404'd on
+  the first call.) Pinned by a parametrized adapter test.
+- **Model-integration proof harness de-branded.** ``anthropic_wire_proof.py``
+  → ``cloud_adapter_wire_proof.py`` and ``mercury_claude_reasoning_e2e.py`` →
+  ``remote_reasoning_e2e.py``; the recorded Anthropic Messages fixture id is
+  now a single named test constant (test data, not a default), the live legs
+  require the operator to name the model (``MERCURY_ANTHROPIC_MODEL``), and
+  the README presents every shipped provider as equally welcome.
+
 ### Review-hardening: edge-window crashes, sizing consistency, honest docs (PR #339)
 
 - **Schumann degenerate windows fixed end-to-end.** An empty ELF window

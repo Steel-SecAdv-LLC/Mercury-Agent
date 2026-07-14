@@ -176,7 +176,10 @@ class OllamaConfig:
 
     host: str = "localhost"
     port: int = 11434
-    model: str = "llama3.2:3b"  # Default: balanced speed/quality
+    # Vendor-neutral policy: no default model id ships -- the operator names
+    # an installed model (LLMConfig.model_name / MERCURY_OLLAMA_MODEL /
+    # OllamaConfig(model=...)); an empty model marks the adapter unavailable.
+    model: str = ""
     timeout: float = 60.0
     temperature: float = 0.1  # Low temp for consistent anomaly detection
     num_ctx: int = 4096  # Context window
@@ -335,7 +338,15 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             sock.close()
 
             if result == 0:
-                self._is_available = self._verify_model_available()
+                if not self.ollama_config.model:
+                    logger.warning(
+                        "Ollama adapter requires an explicit model (set "
+                        "LLMConfig.model_name, MERCURY_OLLAMA_MODEL, or "
+                        "OllamaConfig.model); Mercury ships no default model."
+                    )
+                    self._is_available = False
+                else:
+                    self._is_available = self._verify_model_available()
             else:
                 logger.info(
                     f"Ollama server not available at "
@@ -715,13 +726,21 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
         self.base_url = config.base_url or "https://api.openai.com/v1"
-        self.model = config.model_name or "gpt-4o-mini"
+        # Vendor-neutral policy: Mercury ships no default model id for any
+        # provider. The operator names the model or the adapter stands down.
+        self.model = config.model_name
 
-        if self.api_key:
-            self._is_available = True
-        else:
+        if not self.api_key:
             logger.warning("OpenAI API key not found")
             self._is_available = False
+        elif not self.model:
+            logger.warning(
+                "OpenAI adapter requires an explicit model_name "
+                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+            )
+            self._is_available = False
+        else:
+            self._is_available = True
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text using OpenAI API.
@@ -734,7 +753,7 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             Generated response text
         """
         if not self._is_available:
-            return "OpenAI adapter not available - API key required"
+            return "OpenAI adapter not available - API key and explicit model_name required"
 
         try:
             # Build messages
@@ -805,20 +824,23 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.base_url = config.base_url or "https://api.anthropic.com"
-        # Fallback model used only when the operator did not set ``model_name``.
-        # It MUST be a currently-served Claude id: the previous default
-        # ``claude-3-5-sonnet-20241022`` was retired on 2025-10-28 and now
-        # returns ``404 not_found_error`` from ``/v1/messages``, so any operator
-        # who selected the Anthropic provider without naming a model hit a hard
-        # 404 on the very first call. ``claude-opus-4-8`` is the current
-        # first-party default; operators still override it via ``model_name``.
-        self.model = config.model_name or "claude-opus-4-8"
+        # Vendor-neutral policy: Mercury ships no default model id for any
+        # provider (a previous hard-coded id was retired upstream and 404'd
+        # on the first call -- hard-coded vendor ids rot). The operator names
+        # the model or the adapter stands down.
+        self.model = config.model_name
 
-        if self.api_key:
-            self._is_available = True
-        else:
+        if not self.api_key:
             logger.warning("Anthropic API key not found")
             self._is_available = False
+        elif not self.model:
+            logger.warning(
+                "Anthropic adapter requires an explicit model_name "
+                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+            )
+            self._is_available = False
+        else:
+            self._is_available = True
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text using Anthropic API.
@@ -831,7 +853,7 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
             Generated response text
         """
         if not self._is_available:
-            return "Anthropic adapter not available - API key required"
+            return "Anthropic adapter not available - API key and explicit model_name required"
 
         try:
             body_dict: dict[str, Any] = {
@@ -903,13 +925,21 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("HUGGINGFACE_API_KEY")
         self.base_url = config.base_url or "https://api-inference.huggingface.co"
-        self.model = config.model_name or "meta-llama/Llama-3.2-3B-Instruct"
+        # Vendor-neutral policy: no default model id ships; see the Anthropic
+        # adapter note. The operator names the model or the adapter stands down.
+        self.model = config.model_name
 
-        if self.api_key:
-            self._is_available = True
-        else:
+        if not self.api_key:
             logger.warning("HuggingFace API key not found")
             self._is_available = False
+        elif not self.model:
+            logger.warning(
+                "HuggingFace adapter requires an explicit model_name "
+                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+            )
+            self._is_available = False
+        else:
+            self._is_available = True
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text using HuggingFace Inference API.
@@ -922,7 +952,7 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
             Generated response text
         """
         if not self._is_available:
-            return "HuggingFace adapter not available - API key required"
+            return "HuggingFace adapter not available - API key and explicit model_name required"
 
         try:
             # Combine prompts for text generation
@@ -1002,7 +1032,6 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
     # Subclasses override.
     _DEFAULT_BASE_URL: str | None = None
     _PROVIDER_ENV_VAR: str = ""
-    _DEFAULT_MODEL: str = ""
     _PROVIDER_LABEL: str = ""
     # Some providers require operator-supplied base_url (no public
     # default endpoint).  When True and ``config.base_url`` is unset,
@@ -1015,7 +1044,8 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
 
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
-        self.model = config.model_name or self._DEFAULT_MODEL
+        # Vendor-neutral policy: no default model id ships for any provider.
+        self.model = config.model_name
 
         if self._REQUIRE_EXPLICIT_BASE_URL and not config.base_url:
             logger.warning(
@@ -1033,13 +1063,23 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
         elif not self.base_url:
             logger.warning("%s base URL not configured.", self._PROVIDER_LABEL)
             self._is_available = False
+        elif not self.model:
+            logger.warning(
+                "%s adapter requires an explicit model_name (LLMConfig.model_name); "
+                "Mercury ships no vendor-default model.",
+                self._PROVIDER_LABEL,
+            )
+            self._is_available = False
         else:
             self._is_available = True
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text via the OpenAI-compatible Chat Completions API."""
         if not self._is_available:
-            return f"{self._PROVIDER_LABEL} adapter not available - API key / base_url required"
+            return (
+                f"{self._PROVIDER_LABEL} adapter not available - "
+                "API key / base_url / model_name required"
+            )
 
         try:
             messages: list[dict[str, str]] = []
@@ -1102,7 +1142,6 @@ class XAIGrokAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = "https://api.x.ai/v1"
     _PROVIDER_ENV_VAR = "XAI_API_KEY"
-    _DEFAULT_MODEL = "grok-2-latest"
     _PROVIDER_LABEL = "xAI"
 
 
@@ -1111,7 +1150,6 @@ class DeepSeekAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
     _PROVIDER_ENV_VAR = "DEEPSEEK_API_KEY"
-    _DEFAULT_MODEL = "deepseek-chat"
     _PROVIDER_LABEL = "DeepSeek"
 
 
@@ -1127,7 +1165,6 @@ class CursorAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = None
     _PROVIDER_ENV_VAR = "CURSOR_API_KEY"
-    _DEFAULT_MODEL = "cursor-small"
     _PROVIDER_LABEL = "Cursor"
     _REQUIRE_EXPLICIT_BASE_URL = True
 
@@ -1137,22 +1174,27 @@ class CohereCloudAdapter(BaseLLMAdapter):
 
     _DEFAULT_BASE_URL = "https://api.cohere.com"
     _PROVIDER_ENV_VAR = "COHERE_API_KEY"
-    _DEFAULT_MODEL = "command-r-plus"
 
     def __init__(self, config: LLMConfig):
         """Initialize the instance."""
         super().__init__(config)
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
-        self.model = config.model_name or self._DEFAULT_MODEL
-        self._is_available = bool(self.api_key)
+        # Vendor-neutral policy: no default model id ships for any provider.
+        self.model = config.model_name
+        self._is_available = bool(self.api_key) and bool(self.model)
         if not self.api_key:
             logger.warning("Cohere API key not found")
+        elif not self.model:
+            logger.warning(
+                "Cohere adapter requires an explicit model_name "
+                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+            )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text via Cohere Chat v2."""
         if not self._is_available:
-            return "Cohere adapter not available - API key required"
+            return "Cohere adapter not available - API key and explicit model_name required"
 
         try:
             messages: list[dict[str, str]] = []
@@ -1227,22 +1269,27 @@ class GeminiCloudAdapter(BaseLLMAdapter):
 
     _DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
     _PROVIDER_ENV_VAR = "GEMINI_API_KEY"
-    _DEFAULT_MODEL = "gemini-2.5-flash"
 
     def __init__(self, config: LLMConfig):
         """Initialize the instance."""
         super().__init__(config)
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
-        self.model = config.model_name or self._DEFAULT_MODEL
-        self._is_available = bool(self.api_key)
+        # Vendor-neutral policy: no default model id ships for any provider.
+        self.model = config.model_name
+        self._is_available = bool(self.api_key) and bool(self.model)
         if not self.api_key:
             logger.warning("Gemini API key not found")
+        elif not self.model:
+            logger.warning(
+                "Gemini adapter requires an explicit model_name "
+                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+            )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text via Gemini ``generateContent``."""
         if not self._is_available:
-            return "Gemini adapter not available - API key required"
+            return "Gemini adapter not available - API key and explicit model_name required"
 
         try:
             body: dict[str, Any] = {

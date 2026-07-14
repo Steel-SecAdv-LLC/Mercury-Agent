@@ -79,11 +79,12 @@ class LLMConfig:
     """Configuration for LLM adapter."""
 
     provider: LLMProvider = LLMProvider.MOCK
-    # Vendor-neutral default: empty means "operator has not chosen a model", so
-    # each adapter applies its own provider-appropriate default rather than a
-    # hard-coded vendor model id leaking across providers (and the "template"
-    # sentinel is never sent to a cloud API). No cloud provider is privileged;
-    # operators set ``provider`` and ``model_name`` explicitly.
+    # Vendor-neutral policy: empty means "operator has not chosen a model",
+    # and Mercury ships NO default model id for any provider -- local or
+    # cloud. An adapter constructed without an explicit model_name reports
+    # itself unavailable (with an actionable message) and the chain falls
+    # back to the deterministic template; nothing is ever silently sent to a
+    # vendor the operator did not name. No provider is privileged.
     model_name: str = ""
     temperature: float = 0.0
     max_tokens: int = 512
@@ -741,7 +742,9 @@ def _create_non_hf_adapter(config: LLMConfig) -> BaseLLMAdapter:
     if config.provider == LLMProvider.OLLAMA:
         host, port = _parse_ollama_base_url(config.base_url)
         ollama_config = OllamaConfig(
-            model=config.model_name or "llama3.2:3b",
+            # Vendor-neutral policy: no default model id ships; the operator
+            # names an installed model (or sets MERCURY_OLLAMA_MODEL).
+            model=config.model_name,
             host=host or "localhost",
             port=port or 11434,
         )

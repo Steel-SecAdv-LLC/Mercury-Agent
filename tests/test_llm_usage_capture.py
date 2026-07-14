@@ -136,7 +136,7 @@ class TestProviderUsageParsing:
         assert adapter.last_usage.completion_tokens == 2
 
     def test_ollama_eval_counts_captured(self) -> None:
-        config = OllamaConfig()
+        config = OllamaConfig(model="test-local-model")
         adapter = OllamaLLMAdapter(ollama_config=config)
         adapter._is_available = True  # bypass the socket probe; HTTP is mocked
         _generate_with(

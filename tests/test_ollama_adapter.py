@@ -122,12 +122,18 @@ class TestOllamaConfig:
     """Tests for Ollama configuration."""
 
     def test_ollama_config_defaults(self, ollama_module: Any) -> None:
-        """Test OllamaConfig has sensible defaults."""
+        """OllamaConfig defaults are vendor-neutral: no model id ships.
+
+        Regression: the config used to default to a specific vendor's model
+        ("llama3.2:3b"); Mercury now ships no default model for any provider,
+        so an unset model is empty and the adapter reports itself
+        unavailable until the operator names an installed model.
+        """
         config = ollama_module.OllamaConfig()
 
         assert config.host == "localhost"
         assert config.port == 11434
-        assert config.model == "llama3.2:3b"
+        assert config.model == ""
         assert config.temperature == 0.1
         assert config.timeout == 60.0
 
