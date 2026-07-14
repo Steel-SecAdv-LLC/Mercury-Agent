@@ -27,6 +27,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Merit-gated winners serve by default: seismic checkpoint + trained GOSNN fusion (PR #339)
+
+- **EarthquakeDetector defaults to the shipped merit-gate winner.** The
+  ``seismic_stead`` checkpoint (real STEAD data: held-out recall 0.9745 vs
+  physics 0.4795 at the deployed alert rules, learned FAR <= physics, AUC
+  +0.072, and faster than physics — see its provenance sidecar) previously
+  shipped but never served without an explicit operator call. Default
+  construction now auto-loads it (fail-open to STA/LTA physics when the
+  checkpoint is absent; invalid checkpoints still fail loud), and
+  ``load_shipped_weights=False`` pins the physics configuration. The hazard
+  regression guard gained a trained lane (``trained_pod/far/csi`` pinned
+  alongside the unchanged physics lane, with capability tripwires in both
+  directions) and its baseline was re-pinned; the trained lane's low POD on
+  the guard's synthetic toy waveforms (~0.14) is pinned deliberately as an
+  out-of-distribution characterization, with the real-data surface cited.
+- **MultiHeadAttentionFusion trained on a non-circular objective.**
+  ``scripts/train_gosnn_fusion.py`` records the dimensional-state lists the
+  production ``fuse()`` actually receives while a real engine detects on
+  real cached ADBench windows, trains two candidates (masked-member
+  reconstruction; + temporal multitask) on the exact production module
+  stack, and merit-gates them against the deterministic phi-weighted
+  reference on held-out lists (MSE <= 0.95x reference + anti-collapse
+  floor; "reference wins, nothing ships" is a valid outcome). The winning
+  checkpoint ships as ``gosnn_attention_fusion`` with a full provenance
+  sidecar and auto-loads at construction (``load_shipped_weights=False``
+  pins the reference path); eval artifact committed at
+  ``artifacts/gosnn_fusion.eval.json``.
+
 ### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
 
 - **Local VLM backends shipped (BSD-3-Clause BLIP), validated live.** New
