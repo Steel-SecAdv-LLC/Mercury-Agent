@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from typing import Any
 
 _PROOF = """
 import sys
@@ -92,7 +93,8 @@ def test_no_vendor_default_model_ships_for_any_cloud_provider() -> None:
         XAIGrokAdapter,
     )
 
-    cases = [
+    # type[Any]: `.model` is defined per concrete adapter, not on the base.
+    cases: list[tuple[type[Any], LLMProvider]] = [
         (OpenAICloudAdapter, LLMProvider.OPENAI),
         (AnthropicCloudAdapter, LLMProvider.ANTHROPIC),
         (HuggingFaceCloudAdapter, LLMProvider.HUGGINGFACE),
