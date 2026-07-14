@@ -33,8 +33,19 @@ Constraints (all must hold for a candidate to ship):
 "Reference wins, nothing ships" is a valid outcome (schumann precedent); the
 eval artifact is committed either way.
 
+Harvest-diversity tripwire
+==========================
+A reconstruction gate is only meaningful over a varied input distribution.
+The first production harvest (2026-07-14) collapsed to a SINGLE unique state
+list across 403 calls -- the GOSNN registry groups are static between calls
+and the per-call base member is empty on the tabular detect path -- which
+makes any "learned beats reference" verdict vacuous (a memoriser wins). The
+program now measures harvest diversity first and REFUSES to train or ship
+below ``MIN_UNIQUE_LISTS`` unique lists, committing the refusal verdict to
+the eval artifact instead.
+
 Run:
-    python scripts/train_gosnn_fusion.py            # full harvest + train + gate
+    python scripts/train_gosnn_fusion.py            # full harvest + gate
     python scripts/train_gosnn_fusion.py --quick    # smaller harvest (smoke)
 """
 
@@ -67,6 +78,21 @@ SEED = 20260714
 GATE_MARGIN = 0.95  # learned must beat reference MSE by >= 5%
 COLLAPSE_FLOOR = 0.20
 MAX_DIMS = 37
+# A held-out split is only meaningful over a genuinely varied input
+# distribution. The first production harvest (2026-07-14) measured exactly
+# ONE unique state list across 403 fuse() calls -- the GOSNN registry groups
+# are static between calls and the per-call base member is empty on the
+# tabular detect path -- so a reconstruction "win" there is memorising a
+# constant, not learning. Below this floor the program refuses to train.
+MIN_UNIQUE_LISTS = 50
+
+
+def _unique_state_lists(lists: list[list[np.ndarray]]) -> int:
+    """Number of distinct harvested state lists (rounded to 9 decimals)."""
+    seen = set()
+    for states in lists:
+        seen.add(np.round(_pad(states), 9).ravel().tobytes())
+    return len(seen)
 
 
 def _harvest(n_datasets: int, n_fit_rows: int, n_detect_rows: int) -> list[list[np.ndarray]]:
@@ -246,6 +272,35 @@ def main() -> int:
     if len(lists) < 60:
         raise RuntimeError(f"harvest too small to split honestly ({len(lists)} lists)")
 
+    n_unique = _unique_state_lists(lists)
+    logger.info("harvest diversity: %d unique state lists of %d", n_unique, len(lists))
+    if n_unique < MIN_UNIQUE_LISTS:
+        verdict_degenerate: dict[str, Any] = {
+            "generated_utc": datetime.now(UTC).isoformat(),
+            "seed": SEED,
+            "harvest": {
+                "n_state_lists": len(lists),
+                "n_unique_state_lists": n_unique,
+                "min_unique_required": MIN_UNIQUE_LISTS,
+                "quick": bool(args.quick),
+            },
+            "decision": (
+                "REFUSED - DEGENERATE HARVEST: the production fuse() input "
+                f"distribution collapsed to {n_unique} unique state list(s) "
+                f"across {len(lists)} calls (GOSNN registry groups are static "
+                "between calls; the per-call base member is empty on the "
+                "tabular detect path). A held-out reconstruction gate over a "
+                "constant is vacuous -- any memoriser beats the reference -- "
+                "so nothing trains and nothing ships. fuse() keeps the "
+                "deterministic phi-weighted reference. Re-run once the "
+                "registry carries per-call varying operational scalars."
+            ),
+        }
+        EVAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        EVAL_PATH.write_text(json.dumps(verdict_degenerate, indent=2, sort_keys=True) + "\n")
+        logger.warning("degenerate harvest; refusal written to %s", EVAL_PATH)
+        return 0
+
     rng = np.random.default_rng(SEED)
     examples = _examples(lists, rng)
     n = len(examples)
@@ -284,7 +339,12 @@ def main() -> int:
                 "floor x member std"
             ),
         },
-        "harvest": {"n_state_lists": len(lists), "n_examples": n, "quick": bool(args.quick)},
+        "harvest": {
+            "n_state_lists": len(lists),
+            "n_unique_state_lists": n_unique,
+            "n_examples": n,
+            "quick": bool(args.quick),
+        },
         "candidates": results,
         "winners": winners,
     }

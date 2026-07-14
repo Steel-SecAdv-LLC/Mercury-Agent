@@ -91,3 +91,28 @@ def test_default_construction_serves_shipped_winner_when_present() -> None:
     result = fusion.fuse(_states())
     assert isinstance(result, np.ndarray)
     assert np.all(np.isfinite(result))
+
+
+def test_eval_artifact_decision_matches_shipped_state() -> None:
+    """The committed eval verdict and the shipped checkpoint must agree.
+
+    The training program commits its verdict to
+    ``artifacts/gosnn_fusion.eval.json`` whether it ships or refuses. A
+    SHIPPED decision without the checkpoint (or a refusal decision alongside
+    one) would mean the artifact narrates a different reality than the
+    package serves -- exactly the drift this suite exists to prevent.
+    """
+    import json
+    from pathlib import Path
+
+    from omni_mercury_engine.models.checkpoint_paths import shipped_checkpoint_path
+
+    artifact = Path(__file__).resolve().parents[2] / "artifacts" / "gosnn_fusion.eval.json"
+    if not artifact.exists():
+        pytest.skip("no committed gosnn fusion eval artifact (repo-layout test)")
+    decision = str(json.loads(artifact.read_text())["decision"])
+    shipped = shipped_checkpoint_path("gosnn_attention_fusion").exists()
+    assert decision.startswith("SHIPPED") == shipped, (
+        f"eval artifact says {decision[:60]!r} but shipped checkpoint "
+        f"exists={shipped}; the verdict and the package disagree"
+    )
