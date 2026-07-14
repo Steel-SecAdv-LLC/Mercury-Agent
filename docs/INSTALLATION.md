@@ -99,10 +99,12 @@ pip install -e ".[all]"
 | **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, OpenCV (headless) |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
+| **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |
+| **Explainability** | `pip install -e ".[explainability]"` | `shap`. The default explainer (IntegratedGradients + faithfulness evaluator) is self-contained and needs no extra. `lime` is deliberately not declared — its only release cannot build on modern setuptools; the LIME adapter uses the library if manually installed and otherwise falls back to its in-repo linear surrogate. |
 | **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |
 | **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.3.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
-| **All** | `pip install -e ".[all]"` | Every feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability). `[pqc]`, `[compliance]`, and `[dev]` install separately. |
+| **All** | `pip install -e ".[all]"` | Every runtime feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability, compliance). `[pqc]` and `[dev]` install separately. |
 | **Dev** | `pip install -e ".[dev]"` | Tooling only: pytest (+ asyncio/cov/timeout/mock/xdist), hypothesis, black, mypy, ruff, pre-commit. Combine with `[all]` for the full stack. |
 
 The `[compliance]` extra installs `openpyxl`, used only by

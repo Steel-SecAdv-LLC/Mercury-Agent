@@ -1,6 +1,6 @@
 # Dormancy & Salvage Ledger
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-14.
 
 This ledger accounts for the **dormant** code in Mercury Agent — modules that are
 defined and exported in the public API but never run in any live inference,
@@ -81,7 +81,7 @@ order. None are deleted.
 |---|---|---|---|---|---|---|
 | 1 | `symbolic_logic_layer.py` | ~1,100 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
 | 2 | `causal_discovery.py` | ~1,420 | Causal-graph discovery | **VALIDATED ✓ (non-AUC)** — not an anomaly scorer, but on its *own* metric (skeleton recovery vs a known SEM) it recovers structure well above chance: mean F1 **0.853** vs chance 0.286, degrading gracefully as samples thin (`benchmarks/causal_discovery_validation.py`) | **revived (causal tool)** | A genuinely working constraint-based causal-discovery engine; revived and measured as a causal tool, not an anomaly detector. |
-| 3 | `explainability.py` | ~900 | IG / SHAP / LIME explainers + faithfulness evaluator | **VALIDATED ✓ (non-AUC, dep-free parts)** — IntegratedGradients recovers a model's informative features (recovery@3 **0.678** vs chance 0.300) and is ~2× more faithful than random (comprehensiveness **0.40 vs 0.22**); the `FaithfulnessEvaluator` works (`benchmarks/explanation_fidelity.py`). SHAP/LIME need the optional `shap`/`lime` libs (not installed) | **revived (IG + evaluator)** | Dep-free IntegratedGradients explainer + faithfulness evaluator revived & measured; SHAP/LIME remain dependency-gated. |
+| 3 | `explainability.py` | ~900 | IG / SHAP / LIME explainers + faithfulness evaluator | **VALIDATED ✓ (non-AUC, dep-free parts)** — IntegratedGradients recovers a model's informative features (recovery@3 **0.678** vs chance 0.300) and is ~2× more faithful than random (comprehensiveness **0.40 vs 0.22**); the `FaithfulnessEvaluator` works (`benchmarks/explanation_fidelity.py`). SHAP ships via the `[explainability]` extra; `lime` is excluded from the extras graph (its sole release cannot build on modern setuptools) and the LIME adapter falls back to the in-repo `_approximate_lime` linear surrogate | **revived (IG + evaluator)** | Dep-free IntegratedGradients explainer + faithfulness evaluator revived & measured; SHAP activates with the extra, LIME via manual install or the in-repo surrogate. |
 | 4 | `formal_verification.py` | ~1,540 | Constraint solvers + interval-bound-propagation verifier | **VALIDATED ✓ (non-AUC)** — its `IntervalBoundPropagator` is **100% sound** over 200 random ReLU nets / input boxes (the certificate always contains the densely-sampled true output range) with ~1.8× tightness, non-vacuous (`benchmarks/formal_verification_soundness.py`) | **revived (verifier)** | A genuinely sound interval-bound-propagation verifier; revived and measured as a certified-bounds tool. |
 | 5 | `neurosymbolic_hub.py` + `gosnn_3r_integration.py` + `fibring_fusion.py` | ~1,780+~880+~270 | Alternative GOSNN/fibring fusion head | **Maybe** — fused AUC vs the live `OmniFusionModel` | LOW | Wire as an alternative fusion head → ablate; high effort, likely redundant with the trained `OmniFusionModel`. |
 | 6 | `knowledge_graph.py` + `multi_hop_reasoner.py` | ~2,080+~720 | Symbolic KB + multi-hop reasoning | **No (numeric)** — operate on symbolic facts, not feature vectors | LOW | Only via a rules/KB bridge to the symbolic constraint; no direct tabular signal. **Algorithmic correctness now behaviourally covered (2026-06-02):** `tests/cognitive/test_knowledge_graph_behavioral.py` asserts embedding recovery on a known two-cluster graph (intra > inter cosine over 5 seeds), GNN message passing, link-prediction recovery of a held-out intra-cluster edge, and transitive / symmetric inference — the reference methods compute what they claim even though the surface carries no anomaly-detection signal. |
@@ -104,11 +104,19 @@ signal and are correctly handled — no action.
 `models/affective.py` joined this set on 2026-06-11: the stub previously
 emitted **fresh RNG noise per call** as its features and anomaly scores
 (64 columns of fabricated, nondeterministic signal in the fusion feature
-set — the worst variant of interface ≠ signal). It now emits a
-deterministic neutral output (zero features, 0.5 scores) with a one-time
-warning until a real, measured affective extractor exists; the serve-path
-determinism and checkpoint-equivalence tests
-(`tests/test_fusion_checkpoint_roundtrip.py`) keep it regression-checked.
+set — the worst variant of interface ≠ signal). Generic (off-modality)
+input now receives a deterministic neutral output (zero features, 0.5
+scores) with a one-time warning; the serve-path determinism and
+checkpoint-equivalence tests (`tests/test_fusion_checkpoint_roundtrip.py`)
+keep it regression-checked. Since v2.1.x the model additionally has a real
+**declared-modality** predict path: a dict carrying an emotion-probability
+time series under the `"emotions"` key is analysed deterministically
+(temporal aggregation + the documented entropy/negative-affect distress
+heuristic from `core/enhanced_model_domains.py`), with malformed declared
+input failing loud (`tests/models/test_affective_model.py`). The fusion
+feature group stays constant zeros for every input — the shipped
+`default_fusion.pt` was trained against exactly that group; a learned
+extractor still requires a real labelled affect corpus.
 
 ## 4. Status & reproduce
 
@@ -167,7 +175,10 @@ detection metric it was never meant to clear:
   the dependency-free `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`:
   recovery@3 **0.678 vs chance 0.300**, comprehensiveness **0.40 vs 0.22** random.
   The IG explainer and the faithfulness evaluator are revived and measured; the
-  `shap`/`lime` explainers stay dependency-gated until those libs are installed.
+  `shap` explainer activates with the `[explainability]` extra; the LIME
+  adapter uses the real `lime` library only if manually installed (it is
+  excluded from the extras graph as unbuildable on modern setuptools) and
+  otherwise runs its in-repo linear surrogate.
 * **Formal soundness — built ✓, VALIDATED.** `benchmarks/formal_verification_soundness.py`
   checks `formal_verification.py`'s `IntervalBoundPropagator` against densely-sampled
   ground truth over random ReLU networks: **100% sound** (the certificate always
@@ -259,7 +270,7 @@ heuristic for a measurement. None drives a safety-critical decision uncalibrated
 |---|---|---|
 | `scaling/bain_ai_scaling.py` `estimate_power_consumption` | "typical power profiles from hyperscaler deployments" | Uncalibrated order-of-magnitude heuristic; coefficients are named, illustrative constants (`BASE_POWER_W`, …). `_op_hyperion` now returns `calibrated: False`. Relative comparison only. |
 | `core/global_omni_scalar_network.py` (~82 ISO-25010/Halstead/DORA/SLSA/… scalars) | declared diagnostic scalars | Static placeholder weights, never computed (no collectors exist); filtered from every operational path. Kept for registration/reporting only. |
-| `core/global_omni_scalar_network.py` `MultiHeadAttentionFusion` | "32-head attention" learned fusion | Random-initialised, never trained, `no_grad` → fixed random projection + averaging; numpy phi-weighted average is the transparent reference. One-time runtime warning added. |
+| `core/global_omni_scalar_network.py` `MultiHeadAttentionFusion` | "32-head attention" learned fusion | Untrained torch path now **unreachable**: inference always uses the deterministic phi-weighted reference average until genuine weights are loaded via `load_trained_weights()` (EthicalGate convention; `tests/core/test_attention_fusion_gate.py`). The historical random-projection inference no longer runs. |
 | `cognitive/hierarchical_planning.py` | Options/MAXQ/HAM/Feudal RL planner | Template-driven decomposition + greedy option selection; no search. `PlannerType` MAXQ/FEUDAL/HAM are reserved labels, not algorithms. |
 | `cognitive/multi_hop_reasoner.py` `abduce` | "Bayesian-like P(H\|O)" | Jaccard token-overlap ranking (`0.3 + 0.7*overlap`); deduction `_match_premises` is substring containment, not unification. Lexical heuristic, not inference. |
 | `cognitive/ethical_bounding.py` `assess_weapons_uplift` | two-axis weapons/mass-casualty gate | Axis A is (now obfuscation-normalized, multilingual) keyword routing; Axis B is regex intent matching **plus a reasoning-backed classifier wired by default on the text surface** (fail-open / offline-safe — it contributes only when a real local/cloud model serves). The deterministic core remains a lexical heuristic, **not** a trained model, and says so. What *is* now measured: the Axis-B confidence logistic is fit on a 362-case labeled corpus (`configs/weapons_gate_calibration.json`; `is_fitted`/`source` are transparent), and the false-positive/false-negative operating point is a measured, CI-failing metric (`tests/ethical/test_weapons_gate_eval.py`; currently 0% FP / 0% FN on held-out val+test) with property/fuzz coverage (`test_weapons_gate_properties.py`). Coverage limits + the now-implemented compensating controls (durable audit, provenance enforcement, HITL escalation) are stated in [`HARM_POLICY.md`](HARM_POLICY.md) §8. Active safety control, not dormant. |

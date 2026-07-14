@@ -429,8 +429,11 @@ number:
       benchmark that writes a provenance-stamped artifact
       (`benchmarks/crypto_backend_benchmark.py`). No unbenchmarked "Nx faster".
 - [ ] **Dependency posture** ("required" vs "optional extra") must match
-      `pyproject.toml`. torch is the `[ml]` extra; SHAP/LIME the
-      `[explainability]` extra; AMA/PQC is the only hard, fail-closed import gate.
+      `pyproject.toml`. torch is the `[ml]` extra; SHAP the `[explainability]`
+      extra (`lime` is deliberately excluded from the extras graph — its sole
+      release cannot build on modern setuptools; the LIME adapter degrades to
+      the in-repo linear surrogate); AMA/PQC is the only hard, fail-closed
+      import gate.
 - [ ] **Behavioural claims** (env-var toggles, fallbacks, gates) must match a
       test that pins the behaviour (e.g. `tests/test_pqc_startup_gate.py`).
 - [ ] **Experimental wins** must clear their pre-registered bar *and* survive

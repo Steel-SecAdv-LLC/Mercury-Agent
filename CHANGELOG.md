@@ -27,6 +27,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Engineering audit: packaging, detector correctness, latency, torch-free cloud path (PR #339)
+
+- **`pip install .[all]` / `.[test]` un-broken (lime dropped from the extras
+  graph).** `lime==0.2.0.1` — its only release (2020, unmaintained) — fails to
+  build under modern setuptools (`AttributeError: install_layout`), which made
+  every `[explainability]`/`[all]`/`[test]` install fail. The extra now ships
+  `shap` only; the `LIMEExplainer` adapter still uses the real library when an
+  operator installs it manually and otherwise falls back to its in-repo
+  `_approximate_lime` linear surrogate. `tests/test_explainability_extra.py`
+  pins lime out of the extras graph. Validated: full `[all,dev]` install
+  resolves and imports.
+- **`[foundation]` made operational.** The extra now composes
+  `mercury-agent[ml]` (every `models/foundation` adapter imports torch at
+  module top, so the extra previously installed an unimportable feature) and
+  declares `chronos-forecasting>=1.4` (previously undeclared, so the chronos
+  detector could never run). Validated live: `amazon/chronos-t5-tiny` under a
+  pinned-SHA `SafeHFLoader` load scores an injected anomaly block 36x above
+  baseline (chronos-forecasting 2.3.1). Pinned by `tests/test_foundation_extra.py`.
+- **`[all]` now reaches `[compliance]`.** A full install previously could not
+  run the NIST CSF live-reference mode (`openpyxl` missing — observed as
+  `ModuleNotFoundError` in the network-marked NIST tests, now green). Pinned
+  by `tests/test_all_extra_contract.py`.
+- **Heatwave detector fixed in the registry path.** `HeatwaveDetector.is_fitted`
+  was a property while every registry/fusion call site invokes
+  `detector.is_fitted()` (the `core/base.py` contract), so every registry
+  invocation crashed with `'bool' object is not callable`. Now a method; the
+  registry's plugin boundary additionally resolves both method- and
+  property-style `is_fitted`. The detector now runs operationally on generic
+  fusion windows (validated end to end, incl. imposed-excursion detection).
+- **Schumann resonance detector: clean 1-D modality contract.** Unvalidated
+  2-D input sent the FFT along the wrong axis and the fundamental/harmonic
+  peak searches then indexed the 1-D frequency grid with a flattened-2-D
+  `argmax` (`index 40 is out of bounds for axis 0 with size 9`). The power
+  spectrum now validates single-channel input and declines multichannel data
+  with an actionable message; short temporal-history windows zero-pad instead
+  of breaking the 103-bin layout. On-modality behaviour validated (7.83 Hz
+  fundamental recovered).
+- **`[all]`-install segfault fixed (TensorFlow/triton LLVM collision).**
+  Registry auto-discovery hard-crashed (SIGSEGV) whenever deepface pulled
+  TensorFlow into the process before a torchvision-backed detector reached
+  `torch._dynamo`'s triton probe — both bundle an LLVM and the TF-then-triton
+  order is fatal (tensorflow 2.21 + triton 3.7.1; reverse order is safe).
+  `_compat.preload_triton_before_tensorflow()` now pins the load order at
+  Mercury's TensorFlow entry points (`models/biometric*.py`). All 91 manifest
+  detectors load with the full `[all]` stack; subprocess regression test in
+  `tests/models/test_triton_tf_ordering.py`.
+- **Detector latency (measured on a 200x8 window, same host, semantics
+  preserved):** `gaussian_process` 8.6 s → 0.004 s (loop-invariant kernel
+  algebra hoisted — the per-point solves rebuilt an identical 24x24 system);
+  `srcnn` fit 26.8 s → 2.9 s and `diffusion_ad` fit 12.3 s → 0.1 s (tiny
+  full-batch training loops now run with intra-op threading pinned to one
+  thread via `detectors/_torch_perf.py`; the default pool's fork/join costs
+  ~13x the arithmetic at these tensor sizes); `acceleration_dynamics` extract
+  61.7 s → ~3 s (same cure for its per-sample LSTM); `physics_integrated`
+  70.9 s → 32.1 s (`extract_features` no longer routes through `detect`,
+  which ran every component twice; plus component fixes);
+  `spectral_vibration` ~2x (phonon pairwise/scattering loops batched
+  [~24k module calls → 3], MLIP encoder vectorised, spectral graph memoised,
+  Laplacian eigensolve switched from worst-case `which="SM"` Lanczos to the
+  PSD spectral-shift form without eigenvector extraction); `bocpd` +35%
+  with bit-identical scores (loop-invariant `gammaln` table over the exact
+  `alpha0 + r/2` grid). Full-registry sweep median latency 34 ms → 22 ms.
+- **Cloud LLM path decoupled from the ML stack.** `llm_adapter.py` no longer
+  imports torch at module top (the Tensor branch resolves via `sys.modules`;
+  the local HF backend imports torch only inside `_load_model`),
+  `models/foundation/__init__.py` uses lazy PEP 562 exports (house pattern),
+  and `security/__init__.py` resolves its sole torch consumer
+  (`IntelligenceFusionEngine`) lazily with the exact historical
+  class-or-None contract. Proven in a torch-free venv: engine import (PQC
+  gate), `AnthropicCloudAdapter`/`OpenAICloudAdapter` construction + prompt
+  path, and `RemoteReasoningBackend` import all succeed with torch absent;
+  `tests/models/test_cloud_llm_torch_free.py` pins that the chain never pulls
+  torch even when installed.
+- **`MultiHeadAttentionFusion` honest inference gate.** The untrained torch
+  attention (random projection + averaging under `no_grad`) is no longer
+  reachable: inference uses the deterministic phi-weighted reference average
+  until genuine weights load via the new `load_trained_weights()` seam
+  (EthicalGate convention). `tests/core/test_attention_fusion_gate.py`.
+- **`AffectiveAnomalyModel` declared-modality path.** A dict carrying an
+  emotion-probability time series under `"emotions"` is now analysed
+  deterministically (temporal aggregation + the documented
+  entropy/negative-affect distress heuristic); malformed declared input fails
+  loud. Generic input keeps the neutral quarantine prior, and the fusion
+  feature group stays constant zeros so the shipped `default_fusion.pt`
+  contract is untouched.
+- **Type/lint posture:** repo-wide `mypy src` lane green at the pinned 2.1.0
+  (747 files); `triton` added to the third-party override list; numba
+  `prange` sites carry dual-environment ignores. Bandit (CI configuration,
+  medium+ severity): clean.
+
 ### Dependency & static-analysis hardening (PR #336)
 
 - **OpenCV moved to the 5.x line.** `opencv-python-headless` is now pinned
