@@ -1,0 +1,58 @@
+{
+  "checkpoint": "gosnn_attention_fusion.pt",
+  "checkpoint_sha256": "76b44feea4798ad6d56bb128a360397a06bb21dab012930ccfb2b4185240bf0d",
+  "created_utc": "2026-07-14T09:15:25.901275+00:00",
+  "data_sources": [
+    {
+      "cache_files": [
+        "21a3e0e8c20a8a0e.npz",
+        "4b88d3115dd04730.npz",
+        "93fd194197e64985.npz"
+      ],
+      "cache_sha256": {
+        "21a3e0e8c20a8a0e.npz": "26cd775b5a458c6c4197dfd5f57ace573e0f550aa2bdfca5a67440f930b28059",
+        "4b88d3115dd04730.npz": "a103bd0848a4fea5aa66036c3f6fec70cd7d51222d608f38cfe1f77eba6ae777",
+        "93fd194197e64985.npz": "c8aa5ccb105acf6e69b6818d56cac24ecc632c9402221fc4b3a1f924e61a653b"
+      },
+      "description": "production fuse() inputs harvested from a real OmniMercuryEngine detecting on cached real ADBench splits"
+    }
+  ],
+  "objective": "masked_recon",
+  "training": {
+    "candidates": {
+      "masked_recon": {
+        "best_val_mse": 1.0111894357104727e-06,
+        "fused_std": 0.44470225112392475,
+        "learned_mse": 1.0142624220618233e-06,
+        "member_std": 0.591147997928821,
+        "n_test": 61.0,
+        "reference_mse": 0.302002668712572
+      },
+      "multitask": {
+        "best_val_mse": 0.03165968623798108,
+        "fused_std": 0.3439201402065695,
+        "learned_mse": 0.03062090943166441,
+        "member_std": 0.591147997928821,
+        "n_test": 61.0,
+        "reference_mse": 0.302002668712572
+      }
+    },
+    "decision": "SHIPPED candidate 'masked_recon' -> gosnn_attention_fusion.pt",
+    "gate": {
+      "collapse_floor": 0.2,
+      "constraint": "held-out masked-member MSE <= margin x phi-reference MSE on identical production-harvested state lists; fused std >= floor x member std",
+      "mse_margin": 0.95
+    },
+    "generated_utc": "2026-07-14T09:15:25.901275+00:00",
+    "harvest": {
+      "n_examples": 403,
+      "n_state_lists": 403,
+      "quick": false
+    },
+    "seed": 20260714,
+    "winners": [
+      "masked_recon",
+      "multitask"
+    ]
+  }
+}

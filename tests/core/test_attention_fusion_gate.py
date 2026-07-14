@@ -40,7 +40,7 @@ def _states() -> list[np.ndarray]:
 
 
 def test_untrained_fuse_is_the_phi_reference_even_with_torch() -> None:
-    fusion = MultiHeadAttentionFusion()
+    fusion = MultiHeadAttentionFusion(load_shipped_weights=False)
     assert fusion._trained is False
     states = _states()
     result = fusion.fuse(states)
@@ -50,19 +50,19 @@ def test_untrained_fuse_is_the_phi_reference_even_with_torch() -> None:
 
 def test_untrained_fuse_is_deterministic_across_instances() -> None:
     states = _states()
-    a = MultiHeadAttentionFusion().fuse(states)
-    b = MultiHeadAttentionFusion().fuse(states)
+    a = MultiHeadAttentionFusion(load_shipped_weights=False).fuse(states)
+    b = MultiHeadAttentionFusion(load_shipped_weights=False).fuse(states)
     np.testing.assert_array_equal(a, b)
 
 
 def test_load_trained_weights_activates_learned_path() -> None:
-    donor = MultiHeadAttentionFusion()
+    donor = MultiHeadAttentionFusion(load_shipped_weights=False)
     payload = {
         "attention": donor.attention.state_dict(),
         "projection": donor.projection.state_dict(),
         "output_projection": donor.output_projection.state_dict(),
     }
-    fusion = MultiHeadAttentionFusion()
+    fusion = MultiHeadAttentionFusion(load_shipped_weights=False)
     fusion.load_trained_weights(payload)
     assert fusion._trained is True
     states = _states()
@@ -73,6 +73,21 @@ def test_load_trained_weights_activates_learned_path() -> None:
 
 
 def test_load_trained_weights_missing_module_fails_loud() -> None:
-    fusion = MultiHeadAttentionFusion()
+    fusion = MultiHeadAttentionFusion(load_shipped_weights=False)
     with pytest.raises(KeyError):
         fusion.load_trained_weights({"attention": fusion.attention.state_dict()})
+
+
+def test_default_construction_serves_shipped_winner_when_present() -> None:
+    """When the merit-gated checkpoint ships, default construction loads it."""
+    from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+    try:
+        load_shipped_checkpoint("gosnn_attention_fusion")
+    except FileNotFoundError:
+        pytest.skip("no shipped gosnn_attention_fusion checkpoint in this build")
+    fusion = MultiHeadAttentionFusion()
+    assert fusion._trained is True
+    result = fusion.fuse(_states())
+    assert isinstance(result, np.ndarray)
+    assert np.all(np.isfinite(result))

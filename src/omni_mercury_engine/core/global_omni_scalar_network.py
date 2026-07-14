@@ -383,6 +383,7 @@ class MultiHeadAttentionFusion:
         num_heads: int = 32,
         max_dimensions: int = 37,
         enable_triadic_phi: bool = True,
+        load_shipped_weights: bool = True,
     ):
         """Initialize multi-head attention fusion.
 
@@ -391,6 +392,13 @@ class MultiHeadAttentionFusion:
             num_heads: Number of attention heads (default 32 for head_dim=16)
             max_dimensions: Maximum dimensions for fusion (default 37)
             enable_triadic_phi: Enable triadic phi-weighting for harmonic synergy
+            load_shipped_weights: Load the shipped merit-gated
+                ``gosnn_attention_fusion`` checkpoint at construction when it
+                exists (trained by ``scripts/train_gosnn_fusion.py`` on real
+                harvested production state lists and gated against the
+                phi-weighted reference). Pass False to pin the deterministic
+                reference path. Absence falls open to the reference; an
+                invalid checkpoint fails loud.
         """
         self.d_model = d_model
         self.num_heads = num_heads
@@ -413,10 +421,35 @@ class MultiHeadAttentionFusion:
             )
             self.projection = nn.Linear(max_dimensions, d_model)
             self.output_projection = nn.Linear(d_model, max_dimensions)
+            if load_shipped_weights:
+                self._try_load_shipped_weights()
         else:
             self.attention = None  # type: ignore[assignment, unused-ignore]
             self.projection = None  # type: ignore[assignment, unused-ignore]
             self.output_projection = None  # type: ignore[assignment, unused-ignore]
+
+    def _try_load_shipped_weights(self) -> None:
+        """Load the shipped merit-gated checkpoint if one exists.
+
+        The ``gosnn_attention_fusion`` checkpoint ships only when
+        ``scripts/train_gosnn_fusion.py``'s gate measured the learned fusion
+        beating the phi-weighted reference on held-out production-harvested
+        state lists.  Absence keeps the deterministic reference (fail-open);
+        a present-but-invalid payload fails loud in
+        :meth:`load_trained_weights` (integrity is a supply-chain control,
+        not a fallback case).
+        """
+        try:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            payload, _provenance = load_shipped_checkpoint("gosnn_attention_fusion")
+        except FileNotFoundError:
+            self.logger.debug(
+                "No shipped gosnn_attention_fusion checkpoint; using the "
+                "deterministic phi-weighted reference fusion."
+            )
+            return
+        self.load_trained_weights(payload)
 
     def fuse(
         self, dimensional_states: list[np.ndarray[Any, Any]], return_synergy: bool = False

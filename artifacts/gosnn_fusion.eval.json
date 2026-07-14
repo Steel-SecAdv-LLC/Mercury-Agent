@@ -1,0 +1,37 @@
+{
+  "candidates": {
+    "masked_recon": {
+      "best_val_mse": 1.0111894357104727e-06,
+      "fused_std": 0.44470225112392475,
+      "learned_mse": 1.0142624220618233e-06,
+      "member_std": 0.591147997928821,
+      "n_test": 61.0,
+      "reference_mse": 0.302002668712572
+    },
+    "multitask": {
+      "best_val_mse": 0.03165968623798108,
+      "fused_std": 0.3439201402065695,
+      "learned_mse": 0.03062090943166441,
+      "member_std": 0.591147997928821,
+      "n_test": 61.0,
+      "reference_mse": 0.302002668712572
+    }
+  },
+  "decision": "SHIPPED candidate 'masked_recon' -> gosnn_attention_fusion.pt",
+  "gate": {
+    "collapse_floor": 0.2,
+    "constraint": "held-out masked-member MSE <= margin x phi-reference MSE on identical production-harvested state lists; fused std >= floor x member std",
+    "mse_margin": 0.95
+  },
+  "generated_utc": "2026-07-14T09:15:25.901275+00:00",
+  "harvest": {
+    "n_examples": 403,
+    "n_state_lists": 403,
+    "quick": false
+  },
+  "seed": 20260714,
+  "winners": [
+    "masked_recon",
+    "multitask"
+  ]
+}
