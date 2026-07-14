@@ -342,6 +342,7 @@ EXPLANATION: [Your detailed explanation]
 
         # Process each segment
         segment_results = []
+        failed_segments: list[tuple[int, int, str]] = []
         frame_scores = np.zeros(t)
         frame_counts = np.zeros(t)
 
@@ -359,13 +360,27 @@ EXPLANATION: [Your detailed explanation]
             key_frames = self._sample_key_frames(segment_frames)
             images = [self._numpy_to_pil(f) for f in key_frames]
 
-            # Query LVLM
+            # Query LVLM. A backend failure contributes NO score: the
+            # historical fallback (is_anomaly=False, confidence=0.0) fed
+            # score = 1 - confidence = 1.0 into every covered frame, so a
+            # backend outage silently marked the whole clip anomalous.
             try:
                 response = self.backend.generate(images, prompt)
                 is_anomaly, confidence, explanation = self._parse_response(response)
             except Exception as e:
                 logger.warning(f"LVLM query failed: {e}")
-                is_anomaly, confidence, explanation = False, 0.0, "Error processing segment"
+                failed_segments.append((start, end, str(e)))
+                segment_results.append(
+                    {
+                        "start": start,
+                        "end": end,
+                        "is_anomaly": False,
+                        "confidence": 0.0,
+                        "explanation": f"LVLM backend failed: {e}",
+                        "backend_failed": True,
+                    }
+                )
+                continue
 
             # Store segment result
             segment_results.append(
@@ -375,6 +390,7 @@ EXPLANATION: [Your detailed explanation]
                     "is_anomaly": is_anomaly,
                     "confidence": confidence,
                     "explanation": explanation,
+                    "backend_failed": False,
                 }
             )
 
@@ -383,6 +399,18 @@ EXPLANATION: [Your detailed explanation]
             for i in range(start, end):
                 frame_scores[i] += score
                 frame_counts[i] += 1
+
+        # Fail loud when backend failures leave frames with no real signal
+        # (overlapping successful segments may still cover every frame).
+        if failed_segments:
+            uncovered = int(np.count_nonzero(frame_counts == 0))
+            if uncovered:
+                raise RuntimeError(
+                    f"AnyAnomaly LVLM backend failed on {len(failed_segments)} of "
+                    f"{len(segment_results)} segments, leaving {uncovered} frame(s) "
+                    f"with no real signal (first error: {failed_segments[0][2]}). "
+                    "Refusing to fabricate scores for uncovered frames."
+                )
 
         # Average scores where multiple segments overlap
         frame_counts = np.maximum(frame_counts, 1)

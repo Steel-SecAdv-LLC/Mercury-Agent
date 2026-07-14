@@ -89,6 +89,21 @@ class ChronosAdapter(BaseFoundationModel):
     # the two stay in sync at class-definition time.
     ALLOWED_MODELS: frozenset[str] = frozenset(MODEL_SIZES.values())
 
+    # Shipped immutable revision pins for the built-in Hub IDs (Hub state as
+    # of 2026-07-14).  SafeHFLoader refuses branch/tag revisions, and without
+    # a shipped pin the adapter could never run from plain registry
+    # discovery (ChronosAdapter() carries revision=None).  An explicit
+    # ``config.revision`` always wins; non-built-in IDs still require one.
+    # Bump these SHAs deliberately, in review — that is the supply-chain
+    # point of pinning them here.
+    DEFAULT_REVISIONS: dict[str, str] = {
+        "amazon/chronos-t5-tiny": "29d808298f1a62493e7b9a5e08529d0d930fa189",
+        "amazon/chronos-t5-mini": "bd6a4fde8403b8469acd0abd52852b29dbe61c7b",
+        "amazon/chronos-t5-small": "a971ba21945c4f1796b17a91fe69214b5f4ad472",
+        "amazon/chronos-t5-base": "ad294eaacead15db499b740ea4122266dd2a81a2",
+        "amazon/chronos-t5-large": "0e46c9c7e2e9f74b53db0617fdfcfe42a413e54a",
+    }
+
     def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
         """Initialize Chronos adapter.
 
@@ -137,10 +152,19 @@ class ChronosAdapter(BaseFoundationModel):
 
             logger.info(f"Loading Chronos model: {self.chronos_config.model_name}")
 
+            # An explicit config.revision always wins; built-in Hub IDs fall
+            # back to the shipped immutable pin so a default-constructed
+            # adapter (registry discovery) satisfies SafeHFLoader's
+            # mandatory-pin policy. Non-built-in IDs still require an
+            # explicit revision.
+            revision = self.chronos_config.revision or self.DEFAULT_REVISIONS.get(
+                self.chronos_config.model_name
+            )
+
             self._pipeline = SafeHFLoader.load_model(
                 ChronosPipeline,
                 self.chronos_config.model_name,
-                revision=self.chronos_config.revision,
+                revision=revision,
                 allowlist=self.ALLOWED_MODELS,
                 device_map=str(self.device),
                 torch_dtype=torch.float32,

@@ -19,6 +19,7 @@ Security Note:
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -363,6 +364,193 @@ class LLaVABackend(LVLMBackend):
         return str(response)
 
 
+class BLIPVQABackend(LVLMBackend):
+    """BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
+
+    A small (~1.5 GB fp32), CPU-runnable VQA model that makes the VLM
+    detectors genuinely operational on hosts that cannot serve a
+    multi-billion-parameter LVLM.  BLIP answers the visual question with a
+    short free-text phrase; :meth:`generate` re-emits that answer in the
+    ``ANOMALY:``/``EXPLANATION:`` protocol the detectors parse, so the
+    yes/no decision is entirely the model's — no confidence is fabricated
+    (the parser applies its uncalibrated default when the model does not
+    state one).
+    """
+
+    DEFAULT_MODEL = "Salesforce/blip-vqa-base"
+    ALLOWED_MODELS: frozenset[str] = frozenset({DEFAULT_MODEL})
+    #: Shipped immutable revision pin (Hub state as of 2026-07-14).  An
+    #: explicit ``revision`` always wins; bump this SHA deliberately, in
+    #: review — that is the supply-chain point of pinning it here.
+    DEFAULT_REVISIONS: dict[str, str] = {
+        DEFAULT_MODEL: "787b3d35d57e49572baabd22884b3d5a05acf072",
+    }
+
+    def initialize(self) -> None:
+        """Load the BLIP VQA model and processor."""
+        try:
+            from transformers import BlipForQuestionAnswering, BlipProcessor
+        except ImportError as e:
+            raise ImportError(
+                "transformers is required for the BLIP VQA backend. "
+                "Install with: pip install 'mercury-agent[vlm]'"
+            ) from e
+
+        logger.info(f"Loading BLIP VQA: {self.model_name}")
+        revision = self.revision or self.DEFAULT_REVISIONS.get(self.model_name)
+        self.processor = SafeHFLoader.load_processor(
+            BlipProcessor,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+        )
+        self.model = SafeHFLoader.load_model(
+            BlipForQuestionAnswering,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+            torch_dtype=torch.float32,
+        )
+        self.model.to(self.device)
+        self.model.eval()
+        logger.info("BLIP VQA loaded successfully")
+
+    @staticmethod
+    def _question_from_prompt(prompt: str) -> str:
+        """Reduce a detector prompt to one VQA question.
+
+        BLIP VQA answers a single short question; the detectors' prompts
+        carry the anomaly definition plus response-format instructions.
+        The anomaly text is extracted where the AnyAnomaly prompt template
+        states it, otherwise the prompt's first line is asked verbatim.
+        """
+        match = re.search(r"considered anomalous:\s*(.+)", prompt, re.IGNORECASE) or re.search(
+            r"shows?:?\s*['\"]?([^'\"\n]+)", prompt, re.IGNORECASE
+        )
+        if match:
+            return f"Does this image show {match.group(1).strip().rstrip('?.')}?"
+        first_line = prompt.strip().splitlines()[0].strip()
+        return first_line if first_line.endswith("?") else f"{first_line}?"
+
+    def _yes_probability(self, pil: Image.Image, question: str) -> float:
+        """Model probability of answering "yes" over the {yes, no} pair.
+
+        Two-candidate likelihood scoring is used instead of free generation:
+        the answer log-likelihood margin discriminates even where the
+        generated argmax is biased (measured: for the same question, the
+        "yes" NLL differs by ~1 nat between a matching and a non-matching
+        frame while generation answers "no" on both).  The probability is
+        the model's own — nothing is fabricated.
+        """
+        log_liks = []
+        for answer in ("yes", "no"):
+            encoding = self.processor(pil, question, return_tensors="pt").to(self.device)
+            labels = self.processor.tokenizer(answer, return_tensors="pt").input_ids.to(self.device)
+            with torch.no_grad():
+                out = self.model(
+                    input_ids=encoding.input_ids,
+                    pixel_values=encoding.pixel_values,
+                    labels=labels,
+                )
+            log_liks.append(-float(out.loss))
+        pair = torch.softmax(torch.tensor(log_liks), dim=0)
+        return float(pair[0])
+
+    def generate(
+        self,
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
+        prompt: str,
+    ) -> str:
+        """Answer the visual question with BLIP and emit the parse protocol.
+
+        The segment's anomaly probability is the maximum per-frame "yes"
+        probability (an anomaly visible in any key frame marks the
+        segment).  ``CONFIDENCE`` is the model's probability of the emitted
+        verdict, so the detectors' ``confidence if anomaly else
+        1 - confidence`` frame scoring resolves to the model's own
+        anomaly probability either way.
+        """
+        self._ensure_initialized()
+        question = self._question_from_prompt(prompt)
+        p_yes = max(self._yes_probability(self._to_pil(image), question) for image in images)
+        verdict = "yes" if p_yes > 0.5 else "no"
+        confidence = p_yes if p_yes > 0.5 else 1.0 - p_yes
+        return (
+            f"ANOMALY: {verdict}\n"
+            f"CONFIDENCE: {confidence:.4f}\n"
+            f"EXPLANATION: BLIP VQA p(yes)={p_yes:.4f} for {question!r}"
+        )
+
+
+class BLIPCaptionBackend(LVLMBackend):
+    """BLIP image-captioning backend (Salesforce, BSD-3-Clause).
+
+    A small (~1 GB fp32), CPU-runnable captioner serving the LAVAD
+    caption stage: :meth:`generate` returns the model's caption for the
+    frame (the prompt, if any, is used as BLIP's conditional text prefix).
+    """
+
+    DEFAULT_MODEL = "Salesforce/blip-image-captioning-base"
+    ALLOWED_MODELS: frozenset[str] = frozenset({DEFAULT_MODEL})
+    #: Shipped immutable revision pin (Hub state as of 2026-07-14); see
+    #: :class:`BLIPVQABackend` for the bump-in-review contract.
+    DEFAULT_REVISIONS: dict[str, str] = {
+        DEFAULT_MODEL: "82a37760796d32b1411fe092ab5d4e227313294b",
+    }
+
+    def initialize(self) -> None:
+        """Load the BLIP captioning model and processor."""
+        try:
+            from transformers import BlipForConditionalGeneration, BlipProcessor
+        except ImportError as e:
+            raise ImportError(
+                "transformers is required for the BLIP captioning backend. "
+                "Install with: pip install 'mercury-agent[vlm]'"
+            ) from e
+
+        logger.info(f"Loading BLIP captioner: {self.model_name}")
+        revision = self.revision or self.DEFAULT_REVISIONS.get(self.model_name)
+        self.processor = SafeHFLoader.load_processor(
+            BlipProcessor,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+        )
+        self.model = SafeHFLoader.load_model(
+            BlipForConditionalGeneration,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+            torch_dtype=torch.float32,
+        )
+        self.model.to(self.device)
+        self.model.eval()
+        logger.info("BLIP captioner loaded successfully")
+
+    def generate(
+        self,
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
+        prompt: str,
+    ) -> str:
+        """Caption the frame(s) unconditionally.
+
+        BLIP has no instruction channel: conditional text is a *completion
+        prefix*, so passing an instruction-style prompt pollutes the caption
+        with the instruction itself (observed with the LAVAD prompt).  The
+        prompt is therefore ignored and the caption is purely the model's
+        description of the frame.
+        """
+        self._ensure_initialized()
+        captions = []
+        for image in images:
+            pil = self._to_pil(image)
+            inputs = self.processor(pil, return_tensors="pt").to(self.device)
+            with torch.no_grad():
+                output = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
+            captions.append(self.processor.decode(output[0], skip_special_tokens=True).strip())
+        return "; ".join(captions)
+
+
 class MockLVLMBackend(LVLMBackend):
     """Mock LVLM backend — hard-fails at construction.
 
@@ -422,10 +610,17 @@ def get_lvlm_backend(
         "qwen2_vl": Qwen2VLBackend,
         "minicpm_v": MiniCPMVBackend,
         "llava": LLaVABackend,
+        "blip_vqa": BLIPVQABackend,
+        "blip_caption": BLIPCaptionBackend,
         "mock": MockLVLMBackend,
     }
 
-    # If model_name not provided, use model_type as model_name
+    # If model_name not provided, use the backend's shipped default when it
+    # declares one, else fall back to the historical model_type-as-name.
+    if model_name is None:
+        default = getattr(backends.get(model_type), "DEFAULT_MODEL", None)
+        if default is not None:
+            model_name = default
     if model_name is None:
         model_name = model_type
 

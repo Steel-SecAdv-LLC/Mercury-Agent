@@ -49,12 +49,16 @@ class LAVADConfig(VLMConfig):
         temporal_window: Temporal window size
     """
 
-    caption_model: str = "Salesforce/blip2-flan-t5-xl"
+    # Shipped default: the SHA-pinned, CPU-runnable BLIP captioner
+    # (BLIPCaptionBackend) so the caption stage is genuinely operational
+    # out of the box; any registered backend/model can be configured.
+    caption_backend: str = "blip_caption"
+    caption_model: str = "Salesforce/blip-image-captioning-base"
     reasoning_model: str = "meta-llama/Meta-Llama-3-8B-Instruct"
     window_size: int = 5
     use_llm_reasoning: bool = True
     llm_model: str = "meta-llama/Meta-Llama-3-8B-Instruct"  # Alias for test compatibility
-    vlm_model: str = "Salesforce/blip2-flan-t5-xl"  # Alias for test compatibility
+    vlm_model: str = "Salesforce/blip-image-captioning-base"  # Alias for test compatibility
     sampling_fps: float = 2.0  # Frame sampling rate
     temporal_window: int = 8  # Temporal window size
 
@@ -134,9 +138,12 @@ class LAVADDetector(BaseVLMDetector):
 
     def _initialize_model(self) -> None:
         """Initialize captioning and reasoning models."""
-        # Initialize captioning model (VLM)
+        # Initialize captioning model (VLM). The default is the shipped
+        # SHA-pinned BLIP captioner; a missing transformers install or an
+        # unpinned/unlisted model still fails loud through the backend and
+        # SafeHFLoader — never a silent mock.
         self._caption_model = get_lvlm_backend(
-            model_type="mock",  # Use mock for now; replace with actual
+            model_type=self.lavad_config.caption_backend,
             model_name=self.lavad_config.caption_model,
             device=str(self.device),
         )

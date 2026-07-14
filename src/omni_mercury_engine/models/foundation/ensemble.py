@@ -126,6 +126,10 @@ class FoundationEnsemble(BaseFoundationModel):
     def _initialize_model(self) -> None:
         """Initialize all ensemble models."""
         for model_name in self.ensemble_config.models:
+            if model_name in self._models:
+                # Instance already supplied (add_model before first use, or a
+                # prior init) — never clobber it with a default-config build.
+                continue
             if model_name not in self.AVAILABLE_MODELS:
                 logger.warning(f"Unknown model: {model_name}, skipping")
                 continue

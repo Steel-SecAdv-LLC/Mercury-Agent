@@ -655,7 +655,14 @@ class IntelligenceFusionEngine:
         }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration."""
+        """Extract features for ML fusion integration.
+
+        Always emits the declared ``(1, 128)`` width: the 13 disciplines
+        contribute ``128 // 13 = 9`` dims each (117), and the floor-division
+        remainder is zero-padded so the populated and empty paths agree —
+        historically the populated path emitted 117 dims while the empty
+        path emitted 128, giving the same method two different widths.
+        """
         int_features = self._extract_int_features(data)
 
         all_features = []
@@ -663,10 +670,14 @@ class IntelligenceFusionEngine:
             if discipline.value in int_features:
                 all_features.append(int_features[discipline.value])
 
-        if all_features:
-            return torch.cat(all_features, dim=-1)
-        else:
+        if not all_features:
             return torch.zeros(1, 128, dtype=torch.float32)
+
+        features = torch.cat(all_features, dim=-1)
+        if features.shape[-1] < 128:
+            pad = torch.zeros(*features.shape[:-1], 128 - features.shape[-1], dtype=features.dtype)
+            features = torch.cat([features, pad], dim=-1)
+        return features[..., :128]
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration."""

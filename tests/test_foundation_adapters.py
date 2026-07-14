@@ -488,3 +488,46 @@ class TestChronosModelNamePrecedence:
 
         adapter = ChronosAdapter(ChronosConfig(model_name="/local/path/chronos"))
         assert adapter.chronos_config.model_name == "/local/path/chronos"
+
+
+class TestChronosShippedRevisionPins:
+    """Default construction must satisfy SafeHFLoader's mandatory-pin policy."""
+
+    def test_every_builtin_model_has_a_shipped_pin(self) -> None:
+        from omni_mercury_engine.models.foundation.chronos_adapter import ChronosAdapter
+
+        for hub_id in ChronosAdapter.MODEL_SIZES.values():
+            assert hub_id in ChronosAdapter.DEFAULT_REVISIONS, hub_id
+
+    def test_shipped_pins_are_immutable_shas(self) -> None:
+        import re
+
+        from omni_mercury_engine.models.foundation.chronos_adapter import ChronosAdapter
+
+        for hub_id, sha in ChronosAdapter.DEFAULT_REVISIONS.items():
+            assert re.fullmatch(r"[0-9a-f]{40}", sha), (hub_id, sha)
+
+    def test_explicit_revision_wins_over_shipped_pin(self) -> None:
+        from omni_mercury_engine.models.foundation.chronos_adapter import (
+            ChronosAdapter,
+            ChronosConfig,
+        )
+
+        adapter = ChronosAdapter(ChronosConfig(model_size="tiny", revision="a" * 40))
+        assert adapter.chronos_config.revision == "a" * 40
+
+
+class TestEnsembleAddModelPersistence:
+    """add_model instances must survive lazy initialization."""
+
+    def test_added_instance_is_not_clobbered_by_lazy_init(self) -> None:
+        from omni_mercury_engine.models.foundation.ensemble import FoundationEnsemble
+        from omni_mercury_engine.models.foundation.matrix_profile import (
+            MatrixProfileDetector,
+        )
+
+        ensemble = FoundationEnsemble({"models": []})
+        custom = MatrixProfileDetector({"window_size": 25})
+        ensemble.add_model("matrix_profile", custom, weight=1.0)
+        ensemble._ensure_initialized()
+        assert ensemble._models["matrix_profile"] is custom

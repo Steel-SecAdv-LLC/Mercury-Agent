@@ -93,7 +93,9 @@ class TestOnModalityFusion:
         """Feature extraction returns a concatenated per-discipline tensor."""
         features = self.engine.extract_features(_sample_reports())
         assert features.shape[0] == 1
-        assert features.shape[1] == 128 // 13 * 13
+        # Declared fusion width: 13 disciplines x 9 dims (117) zero-padded
+        # to the constant 128 so every path agrees.
+        assert features.shape[1] == 128
 
     def test_fuse_intelligence_end_to_end(self) -> None:
         """Multi-INT reports flow through the full fusion network."""
@@ -131,3 +133,16 @@ class TestOnModalityFusion:
 
         assert isinstance(result, IntelligenceFusionResult)
         assert result.temporal_patterns["trend"] == "escalating"
+
+
+class TestFeatureWidthContract:
+    """extract_features must emit the declared (1, 128) width on every path."""
+
+    def test_populated_and_empty_paths_agree_on_width(self) -> None:
+        engine = IntelligenceFusionEngine()
+        populated = engine.extract_features(
+            {"open_source": {"confidence": 0.9, "threat_score": 0.4}}
+        )
+        empty = engine.extract_features({"not_a_discipline": {}})
+        assert tuple(populated.shape) == (1, 128)
+        assert tuple(empty.shape) == (1, 128)

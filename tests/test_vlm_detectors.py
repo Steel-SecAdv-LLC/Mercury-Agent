@@ -309,7 +309,10 @@ class TestLAVADDetector:
         from omni_mercury_engine.detectors.vlm import LAVADDetector
         from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
 
-        config = LAVADConfig(llm_model="mock", vlm_model="mock")
+        # The shipped default is now the real BLIP captioner, so the
+        # anti-mock contract is pinned where it lives: explicitly wiring
+        # the "mock" backend must still hard-fail.
+        config = LAVADConfig(caption_backend="mock", llm_model="mock", vlm_model="mock")
         detector = LAVADDetector(config=config)
 
         video = torch.stack(sample_video_frames)
@@ -571,3 +574,87 @@ class TestLVLMBackends:
             assert img.size == (8, height)  # PIL size is (width, height)
         # a genuine CHW array is still transposed to HWC
         assert backend._to_pil(np.zeros((3, 4, 5), dtype=np.uint8)).size == (5, 4)
+
+
+class TestBLIPBackends:
+    """Shipped small local backends: contracts (offline) + live drives (network)."""
+
+    def test_factory_registers_blip_backends(self) -> None:
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import (
+            BLIPCaptionBackend,
+            BLIPVQABackend,
+            get_lvlm_backend,
+        )
+
+        vqa = get_lvlm_backend(model_type="blip_vqa", device="cpu")
+        cap = get_lvlm_backend(model_type="blip_caption", device="cpu")
+        assert isinstance(vqa, BLIPVQABackend)
+        assert isinstance(cap, BLIPCaptionBackend)
+        assert vqa.model_name == BLIPVQABackend.DEFAULT_MODEL
+        assert cap.model_name == BLIPCaptionBackend.DEFAULT_MODEL
+
+    def test_shipped_pins_are_immutable_shas(self) -> None:
+        import re as _re
+
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import (
+            BLIPCaptionBackend,
+            BLIPVQABackend,
+        )
+
+        for backend_cls in (BLIPVQABackend, BLIPCaptionBackend):
+            assert backend_cls.DEFAULT_MODEL in backend_cls.DEFAULT_REVISIONS
+            for model_id, sha in backend_cls.DEFAULT_REVISIONS.items():
+                assert model_id in backend_cls.ALLOWED_MODELS
+                assert _re.fullmatch(r"[0-9a-f]{40}", sha), (model_id, sha)
+
+    def test_question_extraction_uses_anomaly_definition(self) -> None:
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import BLIPVQABackend
+
+        detector = AnyAnomalyDetector()
+        prompt = detector._create_prompt("a person climbing a fence", None)
+        question = BLIPVQABackend._question_from_prompt(prompt)
+        assert "a person climbing a fence" in question
+        assert question.endswith("?")
+        assert "surveillance analyst" not in question
+
+    def test_lavad_default_config_wires_real_captioner(self) -> None:
+        from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import BLIPCaptionBackend
+
+        config = LAVADConfig()
+        assert config.caption_backend == "blip_caption"
+        assert config.caption_model == BLIPCaptionBackend.DEFAULT_MODEL
+
+    @pytest.mark.network
+    def test_blip_vqa_live_scores_peak_on_flash_frame(self) -> None:
+        """Real BLIP forward: the injected flash frame carries the top score."""
+        pytest.importorskip("transformers")
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+
+        clip = np.full((8, 3, 64, 64), 0.15, dtype=np.float32)
+        clip[5] = 1.0
+        detector = AnyAnomalyDetector({"segment_length": 2, "segment_overlap": 1})
+        detector._backend = get_lvlm_backend(model_type="blip_vqa", device="cpu")
+        detector.set_anomaly_description("a completely white image")
+        result = detector.detect(clip)
+        scores = np.asarray(result["scores"], dtype=float)
+        assert np.all(np.isfinite(scores))
+        assert int(np.argmax(scores)) == 5
+
+    @pytest.mark.network
+    def test_blip_caption_live_emits_prompt_free_captions(self) -> None:
+        """Real BLIP captioner: captions are model text, not prompt echoes."""
+        pytest.importorskip("transformers")
+        from omni_mercury_engine.detectors.vlm.lavad import LAVADDetector
+
+        clip = np.full((6, 3, 64, 64), 0.15, dtype=np.float32)
+        clip[3] = 1.0
+        detector = LAVADDetector()
+        result = detector.detect_video(clip)
+        captions = result.get("captions") or []
+        assert captions, "LAVAD must produce real captions"
+        joined = " ".join(captions).lower()
+        assert "surveillance camera image in detail" not in joined
+        assert np.all(np.isfinite(np.asarray(result["frame_scores"], dtype=float)))
