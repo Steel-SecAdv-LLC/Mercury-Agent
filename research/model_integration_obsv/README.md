@@ -27,8 +27,8 @@ the real code path. The proof is therefore split into two honest halves:
 | **Request format** | The adapter's request construction (`AnthropicCloudAdapter.generate`), headers, body, SSRF gate | The network return value (a byte-accurate Anthropic 200 payload) | The bytes Mercury sends conform to the documented Messages API contract |
 | **Response parse + usage** | The adapter's parse path + `UsageLedger` booking | same | Mercury extracts `content[0].text` and books provider-reported `input_tokens`/`output_tokens` |
 | **Error path** | The adapter's `requests.HTTPError` handling | a raised 401 | Provider auth errors are surfaced, not masked |
-| **Live transport** | **Everything** — DNS pin, TLS, POST to `https://api.anthropic.com/v1/messages`, HTTPError handling | **nothing** (real endpoint, invalid key) | The request genuinely reaches Claude and is auth-gated (proving transport + endpoint are real) |
-| **Full reasoning chain** | `RemoteReasoningBackend` → dual ethics gate → `FallbackLLMChain` → `AnthropicCloudAdapter` | network return value only | Mercury's own reasoning surface routes to Claude, gates it, stamps provenance, accounts usage, and fails closed under the air-gap |
+| **Live transport** | **Everything** — DNS pin, TLS, POST to `https://api.anthropic.com/v1/messages`, HTTPError handling | **nothing** (real endpoint, invalid key) | The request genuinely reaches the provider endpoint and is auth-gated (proving transport + endpoint are real) |
+| **Full reasoning chain** | `RemoteReasoningBackend` → dual ethics gate → `FallbackLLMChain` → `AnthropicCloudAdapter` | network return value only | Mercury's own reasoning surface routes to the configured cloud adapter, gates it, stamps provenance, accounts usage, and fails closed under the air-gap |
 
 The network return value is the *only* thing substituted, and only where a
 valid credential would otherwise be required. Every line of Mercury's own
@@ -38,7 +38,7 @@ provenance, air-gap enforcement — runs for real.
 ## The one flip to a live model call
 
 Both scripts detect `ANTHROPIC_API_KEY`. With it set, the substituted network
-leg is replaced by a **real Claude completion** — no code change, no different
+leg is replaced by a **real model completion** — no code change, no different
 path. That is the whole point: the integration is complete, and a valid key is
 the single missing input.
 
@@ -47,7 +47,7 @@ the single missing input.
 python research/model_integration_obsv/cloud_adapter_wire_proof.py
 python research/model_integration_obsv/remote_reasoning_e2e.py
 
-# Live Claude mode: real model calls end-to-end
+# Live mode: real model calls end-to-end (operator names the model)
 export ANTHROPIC_API_KEY=sk-ant-...            # your key
 export MERCURY_ANTHROPIC_MODEL=<model-id>      # required; Mercury ships no default model
 python research/model_integration_obsv/cloud_adapter_wire_proof.py
@@ -79,7 +79,7 @@ print(expl.text, ledger.totals())
   parse robustness, error path, live transport). Exits `0` only if every
   assertion held.
 - **`remote_reasoning_e2e.py`** — the full Mercury reasoning chain
-  served by Claude (routing, provenance, ethics enforcement, usage accounting,
+  served by the configured cloud model (routing, provenance, ethics enforcement, usage accounting,
   air-gap fail-closed, truthful fallback). Exits `0` only if every assertion held.
 - **`live_llm_smoke.py`** — the operator's recurring "is Mercury doing real LLM
   generation *right now*?" check. Auto-detects whatever real backend is present
@@ -103,7 +103,7 @@ ollama pull llama3.2:1b   # any chat model; ~1.3 GB
 python research/model_integration_obsv/live_llm_smoke.py   # -> LIVE ollama:llama3.2:1b completion
 ```
 
-**(B) Anthropic (Claude) key** — there is **no anonymous/free key**; create one at
+**(B) Anthropic key** — there is **no anonymous/free key**; create one at
 `https://console.claude.com/` → API keys (a workspace-scoped key with a spend
 cap keeps it off your personal account):
 ```bash
@@ -150,7 +150,7 @@ scripts ran in fixture + live-transport mode; every assertion held.
   real endpoint work; only a valid key is missing.
 
 `remote_reasoning_e2e.py` — **ALL ASSERTIONS PASSED**
-- chain routed to Claude and reported it truthfully (`model='cloud:anthropic'`)
+- chain routed to the Anthropic adapter and reported it truthfully (`model='cloud:anthropic'`)
 - `explain` / `propose_hypotheses` (3 parsed) / `synthesize_report` all returned
   provenance-stamped, gated Mercury shapes
 - usage ledger threaded through the chain (calls=3, total_tokens=783)
@@ -159,9 +159,9 @@ scripts ran in fixture + live-transport mode; every assertion held.
   calls (fail-closed, nothing surfaced)
 - air-gap: under `MERCURY_OFFLINE` the chain refused to construct a cloud
   adapter and a direct remote call raised
-- truthful fallback: no key → `model='template'`, no false Claude claim
+- truthful fallback: no key → `model='template'`, no false live-model claim
 
-Bottom line: the entire Mercury⇄Claude integration is verified end-to-end
+Bottom line: the entire Mercury⇄cloud-provider integration is verified end-to-end
 against real code and the real endpoint. The single missing input for a live
 model completion is a valid `ANTHROPIC_API_KEY`.
 <!-- RESULTS:END -->

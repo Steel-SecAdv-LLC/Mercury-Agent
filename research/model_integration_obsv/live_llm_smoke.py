@@ -14,7 +14,7 @@ It probes both real backends Mercury ships an operator would use here:
 * **Ollama** (offline-first, zero-cost, zero-secret) via ``LocalReasoningBackend``
   — the chain serves a local model if ``ollama serve`` is up and the model is
   pulled, else the deterministic builtin template.
-* **Anthropic (Claude)** via ``RemoteReasoningBackend`` — live when
+* **Anthropic** via ``RemoteReasoningBackend`` — live when
   ``ANTHROPIC_API_KEY`` is set.
 
 For every backend that resolves to a *real model* (``ollama:*`` or ``cloud:*``)
@@ -65,7 +65,7 @@ on a live end-to-end proof, give Mercury ONE of:
         ollama pull llama3.2:1b        # ~1.3 GB; any chat model works
       then re-run this script.
 
-  (B) An Anthropic (Claude) API key
+  (B) An Anthropic API key
         # Create one at https://console.claude.com/ -> API keys.
         # There is no anonymous/free key: a key is billed to an account. You
         # can mint a WORKSPACE-scoped key with a spend cap so it is not your
@@ -117,7 +117,7 @@ def main() -> int:
     if local_ledger.totals()["calls"]:
         print(f"    local usage: {local_ledger.totals()}")
 
-    # (B) Anthropic (Claude) cloud path.
+    # (B) Anthropic cloud path.
     remote_ledger = UsageLedger()
     remote = RemoteReasoningBackend(
         cloud_config=LLMConfig(
@@ -126,7 +126,7 @@ def main() -> int:
         ),
         usage_ledger=remote_ledger,
     )
-    live_any |= _exercise("Anthropic / Claude", remote)
+    live_any |= _exercise("Anthropic", remote)
     if remote_ledger.totals()["calls"]:
         print(f"    remote usage: {remote_ledger.totals()}")
 

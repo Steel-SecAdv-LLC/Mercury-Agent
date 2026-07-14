@@ -1,9 +1,9 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""End-to-end proof of the full Mercury reasoning chain served by Claude.
+"""End-to-end proof of the full Mercury reasoning chain on a cloud model.
 
 Where ``cloud_adapter_wire_proof.py`` proves the adapter in isolation, this proves
-the *whole* path a Mercury operator uses when they wire Claude in as the
+the *whole* path a Mercury operator uses when they wire a cloud provider in as the
 reasoning engine:
 
     RemoteReasoningBackend            (Mercury owns the loop + provenance)
@@ -11,7 +11,7 @@ reasoning engine:
       -> FallbackLLMChain             (offline-first; Ollama -> cloud -> template)
       -> AnthropicCloudAdapter        (real request construction + parse)
       -> SafeHTTPClient               (SSRF-gated egress)
-      -> Claude                       (api.anthropic.com)
+      -> Anthropic Messages API       (api.anthropic.com)
 
 It asserts, on the real Mercury code:
 
@@ -26,9 +26,9 @@ It asserts, on the real Mercury code:
   4. Air-gap fail-closed — under ``MERCURY_OFFLINE`` a direct remote call
      raises rather than silently substituting a weaker local answer.
   5. Truthful fallback — with no key and no Ollama the chain serves the
-     template and says so; it never claims to be Claude when it is not.
+     template and says so; it never claims a live model served when none did.
 
-If ``ANTHROPIC_API_KEY`` is set, part 1 additionally performs a real Claude
+If ``ANTHROPIC_API_KEY`` + ``MERCURY_ANTHROPIC_MODEL`` are set, part 1 performs a live
 ``explain`` and prints the model's actual analyst prose.
 
 Run: ``python research/model_integration_obsv/remote_reasoning_e2e.py``
@@ -130,14 +130,14 @@ def part1_routing_provenance_and_usage() -> None:
     assert (
         backend.model == "cloud:anthropic"
     ), f"chain must select + truthfully report the Anthropic adapter, got {backend.model!r}"
-    _passed(f"chain routed to Claude and reports it truthfully: model={backend.model!r}")
+    _passed(f"chain routed to the Anthropic adapter, reported truthfully: model={backend.model!r}")
 
     original = safe_http.SafeHTTPClient.post_json
 
     if live_key:
         explanation = backend.explain(_ctx())
         assert not explanation.text.startswith("API error:"), explanation.text
-        _passed(f"LIVE Claude explanation: {explanation.text[:110]!r}...")
+        _passed(f"LIVE model explanation: {explanation.text[:110]!r}...")
     else:
         payload = json.loads(json.dumps(_anthropic_payload(_EXPLANATION_TEXT)))
         safe_http.SafeHTTPClient.post_json = classmethod(  # type: ignore[assignment]
@@ -291,7 +291,7 @@ def part4_truthful_fallback() -> None:
         backend = RemoteReasoningBackend(cloud_config=cfg, ethics_enabled=False)
         assert (
             backend.model == "template"
-        ), f"with no key the chain must fall to template, not claim Claude, got {backend.model!r}"
+        ), f"with no key the chain must fall to template, not claim a cloud model, got {backend.model!r}"
         _passed(
             "no credential -> chain serves template and reports model='template' (no false claim)"
         )
@@ -302,7 +302,7 @@ def part4_truthful_fallback() -> None:
 
 def main() -> int:
     print("=" * 78)
-    print("Mercury reasoning chain <- Claude: full end-to-end proof")
+    print("Mercury reasoning chain <- cloud provider: full end-to-end proof")
     print("=" * 78)
     part1_routing_provenance_and_usage()
     part2_ethics_gate_is_enforced()

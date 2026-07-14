@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""End-to-end proof of Mercury's Anthropic (Claude) LLM adapter.
+"""End-to-end proof of Mercury's Anthropic cloud LLM adapter.
 
 This exercises the *real* ``AnthropicCloudAdapter`` code path — request
 construction, HTTP transport through ``SafeHTTPClient``, response parsing, and
@@ -29,7 +29,8 @@ It runs in four parts:
    invalid key it must come back with an authentication error (proving DNS
    pin + TLS + POST to the real endpoint + HTTPError handling all work end to
    end).  If a valid ``ANTHROPIC_API_KEY`` is present in the environment, it
-   instead performs a real Claude completion and asserts a non-error response —
+   instead performs a real live completion against the operator-named model
+   and asserts a non-error response —
    this is the single flip that turns the whole proof into a live model call.
 
 Run: ``python research/model_integration_obsv/cloud_adapter_wire_proof.py``
@@ -275,7 +276,9 @@ def part4_live_transport() -> None:
     if live_key:
         assert not text.startswith("API error:"), f"live call errored: {text}"
         assert not text.startswith("Request failed:"), text
-        _passed(f"LIVE Claude completion received (len={len(text)}): {text[:80]!r}")
+        _passed(
+            f"LIVE completion received from the operator-named model (len={len(text)}): {text[:80]!r}"
+        )
         assert (
             adapter.last_usage is not None and adapter.last_usage.reported
         ), "a live 200 must carry provider-reported usage"
@@ -291,12 +294,15 @@ def part4_live_transport() -> None:
         ), f"expected an auth error from the real endpoint, got: {text!r}"
         assert ("api-key" in low) or ("authentication" in low) or ("x-api-key" in low), text
         _passed(f"real endpoint reached; auth-gated as expected -> {text!r}")
-        print("    (set ANTHROPIC_API_KEY to turn this leg into a live Claude completion)")
+        print(
+            "    (set ANTHROPIC_API_KEY + MERCURY_ANTHROPIC_MODEL to turn this leg "
+            "into a live completion)"
+        )
 
 
 def main() -> int:
     print("=" * 78)
-    print("Mercury <- Claude API: end-to-end adapter proof")
+    print("Mercury <- Anthropic Messages API: end-to-end adapter proof")
     print("=" * 78)
     part1_request_format_and_usage()
     part2_parse_robustness()
