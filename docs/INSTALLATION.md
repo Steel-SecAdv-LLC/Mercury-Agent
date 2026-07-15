@@ -59,6 +59,7 @@ downgrades.
 | `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
 | `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
 | `MERCURY_MODEL_ENDPOINT` | `http://127.0.0.1:11434` | Loopback served-model endpoint for the meaning-level classifier. |
+| `MERCURY_<PROVIDER>_MODEL` | unset | Per-provider LLM model selection (`MERCURY_OLLAMA_MODEL`, `MERCURY_ANTHROPIC_MODEL`, `MERCURY_OPENAI_MODEL`, `MERCURY_GEMINI_MODEL`, …). Mercury ships **no default model for any provider**: explicit `LLMConfig.model_name` wins, this variable is the env fallback, and with neither the adapter reports itself unavailable (the chain serves the deterministic template). Every provider gets the identical convention; none is privileged. |
 | `CI_MEANING_LEVEL_ENABLED` | `true` | *(CI repository variable, not a runtime env var.)* The `ci/meaning-level` adversarial FN-budget lane runs on **every** PR via a validated stdlib model double, so this variable does **not** switch the lane on or off. It is the documented marker for opting into a deeper *real-served-model* run, applied by swapping in the real-Ollama serving block (see the header comment in `.github/workflows/tier0-safety.yml`). |
 
 ```bash

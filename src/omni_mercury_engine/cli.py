@@ -1950,7 +1950,12 @@ def stream(
 
 @main.command()
 @click.option("--domain", "-d", default=None, help="Domain context (medical, security, etc.)")
-@click.option("--model", "-m", default="llama3.2:3b", help="Ollama model to use")
+@click.option(
+    "--model",
+    "-m",
+    default="",
+    help="Ollama model to use (no default ships; falls back to MERCURY_OLLAMA_MODEL)",
+)
 @click.option("--offline", is_flag=True, help="Force offline mode (template responses)")
 def voice(domain: str, model: str, offline: bool) -> None:
     """Start interactive voice conversation with Mercury.

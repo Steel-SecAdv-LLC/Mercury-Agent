@@ -727,16 +727,18 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         self.api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
         self.base_url = config.base_url or "https://api.openai.com/v1"
         # Vendor-neutral policy: Mercury ships no default model id for any
-        # provider. The operator names the model or the adapter stands down.
-        self.model = config.model_name
+        # provider. The operator names the model (LLMConfig.model_name, or
+        # the MERCURY_OPENAI_MODEL environment fallback -- the same
+        # convention every provider gets) or the adapter stands down.
+        self.model = config.model_name or os.environ.get("MERCURY_OPENAI_MODEL", "")
 
         if not self.api_key:
             logger.warning("OpenAI API key not found")
             self._is_available = False
         elif not self.model:
             logger.warning(
-                "OpenAI adapter requires an explicit model_name "
-                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+                "OpenAI adapter requires an explicit model (LLMConfig.model_name "
+                "or MERCURY_OPENAI_MODEL); Mercury ships no vendor-default model."
             )
             self._is_available = False
         else:
@@ -827,16 +829,17 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         # Vendor-neutral policy: Mercury ships no default model id for any
         # provider (a previous hard-coded id was retired upstream and 404'd
         # on the first call -- hard-coded vendor ids rot). The operator names
-        # the model or the adapter stands down.
-        self.model = config.model_name
+        # the model (LLMConfig.model_name or MERCURY_ANTHROPIC_MODEL) or the
+        # adapter stands down.
+        self.model = config.model_name or os.environ.get("MERCURY_ANTHROPIC_MODEL", "")
 
         if not self.api_key:
             logger.warning("Anthropic API key not found")
             self._is_available = False
         elif not self.model:
             logger.warning(
-                "Anthropic adapter requires an explicit model_name "
-                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+                "Anthropic adapter requires an explicit model (LLMConfig.model_name "
+                "or MERCURY_ANTHROPIC_MODEL); Mercury ships no vendor-default model."
             )
             self._is_available = False
         else:
@@ -926,16 +929,17 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         self.api_key = config.api_key or os.environ.get("HUGGINGFACE_API_KEY")
         self.base_url = config.base_url or "https://api-inference.huggingface.co"
         # Vendor-neutral policy: no default model id ships; see the Anthropic
-        # adapter note. The operator names the model or the adapter stands down.
-        self.model = config.model_name
+        # adapter note. The operator names the model (LLMConfig.model_name or
+        # MERCURY_HUGGINGFACE_MODEL) or the adapter stands down.
+        self.model = config.model_name or os.environ.get("MERCURY_HUGGINGFACE_MODEL", "")
 
         if not self.api_key:
             logger.warning("HuggingFace API key not found")
             self._is_available = False
         elif not self.model:
             logger.warning(
-                "HuggingFace adapter requires an explicit model_name "
-                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+                "HuggingFace adapter requires an explicit model (LLMConfig.model_name "
+                "or MERCURY_HUGGINGFACE_MODEL); Mercury ships no vendor-default model."
             )
             self._is_available = False
         else:
@@ -1032,6 +1036,7 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
     # Subclasses override.
     _DEFAULT_BASE_URL: str | None = None
     _PROVIDER_ENV_VAR: str = ""
+    _MODEL_ENV_VAR: str = ""
     _PROVIDER_LABEL: str = ""
     # Some providers require operator-supplied base_url (no public
     # default endpoint).  When True and ``config.base_url`` is unset,
@@ -1045,7 +1050,11 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         # Vendor-neutral policy: no default model id ships for any provider.
-        self.model = config.model_name
+        # Every provider gets the same operator surface: explicit
+        # LLMConfig.model_name, or its MERCURY_<PROVIDER>_MODEL env fallback.
+        self.model = config.model_name or (
+            os.environ.get(self._MODEL_ENV_VAR, "") if self._MODEL_ENV_VAR else ""
+        )
 
         if self._REQUIRE_EXPLICIT_BASE_URL and not config.base_url:
             logger.warning(
@@ -1065,9 +1074,10 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
             self._is_available = False
         elif not self.model:
             logger.warning(
-                "%s adapter requires an explicit model_name (LLMConfig.model_name); "
+                "%s adapter requires an explicit model (LLMConfig.model_name or %s); "
                 "Mercury ships no vendor-default model.",
                 self._PROVIDER_LABEL,
+                self._MODEL_ENV_VAR or "the provider's MERCURY_*_MODEL variable",
             )
             self._is_available = False
         else:
@@ -1142,6 +1152,7 @@ class XAIGrokAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = "https://api.x.ai/v1"
     _PROVIDER_ENV_VAR = "XAI_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_XAI_MODEL"
     _PROVIDER_LABEL = "xAI"
 
 
@@ -1150,6 +1161,7 @@ class DeepSeekAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
     _PROVIDER_ENV_VAR = "DEEPSEEK_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_DEEPSEEK_MODEL"
     _PROVIDER_LABEL = "DeepSeek"
 
 
@@ -1165,6 +1177,7 @@ class CursorAdapter(_OpenAICompatibleCloudAdapter):
 
     _DEFAULT_BASE_URL = None
     _PROVIDER_ENV_VAR = "CURSOR_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_CURSOR_MODEL"
     _PROVIDER_LABEL = "Cursor"
     _REQUIRE_EXPLICIT_BASE_URL = True
 
@@ -1181,14 +1194,14 @@ class CohereCloudAdapter(BaseLLMAdapter):
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         # Vendor-neutral policy: no default model id ships for any provider.
-        self.model = config.model_name
+        self.model = config.model_name or os.environ.get("MERCURY_COHERE_MODEL", "")
         self._is_available = bool(self.api_key) and bool(self.model)
         if not self.api_key:
             logger.warning("Cohere API key not found")
         elif not self.model:
             logger.warning(
-                "Cohere adapter requires an explicit model_name "
-                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+                "Cohere adapter requires an explicit model (LLMConfig.model_name "
+                "or MERCURY_COHERE_MODEL); Mercury ships no vendor-default model."
             )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
@@ -1276,14 +1289,14 @@ class GeminiCloudAdapter(BaseLLMAdapter):
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         # Vendor-neutral policy: no default model id ships for any provider.
-        self.model = config.model_name
+        self.model = config.model_name or os.environ.get("MERCURY_GEMINI_MODEL", "")
         self._is_available = bool(self.api_key) and bool(self.model)
         if not self.api_key:
             logger.warning("Gemini API key not found")
         elif not self.model:
             logger.warning(
-                "Gemini adapter requires an explicit model_name "
-                "(LLMConfig.model_name); Mercury ships no vendor-default model."
+                "Gemini adapter requires an explicit model (LLMConfig.model_name "
+                "or MERCURY_GEMINI_MODEL); Mercury ships no vendor-default model."
             )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
@@ -1540,6 +1553,19 @@ class FallbackLLMChain:
         return self._active_name
 
 
+#: Documented example population for :class:`ModelConfiguration` on a local
+#: Ollama deployment. Reference material the operator opts into explicitly --
+#: deliberately NOT a default (Mercury ships no default model for any
+#: provider).
+EXAMPLE_OLLAMA_PREFERRED_MODELS: tuple[str, ...] = ("llama3.2:3b", "mistral:7b", "phi3:mini")
+EXAMPLE_OLLAMA_DOMAIN_MODELS: dict[str, str] = {
+    "medical": "llama3.1:8b",  # stronger reasoning
+    "security": "llama3.1:8b",
+    "code": "deepseek-coder:6.7b",  # code-specialized
+    "simple": "llama3.2:1b",  # fast for simple queries
+}
+
+
 @dataclass
 class ModelConfiguration:
     """Configuration for model selection and swapping.
@@ -1550,34 +1576,25 @@ class ModelConfiguration:
     - Domain specialization
     """
 
-    # Model selection preferences
-    preferred_models: list[str] = field(
-        default_factory=lambda: [
-            "llama3.2:3b",  # Default balanced option
-            "mistral:7b",
-            "phi3:mini",
-        ]
-    )
+    # Model selection preferences. Operator-populated: Mercury ships no
+    # default model for any provider (see EXAMPLE_OLLAMA_PREFERRED_MODELS
+    # for a documented starting point).
+    preferred_models: list[str] = field(default_factory=list)
 
     # Resource constraints
     max_model_size: str = "medium"  # tiny, small, medium, large, xl
     require_offline: bool = True
 
-    # Domain-specific model mapping
-    domain_models: dict[str, str] = field(
-        default_factory=lambda: {
-            "medical": "llama3.1:8b",  # Stronger reasoning for medical
-            "security": "llama3.1:8b",  # Security analysis needs strength
-            "code": "deepseek-coder:6.7b",  # Code-specialized
-            "simple": "llama3.2:1b",  # Fast for simple queries
-        }
-    )
+    # Domain-specific model mapping. Operator-populated (see
+    # EXAMPLE_OLLAMA_DOMAIN_MODELS for a documented starting point).
+    domain_models: dict[str, str] = field(default_factory=dict)
 
     def get_model_for_domain(self, domain: str | None = None) -> str:
         """Get the best model for a given domain."""
         if domain and domain in self.domain_models:
             return self.domain_models[domain]
-        return self.preferred_models[0] if self.preferred_models else "llama3.2:3b"
+        # Empty when the operator configured nothing: no vendor default.
+        return self.preferred_models[0] if self.preferred_models else ""
 
     def get_model_for_task(
         self,
@@ -1608,8 +1625,9 @@ class ModelConfiguration:
                 if (speed_priority and profile.speed_rating >= 0.8) or not speed_priority:
                     return model_name
 
-        # Default fallback
-        return self.preferred_models[0] if self.preferred_models else "llama3.2:3b"
+        # First preference when nothing size-matched; empty when the
+        # operator configured nothing (no vendor default).
+        return self.preferred_models[0] if self.preferred_models else ""
 
 
 def create_ollama_adapter(
@@ -1621,7 +1639,8 @@ def create_ollama_adapter(
     """Factory function to create Ollama adapter.
 
     Args:
-        model: Model name (default: llama3.2:3b)
+        model: Model name (no default ships; empty leaves the adapter
+            unavailable until the operator names an installed model)
         host: Ollama host
         port: Ollama port
         **kwargs: Additional OllamaConfig options
@@ -1632,7 +1651,9 @@ def create_ollama_adapter(
     config = OllamaConfig(
         host=host,
         port=port,
-        model=model or "llama3.2:3b",
+        # No vendor default: empty leaves the adapter unavailable until the
+        # operator names a model (or sets MERCURY_OLLAMA_MODEL).
+        model=model or "",
         **kwargs,
     )
     return OllamaLLMAdapter(ollama_config=config)
@@ -1656,7 +1677,9 @@ def create_fallback_chain(
         Configured FallbackLLMChain
     """
     ollama_config = OllamaConfig(
-        model=ollama_model or "llama3.2:3b",
+        # No vendor default: empty leaves the local rung unavailable until
+        # the operator names a model (or sets MERCURY_OLLAMA_MODEL).
+        model=ollama_model or "",
         **{k: v for k, v in kwargs.items() if hasattr(OllamaConfig, k)},
     )
 

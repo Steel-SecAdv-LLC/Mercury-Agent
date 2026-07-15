@@ -432,38 +432,49 @@ class TestFallbackLLMChain:
 class TestModelConfiguration:
     """Tests for model configuration and selection."""
 
-    def test_model_config_defaults(self, ollama_module: Any) -> None:
-        """Test ModelConfiguration has defaults."""
+    def test_model_config_defaults_are_vendor_neutral(self, ollama_module: Any) -> None:
+        """ModelConfiguration ships empty: Mercury has no default model.
+
+        Regression: preferred/domain models used to default to a vendor list;
+        they are now operator-populated (the documented EXAMPLE_* constants
+        are reference material the operator opts into explicitly).
+        """
         config = ollama_module.ModelConfiguration()
 
-        assert len(config.preferred_models) > 0
+        assert config.preferred_models == []
+        assert config.domain_models == {}
         assert config.require_offline is True
+        assert config.get_model_for_domain("medical") == ""
+        assert config.get_model_for_task("low") == ""
 
     def test_model_for_domain(self, ollama_module: Any) -> None:
-        """Test getting model for specific domain."""
-        config = ollama_module.ModelConfiguration()
+        """Domain lookups serve the operator-populated mapping."""
+        config = ollama_module.ModelConfiguration(
+            preferred_models=list(ollama_module.EXAMPLE_OLLAMA_PREFERRED_MODELS),
+            domain_models=dict(ollama_module.EXAMPLE_OLLAMA_DOMAIN_MODELS),
+        )
 
-        # Test known domains
         medical_model = config.get_model_for_domain("medical")
         assert medical_model == "llama3.1:8b"
 
         code_model = config.get_model_for_domain("code")
         assert "code" in code_model.lower() or "deepseek" in code_model.lower()
 
-        # Test unknown domain returns default
+        # Unknown domain falls to the operator's first preference.
         unknown = config.get_model_for_domain("unknown_domain")
         assert unknown == config.preferred_models[0]
 
     def test_model_for_task_complexity(self, ollama_module: Any) -> None:
-        """Test model selection based on task complexity."""
-        config = ollama_module.ModelConfiguration()
+        """Task-complexity selection serves the operator-populated preferences."""
+        config = ollama_module.ModelConfiguration(
+            preferred_models=list(ollama_module.EXAMPLE_OLLAMA_PREFERRED_MODELS),
+        )
 
         low_model = config.get_model_for_task("low")
         high_model = config.get_model_for_task("high")
 
-        # Both should return valid models
-        assert low_model is not None
-        assert high_model is not None
+        assert low_model
+        assert high_model
 
 
 class TestFactoryFunctions:
