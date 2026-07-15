@@ -27,6 +27,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Product identity + uniform per-provider model selection (PR #339)
+
+- **Mercury Agent identifies as Mercury Agent.** A product-identity clause
+  (``MERCURY_IDENTITY_CLAUSE``) now rides every system prompt Mercury sends
+  to an LLM backend — the reasoning chain's ``SYSTEM_PROMPT`` and both
+  adapter prompt builders: user-facing language speaks as Mercury Agent,
+  never under the backend model's or its vendor's own persona, while
+  staying transparent on inquiry (Mercury Agent is AI-assisted; the active
+  operator-configured provider is reported in provenance metadata; it never
+  denies being AI or claims to be human). Pinned by tests.
+- **Uniform ``MERCURY_<PROVIDER>_MODEL`` model selection.** Every adapter
+  now reads its own env fallback for ``model_name`` (Anthropic, OpenAI,
+  HuggingFace, xAI, DeepSeek, Cursor, Cohere, Gemini — mirroring the
+  existing ``MERCURY_OLLAMA_MODEL``): explicit config wins, env is the
+  fallback, and with neither the adapter stays unavailable. Same convention
+  for every provider; none privileged. Pinned by a parametrized test.
+- **Residual vendor defaults purged.** The CLI ``voice`` command's
+  ``--model`` flag, ``ModelConfiguration``'s preferred/domain model lists,
+  and the ``create_ollama_adapter``/``create_fallback_chain`` factories no
+  longer fall back to a hard-coded local model; the former default lists
+  are preserved verbatim as documented opt-in ``EXAMPLE_OLLAMA_*``
+  constants.
+
 ### Provider neutrality: no vendor-default models, anywhere (PR #339)
 
 - **Mercury ships no default model id for any provider — local or cloud.**

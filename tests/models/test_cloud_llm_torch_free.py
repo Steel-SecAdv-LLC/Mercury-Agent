@@ -115,3 +115,71 @@ def test_no_vendor_default_model_ships_for_any_cloud_provider() -> None:
         )
         assert explicit.model == "operator-chosen-model"
         assert explicit.is_available() is True, f"{adapter_cls.__name__} rejected explicit model"
+
+
+def test_mercury_provider_model_env_fallback(monkeypatch: Any) -> None:
+    """Every provider gets the same MERCURY_<PROVIDER>_MODEL env surface.
+
+    Precedence: explicit LLMConfig.model_name wins over the env variable;
+    the env variable makes an otherwise model-less adapter operable; with
+    neither, the adapter stays unavailable (no vendor default).
+    """
+    from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
+    from omni_mercury_engine.models.foundation.ollama_adapter import (
+        AnthropicCloudAdapter,
+        CohereCloudAdapter,
+        DeepSeekAdapter,
+        GeminiCloudAdapter,
+        HuggingFaceCloudAdapter,
+        OpenAICloudAdapter,
+        XAIGrokAdapter,
+    )
+
+    cases: list[tuple[type[Any], LLMProvider, str]] = [
+        (OpenAICloudAdapter, LLMProvider.OPENAI, "MERCURY_OPENAI_MODEL"),
+        (AnthropicCloudAdapter, LLMProvider.ANTHROPIC, "MERCURY_ANTHROPIC_MODEL"),
+        (HuggingFaceCloudAdapter, LLMProvider.HUGGINGFACE, "MERCURY_HUGGINGFACE_MODEL"),
+        (XAIGrokAdapter, LLMProvider.XAI, "MERCURY_XAI_MODEL"),
+        (DeepSeekAdapter, LLMProvider.DEEPSEEK, "MERCURY_DEEPSEEK_MODEL"),
+        (CohereCloudAdapter, LLMProvider.COHERE, "MERCURY_COHERE_MODEL"),
+        (GeminiCloudAdapter, LLMProvider.GEMINI, "MERCURY_GEMINI_MODEL"),
+    ]
+    for adapter_cls, provider, env_var in cases:
+        monkeypatch.setenv(env_var, "operator-env-model")
+        via_env = adapter_cls(LLMConfig(provider=provider, api_key="test-not-real"))
+        assert via_env.model == "operator-env-model", adapter_cls.__name__
+        assert via_env.is_available() is True, adapter_cls.__name__
+
+        explicit = adapter_cls(
+            LLMConfig(provider=provider, model_name="explicit-model", api_key="test-not-real")
+        )
+        assert explicit.model == "explicit-model", f"{adapter_cls.__name__}: env beat explicit"
+        monkeypatch.delenv(env_var)
+
+
+def test_identity_clause_reaches_every_backend_prompt() -> None:
+    """Mercury Agent's product-identity contract rides every system prompt.
+
+    Mercury Agent always identifies as Mercury Agent -- never under the
+    backend model's own persona -- while staying transparent that an
+    operator-configured LLM backend serves the language generation.
+    """
+    from omni_mercury_engine.models.foundation.llm_adapter import (
+        MERCURY_IDENTITY_CLAUSE,
+        LLMConfig,
+        LLMProvider,
+    )
+    from omni_mercury_engine.models.foundation.ollama_adapter import AnthropicCloudAdapter
+    from omni_mercury_engine.reasoning.backend import SYSTEM_PROMPT
+
+    assert "Mercury Agent" in MERCURY_IDENTITY_CLAUSE
+    assert "never claim to be a human" in MERCURY_IDENTITY_CLAUSE
+    assert MERCURY_IDENTITY_CLAUSE in SYSTEM_PROMPT
+
+    adapter = AnthropicCloudAdapter(
+        LLMConfig(provider=LLMProvider.ANTHROPIC, api_key="test-not-real")
+    )
+    import numpy as np
+
+    prompt = adapter._build_anomaly_prompt(np.arange(8.0).reshape(2, 4), context=None)
+    assert MERCURY_IDENTITY_CLAUSE in prompt.system_prompt

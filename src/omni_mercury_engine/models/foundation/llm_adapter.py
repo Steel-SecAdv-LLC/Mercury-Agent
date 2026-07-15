@@ -39,6 +39,24 @@ from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelE
 
 logger = logging.getLogger(__name__)
 
+#: Product-identity contract prepended to every system prompt Mercury sends
+#: to an LLM backend. Mercury Agent is the application; the model is an
+#: operator-configured backend component (any provider, all equally
+#: welcome). User-facing language therefore speaks as Mercury Agent --
+#: never under the backend model's own persona or vendor name -- while
+#: staying transparent: Mercury Agent is AI-assisted, and the active
+#: backend provider is reported truthfully in Mercury's provenance
+#: metadata for anyone who asks.
+MERCURY_IDENTITY_CLAUSE: str = (
+    "You are operating as a backend component of Mercury Agent. In all "
+    "user-facing language, speak as Mercury Agent: do not present yourself "
+    "under the underlying model's or its vendor's own name or persona. Be "
+    "transparent when asked -- Mercury Agent is AI-assisted and runs on an "
+    "operator-configured LLM backend whose active provider is reported in "
+    "Mercury's provenance metadata; never deny that, and never claim to be "
+    "a human."
+)
+
 
 class LLMProvider(StrEnum):
     """Supported LLM providers."""
@@ -241,7 +259,11 @@ class BaseLLMAdapter(ABC):
         context: dict[str, Any] | None = None,
     ) -> AnomalyPrompt:
         """Build structured anomaly detection prompt."""
-        system_prompt = """You are an expert anomaly detection system. Analyze the provided data and determine if it represents an anomaly.
+        # Plain concatenation: the JSON schema below contains literal braces,
+        # so an f-string would parse them as format fields.
+        system_prompt = MERCURY_IDENTITY_CLAUSE + """
+
+You are an expert anomaly detection system. Analyze the provided data and determine if it represents an anomaly.
 
 Your response MUST be valid JSON with the following structure:
 {
@@ -636,7 +658,10 @@ Provide a detailed, human-readable explanation of:
 
 Be concise but thorough."""
 
-        system_prompt = "You are an expert anomaly analyst providing clear explanations to non-technical stakeholders."
+        system_prompt = (
+            MERCURY_IDENTITY_CLAUSE + " You are an expert anomaly analyst providing clear "
+            "explanations to non-technical stakeholders."
+        )
 
         response = self.adapter.generate(prompt, system_prompt)
         return response
@@ -831,10 +856,9 @@ def create_llm_detector(
         resolved_model_name = model_name or "template"
     else:
         # Every real LLM provider needs an explicit model identifier --
-        # silently substituting a cross-provider placeholder like
-        # ``gpt-4o`` for an Ollama or Anthropic caller masks the
-        # configuration error and (for Ollama) makes the per-adapter
-        # default (``llama3.2:3b``) unreachable.
+        # silently substituting a cross-provider placeholder for an Ollama
+        # or cloud caller would mask the configuration error. Mercury ships
+        # no vendor-default model for any provider.
         if not model_name:
             raise ValueError(
                 f"create_llm_detector(provider={provider_enum.value!r}) requires "
