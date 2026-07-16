@@ -30,7 +30,7 @@ FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "adbench" / "pima_r
 
 
 @pytest.mark.skipif(not FIXTURE.exists(), reason="pima ADBench fixture not present")
-def test_fusion_input_and_synergy_vary_per_call() -> None:
+def test_fusion_input_and_synergy_vary_per_call(monkeypatch: pytest.MonkeyPatch) -> None:
     from omni_mercury_engine.core.global_omni_scalar_network import get_global_scalar_network
     from omni_mercury_engine.engine import OmniMercuryEngine
 
@@ -49,26 +49,25 @@ def test_fusion_input_and_synergy_vary_per_call() -> None:
         recorded.append([np.asarray(s, dtype=np.float64).copy() for s in states])
         return original_fuse(states, *args, **kwargs)
 
-    fusion.fuse = _recording_fuse  # type: ignore[method-assign]
-    try:
-        engine = OmniMercuryEngine()
-        rng = np.random.default_rng(0)
-        fit_idx = rng.choice(len(x_train), size=min(50, len(x_train)), replace=False)
-        engine.fit_fusion(x_train[fit_idx], y_train[fit_idx])
+    # monkeypatch auto-restores the singleton's fuse after the test.
+    monkeypatch.setattr(fusion, "fuse", _recording_fuse)
 
-        fusion_scores: list[float | None] = []
-        contributions: list[float | None] = []
-        anomaly_probs: list[float | None] = []
-        gates: list[bool | None] = []
-        for i in rng.choice(len(x_test), size=6, replace=False):
-            result = engine.detect_with_fusion(x_test[i : i + 1])
-            meta = result.get("gosnn_metadata", {})
-            fusion_scores.append(meta.get("enhancement_fusion_score"))
-            contributions.append(meta.get("intelligence_contribution"))
-            anomaly_probs.append(result.get("anomaly_prob"))
-            gates.append(meta.get("ethical_gate_passed"))
-    finally:
-        fusion.fuse = original_fuse  # type: ignore[method-assign]
+    engine = OmniMercuryEngine()
+    rng = np.random.default_rng(0)
+    fit_idx = rng.choice(len(x_train), size=min(50, len(x_train)), replace=False)
+    engine.fit_fusion(x_train[fit_idx], y_train[fit_idx])
+
+    fusion_scores: list[float | None] = []
+    contributions: list[float | None] = []
+    anomaly_probs: list[float | None] = []
+    gates: list[bool | None] = []
+    for i in rng.choice(len(x_test), size=6, replace=False):
+        result = engine.detect_with_fusion(x_test[i : i + 1])
+        meta = result.get("gosnn_metadata", {})
+        fusion_scores.append(meta.get("enhancement_fusion_score"))
+        contributions.append(meta.get("intelligence_contribution"))
+        anomaly_probs.append(result.get("anomaly_prob"))
+        gates.append(meta.get("ethical_gate_passed"))
 
     assert recorded, "fuse() was never called on the detect path"
     # The per-call base member (states[0]) carries this sample's detector scores.
