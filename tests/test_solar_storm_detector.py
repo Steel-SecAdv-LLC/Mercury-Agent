@@ -155,6 +155,22 @@ class TestSolarFlareDetector:
         with pytest.raises(ValueError, match="empty X-ray flux series"):
             detector.predict_solar_flare(np.array([]))
 
+    def test_scalar_flux_accepted_as_single_measurement(self) -> None:
+        """A 0-d numpy array (np.array(1e-5)) and a Python float are single
+        GOES XRS measurements: accepted and classified, not rejected as a
+        malformed shape. Regression for _validate_xray_flux treating a 0-d
+        array as non-1-D and crashing on the trend path.
+        """
+        detector = SolarFlareDetector()
+        for flux, expected in [(1e-9, "A"), (5e-6, "C"), (1e-5, "M"), (1e-4, "X")]:
+            zero_d = detector.predict_solar_flare(np.array(flux))
+            py_float = detector.predict_solar_flare(flux)
+            assert zero_d.flare_class == expected
+            assert py_float.flare_class == expected
+        # extract_features must produce a finite feature vector for a 0-d input.
+        features = np.asarray(detector.extract_features(np.array(1e-5)))
+        assert features.ndim == 1 and np.all(np.isfinite(features))
+
     def test_x_class_flux_curve_drive(self) -> None:
         """A rising GOES-style flux curve peaking at X2.5 classifies as X."""
         detector = SolarFlareDetector()
