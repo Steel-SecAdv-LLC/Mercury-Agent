@@ -205,8 +205,13 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 f"got input of shape {tuple(images.shape)}"
             )
 
-        # Handle channel-last format
-        if images.dim() == 4 and images.shape[-1] in [1, 3]:
+        # Disambiguate channel layout. Prefer channel-first ([B, C, H, W]) when
+        # the leading axis is already a valid 1/3-channel count; only treat the
+        # input as channel-last ([B, H, W, C]) — and permute — when the leading
+        # axis is not a valid channel count but the trailing one is. This avoids
+        # mis-permuting a genuine channel-first tensor whose width happens to be
+        # 1 or 3 (e.g. [B, 3, H, 3]).
+        if images.shape[1] not in (1, 3) and images.shape[-1] in (1, 3):
             images = images.permute(0, 3, 1, 2)
 
         # Normalize to [0, 1] if needed

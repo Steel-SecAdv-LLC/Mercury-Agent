@@ -690,7 +690,14 @@ class IntelligenceFusionEngine:
 
         features = torch.cat(all_features, dim=-1)
         if features.shape[-1] < 128:
-            pad = torch.zeros(*features.shape[:-1], 128 - features.shape[-1], dtype=features.dtype)
+            # Match the source tensor's device and dtype so the concat stays
+            # valid if the fusion engine is ever moved off CPU.
+            pad = torch.zeros(
+                *features.shape[:-1],
+                128 - features.shape[-1],
+                dtype=features.dtype,
+                device=features.device,
+            )
             features = torch.cat([features, pad], dim=-1)
         return features[..., :128]
 

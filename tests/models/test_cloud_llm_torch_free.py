@@ -21,6 +21,8 @@ import subprocess
 import sys
 from typing import Any
 
+import pytest
+
 _PROOF = """
 import sys
 from omni_mercury_engine.models.foundation.ollama_adapter import (
@@ -59,7 +61,7 @@ def test_cloud_llm_chain_never_imports_torch() -> None:
 
 def test_tensor_inputs_still_recognised_when_torch_present() -> None:
     """With torch importable, a Tensor input keeps its dedicated prompt branch."""
-    torch = __import__("torch")
+    torch = pytest.importorskip("torch")
 
     from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
     from omni_mercury_engine.models.foundation.ollama_adapter import AnthropicCloudAdapter

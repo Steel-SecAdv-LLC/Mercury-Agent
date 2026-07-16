@@ -8,6 +8,8 @@ and the fused-encoder network dimensions.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -146,6 +148,32 @@ class TestFeatureWidthContract:
         empty = engine.extract_features({"not_a_discipline": {}})
         assert tuple(populated.shape) == (1, 128)
         assert tuple(empty.shape) == (1, 128)
+
+    def test_pad_is_allocated_on_the_feature_device(self, monkeypatch: Any) -> None:
+        """The zero-pad must inherit the source tensor's device (and dtype).
+
+        Regression: the pad was allocated on the default (CPU) device, so a
+        fusion engine moved off CPU would hit a device mismatch in ``torch.cat``.
+        """
+        import torch
+
+        engine = IntelligenceFusionEngine()
+        pad_kwargs: list[dict[str, Any]] = []
+        real_zeros = torch.zeros
+
+        def _spy(*args: Any, **kwargs: Any) -> Any:
+            if "device" in kwargs:
+                pad_kwargs.append(kwargs)
+            return real_zeros(*args, **kwargs)
+
+        monkeypatch.setattr(torch, "zeros", _spy)
+        features = engine.extract_features(
+            {"open_source": {"confidence": 0.9, "threat_score": 0.4}}
+        )
+
+        assert features.shape[-1] == 128
+        assert pad_kwargs, "padding tensor was not allocated with an explicit device"
+        assert all(str(k["device"]) == str(features.device) for k in pad_kwargs)
 
 
 class TestNetworkDisciplineParameterization:

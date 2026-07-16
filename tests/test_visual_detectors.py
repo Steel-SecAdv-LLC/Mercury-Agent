@@ -426,3 +426,41 @@ class TestBaseVisualDetector:
         anomaly_map = torch.randn(1, 56, 56)
         upsampled = detector.postprocess(anomaly_map, original_size=(224, 224))
         assert upsampled.shape[-2:] == (224, 224)
+
+    def _spy_preresize_shape(self, monkeypatch: Any) -> dict[str, tuple[int, ...]]:
+        """Capture the tensor shape reaching the resize step (post layout choice)."""
+        captured: dict[str, tuple[int, ...]] = {}
+        real_interpolate = torch.nn.functional.interpolate
+
+        def _spy(inp: Any, *args: Any, **kwargs: Any) -> Any:
+            captured["shape"] = tuple(inp.shape)
+            return real_interpolate(inp, *args, **kwargs)
+
+        monkeypatch.setattr(torch.nn.functional, "interpolate", _spy)
+        return captured
+
+    def test_channel_first_input_with_1_or_3_width_is_not_permuted(self, monkeypatch: Any) -> None:
+        """A channel-first batch whose width is 1 or 3 keeps its channel axis.
+
+        Regression: the layout heuristic keyed solely on the trailing axis, so a
+        genuine channel-first tensor whose width happened to be 1 or 3 (e.g.
+        ``[B, 3, H, 3]``) was wrongly permuted into an invalid layout. It must be
+        read as ``[B, C, H, W]`` and reach resize with its (H, W) intact.
+        """
+        detector = _concrete_visual_detector()
+        captured = self._spy_preresize_shape(monkeypatch)
+
+        out = detector.preprocess(torch.rand(2, 3, 32, 3))
+
+        assert captured["shape"] == (2, 3, 32, 3)  # not permuted to (2, 3, 3, 32)
+        assert out.shape == (2, 3, 224, 224)
+
+    def test_channel_last_input_is_permuted(self, monkeypatch: Any) -> None:
+        """A channel-last ``[B, H, W, C]`` batch is transposed to channel-first."""
+        detector = _concrete_visual_detector()
+        captured = self._spy_preresize_shape(monkeypatch)
+
+        out = detector.preprocess(torch.rand(2, 32, 16, 3))
+
+        assert captured["shape"] == (2, 3, 32, 16)  # permuted from channel-last
+        assert out.shape == (2, 3, 224, 224)
