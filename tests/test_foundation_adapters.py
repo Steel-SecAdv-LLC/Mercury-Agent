@@ -347,6 +347,12 @@ class TestFoundationEnsemble:
 
     def test_ensemble_detect(self, time_series_with_anomaly: Any) -> None:
         """Test Foundation Ensemble anomaly detection."""
+        # The default ensemble's only member is matrix_profile, which
+        # deliberately hard-fails without stumpy (no silent mock degradation),
+        # so the default ensemble is unusable when stumpy is absent. Skip to
+        # match the optional-dependency contract of the sibling ensemble and
+        # matrix_profile tests.
+        pytest.importorskip("stumpy")
         from omni_mercury_engine.models.foundation import FoundationEnsemble
 
         ensemble = FoundationEnsemble()
@@ -358,6 +364,9 @@ class TestFoundationEnsemble:
 
     def test_ensemble_aggregation_methods(self, univariate_data: Any) -> None:
         """Test different aggregation methods."""
+        # matrix_profile (the only configured member) requires stumpy; skip
+        # cleanly when the optional dependency is absent, as the sibling tests do.
+        pytest.importorskip("stumpy")
         from omni_mercury_engine.models.foundation import FoundationEnsemble
         from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig
 

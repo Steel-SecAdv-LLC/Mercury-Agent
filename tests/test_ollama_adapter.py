@@ -309,6 +309,52 @@ class TestModelEndpointEnv:
         assert adapter.ollama_config.port == 11434  # default retained
 
 
+class TestOllamaModelPrecedence:
+    """Served-model precedence (docs/INSTALLATION.md): an explicitly configured
+    model wins; ``MERCURY_OLLAMA_MODEL`` is only the fallback when none is set.
+    """
+
+    def test_base_config_model_name_is_honoured(
+        self, ollama_module: Any, llm_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Regression: the direct-constructor path dropped LLMConfig.model_name
+        # entirely, so an adapter built from a bare config reported itself
+        # unavailable even though the operator had named a model.
+        monkeypatch.delenv("MERCURY_OLLAMA_MODEL", raising=False)
+        config = llm_module.LLMConfig(
+            provider=llm_module.LLMProvider.OLLAMA, model_name="llama3.2:1b"
+        )
+        adapter = ollama_module.OllamaLLMAdapter(config=config)
+        assert adapter.ollama_config.model == "llama3.2:1b"
+
+    def test_env_model_fills_in_when_unconfigured(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_OLLAMA_MODEL", "mistral:7b")
+        adapter = ollama_module.OllamaLLMAdapter()  # no model configured in code
+        assert adapter.ollama_config.model == "mistral:7b"
+
+    def test_explicit_config_model_name_wins_over_env(
+        self, ollama_module: Any, llm_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Regression: MERCURY_OLLAMA_MODEL used to override even an explicit
+        # LLMConfig.model_name, inverting the documented precedence.
+        monkeypatch.setenv("MERCURY_OLLAMA_MODEL", "mistral:7b")
+        config = llm_module.LLMConfig(
+            provider=llm_module.LLMProvider.OLLAMA, model_name="llama3.2:1b"
+        )
+        adapter = ollama_module.OllamaLLMAdapter(config=config)
+        assert adapter.ollama_config.model == "llama3.2:1b"
+
+    def test_explicit_ollama_config_model_wins_over_env(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_OLLAMA_MODEL", "mistral:7b")
+        config = ollama_module.OllamaConfig(model="llama3.2:1b")
+        adapter = ollama_module.OllamaLLMAdapter(ollama_config=config)
+        assert adapter.ollama_config.model == "llama3.2:1b"
+
+
 class TestTemplateLLMAdapter:
     """Tests for template-based fallback adapter."""
 

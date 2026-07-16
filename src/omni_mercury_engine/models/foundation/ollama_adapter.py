@@ -316,10 +316,22 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             if port is not None:  # port 0 is valid; only skip when truly absent
                 self.ollama_config.port = port
 
-        # Override model from environment if set
-        env_model = os.environ.get("MERCURY_OLLAMA_MODEL")
-        if env_model:
-            self.ollama_config.model = env_model
+        # Resolve the served model id (docs/INSTALLATION.md precedence): an
+        # explicitly configured model is authoritative and MERCURY_OLLAMA_MODEL
+        # is only the fallback when none was configured -- matching every sibling
+        # adapter ("explicit LLMConfig.model_name wins, this variable is the env
+        # fallback"). Previously the env var overrode even an explicit model,
+        # inverting the documented precedence, and base_config.model_name was
+        # dropped entirely on the direct-constructor path. An explicit
+        # OllamaConfig(model=...) takes precedence over the base model_name (it
+        # is the most Ollama-specific choice); an empty result marks the adapter
+        # unavailable.
+        if not self.ollama_config.model and base_config.model_name:
+            self.ollama_config.model = base_config.model_name
+        if not self.ollama_config.model:
+            env_model = os.environ.get("MERCURY_OLLAMA_MODEL")
+            if env_model:
+                self.ollama_config.model = env_model
 
         # The more specific MERCURY_OLLAMA_HOST wins over the endpoint host, for
         # backward compatibility with existing deployments.
