@@ -351,10 +351,12 @@ class SolarFlareDetector:
                 array rather than a scalar or 1-D flux series.
         """
         self._validate_xray_flux(x_ray_flux)
-        if isinstance(x_ray_flux, np.ndarray):
+        if isinstance(x_ray_flux, np.ndarray) and x_ray_flux.ndim == 1:
             current_flux = float(x_ray_flux[-1])
             flux_trend = float(np.diff(x_ray_flux).mean()) if len(x_ray_flux) > 1 else 0.0
         else:
+            # Python scalar or a 0-d numpy array (np.array(1e-7)): a single
+            # measurement with no trend. float() handles both.
             current_flux = float(x_ray_flux)
             flux_trend = 0.0
 
@@ -418,13 +420,15 @@ class SolarFlareDetector:
                 downstream is not an acceptable failure mode.
         """
         if isinstance(x_ray_flux, np.ndarray):
-            if x_ray_flux.ndim != 1:
+            if x_ray_flux.ndim > 1:
                 raise ValueError(
                     "SolarFlareDetector expects a GOES XRS X-ray flux scalar "
                     "or 1-D time series in W/m^2; got array with shape "
                     f"{x_ray_flux.shape}. Pass one flux channel (e.g. the "
                     "0.1-0.8 nm long-band flux)."
                 )
+            # A 0-d array (np.array(1e-7)) is a scalar and is accepted; only a
+            # genuinely empty 1-D series has nothing to classify.
             if x_ray_flux.size == 0:
                 raise ValueError(
                     "SolarFlareDetector received an empty X-ray flux series; "

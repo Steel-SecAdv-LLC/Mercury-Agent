@@ -599,7 +599,9 @@ def get_lvlm_backend(
 
     Args:
         model_type: Type of LVLM ('qwen2_vl', 'minicpm_v', 'llava', 'mock')
-        model_name: HuggingFace model identifier (optional, defaults to model_type)
+        model_name: HuggingFace model identifier (optional; when omitted,
+            defaults to the backend's declared ``DEFAULT_MODEL``, falling
+            back to ``model_type`` when the backend declares none)
         device: Computation device
         **kwargs: Additional backend arguments
 

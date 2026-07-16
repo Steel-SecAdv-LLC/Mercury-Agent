@@ -675,7 +675,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             DetectorException: If detector not fitted.
         """
         if not self._is_fitted:
-            raise DetectorException("Detector must be fitted before detection")
+            raise DetectorException("Detector must be fitted before extracting features")
 
         has_ts = data_type == "time_series" or (
             data_type == "mixed" and isinstance(data, dict) and "time_series" in data

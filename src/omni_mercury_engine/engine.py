@@ -4847,7 +4847,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # reflects the real detection state instead of a fixed constant.
                 base_scalars: dict[str, float] = {}
                 for name, score in all_scores.items():
-                    if isinstance(score, torch.Tensor):
+                    # ``torch`` is optional (None when the [ml] extra is absent);
+                    # guard the tensor branch so a torch-free install never
+                    # dereferences ``torch.Tensor`` on None.
+                    if TORCH_AVAILABLE and isinstance(score, torch.Tensor):
                         if score.numel() == 0:
                             continue
                         base_scalars[f"detector_{name}_score"] = float(

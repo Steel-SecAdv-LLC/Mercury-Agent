@@ -218,24 +218,29 @@ class MatrixProfileDetector(BaseFoundationModel):
             top_k: Number of discords to find (alias for n_discords)
             exclusion_zone: Exclusion zone size (default: window_size // 2)
             is_matrix_profile: Whether ``series_or_mp`` is a pre-computed
-                Matrix Profile. When None, falls back to a length heuristic
-                (arrays longer than ``2 * window_size`` are treated as raw
-                series); pass explicitly whenever the input length is
-                ambiguous, otherwise the profile of a profile is computed
+                Matrix Profile. When None (default), the input is treated as a
+                RAW SERIES and its matrix profile is computed; pass
+                ``is_matrix_profile=True`` to supply a pre-computed profile
+                directly (otherwise a profile-of-a-profile would be computed)
 
         Returns:
             List of discord info dicts with index and score
         """
         self._ensure_initialized()
 
-        # Convert torch tensor if needed
+        # Convert torch tensor if needed (detach so a grad-tracking tensor
+        # does not raise on .numpy()).
         if isinstance(series_or_mp, torch.Tensor):
-            series_or_mp = series_or_mp.cpu().numpy()
+            series_or_mp = series_or_mp.detach().cpu().numpy()
 
         if is_matrix_profile is None:
-            # Heuristic: matrix profiles are typically shorter than the
-            # original series relative to the window size
-            is_matrix_profile = len(series_or_mp) <= self.mp_config.window_size * 2
+            # Treat an undeclared input as a RAW SERIES (compute its matrix
+            # profile). The previous length heuristic misclassified real
+            # matrix profiles -- whose length is ~ n - window + 1, typically
+            # >> 2*window -- as raw series and silently computed a
+            # profile-of-a-profile; a precomputed profile must be declared
+            # explicitly with is_matrix_profile=True.
+            is_matrix_profile = False
 
         if is_matrix_profile:
             matrix_profile = series_or_mp

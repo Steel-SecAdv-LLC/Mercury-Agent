@@ -75,9 +75,12 @@ class AffectiveAnomalyModel:
         if not cls._quarantine_warned:
             cls._quarantine_warned = True
             logger.warning(
-                "AffectiveAnomalyModel has no real feature extractor; emitting "
-                "deterministic neutral output (zero features, 0.5 scores) "
-                "instead of fabricated noise."
+                "AffectiveAnomalyModel has no learned feature extractor: "
+                "extract_features returns zero features and predict on "
+                "non-declared input returns the neutral 0.5 prior (never "
+                "fabricated noise). Declared affective input "
+                "(AFFECTIVE_EMOTIONS_KEY) is scored by the deterministic "
+                "distress pipeline, not neutralised."
             )
 
     @staticmethod
