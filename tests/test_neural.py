@@ -123,3 +123,47 @@ def test_consciousness_entanglement(sample_data: Any) -> None:
 
     assert entanglement is not None
     assert len(entanglement) == len(sample_data)
+
+
+def test_single_sample_pattern_features_are_finite() -> None:
+    """A single-sample pattern (e.g. univariate (N, 1) input, or a length-1
+    series) has no finite differences; the executive-function features must
+    degrade to finite values instead of crashing on np.max of an empty diff.
+    """
+    import numpy as np
+
+    model = NeuralCognitiveModel()
+    for arr in (np.arange(4.0).reshape(4, 1), np.array([5.0])):
+        features = np.asarray(model.extract_features(arr))
+        assert bool(np.all(np.isfinite(features)))
+
+
+def test_variable_length_calls_do_not_crash_hippocampal_memory() -> None:
+    """The streaming hippocampal buffer can hold patterns of different lengths
+    across calls (variable sequence/batch lengths). Cosine similarity is only
+    defined between equal-length vectors, so the comparison must not build a
+    ragged array and raise an inhomogeneous-shape ValueError.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    model = NeuralCognitiveModel()
+    model.extract_features(rng.normal(size=(2, 5)))
+    later = np.asarray(model.extract_features(rng.normal(size=(2, 7))))
+    assert bool(np.all(np.isfinite(later)))
+
+
+def test_hippocampal_memory_reset_is_deterministic() -> None:
+    """Resetting the streaming buffer before extraction (the serve path) yields
+    identical features for identical input across calls.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(1)
+    model = NeuralCognitiveModel()
+    batch = rng.normal(size=(3, 8))
+    model.reset_state()
+    first = np.asarray(model.extract_features(batch))
+    model.reset_state()
+    second = np.asarray(model.extract_features(batch))
+    assert np.array_equal(first, second)

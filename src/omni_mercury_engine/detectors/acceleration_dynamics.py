@@ -864,6 +864,18 @@ class AccelerationDynamicsDetector(BaseDetector):
         # Position is the signal itself
         position = signal.copy()
 
+        # Finite-difference kinematics (velocity/acceleration/jerk via
+        # np.gradient) is undefined for fewer than two samples; a single point
+        # is not a trajectory. Fail with a clear contract instead of the opaque
+        # "array too small to calculate a numerical gradient" from np.gradient,
+        # consistent with the empty-data DetectorException in fit().
+        if position.ndim != 1 or position.shape[0] < 2:
+            raise DetectorException(
+                "AccelerationDynamicsDetector requires at least 2 samples per "
+                "series to compute finite-difference kinematics; got length "
+                f"{position.shape[0] if position.ndim == 1 else position.shape}."
+            )
+
         # Velocity: v = dx/dt (central difference)
         velocity = np.gradient(position, dt)
 
@@ -1220,7 +1232,17 @@ class AccelerationDynamicsDetector(BaseDetector):
             dist_matrix[i] = np.linalg.norm(trajectory[i] - trajectory, axis=1)
 
         # Threshold for recurrence
-        threshold = np.percentile(dist_matrix[dist_matrix > 0], threshold_percentile)
+        positive_distances = dist_matrix[dist_matrix > 0]
+        if positive_distances.size == 0:
+            # A perfectly constant / degenerate trajectory (every embedded point
+            # coincident -> all pairwise distances zero) has no positive
+            # distances to derive a recurrence threshold from and no dynamical
+            # structure to quantify. Degrade like the ``n < 10`` guard above
+            # instead of letting ``np.percentile`` raise on an empty slice --
+            # a constant signal (idle/saturated sensor, zero-filled gap) is
+            # legitimate normal data, not a detector failure.
+            return 0.0, 0.0
+        threshold = np.percentile(positive_distances, threshold_percentile)
 
         # Recurrence matrix
         recurrence = (dist_matrix < threshold).astype(int)

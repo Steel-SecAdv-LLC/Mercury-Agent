@@ -461,3 +461,31 @@ class TestEnergyConservation:
         result = detector.detect(test_signal)
         # Should detect energy change
         assert result["energy_anomaly"] > 0.0
+
+
+class TestDegenerateInputHandling:
+    """Degenerate-input contracts: constant signals degrade, single points fail loud."""
+
+    def test_constant_signal_does_not_crash(self) -> None:
+        """A perfectly constant signal (idle/saturated sensor, zero-filled gap)
+        is legitimate normal data and must not crash the recurrence-metric
+        percentile on an empty positive-distance slice.
+        """
+        rng = np.random.default_rng(0)
+        detector = AccelerationDynamicsDetector()
+        detector.fit(rng.normal(size=(1, 200)))
+
+        result = detector.detect(np.full(60, 5.0))
+        assert np.isfinite(result["anomaly_score"])
+        features = detector.extract_features(np.full(60, 5.0))
+        assert bool(np.all(np.isfinite(features.numpy())))
+
+    def test_single_sample_series_fails_with_clear_contract(self) -> None:
+        """A length-1 "series" has no finite-difference kinematics; fail with a
+        clear DetectorException instead of an opaque np.gradient ValueError.
+        """
+        from omni_mercury_engine.core.exceptions import DetectorException
+
+        detector = AccelerationDynamicsDetector()
+        with pytest.raises(DetectorException, match="at least 2 samples"):
+            detector.fit(np.array([5.0]))
