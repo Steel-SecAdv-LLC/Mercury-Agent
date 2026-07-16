@@ -167,6 +167,7 @@ class TestNaNHandling:
             enable_resonance=False,
             enable_recursion=False,
             enable_refactoring=False,
+            load_shipped_weights=False,
         )
         sector = moore["expected_sector"]
         zero_filled = np.where(np.isfinite(sector), sector, 0.0).astype(np.float32)
@@ -214,6 +215,7 @@ class TestShippedTornadoCheckpoint:
             enable_resonance=False,
             enable_recursion=False,
             enable_refactoring=False,
+            load_shipped_weights=False,
         )
 
     def test_default_load_uses_shipped_checkpoint(self) -> None:

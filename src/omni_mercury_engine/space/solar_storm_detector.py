@@ -809,6 +809,7 @@ class SolarStormDetector:
         enable_cme_tracking: bool = True,
         enable_geomag_prediction: bool = True,
         data_source: NOAASWPCSource | None = None,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -825,6 +826,12 @@ class SolarStormDetector:
             enable_cme_tracking: Enable CME arrival estimation.
             enable_geomag_prediction: Enable geomagnetic storm prediction.
             data_source: Optional NOAA SWPC client for the live path.
+            load_shipped_weights: Load the shipped merit-gated
+                ``solar_storm_geomag`` checkpoint at construction (default), so a
+                default-constructed detector serves the ratified winner. Pass
+                False for the pure Boyle-index physics configuration (the
+                honesty-contract tests). Absence of the checkpoint falls open to
+                physics; an invalid checkpoint still fails loud.
         """
         self.enable_flare = enable_flare_detection
         self.enable_cme = enable_cme_tracking
@@ -863,6 +870,21 @@ class SolarStormDetector:
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
+
+        # The solar_storm_geomag checkpoint cleared the hazard merit gate on
+        # real held-out OMNI/Kp data, so a default-constructed detector serves
+        # the shipped winner. Absence (e.g. a stripped install) falls open to
+        # the disclosed Boyle-index physics; a present-but-invalid checkpoint
+        # still fails loud inside load_neural_weights (operating-point/feature
+        # validation).
+        if load_shipped_weights and self.geomag_predictor is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'solar_storm_geomag' checkpoint available; "
+                    "predicting geomagnetic storms from Boyle-index physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the geomagnetic storm predictor.

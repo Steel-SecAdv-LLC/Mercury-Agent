@@ -405,6 +405,7 @@ class HurricaneDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -423,6 +424,13 @@ class HurricaneDetector:
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Detection scalars stay pressure/SST-driven either way. Default
                 False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated ``hurricane_era5``
+                checkpoint at construction (default), so a default-constructed
+                detector serves the ratified winner. Pass False for the pure
+                observed-kinematics physics configuration (the hazard regression
+                guard's physics lane and the honesty-contract tests). Absence of
+                the checkpoint falls open to physics; an invalid checkpoint still
+                fails loud.
         """
         self.enable_sst = enable_sst
         self.enable_wind = enable_wind
@@ -454,6 +462,20 @@ class HurricaneDetector:
         self._feature_spec: str | None = None
 
         self.logger = logging.getLogger(__name__)
+
+        # The hurricane_era5 checkpoint cleared the hazard merit gate on real
+        # held-out data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the disclosed
+        # observed-kinematics physics; a present-but-invalid checkpoint still
+        # fails loud inside load_neural_weights (sha256/state-dict validation).
+        if load_shipped_weights and self.wind_analyzer is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'hurricane_era5' checkpoint available; analysing "
+                    "wind fields with observed-kinematics physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the wind-pattern analyzer.

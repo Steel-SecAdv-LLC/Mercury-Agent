@@ -37,12 +37,15 @@ from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
 
 class TestTornadoHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert TornadoDetector()._neural_trained is False
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert TornadoDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert TornadoDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_velocity_couplet_detects_mesocyclone_and_rejects_calm(self) -> None:
         rng = np.random.default_rng(0)
-        det = TornadoDetector()
+        det = TornadoDetector(load_shipped_weights=False)
         couplet = np.stack([np.linspace(-30, 30, 64) + rng.normal(0, 2, 64) for _ in range(10)])
         calm = rng.normal(0, 3, (10, 64))
         meso = det._analyze_radar(couplet)
@@ -53,7 +56,7 @@ class TestTornadoHonesty:
 
     def test_untrained_path_ignores_neural_model_weights(self) -> None:
         rng = np.random.default_rng(1)
-        det = TornadoDetector()
+        det = TornadoDetector(load_shipped_weights=False)
         field = np.stack([np.linspace(-20, 20, 64) for _ in range(6)])
         before = det._analyze_radar(field)["rotation_velocity"]
         assert det.radar_analyzer is not None
@@ -66,8 +69,11 @@ class TestTornadoHonesty:
 
 
 class TestWildfireHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert WildfireDetector()._neural_trained is False
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert WildfireDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert WildfireDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_brightness_temperature_detects_fire_and_rejects_ambient(self) -> None:
         rng = np.random.default_rng(0)
@@ -95,8 +101,11 @@ class TestWildfireHonesty:
 
 
 class TestLandslideHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert LandslideDetector()._neural_trained is False
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert LandslideDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert LandslideDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_physics_fires_without_opaque_feature_vector(self) -> None:
         """Previously landslide_imminent could NEVER be True without

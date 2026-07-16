@@ -296,7 +296,7 @@ class TestTornadoDiagnostics:
     def test_velocity_field_and_couplet_captured(
         self, radar_sequence: np.ndarray[Any, Any]
     ) -> None:
-        detector = TornadoDetector(keep_diagnostics=True)
+        detector = TornadoDetector(keep_diagnostics=True, load_shipped_weights=False)
         result = detector.predict_tornado({"radar_sequence": radar_sequence})
         diag = result.diagnostics
         assert diag is not None and diag.hazard == "tornado"
@@ -386,7 +386,7 @@ class TestVolcanicDiagnostics:
         ``seismic_robust_z`` — no attention exists on this path and none is
         drawn. The HMM state belief is a real Bayesian intermediate updated
         from binary observations on every path, so it is captured too."""
-        detector = VolcanicEruptionDetector(keep_diagnostics=True)
+        detector = VolcanicEruptionDetector(keep_diagnostics=True, load_shipped_weights=False)
         result = detector.predict_eruption({"seismic_sequence": seismic_sequence})
         diag = result.diagnostics
         assert diag is not None and diag.hazard == "volcanic"
@@ -441,7 +441,9 @@ class TestLandslideDiagnostics:
         untrained default routes to the geotechnical physics assessment (a
         rule-derived type, no distribution), so keep_diagnostics=True yields
         NO diagnostics rather than a fabricated distribution."""
-        detector = LandslideDetector(enable_ml_ensemble=False, keep_diagnostics=True)
+        detector = LandslideDetector(
+            enable_ml_ensemble=False, keep_diagnostics=True, load_shipped_weights=False
+        )
         result = detector.predict_landslide({"slope_features": slope_features})
         assert result.diagnostics is None
         # The physics path still reports a rule-derived type.

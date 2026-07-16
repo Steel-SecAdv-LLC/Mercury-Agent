@@ -429,7 +429,7 @@ class TestShippedSolarStormCheckpoint:
 
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")
-        detector = SolarStormDetector()
+        detector = SolarStormDetector(load_shipped_weights=False)
         # torch.load(weights_only=True) refuses garbage with UnpicklingError
         # (zip-container damage surfaces as RuntimeError instead).
         with pytest.raises((pickle.UnpicklingError, RuntimeError)):

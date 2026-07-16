@@ -129,7 +129,7 @@ class TestDetectorInjection:
         del torch
         from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 
-        monitor = RngHealthMonitor(detector=ParapsychologyDetector())
+        monitor = RngHealthMonitor(detector=ParapsychologyDetector(load_shipped_weights=False))
         report = monitor.assess(os.urandom(STREAM_BYTES))
         assert report.detector_score is None
         assert report.verdict is RngHealthVerdict.HEALTHY

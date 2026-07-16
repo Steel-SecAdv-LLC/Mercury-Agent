@@ -522,6 +522,7 @@ class LandslideDetector:
         enable_ml_ensemble: bool = True,
         enable_recursion: bool = True,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -536,6 +537,12 @@ class LandslideDetector:
                 the argmax previously discarded (see
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Default False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated ``landslide_coolr``
+                checkpoint at construction (default), so a default-constructed
+                detector serves the ratified winner. Pass False for the pure
+                geotechnical-physics configuration (the honesty-contract tests).
+                Absence of the checkpoint falls open to physics; an invalid
+                checkpoint still fails loud.
         """
         self.enable_rainfall = enable_rainfall_trigger
         self.enable_seismic = enable_seismic_trigger
@@ -578,6 +585,20 @@ class LandslideDetector:
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
+
+        # The landslide_coolr checkpoint cleared the hazard merit gate on real
+        # held-out data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the disclosed
+        # geotechnical physics; a present-but-invalid checkpoint still fails
+        # loud inside load_neural_weights (sha256/operating-point validation).
+        if load_shipped_weights and self.stability_model is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'landslide_coolr' checkpoint available; assessing "
+                    "slope stability from geotechnical physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the slope-stability model.

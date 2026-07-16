@@ -580,6 +580,7 @@ class WildfireDetector:
         enable_resonance: bool = True,
         enable_enhanced_cnn: bool = True,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -594,6 +595,12 @@ class WildfireDetector:
                 coordinates the ignition path computed (see
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Default False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated ``wildfire_firms``
+                checkpoint at construction (default), so a default-constructed
+                detector serves the ratified winner. Pass False for the pure
+                brightness-temperature physics configuration (the honesty-contract
+                tests). Absence of the checkpoint falls open to physics; an
+                invalid checkpoint still fails loud.
         """
         self.enable_ignition = enable_ignition_detection
         self.enable_spread = enable_spread_modeling
@@ -636,6 +643,20 @@ class WildfireDetector:
         self._fire_prob_threshold: float = FIRE_PROB_THRESHOLD_DEFAULT
 
         self.logger = logging.getLogger(__name__)
+
+        # The wildfire_firms checkpoint cleared the hazard merit gate on real
+        # held-out data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the disclosed
+        # VIIRS-style brightness-temperature physics; a present-but-invalid
+        # checkpoint still fails loud inside load_neural_weights.
+        if load_shipped_weights and self.ignition_detector is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'wildfire_firms' checkpoint available; detecting "
+                    "ignition from brightness-temperature physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the ignition detector (and optional CNN).
@@ -821,10 +842,21 @@ class WildfireDetector:
             self._warn_untrained_once()
             return self._detect_ignition_physics(thermal_image)
 
+        original_thermal = thermal_image
         if len(thermal_image.shape) == 2:
             thermal_image = thermal_image.reshape(1, 1, *thermal_image.shape)
         elif len(thermal_image.shape) == 3:
             thermal_image = thermal_image.reshape(1, *thermal_image.shape)
+
+        # The trained ignition CNN consumes the checkpoint's wildfire-firms-v1
+        # channel stack; a thermal field whose channel count does not match that
+        # contract (e.g. a single-channel brightness map) falls back to the
+        # deterministic brightness-temperature detector instead of crashing the CNN.
+        if (
+            thermal_image.ndim != 4
+            or thermal_image.shape[1] != self.ignition_detector.thermal_cnn[0].in_channels
+        ):
+            return self._detect_ignition_physics(original_thermal)
 
         thermal_tensor = torch.tensor(thermal_image, dtype=torch.float32)
 

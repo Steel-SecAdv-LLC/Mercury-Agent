@@ -328,15 +328,35 @@ def _detection_rates(y_true: list[int], y_pred: list[int], domain: str) -> dict[
 # ---------------------------------------------------------------------------
 
 
+def _assert_winner_serving(domain: str, checkpoint: str, detector: Any) -> None:
+    """Fail loud if a default-constructed detector did not auto-load its winner.
+
+    The seven merit-gated hazard winners serve by default (constructor
+    ``load_shipped_weights=True``). The skill metrics below are measured on the
+    disclosed physics lane (``load_shipped_weights=False``) so their floors stay
+    stable and honest, while this tripwire pins that the default surface every
+    operator gets is the ratified learned winner -- mirroring the earthquake
+    trained-lane serving check.
+    """
+    if not getattr(detector, "_neural_trained", False):
+        raise RuntimeError(
+            f"{domain}: default construction failed to load the shipped "
+            f"'{checkpoint}' checkpoint; the merit-gated winner is not serving"
+        )
+
+
 def _run_tornado(path: Path) -> dict[str, float]:
     """Sliding-window mesocyclone detection + warning lead time."""
     from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
 
+    _assert_winner_serving("tornado", "tornado_nexrad", TornadoDetector())
     data = np.load(path)
     frames, labels, events = data["frames"], data["labels"], data["event_frame"]
     y_true, y_pred, leads = [], [], []
     for i in range(len(labels)):
-        detector = TornadoDetector()  # fresh instance per scenario
+        # Physics lane: the velocity-couplet floors below are the disclosed
+        # STA/LTA-style surface; the trained winner is pinned as serving above.
+        detector = TornadoDetector(load_shipped_weights=False)  # fresh per scenario
         alert_frame: int | None = None
         for start in range(frames.shape[1] - TORNADO_WINDOW_FRAMES + 1):
             window = frames[i, start : start + TORNADO_WINDOW_FRAMES]
@@ -404,11 +424,14 @@ def _run_hurricane(path: Path) -> dict[str, float]:
             f"hurricane: dead track fields regrew without a track model: {sorted(regrown)}"
         )
 
+    _assert_winner_serving("hurricane", "hurricane_era5", HurricaneDetector())
     data = np.load(path)
     spacing = float(data["grid_spacing_m"])
     y_true, y_pred = [], []
     for i in range(len(data["labels"])):
-        detector = HurricaneDetector()
+        # Physics lane: the observed-kinematics floors below are the disclosed
+        # surface; the trained winner is pinned as serving above.
+        detector = HurricaneDetector(load_shipped_weights=False)
         result = detector.predict_hurricane(
             {
                 "pressure_data": {
@@ -512,10 +535,13 @@ def _run_volcano(path: Path) -> dict[str, float]:
     """USGS alert-level ordinal accuracy over multi-precursor scenarios."""
     from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
 
+    _assert_winner_serving("volcano", "volcanic_avo_seismic", VolcanicEruptionDetector())
     payload = json.loads(path.read_text())
     intended, predicted = [], []
     for scenario in payload["scenarios"]:
-        detector = VolcanicEruptionDetector()  # fresh: HMM/optimizer state per scenario
+        # Physics lane: the multi-precursor alert-level floors below are the
+        # disclosed surface; the trained winner is pinned as serving above.
+        detector = VolcanicEruptionDetector(load_shipped_weights=False)  # fresh state per scenario
         data = dict(scenario["data"])
         data["seismic_sequence"] = np.asarray(data["seismic_sequence"], dtype=float)
         thermal = dict(data["thermal_data"])
@@ -534,7 +560,10 @@ def _run_solar(flare_path: Path, kp_path: Path) -> dict[str, float]:
     """Flare-class chain accuracy + Boyle-index Kp skill on real SWPC data."""
     from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
 
-    detector = SolarStormDetector()
+    _assert_winner_serving("solar", "solar_storm_geomag", SolarStormDetector())
+    # Physics lane: the flare-chain + Boyle-index Kp floors below are the
+    # disclosed surface; the trained winner is pinned as serving above.
+    detector = SolarStormDetector(load_shipped_weights=False)
 
     flare_payload = json.loads(flare_path.read_text())
     flare_true, flare_pred = [], []
