@@ -107,6 +107,22 @@ class TestLandslideHonesty:
     def test_physics_configuration_is_untrained(self) -> None:
         assert LandslideDetector(load_shipped_weights=False)._neural_trained is False
 
+    def test_off_contract_slope_features_fall_back_to_physics(self) -> None:
+        """A default (trained) detector fed an off-width slope_features vector
+        degrades to the geotechnical physics rather than crashing the 64-input
+        encoder; on-contract width still drives the network."""
+        det = LandslideDetector()
+        assert det._neural_trained is True
+        result = det.predict_landslide(
+            {
+                "slope_features": np.zeros(20, dtype=np.float32),  # width 20 != trained 64
+                "sensor_data": {"soil_saturation_pct": 90.0, "displacement_rate_mm_day": 35.0},
+                "slope_data": {"slope_angle_deg": 38.0},
+            }
+        )
+        assert result.landslide_type
+        assert 0.0 <= result.slope_failure_probability <= 1.0
+
     def test_physics_fires_without_opaque_feature_vector(self) -> None:
         """Previously landslide_imminent could NEVER be True without
         slope_features; the physics path works from the real fields."""

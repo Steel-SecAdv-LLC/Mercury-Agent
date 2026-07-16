@@ -1186,6 +1186,18 @@ class SolarStormDetector:
             features = np.array([solar_wind_speed / 1000.0, bz_imf])
             features = np.pad(features, (0, 30), mode="constant")
 
+        # The trained predictor consumes the checkpoint's fixed feature width;
+        # an explicit off-length magnetosphere_data["features"] falls back to the
+        # Boyle-index physics instead of crashing the network (or the
+        # feature-standardisation broadcast). The feature-spec and default paths
+        # above always build the contract width, so this only trips on a
+        # caller-supplied off-length vector.
+        features = np.asarray(features)
+        if features.ndim < 1 or (
+            features.shape[-1] != self.geomag_predictor.feature_fusion[0].in_features
+        ):
+            return self._predict_geomagnetic_storm_physics(magnetosphere_data)
+
         if self._feature_mean is not None and self._feature_std is not None:
             features = (features - self._feature_mean) / self._feature_std
 

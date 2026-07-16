@@ -766,8 +766,24 @@ class TornadoDetector:
         mask) a mesocyclone.
         """
         radar_result: dict[str, Any]
-        if not self._neural_trained:
-            self._warn_untrained_once()
+        seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
+        if seq_tensor.dim() == 2:
+            seq_tensor = seq_tensor.unsqueeze(0)
+
+        # Use the trained radar LSTM only when weights are loaded AND the input
+        # matches the checkpoint's tornado-nexrad-v1 velocity-feature width;
+        # otherwise -- untrained, or off-contract input the LSTM cannot consume
+        # -- fall back to the deterministic velocity-couplet physics. Both cases
+        # go through the same branch so keep_diagnostics captures the velocity
+        # field identically (an off-contract fallback must not silently drop it).
+        on_contract = (
+            self.radar_analyzer is not None
+            and seq_tensor.dim() == 3
+            and seq_tensor.shape[-1] == self.radar_analyzer.lstm.input_size
+        )
+        if not (self._neural_trained and on_contract):
+            if not self._neural_trained:
+                self._warn_untrained_once()
             radar_result = self._analyze_radar_physics(radar_sequence)
             if self.keep_diagnostics:
                 # The physics couplet analysis consumes the same Doppler
@@ -780,17 +796,7 @@ class TornadoDetector:
                 radar_result["velocity_field"] = arr
             return radar_result
 
-        seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
-        if seq_tensor.dim() == 2:
-            seq_tensor = seq_tensor.unsqueeze(0)
-
         assert self.radar_analyzer is not None
-        # The trained radar LSTM consumes the checkpoint's tornado-nexrad-v1
-        # velocity-feature width; a sequence whose feature dimension does not
-        # match that contract falls back to the deterministic velocity-couplet
-        # physics instead of crashing the LSTM on off-contract input.
-        if seq_tensor.dim() != 3 or seq_tensor.shape[-1] != self.radar_analyzer.lstm.input_size:
-            return self._analyze_radar_physics(radar_sequence)
         self.radar_analyzer.eval()
         with torch.no_grad():
             meso_prob, rotation_vel, attention = self.radar_analyzer(seq_tensor)

@@ -48,6 +48,17 @@ class TestSolarStormHonesty:
     def test_physics_configuration_is_untrained(self) -> None:
         assert SolarStormDetector(load_shipped_weights=False)._neural_trained is False
 
+    def test_off_length_explicit_features_fall_back_to_physics(self) -> None:
+        """A default (trained) detector given an explicit off-length feature
+        vector degrades to the Boyle-index physics rather than crashing the
+        32-input network (or the feature-standardisation broadcast)."""
+        det = SolarStormDetector()
+        assert det._neural_trained is True
+        out = det._predict_geomagnetic_storm(
+            {"features": np.arange(7.0), "solar_wind_speed_km_s": 600, "bz_imf_nt": -10}
+        )
+        assert out["method"] == "physics_boyle_index"
+
     def test_untrained_path_ignores_neural_model_weights(self) -> None:
         """Obliterating the NN's weights must not change the Kp — physics path."""
         det = SolarStormDetector(load_shipped_weights=False)

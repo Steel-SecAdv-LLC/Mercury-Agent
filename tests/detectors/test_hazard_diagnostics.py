@@ -313,6 +313,17 @@ class TestTornadoDiagnostics:
         assert diag.context["couplet_col"] == 30
         assert diag.context["couplet_shear"] == pytest.approx(70.0, rel=1e-3)
 
+    def test_off_contract_radar_on_trained_detector_still_captures_field(self) -> None:
+        """A default (trained) detector fed off-contract radar falls back to the
+        velocity-couplet physics AND still captures the velocity field under
+        keep_diagnostics -- the off-contract fallback must not silently drop it."""
+        detector = TornadoDetector(keep_diagnostics=True)
+        assert detector._neural_trained is True
+        off = np.zeros((10, 8), dtype=np.float32)  # width 8 != the trained LSTM's 64
+        result = detector.predict_tornado({"radar_sequence": off})
+        assert result.diagnostics is not None
+        assert "doppler_velocity_field" in result.diagnostics.arrays
+
 
 class TestHurricaneDiagnostics:
     @pytest.fixture

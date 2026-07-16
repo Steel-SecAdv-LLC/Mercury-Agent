@@ -750,14 +750,29 @@ class LandslideDetector:
 
         neural_path_used = False
         if self.enable_stability:
-            if self._neural_trained and "slope_features" in landslide_data:
-                stability_result = self._assess_slope_stability(landslide_data["slope_features"])
+            model = self.stability_model
+            slope_features = landslide_data.get("slope_features")
+            use_neural = False
+            if self._neural_trained and model is not None and slope_features is not None:
+                # The trained model consumes the landslide-coolr-v1 64-feature
+                # vector; an off-contract slope_features (wrong width) routes to
+                # the geotechnical physics instead of crashing the encoder
+                # (mirrors the volcanic/tornado/wildfire input-contract guards).
+                feats = np.asarray(slope_features)
+                expected = model.feature_encoder[0].in_features
+                use_neural = feats.ndim >= 1 and feats.shape[-1] == expected
+            if use_neural:
+                stability_result = self._assess_slope_stability(np.asarray(slope_features))
                 neural_path_used = True
             else:
                 # Physics path: works from the real geotechnical fields, so it
                 # runs even without an opaque slope_features vector (previously
-                # landslide_imminent could NEVER fire without one).
-                self._warn_untrained_once()
+                # landslide_imminent could NEVER fire without one). Only warn
+                # about an untrained network when the detector actually is
+                # untrained -- a trained detector on an off-contract/absent
+                # vector is a deliberate physics fall-through, not a warning.
+                if not self._neural_trained:
+                    self._warn_untrained_once()
                 stability_result = self._assess_slope_stability_physics(result)
             result.slope_failure_probability = stability_result["failure_probability"]
             result.landslide_type = stability_result["landslide_type"]
