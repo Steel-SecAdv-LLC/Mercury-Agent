@@ -1,0 +1,58 @@
+{
+  "checkpoint": "gosnn_attention_fusion.pt",
+  "checkpoint_sha256": "c415be75aefd85387e9a6ce1752b18d4ade2f51426a11d99c5074a9b64b42372",
+  "created_utc": "2026-07-16T04:47:31.801326+00:00",
+  "data_sources": [
+    {
+      "cache_files": [
+        "cardio.npz",
+        "pendigits.npz",
+        "pima.npz"
+      ],
+      "cache_sha256": {
+        "cardio.npz": "a6fd0d90c3d04dd90a9500d744c51479b915d6ef847fca173a636da83cf0d13e",
+        "pendigits.npz": "864570b0cc07a0be5d496efd21d550206cebd90f7702c49509c3c2288476d72f",
+        "pima.npz": "4247752781bd0a15aceb2ccb36287b5da17cbfdc1deb1baee9c45164a9b787ce"
+      },
+      "description": "production fuse() inputs harvested from a real OmniMercuryEngine detecting on cached real ADBench splits"
+    }
+  ],
+  "objective": "multitask",
+  "training": {
+    "candidates": {
+      "masked_recon": {
+        "best_val_mse": 46142046.64178512,
+        "fused_std": 40.60560783217935,
+        "learned_mse": 3877027.972802333,
+        "member_std": 3081.929447137215,
+        "n_test": 68.0,
+        "reference_mse": 8296308.170897121
+      },
+      "multitask": {
+        "best_val_mse": 47003264.09036847,
+        "fused_std": 647.5384034549488,
+        "learned_mse": 4653817.427392214,
+        "member_std": 3081.929447137215,
+        "n_test": 68.0,
+        "reference_mse": 8296308.170897121
+      }
+    },
+    "decision": "SHIPPED candidate 'multitask' -> gosnn_attention_fusion.pt",
+    "gate": {
+      "collapse_floor": 0.2,
+      "constraint": "held-out masked-member MSE <= margin x phi-reference MSE on identical production-harvested state lists; fused std >= floor x member std",
+      "mse_margin": 0.95
+    },
+    "generated_utc": "2026-07-16T04:47:31.801326+00:00",
+    "harvest": {
+      "n_examples": 450,
+      "n_state_lists": 450,
+      "n_unique_state_lists": 450,
+      "quick": false
+    },
+    "seed": 20260714,
+    "winners": [
+      "multitask"
+    ]
+  }
+}

@@ -1,11 +1,37 @@
 {
-  "decision": "REFUSED - DEGENERATE HARVEST: the production fuse() input distribution collapsed to 1 unique state list(s) across 403 calls (GOSNN registry groups are static between calls; the per-call base member is empty on the tabular detect path). A held-out reconstruction gate over a constant is vacuous -- any memoriser beats the reference -- so nothing trains and nothing ships. fuse() keeps the deterministic phi-weighted reference. Re-run once the registry carries per-call varying operational scalars.",
-  "generated_utc": "2026-07-14T20:12:36.320410+00:00",
+  "candidates": {
+    "masked_recon": {
+      "best_val_mse": 46142046.64178512,
+      "fused_std": 40.60560783217935,
+      "learned_mse": 3877027.972802333,
+      "member_std": 3081.929447137215,
+      "n_test": 68.0,
+      "reference_mse": 8296308.170897121
+    },
+    "multitask": {
+      "best_val_mse": 47003264.09036847,
+      "fused_std": 647.5384034549488,
+      "learned_mse": 4653817.427392214,
+      "member_std": 3081.929447137215,
+      "n_test": 68.0,
+      "reference_mse": 8296308.170897121
+    }
+  },
+  "decision": "SHIPPED candidate 'multitask' -> gosnn_attention_fusion.pt",
+  "gate": {
+    "collapse_floor": 0.2,
+    "constraint": "held-out masked-member MSE <= margin x phi-reference MSE on identical production-harvested state lists; fused std >= floor x member std",
+    "mse_margin": 0.95
+  },
+  "generated_utc": "2026-07-16T04:47:31.801326+00:00",
   "harvest": {
-    "min_unique_required": 50,
-    "n_state_lists": 403,
-    "n_unique_state_lists": 1,
+    "n_examples": 450,
+    "n_state_lists": 450,
+    "n_unique_state_lists": 450,
     "quick": false
   },
-  "seed": 20260714
+  "seed": 20260714,
+  "winners": [
+    "multitask"
+  ]
 }
