@@ -382,6 +382,35 @@ class TestSolarStormDetector:
         assert result.dst_index == -100
         assert result.schumann_correlation is not None
 
+    def test_geomag_accepts_batched_features_and_rejects_multirow(self) -> None:
+        """Explicit ``features`` of shape ``(1, W)`` is an already-batched
+        single sample and must run the trained predictor, not crash BatchNorm1d
+        with a 3-D tensor. A genuine multi-row ``(N>1, W)`` batch and any
+        mis-shaped array fall back to physics. Regression for the width guard
+        that accepted ``(1, W)`` and then ``unsqueeze(0)``'d it to 3-D.
+        """
+        detector = SolarStormDetector(load_shipped_weights=True)
+        predictor = detector.geomag_predictor
+        if predictor is None:  # pragma: no cover - config guard
+            pytest.skip("geomag predictor disabled")
+        width = int(predictor.feature_fusion[0].in_features)
+
+        batched = detector._predict_geomagnetic_storm(
+            {"features": np.zeros((1, width), dtype=np.float32)}
+        )
+        flat = detector._predict_geomagnetic_storm({"features": np.zeros(width, dtype=np.float32)})
+        assert batched["method"] == flat["method"] == "neural"
+
+        # Multi-row batch, wrong width, and a 3-D array all degrade to physics
+        # instead of crashing the network.
+        for bad in (
+            np.zeros((5, width), dtype=np.float32),
+            np.zeros((1, width + 32), dtype=np.float32),
+            np.zeros((1, 1, width), dtype=np.float32),
+        ):
+            result = detector._predict_geomagnetic_storm({"features": bad})
+            assert result["method"].startswith("physics")
+
     def test_classify_geostorm(self) -> None:
         """Test geomagnetic storm classification."""
         detector = SolarStormDetector()

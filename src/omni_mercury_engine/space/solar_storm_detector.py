@@ -1197,7 +1197,14 @@ class SolarStormDetector:
         # above always build the contract width, so this only trips on a
         # caller-supplied off-length vector.
         features = np.asarray(features)
-        if features.ndim < 1 or (
+        # A caller may hand the feature vector already batched as (1, W); accept
+        # that as the single-sample (W,) vector. Anything that is not a 1-D
+        # width-W vector after that -- 0-d, a genuine N>1 batch, or a mis-shaped
+        # array -- falls back to the Boyle-index physics instead of feeding a
+        # 3-D tensor into the predictor's BatchNorm1d and crashing.
+        if features.ndim == 2 and features.shape[0] == 1:
+            features = features.reshape(-1)
+        if features.ndim != 1 or (
             features.shape[-1] != self.geomag_predictor.feature_fusion[0].in_features
         ):
             return self._predict_geomagnetic_storm_physics(magnetosphere_data)

@@ -7,9 +7,14 @@ on very small tensors — e.g. one full-batch epoch over a ``[n, 1, 33]`` conv
 input.  At that size the per-op OpenMP fork/join overhead dominates the
 arithmetic: measured on the srcnn fit loop, one epoch costs ~460 ms with 4
 intra-op threads and ~34 ms with 1 (a 13x penalty), which made the tier's
-auto-fit path pathologically slow on multi-core hosts.  torch exposes only a
+auto-fit pathologically slow on multi-core hosts.  torch exposes only a
 process-global knob, so :func:`single_threaded_torch` pins it to 1 for the
 duration of a tight loop and restores the previous value afterwards.
+
+``torch`` is imported optionally: a torch-free install (no ``[ml]`` extra)
+can still import this module and enter :func:`single_threaded_torch`, which
+degrades to a no-op.  This keeps torch-optional importers such as
+``detectors.acceleration_dynamics`` importable without the extra.
 
 Numeric note: intra-op parallelism changes how reductions are *scheduled*, not
 which algorithm runs, so pinning to one thread never changes results in a
@@ -37,7 +42,13 @@ import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-import torch
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    TORCH_AVAILABLE = False
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -59,7 +70,13 @@ def single_threaded_torch() -> Iterator[None]:
     Reference-counted and thread-safe: concurrent sections share a single
     pin-to-one-thread window and the ambient thread count is restored only
     once every overlapping section has exited.
+
+    Degrades to a no-op when torch is unavailable so torch-optional callers
+    stay importable and runnable without the ``[ml]`` extra.
     """
+    if not TORCH_AVAILABLE:
+        yield
+        return
     global _active_depth, _saved_threads
     with _state_lock:
         if _active_depth == 0:
