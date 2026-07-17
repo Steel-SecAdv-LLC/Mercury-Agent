@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Solar Storm Detector."""
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -393,7 +393,7 @@ class TestSolarStormDetector:
         predictor = detector.geomag_predictor
         if predictor is None:  # pragma: no cover - config guard
             pytest.skip("geomag predictor disabled")
-        width = int(predictor.feature_fusion[0].in_features)
+        width = cast("int", predictor.feature_fusion[0].in_features)
 
         batched = detector._predict_geomagnetic_storm(
             {"features": np.zeros((1, width), dtype=np.float32)}
