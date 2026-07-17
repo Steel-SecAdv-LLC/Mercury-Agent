@@ -1,37 +1,108 @@
 {
-  "candidates": {
-    "masked_recon": {
-      "best_val_mse": 46142046.64178512,
-      "fused_std": 40.60560783217935,
-      "learned_mse": 3877027.972802333,
-      "member_std": 3081.929447137215,
-      "n_test": 68.0,
-      "reference_mse": 8296308.170897121
+  "baselines": {
+    "mean_detector_score": {
+      "test_auc": 0.7086538461538462,
+      "test_auc_per_dataset": {
+        "836f99fa0f08f98f": null,
+        "93fd194197e64985": 0.925,
+        "e21d9f11cf432ebc": 0.49230769230769234
+      }
     },
-    "multitask": {
-      "best_val_mse": 47003264.09036847,
-      "fused_std": 647.5384034549488,
-      "learned_mse": 4653817.427392214,
-      "member_std": 3081.929447137215,
-      "n_test": 68.0,
-      "reference_mse": 8296308.170897121
+    "phi_reference_head": {
+      "test_auc": 0.6206730769230769,
+      "test_auc_per_dataset": {
+        "836f99fa0f08f98f": null,
+        "93fd194197e64985": 0.8875,
+        "e21d9f11cf432ebc": 0.35384615384615387
+      }
     }
   },
-  "decision": "SHIPPED candidate 'multitask' -> gosnn_attention_fusion.pt",
-  "gate": {
-    "collapse_floor": 0.2,
-    "constraint": "held-out masked-member MSE <= margin x phi-reference MSE on identical production-harvested state lists; fused std >= floor x member std",
-    "mse_margin": 0.95
+  "candidates": {
+    "detection": {
+      "fused_std": 0.5343844237781706,
+      "masked_recon_mse": 4.516190620746769,
+      "member_std": 1.3850302915914028,
+      "reference_recon_mse": 4.131647621218331,
+      "test_auc": 0.59375,
+      "test_auc_per_dataset": {
+        "836f99fa0f08f98f": null,
+        "93fd194197e64985": 0.6875,
+        "e21d9f11cf432ebc": 0.5
+      },
+      "test_auc_pooled": 0.7193877551020408,
+      "val_auc": 0.6458333333333333
+    },
+    "detection_recon": {
+      "fused_std": 0.9958864282994043,
+      "masked_recon_mse": 4.78826185546399,
+      "member_std": 1.3850302915914028,
+      "reference_recon_mse": 4.131647621218331,
+      "test_auc": 0.46923076923076923,
+      "test_auc_per_dataset": {
+        "836f99fa0f08f98f": null,
+        "93fd194197e64985": 0.5,
+        "e21d9f11cf432ebc": 0.43846153846153846
+      },
+      "test_auc_pooled": 0.4336734693877551,
+      "val_auc": 0.5625
+    }
   },
-  "generated_utc": "2026-07-16T04:47:31.801326+00:00",
+  "consequential": {
+    "reason": "measured no gain: learned test AUC 0.5938 does not beat phi-reference head 0.6207 / mean detector score 0.7087 by the 0.02 margin",
+    "shipped": false
+  },
+  "decision": "SHIPPED (observability-only) - consequential role REFUSED: measured no gain: learned test AUC 0.5938 does not beat phi-reference head 0.6207 / mean detector score 0.7087 by the 0.02 margin. The existing reconstruction-gated checkpoint keeps serving observability only; no detection head ships and the decision layer's GOSNN overlay stays structurally inert.",
+  "decision_rule": {
+    "demote_act_below": 0.05,
+    "demote_clear_above": 0.95,
+    "selected_on": "validation split",
+    "test": {
+      "base_error_rate": 0.12380952380952381,
+      "correct_demoted": 42.0,
+      "correct_retention": 0.5434782608695652,
+      "demoted_error_rate": 0.0,
+      "enrichment": 0.0,
+      "n": 105.0,
+      "n_demoted": 42.0,
+      "wrong_demoted": 0.0
+    },
+    "validation": {
+      "base_error_rate": 0.08737864077669903,
+      "correct_demoted": 31.0,
+      "correct_retention": 0.6702127659574468,
+      "demoted_error_rate": 0.08823529411764706,
+      "enrichment": 1.0098039215686274,
+      "n": 103.0,
+      "n_demoted": 34.0,
+      "wrong_demoted": 3.0
+    }
+  },
+  "gate": {
+    "auc_margin": 0.02,
+    "collapse_floor": 0.2,
+    "constraint": "held-out detection AUC (mean per-dataset) must beat the phi-reference-fusion head AND the mean detector score by the margin; fused std >= floor x member std; the demotion rule (thresholds selected on validation) must fire on test, be enriched in wrong verdicts (enrichment > 1), and retain >= floor of correct verdicts",
+    "test_retention_floor": 0.9
+  },
+  "generated_utc": "2026-07-17T04:51:09.554822+00:00",
   "harvest": {
-    "n_examples": 450,
-    "n_state_lists": 450,
-    "n_unique_state_lists": 450,
+    "n_calls": 692,
+    "n_unique_state_lists": 692,
+    "pools": {
+      "test": {
+        "n": 105,
+        "n_anomalies": 7
+      },
+      "train": {
+        "n": 484,
+        "n_anomalies": 50
+      },
+      "val": {
+        "n": 103,
+        "n_anomalies": 10
+      }
+    },
     "quick": false
   },
-  "seed": 20260714,
-  "winners": [
-    "multitask"
-  ]
+  "seed": 20260717,
+  "selected_candidate": "detection"
 }
