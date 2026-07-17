@@ -84,6 +84,27 @@ class TestEvidenceParsing:
         result["gosnn_metadata"]["detection"] = "not-a-dict"
         assert Evidence.from_detection(result).gosnn_anomaly_prob is None
 
+    @pytest.mark.parametrize("bad", [-0.1, 1.1, float("nan"), "low"])
+    def test_out_of_range_thresholds_are_dropped_per_side(self, bad: Any) -> None:
+        """A garbage threshold disables its side, never fires unconditionally.
+
+        Defence in depth behind the load-time validation: e.g. a
+        ``demote_clear_above`` below 0 would otherwise demote every grounded
+        negative.
+        """
+        ev = Evidence.from_detection(
+            _result(
+                anomaly_prob=0.9,
+                detection={
+                    "anomaly_prob": 0.7,
+                    "demote_act_below": bad,
+                    "demote_clear_above": 0.8,
+                },
+            )
+        )
+        assert ev.gosnn_demote_act_below is None
+        assert ev.gosnn_demote_clear_above == pytest.approx(0.8)
+
     def test_to_dict_round_trips_the_fields(self) -> None:
         ev = Evidence.from_detection(
             _result(anomaly_prob=0.9, detection={"anomaly_prob": 0.7, **_THRESHOLDS})

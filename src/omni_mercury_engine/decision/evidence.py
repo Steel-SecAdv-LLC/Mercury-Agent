@@ -209,14 +209,22 @@ class Evidence:
             # drops the whole block (signal absent), so the demotion overlay
             # can never fire on garbage.  Thresholds are only meaningful
             # alongside a valid probability; each side of the overlay is
-            # independently disabled by an absent/malformed threshold.
+            # independently disabled by an absent/malformed/out-of-range
+            # threshold (defence in depth behind the load-time validation --
+            # a threshold outside [0, 1] would make its side either inert or
+            # unconditional, and neither is a decision this layer may take
+            # on malformed provenance).
             detection = gosnn.get("detection")
             if isinstance(detection, Mapping):
                 prob = _as_float(detection.get("anomaly_prob"))
                 if prob is not None and 0.0 <= prob <= 1.0:
                     gosnn_anomaly_prob = prob
-                    gosnn_demote_act_below = _as_float(detection.get("demote_act_below"))
-                    gosnn_demote_clear_above = _as_float(detection.get("demote_clear_above"))
+                    act_below = _as_float(detection.get("demote_act_below"))
+                    clear_above = _as_float(detection.get("demote_clear_above"))
+                    if act_below is not None and 0.0 <= act_below <= 1.0:
+                        gosnn_demote_act_below = act_below
+                    if clear_above is not None and 0.0 <= clear_above <= 1.0:
+                        gosnn_demote_clear_above = clear_above
 
         symbolic_satisfaction: float | None = None
         symbolic = result.get("symbolic_consistency")

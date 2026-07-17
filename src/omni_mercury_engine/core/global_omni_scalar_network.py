@@ -618,10 +618,23 @@ class MultiHeadAttentionFusion:
                     "demote_clear_above); refusing to serve a consequential "
                     "head without its validation-selected operating points"
                 )
+            act_below = float(thresholds["demote_act_below"])
+            clear_above = float(thresholds["demote_clear_above"])
+            # Range/order validation: out-of-range or inverted thresholds
+            # turn the disagreement overlay degenerate (e.g. clear_above=0.0
+            # demotes every grounded negative). A consequential head serves
+            # only with sane operating points -- anything else fails loud.
+            if not (0.0 <= act_below < clear_above <= 1.0):
+                raise RuntimeError(
+                    "gosnn_attention_fusion decision_thresholds are invalid: "
+                    f"require 0 <= demote_act_below ({act_below}) < "
+                    f"demote_clear_above ({clear_above}) <= 1; refusing to "
+                    "serve a degenerate demotion rule"
+                )
             self.detection_head = head
             self.decision_thresholds = {
-                "demote_act_below": float(thresholds["demote_act_below"]),
-                "demote_clear_above": float(thresholds["demote_clear_above"]),
+                "demote_act_below": act_below,
+                "demote_clear_above": clear_above,
             }
         self.logger.info("MultiHeadAttentionFusion: trained attention weights loaded")
 

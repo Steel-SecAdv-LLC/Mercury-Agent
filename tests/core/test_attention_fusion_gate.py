@@ -78,6 +78,46 @@ def test_load_trained_weights_missing_module_fails_loud() -> None:
         fusion.load_trained_weights({"attention": fusion.attention.state_dict()})
 
 
+@pytest.mark.parametrize(
+    "thresholds",
+    [
+        {"demote_act_below": -0.1, "demote_clear_above": 0.8},
+        {"demote_act_below": 0.2, "demote_clear_above": 1.5},
+        {"demote_act_below": 0.9, "demote_clear_above": 0.1},  # inverted
+        {"demote_act_below": 0.5, "demote_clear_above": 0.5},  # degenerate
+        {"demote_act_below": 0.2},  # missing key
+        "not-a-dict",
+        None,
+    ],
+)
+def test_detection_head_with_invalid_thresholds_fails_loud(thresholds: object) -> None:
+    """A consequential head must never serve with degenerate operating points.
+
+    Out-of-range or inverted thresholds turn the disagreement overlay
+    inert-or-unconditional (e.g. ``demote_clear_above=0.0`` demotes every
+    grounded negative); a payload carrying a head with such thresholds is
+    refused at load rather than silently serving a broken demotion rule.
+    """
+    from typing import Any
+
+    from omni_mercury_engine.core.attention_fusion_stack import TrainableFusionStack
+
+    stack = TrainableFusionStack()
+    payload: dict[str, Any] = {
+        "projection": stack.projection.state_dict(),
+        "attention": stack.attention.state_dict(),
+        "output_projection": stack.output_projection.state_dict(),
+        "detection_head": stack.detection_head.state_dict(),
+    }
+    if thresholds is not None:
+        payload["decision_thresholds"] = thresholds
+    fusion = MultiHeadAttentionFusion(load_shipped_weights=False)
+    with pytest.raises(RuntimeError):
+        fusion.load_trained_weights(payload)
+    assert fusion.detection_head is None
+    assert fusion.decision_thresholds is None
+
+
 def test_default_construction_serves_shipped_winner_when_present() -> None:
     """When the merit-gated checkpoint ships, default construction loads it."""
     from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
