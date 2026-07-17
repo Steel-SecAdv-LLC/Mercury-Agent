@@ -1235,6 +1235,18 @@ class EarthquakeDetector:
 
         if seismic_data.ndim == 1:
             seismic_data = seismic_data.reshape(1, -1)
+        if seismic_data.ndim != 2:
+            # Fail loud with the documented contract instead of the opaque
+            # downstream crash a 0-d scalar (IndexError on seismic_data[0])
+            # or a rank>=3 stack (scipy "Nx=0 is not a positive integer" on a
+            # 2-D trace slice) used to produce. Unlike the hazard feature
+            # lanes there is no physics fallback for a non-waveform input --
+            # every path below needs a 1-D trace.
+            raise ValueError(
+                "predict_earthquake expects a seismic waveform shaped "
+                f"[seq_len] or [batch, seq_len]; got ndim={seismic_data.ndim} "
+                f"(shape {seismic_data.shape})"
+            )
 
         f, t, Sxx = signal.spectrogram(
             seismic_data[0],

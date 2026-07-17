@@ -763,6 +763,14 @@ class HurricaneDetector:
             or u.shape != v.shape
             or u.size == 0
             or not (np.isfinite(u).all() and np.isfinite(v).all())
+            # The conv encoder's MaxPool2d(2) needs at least a 2x2 spatial
+            # field; a degenerate single-row/column field -- e.g. a (1, W)
+            # transect promoted to (T=1, H=1, W) above -- pools to height 0
+            # and crashes. The physics analysis handles the same input, so
+            # off-contract spatial dims fall back there (solar geomag guard
+            # pattern).
+            or u.shape[1] < 2
+            or u.shape[2] < 2
         ):
             return physics
 

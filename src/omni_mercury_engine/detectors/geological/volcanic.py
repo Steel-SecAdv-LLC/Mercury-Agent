@@ -1320,9 +1320,23 @@ class VolcanicEruptionDetector:
         gone: input is never synthesized.
         """
         if self._neural_trained and "fused_features" in volcano_data:
-            features_tensor = torch.tensor(
-                volcano_data["fused_features"], dtype=torch.float32
-            ).unsqueeze(0)
+            feats = np.asarray(volcano_data["fused_features"])
+            # A caller may hand the vector already batched as (1, W); accept
+            # that as the single-sample (W,) vector. Anything that is not a
+            # 1-D vector of the trained width after that -- 0-d, a genuine
+            # N>1 batch, (1, 1, W), a wrong-width vector -- falls to the
+            # deterministic physics forecast instead of crashing the model's
+            # BatchNorm1d/Linear stack (this lane previously had NO input
+            # guard at all; mirrors solar_storm_detector's geomag guard).
+            if feats.ndim == 2 and feats.shape[0] == 1:
+                feats = feats.reshape(-1)
+            expected = self.eruption_model.feature_fusion[0].in_features
+            if feats.ndim != 1 or feats.shape[-1] != expected:
+                # Off-contract input on a *trained* detector is a deliberate
+                # physics fall-through, not an untrained-network condition --
+                # no untrained warning here (landslide guard precedent).
+                return self._forecast_eruption_physics(signals)
+            features_tensor = torch.tensor(feats, dtype=torch.float32).unsqueeze(0)
             self.eruption_model.eval()
             with torch.no_grad():
                 eruption_prob, vei_logits, time_norm = self.eruption_model(features_tensor)

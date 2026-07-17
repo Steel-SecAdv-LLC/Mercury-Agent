@@ -852,9 +852,15 @@ class WildfireDetector:
         # channel stack; a thermal field whose channel count does not match that
         # contract (e.g. a single-channel brightness map) falls back to the
         # deterministic brightness-temperature detector instead of crashing the CNN.
+        # The two MaxPool2d(2) stages additionally need at least a 4x4 spatial
+        # raster -- a degenerate single-row field (e.g. (3, 1, W)) passes the
+        # channel check but pools to height 0 and crashes, so off-contract
+        # spatial dims fall back to physics too (solar geomag guard pattern).
         if (
             thermal_image.ndim != 4
             or thermal_image.shape[1] != self.ignition_detector.thermal_cnn[0].in_channels
+            or thermal_image.shape[2] < 4
+            or thermal_image.shape[3] < 4
         ):
             return self._detect_ignition_physics(original_thermal)
 

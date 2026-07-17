@@ -753,16 +753,27 @@ class LandslideDetector:
             model = self.stability_model
             slope_features = landslide_data.get("slope_features")
             use_neural = False
+            feats = np.empty(0)
             if self._neural_trained and model is not None and slope_features is not None:
                 # The trained model consumes the landslide-coolr-v1 64-feature
                 # vector; an off-contract slope_features (wrong width) routes to
                 # the geotechnical physics instead of crashing the encoder
                 # (mirrors the volcanic/tornado/wildfire input-contract guards).
                 feats = np.asarray(slope_features)
+                # A caller may hand the vector already batched as (1, W);
+                # accept that as the single-sample (W,) vector. Anything that
+                # is not a 1-D width-W vector after that -- a genuine N>1
+                # batch, (1, 1, W), a mis-shaped array -- falls to physics
+                # instead of feeding a wrong-rank tensor into the encoder's
+                # BatchNorm1d (the previous ``ndim >= 1`` guard admitted every
+                # rank with a matching last axis and crashed there; mirrors
+                # solar_storm_detector's geomag guard).
+                if feats.ndim == 2 and feats.shape[0] == 1:
+                    feats = feats.reshape(-1)
                 expected = model.feature_encoder[0].in_features
-                use_neural = feats.ndim >= 1 and feats.shape[-1] == expected
+                use_neural = feats.ndim == 1 and feats.shape[-1] == expected
             if use_neural:
-                stability_result = self._assess_slope_stability(np.asarray(slope_features))
+                stability_result = self._assess_slope_stability(feats)
                 neural_path_used = True
             else:
                 # Physics path: works from the real geotechnical fields, so it
