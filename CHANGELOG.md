@@ -27,6 +27,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
+
+- With ``is_matrix_profile=None`` (the default), ``find_discords`` now
+  ALWAYS treats the input as a raw series and computes its matrix profile.
+  The previous length heuristic (``len <= 2*window`` => pre-computed
+  profile) misclassified realistic pre-computed matrix profiles (length
+  ``~ n - window + 1``, typically ``>> 2*window``) as raw series and
+  silently computed a profile-of-a-profile, yielding incorrect discord
+  indices/scores. Downstream callers that pass a pre-computed profile must
+  declare it with ``is_matrix_profile=True`` (the in-repo caller already
+  does). Noted in the method docstring.
+
+### GOSNN fusion: consequential decision channel + labelled-outcome training (PR #339)
+
+- **`MultiHeadAttentionFusion` train/serve stacks unified.** The
+  architecture and forward computation now live in one shared module
+  (``core/attention_fusion_stack.py``) imported by both the production
+  ``fuse()`` and the training program — the trainer's private
+  ``_FusionModel`` re-implementation had already drifted from the serve
+  path (the serve side applied a harmonic-synergy output modulation the
+  merit gate never measured; it was a constant ×1.0118 on production data
+  and is removed).
+- **`harmonic_synergy` no longer surfaced in detection results.** Measured
+  on the production serve path, the FFT top-two-magnitude ratio behind it
+  is pinned to exactly 1.0 by real-input conjugate symmetry, so the metric
+  was the bit-identical constant 0.618034 on every call. It remains a
+  documented diagnostic (``GlobalOmniScalarNetwork.last_harmonic_synergy``)
+  with the degeneracy spelled out in ``compute_harmonic_synergy``.
+- **Consequential channel (decision-layer routing).** The fusion checkpoint
+  payload may now carry a detection head + validation-selected thresholds
+  (shipped only when the new detection-metric merit gate passes);
+  ``detect_with_fusion`` surfaces ``gosnn_metadata["detection"]`` and the
+  decision layer demotes a grounded verdict to ``DEFER`` on strong
+  disagreement (``DecisionPolicy.defer_on_gosnn_disagreement``,
+  abstention-only). The channel is isolated by construction and by test:
+  ``OmniFusionModel`` inputs, ``anomaly_prob``, and the σ_Immutable verdict
+  are bit-identical with the head attached or absent, so the shipped
+  ``default_fusion.pt`` contract is untouched.
+- **Training rebuilt around the real task.** ``scripts/train_gosnn_fusion.py``
+  now pairs every harvested production ``fuse()`` input with the ADBench
+  ground-truth label of the exact detected row and trains fusion + head
+  jointly (class-weighted BCE; optional reconstruction auxiliary). The
+  merit gate is a held-out detection metric — the learned head must beat
+  BOTH the phi-reference-fusion head and the raw mean detector score by a
+  margin, avoid representational collapse, and yield a demotion rule that
+  is enriched in wrong verdicts at bounded deferral cost — and it refuses
+  to ship anything consequential otherwise (harvest-diversity tripwire
+  retained).
+
+### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
+
+- The solar geomag fix generalised: an audit of every net-backed trained
+  serving lane reproduced the same crash class in landslide
+  (``slope_features`` — ``ndim >= 1`` guard passed ``(1, 64)`` into
+  ``BatchNorm1d``), volcanic eruption (``fused_features`` — no input guard
+  at all), and hurricane (``(1, W)`` wind transect pooled to height 0 in
+  ``MaxPool2d``), plus adjacent-rank holes in wildfire (``(3, 1, W)``),
+  seismic ``predict_earthquake`` (0-d / rank>=3 opaque crashes),
+  parapsychology (0-d ``len()`` crash; off-contract ``(N, W)`` silently
+  flattened into one LSTM sequence), and a latent unguarded feed in the
+  disaster-precursor lane. Uniform contract everywhere: ``(1, W)`` is the
+  single sample and is consumed; off-rank input falls to the disclosed
+  physics/neutral path or fails loud where no physics fallback exists.
+  Each fix is pinned by ``tests/detectors/test_batched_single_sample_guards.py``.
+
+### Tooling: `ruff check` no longer auto-mutates (PR #339)
+
+- ``[tool.ruff] fix`` is now ``false``: a plain ``ruff check`` used to
+  rewrite files, so a file could change *after* a passing mypy run and ship
+  a type regression (bit CI on 498f8d4). Autofixing is explicit-only
+  (``ruff check --fix`` or the pre-commit hook, which blocks the commit on
+  fix so later hooks re-run); ``scripts/run_ci_gates.sh`` orders the mypy
+  lanes after ruff.
+
 ### Product identity + uniform per-provider model selection (PR #339)
 
 - **Mercury Agent identifies as Mercury Agent.** A product-identity clause

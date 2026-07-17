@@ -24,6 +24,18 @@ This is a defensible labelling source because:
     non-obvious correlations among the 127 operational dimensions that a
     single threshold check misses.
 
+Limitation (why the learned score is advisory, not authoritative)
+-----------------------------------------------------------------
+The corpus is SYNTHETIC: generated scalar vectors labelled by the
+threshold rule above, not real-world ethical outcomes.  Measured
+consequence: the trained network, alone, passed vectors with a single
+critical ethical dimension zeroed (e.g. benevolence -> 0).  Production
+therefore composes the deterministic critical-ethical floor
+(``SigmaImmutableGate.enforce_ethical_floor``) BEFORE the learned score
+at every boundary — the floor is the authoritative gate; this network is
+a secondary, advisory check.  Replacing the synthetic corpus with real
+labelled ethical-outcome data is tracked in ``docs/DORMANCY_LEDGER.md``.
+
 Outputs
 -------
   - ``src/omni_mercury_engine/security/sigma_immutable_weights.pt``

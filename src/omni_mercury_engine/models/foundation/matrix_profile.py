@@ -223,6 +223,14 @@ class MatrixProfileDetector(BaseFoundationModel):
                 ``is_matrix_profile=True`` to supply a pre-computed profile
                 directly (otherwise a profile-of-a-profile would be computed)
 
+        Behaviour change (2026-07, PR #339): ``is_matrix_profile=None``
+        previously guessed via a length heuristic (``len <= 2*window`` =>
+        profile), which misclassified realistic pre-computed profiles
+        (length ~ n - window + 1) as raw series and silently computed a
+        profile-of-a-profile. The undeclared default is now always RAW
+        SERIES; callers passing a pre-computed profile must say so
+        explicitly with ``is_matrix_profile=True``.
+
         Returns:
             List of discord info dicts with index and score
         """

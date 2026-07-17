@@ -1090,7 +1090,15 @@ skips = ["*_test.py", "test_*.py"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-fix = true
+# ``ruff check`` must be a pure check. ``fix = true`` made every plain
+# ``ruff check`` invocation auto-mutate the tree, so a file could change
+# AFTER a passing mypy run and ship a type regression (this reverted a
+# ``getattr(...)`` to attribute access post-mypy and turned CI red on
+# 498f8d4). Autofixing is explicit-only: run ``ruff check --fix`` (or the
+# pre-commit hook, which passes ``--fix --exit-non-zero-on-fix`` and blocks
+# the commit so later hooks re-run on the fixed bytes), then re-run mypy —
+# scripts/run_ci_gates.sh orders the mypy lanes after ruff for that reason.
+fix = false
 
 [tool.ruff.lint]
 select = [
