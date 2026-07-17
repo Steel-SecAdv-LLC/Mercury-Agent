@@ -75,6 +75,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is enriched in wrong verdicts at bounded deferral cost — and it refuses
   to ship anything consequential otherwise (harvest-diversity tripwire
   retained).
+- **Gate hardened and verdict measured with statistical power.** The
+  harvest draws label-stratified rows from each dataset's held-out
+  TEST+VALIDATION splits across all cached ADBench datasets (1,469
+  labelled calls / 321 anomalies; prevalence-invariant AUC, sampling
+  disclosed); training uses gradient accumulation, a cosine LR schedule,
+  and validation-AUC early stopping; shipping additionally requires the
+  5th percentile of a dataset-stratified paired bootstrap of
+  ``AUC_learned − max(baselines)`` to exceed zero; a detection head with
+  out-of-range or inverted demotion thresholds is refused at load (and
+  the Evidence layer independently drops out-of-range thresholds).
+  **Verdict: refused** — learned 0.801 vs phi-reference head 0.845 vs
+  mean detector score 0.816 (bootstrap delta P5 −0.087, median −0.029),
+  while a linear probe on the raw detector-score member reaches 0.882:
+  the fusion architecture measurably dilutes detection signal, so the
+  observability-only posture is ratified on decisive evidence
+  (``artifacts/gosnn_fusion.eval.json``, dormancy ledger).
 
 ### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
 

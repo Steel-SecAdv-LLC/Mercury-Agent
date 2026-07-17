@@ -1,108 +1,123 @@
 {
   "baselines": {
     "mean_detector_score": {
-      "test_auc": 0.7086538461538462,
+      "test_auc": 0.8162652640143637,
       "test_auc_per_dataset": {
-        "836f99fa0f08f98f": null,
-        "93fd194197e64985": 0.925,
-        "e21d9f11cf432ebc": 0.49230769230769234
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9779411764705882,
+        "4b88d3115dd04730": 0.9273504273504274,
+        "56e4926f0f53893e": 1.0,
+        "836f99fa0f08f98f": 0.8785714285714286,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.32727272727272727,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.6598639455782312
       }
     },
     "phi_reference_head": {
-      "test_auc": 0.6206730769230769,
+      "test_auc": 0.8454488288822022,
       "test_auc_per_dataset": {
-        "836f99fa0f08f98f": null,
-        "93fd194197e64985": 0.8875,
-        "e21d9f11cf432ebc": 0.35384615384615387
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9926470588235294,
+        "4b88d3115dd04730": 1.0,
+        "56e4926f0f53893e": 1.0,
+        "836f99fa0f08f98f": 0.8821428571428571,
+        "93fd194197e64985": 0.9619047619047619,
+        "94d1278aa86acde5": 0.41818181818181815,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.6632653061224489
       }
     }
   },
   "candidates": {
     "detection": {
-      "fused_std": 0.5343844237781706,
-      "masked_recon_mse": 4.516190620746769,
-      "member_std": 1.3850302915914028,
-      "reference_recon_mse": 4.131647621218331,
-      "test_auc": 0.59375,
+      "fused_std": 0.1189545180116381,
+      "masked_recon_mse": 9.170526569242247,
+      "member_std": 1.6516779845922298,
+      "reference_recon_mse": 10.60856035214256,
+      "test_auc": 0.8007161605901102,
       "test_auc_per_dataset": {
-        "836f99fa0f08f98f": null,
-        "93fd194197e64985": 0.6875,
-        "e21d9f11cf432ebc": 0.5
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9117647058823529,
+        "4b88d3115dd04730": 0.9615384615384616,
+        "56e4926f0f53893e": 0.5833333333333334,
+        "836f99fa0f08f98f": 0.8607142857142858,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.8090909090909091,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.5357142857142857
       },
-      "test_auc_pooled": 0.7193877551020408,
-      "val_auc": 0.6458333333333333
+      "test_auc_pooled": 0.7966666666666666,
+      "val_auc": 0.8620836265540699
     },
     "detection_recon": {
-      "fused_std": 0.9958864282994043,
-      "masked_recon_mse": 4.78826185546399,
-      "member_std": 1.3850302915914028,
-      "reference_recon_mse": 4.131647621218331,
-      "test_auc": 0.46923076923076923,
+      "fused_std": 0.377947217784822,
+      "masked_recon_mse": 8.669608914935838,
+      "member_std": 1.6516779845922298,
+      "reference_recon_mse": 10.60856035214256,
+      "test_auc": 0.8007161605901102,
       "test_auc_per_dataset": {
-        "836f99fa0f08f98f": null,
-        "93fd194197e64985": 0.5,
-        "e21d9f11cf432ebc": 0.43846153846153846
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9117647058823529,
+        "4b88d3115dd04730": 0.9615384615384616,
+        "56e4926f0f53893e": 0.5833333333333334,
+        "836f99fa0f08f98f": 0.8607142857142858,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.8090909090909091,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.5357142857142857
       },
-      "test_auc_pooled": 0.4336734693877551,
-      "val_auc": 0.5625
+      "test_auc_pooled": 0.7966666666666666,
+      "val_auc": 0.8620836265540699
     }
   },
   "consequential": {
-    "reason": "measured no gain: learned test AUC 0.5938 does not beat phi-reference head 0.6207 / mean detector score 0.7087 by the 0.02 margin",
+    "reason": "measured no gain: learned test AUC 0.8007 does not beat phi-reference head 0.8454 / mean detector score 0.8163 by the 0.02 margin",
     "shipped": false
   },
-  "decision": "SHIPPED (observability-only) - consequential role REFUSED: measured no gain: learned test AUC 0.5938 does not beat phi-reference head 0.6207 / mean detector score 0.7087 by the 0.02 margin. The existing reconstruction-gated checkpoint keeps serving observability only; no detection head ships and the decision layer's GOSNN overlay stays structurally inert.",
-  "decision_rule": {
-    "demote_act_below": 0.05,
-    "demote_clear_above": 0.95,
-    "selected_on": "validation split",
-    "test": {
-      "base_error_rate": 0.12380952380952381,
-      "correct_demoted": 42.0,
-      "correct_retention": 0.5434782608695652,
-      "demoted_error_rate": 0.0,
-      "enrichment": 0.0,
-      "n": 105.0,
-      "n_demoted": 42.0,
-      "wrong_demoted": 0.0
-    },
-    "validation": {
-      "base_error_rate": 0.08737864077669903,
-      "correct_demoted": 31.0,
-      "correct_retention": 0.6702127659574468,
-      "demoted_error_rate": 0.08823529411764706,
-      "enrichment": 1.0098039215686274,
-      "n": 103.0,
-      "n_demoted": 34.0,
-      "wrong_demoted": 3.0
-    }
+  "decision": "SHIPPED (observability-only) - consequential role REFUSED: measured no gain: learned test AUC 0.8007 does not beat phi-reference head 0.8454 / mean detector score 0.8163 by the 0.02 margin. The existing reconstruction-gated checkpoint keeps serving observability only; no detection head ships and the decision layer's GOSNN overlay stays structurally inert.",
+  "diagnostics": {
+    "linear_probe_detector_scores_auc": 0.8819484936831875,
+    "note": "linear probe on the raw padded detector-score member; diagnostic upper bound for simple re-weighting of the detector scores -- never a gate input"
   },
   "gate": {
     "auc_margin": 0.02,
+    "bootstrap": {
+      "design": "dataset-stratified paired bootstrap of AUC_learned - max(AUC_phi_head, AUC_mean_score) on the test split; ship requires the 5th percentile > 0",
+      "replicates": 2000
+    },
     "collapse_floor": 0.2,
-    "constraint": "held-out detection AUC (mean per-dataset) must beat the phi-reference-fusion head AND the mean detector score by the margin; fused std >= floor x member std; the demotion rule (thresholds selected on validation) must fire on test, be enriched in wrong verdicts (enrichment > 1), and retain >= floor of correct verdicts",
+    "constraint": "held-out detection AUC (mean per-dataset) must beat the phi-reference-fusion head AND the mean detector score by the margin with bootstrap support; fused std >= floor x member std; the demotion rule needs validation-viable thresholds and must fire on test, be enriched in wrong verdicts (enrichment > 1), and retain >= floor of correct verdicts",
     "test_retention_floor": 0.9
   },
-  "generated_utc": "2026-07-17T04:51:09.554822+00:00",
+  "generated_utc": "2026-07-17T05:47:13.434091+00:00",
   "harvest": {
-    "n_calls": 692,
-    "n_unique_state_lists": 692,
+    "n_anomalies": 321,
+    "n_calls": 1469,
+    "n_unique_state_lists": 1422,
     "pools": {
       "test": {
-        "n": 105,
-        "n_anomalies": 7
-      },
-      "train": {
-        "n": 484,
+        "n": 224,
         "n_anomalies": 50
       },
+      "train": {
+        "n": 1025,
+        "n_anomalies": 220
+      },
       "val": {
-        "n": 103,
-        "n_anomalies": 10
+        "n": 220,
+        "n_anomalies": 51
       }
     },
-    "quick": false
+    "quick": false,
+    "sampling": "label-stratified rows from the held-out TEST+VALIDATION splits (positives up to half each dataset's budget); AUC is prevalence-invariant over independent single-row calls, so stratification tightens variance without bias"
   },
   "seed": 20260717,
-  "selected_candidate": "detection"
+  "selected_candidate": "detection",
+  "statistics": {
+    "delta_p05": -0.08664721569185871,
+    "delta_p50": -0.028994996852139632,
+    "delta_p95": 0.05357116710320478,
+    "replicates_used": 2000.0
+  }
 }
