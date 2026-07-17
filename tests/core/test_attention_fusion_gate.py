@@ -110,9 +110,48 @@ def test_eval_artifact_decision_matches_shipped_state() -> None:
     artifact = Path(__file__).resolve().parents[2] / "artifacts" / "gosnn_fusion.eval.json"
     if not artifact.exists():
         pytest.skip("no committed gosnn fusion eval artifact (repo-layout test)")
-    decision = str(json.loads(artifact.read_text())["decision"])
+    verdict = json.loads(artifact.read_text())
+    decision = str(verdict["decision"])
     shipped = shipped_checkpoint_path("gosnn_attention_fusion").exists()
     assert decision.startswith("SHIPPED") == shipped, (
         f"eval artifact says {decision[:60]!r} but shipped checkpoint "
         f"exists={shipped}; the verdict and the package disagree"
     )
+
+
+def test_consequential_verdict_matches_shipped_head() -> None:
+    """The consequential claim and the shipped payload must agree.
+
+    The detection-metric gate records ``consequential.shipped`` in the eval
+    artifact; a detection head (plus its decision thresholds) may exist in
+    the checkpoint payload if and only if that verdict says it shipped.
+    Otherwise the artifact narrates an observability-only posture while the
+    package serves a consequential head (or vice versa).
+    """
+    import json
+    from pathlib import Path
+
+    from omni_mercury_engine.models.checkpoint_paths import (
+        load_shipped_checkpoint,
+        shipped_checkpoint_path,
+    )
+
+    artifact = Path(__file__).resolve().parents[2] / "artifacts" / "gosnn_fusion.eval.json"
+    if not artifact.exists():
+        pytest.skip("no committed gosnn fusion eval artifact (repo-layout test)")
+    verdict = json.loads(artifact.read_text())
+    # Artifacts written before the detection-gate era carry no block; that
+    # reads as "nothing consequential shipped".
+    consequential = bool(verdict.get("consequential", {}).get("shipped", False))
+    if not shipped_checkpoint_path("gosnn_attention_fusion").exists():
+        assert not consequential, "consequential verdict without any checkpoint"
+        return
+    payload, _provenance = load_shipped_checkpoint("gosnn_attention_fusion")
+    has_head = "detection_head" in payload
+    has_thresholds = isinstance(payload.get("decision_thresholds"), dict)
+    assert has_head == consequential, (
+        f"eval artifact consequential.shipped={consequential} but the shipped "
+        f"payload {'carries' if has_head else 'lacks'} a detection_head"
+    )
+    if has_head:
+        assert has_thresholds, "a consequential head must ship its thresholds"

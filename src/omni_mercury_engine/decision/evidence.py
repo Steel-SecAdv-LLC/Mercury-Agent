@@ -13,7 +13,10 @@ pipeline already threads through:
   (``set_size`` in ``{0, 1, 2}``, ``prediction_set``, ``coverage``).  Its
   presence is what makes a decision *calibrated* (coverage-guaranteed).
 * ``gosnn_metadata`` -- the hard ethical gate verdict
-  (``ethical_gate_passed``, ``sigma_immutable_score`` / ``..._threshold``).
+  (``ethical_gate_passed``, ``sigma_immutable_score`` / ``..._threshold``),
+  plus -- only when a merit-gated detection head shipped with the fusion
+  checkpoint -- the ``detection`` block (the GOSNN fused-state
+  ``anomaly_prob`` and its validation-selected demotion thresholds).
 * ``symbolic_consistency`` -- the neuro-symbolic agreement (the LTN constraint
   ``satisfaction`` in ``[0, 1]``).
 * ``drift_detection`` -- distribution-shift status (``is_drift`` / ``severity``).
@@ -101,6 +104,15 @@ class Evidence:
             ``[0, 1]`` (higher = neural and symbolic paths agree), or ``None``.
         drift_detected: Whether distribution drift was flagged this run.
         drift_severity: Drift severity name (e.g. ``"HIGH"``), or ``None``.
+        gosnn_anomaly_prob: The GOSNN fused-state detection head's
+            ``P(anomaly)`` in ``[0, 1]`` (``gosnn_metadata["detection"]``), or
+            ``None`` when no merit-gated head shipped this build.  Feeds the
+            decider's disagreement demotion overlay -- abstention-only, never
+            a grounding signal.
+        gosnn_demote_act_below: Validation-selected threshold shipped with the
+            head: a grounded positive whose ``gosnn_anomaly_prob`` is at or
+            below it is demoted to a deferral.  ``None`` disables that side.
+        gosnn_demote_clear_above: Same for grounded negatives at or above it.
         domain: Optional domain hint.
     """
 
@@ -117,6 +129,9 @@ class Evidence:
     symbolic_satisfaction: float | None = None
     drift_detected: bool = False
     drift_severity: str | None = None
+    gosnn_anomaly_prob: float | None = None
+    gosnn_demote_act_below: float | None = None
+    gosnn_demote_clear_above: float | None = None
     domain: str | None = None
 
     @property
@@ -174,6 +189,9 @@ class Evidence:
         ethical_passed: bool | None = None
         ethical_score: float | None = None
         ethical_threshold: float | None = None
+        gosnn_anomaly_prob: float | None = None
+        gosnn_demote_act_below: float | None = None
+        gosnn_demote_clear_above: float | None = None
         gosnn = result.get("gosnn_metadata")
         if isinstance(gosnn, Mapping):
             # A hard safety gate: accept only a genuine boolean.  Anything else
@@ -185,6 +203,20 @@ class Evidence:
             ethical_passed = raw_passed if isinstance(raw_passed, bool) else None
             ethical_score = _as_float(gosnn.get("sigma_immutable_score"))
             ethical_threshold = _as_float(gosnn.get("sigma_immutable_threshold"))
+
+            # The merit-gated detection head's corroboration signal.  The
+            # probability is the anchor: a malformed or out-of-range value
+            # drops the whole block (signal absent), so the demotion overlay
+            # can never fire on garbage.  Thresholds are only meaningful
+            # alongside a valid probability; each side of the overlay is
+            # independently disabled by an absent/malformed threshold.
+            detection = gosnn.get("detection")
+            if isinstance(detection, Mapping):
+                prob = _as_float(detection.get("anomaly_prob"))
+                if prob is not None and 0.0 <= prob <= 1.0:
+                    gosnn_anomaly_prob = prob
+                    gosnn_demote_act_below = _as_float(detection.get("demote_act_below"))
+                    gosnn_demote_clear_above = _as_float(detection.get("demote_clear_above"))
 
         symbolic_satisfaction: float | None = None
         symbolic = result.get("symbolic_consistency")
@@ -213,6 +245,9 @@ class Evidence:
             symbolic_satisfaction=symbolic_satisfaction,
             drift_detected=drift_detected,
             drift_severity=drift_severity,
+            gosnn_anomaly_prob=gosnn_anomaly_prob,
+            gosnn_demote_act_below=gosnn_demote_act_below,
+            gosnn_demote_clear_above=gosnn_demote_clear_above,
             domain=domain if domain is not None else result.get("domain"),
         )
 
@@ -235,6 +270,9 @@ class Evidence:
             "symbolic_satisfaction": self.symbolic_satisfaction,
             "drift_detected": self.drift_detected,
             "drift_severity": self.drift_severity,
+            "gosnn_anomaly_prob": self.gosnn_anomaly_prob,
+            "gosnn_demote_act_below": self.gosnn_demote_act_below,
+            "gosnn_demote_clear_above": self.gosnn_demote_clear_above,
             "domain": self.domain,
         }
 

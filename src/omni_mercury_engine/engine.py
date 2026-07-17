@@ -4724,9 +4724,13 @@ class OmniMercuryEngine(LoggerMixin):
                     - sigma_immutable_backend: ``"torch"`` for the trained
                       network, ``"unavailable"`` if the network could not
                       run (the engine raises before returning in that case).
-                    - harmonic_synergy: H(ω) component for weighted fusion
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
+                    - detection: (only when a detection-metric merit-gated
+                      head shipped with the fusion checkpoint) the GOSNN
+                      fused-state ``anomaly_prob`` plus the shipped
+                      ``demote_act_below``/``demote_clear_above`` thresholds
+                      consumed by the decision layer's disagreement overlay
 
         Raises:
             EthicalConstraintViolationError: With ``check="benevolence"``
@@ -4900,16 +4904,51 @@ class OmniMercuryEngine(LoggerMixin):
                     },
                 )
 
+                # ``harmonic_synergy`` is deliberately NOT surfaced here.
+                # Measured on the production serve path (2026-07-17, 15/15
+                # detect calls on real ADBench rows with the shipped trained
+                # fusion): the FFT top-two-magnitude ratio behind it is
+                # pinned to exactly 1.0 by real-input conjugate symmetry, so
+                # the "synergy" was the bit-identical constant 0.618034 on
+                # every call — a number that never moves is not a live
+                # metric.  It remains available as a documented diagnostic
+                # (``gosnn.last_harmonic_synergy``); see
+                # ``TriadicPhiWeighting.compute_harmonic_synergy``.
                 gosnn_metadata = {
                     "ethical_gate_passed": evaluation.passes,
                     "sigma_immutable_score": evaluation.score,
                     "sigma_immutable_threshold": evaluation.threshold,
                     "sigma_immutable_backend": evaluation.backend,
-                    "harmonic_synergy": gosnn.last_harmonic_synergy,
                     "intelligence_contribution": (enhancement_result.intelligence_contribution),
                     "warnings": enhancement_result.warnings,
                     "enhancement_fusion_score": enhancement_result.fusion_score,
                 }
+
+                # Consequential channel (decision-layer routing only): when a
+                # merit-gated detection head shipped with the fusion
+                # checkpoint, surface its fused-state anomaly probability and
+                # the validation-selected disagreement thresholds. The
+                # decision layer's overlay demotes a grounded verdict to a
+                # deferral on strong disagreement — abstention-only, so this
+                # channel can never force an ACT, never touches the
+                # σ_Immutable scalar vector or verdict above, and never
+                # perturbs the OmniFusionModel features/anomaly_prob
+                # (pinned by tests/core/test_gosnn_decision_channel.py).
+                # Absent head => absent key: the fused state stays
+                # observability-only exactly as before.
+                gosnn_fused_state = enhancement_result.fused_state
+                if gosnn_fused_state is not None:
+                    gosnn_detection_prob = gosnn.attention_fusion.detection_probability(
+                        gosnn_fused_state
+                    )
+                    if gosnn_detection_prob is not None:
+                        gosnn_thresholds = gosnn.attention_fusion.decision_thresholds or {}
+                        gosnn_metadata["detection"] = {
+                            "anomaly_prob": gosnn_detection_prob,
+                            "demote_act_below": gosnn_thresholds.get("demote_act_below"),
+                            "demote_clear_above": gosnn_thresholds.get("demote_clear_above"),
+                            "backend": "gosnn_detection_head",
+                        }
 
                 # The fused/enhanced scalars are NOT registered back into the
                 # operational scalar pool. They are per-call detector anomaly
@@ -4925,12 +4964,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # into the gate's scalar vector.
 
                 logger.debug(
-                    "GOSNN integration: σ_Immutable=%s (score=%.3f, "
-                    "threshold=%.3f), harmonic_synergy=%.3f",
+                    "GOSNN integration: σ_Immutable=%s (score=%.3f, " "threshold=%.3f)",
                     evaluation.passes,
                     evaluation.score,
                     evaluation.threshold,
-                    gosnn.last_harmonic_synergy,
                 )
 
             except EthicalConstraintViolationError:

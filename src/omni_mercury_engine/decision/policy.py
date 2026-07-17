@@ -40,6 +40,15 @@ class DecisionPolicy:
             a grounded verdict to ``DEFER`` (calibration may no longer hold).
             Default ``True``.
         drift_defer_severities: The drift severities that trigger that demotion.
+        defer_on_gosnn_disagreement: Whether strong disagreement from the
+            GOSNN fused-state detection head demotes a grounded verdict to
+            ``DEFER``.  The head and its validation-selected thresholds ship
+            with the fusion checkpoint only when the detection-metric merit
+            gate passed, and ride in the evidence
+            (``gosnn_anomaly_prob`` / ``gosnn_demote_act_below`` /
+            ``gosnn_demote_clear_above``); with no shipped head the overlay
+            never fires regardless of this knob.  Abstention-only: it can
+            never ground or upgrade a verdict.  Default ``True``.
         require_calibrated_for_act: When ``True``, an ``ACT`` is only permitted
             with a conformal coverage certificate; an uncalibrated positive is
             demoted to ``DEFER``.  Default ``False`` (a thresholded positive
@@ -58,6 +67,7 @@ class DecisionPolicy:
     drift_defer_severities: frozenset[str] = field(
         default_factory=lambda: _DEFAULT_DRIFT_DEFER_SEVERITIES
     )
+    defer_on_gosnn_disagreement: bool = True
     require_calibrated_for_act: bool = False
     fail_closed_on_atypical: bool = True
     fail_closed_on_ethical_block: bool = True
@@ -95,6 +105,7 @@ class DecisionPolicy:
             "symbolic_agreement_floor": self.symbolic_agreement_floor,
             "defer_on_drift": self.defer_on_drift,
             "drift_defer_severities": sorted(self.drift_defer_severities),
+            "defer_on_gosnn_disagreement": self.defer_on_gosnn_disagreement,
             "require_calibrated_for_act": self.require_calibrated_for_act,
             "fail_closed_on_atypical": self.fail_closed_on_atypical,
             "fail_closed_on_ethical_block": self.fail_closed_on_ethical_block,
