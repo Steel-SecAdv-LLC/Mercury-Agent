@@ -571,6 +571,22 @@ def _mean_detector_scores(calls: list[HarvestCall], indices: list[int]) -> np.nd
     )
 
 
+def _engine_prob_scores(calls: list[HarvestCall], indices: list[int]) -> np.ndarray:
+    """The engine's own calibrated ``anomaly_prob`` for the given calls.
+
+    This is the verdict a disagreement overlay would second-guess, so it is
+    the decisive baseline: a consequential head that separates anomalies
+    *worse* than the engine's own probability cannot help -- when the two
+    disagree, the engine is the one more often right, and demoting on that
+    disagreement removes more correct verdicts than wrong ones. The AUC gate
+    therefore requires the learned head to beat the engine's anomaly_prob,
+    not merely the phi/mean reference fusions (2026-07-17 decisive
+    measurement: engine 0.961 vs best GOSNN-input head 0.904 -- the engine's
+    own fusion of the detector scores dominates any re-weighting of them).
+    """
+    return np.array([float(calls[i].engine_prob) for i in indices])
+
+
 def _linear_probe_auc(calls: list[HarvestCall], pools: Pools) -> float | None:
     """Diagnostic: logistic probe on the raw padded detector-score member.
 
@@ -799,6 +815,7 @@ def main() -> int:
     reference_head = _train_reference_head(calls, pools, epochs)
     phi_scores_test = _reference_head_scores(reference_head, calls, pools.test)
     mean_scores_test = _mean_detector_scores(calls, pools.test)
+    engine_scores_test = _engine_prob_scores(calls, pools.test)
     baselines = {
         "phi_reference_head": {
             "test_auc": _aggregate_auc(phi_scores_test, calls, pools.test),
@@ -807,6 +824,15 @@ def main() -> int:
         "mean_detector_score": {
             "test_auc": _aggregate_auc(mean_scores_test, calls, pools.test),
             "test_auc_per_dataset": _per_dataset_auc(mean_scores_test, calls, pools.test),
+        },
+        "engine_anomaly_prob": {
+            "test_auc": _aggregate_auc(engine_scores_test, calls, pools.test),
+            "test_auc_per_dataset": _per_dataset_auc(engine_scores_test, calls, pools.test),
+            "role": (
+                "the verdict a disagreement head would second-guess -- the "
+                "decisive baseline; a head that separates worse than this "
+                "cannot help"
+            ),
         },
     }
     diagnostics = {
@@ -830,8 +856,8 @@ def main() -> int:
             "bootstrap": {
                 "replicates": replicates,
                 "design": (
-                    "dataset-stratified paired bootstrap of "
-                    "AUC_learned - max(AUC_phi_head, AUC_mean_score) on the "
+                    "dataset-stratified paired bootstrap of AUC_learned - "
+                    "max(AUC_engine_prob, AUC_phi_head, AUC_mean_score) on the "
                     "test split; ship requires the 5th percentile > 0"
                 ),
             },
@@ -839,11 +865,13 @@ def main() -> int:
             "test_retention_floor": TEST_RETENTION_FLOOR,
             "constraint": (
                 "held-out detection AUC (mean per-dataset) must beat the "
-                "phi-reference-fusion head AND the mean detector score by the "
-                "margin with bootstrap support; fused std >= floor x member "
-                "std; the demotion rule needs validation-viable thresholds "
-                "and must fire on test, be enriched in wrong verdicts "
-                "(enrichment > 1), and retain >= floor of correct verdicts"
+                "engine's OWN anomaly_prob (the verdict the overlay would "
+                "second-guess) AND the phi-reference-fusion head AND the mean "
+                "detector score by the margin with bootstrap support; fused "
+                "std >= floor x member std; the demotion rule needs "
+                "validation-viable thresholds and must fire on test, be "
+                "enriched in wrong verdicts (enrichment > 1), and retain >= "
+                "floor of correct verdicts"
             ),
         },
         "harvest": {
@@ -891,20 +919,32 @@ def main() -> int:
     learned_auc = best_metrics["test_auc"]
     phi_auc = baselines["phi_reference_head"]["test_auc"]
     mean_auc = baselines["mean_detector_score"]["test_auc"]
-    if learned_auc is None or phi_auc is None or mean_auc is None:
+    engine_auc = baselines["engine_anomaly_prob"]["test_auc"]
+    if learned_auc is None or phi_auc is None or mean_auc is None or engine_auc is None:
         return _refuse("held-out AUC undefined (a class is absent from the test pool)")
 
+    # The strongest baseline (including the engine's own verdict) is the bar.
+    # A consequential disagreement head that separates worse than the engine's
+    # anomaly_prob cannot help -- see _engine_prob_scores.
+    best_baseline_scores = max(
+        (engine_scores_test, phi_scores_test, mean_scores_test),
+        key=lambda s: _aggregate_auc(s, calls, pools.test) or 0.0,
+    )
     stats = _bootstrap_delta(
-        test_scores, phi_scores_test, mean_scores_test, calls, pools.test, replicates
+        test_scores, best_baseline_scores, best_baseline_scores, calls, pools.test, replicates
     )
     verdict["statistics"] = stats
     logger.info("bootstrap: %s", json.dumps(stats))
 
-    if learned_auc < max(phi_auc, mean_auc) + GATE_AUC_MARGIN or learned_auc <= 0.5:
+    best_baseline_auc = max(engine_auc, phi_auc, mean_auc)
+    if learned_auc < best_baseline_auc + GATE_AUC_MARGIN or learned_auc <= 0.5:
         return _refuse(
-            f"measured no gain: learned test AUC {learned_auc:.4f} does not beat "
-            f"phi-reference head {phi_auc:.4f} / mean detector score {mean_auc:.4f} "
-            f"by the {GATE_AUC_MARGIN} margin"
+            f"measured no gain: learned test AUC {learned_auc:.4f} does not beat the "
+            f"strongest baseline by the {GATE_AUC_MARGIN} margin (engine anomaly_prob "
+            f"{engine_auc:.4f}, phi-reference head {phi_auc:.4f}, mean detector score "
+            f"{mean_auc:.4f}). The engine's own fusion of the detector scores already "
+            "dominates any re-weighting of them, so a disagreement head separating "
+            "worse than the verdict it second-guesses would demote net-correct verdicts"
         )
     if not np.isfinite(stats["delta_p05"]) or stats["delta_p05"] <= 0.0:
         return _refuse(

@@ -75,22 +75,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is enriched in wrong verdicts at bounded deferral cost — and it refuses
   to ship anything consequential otherwise (harvest-diversity tripwire
   retained).
-- **Gate hardened and verdict measured with statistical power.** The
-  harvest draws label-stratified rows from each dataset's held-out
-  TEST+VALIDATION splits across all cached ADBench datasets (1,469
-  labelled calls / 321 anomalies; prevalence-invariant AUC, sampling
-  disclosed); training uses gradient accumulation, a cosine LR schedule,
-  and validation-AUC early stopping; shipping additionally requires the
-  5th percentile of a dataset-stratified paired bootstrap of
-  ``AUC_learned − max(baselines)`` to exceed zero; a detection head with
-  out-of-range or inverted demotion thresholds is refused at load (and
-  the Evidence layer independently drops out-of-range thresholds).
-  **Verdict: refused** — learned 0.801 vs phi-reference head 0.845 vs
-  mean detector score 0.816 (bootstrap delta P5 −0.087, median −0.029),
-  while a linear probe on the raw detector-score member reaches 0.882:
-  the fusion architecture measurably dilutes detection signal, so the
-  observability-only posture is ratified on decisive evidence
-  (``artifacts/gosnn_fusion.eval.json``, dormancy ledger).
+- **Gate hardened and verdict measured decisively.** The harvest draws
+  label-stratified rows from each dataset's held-out TEST+VALIDATION
+  splits across all cached ADBench datasets (1,469 labelled calls / 321
+  anomalies; prevalence-invariant AUC, sampling disclosed); training uses
+  gradient accumulation, a cosine LR schedule, and validation-AUC early
+  stopping; shipping requires the 5th percentile of a dataset-stratified
+  paired bootstrap of ``AUC_learned − max(baselines)`` to exceed zero; a
+  detection head with out-of-range or inverted demotion thresholds is
+  refused at load (and the Evidence layer independently drops out-of-range
+  thresholds). The merit baselines now include the **engine's own
+  ``anomaly_prob``** — the verdict a disagreement overlay would
+  second-guess — because a head that separates worse than that verdict
+  cannot help (it would demote net-correct verdicts). **Verdict: refused
+  decisively** — the engine's own fusion separates the held-out anomalies
+  at 0.961 AUC, while the learned fused-state head reaches 0.801 and even
+  a direct head on the raw detector-score member reaches only 0.886–0.904
+  (bootstrap delta vs the engine P5 −0.201). The engine already fuses the
+  detector scores better than any re-weighting of them, so a GOSNN-input
+  consequential channel is dead-by-construction; observability-only is the
+  ratified, evidence-backed posture (``artifacts/gosnn_fusion.eval.json``,
+  dormancy ledger). Closing the loop also fixed a real hole: the earlier
+  gate compared only against the phi/mean reference fusions, which the
+  detector-score head clears — it would have shipped a cross-check weaker
+  than the engine it guards.
 
 ### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
 

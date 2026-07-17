@@ -195,3 +195,40 @@ def test_consequential_verdict_matches_shipped_head() -> None:
     )
     if has_head:
         assert has_thresholds, "a consequential head must ship its thresholds"
+
+
+def test_gate_scores_the_head_against_the_engines_own_verdict() -> None:
+    """The merit gate must baseline the head against the engine's anomaly_prob.
+
+    A consequential disagreement head that separates anomalies *worse* than
+    the engine's own calibrated verdict -- the very verdict the overlay would
+    second-guess -- cannot help: when the two disagree the engine is the one
+    more often right, so demoting there removes net-correct verdicts. The
+    2026-07-17 measurement made this decisive (engine 0.961 vs best
+    GOSNN-input head 0.904), and the gate now records the engine baseline so
+    it can never ship a head that only beats the weaker phi/mean reference
+    fusions. This pins that the recorded evidence carries that baseline.
+    """
+    import json
+    from pathlib import Path
+
+    artifact = Path(__file__).resolve().parents[2] / "artifacts" / "gosnn_fusion.eval.json"
+    if not artifact.exists():
+        pytest.skip("no committed gosnn fusion eval artifact (repo-layout test)")
+    verdict = json.loads(artifact.read_text())
+    # Degenerate-harvest refusals never reach the baseline stage; they carry
+    # no baselines block and are out of scope for this contract.
+    baselines = verdict.get("baselines")
+    if baselines is None:
+        pytest.skip("degenerate-harvest refusal artifact carries no baselines")
+    assert "engine_anomaly_prob" in baselines, (
+        "the merit gate must baseline the consequential head against the "
+        "engine's own anomaly_prob (the verdict the overlay second-guesses); "
+        f"recorded baselines were {sorted(baselines)}"
+    )
+    # The gate's stated constraint must name the engine baseline too, so the
+    # artifact's narrated logic matches what the code enforces.
+    constraint = str(verdict.get("gate", {}).get("constraint", ""))
+    assert (
+        "anomaly_prob" in constraint or "engine" in constraint.lower()
+    ), "the gate constraint text must disclose the engine-verdict baseline"
