@@ -58,6 +58,22 @@ _DEFAULT_CATALOG: dict[Disposition, tuple[str, ...]] = {
     ),
 }
 
+#: Advisory restorative/conversion countermeasures recommended for a grounded
+#: anomaly when a :class:`ResponsePolicy` opts into the restorative posture.
+#: Non-violent and reversible by construction: every step converts the
+#: threat's source toward a benign state or restores what was affected --
+#: nothing here contains-by-destroying, and nothing is auto-applied.
+_RESTORATIVE_ACT_CATALOG: tuple[str, ...] = (
+    "Identify the root cause and prepare a corrective (patch/reconfigure) "
+    "path that returns the {domain} source to a benign state.",
+    "Draft a staged reintegration plan: remediate, re-validate integrity, "
+    "then restore normal access under monitoring.",
+    "Where a human actor is implicated, prepare a non-punitive corrective "
+    "off-ramp for operator review before any enforcement step.",
+    "Restore any affected {domain} state from verified-good backups once "
+    "the corrective path is approved.",
+)
+
 
 @dataclass(frozen=True)
 class ResponsePlan:
@@ -118,11 +134,22 @@ class ResponsePolicy:
         catalog: Per-disposition advisory countermeasure templates.  Defaults
             to a generic, domain-aware, reversible catalogue; override to
             inject domain playbooks.
+        restorative: Opt-in restorative posture (default ``False`` — the
+            wire format of existing consumers is unchanged).  When ``True``,
+            a grounded anomaly *below* the human-approval urgency bar
+            recommends :attr:`ResponseAction.RECOMMEND_CONVERSION` (a
+            restorative, non-violent convert-to-benign path) instead of
+            :attr:`ResponseAction.RECOMMEND_MITIGATION`, and the plan's
+            countermeasures gain the restorative catalogue.  Urgent/critical
+            events still escalate to a human, holds still fail closed, and
+            every step remains recommend-only — the posture can never
+            auto-authorise anything.
     """
 
     catalog: Mapping[Disposition, tuple[str, ...]] = field(
         default_factory=lambda: dict(_DEFAULT_CATALOG)
     )
+    restorative: bool = False
 
     @staticmethod
     def urgency_for(severity: float) -> str:
@@ -174,11 +201,17 @@ class ResponsePolicy:
 
         if disposition is Disposition.ACT:
             requires_human = urgency in _HUMAN_URGENCIES
-            action = (
-                ResponseAction.ESCALATE_TO_HUMAN
-                if requires_human
-                else ResponseAction.RECOMMEND_MITIGATION
-            )
+            if requires_human:
+                action = ResponseAction.ESCALATE_TO_HUMAN
+            elif self.restorative:
+                action = ResponseAction.RECOMMEND_CONVERSION
+            else:
+                action = ResponseAction.RECOMMEND_MITIGATION
+            if self.restorative:
+                dom = domain or "general"
+                steps = steps + tuple(
+                    step.format(domain=dom) for step in _RESTORATIVE_ACT_CATALOG
+                )
             return ResponsePlan(
                 action=action,
                 urgency=urgency,
@@ -188,7 +221,11 @@ class ResponsePolicy:
                 countermeasures=steps,
                 rationale=(
                     f"Grounded anomaly ({urgency}): notify and recommend "
-                    "reversible countermeasures"
+                    + (
+                        "restorative, non-violent conversion steps"
+                        if self.restorative
+                        else "reversible countermeasures"
+                    )
                     + (", human approval required." if requires_human else ".")
                 ),
             )

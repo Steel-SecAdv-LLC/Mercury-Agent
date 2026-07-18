@@ -48,6 +48,16 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Hard ethical floor — callers cannot configure the benevolence threshold
 # below this value, regardless of domain or operational mode.
+#
+# HARD vs SOFT benevolence gates (disambiguation):
+# * This module implements the HARD gate: ``BenevolenceScorer.enforce``
+#   (threshold 0.99, floored here at 0.70) is the mandatory decision-boundary
+#   gate and raises ``EthicalConstraintViolationError``.
+# * ``core.centralized_constants.sigmoid_benevolence_gate`` is the SOFT
+#   weighting η(b): a smooth multiplier used inside score fusion
+#   (``core/three_r/fusion.py``) so the fused score has no threshold
+#   discontinuity.  It is advisory weighting only and never substitutes for
+#   the hard gate.  Enforcement semantics are unchanged by this note.
 # ---------------------------------------------------------------------------
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
@@ -2024,10 +2034,13 @@ class ValuePreserver:
 
 
 class BenevolenceScorer:
-    """Main benevolence scoring engine.
+    """Main benevolence scoring engine — the HARD decision-boundary gate.
 
     Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
-    unified score.
+    unified score.  :meth:`enforce` is the mandatory hard gate (threshold
+    0.99, floored at ``MINIMUM_BENEVOLENCE_FLOOR``); the smooth
+    ``sigmoid_benevolence_gate`` in ``core.centralized_constants`` is a
+    separate SOFT fusion-weighting term and never replaces this gate.
     """
 
     BENEVOLENCE_THRESHOLD = 0.99

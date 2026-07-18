@@ -431,6 +431,10 @@ class TestDetectionRoutes:
         )
         assert 0.0 <= float(result["anomaly_prob"]) <= 1.0
         assert "sigma_immutable_score" in result["gosnn_metadata"]
+        # Deployment posture: the served flagship engine has the decision
+        # layer enabled, so the result closes the loop with a decision record.
+        assert result["decision"]["disposition"] in {"act", "clear", "defer", "hold"}
+        assert result["decision"]["response"]["action"] is not None
 
     def test_flagship_detection_bad_shape(self, client: Any) -> None:
         """A 1-D series is rejected by the 2-D matrix contract (422)."""

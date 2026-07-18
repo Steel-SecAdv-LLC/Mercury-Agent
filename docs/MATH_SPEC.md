@@ -159,13 +159,13 @@ $$
 monotonically increasing with $\eta(b_0) = 0.5$.
 
 **Overflow protection:** The exponent is clamped to $[-500, 500]$ before
-evaluation (line 246).
+evaluation (line 283).
 
 **Provenance:** Logistic function (Verhulst, 1845). Domain parameters are design
 choices. **UNJUSTIFIED:** Domain-specific $b_0$ and $k$ values require empirical
 calibration data.
 
-**Implementation:** `core/centralized_constants.py`, function `sigmoid_benevolence_gate()`, lines 213--248.
+**Implementation:** `core/centralized_constants.py`, function `sigmoid_benevolence_gate()`, lines 247--285.
 
 #### 2.1.4 OAE Output Range
 

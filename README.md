@@ -580,9 +580,13 @@ Optimized for both accuracy and interpretability:
 ### Decision / Abstention / Response Layer (autonomous loop)
 
 Closes the loop from *interpret* to *deter* on top of the calibrated detection
-certificate, with an explicit, principled **"don't-know" gate**. Opt-in via
-`engine.enable_decision_layer()`; every `detect_with_fusion` result then carries
-a `decision` section.
+certificate, with an explicit, principled **"don't-know" gate**. On the core
+engine it is opt-in via `engine.enable_decision_layer()`; the served deploy
+entrypoints — the `/api/v1/detect/flagship` HTTP route, the MCP
+`mercury_detect_fusion` tool, and `mercury-agent detect -d fusion` — enable it
+by default, so every served flagship detection carries a `decision` section
+(additive key; library consumers constructing `OmniMercuryEngine` directly are
+unchanged).
 
 - **Calibration-grounded abstention** — reuses the engine-wide `ThreeState`
   contract: the conformal label set is authoritative (singleton → **GROUNDED**;
@@ -590,9 +594,13 @@ a `decision` section.
   *fail-closed* hold). Neuro-symbolic disagreement, drift, or an ethical-gate
   refusal can only move a verdict toward abstention.
 - **Bounded, non-destructive response** — `monitor` / `alert` /
-  `recommend_mitigation` / `escalate_to_human` / `request_input` / `hold`. The
-  loop recommends and escalates; it never autonomously executes a destructive
-  action (a test invariant enforces this).
+  `recommend_mitigation` / `recommend_conversion` / `recommend_restoration` /
+  `escalate_to_human` / `request_input` / `hold`. The loop recommends and
+  escalates; it never autonomously executes a destructive action (a test
+  invariant enforces this). The restorative *convert* verbs
+  (`ResponsePolicy(restorative=True)`, opt-in) recommend non-violent
+  convert-to-benign / restore-to-pre-harm paths and are recommend-only by
+  construction.
 - **Auditable & verifiable** — a deterministic, JSON-safe `DecisionRecord` with
   the calibrated confidence, reasons, caveats and full evidence provenance, plus
   a one-paragraph `explain()` (and a `from_dict` inverse for reload). An
@@ -628,7 +636,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Hybrid Fusion Network | **Complete** | Multi-head attention, ensemble averaging |
-| Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; opt-in via `enable_decision_layer()` |
+| Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; enabled by default on the served entrypoints (API `/detect/flagship`, MCP, CLI fusion), opt-in on the core engine via `enable_decision_layer()` |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
 | JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v3.3.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |

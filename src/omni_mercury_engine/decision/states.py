@@ -75,6 +75,12 @@ class ResponseAction(Enum):
     (``flag_anomaly`` / ``escalate`` / ``investigate`` / ``log``), so a
     :class:`~omni_mercury_engine.decision.record.DecisionRecord` can drive the
     reinforcement-learning agent without a second vocabulary.
+
+    Distinct from
+    :class:`omni_mercury_engine.security.threat_detection.BanishmentAction`,
+    which triages the *validity of a threat report* (banish / void /
+    maintain / escalate) rather than planning a response; the two enums
+    deliberately share no wire values and must not be folded together.
     """
 
     #: Passive observation only -- the grounded-normal stance.
@@ -93,6 +99,21 @@ class ResponseAction(Enum):
     #: Ask for the missing signal (more samples, recalibration, a label) that
     #: would turn a resolvable abstention into a decision.
     REQUEST_INPUT = "request_input"
+
+    #: Recommend a restorative, non-violent *conversion* path: steps that
+    #: turn the threat's source benign (patch and re-admit a compromised
+    #: asset, remediate and reintegrate a misconfigured component, offer a
+    #: corrective/off-ramp path to a human actor) instead of purely
+    #: containing it.  Recommend-only — never auto-authorised, never
+    #: destructive, always subject to the same human-approval banding as
+    #: :attr:`RECOMMEND_MITIGATION`.
+    RECOMMEND_CONVERSION = "recommend_conversion"
+
+    #: Recommend restoring what the anomaly affected to its pre-harm state
+    #: (restore from verified backups, re-validate integrity, reinstate
+    #: suspended access once clean).  Recommend-only and reversible; never
+    #: auto-applied.
+    RECOMMEND_RESTORATION = "recommend_restoration"
 
     #: Fail-closed refusal: take no autonomous action and route to a human.
     HOLD = "hold"

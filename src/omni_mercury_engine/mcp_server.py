@@ -147,6 +147,10 @@ class MercuryMCPServer:
 
             engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
             engine.load_default_fusion_checkpoint()
+            # Deployment posture (mirrors the /detect/flagship HTTP route):
+            # the served engine closes the loop, so every flagship detection
+            # carries a ``decision`` record surfaced in the tool output.
+            engine.enable_decision_layer()
             self._engine = engine
         return self._engine
 
@@ -725,6 +729,7 @@ class MercuryMCPServer:
                     ),
                     "backend": gosnn.get("sigma_immutable_backend"),
                 },
+                "decision": result.get("decision"),
                 "mode": result.get("mode", "fusion"),
                 "note": "flagship neuro-symbolic fusion (trained checkpoint + GOSNN + sigma_Immutable)",
             }

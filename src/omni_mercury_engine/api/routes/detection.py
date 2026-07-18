@@ -65,6 +65,14 @@ def _run_flagship_detection(
 
             engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
             engine.load_default_fusion_checkpoint()
+            # Deployment posture: the served flagship closes the loop --
+            # every detection carries a ``decision`` record (grounded verdict
+            # or explicit abstention plus a bounded, non-destructive response
+            # plan). Additive only: this endpoint returns the raw result
+            # dict, so existing consumers see one extra key. The core
+            # engine's own default stays opt-in
+            # (``OmniMercuryEngine.enable_decision_layer``).
+            engine.enable_decision_layer()
             _flagship_engine = engine
         result: dict[str, Any] = _flagship_engine.detect_with_fusion(
             matrix,

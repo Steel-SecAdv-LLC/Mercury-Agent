@@ -423,6 +423,13 @@ class TestDetectionInterconnectTools:
         payload = json.loads(result["content"][0]["text"])
         assert 0.0 <= float(payload["anomaly_prob"]) <= 1.0
         assert "ethical_gate" in payload
+        # Deployment posture: the served MCP engine has the decision layer
+        # enabled, so every flagship detection carries a decision record
+        # (grounded verdict or explicit abstention + bounded response).
+        decision = payload["decision"]
+        assert decision is not None
+        assert decision["disposition"] in {"act", "clear", "defer", "hold"}
+        assert decision["response"]["action"] is not None
 
 
 class TestStdioLoop:

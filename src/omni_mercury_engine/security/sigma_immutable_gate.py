@@ -39,12 +39,20 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     MINIMUM_BENEVOLENCE_FLOOR,
     EthicalConstraintViolationError,
 )
+from omni_mercury_engine.core.centralized_constants import ETHICAL
 
 logger = logging.getLogger(__name__)
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SIGMA_IMMUTABLE_INPUT_DIM: int = 256
-SIGMA_IMMUTABLE_DEFAULT_THRESHOLD: float = 0.93
+
+#: Trained-network decision threshold (0.93).  Single authoritative source:
+#: :data:`omni_mercury_engine.core.centralized_constants.EthicalConstants.SIGMA_IMMUTABLE_TRAINED_THRESHOLD`
+#: — the ethical-band lower bound of the ``scripts/train_sigma_immutable.py``
+#: labelling rule.  Deliberately distinct from the stricter GOSNN gating
+#: default ``ETHICAL.SIGMA_IMMUTABLE_DEFAULT`` (0.96); see the NOTE in
+#: ``EthicalConstants`` for the two-threshold design.
+SIGMA_IMMUTABLE_DEFAULT_THRESHOLD: float = ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD
 
 # ---------------------------------------------------------------------------
 # σ_Immutable layout constants — single source of truth.
@@ -446,9 +454,12 @@ class SigmaImmutableGate:
         """Construct the gate; reuses the trained ``EthicalGate``.
 
         Args:
-            threshold: Decision threshold (default 0.93, matching
-                ``GOSNN`` defaults).  Lower values are clamped to 0.0,
-                higher values to 1.0.
+            threshold: Decision threshold (default 0.93 —
+                ``ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD``, the trained
+                network's calibrated decision threshold; deliberately
+                distinct from the stricter GOSNN gating default
+                ``ETHICAL.SIGMA_IMMUTABLE_DEFAULT`` = 0.96).  Lower values
+                are clamped to 0.0, higher values to 1.0.
             verify_corpus: Whether to verify the signed corpus on
                 construction.  Disabled only by tests that exercise the
                 no-corpus failure path explicitly; production callers

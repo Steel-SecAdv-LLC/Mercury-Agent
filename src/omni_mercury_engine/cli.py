@@ -97,10 +97,18 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
                 "(run `mercury-agent train` or scripts/train_default_fusion.py).",
                 err=True,
             )
+        # Deployment posture (mirrors /detect/flagship and the MCP server):
+        # served fusion detections close the loop with a ``decision`` record.
+        # Additive key in the JSON output; the core engine default stays
+        # opt-in.
+        engine.enable_decision_layer()
         results = engine.detect_with_fusion(data)
         if threshold is not None and "anomaly_prob" in results:
             # Honour the operator's explicit decision boundary over the model's
             # adaptive threshold (previously the flag was accepted and ignored).
+            # NOTE: the ``decision`` record is computed against the engine's
+            # own calibrated threshold, not this override -- is_anomaly may
+            # therefore differ from the record's disposition by design.
             results["is_anomaly"] = bool(float(results["anomaly_prob"]) >= threshold)
             results["threshold_used"] = float(threshold)
             results["threshold_source"] = "cli_override"

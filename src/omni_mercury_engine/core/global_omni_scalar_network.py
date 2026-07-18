@@ -182,7 +182,11 @@ class EthicalGate:
 
     _WEIGHTS_RELPATH = "security/sigma_immutable_weights.pt"
 
-    def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
+    def __init__(
+        self,
+        input_dim: int = 256,
+        threshold: float = ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD,
+    ) -> None:
         """Initialize the instance."""
         self.threshold = threshold
         self.input_dim = input_dim
@@ -701,8 +705,10 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     if env_threshold:
         try:
             threshold = float(env_threshold)
-            # Clamp to valid range with hard minimum of 0.93
-            return max(0.93, min(0.99, threshold))
+            # Clamp to valid range; the hard minimum is the trained
+            # network's calibrated decision threshold (authoritative
+            # source: ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD = 0.93).
+            return max(ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD, min(0.99, threshold))
         except ValueError:
             # Invalid threshold value in environment; use default
             pass
@@ -753,8 +759,10 @@ class GlobalOmniScalarNetwork:
 
     # Class constants
     PHI = PHI  # Use module-level constant
-    SIGMA_IMMUTABLE_DEFAULT = 0.96
-    SIGMA_IMMUTABLE_MEDICAL = 0.93
+    # Cite the single authoritative source (centralized_constants.ETHICAL)
+    # instead of re-hardcoding the values here.
+    SIGMA_IMMUTABLE_DEFAULT = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
+    SIGMA_IMMUTABLE_MEDICAL = ETHICAL.SIGMA_IMMUTABLE_MEDICAL
     MIN_EMPATHY = 1.22
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60

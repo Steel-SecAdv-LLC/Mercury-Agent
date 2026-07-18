@@ -8,9 +8,10 @@ Implements Phase 6 of the mathematical audit specification:
   fusion -> ethical gating -> output).
 - Normalization handoff verification: validates that score ranges are
   compatible at every boundary between pipeline stages.
-- Lyapunov runtime enforcement: runtime guard that ensures
-  V_dot <= -lambda * V at every fusion step, halting the pipeline
-  if stability is violated.
+- Lyapunov runtime monitoring: runtime guard that checks
+  V_dot <= -lambda * V at every fusion step.  By default violations are
+  logged and recorded (``is_stable`` / ``violations``); the guard halts
+  the pipeline only when constructed with ``halt_on_violation=True``.
 
 Reference: Khalil (2002) "Nonlinear Systems", Chapter 4 (Lyapunov Stability).
 """
@@ -255,10 +256,12 @@ class LyapunovRuntimeEnforcer:
 
     At every fusion step the caller feeds the current Lyapunov function
     value V(t).  The enforcer checks that the discrete approximation of
-    V_dot satisfies the stability condition.  Violations are logged and
-    can optionally halt the pipeline.
+    V_dot satisfies the stability condition.  By default
+    (``halt_on_violation=False``) violations are logged and recorded --
+    monitoring, not a hard guarantee; pass ``halt_on_violation=True`` to
+    make a violation halt the pipeline.
 
-    The theoretical guarantee is:
+    The monitored decay-schedule target (not an a-priori guarantee) is:
         V(S_t) <= epsilon * exp(-lambda * t)
 
     where lambda = LYAPUNOV.LAMBDA_CONVERGENCE and epsilon =
