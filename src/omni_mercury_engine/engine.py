@@ -4772,10 +4772,24 @@ class OmniMercuryEngine(LoggerMixin):
         #
         # σ_Immutable is now trained (scripts/train_sigma_immutable.py)
         # and serves as a second independent gate alongside the
-        # BenevolenceScorer.  The primary contract remains
-        # BenevolenceScorer.enforce (keyword- and context-driven,
-        # deterministic) — σ_Immutable provides a learned check on the
-        # full 256-dimensional scalar vector via GOSNN.
+        # BenevolenceScorer.  The primary, per-call, content-driven ethical
+        # contract is BenevolenceScorer.enforce (keyword- and context-driven,
+        # deterministic) — enforced here, before the GOSNN block.
+        #
+        # σ_Immutable is NOT a per-input-data classifier: it evaluates the
+        # 127 operational governance scalars (padded to the network's 256-d
+        # input), and those are a property of the system's *configuration*,
+        # not of the row being detected.  Measured (2026-07-17) across
+        # normal+anomalous inputs and four domains: all 127 operational
+        # scalars are bit-constant and the surfaced sigma_immutable_score is
+        # the exact constant 0.972732842 on every call.  So σ_Immutable is a
+        # config-integrity / tamper check — it reads "intact" constantly on
+        # normal operation and only moves if a critical ethical scalar is
+        # corrupted (e.g. an anchor zeroed).  The AUTHORITATIVE catch for
+        # that case is the deterministic critical-ethical floor below
+        # (enforce_ethical_floor); the learned score over the full vector is
+        # advisory.  Per-call ethical sensitivity lives in BenevolenceScorer,
+        # not here.
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 
