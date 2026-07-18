@@ -153,7 +153,7 @@ The claim is **operational, not just architectural**: the production fusion trai
 <details>
 <summary><strong>7-Phase Neuro-Symbolic Evolution</strong></summary>
 
-Mercury Agent implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
+Mercury Agent implements a 7-phase cognitive architecture that progressively builds from basic neural memory to curiosity-driven exploration. Each phase names a real, CI-gated module in `src/omni_mercury_engine/cognitive/` (the "Neuro-Symbolic Tests" required check enforces them):
 
 | Phase | Component | Description | Key Features |
 |-------|-----------|-------------|--------------|
@@ -163,7 +163,14 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
 | **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, Mercury/AMA Disconnect |
 | **Phase 6** | Ethical Bounding | Benevolence scoring (>=0.99) | Harm reduction, equity calculation (Gini), empathy module |
-| **Phase 7** | Cognitive Evolution Engine | Recursive self-improvement | Self-play simulation, genetic rule mutation, theory-of-mind |
+| **Phase 7** | Cognitive Evolution Engine | Curiosity-driven exploration | `CuriosityEngine`: measured novelty scoring (online diagonal-Mahalanobis distance) of detected anomalies, wired into the `CognitiveOrchestrator`. The earlier self-play / genetic-mutation / theory-of-mind internals were measured decorative and removed. |
+
+The seven phases are the historical evolution spine, not the whole cognitive
+layer: `cognitive/` has since grown to 23 modules, integrated at runtime by the
+`CognitiveOrchestrator` (knowledge graph, multi-hop reasoner, and uncertainty
+quantifier always on; plasticity, causal discovery, IPB, case-based reasoning,
+and indicator development on by default; curiosity and enhanced detection
+opt-in — see `cognitive/__init__.py`).
 
 </details>
 

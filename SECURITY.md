@@ -369,6 +369,8 @@ Mercury Agent's security analysis is automated and self-assessed:
 
 Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 
+**Scheduled external review**: an independent third-party security review (covering Mercury Agent and the AMA Cryptography native backend) is planned as a pre-1.0-production milestone. Until that review completes and its findings are published here, the posture above stands — treat every release as self-assessed only. This section will be updated with the reviewer, scope, and report reference when the engagement is scheduled.
+
 ## Compliance
 
 Mercury Agent is designed with compliance in mind:
@@ -407,6 +409,24 @@ advisory mode. The reserved `check=` codes are `"benevolence"`,
 `"sigma_immutable"`, and `"gosnn_unavailable"`. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
 Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+
+**σ_Immutable artifact dependency (fail-closed).** The σ_Immutable gate
+depends on three artifacts shipped inside the package
+(`[tool.setuptools.package-data]`): the trained network weights
+(`security/sigma_immutable_weights.pt`), the labelled training corpus
+(`security/sigma_immutable_corpus.json`), and its detached
+Ed25519 + ML-DSA-65 signatures (`security/sigma_immutable_corpus.sig.json`),
+verified on first gate construction. If the weights are missing or torch is
+unavailable, every gated boundary raises `check="gosnn_unavailable"`; if the
+corpus is missing, tampered, or its signatures do not verify, every gated
+boundary raises `check="sigma_immutable"` — there is no advisory fallback in
+either case. Regenerate the artifacts with
+`python scripts/train_sigma_immutable.py` (which re-signs the corpus).
+Independent of these artifacts, the deterministic critical-ethical floor
+(`SigmaImmutableGate.enforce_ethical_floor`) remains the authoritative
+gate — the learned score is advisory (synthetic-trained; see
+`docs/DORMANCY_LEDGER.md`), and shipping the artifacts does not weaken the
+fail-closed contract or the floor's authority.
 
 ### Production-mode primitive (`MERCURY_ENV`)
 
