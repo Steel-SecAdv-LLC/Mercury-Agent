@@ -39,6 +39,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declare it with ``is_matrix_profile=True`` (the in-repo caller already
   does). Noted in the method docstring.
 
+### GOSNN role resolved: one scalar snapshot for both gates; observability audited (PR #339)
+
+- **The σ_Immutable path no longer collects the scalar vector twice per
+  detect call.** ``detect_with_fusion`` used to walk the 127-scalar
+  operational registry once for GOSNN's advisory ethical gate (inside
+  ``get_enhanced_scalars``) and again for the authoritative σ_Immutable
+  gate — two independent snapshots that a concurrent registration could
+  make diverge. The enhancement now carries the exact snapshot it scored
+  (``EnhancementResult.collected_scalars``) and the authoritative gate
+  reuses it: one registry walk instead of two (~0.3 ms/call), and the
+  advisory and authoritative gates provably evaluate the identical
+  vector. The σ_Immutable score and verdict are bit-identical (pinned by
+  ``tests/core/test_gosnn_scalar_snapshot_reuse.py``).
+- **GOSNN observability audited and kept (not theatre).** Measured on 120
+  real detect calls, the surfaced ``enhancement_fusion_score`` (AUC-vs-
+  label 0.878) and ``intelligence_contribution`` (0.836) genuinely track
+  anomalousness and are only weakly correlated with ``anomaly_prob``, so —
+  unlike the retired ``harmonic_synergy`` dead constant — they remain
+  surfaced. The ledger records the honest caveat that this signal is
+  member-0-derived (detector scores), hence informative but not
+  independent of the engine's own fusion, and correctly never routed into
+  a decision.
+
 ### GOSNN fusion: consequential decision channel + labelled-outcome training (PR #339)
 
 - **`MultiHeadAttentionFusion` train/serve stacks unified.** The

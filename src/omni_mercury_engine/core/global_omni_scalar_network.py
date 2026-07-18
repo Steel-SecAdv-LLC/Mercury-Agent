@@ -143,6 +143,16 @@ class EnhancementResult:
     merit-gated use for the full vector (the GOSNN detection head feeding
     the decision layer's disagreement overlay) do not have to re-run the
     fusion; ``None`` when the enhancement ran without a fusion pass.
+
+    ``collected_scalars`` is the exact operational-scalar snapshot this
+    enhancement evaluated its (advisory) ethical gate against.  It is
+    carried so the caller's authoritative σ_Immutable gate reuses the
+    *identical* snapshot instead of taking a second, independent collection
+    -- both a per-call efficiency saving (one 127-scalar registry walk
+    under lock instead of two) and a signal-integrity guarantee: the
+    advisory and authoritative gates can never evaluate divergent vectors
+    (a latent race when they collected separately).  ``None`` when the
+    enhancement ran without collecting.
     """
 
     enhanced_scalars: dict[str, float]
@@ -151,6 +161,7 @@ class EnhancementResult:
     intelligence_contribution: float
     warnings: list[str] = field(default_factory=list)
     fused_state: np.ndarray[Any, Any] | None = None
+    collected_scalars: dict[str, float] | None = None
 
 
 class EthicalGate:
@@ -1719,6 +1730,7 @@ class GlobalOmniScalarNetwork:
             intelligence_contribution=intelligence_contribution,
             warnings=warnings,
             fused_state=np.asarray(fused_state, dtype=np.float64),
+            collected_scalars=all_scalars,
         )
 
     def fuse_37d_scalars(

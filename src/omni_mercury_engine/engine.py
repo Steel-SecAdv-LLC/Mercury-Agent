@@ -4869,10 +4869,21 @@ class OmniMercuryEngine(LoggerMixin):
                     context={"domain": domain, "data_shape": getattr(data, "shape", None)},
                 )
 
-                # Hard σ_Immutable enforcement — evaluate against the
-                # exact same scalar vector GOSNN scored, so the engine
-                # boundary's verdict matches the gate baked into GOSNN.
-                full_scalars = gosnn._collect_all_scalars()
+                # Hard σ_Immutable enforcement — evaluate against the EXACT
+                # scalar snapshot GOSNN's advisory gate already scored inside
+                # get_enhanced_scalars, reusing it rather than taking a second
+                # independent collection. This removes one 127-scalar registry
+                # walk per detect call AND closes a latent signal-integrity
+                # gap: two separate collections could diverge under a
+                # concurrent registration, leaving the advisory and the
+                # authoritative gate evaluating different vectors. Falls back
+                # to a fresh collection only if the enhancement did not carry
+                # a snapshot (defensive; get_enhanced_scalars always does).
+                full_scalars = (
+                    enhancement_result.collected_scalars
+                    if enhancement_result.collected_scalars is not None
+                    else gosnn._collect_all_scalars()
+                )
                 scalar_vector = np.array(list(full_scalars.values()), dtype=np.float64)
                 # Deterministic critical-ethical floor, composed *before*
                 # the trained network.  The synthetic-trained gate, on its
