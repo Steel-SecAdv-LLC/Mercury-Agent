@@ -137,7 +137,7 @@ ml = [
     # ``datasets/mitbih.py`` (lines 105/109): an unpinned/older mypy reports
     # the two ``# type: ignore`` comments as ``unused-ignore`` while the
     # pinned 2.1.0 needs them.  Bump all three sites together.
-    "mypy==2.1.0",
+    "mypy==2.3.0",
     "types-requests==2.33.0.20260518",
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
@@ -373,7 +373,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
-    "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",
     "pre-commit>=3.5.0",
