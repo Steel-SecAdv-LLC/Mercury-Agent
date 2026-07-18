@@ -522,6 +522,7 @@ class LandslideDetector:
         enable_ml_ensemble: bool = True,
         enable_recursion: bool = True,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -536,6 +537,12 @@ class LandslideDetector:
                 the argmax previously discarded (see
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Default False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated ``landslide_coolr``
+                checkpoint at construction (default), so a default-constructed
+                detector serves the ratified winner. Pass False for the pure
+                geotechnical-physics configuration (the honesty-contract tests).
+                Absence of the checkpoint falls open to physics; an invalid
+                checkpoint still fails loud.
         """
         self.enable_rainfall = enable_rainfall_trigger
         self.enable_seismic = enable_seismic_trigger
@@ -578,6 +585,20 @@ class LandslideDetector:
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
+
+        # The landslide_coolr checkpoint cleared the hazard merit gate on real
+        # held-out data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the disclosed
+        # geotechnical physics; a present-but-invalid checkpoint still fails
+        # loud inside load_neural_weights (sha256/operating-point validation).
+        if load_shipped_weights and self.stability_model is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'landslide_coolr' checkpoint available; assessing "
+                    "slope stability from geotechnical physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the slope-stability model.
@@ -729,14 +750,40 @@ class LandslideDetector:
 
         neural_path_used = False
         if self.enable_stability:
-            if self._neural_trained and "slope_features" in landslide_data:
-                stability_result = self._assess_slope_stability(landslide_data["slope_features"])
+            model = self.stability_model
+            slope_features = landslide_data.get("slope_features")
+            use_neural = False
+            feats = np.empty(0)
+            if self._neural_trained and model is not None and slope_features is not None:
+                # The trained model consumes the landslide-coolr-v1 64-feature
+                # vector; an off-contract slope_features (wrong width) routes to
+                # the geotechnical physics instead of crashing the encoder
+                # (mirrors the volcanic/tornado/wildfire input-contract guards).
+                feats = np.asarray(slope_features)
+                # A caller may hand the vector already batched as (1, W);
+                # accept that as the single-sample (W,) vector. Anything that
+                # is not a 1-D width-W vector after that -- a genuine N>1
+                # batch, (1, 1, W), a mis-shaped array -- falls to physics
+                # instead of feeding a wrong-rank tensor into the encoder's
+                # BatchNorm1d (the previous ``ndim >= 1`` guard admitted every
+                # rank with a matching last axis and crashed there; mirrors
+                # solar_storm_detector's geomag guard).
+                if feats.ndim == 2 and feats.shape[0] == 1:
+                    feats = feats.reshape(-1)
+                expected = model.feature_encoder[0].in_features
+                use_neural = feats.ndim == 1 and feats.shape[-1] == expected
+            if use_neural:
+                stability_result = self._assess_slope_stability(feats)
                 neural_path_used = True
             else:
                 # Physics path: works from the real geotechnical fields, so it
                 # runs even without an opaque slope_features vector (previously
-                # landslide_imminent could NEVER fire without one).
-                self._warn_untrained_once()
+                # landslide_imminent could NEVER fire without one). Only warn
+                # about an untrained network when the detector actually is
+                # untrained -- a trained detector on an off-contract/absent
+                # vector is a deliberate physics fall-through, not a warning.
+                if not self._neural_trained:
+                    self._warn_untrained_once()
                 stability_result = self._assess_slope_stability_physics(result)
             result.slope_failure_probability = stability_result["failure_probability"]
             result.landslide_type = stability_result["landslide_type"]

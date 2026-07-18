@@ -30,8 +30,11 @@ def _unrest(vertical_cm: float, so2: float, co2: float, radiant_mw: float) -> di
 
 
 class TestVolcanicHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert VolcanicEruptionDetector()._neural_trained is False
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert VolcanicEruptionDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert VolcanicEruptionDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_forecast_is_deterministic_no_rng(self) -> None:
         """Identical input → byte-identical forecast (proves no RNG in the path)."""

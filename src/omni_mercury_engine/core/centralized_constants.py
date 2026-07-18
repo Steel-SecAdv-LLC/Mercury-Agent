@@ -95,7 +95,29 @@ class EthicalConstants:
     # Sigma Immutable - Default ethical compliance threshold
     # Origin: global_omni_scalar_network.py, three_r/types.py
     # Purpose: Minimum ethical score for system operations
+    #
+    # NOTE - two distinct sigma_Immutable thresholds exist BY DESIGN, and
+    # this class is the single authoritative source for both:
+    #   * SIGMA_IMMUTABLE_DEFAULT (0.96) - the GOSNN gating default used by
+    #     get_sigma_immutable_threshold() for domain-tuned ethical gating
+    #     (stricter; ~10-15% false-positive reduction).
+    #   * SIGMA_IMMUTABLE_TRAINED_THRESHOLD (0.93) - the trained
+    #     sigma_Immutable network's calibrated decision threshold: the
+    #     ethical-band lower bound of the training labelling rule in
+    #     scripts/train_sigma_immutable.py.  Used by SigmaImmutableGate /
+    #     EthicalGate defaults and by the deterministic
+    #     CRITICAL_ETHICAL_FLOOR derived from it.
+    # They are not a drift bug; 0.93 is what the network was trained
+    # against, 0.96 is the stricter operational gating point layered on
+    # top.  README "Mathematical Rigor" documents both.
     SIGMA_IMMUTABLE_DEFAULT: float = 0.96
+
+    # Sigma Immutable - Trained-network decision threshold (see NOTE above).
+    # Origin: scripts/train_sigma_immutable.py ethical-band lower bound.
+    # Numerically equal to SIGMA_IMMUTABLE_MEDICAL but semantically distinct:
+    # changing the medical calibration must not silently move the trained
+    # network's decision threshold, so the two are declared separately.
+    SIGMA_IMMUTABLE_TRAINED_THRESHOLD: float = 0.93
 
     # Sigma Immutable - Medical domain (lower for medical urgency)
     # Origin: Domain-specific calibration
@@ -152,16 +174,28 @@ class EthicalConstants:
 ETHICAL = EthicalConstants()
 
 # ==============================================================================
-# SIGMOID BENEVOLENCE GATE (Phase 3 — replaces hard threshold)
+# SOFT SIGMOID BENEVOLENCE WEIGHTING (Phase 3)
+#
+# Disambiguation — Mercury has TWO benevolence mechanisms and they are NOT
+# interchangeable:
+#   * HARD gate: ``BenevolenceScorer.enforce`` (cognitive/ethical_bounding.py)
+#     — the mandatory decision-boundary gate (threshold 0.99, configurable no
+#     lower than the 0.70 MINIMUM_BENEVOLENCE_FLOOR); raises
+#     EthicalConstraintViolationError.  It is NOT replaced by anything here.
+#   * SOFT weighting: ``sigmoid_benevolence_gate`` below — a smooth η(b)
+#     multiplier used inside score fusion (core/three_r/fusion.py) where a
+#     hard step would create a discontinuity in the fused score.  Advisory
+#     weighting only; it cannot approve or veto an action.
 # ==============================================================================
 
 
 @dataclass(frozen=True)
 class BenevolenceDomainProfile:
-    """Sigmoid benevolence gate parameters for a specific domain.
+    """Soft sigmoid benevolence weighting parameters for a specific domain.
 
-    The sigmoid gate replaces the hard benevolence threshold (≥ 0.99) with
-    a smooth penalty curve:
+    Inside score *fusion*, the smooth sigmoid curve is used instead of the
+    hard benevolence threshold (≥ 0.99), which remains enforced separately
+    at every decision boundary by ``BenevolenceScorer.enforce``:
 
         η(b) = 1 / (1 + exp(-k · (b - b₀)))
 
@@ -214,9 +248,12 @@ def sigmoid_benevolence_gate(
     benevolence_score: float,
     domain: str = "default",
 ) -> float:
-    """Compute sigmoid benevolence gate value.
+    """Compute the SOFT sigmoid benevolence weighting value.
 
-    Replaces the hard threshold (≥ 0.99) with a smooth sigmoid curve:
+    Smooth fusion-weighting term (see the disambiguation note above): within
+    score fusion it substitutes a smooth sigmoid curve for the hard
+    threshold (≥ 0.99), which stays enforced at every decision boundary by
+    ``BenevolenceScorer.enforce``:
         η(b) = 1 / (1 + exp(-k · (b - b₀)))
 
     Args:

@@ -633,6 +633,22 @@ class DisasterPrecursorDetector:
             raise RuntimeError("Earthquake analyzer not initialized")
 
         vec = np.asarray(features, dtype=np.float32)
+        # Input contract (solar geomag guard pattern): accept an
+        # already-batched (1, W) vector as the single sample (W,); anything
+        # else that is not a 1-D vector of the analyzer's trained width fails
+        # loud here instead of crashing the BatchNorm1d stack (or silently
+        # mis-broadcasting the standardization) below. No physics fallback
+        # exists at this private boundary -- the caller supplied an
+        # off-contract seismicity-catalog-v2 vector.
+        if vec.ndim == 2 and vec.shape[0] == 1:
+            vec = vec.reshape(-1)
+        expected = self.earthquake_analyzer.em_feature_extractor[0].in_features
+        if vec.ndim != 1 or vec.shape[-1] != expected:
+            raise ValueError(
+                "_predict_earthquake expects a seismicity-catalog-v2 feature "
+                f"vector shaped ({expected},) (or (1, {expected})); got shape "
+                f"{np.asarray(features).shape}"
+            )
         if self._feature_mean is not None and self._feature_std is not None:
             vec = (vec - self._feature_mean) / self._feature_std
         features_tensor = torch.tensor(vec, dtype=torch.float32).unsqueeze(0)

@@ -1,0 +1,138 @@
+{
+  "baselines": {
+    "engine_anomaly_prob": {
+      "role": "the verdict a disagreement head would second-guess -- the decisive baseline; a head that separates worse than this cannot help",
+      "test_auc": 0.9607748294122843,
+      "test_auc_per_dataset": {
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9926470588235294,
+        "4b88d3115dd04730": 1.0,
+        "56e4926f0f53893e": 1.0,
+        "836f99fa0f08f98f": 0.9428571428571428,
+        "93fd194197e64985": 1.0,
+        "94d1278aa86acde5": 0.8545454545454545,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.935374149659864
+      }
+    },
+    "mean_detector_score": {
+      "test_auc": 0.8162652640143636,
+      "test_auc_per_dataset": {
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9779411764705882,
+        "4b88d3115dd04730": 0.9273504273504274,
+        "56e4926f0f53893e": 1.0,
+        "836f99fa0f08f98f": 0.8785714285714286,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.32727272727272727,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.6598639455782312
+      }
+    },
+    "phi_reference_head": {
+      "test_auc": 0.8454488288822023,
+      "test_auc_per_dataset": {
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9926470588235294,
+        "4b88d3115dd04730": 1.0,
+        "56e4926f0f53893e": 1.0,
+        "836f99fa0f08f98f": 0.8821428571428571,
+        "93fd194197e64985": 0.9619047619047619,
+        "94d1278aa86acde5": 0.41818181818181815,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.6632653061224489
+      }
+    }
+  },
+  "candidates": {
+    "detection": {
+      "fused_std": 0.1189545180116381,
+      "masked_recon_mse": 9.170526569242247,
+      "member_std": 1.6516779845922298,
+      "reference_recon_mse": 10.60856035214256,
+      "test_auc": 0.8007161605901102,
+      "test_auc_per_dataset": {
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9117647058823529,
+        "4b88d3115dd04730": 0.9615384615384616,
+        "56e4926f0f53893e": 0.5833333333333334,
+        "836f99fa0f08f98f": 0.8607142857142858,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.8090909090909091,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.5357142857142857
+      },
+      "test_auc_pooled": 0.7966666666666666,
+      "val_auc": 0.86208362655407
+    },
+    "detection_recon": {
+      "fused_std": 0.377947217784822,
+      "masked_recon_mse": 8.669608914935838,
+      "member_std": 1.6516779845922298,
+      "reference_recon_mse": 10.60856035214256,
+      "test_auc": 0.8007161605901102,
+      "test_auc_per_dataset": {
+        "198f96e254e5d1c7": null,
+        "21a3e0e8c20a8a0e": 0.9117647058823529,
+        "4b88d3115dd04730": 0.9615384615384616,
+        "56e4926f0f53893e": 0.5833333333333334,
+        "836f99fa0f08f98f": 0.8607142857142858,
+        "93fd194197e64985": 0.9428571428571428,
+        "94d1278aa86acde5": 0.8090909090909091,
+        "ce005eb73c825bd0": null,
+        "e21d9f11cf432ebc": 0.5357142857142857
+      },
+      "test_auc_pooled": 0.7966666666666666,
+      "val_auc": 0.86208362655407
+    }
+  },
+  "consequential": {
+    "reason": "measured no gain: learned test AUC 0.8007 does not beat the strongest baseline by the 0.02 margin (engine anomaly_prob 0.9608, phi-reference head 0.8454, mean detector score 0.8163). The engine's own fusion of the detector scores already dominates any re-weighting of them, so a disagreement head separating worse than the verdict it second-guesses would demote net-correct verdicts",
+    "shipped": false
+  },
+  "decision": "SHIPPED (observability-only) - consequential role REFUSED: measured no gain: learned test AUC 0.8007 does not beat the strongest baseline by the 0.02 margin (engine anomaly_prob 0.9608, phi-reference head 0.8454, mean detector score 0.8163). The engine's own fusion of the detector scores already dominates any re-weighting of them, so a disagreement head separating worse than the verdict it second-guesses would demote net-correct verdicts. The existing reconstruction-gated checkpoint keeps serving observability only; no detection head ships and the decision layer's GOSNN overlay stays structurally inert.",
+  "diagnostics": {
+    "linear_probe_detector_scores_auc": 0.8819484936831875,
+    "note": "linear probe on the raw padded detector-score member; diagnostic upper bound for simple re-weighting of the detector scores -- never a gate input"
+  },
+  "gate": {
+    "auc_margin": 0.02,
+    "bootstrap": {
+      "design": "dataset-stratified paired bootstrap of AUC_learned - max(AUC_engine_prob, AUC_phi_head, AUC_mean_score) on the test split; ship requires the 5th percentile > 0",
+      "replicates": 2000
+    },
+    "collapse_floor": 0.2,
+    "constraint": "held-out detection AUC (mean per-dataset) must beat the engine's OWN anomaly_prob (the verdict the overlay would second-guess) AND the phi-reference-fusion head AND the mean detector score by the margin with bootstrap support; fused std >= floor x member std; the demotion rule needs validation-viable thresholds and must fire on test, be enriched in wrong verdicts (enrichment > 1), and retain >= floor of correct verdicts",
+    "test_retention_floor": 0.9
+  },
+  "generated_utc": "2026-07-17T16:43:38.799064+00:00",
+  "harvest": {
+    "n_anomalies": 321,
+    "n_calls": 1469,
+    "n_unique_state_lists": 1422,
+    "pools": {
+      "test": {
+        "n": 224,
+        "n_anomalies": 50
+      },
+      "train": {
+        "n": 1025,
+        "n_anomalies": 220
+      },
+      "val": {
+        "n": 220,
+        "n_anomalies": 51
+      }
+    },
+    "quick": false,
+    "sampling": "label-stratified rows from the held-out TEST+VALIDATION splits (positives up to half each dataset's budget); AUC is prevalence-invariant over independent single-row calls, so stratification tightens variance without bias"
+  },
+  "seed": 20260717,
+  "selected_candidate": "detection",
+  "statistics": {
+    "delta_p05": -0.20097097516903187,
+    "delta_p50": -0.1488948753835972,
+    "delta_p95": -0.08532837839071548,
+    "replicates_used": 2000.0
+  }
+}

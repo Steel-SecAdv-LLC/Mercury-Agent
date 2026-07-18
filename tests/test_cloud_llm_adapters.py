@@ -70,13 +70,18 @@ class TestAdaptersConstructWithoutKey:
         assert adapter.is_available() is False
 
     def test_cursor_available_with_explicit_base_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Cursor becomes available when operator supplies base_url AND key."""
+        """Cursor becomes available when the operator supplies base_url, key, AND model.
+
+        Vendor-neutral policy: no adapter ships a default model, so an
+        explicit model_name is part of the minimum operable configuration.
+        """
         monkeypatch.setenv("CURSOR_API_KEY", "test-key")
         adapter = CursorAdapter(
             LLMConfig(
                 provider=LLMProvider.CURSOR,
                 api_key="test-key",
                 base_url="https://cursor.example.com/v1",
+                model_name="operator-chosen-model",
             )
         )
         assert adapter.is_available() is True
@@ -116,7 +121,11 @@ class TestAdaptersCallSafeHTTPClient:
 
     def test_cohere_calls_v2_chat(self) -> None:
         """Cohere targets ``/v2/chat`` with Cohere v2 response shape."""
-        adapter = CohereCloudAdapter(LLMConfig(provider=LLMProvider.COHERE, api_key="co-test"))
+        adapter = CohereCloudAdapter(
+            LLMConfig(
+                provider=LLMProvider.COHERE, api_key="co-test", model_name="operator-chosen-model"
+            )
+        )
         fake_response = {
             "message": {"content": [{"type": "text", "text": "from cohere"}]},
         }

@@ -345,11 +345,18 @@ class SolarFlareDetector:
 
         Returns:
             SolarFlarePredictionResult with transparent storm-forecast semantics.
+
+        Raises:
+            ValueError: If ``x_ray_flux`` is a multi-dimensional or empty
+                array rather than a scalar or 1-D flux series.
         """
-        if isinstance(x_ray_flux, np.ndarray):
+        self._validate_xray_flux(x_ray_flux)
+        if isinstance(x_ray_flux, np.ndarray) and x_ray_flux.ndim == 1:
             current_flux = float(x_ray_flux[-1])
             flux_trend = float(np.diff(x_ray_flux).mean()) if len(x_ray_flux) > 1 else 0.0
         else:
+            # Python scalar or a 0-d numpy array (np.array(1e-7)): a single
+            # measurement with no trend. float() handles both.
             current_flux = float(x_ray_flux)
             flux_trend = 0.0
 
@@ -399,6 +406,34 @@ class SolarFlareDetector:
             warning_actions=warnings,
             affected_systems=affected,
         )
+
+    @staticmethod
+    def _validate_xray_flux(x_ray_flux: float | np.ndarray[Any, Any]) -> None:
+        """Reject X-ray flux input that is not a scalar or a 1-D GOES series.
+
+        Args:
+            x_ray_flux: Candidate flux input.
+
+        Raises:
+            ValueError: If the array is multi-dimensional (e.g. a generic
+                feature matrix) or empty; a cryptic scalar-conversion crash
+                downstream is not an acceptable failure mode.
+        """
+        if isinstance(x_ray_flux, np.ndarray):
+            if x_ray_flux.ndim > 1:
+                raise ValueError(
+                    "SolarFlareDetector expects a GOES XRS X-ray flux scalar "
+                    "or 1-D time series in W/m^2; got array with shape "
+                    f"{x_ray_flux.shape}. Pass one flux channel (e.g. the "
+                    "0.1-0.8 nm long-band flux)."
+                )
+            # A 0-d array (np.array(1e-7)) is a scalar and is accepted; only a
+            # genuinely empty 1-D series has nothing to classify.
+            if x_ray_flux.size == 0:
+                raise ValueError(
+                    "SolarFlareDetector received an empty X-ray flux series; "
+                    "cannot classify a flare without a measurement."
+                )
 
     @classmethod
     def _dst_from_kp(cls, kp: float) -> float:
@@ -505,7 +540,20 @@ class SolarFlareDetector:
         x_ray_flux: float | np.ndarray[Any, Any],
         proton_flux: float | np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Extract features for the fusion pipeline."""
+        """Extract features for the fusion pipeline.
+
+        Args:
+            x_ray_flux: X-ray flux in W/m^2 (scalar or 1-D time series).
+            proton_flux: Optional proton flux (scalar or series).
+
+        Returns:
+            Feature vector of length ``FEATURE_DIM``.
+
+        Raises:
+            ValueError: If ``x_ray_flux`` is a multi-dimensional or empty
+                array rather than a scalar or 1-D flux series.
+        """
+        self._validate_xray_flux(x_ray_flux)
         features = np.zeros(FEATURE_DIM)
 
         if isinstance(x_ray_flux, np.ndarray):
@@ -765,6 +813,7 @@ class SolarStormDetector:
         enable_cme_tracking: bool = True,
         enable_geomag_prediction: bool = True,
         data_source: NOAASWPCSource | None = None,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -781,6 +830,12 @@ class SolarStormDetector:
             enable_cme_tracking: Enable CME arrival estimation.
             enable_geomag_prediction: Enable geomagnetic storm prediction.
             data_source: Optional NOAA SWPC client for the live path.
+            load_shipped_weights: Load the shipped merit-gated
+                ``solar_storm_geomag`` checkpoint at construction (default), so a
+                default-constructed detector serves the ratified winner. Pass
+                False for the pure Boyle-index physics configuration (the
+                honesty-contract tests). Absence of the checkpoint falls open to
+                physics; an invalid checkpoint still fails loud.
         """
         self.enable_flare = enable_flare_detection
         self.enable_cme = enable_cme_tracking
@@ -819,6 +874,21 @@ class SolarStormDetector:
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
+
+        # The solar_storm_geomag checkpoint cleared the hazard merit gate on
+        # real held-out OMNI/Kp data, so a default-constructed detector serves
+        # the shipped winner. Absence (e.g. a stripped install) falls open to
+        # the disclosed Boyle-index physics; a present-but-invalid checkpoint
+        # still fails loud inside load_neural_weights (operating-point/feature
+        # validation).
+        if load_shipped_weights and self.geomag_predictor is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'solar_storm_geomag' checkpoint available; "
+                    "predicting geomagnetic storms from Boyle-index physics."
+                )
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the geomagnetic storm predictor.
@@ -1119,6 +1189,25 @@ class SolarStormDetector:
 
             features = np.array([solar_wind_speed / 1000.0, bz_imf])
             features = np.pad(features, (0, 30), mode="constant")
+
+        # The trained predictor consumes the checkpoint's fixed feature width;
+        # an explicit off-length magnetosphere_data["features"] falls back to the
+        # Boyle-index physics instead of crashing the network (or the
+        # feature-standardisation broadcast). The feature-spec and default paths
+        # above always build the contract width, so this only trips on a
+        # caller-supplied off-length vector.
+        features = np.asarray(features)
+        # A caller may hand the feature vector already batched as (1, W); accept
+        # that as the single-sample (W,) vector. Anything that is not a 1-D
+        # width-W vector after that -- 0-d, a genuine N>1 batch, or a mis-shaped
+        # array -- falls back to the Boyle-index physics instead of feeding a
+        # 3-D tensor into the predictor's BatchNorm1d and crashing.
+        if features.ndim == 2 and features.shape[0] == 1:
+            features = features.reshape(-1)
+        if features.ndim != 1 or (
+            features.shape[-1] != self.geomag_predictor.feature_fusion[0].in_features
+        ):
+            return self._predict_geomagnetic_storm_physics(magnetosphere_data)
 
         if self._feature_mean is not None and self._feature_std is not None:
             features = (features - self._feature_mean) / self._feature_std

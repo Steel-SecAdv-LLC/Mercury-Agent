@@ -106,18 +106,30 @@ def load_shipped_checkpoint(name: str) -> tuple[dict[str, Any], dict[str, Any] |
         )
 
     if provenance is not None:
-        evaluation = provenance.get("evaluation", {})
-        logger.info(
-            "checkpoint %s provenance: trained seed=%s, test_years=%s, %s learned=%s vs "
-            "physics=%s (learned_beats_physics=%s)",
-            name,
-            provenance.get("seed"),
-            evaluation.get("test_years"),
-            evaluation.get("primary_metric"),
-            (evaluation.get("learned") or {}).get(evaluation.get("primary_metric", "")),
-            (evaluation.get("physics") or {}).get(evaluation.get("primary_metric", "")),
-            evaluation.get("learned_beats_physics"),
-        )
+        if "evaluation" in provenance:
+            # Hazard-training schema: learned-vs-physics merit gate.
+            evaluation = provenance.get("evaluation", {})
+            logger.info(
+                "checkpoint %s provenance: trained seed=%s, test_years=%s, %s learned=%s vs "
+                "physics=%s (learned_beats_physics=%s)",
+                name,
+                provenance.get("seed"),
+                evaluation.get("test_years"),
+                evaluation.get("primary_metric"),
+                (evaluation.get("learned") or {}).get(evaluation.get("primary_metric", "")),
+                (evaluation.get("physics") or {}).get(evaluation.get("primary_metric", "")),
+                evaluation.get("learned_beats_physics"),
+            )
+        else:
+            # Other merit gates (e.g. the GOSNN fusion's phi-reference gate)
+            # record their full verdict under "training"; surface the decision.
+            logger.info(
+                "checkpoint %s provenance: objective=%s, created=%s, decision=%s",
+                name,
+                provenance.get("objective"),
+                provenance.get("created_utc"),
+                (provenance.get("training") or {}).get("decision"),
+            )
     else:
         logger.warning(
             "checkpoint %s has no provenance sidecar (%s missing); it predates the "

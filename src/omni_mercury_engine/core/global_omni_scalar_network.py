@@ -136,13 +136,32 @@ class ScalarRegistration:
 
 @dataclass
 class EnhancementResult:
-    """Result of scalar enhancement operation."""
+    """Result of scalar enhancement operation.
+
+    ``fused_state`` is the raw 37-dimensional attention-fusion output the
+    other fields are derived from.  It is carried so consumers with a
+    merit-gated use for the full vector (the GOSNN detection head feeding
+    the decision layer's disagreement overlay) do not have to re-run the
+    fusion; ``None`` when the enhancement ran without a fusion pass.
+
+    ``collected_scalars`` is the exact operational-scalar snapshot this
+    enhancement evaluated its (advisory) ethical gate against.  It is
+    carried so the caller's authoritative σ_Immutable gate reuses the
+    *identical* snapshot instead of taking a second, independent collection
+    -- both a per-call efficiency saving (one 127-scalar registry walk
+    under lock instead of two) and a signal-integrity guarantee: the
+    advisory and authoritative gates can never evaluate divergent vectors
+    (a latent race when they collected separately).  ``None`` when the
+    enhancement ran without collecting.
+    """
 
     enhanced_scalars: dict[str, float]
     fusion_score: float
     ethical_gate_passed: bool
     intelligence_contribution: float
     warnings: list[str] = field(default_factory=list)
+    fused_state: np.ndarray[Any, Any] | None = None
+    collected_scalars: dict[str, float] | None = None
 
 
 class EthicalGate:
@@ -163,7 +182,11 @@ class EthicalGate:
 
     _WEIGHTS_RELPATH = "security/sigma_immutable_weights.pt"
 
-    def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
+    def __init__(
+        self,
+        input_dim: int = 256,
+        threshold: float = ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD,
+    ) -> None:
         """Initialize the instance."""
         self.threshold = threshold
         self.input_dim = input_dim
@@ -327,6 +350,21 @@ class TriadicPhiWeighting:
         The synergy score measures how well the triadic weighting produces
         coherent frequency patterns (H(omega) in the weighted fusion Equation).
 
+        **Diagnostic only — known degeneracy.**  For real-valued input the
+        FFT magnitude spectrum is conjugate-symmetric (``|X[k]| == |X[N-k]|``),
+        so whenever the largest magnitude sits in a non-DC, non-Nyquist bin
+        the top two sorted magnitudes are an equal mirror pair and the ratio
+        is exactly 1.0, pinning the score to ``1/(1+|1-phi|) = 0.618034``.
+        Measured on the production serve path (2026-07-17): the trained
+        fusion's near-zero-mean attention output hit this degeneracy on 15/15
+        real detect calls (bit-identical 0.618034005), and only DC-dominant
+        inputs (a large mean level, e.g. raw stacked member states) move the
+        value at all — a scale artefact, not harmonic structure.  The score
+        is therefore not surfaced in ``detect_with_fusion`` results and must
+        not be used to modulate computation (the historical serve-path
+        modulation it fed was a constant ×1.0118 rescale and has been
+        removed).
+
         Args:
             attention_output: Output from attention mechanism
 
@@ -365,16 +403,16 @@ class MultiHeadAttentionFusion:
     attention scores, creating coherent frequency patterns that enhance the
     H(omega) component of the weighted fusion Equation.
 
-    .. warning::
-        **The torch attention here is RANDOM-INITIALISED AND NEVER TRAINED.**
-        There is no optimizer, no training loop, no loaded checkpoint, and it
-        runs only under ``torch.no_grad()``. Functionally it is a fixed random
-        linear projection followed by averaging -- it is *not* a learned
-        attention model. The numpy fallback (when torch is absent) is the transparent
-        reference behaviour: a deterministic phi-weighted average. Treat the
-        torch path as a structured-averaging placeholder, not learned fusion,
-        until weights are actually trained/loaded. (Mirrors the untrained-network
-        disclosure pattern in docs/NEUROSYMBOLIC.md.)
+    Inference contract: the torch attention path runs **only when trained
+    weights have been loaded** via :meth:`load_trained_weights` (the
+    ``EthicalGate`` convention).  Until then, :meth:`fuse` uses the
+    deterministic phi-weighted reference average for every environment —
+    with or without torch.  Historically the torch path ran with its random
+    initialisation (a fixed random projection followed by averaging
+    masquerading as learned attention); that placeholder inference is no
+    longer reachable.  (Mirrors the untrained-network disclosure pattern in
+    docs/NEUROSYMBOLIC.md and the abstention pattern in
+    ``models/parapsychology.py``.)
     """
 
     def __init__(
@@ -383,6 +421,7 @@ class MultiHeadAttentionFusion:
         num_heads: int = 32,
         max_dimensions: int = 37,
         enable_triadic_phi: bool = True,
+        load_shipped_weights: bool = True,
     ):
         """Initialize multi-head attention fusion.
 
@@ -391,6 +430,13 @@ class MultiHeadAttentionFusion:
             num_heads: Number of attention heads (default 32 for head_dim=16)
             max_dimensions: Maximum dimensions for fusion (default 37)
             enable_triadic_phi: Enable triadic phi-weighting for harmonic synergy
+            load_shipped_weights: Load the shipped merit-gated
+                ``gosnn_attention_fusion`` checkpoint at construction when it
+                exists (trained by ``scripts/train_gosnn_fusion.py`` on real
+                harvested production state lists and gated against the
+                phi-weighted reference). Pass False to pin the deterministic
+                reference path. Absence falls open to the reference; an
+                invalid checkpoint fails loud.
         """
         self.d_model = d_model
         self.num_heads = num_heads
@@ -398,22 +444,60 @@ class MultiHeadAttentionFusion:
         self.head_dim = d_model // num_heads
         self.enable_triadic_phi = enable_triadic_phi
         self.logger = logging.getLogger(__name__)
-        # One-time disclosure that the torch attention path is untrained.
-        self._warned_untrained_attention = False
+        # Learned path activates only after load_trained_weights() succeeds.
+        self._trained = False
+        # One-time disclosure that fusion is running the deterministic
+        # phi-weighted reference (no trained attention weights loaded).
+        self._disclosed_reference_path = False
+        # Optional merit-gated detection head over the fused state (ships in
+        # the checkpoint payload only when the detection-metric gate passed;
+        # None => the fused state stays observability-only).
+        self.detection_head: Any | None = None
+        # Validation-selected disagreement-demotion thresholds shipped with
+        # the head ({"demote_act_below": ..., "demote_clear_above": ...}).
+        self.decision_thresholds: dict[str, float] | None = None
 
         # Triadic phi-weighting for harmonic synergy
         self.triadic_weighting = TriadicPhiWeighting(num_heads) if enable_triadic_phi else None
 
         if TORCH_AVAILABLE:
-            self.attention = nn.MultiheadAttention(
-                embed_dim=d_model, num_heads=num_heads, batch_first=True
+            # The architecture is defined once, in attention_fusion_stack —
+            # the same builder the training program uses — so train and
+            # serve cannot silently diverge.
+            from omni_mercury_engine.core.attention_fusion_stack import build_fusion_modules
+
+            self.projection, self.attention, self.output_projection = build_fusion_modules(
+                d_model=d_model, num_heads=num_heads, max_dimensions=max_dimensions
             )
-            self.projection = nn.Linear(max_dimensions, d_model)
-            self.output_projection = nn.Linear(d_model, max_dimensions)
+            if load_shipped_weights:
+                self._try_load_shipped_weights()
         else:
             self.attention = None  # type: ignore[assignment, unused-ignore]
             self.projection = None  # type: ignore[assignment, unused-ignore]
             self.output_projection = None  # type: ignore[assignment, unused-ignore]
+
+    def _try_load_shipped_weights(self) -> None:
+        """Load the shipped merit-gated checkpoint if one exists.
+
+        The ``gosnn_attention_fusion`` checkpoint ships only when
+        ``scripts/train_gosnn_fusion.py``'s gate measured the learned fusion
+        beating the phi-weighted reference on held-out production-harvested
+        state lists.  Absence keeps the deterministic reference (fail-open);
+        a present-but-invalid payload fails loud in
+        :meth:`load_trained_weights` (integrity is a supply-chain control,
+        not a fallback case).
+        """
+        try:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            payload, _provenance = load_shipped_checkpoint("gosnn_attention_fusion")
+        except FileNotFoundError:
+            self.logger.debug(
+                "No shipped gosnn_attention_fusion checkpoint; using the "
+                "deterministic phi-weighted reference fusion."
+            )
+            return
+        self.load_trained_weights(payload)
 
     def fuse(
         self, dimensional_states: list[np.ndarray[Any, Any]], return_synergy: bool = False
@@ -440,34 +524,41 @@ class MultiHeadAttentionFusion:
         stacked = np.stack(padded_states)
         harmonic_synergy = 0.5
 
-        if self.attention is not None and TORCH_AVAILABLE:
-            if not self._warned_untrained_attention:
-                self.logger.warning(
-                    "MultiHeadAttentionFusion: torch attention is random-initialised "
-                    "and never trained (no_grad, no checkpoint) -- functionally a fixed "
-                    "random projection + averaging, not learned attention. The numpy "
-                    "phi-weighted average is the transparent reference behaviour."
-                )
-                self._warned_untrained_attention = True
+        if self.attention is not None and TORCH_AVAILABLE and self._trained:
+            from omni_mercury_engine.core.attention_fusion_stack import fuse_members
+
             with torch.no_grad():
                 tensor_input = torch.tensor(stacked, dtype=torch.float32)
-                projected = self.projection(tensor_input)
-                projected = projected.unsqueeze(0)
-
-                attn_output, attn_weights = self.attention(projected, projected, projected)
-
-                # Apply triadic phi-weighting if enabled
-                if self.triadic_weighting is not None and attn_weights is not None:
-                    harmonic_synergy = self.triadic_weighting.compute_harmonic_synergy(
-                        attn_output.numpy()
-                    )
-                    # Re-apply weighted attention (simplified - full impl would recompute)
-                    attn_output = attn_output * (1.0 + 0.1 * (harmonic_synergy - 0.5))
-
-                fused = self.output_projection(attn_output.squeeze(0))
-                result = fused.mean(dim=0).numpy()
+                # The shared canonical stack — identical bytes to what the
+                # training program optimises and the merit gate measures.
+                # The historical serve-only synergy modulation
+                # (attn_output * (1 + 0.1*(synergy-0.5))) is gone: the gate
+                # never measured it, and on production states the synergy
+                # term was a constant (see compute_harmonic_synergy), so it
+                # amounted to an undisclosed constant rescale of the
+                # gate-verified computation.
+                result = fuse_members(
+                    self.projection, self.attention, self.output_projection, tensor_input
+                ).numpy()
+            if self.triadic_weighting is not None:
+                # Diagnostic only, computed on the same member stack the
+                # reference branch uses (never modulates the fused output).
+                harmonic_synergy = self.triadic_weighting.compute_harmonic_synergy(stacked)
         else:
-            # NumPy fallback with phi-weighting
+            # Deterministic phi-weighted reference average — the documented
+            # inference behaviour whenever no trained attention weights are
+            # loaded (and the only behaviour when torch is absent).  The
+            # historical alternative — running the attention modules with
+            # their random initialisation — presented a fixed random
+            # projection as learned fusion and is deliberately unreachable.
+            if not self._disclosed_reference_path and self.attention is not None:
+                self.logger.info(
+                    "MultiHeadAttentionFusion: no trained attention weights "
+                    "loaded; using the deterministic phi-weighted reference "
+                    "average (call load_trained_weights() to activate the "
+                    "learned path)."
+                )
+                self._disclosed_reference_path = True
             weights = np.ones(len(padded_states)) / len(padded_states)
             if self.triadic_weighting is not None:
                 # Apply phi-based weighting to state averaging
@@ -482,6 +573,108 @@ class MultiHeadAttentionFusion:
             result = np.average(stacked, axis=0, weights=weights)
 
         return (result, harmonic_synergy) if return_synergy else result
+
+    def load_trained_weights(self, source: str | Path | dict[str, Any]) -> None:
+        """Load trained attention weights and activate the learned fusion path.
+
+        Follows the ``EthicalGate`` trained-weights convention: the learned
+        path is inert until a genuine checkpoint is supplied.  The payload
+        must carry the three module state dicts produced by a training run
+        of this exact architecture.
+
+        Args:
+            source: Path to a ``torch.save`` payload, or the already-loaded
+                payload dict, with keys ``"attention"``, ``"projection"`` and
+                ``"output_projection"``.  A payload may additionally carry a
+                ``"detection_head"`` state dict plus ``"decision_thresholds"``
+                (both shipped only when the detection-metric merit gate
+                passed); loading them activates :meth:`detection_probability`.
+
+        Raises:
+            RuntimeError: If torch is unavailable (no learned path exists), or
+                if a ``detection_head`` is present without valid
+                ``decision_thresholds`` (a consequential head without its
+                validated operating points must fail loud, not serve with
+                made-up thresholds).
+            KeyError: If the payload is missing a required module state dict.
+        """
+        if not TORCH_AVAILABLE or self.attention is None:
+            raise RuntimeError(
+                "MultiHeadAttentionFusion.load_trained_weights requires torch; "
+                "the deterministic phi-weighted reference is the only path "
+                "available without it"
+            )
+        payload: dict[str, Any]
+        if isinstance(source, (str, Path)):
+            payload = torch.load(source, map_location="cpu", weights_only=True)
+        else:
+            payload = source
+        self.projection.load_state_dict(payload["projection"])
+        self.attention.load_state_dict(payload["attention"])
+        self.output_projection.load_state_dict(payload["output_projection"])
+        self.projection.eval()
+        self.attention.eval()
+        self.output_projection.eval()
+        self._trained = True
+        if "detection_head" in payload:
+            from omni_mercury_engine.core.attention_fusion_stack import FusionDetectionHead
+
+            head = FusionDetectionHead(max_dimensions=self.max_dimensions)
+            head.load_state_dict(payload["detection_head"])
+            head.eval()
+            thresholds = payload.get("decision_thresholds")
+            if not isinstance(thresholds, dict) or not {
+                "demote_act_below",
+                "demote_clear_above",
+            } <= set(thresholds):
+                raise RuntimeError(
+                    "gosnn_attention_fusion payload carries a detection_head "
+                    "without valid decision_thresholds (demote_act_below / "
+                    "demote_clear_above); refusing to serve a consequential "
+                    "head without its validation-selected operating points"
+                )
+            act_below = float(thresholds["demote_act_below"])
+            clear_above = float(thresholds["demote_clear_above"])
+            # Range/order validation: out-of-range or inverted thresholds
+            # turn the disagreement overlay degenerate (e.g. clear_above=0.0
+            # demotes every grounded negative). A consequential head serves
+            # only with sane operating points -- anything else fails loud.
+            if not (0.0 <= act_below < clear_above <= 1.0):
+                raise RuntimeError(
+                    "gosnn_attention_fusion decision_thresholds are invalid: "
+                    f"require 0 <= demote_act_below ({act_below}) < "
+                    f"demote_clear_above ({clear_above}) <= 1; refusing to "
+                    "serve a degenerate demotion rule"
+                )
+            self.detection_head = head
+            self.decision_thresholds = {
+                "demote_act_below": act_below,
+                "demote_clear_above": clear_above,
+            }
+        self.logger.info("MultiHeadAttentionFusion: trained attention weights loaded")
+
+    def detection_probability(self, fused_state: np.ndarray[Any, Any]) -> float | None:
+        """Anomaly probability from the merit-gated detection head, if shipped.
+
+        The head exists only when ``scripts/train_gosnn_fusion.py``'s
+        detection-metric gate measured the learned fused-state detector
+        beating both the phi-reference fusion and the mean-detector-score
+        baseline on held-out labelled ADBench detections.  Without a shipped
+        head this returns ``None`` and the fused state stays
+        observability-only.
+
+        Args:
+            fused_state: The 37-dimensional fused state vector.
+
+        Returns:
+            ``P(anomaly)`` in ``[0, 1]``, or ``None`` when no head is loaded
+            (or torch is unavailable).
+        """
+        if self.detection_head is None or not TORCH_AVAILABLE:
+            return None
+        with torch.no_grad():
+            logit = self.detection_head(torch.tensor(fused_state, dtype=torch.float32))
+            return float(torch.sigmoid(logit).item())
 
 
 def get_sigma_immutable_threshold(domain: str | None = None) -> float:
@@ -512,8 +705,10 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     if env_threshold:
         try:
             threshold = float(env_threshold)
-            # Clamp to valid range with hard minimum of 0.93
-            return max(0.93, min(0.99, threshold))
+            # Clamp to valid range; the hard minimum is the trained
+            # network's calibrated decision threshold (authoritative
+            # source: ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD = 0.93).
+            return max(ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD, min(0.99, threshold))
         except ValueError:
             # Invalid threshold value in environment; use default
             pass
@@ -564,8 +759,10 @@ class GlobalOmniScalarNetwork:
 
     # Class constants
     PHI = PHI  # Use module-level constant
-    SIGMA_IMMUTABLE_DEFAULT = 0.96
-    SIGMA_IMMUTABLE_MEDICAL = 0.93
+    # Cite the single authoritative source (centralized_constants.ETHICAL)
+    # instead of re-hardcoding the values here.
+    SIGMA_IMMUTABLE_DEFAULT = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
+    SIGMA_IMMUTABLE_MEDICAL = ETHICAL.SIGMA_IMMUTABLE_MEDICAL
     MIN_EMPATHY = 1.22
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
@@ -1540,6 +1737,8 @@ class GlobalOmniScalarNetwork:
             ethical_gate_passed=passes_gate,
             intelligence_contribution=intelligence_contribution,
             warnings=warnings,
+            fused_state=np.asarray(fused_state, dtype=np.float64),
+            collected_scalars=all_scalars,
         )
 
     def fuse_37d_scalars(

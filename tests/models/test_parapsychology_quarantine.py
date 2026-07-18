@@ -13,22 +13,29 @@ from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 
 
 class TestUntrainedQuarantine:
-    """Untrained consciousness-field analyser abstains to the neutral prior."""
+    """Untrained consciousness-field analyser abstains to the neutral prior.
 
-    def test_starts_untrained(self) -> None:
-        det = ParapsychologyDetector()
-        assert det._neural_trained is False
+    The default detector serves the ratified ``reg_deviation_gcp`` winner; these
+    tests pin the disclosed untrained-abstention fallback, so they construct the
+    physics configuration explicitly (``load_shipped_weights=False``).
+    """
+
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert ParapsychologyDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert ParapsychologyDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_coherence_is_neutral_and_deterministic(self) -> None:
         rng = np.random.RandomState(0)
         seq = rng.random(100)
-        a = ParapsychologyDetector()._analyze_field_coherence(seq)
-        b = ParapsychologyDetector()._analyze_field_coherence(seq)
+        a = ParapsychologyDetector(load_shipped_weights=False)._analyze_field_coherence(seq)
+        b = ParapsychologyDetector(load_shipped_weights=False)._analyze_field_coherence(seq)
         assert a == 0.5
         assert b == 0.5
 
     def test_short_sequence_returns_neutral(self) -> None:
-        det = ParapsychologyDetector()
+        det = ParapsychologyDetector(load_shipped_weights=False)
         assert det._analyze_field_coherence(np.array([0.1, 0.2, 0.3])) == 0.5
 
 

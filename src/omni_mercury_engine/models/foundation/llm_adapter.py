@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -22,12 +23,39 @@ from typing import Any
 from urllib.parse import urlparse
 
 import numpy as np
-import torch
 
 from omni_mercury_engine.models.foundation.llm_usage import LLMUsage, UsageLedger
 from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
+# torch is intentionally NOT imported at module top: the cloud adapters
+# built on BaseLLMAdapter (Anthropic / OpenAI / Cohere / Gemini in
+# ollama_adapter.py) are pure ``requests`` transports, and a hard torch
+# import here dragged the ~2 GB ML stack into that path.  The only two
+# torch touch points are (1) recognising an already-created
+# ``torch.Tensor`` input (checked via ``sys.modules`` -- a Tensor can
+# only exist if torch is already imported) and (2) the local
+# HuggingFace backend's ``_load_model``, which imports torch alongside
+# transformers when, and only when, a local model is actually loaded.
+
 logger = logging.getLogger(__name__)
+
+#: Product-identity contract prepended to every system prompt Mercury sends
+#: to an LLM backend. Mercury Agent is the application; the model is an
+#: operator-configured backend component (any provider, all equally
+#: welcome). User-facing language therefore speaks as Mercury Agent --
+#: never under the backend model's own persona or vendor name -- while
+#: staying transparent: Mercury Agent is AI-assisted, and the active
+#: backend provider is reported truthfully in Mercury's provenance
+#: metadata for anyone who asks.
+MERCURY_IDENTITY_CLAUSE: str = (
+    "You are operating as a backend component of Mercury Agent. In all "
+    "user-facing language, speak as Mercury Agent: do not present yourself "
+    "under the underlying model's or its vendor's own name or persona. Be "
+    "transparent when asked -- Mercury Agent is AI-assisted and runs on an "
+    "operator-configured LLM backend whose active provider is reported in "
+    "Mercury's provenance metadata; never deny that, and never claim to be "
+    "a human."
+)
 
 
 class LLMProvider(StrEnum):
@@ -69,11 +97,12 @@ class LLMConfig:
     """Configuration for LLM adapter."""
 
     provider: LLMProvider = LLMProvider.MOCK
-    # Vendor-neutral default: empty means "operator has not chosen a model", so
-    # each adapter applies its own provider-appropriate default rather than a
-    # hard-coded vendor model id leaking across providers (and the "template"
-    # sentinel is never sent to a cloud API). No cloud provider is privileged;
-    # operators set ``provider`` and ``model_name`` explicitly.
+    # Vendor-neutral policy: empty means "operator has not chosen a model",
+    # and Mercury ships NO default model id for any provider -- local or
+    # cloud. An adapter constructed without an explicit model_name reports
+    # itself unavailable (with an actionable message) and the chain falls
+    # back to the deterministic template; nothing is ever silently sent to a
+    # vendor the operator did not name. No provider is privileged.
     model_name: str = ""
     temperature: float = 0.0
     max_tokens: int = 512
@@ -230,7 +259,11 @@ class BaseLLMAdapter(ABC):
         context: dict[str, Any] | None = None,
     ) -> AnomalyPrompt:
         """Build structured anomaly detection prompt."""
-        system_prompt = """You are an expert anomaly detection system. Analyze the provided data and determine if it represents an anomaly.
+        # Plain concatenation: the JSON schema below contains literal braces,
+        # so an f-string would parse them as format fields.
+        system_prompt = MERCURY_IDENTITY_CLAUSE + """
+
+You are an expert anomaly detection system. Analyze the provided data and determine if it represents an anomaly.
 
 Your response MUST be valid JSON with the following structure:
 {
@@ -247,10 +280,13 @@ Analyze carefully considering:
 - Historical baselines if provided
 - Domain-specific knowledge"""
 
-        # Convert data to string representation
+        # Convert data to string representation.  The Tensor branch resolves
+        # torch through sys.modules: a live Tensor implies torch is already
+        # imported, so this never forces the import in a torch-free process.
+        torch_mod = sys.modules.get("torch")
         if isinstance(data, np.ndarray):
             data_str = f"Numerical data: shape={data.shape}, mean={np.mean(data):.4f}, std={np.std(data):.4f}, min={np.min(data):.4f}, max={np.max(data):.4f}"
-        elif isinstance(data, torch.Tensor):
+        elif torch_mod is not None and isinstance(data, torch_mod.Tensor):
             data_np = data.detach().cpu().numpy()
             data_str = f"Tensor data: shape={data_np.shape}, mean={np.mean(data_np):.4f}, std={np.std(data_np):.4f}"
         elif isinstance(data, dict):
@@ -401,6 +437,7 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             )
 
         try:
+            import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             # Use revision for remote models, None for local paths.
@@ -621,7 +658,10 @@ Provide a detailed, human-readable explanation of:
 
 Be concise but thorough."""
 
-        system_prompt = "You are an expert anomaly analyst providing clear explanations to non-technical stakeholders."
+        system_prompt = (
+            MERCURY_IDENTITY_CLAUSE + " You are an expert anomaly analyst providing clear "
+            "explanations to non-technical stakeholders."
+        )
 
         response = self.adapter.generate(prompt, system_prompt)
         return response
@@ -727,7 +767,9 @@ def _create_non_hf_adapter(config: LLMConfig) -> BaseLLMAdapter:
     if config.provider == LLMProvider.OLLAMA:
         host, port = _parse_ollama_base_url(config.base_url)
         ollama_config = OllamaConfig(
-            model=config.model_name or "llama3.2:3b",
+            # Vendor-neutral policy: no default model id ships; the operator
+            # names an installed model (or sets MERCURY_OLLAMA_MODEL).
+            model=config.model_name,
             host=host or "localhost",
             port=port or 11434,
         )
@@ -814,10 +856,9 @@ def create_llm_detector(
         resolved_model_name = model_name or "template"
     else:
         # Every real LLM provider needs an explicit model identifier --
-        # silently substituting a cross-provider placeholder like
-        # ``gpt-4o`` for an Ollama or Anthropic caller masks the
-        # configuration error and (for Ollama) makes the per-adapter
-        # default (``llama3.2:3b``) unreachable.
+        # silently substituting a cross-provider placeholder for an Ollama
+        # or cloud caller would mask the configuration error. Mercury ships
+        # no vendor-default model for any provider.
         if not model_name:
             raise ValueError(
                 f"create_llm_detector(provider={provider_enum.value!r}) requires "

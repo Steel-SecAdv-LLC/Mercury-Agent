@@ -607,10 +607,10 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         detector_features = self._extract_combined_features(
             data,
             data_type,
-            spectral_result,
-            dynamics_result,
-            uiux_result,
-            oracle_result,
+            has_spectral=spectral_result is not None,
+            has_dynamics=dynamics_result is not None,
+            has_uiux=uiux_result is not None,
+            has_oracle=oracle_result is not None,
         )
 
         # Generate combined recommendations
@@ -656,16 +656,55 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
     ) -> torch.Tensor:
         """Extract features from all enabled detectors.
 
+        Runs each fitted component's ``extract_features`` exactly once via a
+        direct path.  (This previously routed through :meth:`detect`, which
+        runs every component's ``detect`` *and then* its ``extract_features``
+        — doubling the heavy spectral pipeline for callers, like the detector
+        registry, that only want fusion features.)  Component gating mirrors
+        :meth:`detect`: a component contributes features only when it is
+        constructed, fitted, and the data type matches.
+
         Args:
             data: Input data
             data_type: Type of input data
 
         Returns:
             Combined feature tensor
+
+        Raises:
+            DetectorException: If detector not fitted.
         """
-        # This calls detect internally to get features
-        result = self.detect(data, data_type)
-        return result["detector_features"]
+        if not self._is_fitted:
+            raise DetectorException("Detector must be fitted before extracting features")
+
+        has_ts = data_type == "time_series" or (
+            data_type == "mixed" and isinstance(data, dict) and "time_series" in data
+        )
+        has_interactions = data_type == "interactions" or (
+            data_type == "mixed" and isinstance(data, dict) and "interactions" in data
+        )
+        return self._extract_combined_features(
+            data,
+            data_type,
+            has_spectral=bool(
+                has_ts
+                and self._spectral_detector is not None
+                and self._spectral_detector.is_fitted()
+            ),
+            has_dynamics=bool(
+                has_ts
+                and self._dynamics_detector is not None
+                and self._dynamics_detector.is_fitted()
+            ),
+            has_uiux=bool(
+                has_interactions
+                and self._uiux_detector is not None
+                and self._uiux_detector.is_fitted()
+            ),
+            has_oracle=bool(
+                has_ts and self._oracle_detector is not None and self._oracle_detector.is_fitted()
+            ),
+        )
 
     def _apply_3r_enhancement(
         self,
@@ -789,20 +828,21 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self,
         data: Any,
         data_type: str,
-        spectral_result: dict[str, Any] | None,
-        dynamics_result: dict[str, Any] | None,
-        uiux_result: dict[str, Any] | None,
-        oracle_result: dict[str, Any] | None = None,
+        *,
+        has_spectral: bool,
+        has_dynamics: bool,
+        has_uiux: bool,
+        has_oracle: bool = False,
     ) -> torch.Tensor:
         """Extract and combine features from all detectors.
 
         Args:
             data: Original input data
             data_type: Type of input data
-            spectral_result: Spectral detection result
-            dynamics_result: Dynamics detection result
-            uiux_result: UI/UX detection result
-            oracle_result: Oracle detection result
+            has_spectral: Whether the spectral component should contribute
+            has_dynamics: Whether the dynamics component should contribute
+            has_uiux: Whether the UI/UX component should contribute
+            has_oracle: Whether the Oracle component should contribute
 
         Returns:
             Combined feature tensor
@@ -810,7 +850,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         feature_parts = []
 
         # Extract spectral features
-        if self._spectral_detector is not None and spectral_result is not None:
+        if self._spectral_detector is not None and has_spectral:
             try:
                 if data_type in ["time_series", "mixed"]:
                     ts_data = data["time_series"] if isinstance(data, dict) else data
@@ -820,7 +860,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 logger.warning(f"Failed to extract spectral features: {e}")
 
         # Extract dynamics features
-        if self._dynamics_detector is not None and dynamics_result is not None:
+        if self._dynamics_detector is not None and has_dynamics:
             try:
                 if data_type in ["time_series", "mixed"]:
                     ts_data = data["time_series"] if isinstance(data, dict) else data
@@ -830,7 +870,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 logger.warning(f"Failed to extract dynamics features: {e}")
 
         # Extract UI/UX features
-        if self._uiux_detector is not None and uiux_result is not None:
+        if self._uiux_detector is not None and has_uiux:
             try:
                 if data_type in ["interactions", "mixed"]:
                     int_data = data["interactions"] if isinstance(data, dict) else data
@@ -840,7 +880,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 logger.warning(f"Failed to extract UI/UX features: {e}")
 
         # Extract Oracle features (returns torch.Tensor per BaseDetector contract)
-        if self._oracle_detector is not None and oracle_result is not None:
+        if self._oracle_detector is not None and has_oracle:
             try:
                 if data_type in ["time_series", "mixed"]:
                     ts_data = data["time_series"] if isinstance(data, dict) else data

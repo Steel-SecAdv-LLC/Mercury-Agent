@@ -460,8 +460,23 @@ class CMEArrivalDetector:
             Arrival prediction with window, geometry, and confidence.
 
         Raises:
-            ValueError: On non-finite or out-of-domain kinematics.
+            ValueError: If ``kinematics`` is not a :class:`CMEKinematics`
+                instance (generic arrays are not a CME observation), or on
+                non-finite / out-of-domain kinematics.
         """
+        if not isinstance(kinematics, CMEKinematics):
+            shape = getattr(kinematics, "shape", None)
+            received = (
+                f"{type(kinematics).__name__} with shape {shape}"
+                if shape is not None
+                else type(kinematics).__name__
+            )
+            raise ValueError(
+                "CMEArrivalDetector expects a CMEKinematics dataclass "
+                "(speed_km_s, latitude_deg, longitude_deg, half_angle_deg, "
+                f"time_21_5 at 21.5 Rs); got {received}. Build one from a "
+                "DONKI CMEAnalysis record via predict_from_donki()."
+            )
         kin = kinematics
         if not math.isfinite(kin.speed_km_s) or kin.speed_km_s <= 0:
             raise ValueError(f"CME speed must be positive; got {kin.speed_km_s!r}.")

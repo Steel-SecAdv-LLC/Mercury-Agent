@@ -35,6 +35,7 @@ Operational deployment requires security clearance and legal authorization.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -102,22 +103,41 @@ class AllSourceFusionNetwork(nn.Module):
     optimization for optimal information synthesis.
     """
 
-    def __init__(self, input_dim: int = 128, num_int_types: int = 13) -> None:
-        """Initialize the instance."""
+    def __init__(
+        self, input_dim: int = 128, num_int_types: int = len(IntelligenceDiscipline)
+    ) -> None:
+        """Initialize the instance.
+
+        Raises:
+            ValueError: If ``num_int_types`` disagrees with
+                ``IntelligenceDiscipline`` -- the per-discipline encoders are
+                built from that enum, so a divergent count would silently
+                mis-size every downstream layer.
+        """
         super().__init__()
+        if num_int_types != len(IntelligenceDiscipline):
+            raise ValueError(
+                f"num_int_types={num_int_types} does not match the "
+                f"{len(IntelligenceDiscipline)} IntelligenceDiscipline members "
+                "the per-discipline encoders are built from"
+            )
 
         phi = 1.618
         hidden_1 = int(input_dim * phi)
         hidden_2 = int(hidden_1 * phi)
-        hidden_3 = (
-            round(int(hidden_2 / phi) / 13) * 13
-        )  # Round to nearest multiple of 13 for attention
+        # Round to a (nonzero) multiple of the discipline count so the
+        # cross-INT attention's embed_dim stays divisible by its head count.
+        hidden_3 = max(1, round(int(hidden_2 / phi) / num_int_types)) * num_int_types
+
+        encoder_in = input_dim // num_int_types
+        encoder_out = hidden_1 // num_int_types
+        fused_dim = encoder_out * num_int_types
 
         self.int_encoders = nn.ModuleDict(
             {
                 discipline.value: nn.Sequential(
-                    nn.Linear(input_dim // num_int_types, hidden_1 // num_int_types),
-                    nn.LayerNorm(hidden_1 // num_int_types),
+                    nn.Linear(encoder_in, encoder_out),
+                    nn.LayerNorm(encoder_out),
                     nn.ReLU(),
                     nn.Dropout(0.15),
                 )
@@ -126,7 +146,7 @@ class AllSourceFusionNetwork(nn.Module):
         )
 
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(hidden_1, hidden_2),
+            nn.Linear(fused_dim, hidden_2),
             nn.LayerNorm(hidden_2),
             nn.ReLU(),
             nn.Dropout(0.2),
@@ -136,7 +156,7 @@ class AllSourceFusionNetwork(nn.Module):
         )
 
         self.cross_int_attention = nn.MultiheadAttention(
-            embed_dim=hidden_3, num_heads=13, dropout=0.1, batch_first=True
+            embed_dim=hidden_3, num_heads=num_int_types, dropout=0.1, batch_first=True
         )
 
         self.temporal_lstm = nn.LSTM(
@@ -233,7 +253,7 @@ class IntelligenceFusionEngine:
         self.enable_cryptanalysis = enable_cryptanalysis
         self.golden_ratio = 1.618 if golden_ratio_weights else 1.0
 
-        self.fusion_network = AllSourceFusionNetwork(input_dim=128, num_int_types=13)
+        self.fusion_network = AllSourceFusionNetwork(input_dim=128)
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 
@@ -421,6 +441,17 @@ class IntelligenceFusionEngine:
 
     def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
         """Extract features from intelligence reports (O(n) complexity)."""
+        if not isinstance(intel_reports, Mapping):
+            shape_hint = (
+                f" of shape {intel_reports.shape}" if hasattr(intel_reports, "shape") else ""
+            )
+            raise ValueError(
+                "IntelligenceFusionEngine expects a multi-INT report mapping "
+                "(dict keyed by discipline, e.g. "
+                "{'open_source': {...}, 'signals': {...}}), got "
+                f"{type(intel_reports).__name__}{shape_hint}."
+            )
+
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
 
@@ -452,7 +483,7 @@ class IntelligenceFusionEngine:
     def _process_temporal_context(self, temporal_context: list[dict[str, Any]]) -> torch.Tensor:
         """Process temporal threat progression."""
         sequence_length = min(len(temporal_context), 10)
-        feature_dim = 165
+        feature_dim = int(self.fusion_network.temporal_lstm.input_size)
 
         temporal_features = np.zeros((1, sequence_length, feature_dim), dtype=np.float32)
 
@@ -639,7 +670,14 @@ class IntelligenceFusionEngine:
         }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration."""
+        """Extract features for ML fusion integration.
+
+        Always emits the declared ``(1, 128)`` width: the 13 disciplines
+        contribute ``128 // 13 = 9`` dims each (117), and the floor-division
+        remainder is zero-padded so the populated and empty paths agree —
+        historically the populated path emitted 117 dims while the empty
+        path emitted 128, giving the same method two different widths.
+        """
         int_features = self._extract_int_features(data)
 
         all_features = []
@@ -647,10 +685,21 @@ class IntelligenceFusionEngine:
             if discipline.value in int_features:
                 all_features.append(int_features[discipline.value])
 
-        if all_features:
-            return torch.cat(all_features, dim=-1)
-        else:
+        if not all_features:
             return torch.zeros(1, 128, dtype=torch.float32)
+
+        features = torch.cat(all_features, dim=-1)
+        if features.shape[-1] < 128:
+            # Match the source tensor's device and dtype so the concat stays
+            # valid if the fusion engine is ever moved off CPU.
+            pad = torch.zeros(
+                *features.shape[:-1],
+                128 - features.shape[-1],
+                dtype=features.dtype,
+                device=features.device,
+            )
+            features = torch.cat([features, pad], dim=-1)
+        return features[..., :128]
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration."""

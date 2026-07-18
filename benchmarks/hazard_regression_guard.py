@@ -137,12 +137,35 @@ HAZARD_METRICS: dict[str, dict[str, Any]] = {
         },
     },
     "earthquake": {
-        "detector": "EarthquakeDetector.predict_earthquake (STA/LTA + S-P physics)",
+        "detector": (
+            "EarthquakeDetector.predict_earthquake -- physics lane "
+            "(load_shipped_weights=False: STA/LTA + S-P physics) and trained "
+            "lane (default construction: shipped seismic_stead checkpoint)"
+        ),
         "scenario_files": ("earthquake_scenarios.npz",),
         "metrics": {
             "pod": {"direction": "higher", "margin_abs": RATE_MARGIN, "aspirational": 1.0},
             "far": {"direction": "lower", "margin_abs": RATE_MARGIN, "aspirational": 0.0},
             "csi": {"direction": "higher", "margin_abs": RATE_MARGIN, "aspirational": 1.0},
+            "trained_pod": {
+                "direction": "higher",
+                "margin_abs": RATE_MARGIN,
+                "aspirational": 1.0,
+            },
+            "trained_far": {"direction": "lower", "margin_abs": RATE_MARGIN, "aspirational": 0.0},
+            "trained_csi": {
+                "direction": "higher",
+                "margin_abs": RATE_MARGIN,
+                "aspirational": 1.0,
+            },
+            # OOD characterization, pinned deliberately: the trained lane's
+            # STEAD-trained CNN scores far below physics on these SYNTHETIC
+            # scenario waveforms (trained_pod ~0.14 vs physics 1.0) -- toy
+            # traces are out-of-distribution for it. Its ratified surface is
+            # real data: held-out STEAD recall 0.9745 vs physics 0.4795 at
+            # the deployed alert rules, learned FAR <= physics, AUC +0.072
+            # (seismic_stead.provenance.json). These pins keep the OOD
+            # behaviour visible and stop it drifting silently.
             "sp_distance_mae_km": {
                 "direction": "lower",
                 "margin_rel": MAE_MARGIN_REL,
@@ -305,15 +328,35 @@ def _detection_rates(y_true: list[int], y_pred: list[int], domain: str) -> dict[
 # ---------------------------------------------------------------------------
 
 
+def _assert_winner_serving(domain: str, checkpoint: str, detector: Any) -> None:
+    """Fail loud if a default-constructed detector did not auto-load its winner.
+
+    The seven merit-gated hazard winners serve by default (constructor
+    ``load_shipped_weights=True``). The skill metrics below are measured on the
+    disclosed physics lane (``load_shipped_weights=False``) so their floors stay
+    stable and honest, while this tripwire pins that the default surface every
+    operator gets is the ratified learned winner -- mirroring the earthquake
+    trained-lane serving check.
+    """
+    if not getattr(detector, "_neural_trained", False):
+        raise RuntimeError(
+            f"{domain}: default construction failed to load the shipped "
+            f"'{checkpoint}' checkpoint; the merit-gated winner is not serving"
+        )
+
+
 def _run_tornado(path: Path) -> dict[str, float]:
     """Sliding-window mesocyclone detection + warning lead time."""
     from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
 
+    _assert_winner_serving("tornado", "tornado_nexrad", TornadoDetector())
     data = np.load(path)
     frames, labels, events = data["frames"], data["labels"], data["event_frame"]
     y_true, y_pred, leads = [], [], []
     for i in range(len(labels)):
-        detector = TornadoDetector()  # fresh instance per scenario
+        # Physics lane: the velocity-couplet floors below are the disclosed
+        # STA/LTA-style surface; the trained winner is pinned as serving above.
+        detector = TornadoDetector(load_shipped_weights=False)  # fresh per scenario
         alert_frame: int | None = None
         for start in range(frames.shape[1] - TORNADO_WINDOW_FRAMES + 1):
             window = frames[i, start : start + TORNADO_WINDOW_FRAMES]
@@ -381,11 +424,14 @@ def _run_hurricane(path: Path) -> dict[str, float]:
             f"hurricane: dead track fields regrew without a track model: {sorted(regrown)}"
         )
 
+    _assert_winner_serving("hurricane", "hurricane_era5", HurricaneDetector())
     data = np.load(path)
     spacing = float(data["grid_spacing_m"])
     y_true, y_pred = [], []
     for i in range(len(data["labels"])):
-        detector = HurricaneDetector()
+        # Physics lane: the observed-kinematics floors below are the disclosed
+        # surface; the trained winner is pinned as serving above.
+        detector = HurricaneDetector(load_shipped_weights=False)
         result = detector.predict_hurricane(
             {
                 "pressure_data": {
@@ -401,14 +447,22 @@ def _run_hurricane(path: Path) -> dict[str, float]:
 
 
 def _run_earthquake(path: Path) -> dict[str, float]:
-    """STA/LTA detection skill + S-P epicentral-distance error."""
+    """Physics-lane STA/LTA skill + S-P error, plus trained-lane (shipped) skill.
+
+    Two lanes, both pinned: the physics configuration
+    (``load_shipped_weights=False``) is the surface every install gets when
+    the checkpoint is absent and carries the untrained honesty tripwire; the
+    default construction serves the shipped merit-gated ``seismic_stead``
+    checkpoint and is pinned as ``trained_*`` metrics with its own
+    capability tripwire (a trained station must estimate magnitudes).
+    """
     from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
 
     data = np.load(path)
     y_true, y_pred, distance_errors = [], [], []
     n_events_detected = 0
     for i in range(len(data["labels"])):
-        detector = EarthquakeDetector(sampling_rate=100.0)
+        detector = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         result = detector.predict_earthquake(data["traces"][i])
         # Transparency tripwire: an untrained station must never fabricate a
         # magnitude (1afd151); a regrown estimate fails the guard loudly.
@@ -433,6 +487,33 @@ def _run_earthquake(path: Path) -> dict[str, float]:
         )
     metrics["sp_distance_mae_km"] = float(np.mean(distance_errors))
     metrics["sp_distance_n"] = float(len(distance_errors))
+
+    # Trained lane: the shipped checkpoint is the default-construction
+    # surface, so its detection skill is pinned alongside the physics lane.
+    trained = EarthquakeDetector(sampling_rate=100.0)
+    if not trained._neural_trained:
+        raise RuntimeError(
+            "earthquake: default construction failed to load the shipped "
+            "seismic_stead checkpoint; the merit-gated winner is not serving"
+        )
+    t_true, t_pred = [], []
+    n_magnitudes = 0
+    for i in range(len(data["labels"])):
+        result = trained.predict_earthquake(data["traces"][i])
+        label = int(data["labels"][i])
+        t_true.append(label)
+        t_pred.append(int(result.earthquake_detected))
+        if result.earthquake_detected and result.estimated_magnitude is not None:
+            n_magnitudes += 1
+    trained_rates = _detection_rates(t_true, t_pred, "earthquake (trained)")
+    if sum(t_pred) > 0 and n_magnitudes == 0:
+        raise RuntimeError(
+            "earthquake: trained detector alerted without estimating a single "
+            "magnitude; the calibrated magnitude head is not serving"
+        )
+    metrics["trained_pod"] = trained_rates["pod"]
+    metrics["trained_far"] = trained_rates["far"]
+    metrics["trained_csi"] = trained_rates["csi"]
     return metrics
 
 
@@ -454,10 +535,13 @@ def _run_volcano(path: Path) -> dict[str, float]:
     """USGS alert-level ordinal accuracy over multi-precursor scenarios."""
     from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
 
+    _assert_winner_serving("volcano", "volcanic_avo_seismic", VolcanicEruptionDetector())
     payload = json.loads(path.read_text())
     intended, predicted = [], []
     for scenario in payload["scenarios"]:
-        detector = VolcanicEruptionDetector()  # fresh: HMM/optimizer state per scenario
+        # Physics lane: the multi-precursor alert-level floors below are the
+        # disclosed surface; the trained winner is pinned as serving above.
+        detector = VolcanicEruptionDetector(load_shipped_weights=False)  # fresh state per scenario
         data = dict(scenario["data"])
         data["seismic_sequence"] = np.asarray(data["seismic_sequence"], dtype=float)
         thermal = dict(data["thermal_data"])
@@ -476,7 +560,10 @@ def _run_solar(flare_path: Path, kp_path: Path) -> dict[str, float]:
     """Flare-class chain accuracy + Boyle-index Kp skill on real SWPC data."""
     from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
 
-    detector = SolarStormDetector()
+    _assert_winner_serving("solar", "solar_storm_geomag", SolarStormDetector())
+    # Physics lane: the flare-chain + Boyle-index Kp floors below are the
+    # disclosed surface; the trained winner is pinned as serving above.
+    detector = SolarStormDetector(load_shipped_weights=False)
 
     flare_payload = json.loads(flare_path.read_text())
     flare_true, flare_pred = [], []
@@ -602,7 +689,7 @@ def evaluate() -> dict[str, Any]:
                 ),
             },
             "honesty_tripwires": [
-                "earthquake: estimated_magnitude must stay None while untrained",
+                "earthquake: estimated_magnitude must stay None on the physics lane (load_shipped_weights=False); the trained lane must estimate magnitudes",
                 "hurricane: removed track fields must not regrow without a track model",
                 "solar: kp_index must not be None on the offline Boyle physics path",
             ],

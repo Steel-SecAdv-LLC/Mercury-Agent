@@ -85,18 +85,21 @@ class TestTsunamiHonesty:
 
 
 class TestEarthquakeHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert EarthquakeDetector()._neural_trained is False
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert EarthquakeDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert EarthquakeDetector(load_shipped_weights=False)._neural_trained is False
 
     def test_no_magnitude_is_fabricated_when_untrained(self) -> None:
-        det = EarthquakeDetector(sampling_rate=100.0)
+        det = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         result = det.predict_earthquake(_quake_record(np.random.default_rng(0)))
         assert result.estimated_magnitude is None
         assert result.magnitude_class == "undetermined"
         assert result.aftershock_probability == 0.0
 
     def test_untrained_path_ignores_neural_model_weights(self) -> None:
-        det = EarthquakeDetector(sampling_rate=100.0)
+        det = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         record = _quake_record(np.random.default_rng(1))
         before = det.predict_earthquake(record).confidence
         with torch.no_grad():
@@ -106,7 +109,7 @@ class TestEarthquakeHonesty:
         assert before == after
 
     def test_sta_lta_physics_detects_quake_and_rejects_calm(self) -> None:
-        det = EarthquakeDetector(sampling_rate=100.0)
+        det = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         quake = det.predict_earthquake(_quake_record(np.random.default_rng(0)))
         calm = det.predict_earthquake(np.random.default_rng(2).normal(0, 0.1, 6000))
         assert quake.earthquake_detected is True
@@ -115,7 +118,7 @@ class TestEarthquakeHonesty:
     def test_p_and_s_arrivals_are_ordered_and_distance_computed(self) -> None:
         """P/S picks come from the STA/LTA physics (not random NN heads), the S
         pick searches after P, and the S−P time yields an epicenter distance."""
-        det = EarthquakeDetector(sampling_rate=100.0)
+        det = EarthquakeDetector(sampling_rate=100.0, load_shipped_weights=False)
         result = det.predict_earthquake(_quake_record(np.random.default_rng(0)))
         assert result.p_wave_detected and result.s_wave_detected
         assert result.p_wave_arrival_time is not None

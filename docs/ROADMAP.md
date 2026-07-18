@@ -1078,7 +1078,7 @@ class ExplainableAnomalyDetector:
 | Advanced Harmonics | scipy, numpy | cupy, jax |
 | AutoML | optuna | ray[tune], hyperopt |
 | Federated Learning | grpcio, cryptography | pysyft, tensorflow-federated |
-| Explainability | shap, lime | dice-ml, alibi |
+| Explainability | shap (lime excluded: unbuildable on modern setuptools; in-repo LIME surrogate instead) | dice-ml, alibi |
 
 ---
 

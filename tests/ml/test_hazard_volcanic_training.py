@@ -329,7 +329,7 @@ class TestOperatingPointConsumption:
 
         path = tmp_path / "cand.pt"
         torch.save(self._payload(bad), path)
-        detector = VolcanicEruptionDetector()
+        detector = VolcanicEruptionDetector(load_shipped_weights=False)
         with pytest.raises(ValueError, match="operating-point"):
             detector.load_neural_weights(str(path))
         assert detector._neural_trained is False
@@ -370,7 +370,7 @@ class TestShippedVolcanicCheckpoint:
         minute = np.asarray(day_record["minute_rsam"], dtype=float)
         minute = minute[np.isfinite(minute)]
 
-        physics = VolcanicEruptionDetector()
+        physics = VolcanicEruptionDetector(load_shipped_weights=False)
         physics_result = physics.predict_eruption({"seismic_sequence": minute})
         assert physics._neural_trained is False
         assert physics_result.time_to_eruption_hours is None  # forecast never ran
@@ -401,7 +401,7 @@ class TestShippedVolcanicCheckpoint:
 
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")
-        detector = VolcanicEruptionDetector()
+        detector = VolcanicEruptionDetector(load_shipped_weights=False)
         with pytest.raises((pickle.UnpicklingError, RuntimeError)):
             detector.load_neural_weights(str(bad))
         assert detector._neural_trained is False

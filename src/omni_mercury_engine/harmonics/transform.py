@@ -12,6 +12,7 @@ References:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -79,7 +80,12 @@ class AssociatedLegendre:
         self._normalization = normalization
         self._dtype = np.float64 if use_float64 else np.float32
 
+        # Cached P_l^m arrays are only valid for the grid they were computed
+        # on; ``_cache_grid`` records that grid so a call on a different grid
+        # invalidates the cache instead of returning stale (or wrong-shape)
+        # values.
         self._plm_cache: dict[tuple[int, int], np.ndarray[Any, Any]] = {}
+        self._cache_grid: np.ndarray[Any, Any] | None = None
 
     def compute(self, degree: int, m: int, cos_theta: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute P_l^m(cos(theta)) with proper normalization.
@@ -96,6 +102,10 @@ class AssociatedLegendre:
         if m_abs > degree:
             return np.zeros_like(cos_theta, dtype=self._dtype)
 
+        if self._cache_grid is None or not np.array_equal(self._cache_grid, cos_theta):
+            self._plm_cache.clear()
+            self._cache_grid = np.array(cos_theta, copy=True)
+
         key = (degree, m_abs)
         if key in self._plm_cache:
             plm = self._plm_cache[key].copy()
@@ -105,11 +115,13 @@ class AssociatedLegendre:
                 self._plm_cache[key] = plm.copy()
 
         if self._normalization == "ortho":
+            # ``np.math`` was removed in NumPy 2.0; the stdlib module it
+            # aliased is the drop-in replacement (bit-identical results).
             norm = np.sqrt(
                 (2 * degree + 1)
                 / (4 * np.pi)
-                * np.math.factorial(degree - m_abs)  # type: ignore[attr-defined, unused-ignore]
-                / np.math.factorial(degree + m_abs)  # type: ignore[attr-defined, unused-ignore]
+                * math.factorial(degree - m_abs)
+                / math.factorial(degree + m_abs)
             )
             plm = plm * norm
 

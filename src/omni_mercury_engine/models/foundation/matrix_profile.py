@@ -159,6 +159,19 @@ class MatrixProfileDetector(BaseFoundationModel):
 
         window_size = window_size or self.mp_config.window_size
 
+        series = np.asarray(series)
+        if series.ndim != 1:
+            raise ValueError(
+                f"Matrix Profile expects a 1-D time series; got shape {tuple(series.shape)}. "
+                "Pass a single univariate series [T]."
+            )
+        if series.shape[0] <= window_size:
+            raise ValueError(
+                "Matrix Profile expects a 1-D time series longer than "
+                f"window_size={window_size}; got {series.shape[0]} points. "
+                "Provide a longer series or configure a smaller window_size."
+            )
+
         if not self._stumpy_available:
             raise RuntimeError(
                 "STUMPY is not available for Matrix Profile computation. "
@@ -193,6 +206,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         series_or_mp: np.ndarray[Any, Any] | torch.Tensor,
         top_k: int | None = None,
         exclusion_zone: int | None = None,
+        is_matrix_profile: bool | None = None,
     ) -> list[dict[str, Any]]:
         """Find discords (anomalies) in a time series or Matrix Profile.
 
@@ -203,27 +217,45 @@ class MatrixProfileDetector(BaseFoundationModel):
             series_or_mp: Time series or pre-computed Matrix Profile array
             top_k: Number of discords to find (alias for n_discords)
             exclusion_zone: Exclusion zone size (default: window_size // 2)
+            is_matrix_profile: Whether ``series_or_mp`` is a pre-computed
+                Matrix Profile. When None (default), the input is treated as a
+                RAW SERIES and its matrix profile is computed; pass
+                ``is_matrix_profile=True`` to supply a pre-computed profile
+                directly (otherwise a profile-of-a-profile would be computed)
+
+        Behaviour change (2026-07, PR #339): ``is_matrix_profile=None``
+        previously guessed via a length heuristic (``len <= 2*window`` =>
+        profile), which misclassified realistic pre-computed profiles
+        (length ~ n - window + 1) as raw series and silently computed a
+        profile-of-a-profile. The undeclared default is now always RAW
+        SERIES; callers passing a pre-computed profile must say so
+        explicitly with ``is_matrix_profile=True``.
 
         Returns:
             List of discord info dicts with index and score
         """
         self._ensure_initialized()
 
-        # Convert torch tensor if needed
+        # Convert torch tensor if needed (detach so a grad-tracking tensor
+        # does not raise on .numpy()).
         if isinstance(series_or_mp, torch.Tensor):
-            series_or_mp = series_or_mp.cpu().numpy()
+            series_or_mp = series_or_mp.detach().cpu().numpy()
 
-        # Determine if input is a series or matrix profile
-        # Matrix profiles are typically shorter than the original series
-        # and have specific value ranges
-        is_series = len(series_or_mp) > self.mp_config.window_size * 2
+        if is_matrix_profile is None:
+            # Treat an undeclared input as a RAW SERIES (compute its matrix
+            # profile). The previous length heuristic misclassified real
+            # matrix profiles -- whose length is ~ n - window + 1, typically
+            # >> 2*window -- as raw series and silently computed a
+            # profile-of-a-profile; a precomputed profile must be declared
+            # explicitly with is_matrix_profile=True.
+            is_matrix_profile = False
 
-        if is_series:
+        if is_matrix_profile:
+            matrix_profile = series_or_mp
+        else:
             # Compute matrix profile from series
             mp_result = self.compute_matrix_profile(series_or_mp)
             matrix_profile = mp_result["matrix_profile"]
-        else:
-            matrix_profile = series_or_mp
 
         n_discords = top_k or self.mp_config.n_discords
         exclusion_zone = exclusion_zone or self.mp_config.window_size // 2
@@ -420,8 +452,8 @@ class MatrixProfileDetector(BaseFoundationModel):
         mp_result = self.compute_matrix_profile(series)
         mp = mp_result["matrix_profile"]
 
-        # Find discords
-        discords = self.find_discords(mp)
+        # Find discords in the already-computed profile
+        discords = self.find_discords(mp, is_matrix_profile=True)
 
         # Create scores array (normalized MP values)
         scores = np.zeros(len(series))
@@ -473,62 +505,3 @@ class MatrixProfileDetector(BaseFoundationModel):
             Dict with scores, is_anomaly flags, discords, and threshold
         """
         return self.detect_anomalies(series)
-
-    def _mock_matrix_profile(
-        self,
-        series: np.ndarray[Any, Any],
-        window_size: int,
-    ) -> dict[str, np.ndarray[Any, Any]]:
-        """Mock Matrix Profile computation.
-
-        Uses simple distance calculations as a fallback when STUMPY is not available. For large
-        series, samples candidates to keep computation tractable.
-        """
-        n = len(series) - window_size + 1
-        mp = np.zeros(n)
-        pi = np.zeros(n, dtype=int)
-
-        # Limit candidates for large n to avoid O(n²) blowup
-        max_candidates = min(n, 500)
-
-        for i in range(n):
-            subseq_i = series[i : i + window_size]
-
-            # Z-normalize
-            std_i = np.std(subseq_i)
-            if std_i > 0:
-                subseq_i = (subseq_i - np.mean(subseq_i)) / std_i
-
-            min_dist = np.inf
-            min_idx = -1
-
-            # Sample candidate indices when n is large
-            if n <= max_candidates:
-                candidates = range(n)
-            else:
-                candidates = np.linspace(0, n - 1, max_candidates, dtype=int)  # type: ignore[assignment, unused-ignore]
-
-            for j in candidates:
-                if abs(i - j) <= window_size // 2:
-                    continue
-
-                subseq_j = series[j : j + window_size]
-                std_j = np.std(subseq_j)
-                if std_j > 0:
-                    subseq_j = (subseq_j - np.mean(subseq_j)) / std_j
-
-                dist = np.sqrt(np.sum((subseq_i - subseq_j) ** 2))
-
-                if dist < min_dist:
-                    min_dist = dist
-                    min_idx = j
-
-            mp[i] = min_dist
-            pi[i] = min_idx
-
-        return {
-            "matrix_profile": mp,
-            "profile_index": pi,
-            "left_index": pi,
-            "right_index": pi,
-        }

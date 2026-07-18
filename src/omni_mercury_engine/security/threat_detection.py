@@ -22,11 +22,37 @@ except ImportError:
 
 
 class BanishmentAction(Enum):
-    """Actions for threat handling."""
+    """Threat-*validity* verdicts from the Banish_Void_Undue assessment.
 
+    Vocabulary note — deliberately distinct from the decision layer's
+    :class:`omni_mercury_engine.decision.states.ResponseAction`:
+
+    * ``BanishmentAction`` classifies how to *file* a detected threat report
+      (validity triage of the report itself); it recommends and never
+      executes anything.
+    * ``ResponseAction`` (``monitor`` / ``alert`` / ``recommend_mitigation``
+      / ``escalate_to_human`` / ``request_input`` / ``hold``) is the closed
+      loop's bounded, non-destructive *response* vocabulary.
+
+    The wire values do not collide (``escalate`` here vs
+    ``escalate_to_human`` there), and neither enum's members may be folded
+    into the other: validity triage and response planning are different
+    axes.
+    """
+
+    #: High-mid validity (0.5 < score <= 0.8): treat the threat as real and
+    #: remove/quarantine its subject from the trusted scope (recommendation).
     BANISH = "banish"
+
+    #: Low validity (score <= 0.3, or no threats): discard the report as
+    #: invalid/undue.
     VOID = "void"
+
+    #: Uncertain validity (0.3 < score <= 0.5): keep the report under
+    #: observation without acting on it.
     MAINTAIN = "maintain"
+
+    #: High validity (score > 0.8): raise to a human/security operator.
     ESCALATE = "escalate"
 
 

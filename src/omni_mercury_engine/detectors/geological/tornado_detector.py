@@ -460,6 +460,7 @@ class TornadoDetector:
         rng: DeterministicRNG | None = None,
         data_source: NWSWeatherAlertsSource | None = None,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -485,6 +486,13 @@ class TornadoDetector:
                 couplet (see
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Default False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated ``tornado_nexrad``
+                checkpoint at construction (default), so a default-constructed
+                detector serves the ratified winner. Pass False for the pure
+                velocity-couplet physics configuration (the hazard regression
+                guard's physics lane and the honesty-contract tests). Absence of
+                the checkpoint falls open to physics; an invalid checkpoint still
+                fails loud.
         """
         self.enable_radar = enable_radar
         self.enable_atmospheric = enable_atmospheric
@@ -543,6 +551,20 @@ class TornadoDetector:
             "MS",
             "AL",
         ]
+
+        # The tornado_nexrad checkpoint cleared the hazard merit gate on real
+        # held-out data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the disclosed
+        # velocity-couplet physics; a present-but-invalid checkpoint still fails
+        # loud inside load_neural_weights (state-dict/operating-point validation).
+        if load_shipped_weights and self.radar_analyzer is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'tornado_nexrad' checkpoint available; detecting "
+                    "mesocyclones from velocity-couplet physics."
+                )
 
     def predict_tornado(self, weather_data: dict[str, Any]) -> TornadoPredictionResult:
         """Comprehensive tornado prediction.
@@ -744,8 +766,24 @@ class TornadoDetector:
         mask) a mesocyclone.
         """
         radar_result: dict[str, Any]
-        if not self._neural_trained:
-            self._warn_untrained_once()
+        seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
+        if seq_tensor.dim() == 2:
+            seq_tensor = seq_tensor.unsqueeze(0)
+
+        # Use the trained radar LSTM only when weights are loaded AND the input
+        # matches the checkpoint's tornado-nexrad-v1 velocity-feature width;
+        # otherwise -- untrained, or off-contract input the LSTM cannot consume
+        # -- fall back to the deterministic velocity-couplet physics. Both cases
+        # go through the same branch so keep_diagnostics captures the velocity
+        # field identically (an off-contract fallback must not silently drop it).
+        on_contract = (
+            self.radar_analyzer is not None
+            and seq_tensor.dim() == 3
+            and seq_tensor.shape[-1] == self.radar_analyzer.lstm.input_size
+        )
+        if not (self._neural_trained and on_contract):
+            if not self._neural_trained:
+                self._warn_untrained_once()
             radar_result = self._analyze_radar_physics(radar_sequence)
             if self.keep_diagnostics:
                 # The physics couplet analysis consumes the same Doppler
@@ -757,10 +795,6 @@ class TornadoDetector:
                     arr = arr.reshape(1, -1)
                 radar_result["velocity_field"] = arr
             return radar_result
-
-        seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
-        if seq_tensor.dim() == 2:
-            seq_tensor = seq_tensor.unsqueeze(0)
 
         assert self.radar_analyzer is not None
         self.radar_analyzer.eval()

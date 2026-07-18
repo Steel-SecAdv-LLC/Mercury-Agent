@@ -28,6 +28,7 @@ Medical professionals must review all findings before patient care decisions.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -544,6 +545,15 @@ class ABMSDisciplineDetector:
 
     def _extract_clinical_features(self, patient_data: dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract numerical features from patient clinical data (O(n) complexity)."""
+        if not isinstance(patient_data, Mapping):
+            shape_hint = f" of shape {patient_data.shape}" if hasattr(patient_data, "shape") else ""
+            raise ValueError(
+                "ABMSDisciplineDetector expects a patient-record mapping "
+                "(dict with 'vitals'/'labs'/'symptoms'/'history' keys), got "
+                f"{type(patient_data).__name__}{shape_hint}. "
+                "For a raw numeric vector, call detect(array, specialty) instead."
+            )
+
         features = []
 
         vitals = patient_data.get("vitals", {})

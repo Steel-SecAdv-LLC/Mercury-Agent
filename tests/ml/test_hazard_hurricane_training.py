@@ -122,7 +122,7 @@ class TestDetectorPlumbing:
     def test_physics_path_reports_observed_patch_max_wind(
         self, samples: dict[str, np.ndarray[Any, Any]]
     ) -> None:
-        det = HurricaneDetector()
+        det = HurricaneDetector(load_shipped_weights=False)
         for i in range(samples["x"].shape[0]):
             result = det.predict_hurricane(_wind_field_case(samples["x"][i]))
             assert result.max_wind_speed_kt == pytest.approx(
@@ -137,7 +137,7 @@ class TestDetectorPlumbing:
         torch.manual_seed(0)
         ckpt = tmp_path / "fresh.pt"
         torch.save({"wind_analyzer": WindPatternAnalyzer().state_dict()}, ckpt)
-        physics_det = HurricaneDetector()
+        physics_det = HurricaneDetector(load_shipped_weights=False)
         det = HurricaneDetector()
         det.load_neural_weights(str(ckpt))
         assert det._neural_trained is True
@@ -226,7 +226,7 @@ class TestShippedDifferential:
         case = _wind_field_case(samples["x"][0])
         truth_kt = float(samples["intensity_kt"][0])
 
-        physics = HurricaneDetector().predict_hurricane(case)
+        physics = HurricaneDetector(load_shipped_weights=False).predict_hurricane(case)
         learned_det = HurricaneDetector()
         learned_det.load_neural_weights()  # no path -> shipped default
         assert learned_det._feature_spec == hw.FEATURE_SPEC_VERSION

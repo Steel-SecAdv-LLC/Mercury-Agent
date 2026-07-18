@@ -34,6 +34,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     sanitize_domain,
 )
+from omni_mercury_engine.models.foundation.llm_adapter import MERCURY_IDENTITY_CLAUSE
 from omni_mercury_engine.reasoning.schemas import (
     Explanation,
     Hypothesis,
@@ -48,9 +49,12 @@ from omni_mercury_engine.security.sigma_immutable_gate import (
 
 __all__ = ["ReasoningBackend"]
 
-#: System prompt prepended to every call — reinforces that the model is a
-#: subordinate engine, not the system. Mercury owns the decision.
+#: System prompt prepended to every call — the product-identity contract
+#: (Mercury Agent speaks as Mercury Agent, backend disclosed on inquiry;
+#: see MERCURY_IDENTITY_CLAUSE) plus the subordination contract: the model
+#: is a subordinate engine, not the system. Mercury owns the decision.
 SYSTEM_PROMPT: str = (
+    MERCURY_IDENTITY_CLAUSE + " "
     "You are a subordinate reasoning engine invoked by Mercury Agent. "
     "Mercury owns the detection, the decision, and the final verdict; you "
     "provide concise, evidence-grounded language only. Do not claim to be "

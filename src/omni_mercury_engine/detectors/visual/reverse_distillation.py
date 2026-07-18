@@ -289,7 +289,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
             dataset,
             batch_size=self.rd_config.batch_size,
             shuffle=True,
-            drop_last=True,
+            drop_last=data.shape[0] >= self.rd_config.batch_size,
         )
 
         # Training loop
@@ -339,7 +339,12 @@ class ReverseDistillationDetector(BaseVisualDetector):
                 epoch_loss += total_loss.item()
                 n_batches += 1
 
-            scheduler.step()
+            if n_batches > 0:
+                # Step the LR schedule only for epochs that actually
+                # stepped the optimizer (an empty loader epoch would
+                # otherwise advance the schedule and trip PyTorch's
+                # step-order warning).
+                scheduler.step()
 
             if (epoch + 1) % 20 == 0:
                 avg_loss = epoch_loss / max(n_batches, 1)

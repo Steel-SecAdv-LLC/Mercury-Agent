@@ -27,6 +27,426 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
+
+- ``np.math`` was removed in NumPy 2.0 (the project floor is
+  ``numpy>=2.4``), so every ortho-normalized
+  ``AssociatedLegendre.compute()`` — and with it every
+  ``SphericalHarmonicTransform`` / ``FastSHTransform`` forward pass —
+  raised ``AttributeError``. Reproduced on numpy 2.4.6, fixed with the
+  stdlib ``math.factorial`` (bit-identical on both NumPy majors), pinned
+  red-to-green by ``tests/test_harmonics_transform.py``.
+- Adjacent defect: the Legendre P_l^m cache was keyed only by
+  ``(degree, m)``, so reusing an instance on a different grid crashed
+  (different length) or silently returned the previous grid's values
+  (same length). The cache now invalidates when its grid changes; a
+  reused transform is pinned bit-equal to a fresh instance.
+
+### Behaviour change: decision layer enabled at the served deploy entrypoints (PR #339)
+
+- The three served entrypoints — the ``/api/v1/detect/flagship`` HTTP
+  route, the MCP ``mercury_detect_fusion`` tool, and
+  ``mercury-agent detect -d fusion`` — now enable the
+  decision/abstention/response layer when they build their engine, so
+  every served flagship detection carries an additive ``decision`` record
+  (grounded verdict or explicit abstention plus a bounded,
+  non-destructive response plan). The core ``OmniMercuryEngine`` default
+  is unchanged (opt-in via ``enable_decision_layer()``); library
+  consumers are unaffected.
+- New recommend-only restorative verbs join the bounded response
+  vocabulary: ``ResponseAction.RECOMMEND_CONVERSION`` and
+  ``RECOMMEND_RESTORATION``, selected only by the opt-in
+  ``ResponsePolicy(restorative=True)`` posture (default ``False``; the
+  pre-existing wire format is pinned unchanged by test). Both are
+  non-destructive and never auto-authorised.
+
+### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates (PR #339)
+
+- ``ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD`` (0.93) is the new single
+  authoritative declaration of the trained σ_Immutable network's decision
+  threshold in ``core/centralized_constants.py``; the gate module,
+  ``EthicalGate``'s default, GOSNN's class attributes, and the env-clamp
+  floor now cite it instead of re-hardcoding literals. All values are
+  byte-identical to before (0.93 trained / 0.96 GOSNN gating — a
+  documented two-threshold design, not drift); no behavior change.
+- The "sigmoid benevolence gate" docs no longer claim to *replace* the
+  hard threshold: ``BenevolenceScorer.enforce`` (0.99, floored 0.70) is
+  the HARD decision-boundary gate; ``sigmoid_benevolence_gate`` is the
+  SOFT fusion-weighting term in ``core/three_r/fusion.py``. Comments and
+  docstrings only; enforcement semantics identical.
+
+### Changed: coverage merge-gate floors graduated on re-measurement (PR #339)
+
+- ``COVERAGE_THRESHOLD_CORE`` 25 → **30** and ``COVERAGE_THRESHOLD_FULL``
+  50 → **55**, backed by fresh CI-identical measurements on the PR #339
+  head (CORE 37.94% / FULL 67.97% combined stmt+branch, both lanes
+  green at measurement; previous baselines 31.87% / 59.84%). Same
+  cushion policy that set 25/50 (~7 points CORE / ~10 points FULL below
+  baseline), with ~3 extra points of FULL margin because the
+  measurement environment carried slightly fewer optional extras than
+  CI's ``[all,dev]`` lane. CONTRIBUTING.md and the ci.yml rationale
+  comment updated together.
+
+### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
+
+- With ``is_matrix_profile=None`` (the default), ``find_discords`` now
+  ALWAYS treats the input as a raw series and computes its matrix profile.
+  The previous length heuristic (``len <= 2*window`` => pre-computed
+  profile) misclassified realistic pre-computed matrix profiles (length
+  ``~ n - window + 1``, typically ``>> 2*window``) as raw series and
+  silently computed a profile-of-a-profile, yielding incorrect discord
+  indices/scores. Downstream callers that pass a pre-computed profile must
+  declare it with ``is_matrix_profile=True`` (the in-repo caller already
+  does). Noted in the method docstring.
+
+### GOSNN role resolved: one scalar snapshot for both gates; observability audited (PR #339)
+
+- **The σ_Immutable path no longer collects the scalar vector twice per
+  detect call.** ``detect_with_fusion`` used to walk the 127-scalar
+  operational registry once for GOSNN's advisory ethical gate (inside
+  ``get_enhanced_scalars``) and again for the authoritative σ_Immutable
+  gate — two independent snapshots that a concurrent registration could
+  make diverge. The enhancement now carries the exact snapshot it scored
+  (``EnhancementResult.collected_scalars``) and the authoritative gate
+  reuses it: one registry walk instead of two (~0.3 ms/call), and the
+  advisory and authoritative gates provably evaluate the identical
+  vector. The σ_Immutable score and verdict are bit-identical (pinned by
+  ``tests/core/test_gosnn_scalar_snapshot_reuse.py``).
+- **GOSNN observability audited and kept (not theatre).** Measured on 120
+  real detect calls, the surfaced ``enhancement_fusion_score`` (AUC-vs-
+  label 0.878) and ``intelligence_contribution`` (0.836) genuinely track
+  anomalousness and are only weakly correlated with ``anomaly_prob``, so —
+  unlike the retired ``harmonic_synergy`` dead constant — they remain
+  surfaced. The ledger records the honest caveat that this signal is
+  member-0-derived (detector scores), hence informative but not
+  independent of the engine's own fusion, and correctly never routed into
+  a decision.
+
+### GOSNN fusion: consequential decision channel + labelled-outcome training (PR #339)
+
+- **`MultiHeadAttentionFusion` train/serve stacks unified.** The
+  architecture and forward computation now live in one shared module
+  (``core/attention_fusion_stack.py``) imported by both the production
+  ``fuse()`` and the training program — the trainer's private
+  ``_FusionModel`` re-implementation had already drifted from the serve
+  path (the serve side applied a harmonic-synergy output modulation the
+  merit gate never measured; it was a constant ×1.0118 on production data
+  and is removed).
+- **`harmonic_synergy` no longer surfaced in detection results.** Measured
+  on the production serve path, the FFT top-two-magnitude ratio behind it
+  is pinned to exactly 1.0 by real-input conjugate symmetry, so the metric
+  was the bit-identical constant 0.618034 on every call. It remains a
+  documented diagnostic (``GlobalOmniScalarNetwork.last_harmonic_synergy``)
+  with the degeneracy spelled out in ``compute_harmonic_synergy``.
+- **Consequential channel (decision-layer routing).** The fusion checkpoint
+  payload may now carry a detection head + validation-selected thresholds
+  (shipped only when the new detection-metric merit gate passes);
+  ``detect_with_fusion`` surfaces ``gosnn_metadata["detection"]`` and the
+  decision layer demotes a grounded verdict to ``DEFER`` on strong
+  disagreement (``DecisionPolicy.defer_on_gosnn_disagreement``,
+  abstention-only). The channel is isolated by construction and by test:
+  ``OmniFusionModel`` inputs, ``anomaly_prob``, and the σ_Immutable verdict
+  are bit-identical with the head attached or absent, so the shipped
+  ``default_fusion.pt`` contract is untouched.
+- **Training rebuilt around the real task.** ``scripts/train_gosnn_fusion.py``
+  now pairs every harvested production ``fuse()`` input with the ADBench
+  ground-truth label of the exact detected row and trains fusion + head
+  jointly (class-weighted BCE; optional reconstruction auxiliary). The
+  merit gate is a held-out detection metric — the learned head must beat
+  BOTH the phi-reference-fusion head and the raw mean detector score by a
+  margin, avoid representational collapse, and yield a demotion rule that
+  is enriched in wrong verdicts at bounded deferral cost — and it refuses
+  to ship anything consequential otherwise (harvest-diversity tripwire
+  retained).
+- **Gate hardened and verdict measured decisively.** The harvest draws
+  label-stratified rows from each dataset's held-out TEST+VALIDATION
+  splits across all cached ADBench datasets (1,469 labelled calls / 321
+  anomalies; prevalence-invariant AUC, sampling disclosed); training uses
+  gradient accumulation, a cosine LR schedule, and validation-AUC early
+  stopping; shipping requires the 5th percentile of a dataset-stratified
+  paired bootstrap of ``AUC_learned − max(baselines)`` to exceed zero; a
+  detection head with out-of-range or inverted demotion thresholds is
+  refused at load (and the Evidence layer independently drops out-of-range
+  thresholds). The merit baselines now include the **engine's own
+  ``anomaly_prob``** — the verdict a disagreement overlay would
+  second-guess — because a head that separates worse than that verdict
+  cannot help (it would demote net-correct verdicts). **Verdict: refused
+  decisively** — the engine's own fusion separates the held-out anomalies
+  at 0.961 AUC, while the learned fused-state head reaches 0.801 and even
+  a direct head on the raw detector-score member reaches only 0.886–0.904
+  (bootstrap delta vs the engine P5 −0.201). The engine already fuses the
+  detector scores better than any re-weighting of them, so a GOSNN-input
+  consequential channel is dead-by-construction; observability-only is the
+  ratified, evidence-backed posture (``artifacts/gosnn_fusion.eval.json``,
+  dormancy ledger). Closing the loop also fixed a real hole: the earlier
+  gate compared only against the phi/mean reference fusions, which the
+  detector-score head clears — it would have shipped a cross-check weaker
+  than the engine it guards.
+
+### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
+
+- The solar geomag fix generalised: an audit of every net-backed trained
+  serving lane reproduced the same crash class in landslide
+  (``slope_features`` — ``ndim >= 1`` guard passed ``(1, 64)`` into
+  ``BatchNorm1d``), volcanic eruption (``fused_features`` — no input guard
+  at all), and hurricane (``(1, W)`` wind transect pooled to height 0 in
+  ``MaxPool2d``), plus adjacent-rank holes in wildfire (``(3, 1, W)``),
+  seismic ``predict_earthquake`` (0-d / rank>=3 opaque crashes),
+  parapsychology (0-d ``len()`` crash; off-contract ``(N, W)`` silently
+  flattened into one LSTM sequence), and a latent unguarded feed in the
+  disaster-precursor lane. Uniform contract everywhere: ``(1, W)`` is the
+  single sample and is consumed; off-rank input falls to the disclosed
+  physics/neutral path or fails loud where no physics fallback exists.
+  Each fix is pinned by ``tests/detectors/test_batched_single_sample_guards.py``.
+
+### Tooling: `ruff check` no longer auto-mutates (PR #339)
+
+- ``[tool.ruff] fix`` is now ``false``: a plain ``ruff check`` used to
+  rewrite files, so a file could change *after* a passing mypy run and ship
+  a type regression (bit CI on 498f8d4). Autofixing is explicit-only
+  (``ruff check --fix`` or the pre-commit hook, which blocks the commit on
+  fix so later hooks re-run); ``scripts/run_ci_gates.sh`` orders the mypy
+  lanes after ruff.
+
+### Product identity + uniform per-provider model selection (PR #339)
+
+- **Mercury Agent identifies as Mercury Agent.** A product-identity clause
+  (``MERCURY_IDENTITY_CLAUSE``) now rides every system prompt Mercury sends
+  to an LLM backend — the reasoning chain's ``SYSTEM_PROMPT`` and both
+  adapter prompt builders: user-facing language speaks as Mercury Agent,
+  never under the backend model's or its vendor's own persona, while
+  staying transparent on inquiry (Mercury Agent is AI-assisted; the active
+  operator-configured provider is reported in provenance metadata; it never
+  denies being AI or claims to be human). Pinned by tests.
+- **Uniform ``MERCURY_<PROVIDER>_MODEL`` model selection.** Every adapter
+  now reads its own env fallback for ``model_name`` (Anthropic, OpenAI,
+  HuggingFace, xAI, DeepSeek, Cursor, Cohere, Gemini — mirroring the
+  existing ``MERCURY_OLLAMA_MODEL``): explicit config wins, env is the
+  fallback, and with neither the adapter stays unavailable. Same convention
+  for every provider; none privileged. Pinned by a parametrized test.
+- **Residual vendor defaults purged.** The CLI ``voice`` command's
+  ``--model`` flag, ``ModelConfiguration``'s preferred/domain model lists,
+  and the ``create_ollama_adapter``/``create_fallback_chain`` factories no
+  longer fall back to a hard-coded local model; the former default lists
+  are preserved verbatim as documented opt-in ``EXAMPLE_OLLAMA_*``
+  constants.
+
+### Provider neutrality: no vendor-default models, anywhere (PR #339)
+
+- **Mercury ships no default model id for any provider — local or cloud.**
+  Every adapter (OpenAI, Anthropic, HuggingFace, xAI, DeepSeek, Cursor,
+  Cohere, Gemini, and local Ollama) previously fell back to a hard-coded
+  vendor model when ``model_name`` was unset; all nine literals are removed.
+  An adapter constructed without an explicit model now reports itself
+  unavailable with an actionable message and the chain falls back to the
+  deterministic template — nothing is ever silently sent to a model the
+  operator did not name, and no vendor is privileged. (This also closes the
+  historical failure where a hard-coded default rotted upstream and 404'd on
+  the first call.) Pinned by a parametrized adapter test.
+- **Model-integration proof harness de-branded.** ``anthropic_wire_proof.py``
+  → ``cloud_adapter_wire_proof.py`` and ``mercury_claude_reasoning_e2e.py`` →
+  ``remote_reasoning_e2e.py``; the recorded Anthropic Messages fixture id is
+  now a single named test constant (test data, not a default), the live legs
+  require the operator to name the model (``MERCURY_ANTHROPIC_MODEL``), and
+  the README presents every shipped provider as equally welcome.
+
+### Review-hardening: edge-window crashes, sizing consistency, honest docs (PR #339)
+
+- **Schumann degenerate windows fixed end-to-end.** An empty ELF window
+  reached ``scipy.fft.fft`` (which raises on empty input) before any guard,
+  and a single-sample window was squeezed to a 0-d scalar and misclassified
+  as off-modality; ``extract_features`` additionally emitted NaN band power
+  (mean of an empty slice) on such windows. All three now yield the truthful
+  empty spectrum / zero band power, warning-free, with ``n in {0, 1}``
+  pinned by tests.
+- **AffectiveAnomalyModel rejects empty declared series.** A declared
+  emotion series with zero timesteps passed the shape check and produced
+  NaN anomaly/emotion scores via the temporal mean; it now fails loud.
+- **AllSourceFusionNetwork sizing follows the discipline enum.** The
+  cross-INT attention head count and the ``hidden_3`` rounding hard-coded 13
+  while the per-discipline encoders were built from ``IntelligenceDiscipline``;
+  both now derive from the enum (identical dimensions at the default) and a
+  divergent ``num_int_types`` fails loud instead of silently mis-sizing.
+- **Proof-harness honesty and hygiene.** The wire proof no longer claims the
+  SSRF gate was "engaged" in the leg where it is patched out; the live
+  transport leg catches only ``UnsafeURLError`` (the sole exception the
+  adapter lets escape) so real adapter bugs fail the proof; key-shaped
+  ``sk-ant-*`` dummy values replaced with neutral placeholders; the detector
+  sweep's exit-code contract is now stated precisely; ``curl | sh`` install
+  one-liners replaced with links to official instructions.
+- **`AMA_REQUIRE_CONSTANT_TIME` docs reconciled** (SECURITY.md previously
+  told operators to set it while INSTALLATION/DEPLOYMENT/.env.example called
+  it a no-op): all four now carry the same verified statement — AMA v3.3.0's
+  native-only operation is unconditional, the flag changes no cryptographic
+  behavior on a healthy install (AMA logs a deprecation warning), it fails
+  closed redundantly on a broken install, and Mercury reads it only for
+  diagnostics.
+
+### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses (PR #339)
+
+- **EarthquakeDetector defaults to the shipped merit-gate winner.** The
+  ``seismic_stead`` checkpoint (real STEAD data: held-out recall 0.9745 vs
+  physics 0.4795 at the deployed alert rules, learned FAR <= physics, AUC
+  +0.072, and faster than physics — see its provenance sidecar) previously
+  shipped but never served without an explicit operator call. Default
+  construction now auto-loads it (fail-open to STA/LTA physics when the
+  checkpoint is absent; invalid checkpoints still fail loud), and
+  ``load_shipped_weights=False`` pins the physics configuration. The hazard
+  regression guard gained a trained lane (``trained_pod/far/csi`` pinned
+  alongside the unchanged physics lane, with capability tripwires in both
+  directions) and its baseline was re-pinned; the trained lane's low POD on
+  the guard's synthetic toy waveforms (~0.14) is pinned deliberately as an
+  out-of-distribution characterization, with the real-data surface cited.
+- **MultiHeadAttentionFusion: non-circular training program, honest refusal.**
+  ``scripts/train_gosnn_fusion.py`` records the dimensional-state lists the
+  production ``fuse()`` actually receives while a real engine detects on
+  real cached ADBench windows and merit-gates masked-member-reconstruction
+  candidates against the deterministic phi-weighted reference. A forensic
+  audit of the first run found the harvest DEGENERATE — 1 unique state list
+  across 403 calls (static registry groups; empty per-call base member) and
+  a measured downstream effect on ``anomaly_prob`` of exactly 0 — so the
+  briefly-shipped checkpoint was withdrawn as a vacuous memoriser. The
+  program now measures harvest diversity first and refuses to train or ship
+  below 50 unique lists; the committed
+  ``artifacts/gosnn_fusion.eval.json`` carries the measured refusal
+  verdict, ``fuse()`` keeps the deterministic reference, and a new test
+  pins that the artifact's decision and the shipped-checkpoint state can
+  never disagree.
+
+### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
+
+- **Local VLM backends shipped (BSD-3-Clause BLIP), validated live.** New
+  ``blip_vqa`` (Salesforce/blip-vqa-base) and ``blip_caption``
+  (Salesforce/blip-image-captioning-base) backends — small, CPU-runnable,
+  SHA-pinned — registered in the LVLM factory. LAVAD's caption stage now
+  defaults to the real captioner instead of the hard-failing mock
+  placeholder (explicitly configuring ``mock`` still hard-fails, pinned by
+  test). The VQA backend scores the {yes, no} answer likelihood pair
+  instead of free generation (the margin discriminates where the generated
+  argmax is biased) and emits the model's own verdict probability. Driven
+  live with real transformers forwards: AnyAnomaly's frame scores peak on
+  an injected flash frame; LAVAD emits genuine prompt-free captions.
+  Network-marked regression tests pin both drives.
+- **AnyAnomaly outage honesty.** A backend exception previously mapped to
+  confidence 0.0, and ``score = 1 - confidence`` marked every covered
+  frame maximally anomalous — an outage silently alarmed the whole clip.
+  Failed segments now contribute no score, and frames left with no real
+  signal raise instead of being fabricated.
+- **Chronos shipped revision pins.** The five built-in
+  ``amazon/chronos-t5-*`` Hub IDs carry immutable in-repo SHA pins, so a
+  default-constructed adapter (plain registry discovery) satisfies
+  SafeHFLoader's mandatory-pin policy and is operational out of the box
+  (validated live: 13x anomaly separation); an explicit revision always
+  wins, and an explicit ``model_name`` is no longer clobbered by the
+  default ``model_size``.
+- **FoundationEnsemble.add_model instances survive lazy initialization**
+  (previously rebuilt from config with default settings);
+  ``IntelligenceFusionEngine.extract_features`` now emits its declared
+  ``(1, 128)`` width on every path (the populated path emitted 117);
+  stfpm/reverse_distillation LR schedulers step only for epochs that
+  stepped the optimizer; the dead pre-audit ``_mock_matrix_profile``
+  fallback is removed.
+- **Measurement/tooling honesty:** the detector operational sweep gained a
+  ``--serial`` mode (the concurrent pool inflates per-detector wall
+  latencies ~100x on small hosts and is now documented as a throughput
+  measurement); ``run_ci_gates.sh`` asserts the resolved mypy matches the
+  pyproject pin (a full ``[all,dev]`` install was observed leaving a
+  shadowing user-site mypy 1.19 whose off-pin runs fabricate type errors);
+  the README/ARCHITECTURE latency tables are labelled as historical
+  snapshots with the reproducible-path pointer
+  (``mercury-agent tool detector_profiler``; sandbox re-run: median
+  47.7 ms — the ``<100ms`` claim holds).
+
+### Engineering audit: packaging, detector correctness, latency, torch-free cloud path (PR #339)
+
+- **`pip install .[all]` / `.[test]` un-broken (lime dropped from the extras
+  graph).** `lime==0.2.0.1` — its only release (2020, unmaintained) — fails to
+  build under modern setuptools (`AttributeError: install_layout`), which made
+  every `[explainability]`/`[all]`/`[test]` install fail. The extra now ships
+  `shap` only; the `LIMEExplainer` adapter still uses the real library when an
+  operator installs it manually and otherwise falls back to its in-repo
+  `_approximate_lime` linear surrogate. `tests/test_explainability_extra.py`
+  pins lime out of the extras graph. Validated: full `[all,dev]` install
+  resolves and imports.
+- **`[foundation]` made operational.** The extra now composes
+  `mercury-agent[ml]` (every `models/foundation` adapter imports torch at
+  module top, so the extra previously installed an unimportable feature) and
+  declares `chronos-forecasting>=1.4` (previously undeclared, so the chronos
+  detector could never run). Validated live: `amazon/chronos-t5-tiny` under a
+  pinned-SHA `SafeHFLoader` load scores an injected anomaly block 36x above
+  baseline (chronos-forecasting 2.3.1). Pinned by `tests/test_foundation_extra.py`.
+- **`[all]` now reaches `[compliance]`.** A full install previously could not
+  run the NIST CSF live-reference mode (`openpyxl` missing — observed as
+  `ModuleNotFoundError` in the network-marked NIST tests, now green). Pinned
+  by `tests/test_all_extra_contract.py`.
+- **Heatwave detector fixed in the registry path.** `HeatwaveDetector.is_fitted`
+  was a property while every registry/fusion call site invokes
+  `detector.is_fitted()` (the `core/base.py` contract), so every registry
+  invocation crashed with `'bool' object is not callable`. Now a method; the
+  registry's plugin boundary additionally resolves both method- and
+  property-style `is_fitted`. The detector now runs operationally on generic
+  fusion windows (validated end to end, incl. imposed-excursion detection).
+- **Schumann resonance detector: clean 1-D modality contract.** Unvalidated
+  2-D input sent the FFT along the wrong axis and the fundamental/harmonic
+  peak searches then indexed the 1-D frequency grid with a flattened-2-D
+  `argmax` (`index 40 is out of bounds for axis 0 with size 9`). The power
+  spectrum now validates single-channel input and declines multichannel data
+  with an actionable message; short temporal-history windows zero-pad instead
+  of breaking the 103-bin layout. On-modality behaviour validated (7.83 Hz
+  fundamental recovered).
+- **`[all]`-install segfault fixed (TensorFlow/triton LLVM collision).**
+  Registry auto-discovery hard-crashed (SIGSEGV) whenever deepface pulled
+  TensorFlow into the process before a torchvision-backed detector reached
+  `torch._dynamo`'s triton probe — both bundle an LLVM and the TF-then-triton
+  order is fatal (tensorflow 2.21 + triton 3.7.1; reverse order is safe).
+  `_compat.preload_triton_before_tensorflow()` now pins the load order at
+  Mercury's TensorFlow entry points (`models/biometric*.py`). All 91 manifest
+  detectors load with the full `[all]` stack; subprocess regression test in
+  `tests/models/test_triton_tf_ordering.py`.
+- **Detector latency (measured on a 200x8 window, same host, semantics
+  preserved):** `gaussian_process` 8.6 s → 0.004 s (loop-invariant kernel
+  algebra hoisted — the per-point solves rebuilt an identical 24x24 system);
+  `srcnn` fit 26.8 s → 2.9 s and `diffusion_ad` fit 12.3 s → 0.1 s (tiny
+  full-batch training loops now run with intra-op threading pinned to one
+  thread via `detectors/_torch_perf.py`; the default pool's fork/join costs
+  ~13x the arithmetic at these tensor sizes); `acceleration_dynamics` extract
+  61.7 s → ~3 s (same cure for its per-sample LSTM); `physics_integrated`
+  70.9 s → 32.1 s (`extract_features` no longer routes through `detect`,
+  which ran every component twice; plus component fixes);
+  `spectral_vibration` ~2x (phonon pairwise/scattering loops batched
+  [~24k module calls → 3], MLIP encoder vectorised, spectral graph memoised,
+  Laplacian eigensolve switched from worst-case `which="SM"` Lanczos to the
+  PSD spectral-shift form without eigenvector extraction); `bocpd` +35%
+  with bit-identical scores (loop-invariant `gammaln` table over the exact
+  `alpha0 + r/2` grid). Full-registry sweep median latency 34 ms → 22 ms.
+- **Cloud LLM path decoupled from the ML stack.** `llm_adapter.py` no longer
+  imports torch at module top (the Tensor branch resolves via `sys.modules`;
+  the local HF backend imports torch only inside `_load_model`),
+  `models/foundation/__init__.py` uses lazy PEP 562 exports (house pattern),
+  and `security/__init__.py` resolves its sole torch consumer
+  (`IntelligenceFusionEngine`) lazily with the exact historical
+  class-or-None contract. Proven in a torch-free venv: engine import (PQC
+  gate), `AnthropicCloudAdapter`/`OpenAICloudAdapter` construction + prompt
+  path, and `RemoteReasoningBackend` import all succeed with torch absent;
+  `tests/models/test_cloud_llm_torch_free.py` pins that the chain never pulls
+  torch even when installed.
+- **`MultiHeadAttentionFusion` honest inference gate.** The untrained torch
+  attention (random projection + averaging under `no_grad`) is no longer
+  reachable: inference uses the deterministic phi-weighted reference average
+  until genuine weights load via the new `load_trained_weights()` seam
+  (EthicalGate convention). `tests/core/test_attention_fusion_gate.py`.
+- **`AffectiveAnomalyModel` declared-modality path.** A dict carrying an
+  emotion-probability time series under `"emotions"` is now analysed
+  deterministically (temporal aggregation + the documented
+  entropy/negative-affect distress heuristic); malformed declared input fails
+  loud. Generic input keeps the neutral quarantine prior, and the fusion
+  feature group stays constant zeros so the shipped `default_fusion.pt`
+  contract is untouched.
+- **Type/lint posture:** repo-wide `mypy src` lane green at the pinned 2.1.0
+  (747 files); `triton` added to the third-party override list; numba
+  `prange` sites carry dual-environment ignores. Bandit (CI configuration,
+  medium+ severity): clean.
+
 ### Dependency & static-analysis hardening (PR #336)
 
 - **OpenCV moved to the 5.x line.** `opencv-python-headless` is now pinned

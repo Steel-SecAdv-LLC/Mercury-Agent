@@ -115,3 +115,31 @@ HAS_VISUAL_STACK: bool = HAS_TORCH and HAS_TORCHVISION and HAS_TIMM
 
 HAS_VLM_STACK: bool = HAS_TORCH and HAS_TRANSFORMERS and HAS_ACCELERATE
 """True when Vision-Language Model detectors can run."""
+
+
+def preload_triton_before_tensorflow() -> None:
+    """Bind triton's native LLVM symbols before TensorFlow can load its own.
+
+    TensorFlow and triton (torch's compiler backend) each bundle an LLVM;
+    importing triton *after* TensorFlow hard-segfaults the process during
+    ``libtriton`` initialisation (mismatched LLVM symbol resolution) —
+    reproduced with ``import tensorflow; import triton`` under tensorflow
+    2.21 + triton 3.7.1, while the reverse order is safe.  The hazard is
+    real in any ``[all]``-style install on Python <= 3.13: deepface pulls
+    TensorFlow into the process, and any later torchvision-backed detector
+    import reaches ``torchvision.ops`` -> ``torch._dynamo`` -> its triton
+    probe -> crash.  Call this immediately before any import that can pull
+    TensorFlow (the deepface guards in ``models/biometric*.py``) so
+    detector-registry discovery order can never produce the fatal
+    TF-then-triton sequence.
+    """
+    if not HAS_TORCH:
+        # No torch => torch._dynamo will never probe triton in this
+        # process; the ordering hazard cannot arise.
+        return
+    try:
+        import triton  # noqa: F401
+    except Exception:  # nosec B110 - triton absent or unloadable here is fine:
+        # torch._dynamo's own probe would fail the same way and proceed
+        # without it, so there is no later crash to prevent.
+        pass

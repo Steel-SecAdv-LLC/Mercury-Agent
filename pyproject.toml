@@ -177,9 +177,25 @@ vlm = [
 ]
 
 # Foundation model adapters (TimeGPT, Chronos, etc.)
+#
+# Compose ``mercury-agent[ml]`` (the [visual]/[medical]/[sota] convention):
+# every adapter in ``models/foundation/`` (chronos, timegpt, matrix_profile,
+# base_foundation) imports torch at module top for the fusion tensor
+# surface, so without [ml] the extra installed fine but the package it
+# enabled could not even be imported.
+#
+# ``chronos-forecasting`` provides ``chronos.ChronosPipeline`` -- the import
+# ``ChronosAdapter._load_model`` needs.  It was previously undeclared, so
+# ``pip install .[foundation]`` could never make the chronos detector
+# operational.  Floor 1.4: the ``ChronosPipeline.from_pretrained(...,
+# revision=...)`` / ``.predict(context, prediction_length, num_samples)``
+# surface the adapter uses; validated in-repo against the 2.x line
+# (2.3.1, chronos-t5-tiny, pinned-SHA load through SafeHFLoader).
 foundation = [
+    "mercury-agent[ml]",
     "stumpy>=1.14.1",
     "nixtla>=0.5.0",
+    "chronos-forecasting>=1.4",
 ]
 
 # Medical detectors + dataset loaders (MIT-BIH, PhysioNet).
@@ -383,18 +399,33 @@ gui = [
 # self-contained: IntegratedGradients + a faithfulness evaluator implemented
 # in-repo (no captum), validated by benchmarks/explanation_fidelity.py
 # (recovery@3 0.678, comprehensiveness 0.40 vs 0.22 random; see PR #265).
-# SHAP and LIME are model-agnostic alternatives that the explainability
-# adapters use *when present* and degrade gracefully when absent
-# (cognitive/explainability.py guards both behind SHAP_AVAILABLE / LIME_AVAILABLE).
-# Install this extra only if you want those external backends.
+# SHAP is a model-agnostic alternative that the explainability adapters use
+# *when present* and degrade gracefully when absent
+# (cognitive/explainability.py guards it behind SHAP_AVAILABLE).
+# Install this extra only if you want that external backend.
+#
+# ``lime`` is deliberately NOT declared here: its only release (0.2.0.1,
+# 2020, unmaintained) cannot build under modern setuptools (its sdist
+# build crashes with ``AttributeError: install_layout``), which made every
+# ``pip install .[explainability]`` / ``.[all]`` / ``.[test]`` fail.  The
+# LIME adapter itself remains functional: ``LIMEExplainer`` still uses the
+# real library when an operator installs it manually (legacy setuptools
+# environments) and otherwise falls back to its in-repo local linear
+# surrogate (``_approximate_lime``).  Guarded by
+# tests/test_explainability_extra.py, which asserts lime stays out of the
+# extras graph.
 explainability = [
     "shap>=0.46.0",
-    "lime>=0.2.0.1",
 ]
 
 # Full installation with all features
+#
+# ``compliance`` included since v2.1.x: without it a "full" install could
+# not run the NIST CSF live-reference mode (openpyxl parses the
+# authoritative CSF 2.0 XLSX) — observed as ModuleNotFoundError in the
+# network-marked tests/test_nist_csf_integrator.py live lane.
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability]",
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance]",
 ]
 
 # Test environment: all runtime features + dev tooling
@@ -646,6 +677,10 @@ module = [
     "mamba_ssm.*",
     "numba",
     "numba.*",
+    # torch's compiler backend; probed by _compat.preload_triton_before_tensorflow
+    # to pin native LLVM load order ahead of TensorFlow. Ships no py.typed.
+    "triton",
+    "triton.*",
     # Explainability libraries
     "shap",
     "shap.*",
@@ -1055,7 +1090,15 @@ skips = ["*_test.py", "test_*.py"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-fix = true
+# ``ruff check`` must be a pure check. ``fix = true`` made every plain
+# ``ruff check`` invocation auto-mutate the tree, so a file could change
+# AFTER a passing mypy run and ship a type regression (this reverted a
+# ``getattr(...)`` to attribute access post-mypy and turned CI red on
+# 498f8d4). Autofixing is explicit-only: run ``ruff check --fix`` (or the
+# pre-commit hook, which passes ``--fix --exit-non-zero-on-fix`` and blocks
+# the commit so later hooks re-run on the fixed bytes), then re-run mypy —
+# scripts/run_ci_gates.sh orders the mypy lanes after ruff for that reason.
+fix = false
 
 [tool.ruff.lint]
 select = [
@@ -1130,6 +1173,12 @@ ignore = [
 "tests/**/*.py" = ["S101", "ARG", "PLR2004", "S105", "S108", "S603", "S607", "S608"]
 "__init__.py" = ["F401"]
 "benchmarks/**/*.py" = ["S102", "S108", "S310", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
+# Model-integration proof harnesses (research/model_integration_obsv) are
+# structurally test doubles: they monkeypatch the HTTP boundary and assert on
+# real adapter behaviour. The unused test-double lambda args (ARG005) and the
+# sys.path-bootstrap pathlib preference (PTH100) are ignored here for the same
+# reason tests/** ignores ARG.
+"research/model_integration_obsv/**/*.py" = ["ARG005", "PTH100"]
 "docs/**/*.py" = ["RUF015"]
 # scripts/persist_benchmark_to_pr.py: every urllib.urlopen call targets the
 # hardcoded ``GITHUB_API = "https://api.github.com"`` constant defined at

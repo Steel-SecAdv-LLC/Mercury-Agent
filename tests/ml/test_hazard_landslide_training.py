@@ -235,7 +235,9 @@ class TestOperatingPointConsumption:
     def _detector() -> LandslideDetector:
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 
-        return LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
+        return LandslideDetector(
+            enable_ml_ensemble=False, enable_recursion=False, load_shipped_weights=False
+        )
 
     #: Rainfall that fires the intensity-duration trigger (id = 30*sqrt(24)
     #: = 147 >> critical 24.5), so landslide_imminent depends only on the
@@ -383,7 +385,9 @@ class TestDifferentialPhysicsVsShipped:
 
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")
-        detector = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
+        detector = LandslideDetector(
+            enable_ml_ensemble=False, enable_recursion=False, load_shipped_weights=False
+        )
         with pytest.raises((pickle.UnpicklingError, RuntimeError)):
             detector.load_neural_weights(str(bad))
         assert detector._neural_trained is False

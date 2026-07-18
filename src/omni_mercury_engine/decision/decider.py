@@ -28,9 +28,11 @@ order:
    threshold side grounds the label, but the record is flagged
    ``calibrated=False`` (a decision without a coverage guarantee).
 4. **Demotion overlays.** A grounded verdict is demoted to ``UNAVAILABLE`` when
-   the neuro-symbolic paths disagree or sufficiently severe drift means the
-   calibration may no longer hold.  Overlays only ever weaken a verdict toward
-   abstention, never the reverse.
+   the neuro-symbolic paths disagree, sufficiently severe drift means the
+   calibration may no longer hold, or the GOSNN fused-state detection head
+   (when its merit-gated checkpoint shipped one) strongly disagrees with the
+   grounded label at its validation-selected thresholds.  Overlays only ever
+   weaken a verdict toward abstention, never the reverse.
 """
 
 from __future__ import annotations
@@ -338,6 +340,45 @@ class DecisionAbstentionResponder:
                 f"distribution drift ({ev.drift_severity}) detected: the "
                 "calibration may no longer hold",
                 resolvable_by_input=True,
+            )
+            return
+
+        # GOSNN disagreement overlay: the merit-gated fused-state detection
+        # head corroborates (or contests) the grounded label.  Strong
+        # disagreement at the thresholds validated during training demotes to
+        # a deferral -- like the symbolic conflict above, this is a
+        # model-vs-model contradiction for a human to adjudicate, not a
+        # data request.  The signal is absent (None) unless a shipped,
+        # detection-metric-gated head produced it, so the overlay is inert on
+        # observability-only builds.  Inclusive comparisons: a probability
+        # exactly at a demotion threshold defers (fail-closed reading).
+        if not self.policy.defer_on_gosnn_disagreement or ev.gosnn_anomaly_prob is None:
+            return
+        if (
+            v.label == 1
+            and ev.gosnn_demote_act_below is not None
+            and ev.gosnn_anomaly_prob <= ev.gosnn_demote_act_below
+        ):
+            self._demote(
+                v,
+                f"GOSNN fused-state detection head estimates P(anomaly)="
+                f"{ev.gosnn_anomaly_prob:.3f} <= {ev.gosnn_demote_act_below:g} "
+                "against a grounded positive: the cross-detector fusion and "
+                "the serving verdict disagree",
+                resolvable_by_input=False,
+            )
+        elif (
+            v.label == 0
+            and ev.gosnn_demote_clear_above is not None
+            and ev.gosnn_anomaly_prob >= ev.gosnn_demote_clear_above
+        ):
+            self._demote(
+                v,
+                f"GOSNN fused-state detection head estimates P(anomaly)="
+                f"{ev.gosnn_anomaly_prob:.3f} >= {ev.gosnn_demote_clear_above:g} "
+                "against a grounded negative: the cross-detector fusion and "
+                "the serving verdict disagree",
+                resolvable_by_input=False,
             )
 
     @staticmethod

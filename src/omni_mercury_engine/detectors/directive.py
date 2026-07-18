@@ -100,7 +100,9 @@ try:
         """Distances from rows ``start:stop`` to every row (one chunk)."""
         n, d = data.shape
         out = np.empty((stop - start, n), dtype=np.float64)
-        for i in prange(stop - start):
+        # numba absent (CI mypy lane): prange is Any via the override; numba
+        # installed ([performance]): prange is real and untyped -- ignore both.
+        for i in prange(stop - start):  # type: ignore[no-untyped-call, attr-defined, unused-ignore]
             for j in range(n):
                 out[i, j] = np.sqrt(_gsis_pairwise_sum_sq(data[start + i], data[j], d))
         return out

@@ -32,6 +32,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine._compat import preload_triton_before_tensorflow
+
 logger = logging.getLogger(__name__)
 
 TORCH_AVAILABLE = False
@@ -57,6 +59,11 @@ except ImportError:
 # deliberately not caught (``KeyboardInterrupt`` / ``SystemExit``
 # keep propagating).
 DEEPFACE_AVAILABLE = False
+
+# deepface pulls TensorFlow into the process; triton (torch's compiler
+# backend) segfaults if it loads after TensorFlow's LLVM, so bind it first.
+preload_triton_before_tensorflow()
+
 try:
     from deepface import DeepFace
 

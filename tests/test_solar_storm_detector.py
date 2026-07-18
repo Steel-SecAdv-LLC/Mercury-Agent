@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Solar Storm Detector."""
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -139,6 +139,66 @@ class TestSolarFlareDetector:
         assert detector._classify_flare(1e-6)[0] == "C"
         assert detector._classify_flare(1e-7)[0] == "B"
         assert detector._classify_flare(1e-9)[0] == "A"
+
+    def test_off_modality_matrix_rejected_cleanly(self) -> None:
+        """A generic 2-D feature matrix is not a GOES XRS flux series."""
+        detector = SolarFlareDetector()
+        matrix = np.zeros((200, 8))
+        with pytest.raises(ValueError, match=r"GOES XRS.*1-D time series.*\(200, 8\)"):
+            detector.predict_solar_flare(matrix)
+        with pytest.raises(ValueError, match=r"GOES XRS.*1-D time series.*\(200, 8\)"):
+            detector.extract_features(matrix)
+
+    def test_empty_flux_series_rejected_cleanly(self) -> None:
+        """An empty flux series carries no measurement to classify."""
+        detector = SolarFlareDetector()
+        with pytest.raises(ValueError, match="empty X-ray flux series"):
+            detector.predict_solar_flare(np.array([]))
+
+    def test_scalar_flux_accepted_as_single_measurement(self) -> None:
+        """A 0-d numpy array (np.array(1e-5)) and a Python float are single
+        GOES XRS measurements: accepted and classified, not rejected as a
+        malformed shape. Regression for _validate_xray_flux treating a 0-d
+        array as non-1-D and crashing on the trend path.
+        """
+        detector = SolarFlareDetector()
+        for flux, expected in [(1e-9, "A"), (5e-6, "C"), (1e-5, "M"), (1e-4, "X")]:
+            zero_d = detector.predict_solar_flare(np.array(flux))
+            py_float = detector.predict_solar_flare(flux)
+            assert zero_d.flare_class == expected
+            assert py_float.flare_class == expected
+        # extract_features must produce a finite feature vector for a 0-d input.
+        features = np.asarray(detector.extract_features(np.array(1e-5)))
+        assert features.ndim == 1 and np.all(np.isfinite(features))
+
+    def test_x_class_flux_curve_drive(self) -> None:
+        """A rising GOES-style flux curve peaking at X2.5 classifies as X."""
+        detector = SolarFlareDetector()
+        t = np.arange(201)
+        flux = 1e-7 + 2.5e-4 * np.exp(-0.5 * ((t - 200) / 30.0) ** 2)
+
+        offline = detector.predict_solar_flare(flux)
+        assert offline.flare_detected is True
+        assert offline.flare_class == "X"
+        assert offline.flux_class_index == 4
+        assert offline.confidence == pytest.approx(1.0)
+        assert offline.x_ray_flux == pytest.approx(flux[-1])
+        # Offline the storm-forecast fields are never fabricated.
+        assert offline.kp_index_predicted is None
+        assert offline.dst_index_predicted is None
+        assert offline.geomagnetic_storm_probability is None
+
+        observed = detector.predict_solar_flare(flux, observed_kp=7.0, kp_source="test_kp")
+        assert observed.kp_index_predicted == pytest.approx(7.0)
+        assert observed.dst_index_predicted == pytest.approx(-150.0)
+        assert observed.geomagnetic_storm_probability == pytest.approx(0.75)
+        assert observed.storm_forecast_source == "test_kp"
+
+        features = detector.extract_features(flux)
+        assert features.shape == (20,)
+        assert features[2] == pytest.approx(float(np.max(flux)))
+        assert features[5] == pytest.approx(1.0)  # confidence
+        assert features[6] == pytest.approx(1.0)  # X class index / 4
 
 
 class TestCMETracker:
@@ -321,6 +381,35 @@ class TestSolarStormDetector:
         assert result.cme_detected is True
         assert result.dst_index == -100
         assert result.schumann_correlation is not None
+
+    def test_geomag_accepts_batched_features_and_rejects_multirow(self) -> None:
+        """Explicit ``features`` of shape ``(1, W)`` is an already-batched
+        single sample and must run the trained predictor, not crash BatchNorm1d
+        with a 3-D tensor. A genuine multi-row ``(N>1, W)`` batch and any
+        mis-shaped array fall back to physics. Regression for the width guard
+        that accepted ``(1, W)`` and then ``unsqueeze(0)``'d it to 3-D.
+        """
+        detector = SolarStormDetector(load_shipped_weights=True)
+        predictor = detector.geomag_predictor
+        if predictor is None:  # pragma: no cover - config guard
+            pytest.skip("geomag predictor disabled")
+        width = cast("int", predictor.feature_fusion[0].in_features)
+
+        batched = detector._predict_geomagnetic_storm(
+            {"features": np.zeros((1, width), dtype=np.float32)}
+        )
+        flat = detector._predict_geomagnetic_storm({"features": np.zeros(width, dtype=np.float32)})
+        assert batched["method"] == flat["method"] == "neural"
+
+        # Multi-row batch, wrong width, and a 3-D array all degrade to physics
+        # instead of crashing the network.
+        for bad in (
+            np.zeros((5, width), dtype=np.float32),
+            np.zeros((1, width + 32), dtype=np.float32),
+            np.zeros((1, 1, width), dtype=np.float32),
+        ):
+            result = detector._predict_geomagnetic_storm({"features": bad})
+            assert result["method"].startswith("physics")
 
     def test_classify_geostorm(self) -> None:
         """Test geomagnetic storm classification."""

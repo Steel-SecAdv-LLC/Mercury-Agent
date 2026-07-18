@@ -60,6 +60,7 @@ from scipy.ndimage import uniform_filter1d
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
@@ -594,16 +595,19 @@ class AccelerationDynamicsDetector(BaseDetector):
         all_energies = []
         all_lyapunov = []
 
-        for sample in data:
-            features = self._compute_kinematic_features(sample)
-            all_velocities.extend(features.velocity.tolist())
-            all_accelerations.extend(features.acceleration.tolist())
-            all_jerks.extend(features.jerk.tolist())
-            all_energies.extend(features.total_energy.tolist())
+        # Per-sample tiny LSTM/conv forwards: pin to one intra-op thread
+        # (see detectors/_torch_perf.py) — fork/join overhead dominates here.
+        with single_threaded_torch():
+            for sample in data:
+                features = self._compute_kinematic_features(sample)
+                all_velocities.extend(features.velocity.tolist())
+                all_accelerations.extend(features.acceleration.tolist())
+                all_jerks.extend(features.jerk.tolist())
+                all_energies.extend(features.total_energy.tolist())
 
-            # Compute Lyapunov exponent
-            phase_features = self._analyze_phase_space(sample)
-            all_lyapunov.append(phase_features.lyapunov_exponent)
+                # Compute Lyapunov exponent
+                phase_features = self._analyze_phase_space(sample)
+                all_lyapunov.append(phase_features.lyapunov_exponent)
 
         # Store reference statistics
         self._reference_velocity_mean = float(np.mean(all_velocities))
@@ -648,10 +652,13 @@ class AccelerationDynamicsDetector(BaseDetector):
         all_scores = []
         all_results = []
 
-        for sample in data:
-            result = self._analyze_sample(sample)
-            all_scores.append(result.anomaly_score)
-            all_results.append(result)
+        # Per-sample tiny LSTM/conv forwards: pin to one intra-op thread
+        # (see detectors/_torch_perf.py) — fork/join overhead dominates here.
+        with single_threaded_torch():
+            for sample in data:
+                result = self._analyze_sample(sample)
+                all_scores.append(result.anomaly_score)
+                all_results.append(result)
 
         # Aggregate
         mean_score = float(np.mean(all_scores))
@@ -711,64 +718,67 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         all_features = []
 
-        for sample in data:
-            # Compute kinematic features
-            kin_features = self._compute_kinematic_features(sample)
+        # Per-sample tiny LSTM/conv forwards: pin to one intra-op thread
+        # (see detectors/_torch_perf.py) — fork/join overhead dominates here.
+        with single_threaded_torch():
+            for sample in data:
+                # Compute kinematic features
+                kin_features = self._compute_kinematic_features(sample)
 
-            # Compute phase space features
-            phase_features = self._analyze_phase_space(sample)
+                # Compute phase space features
+                phase_features = self._analyze_phase_space(sample)
 
-            # Extract neural features
-            with torch.no_grad():
-                # Prepare kinematic sequence
-                kin_seq = np.stack(
+                # Extract neural features
+                with torch.no_grad():
+                    # Prepare kinematic sequence
+                    kin_seq = np.stack(
+                        [
+                            kin_features.position,
+                            kin_features.velocity,
+                            kin_features.acceleration,
+                            kin_features.jerk,
+                        ],
+                        axis=-1,
+                    )
+                    kin_tensor = torch.tensor(
+                        kin_seq, dtype=torch.float32, device=self.device
+                    ).unsqueeze(0)
+                    motion_features = self._motion_encoder(kin_tensor).cpu().numpy().flatten()
+
+                    # Prepare phase space sequence
+                    phase_tensor = torch.tensor(
+                        phase_features.trajectory,
+                        dtype=torch.float32,
+                        device=self.device,
+                    ).unsqueeze(0)
+                    phase_nn_features, _ = self._phase_network(phase_tensor)
+                    phase_nn_features = phase_nn_features.cpu().numpy().flatten()
+
+                # Combine all features
+                combined = np.concatenate(
                     [
-                        kin_features.position,
-                        kin_features.velocity,
-                        kin_features.acceleration,
-                        kin_features.jerk,
-                    ],
-                    axis=-1,
+                        # Kinematic statistics
+                        [kin_features.mean_velocity],
+                        [kin_features.mean_acceleration],
+                        [kin_features.max_jerk],
+                        [np.std(kin_features.velocity)],
+                        [np.std(kin_features.acceleration)],
+                        # Energy features
+                        [np.mean(kin_features.kinetic_energy)],
+                        [np.std(kin_features.total_energy)],
+                        # Phase space features
+                        [phase_features.lyapunov_exponent],
+                        [phase_features.correlation_dimension],
+                        [phase_features.entropy],
+                        [phase_features.recurrence_rate],
+                        [phase_features.determinism],
+                        # Neural features
+                        motion_features,
+                        phase_nn_features,
+                    ]
                 )
-                kin_tensor = torch.tensor(
-                    kin_seq, dtype=torch.float32, device=self.device
-                ).unsqueeze(0)
-                motion_features = self._motion_encoder(kin_tensor).cpu().numpy().flatten()
 
-                # Prepare phase space sequence
-                phase_tensor = torch.tensor(
-                    phase_features.trajectory,
-                    dtype=torch.float32,
-                    device=self.device,
-                ).unsqueeze(0)
-                phase_nn_features, _ = self._phase_network(phase_tensor)
-                phase_nn_features = phase_nn_features.cpu().numpy().flatten()
-
-            # Combine all features
-            combined = np.concatenate(
-                [
-                    # Kinematic statistics
-                    [kin_features.mean_velocity],
-                    [kin_features.mean_acceleration],
-                    [kin_features.max_jerk],
-                    [np.std(kin_features.velocity)],
-                    [np.std(kin_features.acceleration)],
-                    # Energy features
-                    [np.mean(kin_features.kinetic_energy)],
-                    [np.std(kin_features.total_energy)],
-                    # Phase space features
-                    [phase_features.lyapunov_exponent],
-                    [phase_features.correlation_dimension],
-                    [phase_features.entropy],
-                    [phase_features.recurrence_rate],
-                    [phase_features.determinism],
-                    # Neural features
-                    motion_features,
-                    phase_nn_features,
-                ]
-            )
-
-            all_features.append(combined)
+                all_features.append(combined)
 
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
@@ -853,6 +863,18 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Position is the signal itself
         position = signal.copy()
+
+        # Finite-difference kinematics (velocity/acceleration/jerk via
+        # np.gradient) is undefined for fewer than two samples; a single point
+        # is not a trajectory. Fail with a clear contract instead of the opaque
+        # "array too small to calculate a numerical gradient" from np.gradient,
+        # consistent with the empty-data DetectorException in fit().
+        if position.ndim != 1 or position.shape[0] < 2:
+            raise DetectorException(
+                "AccelerationDynamicsDetector requires at least 2 samples per "
+                "series to compute finite-difference kinematics; got length "
+                f"{position.shape[0] if position.ndim == 1 else position.shape}."
+            )
 
         # Velocity: v = dx/dt (central difference)
         velocity = np.gradient(position, dt)
@@ -1210,7 +1232,17 @@ class AccelerationDynamicsDetector(BaseDetector):
             dist_matrix[i] = np.linalg.norm(trajectory[i] - trajectory, axis=1)
 
         # Threshold for recurrence
-        threshold = np.percentile(dist_matrix[dist_matrix > 0], threshold_percentile)
+        positive_distances = dist_matrix[dist_matrix > 0]
+        if positive_distances.size == 0:
+            # A perfectly constant / degenerate trajectory (every embedded point
+            # coincident -> all pairwise distances zero) has no positive
+            # distances to derive a recurrence threshold from and no dynamical
+            # structure to quantify. Degrade like the ``n < 10`` guard above
+            # instead of letting ``np.percentile`` raise on an empty slice --
+            # a constant signal (idle/saturated sensor, zero-filled gap) is
+            # legitimate normal data, not a detector failure.
+            return 0.0, 0.0
+        threshold = np.percentile(positive_distances, threshold_percentile)
 
         # Recurrence matrix
         recurrence = (dist_matrix < threshold).astype(int)

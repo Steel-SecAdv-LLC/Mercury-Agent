@@ -41,6 +41,7 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.centralized_constants import get_domain_fundamentals
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
@@ -567,27 +568,37 @@ class PhononInteractionNetwork(nn.Module):
         # Weight embeddings by mode amplitudes
         weighted_embeddings = embeddings * mode_amplitudes[mode_indices].unsqueeze(-1)
 
-        # Compute pairwise interactions
+        # Compute pairwise interactions.  One batched Bilinear + MLP pass over
+        # the upper triangle replaces the historical O(m^2) Python loop of
+        # single-pair forwards (~m*(m-1)/2 module calls per invocation) with
+        # the same modules and weights applied to the same pairs.
         coupling_matrix = torch.zeros(
             num_active_modes, num_active_modes, device=mode_amplitudes.device
         )
-        for i in range(num_active_modes):
-            for j in range(i + 1, num_active_modes):
-                interaction = self.pair_interaction(weighted_embeddings[i], weighted_embeddings[j])
-                coupling = self.energy_predictor(interaction).squeeze()
-                coupling_matrix[i, j] = coupling
-                coupling_matrix[j, i] = coupling
+        pair_idx = torch.triu_indices(
+            num_active_modes, num_active_modes, offset=1, device=mode_amplitudes.device
+        )
+        if pair_idx.shape[1] > 0:
+            interactions = self.pair_interaction(
+                weighted_embeddings[pair_idx[0]], weighted_embeddings[pair_idx[1]]
+            )
+            couplings = self.energy_predictor(interactions).squeeze(-1)
+            coupling_matrix[pair_idx[0], pair_idx[1]] = couplings
+            coupling_matrix[pair_idx[1], pair_idx[0]] = couplings
 
-        # Compute scattering rates
+        # Compute scattering rates: one batched pass over all ordered pairs
+        # (i != j), mirroring the pairwise vectorization above.
         scattering_rates = torch.zeros(
             num_active_modes, num_active_modes, device=mode_amplitudes.device
         )
-        for i in range(num_active_modes):
-            for j in range(num_active_modes):
-                if i != j:
-                    pair_features = torch.cat([weighted_embeddings[i], weighted_embeddings[j]])
-                    rate = self.scattering_predictor(pair_features).squeeze()
-                    scattering_rates[i, j] = rate
+        if num_active_modes > 1:
+            rows = torch.arange(num_active_modes, device=mode_amplitudes.device)
+            ii, jj = torch.meshgrid(rows, rows, indexing="ij")
+            off_diag = ii != jj
+            src, dst = ii[off_diag], jj[off_diag]
+            pair_features = torch.cat([weighted_embeddings[src], weighted_embeddings[dst]], dim=-1)
+            rates = self.scattering_predictor(pair_features).squeeze(-1)
+            scattering_rates[src, dst] = rates
 
         # Total interaction energy
         total_energy = coupling_matrix.sum() / 2  # Divide by 2 for double counting
@@ -702,62 +713,59 @@ class MLIPVibrationEncoder(nn.Module):
 
         batch_size, num_bins = spectrum.shape
         device = spectrum.device
+        half = k_neighbors // 2
 
-        # Compute local descriptors for each frequency bin
-        descriptors = torch.zeros(batch_size, num_bins, self.descriptor_dim, device=device)
+        # Local descriptors, fully batched.  Each bin i sees the neighborhood
+        # [i-half, i+half] \ {i} clipped to the spectrum edges; out-of-range
+        # slots are masked out of the neighborhood mean rather than looped
+        # around.  Same neighborhoods, radial features and encoder as the
+        # historical per-(sample, bin) Python loop — one batched
+        # ``local_encoder`` pass instead of ``batch * num_bins`` tiny ones.
+        offsets = torch.arange(-half, half + 1, device=device)
+        offsets = offsets[offsets != 0]  # exclude self, matching the loop
+        bins = torch.arange(num_bins, device=device)
+        nbr = bins.unsqueeze(1) + offsets.unsqueeze(0)  # [num_bins, K]
+        valid = (nbr >= 0) & (nbr < num_bins)
+        nbr_safe = nbr.clamp(0, num_bins - 1)
 
-        for b in range(batch_size):
-            for i in range(num_bins):
-                # Get local neighborhood
-                start = max(0, i - k_neighbors // 2)
-                end = min(num_bins, i + k_neighbors // 2 + 1)
+        # Frequency distances depend only on the offset magnitude.
+        freq_dist = offsets.abs().to(spectrum.dtype) / num_bins  # [K]
+        radial_features = self._compute_radial_basis(
+            freq_dist.unsqueeze(0).expand(num_bins, -1)
+        )  # [num_bins, K, R]
 
-                # Compute distances and values
-                neighbors = list(range(start, end))
-                if i in neighbors:
-                    neighbors.remove(i)
+        nbr_vals = spectrum[:, nbr_safe]  # [batch, num_bins, K]
+        amp_diffs = nbr_vals - spectrum.unsqueeze(-1)
+        denom = spectrum.max(dim=1).values.view(batch_size, 1, 1) + 1e-8
+        amp_features = self._compute_radial_basis(amp_diffs.abs() / denom)
 
-                if len(neighbors) == 0:
-                    continue
+        combined = torch.cat(
+            [radial_features.unsqueeze(0).expand(batch_size, -1, -1, -1), amp_features],
+            dim=-1,
+        )
+        encoded = self.local_encoder(combined)  # [batch, num_bins, K, descriptor_dim]
+        mask = valid.to(encoded.dtype).view(1, num_bins, -1, 1)
+        counts = valid.sum(dim=1).clamp(min=1).view(1, num_bins, 1).to(encoded.dtype)
+        descriptors = (encoded * mask).sum(dim=2) / counts  # [batch, num_bins, D]
 
-                # Frequency distances (normalized)
-                freq_distances = torch.tensor(
-                    [abs(j - i) / num_bins for j in neighbors],
-                    device=device,
-                )
+        # Message passing between descriptors (2 rounds), batched over bins.
+        # The window here INCLUDES the bin itself, exactly like the historical
+        # ``descriptors[:, start:end]`` slice.
+        mp_offsets = torch.arange(-half, half + 1, device=device)
+        mp_nbr = bins.unsqueeze(1) + mp_offsets.unsqueeze(0)  # [num_bins, K+1]
+        mp_valid = (mp_nbr >= 0) & (mp_nbr < num_bins)
+        mp_safe = mp_nbr.clamp(0, num_bins - 1)
+        mp_mask = mp_valid.view(1, num_bins, -1, 1)
+        mp_counts = mp_valid.sum(dim=1).clamp(min=1).view(1, num_bins, 1)
 
-                # Amplitude differences
-                amp_diffs = spectrum[b, neighbors] - spectrum[b, i]
-
-                # Radial basis expansion
-                radial_features = self._compute_radial_basis(freq_distances)
-
-                # Combine with amplitude information
-                amp_features = self._compute_radial_basis(
-                    torch.abs(amp_diffs) / (spectrum[b].max() + 1e-8)
-                )
-
-                # Aggregate neighborhood features
-                combined = torch.cat([radial_features, amp_features], dim=-1)
-                local_features = self.local_encoder(combined).mean(dim=0)
-
-                descriptors[b, i] = local_features
-
-        # Message passing between descriptors
         for _ in range(2):  # 2 rounds of message passing
-            new_descriptors = torch.zeros_like(descriptors)
-            for i in range(num_bins):
-                # Aggregate messages from neighbors
-                start = max(0, i - k_neighbors // 2)
-                end = min(num_bins, i + k_neighbors // 2 + 1)
-
-                neighbor_descs = descriptors[:, start:end]
-                self_desc = descriptors[:, i : i + 1].expand(-1, neighbor_descs.size(1), -1)
-
-                messages = self.message_net(torch.cat([self_desc, neighbor_descs], dim=-1))
-                new_descriptors[:, i] = descriptors[:, i] + messages.mean(dim=1)
-
-            descriptors = new_descriptors
+            neighbor_descs = descriptors[:, mp_safe]  # [batch, num_bins, K+1, D]
+            self_desc = descriptors.unsqueeze(2).expand_as(neighbor_descs)
+            messages = self.message_net(torch.cat([self_desc, neighbor_descs], dim=-1))
+            mean_messages = (messages * mp_mask.to(messages.dtype)).sum(dim=2) / mp_counts.to(
+                messages.dtype
+            )
+            descriptors = descriptors + mean_messages
 
         # Global pooling and output
         pooled = descriptors.mean(dim=1)
@@ -830,6 +838,10 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Reference statistics for anomaly detection
         self._reference_spectrum: np.ndarray[Any, Any] | None = None
+        # The spectral relation graph depends only on the bin count, so it is
+        # memoized per size instead of being rebuilt (a ~5600-edge Python
+        # loop) for every sample.
+        self._spectral_graph_cache: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
         self._reference_features: SpectralFeatures | None = None
         self._reference_mean: np.ndarray[Any, Any] | None = None
         self._reference_std: np.ndarray[Any, Any] | None = None
@@ -913,14 +925,18 @@ class SpectralVibrationDetector(BaseDetector):
         all_spectra = []
         all_features = []
 
-        for sample in data:
-            spectrum = self._compute_power_spectrum(sample)
-            features = self._extract_spectral_features(sample)
-            all_spectra.append(spectrum)
-            all_features.append(self._features_to_array(features))
+        # The per-sample neural pipeline is many tiny torch ops; the default
+        # intra-op thread pool costs ~26x more than it saves at these tensor
+        # sizes (see detectors/_torch_perf.py), so pin to one thread.
+        with single_threaded_torch():
+            for sample in data:
+                spectrum = self._compute_power_spectrum(sample)
+                features = self._extract_spectral_features(sample)
+                all_spectra.append(spectrum)
+                all_features.append(self._features_to_array(features))
 
-            # Add to signature database
-            self._signature_database[signature_type].append(spectrum)
+                # Add to signature database
+                self._signature_database[signature_type].append(spectrum)
 
         # Compute reference statistics
         spectra_array = np.array(all_spectra)
@@ -976,15 +992,19 @@ class SpectralVibrationDetector(BaseDetector):
         all_diagnostics = []
         all_features = []
 
-        for sample in data:
-            # Extract spectral features
-            features = self._extract_spectral_features(sample)
-            all_features.append(features)
+        # The per-sample neural pipeline is many tiny torch ops; the default
+        # intra-op thread pool costs ~26x more than it saves at these tensor
+        # sizes (see detectors/_torch_perf.py), so pin to one thread.
+        with single_threaded_torch():
+            for sample in data:
+                # Extract spectral features
+                features = self._extract_spectral_features(sample)
+                all_features.append(features)
 
-            # Compute anomaly score using multiple methods
-            score, diagnostic = self._compute_anomaly_score(sample, features)
-            all_scores.append(score)
-            all_diagnostics.append(diagnostic)
+                # Compute anomaly score using multiple methods
+                score, diagnostic = self._compute_anomaly_score(sample, features)
+                all_scores.append(score)
+                all_diagnostics.append(diagnostic)
 
         # Aggregate results
         scores_array = np.array(all_scores)
@@ -1034,51 +1054,57 @@ class SpectralVibrationDetector(BaseDetector):
 
         all_features = []
 
-        for sample in data:
-            # Compute power spectrum
-            spectrum = self._compute_power_spectrum(sample)
+        # The per-sample neural pipeline is many tiny torch ops; the default
+        # intra-op thread pool costs ~26x more than it saves at these tensor
+        # sizes (see detectors/_torch_perf.py), so pin to one thread.
+        with single_threaded_torch():
+            for sample in data:
+                # Compute power spectrum
+                spectrum = self._compute_power_spectrum(sample)
 
-            # Extract multi-modal features
-            spectral_features = self._extract_spectral_features(sample)
-            basic_features = self._features_to_array(spectral_features)
+                # Extract multi-modal features
+                spectral_features = self._extract_spectral_features(sample)
+                basic_features = self._features_to_array(spectral_features)
 
-            # GNN features
-            with torch.no_grad():
-                spectrum_tensor = torch.tensor(spectrum, dtype=torch.float32, device=self.device)
-                edge_index, edge_type = self._build_spectral_graph(len(spectrum))
+                # GNN features
+                with torch.no_grad():
+                    spectrum_tensor = torch.tensor(
+                        spectrum, dtype=torch.float32, device=self.device
+                    )
+                    edge_index, edge_type = self._build_spectral_graph(len(spectrum))
 
-                # Compute numerical gradient using forward differences with padding
-                spectrum_diff = torch.diff(spectrum_tensor, prepend=spectrum_tensor[:1])
-                node_features = torch.stack(
+                    # Compute numerical gradient using forward differences with padding
+                    spectrum_diff = torch.diff(spectrum_tensor, prepend=spectrum_tensor[:1])
+                    node_features = torch.stack(
+                        [
+                            spectrum_tensor,
+                            spectrum_diff,
+                        ],
+                        dim=-1,
+                    )
+
+                    gnn_features = self._gnn(node_features, edge_index, edge_type)
+
+                # CNN features
+                with torch.no_grad():
+                    cnn_input = spectrum_tensor.unsqueeze(0)  # [1, length]
+                    cnn_features = self._cnn(cnn_input)
+
+                # MLIP features
+                with torch.no_grad():
+                    mlip_features = self._mlip_encoder(spectrum_tensor)
+
+                # Concatenate all features
+                combined = np.concatenate(
                     [
-                        spectrum_tensor,
-                        spectrum_diff,
-                    ],
-                    dim=-1,
+                        basic_features,
+                        gnn_features.cpu().numpy(),
+                        cnn_features.cpu().numpy(),
+                        mlip_features.cpu().numpy(),
+                    ]
                 )
 
-                gnn_features = self._gnn(node_features, edge_index, edge_type)
-
-            # CNN features
-            with torch.no_grad():
-                cnn_input = spectrum_tensor.unsqueeze(0)  # [1, length]
-                cnn_features = self._cnn(cnn_input)
-
-            # MLIP features
-            with torch.no_grad():
-                mlip_features = self._mlip_encoder(spectrum_tensor)
-
-            # Concatenate all features
-            combined = np.concatenate(
-                [
-                    basic_features,
-                    gnn_features.cpu().numpy(),
-                    cnn_features.cpu().numpy(),
-                    mlip_features.cpu().numpy(),
-                ]
-            )
-
-            all_features.append(combined)
+                all_features.append(combined)
 
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
@@ -1272,33 +1298,44 @@ class SpectralVibrationDetector(BaseDetector):
         if k < 1:
             return np.zeros(10)
 
-        # Build adjacency matrix based on frequency relationships
-        # Connect bins that are harmonically related or adjacent
-        row_ind = []
-        col_ind = []
-        data = []
+        # Build adjacency matrix based on frequency relationships: bins that
+        # are adjacent (offsets 1..4, distance-decayed weight) or harmonically
+        # related (j = i * {2,3,4}, spectrum-product weight).  Constructed
+        # with numpy index arithmetic — one array per offset/harmonic family —
+        # instead of the historical per-bin Python loop; entries (including
+        # the i=0 harmonic self-loop) and csr duplicate-sum semantics are
+        # identical.
+        peak_sq = spectrum.max() ** 2 + 1e-10
+        half_rows: list[np.ndarray[Any, Any]] = []
+        half_cols: list[np.ndarray[Any, Any]] = []
+        half_data: list[np.ndarray[Any, Any]] = []
 
-        for i in range(n):
-            for j in range(i + 1, min(i + 5, n)):  # Adjacent bins
-                weight = np.exp(-0.5 * (j - i))  # Decay with distance
-                row_ind.extend([i, j])
-                col_ind.extend([j, i])
-                data.extend([weight, weight])
+        for offset in (1, 2, 3, 4):  # Adjacent bins, decay with distance
+            if n > offset:
+                i_idx = np.arange(n - offset)
+                half_rows.append(i_idx)
+                half_cols.append(i_idx + offset)
+                half_data.append(np.full(n - offset, np.exp(-0.5 * offset)))
 
-            # Harmonic connections
-            for harmonic in [2, 3, 4]:
-                j = i * harmonic
-                if j < n:
-                    weight = spectrum[i] * spectrum[j] / (spectrum.max() ** 2 + 1e-10)
-                    row_ind.extend([i, j])
-                    col_ind.extend([j, i])
-                    data.extend([weight, weight])
+        for harmonic in (2, 3, 4):  # Harmonic connections
+            i_idx = np.arange((n - 1) // harmonic + 1)  # all i with i*harmonic < n
+            j_idx = i_idx * harmonic
+            half_rows.append(i_idx)
+            half_cols.append(j_idx)
+            half_data.append(spectrum[i_idx] * spectrum[j_idx] / peak_sq)
 
-        # Create sparse adjacency matrix
-        if len(data) == 0:
+        if not half_data:
             return np.zeros(k)
 
-        adj = csr_matrix((data, (row_ind, col_ind)), shape=(n, n))
+        hr = np.concatenate(half_rows)
+        hc = np.concatenate(half_cols)
+        hd = np.concatenate(half_data)
+
+        # Symmetrize by emitting both (i, j) and (j, i), as the loop did.
+        adj = csr_matrix(
+            (np.concatenate([hd, hd]), (np.concatenate([hr, hc]), np.concatenate([hc, hr]))),
+            shape=(n, n),
+        )
 
         # Compute degree matrix
         degrees = np.array(adj.sum(axis=1)).flatten()
@@ -1308,10 +1345,17 @@ class SpectralVibrationDetector(BaseDetector):
         d_inv_sqrt = diags(1.0 / np.sqrt(degrees))
         laplacian = diags(np.ones(n)) - d_inv_sqrt @ adj @ d_inv_sqrt
 
-        # Compute smallest eigenvalues
+        # Compute smallest eigenvalues.  The normalized Laplacian is PSD with
+        # spectrum in [0, 2], so its k smallest eigenvalues are 2 minus the k
+        # largest of (2I - L).  Lanczos converges fast for extremal-largest
+        # modes ("LM"), whereas the historical which="SM" mode is its
+        # worst case; same eigenvalues, no singular shift-invert factorization.
         try:
-            eigenvalues, _ = eigsh(laplacian, k=k, which="SM")
-            eigenvalues = np.sort(np.real(eigenvalues))
+            flipped = diags(np.full(n, 2.0)) - laplacian
+            # Only the eigenvalues are consumed; skipping eigenvector
+            # extraction halves the ARPACK cost.
+            top = eigsh(flipped, k=k, which="LM", return_eigenvectors=False)
+            eigenvalues = np.sort(2.0 - np.real(top))
         except Exception:
             eigenvalues = np.zeros(k)
 
@@ -1478,6 +1522,10 @@ class SpectralVibrationDetector(BaseDetector):
         Returns:
             Tuple of (edge_index, edge_type)
         """
+        cached = self._spectral_graph_cache.get(num_nodes)
+        if cached is not None:
+            return cached
+
         edge_index_list = []
         edge_type_list = []
 
@@ -1518,6 +1566,7 @@ class SpectralVibrationDetector(BaseDetector):
         edge_index = torch.tensor(edge_index_list, dtype=torch.long, device=self.device).T
         edge_type = torch.tensor(edge_type_list, dtype=torch.long, device=self.device)
 
+        self._spectral_graph_cache[num_nodes] = (edge_index, edge_type)
         return edge_index, edge_type
 
     def _features_to_array(self, features: SpectralFeatures) -> np.ndarray[Any, Any]:

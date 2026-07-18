@@ -1048,6 +1048,7 @@ class EarthquakeDetector:
         device: str = "cpu",
         data_source: USGSEarthquakeSource | None = None,
         keep_diagnostics: bool = False,
+        load_shipped_weights: bool = True,
     ):
         """Initialize the instance.
 
@@ -1069,6 +1070,12 @@ class EarthquakeDetector:
                 arrival-detection series (see
                 :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`).
                 Default False keeps memory behavior unchanged.
+            load_shipped_weights: Load the shipped merit-gated
+                ``seismic_stead`` checkpoint at construction (default). Pass
+                False for the pure STA/LTA physics configuration (the hazard
+                regression guard's physics lane, and the honesty-contract
+                tests). Absence of the checkpoint falls open to physics; an
+                invalid checkpoint still fails loud.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -1111,6 +1118,22 @@ class EarthquakeDetector:
 
         self.p_wave_velocity = 6.0
         self.s_wave_velocity = 3.5
+
+        # The seismic_stead checkpoint cleared the hazard merit gate on real
+        # held-out STEAD data (learned beats physics at the deployed alert
+        # rule), so a default-constructed detector serves the shipped winner.
+        # Absence of the checkpoint (e.g. a stripped install) falls open to
+        # the disclosed STA/LTA physics; a present-but-invalid checkpoint
+        # still fails loud inside load_neural_weights (sha256/operating-point
+        # validation is a supply-chain control, not a fallback case).
+        if load_shipped_weights:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                logger.debug(
+                    "No shipped 'seismic_stead' checkpoint available; running "
+                    "on STA/LTA + spectral physics."
+                )
 
         logger.info(f"EarthquakeDetector initialized: threshold={detection_threshold}")
 
@@ -1212,6 +1235,18 @@ class EarthquakeDetector:
 
         if seismic_data.ndim == 1:
             seismic_data = seismic_data.reshape(1, -1)
+        if seismic_data.ndim != 2:
+            # Fail loud with the documented contract instead of the opaque
+            # downstream crash a 0-d scalar (IndexError on seismic_data[0])
+            # or a rank>=3 stack (scipy "Nx=0 is not a positive integer" on a
+            # 2-D trace slice) used to produce. Unlike the hazard feature
+            # lanes there is no physics fallback for a non-waveform input --
+            # every path below needs a 1-D trace.
+            raise ValueError(
+                "predict_earthquake expects a seismic waveform shaped "
+                f"[seq_len] or [batch, seq_len]; got ndim={seismic_data.ndim} "
+                f"(shape {seismic_data.shape})"
+            )
 
         f, t, Sxx = signal.spectrogram(
             seismic_data[0],

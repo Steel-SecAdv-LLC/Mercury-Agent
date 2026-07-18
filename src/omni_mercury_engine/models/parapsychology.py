@@ -166,6 +166,7 @@ class ParapsychologyDetector:
         significance_threshold: float = 0.05,
         enable_consciousness_field: bool = True,
         bayesian_analysis: bool = True,
+        load_shipped_weights: bool = True,
     ):
         """Initialize parapsychology detector.
 
@@ -173,6 +174,13 @@ class ParapsychologyDetector:
             significance_threshold: p-value threshold (default p < 0.05)
             enable_consciousness_field: Enable GCP-style field analysis
             bayesian_analysis: Use Bayesian statistics for evidence
+            load_shipped_weights: Load the shipped merit-gated
+                ``reg_deviation_gcp`` checkpoint at construction (default), so a
+                default-constructed detector serves the ratified winner. Pass
+                False for the untrained configuration that abstains to the
+                neutral 0.5 prior (the honesty-contract tests). Absence of the
+                checkpoint falls open to that prior; an invalid checkpoint still
+                fails loud.
         """
         self.logger = logging.getLogger(__name__)
         self.significance_threshold = significance_threshold
@@ -205,6 +213,20 @@ class ParapsychologyDetector:
         }
 
         self.logger.info(f"Parapsychology Detector initialized (p < {significance_threshold})")
+
+        # The reg_deviation_gcp checkpoint cleared the hazard merit gate on real
+        # held-out GCP data, so a default-constructed detector serves the shipped
+        # winner. Absence (e.g. a stripped install) falls open to the neutral
+        # 0.5 prior; a present-but-invalid checkpoint still fails loud inside
+        # load_neural_weights.
+        if load_shipped_weights and self.field_analyzer is not None:
+            try:
+                self.load_neural_weights()
+            except FileNotFoundError:
+                self.logger.debug(
+                    "No shipped 'reg_deviation_gcp' checkpoint available; the "
+                    "consciousness-field analyser abstains to the neutral 0.5 prior."
+                )
 
     def _initialize_baselines(self) -> dict[str, dict[str, Any]]:
         """Initialize expected baseline distributions."""
@@ -373,6 +395,12 @@ class ParapsychologyDetector:
 
         Returns: (variance_ratio, z_score, p_value, effect_size)
         """
+        # The statistics treat reg_output as a bag of samples (mean/std
+        # already flatten), so the sample count must be the total element
+        # count too: ``len()`` was the first-axis length, which crashed on a
+        # 0-d scalar (TypeError: len() of unsized object) and undercounted an
+        # already-batched (N, W) record as N samples.
+        reg_output = np.atleast_1d(np.asarray(reg_output))
         observed_mean = np.mean(reg_output)
         observed_std = np.std(reg_output)
 
@@ -381,7 +409,7 @@ class ParapsychologyDetector:
 
         variance_ratio = (observed_std**2) / (expected_std**2)
 
-        n = len(reg_output)
+        n = reg_output.size
         z_score = (observed_mean - expected_mean) / (expected_std / np.sqrt(n))
 
         p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))
@@ -443,7 +471,17 @@ class ParapsychologyDetector:
         to the neutral ``0.5`` prior rather than presenting random-weight output
         as a coherence measurement (anti-theater).
         """
-        if self.field_analyzer is None or len(reg_output) < 10:
+        # Input contract (solar geomag guard pattern): an already-batched
+        # single window (1, W) is the (W,) window; anything else that is not
+        # a 1-D series abstains to the neutral prior. Previously a (1, W)
+        # window abstained by ACCIDENT (``len()`` saw first-axis length 1), a
+        # 0-d scalar crashed ``len()``, and an off-contract (N, W) stack was
+        # silently flattened into one N*W-step sequence for an LSTM trained
+        # on single windows.
+        reg_output = np.asarray(reg_output)
+        if reg_output.ndim == 2 and reg_output.shape[0] == 1:
+            reg_output = reg_output.reshape(-1)
+        if self.field_analyzer is None or reg_output.ndim != 1 or reg_output.size < 10:
             return 0.5
 
         if not self._neural_trained:

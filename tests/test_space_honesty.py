@@ -34,12 +34,34 @@ def _kp(det: SolarStormDetector, v: float, bz: float, by: float = 0.0) -> dict[s
 
 
 class TestSolarStormHonesty:
-    def test_default_detector_is_untrained(self) -> None:
-        assert SolarStormDetector()._neural_trained is False
+    """Boyle-index physics contract on the ``load_shipped_weights=False`` lane.
+
+    The default detector serves the ratified ``solar_storm_geomag`` winner (its
+    32-feature predictor is exercised elsewhere); these tests pin the disclosed
+    deterministic physics fallback, so they construct the physics configuration
+    explicitly.
+    """
+
+    def test_default_detector_serves_the_shipped_winner(self) -> None:
+        assert SolarStormDetector()._neural_trained is True
+
+    def test_physics_configuration_is_untrained(self) -> None:
+        assert SolarStormDetector(load_shipped_weights=False)._neural_trained is False
+
+    def test_off_length_explicit_features_fall_back_to_physics(self) -> None:
+        """A default (trained) detector given an explicit off-length feature
+        vector degrades to the Boyle-index physics rather than crashing the
+        32-input network (or the feature-standardisation broadcast)."""
+        det = SolarStormDetector()
+        assert det._neural_trained is True
+        out = det._predict_geomagnetic_storm(
+            {"features": np.arange(7.0), "solar_wind_speed_km_s": 600, "bz_imf_nt": -10}
+        )
+        assert out["method"] == "physics_boyle_index"
 
     def test_untrained_path_ignores_neural_model_weights(self) -> None:
         """Obliterating the NN's weights must not change the Kp — physics path."""
-        det = SolarStormDetector()
+        det = SolarStormDetector(load_shipped_weights=False)
         data = {"magnetosphere_data": {"solar_wind_speed_km_s": 600, "bz_imf_nt": -10}}
         before = det.predict_solar_storm(dict(data)).kp_index
         assert det.geomag_predictor is not None
@@ -50,12 +72,12 @@ class TestSolarStormHonesty:
         assert before == after
 
     def test_boyle_kp_is_deterministic(self) -> None:
-        det = SolarStormDetector()
+        det = SolarStormDetector(load_shipped_weights=False)
         assert _kp(det, 550, -10)["kp_index"] == _kp(det, 550, -10)["kp_index"]
 
     def test_boyle_kp_matches_storm_phenomenology(self) -> None:
         """Quiet→G0, extreme driving→G5, and Kp is monotonic in driving strength."""
-        det = SolarStormDetector()
+        det = SolarStormDetector(load_shipped_weights=False)
         quiet = _kp(det, 400, 2.0)
         extreme = _kp(det, 800, -20.0)
         assert quiet["storm_level"] == "none" and quiet["kp_index"] < 2.0
@@ -66,13 +88,13 @@ class TestSolarStormHonesty:
     def test_southward_northward_imf_asymmetry(self) -> None:
         """Southward Bz couples, northward does not — the physics an untrained
         NN cannot know. Same |B|, same speed: southward must yield far higher Kp."""
-        det = SolarStormDetector()
+        det = SolarStormDetector(load_shipped_weights=False)
         south = _kp(det, 800, -20.0)["kp_index"]
         north = _kp(det, 800, +20.0)["kp_index"]
         assert south >= north + 4.0
 
     def test_geomag_result_declares_physics_method(self) -> None:
-        det = SolarStormDetector()
+        det = SolarStormDetector(load_shipped_weights=False)
         assert _kp(det, 550, -10)["method"] == "physics_boyle_index"
 
 

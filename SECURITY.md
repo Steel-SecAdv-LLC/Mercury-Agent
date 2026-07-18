@@ -117,7 +117,7 @@ SlhDsaKeyPair` declarations).
 
 4. **Universal Enforcement**: Mercury Agent refuses to run without real PQC cryptography at package import. `AMA_REQUIRE_REAL_PQC=true` is retained for legacy workflow readability, but the gate is no longer optional.
 
-5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
+5. **Constant-Time Operation**: AMA Cryptography v3.3.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
 6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.3.0 also surfaces
    ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
@@ -369,6 +369,8 @@ Mercury Agent's security analysis is automated and self-assessed:
 
 Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 
+**Scheduled external review**: an independent third-party security review (covering Mercury Agent and the AMA Cryptography native backend) is planned as a pre-1.0-production milestone. Until that review completes and its findings are published here, the posture above stands — treat every release as self-assessed only. This section will be updated with the reviewer, scope, and report reference when the engagement is scheduled.
+
 ## Compliance
 
 Mercury Agent is designed with compliance in mind:
@@ -407,6 +409,24 @@ advisory mode. The reserved `check=` codes are `"benevolence"`,
 `"sigma_immutable"`, and `"gosnn_unavailable"`. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
 Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+
+**σ_Immutable artifact dependency (fail-closed).** The σ_Immutable gate
+depends on three artifacts shipped inside the package
+(`[tool.setuptools.package-data]`): the trained network weights
+(`security/sigma_immutable_weights.pt`), the labelled training corpus
+(`security/sigma_immutable_corpus.json`), and its detached
+Ed25519 + ML-DSA-65 signatures (`security/sigma_immutable_corpus.sig.json`),
+verified on first gate construction. If the weights are missing or torch is
+unavailable, every gated boundary raises `check="gosnn_unavailable"`; if the
+corpus is missing, tampered, or its signatures do not verify, every gated
+boundary raises `check="sigma_immutable"` — there is no advisory fallback in
+either case. Regenerate the artifacts with
+`python scripts/train_sigma_immutable.py` (which re-signs the corpus).
+Independent of these artifacts, the deterministic critical-ethical floor
+(`SigmaImmutableGate.enforce_ethical_floor`) remains the authoritative
+gate — the learned score is advisory (synthetic-trained; see
+`docs/DORMANCY_LEDGER.md`), and shipping the artifacts does not weaken the
+fail-closed contract or the floor's authority.
 
 ### Production-mode primitive (`MERCURY_ENV`)
 

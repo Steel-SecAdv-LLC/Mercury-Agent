@@ -121,6 +121,64 @@ class TestGraphAnomalyDetector:
         # Same graph should have very low anomaly score
         assert result["anomaly_score"] < 0.1
 
+    def test_off_modality_rejects_non_square_array(self) -> None:
+        """A generic ``(200, 8)`` float feature array is off-modality and
+        must be rejected with a message naming the expected square
+        adjacency matrix, on both fit and extract_features paths.
+        """
+        detector = GraphAnomalyDetector()
+        data = np.random.default_rng(42).normal(size=(200, 8))
+
+        with pytest.raises(nx.NetworkXError, match="Adjacency matrix not square"):
+            detector.fit(data)
+        with pytest.raises(nx.NetworkXError, match="Adjacency matrix not square"):
+            detector.extract_features(data)
+
+    def test_detect_dense_block_in_networkx_graph(self) -> None:
+        """A dense anomalous block injected into a sparse graph must raise
+        the anomaly score above the same-graph baseline and trip detection.
+        """
+        base = nx.erdos_renyi_graph(60, 0.08, seed=7)
+        detector = GraphAnomalyDetector()
+        detector.fit(base)
+
+        anomalous = base.copy()
+        block = range(40, 50)
+        for i in block:
+            for j in block:
+                if i < j:
+                    anomalous.add_edge(i, j)
+
+        baseline = detector.detect(base)
+        result = detector.detect(anomalous)
+
+        assert result["anomaly_score"] > baseline["anomaly_score"]
+        assert result["is_anomaly"]
+
+    def test_detect_dense_block_in_adjacency_matrix(self) -> None:
+        """Same dense-block drive through the square adjacency-matrix
+        input modality.
+        """
+        base = nx.erdos_renyi_graph(60, 0.08, seed=7)
+        anomalous = base.copy()
+        block = range(40, 50)
+        for i in block:
+            for j in block:
+                if i < j:
+                    anomalous.add_edge(i, j)
+
+        adj_base = nx.to_numpy_array(base)
+        adj_anomalous = nx.to_numpy_array(anomalous)
+
+        detector = GraphAnomalyDetector()
+        detector.fit(adj_base)
+
+        baseline = detector.detect(adj_base)
+        result = detector.detect(adj_anomalous)
+
+        assert result["anomaly_score"] > baseline["anomaly_score"]
+        assert result["is_anomaly"]
+
     def test_extract_features(self, sample_graph: Any) -> None:
         """Test feature extraction."""
         detector = GraphAnomalyDetector()

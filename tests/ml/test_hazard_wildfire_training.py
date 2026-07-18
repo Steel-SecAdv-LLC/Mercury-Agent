@@ -269,6 +269,7 @@ class TestShippedWildfireCheckpoint:
             enable_ndvi_processing=False,
             enable_resonance=False,
             enable_enhanced_cnn=False,
+            load_shipped_weights=False,
         )
         learned = WildfireDetector(
             enable_spread_modeling=False,
@@ -304,6 +305,7 @@ class TestShippedWildfireCheckpoint:
             enable_ndvi_processing=False,
             enable_resonance=False,
             enable_enhanced_cnn=False,
+            load_shipped_weights=False,
         )
         with pytest.raises((pickle.UnpicklingError, RuntimeError)):
             detector.load_neural_weights(str(bad))

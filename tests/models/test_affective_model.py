@@ -241,3 +241,84 @@ class TestEdgeCases:
         result = model.predict(data)
 
         assert "anomaly_scores" in result
+
+
+class TestDeclaredAffectiveModality:
+    """The declared-emotions path: real deterministic analysis, no fabrication."""
+
+    def _model(self) -> AffectiveAnomalyModel:
+        return AffectiveAnomalyModel()
+
+    def test_calm_series_scores_low_distress(self) -> None:
+        model = self._model()
+        # Sustained happy/neutral affect: rows are (neutral, happy, sad, angry, fearful, surprised)
+        calm = np.tile(np.array([0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), (20, 1))
+        result = model.predict({"emotions": calm})
+        assert result["anomaly_scores"].shape == (1,)
+        assert result["distress_levels"][0] < 0.3
+        # Aggregated emotions mirror the declared distribution
+        np.testing.assert_allclose(result["emotion_scores"][0][:2], [0.5, 0.5], atol=1e-6)
+
+    def test_sustained_negative_series_scores_high_distress(self) -> None:
+        model = self._model()
+        distressed = np.tile(np.array([0.0, 0.0, 0.4, 0.4, 0.2, 0.0]), (20, 1))
+        calm = np.tile(np.array([0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), (20, 1))
+        r_distress = model.predict({"emotions": distressed})
+        r_calm = model.predict({"emotions": calm})
+        assert r_distress["distress_levels"][0] > r_calm["distress_levels"][0]
+        assert r_distress["anomaly_scores"][0] > 0.5
+
+    def test_batched_series(self) -> None:
+        model = self._model()
+        batch = np.stack(
+            [
+                np.tile(np.array([0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), (10, 1)),
+                np.tile(np.array([0.0, 0.0, 0.5, 0.3, 0.2, 0.0]), (10, 1)),
+            ]
+        )
+        result = model.predict({"emotions": batch})
+        assert result["emotion_scores"].shape == (2, 6)
+        assert result["distress_levels"][1] > result["distress_levels"][0]
+
+    def test_declared_path_is_deterministic(self) -> None:
+        series = np.abs(np.random.default_rng(3).normal(size=(15, 6)))
+        r1 = self._model().predict({"emotions": series})
+        r2 = self._model().predict({"emotions": series})
+        np.testing.assert_array_equal(r1["anomaly_scores"], r2["anomaly_scores"])
+        np.testing.assert_array_equal(r1["emotion_scores"], r2["emotion_scores"])
+
+    def test_malformed_declared_input_fails_loud(self) -> None:
+        model = self._model()
+        with pytest.raises(ValueError, match="shape"):
+            model.predict({"emotions": np.zeros((10, 4))})  # wrong emotion count
+        with pytest.raises(ValueError, match="non-finite"):
+            bad = np.zeros((5, 6))
+            bad[2, 3] = np.nan
+            model.predict({"emotions": bad})
+        with pytest.raises(ValueError, match="non-negative"):
+            model.predict({"emotions": np.full((5, 6), -1.0)})
+
+    def test_empty_time_series_fails_loud_instead_of_nan(self) -> None:
+        """A declared series with zero timesteps must raise, not emit NaNs.
+
+        Regression: shape (batch, 0, 6) passed the shape check, then the
+        temporal mean over the empty axis produced NaN anomaly/emotion scores.
+        """
+        model = self._model()
+        with pytest.raises(ValueError, match="empty emotion time series"):
+            model.predict({"emotions": np.zeros((0, 6))})
+        with pytest.raises(ValueError, match="empty emotion time series"):
+            model.predict({"emotions": np.zeros((2, 0, 6))})
+
+    def test_generic_dict_still_neutral(self) -> None:
+        """Dicts without the declared key keep the neutral quarantine prior."""
+        model = self._model()
+        result = model.predict({"signal": np.random.default_rng(0).normal(size=50)})
+        assert float(result["anomaly_scores"][0]) == 0.5
+        assert not result["emotion_scores"].any()
+
+    def test_fusion_features_stay_neutral_for_declared_input(self) -> None:
+        """The fusion feature contract (zeros) is independent of modality."""
+        model = self._model()
+        feats = model.extract_features(np.random.default_rng(1).normal(size=(4, 8)))
+        assert not feats.any()

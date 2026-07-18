@@ -197,6 +197,13 @@ class NuclearForensicsAnalyzer:
         """Infer uranium enrichment method from isotope ratios."""
         theoretical_u234_u238 = u235_u238 * 0.0076
 
+        if theoretical_u234_u238 <= 0.0:
+            # An explicit U235/U238 == 0 (a "no U-235 detected" / fully depleted
+            # measurement) drives the theoretical U-234 co-enrichment to zero,
+            # so the deviation ratio that discriminates centrifuge vs diffusion
+            # is undefined (division by zero). Without measurable U-235 the
+            # enrichment method cannot be inferred from this relationship.
+            return "chemical_or_unknown"
         ratio_deviation = abs(u234_u238 - theoretical_u234_u238) / theoretical_u234_u238
 
         if ratio_deviation < 0.1:
@@ -333,7 +340,21 @@ class IsotopePredictor:
     """Comprehensive isotope prediction and nuclear forensics system.
 
     Integrates ratio analysis, forensics, and threat assessment.
+
+    Modality contract for the ML lane: :class:`IsotopeRatioAnalyzer` ships **no
+    trained weights and no checkpoint loader**, so a forward pass would classify
+    isotope type / threat level from randomly initialised weights (and crash on
+    an off-contract feature width). Per Mercury's anti-fabrication policy (see
+    ``models/affective.py``, ``models/parapsychology.py``) the ML lane returns
+    the deterministic neutral prior instead of fabricating; the real, physics-
+    based determination comes from the deterministic
+    :class:`NuclearForensicsAnalyzer` (isotope-ratio enrichment/origin) and
+    :class:`RadiologicalThreatAssessor`. The network architecture is retained so
+    a future merit-gated trained checkpoint can revive the lane.
     """
+
+    #: Set once the untrained-ML notice has been emitted (process-wide).
+    _untrained_ml_warned = False
 
     def __init__(
         self,
@@ -412,42 +433,38 @@ class IsotopePredictor:
         return result
 
     def _analyze_with_ml(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze isotopes with ML model."""
-        if self.ratio_analyzer is None:
-            return {
-                "isotope_type": "natural_isotope",
-                "enrichment": 0.0,
-                "threat_level": "safe",
-                "confidence": 0.0,
-            }
+        """Return the deterministic neutral prior (see class docstring).
 
-        features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
-
-        self.ratio_analyzer.eval()
-        with torch.no_grad():
-            isotope_logits, enrichment, threat_logits = self.ratio_analyzer(features_tensor)
-
-        isotope_probs = torch.softmax(isotope_logits[0], dim=0)
-        isotope_idx = torch.argmax(isotope_probs).item()
-        isotope_confidence = float(isotope_probs[isotope_idx].item())  # type: ignore[index, unused-ignore]
-
-        isotope_types = [e.value for e in IsotopeType]
-        detected_type = isotope_types[isotope_idx]  # type: ignore[index, unused-ignore]
-
-        enrichment_level = float(enrichment[0].item())
-
-        threat_probs = torch.softmax(threat_logits[0], dim=0)
-        threat_idx = torch.argmax(threat_probs).item()
-
-        threat_levels = [e.value for e in ThreatLevel]
-        threat_level = threat_levels[threat_idx]  # type: ignore[index, unused-ignore]
-
+        :class:`IsotopeRatioAnalyzer` is untrained and ships no checkpoint
+        loader, so a forward pass would fabricate isotope-type/threat
+        classifications from random weights and crash outright on an
+        off-contract feature width. Rather than run the untrained network, the
+        ML lane emits the neutral prior; the deterministic forensics and
+        threat-assessment lanes carry the real isotope-ratio determination.
+        The ``features`` argument is accepted for interface stability but is
+        not scored until a trained, merit-gated checkpoint ships.
+        """
+        self._warn_untrained_ml_once()
         return {
-            "isotope_type": detected_type,
-            "enrichment": enrichment_level,
-            "threat_level": threat_level,
-            "confidence": isotope_confidence,
+            "isotope_type": "natural_isotope",
+            "enrichment": 0.0,
+            "threat_level": "safe",
+            "confidence": 0.0,
         }
+
+    @classmethod
+    def _warn_untrained_ml_once(cls) -> None:
+        if not cls._untrained_ml_warned:
+            cls._untrained_ml_warned = True
+            logging.getLogger(__name__).warning(
+                "IsotopeRatioAnalyzer ships no trained weights and no checkpoint "
+                "loader; running it would classify isotope type / threat level "
+                "from randomly initialised weights. Per Mercury's anti-"
+                "fabrication policy the ML lane returns the neutral prior "
+                "(natural_isotope, safe, 0.0 confidence); the deterministic "
+                "NuclearForensicsAnalyzer and RadiologicalThreatAssessor carry "
+                "the real isotope-ratio analysis."
+            )
 
     def _generate_recommendations(self, result: IsotopePredictionResult) -> list[str]:
         """Generate recommendations based on isotope analysis."""

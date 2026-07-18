@@ -42,24 +42,33 @@ class NeuralCognitiveModel:
             pattern = data[i]
             self.memory_buffer.append(pattern)
 
-            if len(self.memory_buffer) > 0:
-                buffer_array = np.array(list(self.memory_buffer))
-                similarities = np.dot(buffer_array, pattern) / (
-                    np.linalg.norm(buffer_array, axis=1) * np.linalg.norm(pattern) + 1e-8
-                )
-                memory_features[i, :8] = np.histogram(similarities, bins=8)[0].astype(
-                    np.float32
-                ) / len(self.memory_buffer)
-                memory_features[i, 8:] = [
-                    np.mean(similarities),
-                    np.std(similarities),
-                    np.max(similarities),
-                    np.min(similarities),
-                    np.median(similarities),
-                    len(self.memory_buffer) / self.memory_capacity,
-                    np.sum(similarities > 0.7),
-                    np.sum(similarities < 0.3),
-                ]
+            # Cosine similarity is only defined between equal-length vectors.
+            # The streaming buffer can hold patterns of different lengths across
+            # calls (variable sequence/batch lengths), so np.array over the whole
+            # buffer would build a ragged array and raise on an inhomogeneous
+            # shape. Compare only against buffered patterns matching the current
+            # pattern's shape; the freshly appended pattern always matches, so
+            # this set is non-empty. When every stored pattern shares a length
+            # (the common case, and always so on the memory-reset serve path)
+            # this is the full buffer and behaviour is unchanged.
+            same_shape = [p for p in self.memory_buffer if p.shape == pattern.shape]
+            buffer_array = np.array(same_shape)
+            similarities = np.dot(buffer_array, pattern) / (
+                np.linalg.norm(buffer_array, axis=1) * np.linalg.norm(pattern) + 1e-8
+            )
+            memory_features[i, :8] = np.histogram(similarities, bins=8)[0].astype(np.float32) / len(
+                same_shape
+            )
+            memory_features[i, 8:] = [
+                np.mean(similarities),
+                np.std(similarities),
+                np.max(similarities),
+                np.min(similarities),
+                np.median(similarities),
+                len(self.memory_buffer) / self.memory_capacity,
+                np.sum(similarities > 0.7),
+                np.sum(similarities < 0.3),
+            ]
 
         return memory_features
 
@@ -83,17 +92,29 @@ class NeuralCognitiveModel:
                 np.percentile(pattern, 75),
                 np.ptp(pattern),
             ]
-            diffs = np.diff(pattern)
-            executive_features[i, 8:] = [
-                np.mean(diffs),
-                np.std(diffs),
-                np.max(np.abs(diffs)),
-                np.sum(diffs > 0) / len(diffs),
-                np.sum(diffs < 0) / len(diffs),
-                np.mean(np.abs(diffs)),
-                np.sum(np.abs(diffs) > np.std(diffs)),
-                len(pattern),
-            ]
+            if len(pattern) >= 2:
+                diffs = np.diff(pattern)
+                std_diffs = np.std(diffs)
+                executive_features[i, 8:] = [
+                    np.mean(diffs),
+                    std_diffs,
+                    np.max(np.abs(diffs)),
+                    np.sum(diffs > 0) / len(diffs),
+                    np.sum(diffs < 0) / len(diffs),
+                    np.mean(np.abs(diffs)),
+                    np.sum(np.abs(diffs) > std_diffs),
+                    len(pattern),
+                ]
+            else:
+                # A single-sample pattern (e.g. univariate (N, 1) input) has no
+                # finite differences: np.diff is empty, so np.max(|diffs|) would
+                # raise on a zero-size reduction and the ratio features would be
+                # 0/0 NaN. The derivative-based executive features are undefined
+                # here; emit zeros for them while keeping the trailing length
+                # feature truthful, so a degenerate pattern yields a finite
+                # vector instead of crashing/poisoning the fusion inputs.
+                executive_features[i, 8:15] = 0.0
+                executive_features[i, 15] = len(pattern)
 
         return executive_features
 
