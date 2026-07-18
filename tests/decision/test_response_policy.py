@@ -184,6 +184,4 @@ class TestRestorativeConversionVerbs:
             assert word not in blob, f"destructive verb {word!r} in restorative {disposition}"
         # Recommend-only: the restorative catalogue always phrases human gating.
         if plan.action is ResponseAction.RECOMMEND_CONVERSION:
-            assert any(
-                "approval" in step or "review" in step for step in plan.countermeasures
-            )
+            assert any("approval" in step or "review" in step for step in plan.countermeasures)

@@ -209,9 +209,7 @@ class ResponsePolicy:
                 action = ResponseAction.RECOMMEND_MITIGATION
             if self.restorative:
                 dom = domain or "general"
-                steps = steps + tuple(
-                    step.format(domain=dom) for step in _RESTORATIVE_ACT_CATALOG
-                )
+                steps = steps + tuple(step.format(domain=dom) for step in _RESTORATIVE_ACT_CATALOG)
             return ResponsePlan(
                 action=action,
                 urgency=urgency,

@@ -27,6 +27,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
+
+- ``np.math`` was removed in NumPy 2.0 (the project floor is
+  ``numpy>=2.4``), so every ortho-normalized
+  ``AssociatedLegendre.compute()`` — and with it every
+  ``SphericalHarmonicTransform`` / ``FastSHTransform`` forward pass —
+  raised ``AttributeError``. Reproduced on numpy 2.4.6, fixed with the
+  stdlib ``math.factorial`` (bit-identical on both NumPy majors), pinned
+  red-to-green by ``tests/test_harmonics_transform.py``.
+- Adjacent defect: the Legendre P_l^m cache was keyed only by
+  ``(degree, m)``, so reusing an instance on a different grid crashed
+  (different length) or silently returned the previous grid's values
+  (same length). The cache now invalidates when its grid changes; a
+  reused transform is pinned bit-equal to a fresh instance.
+
+### Behaviour change: decision layer enabled at the served deploy entrypoints (PR #339)
+
+- The three served entrypoints — the ``/api/v1/detect/flagship`` HTTP
+  route, the MCP ``mercury_detect_fusion`` tool, and
+  ``mercury-agent detect -d fusion`` — now enable the
+  decision/abstention/response layer when they build their engine, so
+  every served flagship detection carries an additive ``decision`` record
+  (grounded verdict or explicit abstention plus a bounded,
+  non-destructive response plan). The core ``OmniMercuryEngine`` default
+  is unchanged (opt-in via ``enable_decision_layer()``); library
+  consumers are unaffected.
+- New recommend-only restorative verbs join the bounded response
+  vocabulary: ``ResponseAction.RECOMMEND_CONVERSION`` and
+  ``RECOMMEND_RESTORATION``, selected only by the opt-in
+  ``ResponsePolicy(restorative=True)`` posture (default ``False``; the
+  pre-existing wire format is pinned unchanged by test). Both are
+  non-destructive and never auto-authorised.
+
+### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates (PR #339)
+
+- ``ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD`` (0.93) is the new single
+  authoritative declaration of the trained σ_Immutable network's decision
+  threshold in ``core/centralized_constants.py``; the gate module,
+  ``EthicalGate``'s default, GOSNN's class attributes, and the env-clamp
+  floor now cite it instead of re-hardcoding literals. All values are
+  byte-identical to before (0.93 trained / 0.96 GOSNN gating — a
+  documented two-threshold design, not drift); no behavior change.
+- The "sigmoid benevolence gate" docs no longer claim to *replace* the
+  hard threshold: ``BenevolenceScorer.enforce`` (0.99, floored 0.70) is
+  the HARD decision-boundary gate; ``sigmoid_benevolence_gate`` is the
+  SOFT fusion-weighting term in ``core/three_r/fusion.py``. Comments and
+  docstrings only; enforcement semantics identical.
+
 ### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
 
 - With ``is_matrix_profile=None`` (the default), ``find_discords`` now
