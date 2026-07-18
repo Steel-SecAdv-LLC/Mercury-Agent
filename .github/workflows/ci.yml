@@ -45,25 +45,26 @@ env:
   # the target quality bar in `pyproject.toml [tool.coverage.report]`
   # is `fail_under = 85`.
   #
-  # v1.7.x floors (strengthening plan §5):
-  #   COVERAGE_THRESHOLD_CORE: 25  (core subset, was 15)
-  #   COVERAGE_THRESHOLD_FULL: 50  (full suite)
-  # FULL = 50 is "do not regress more than ~10 points below the measured
-  # 59.84% baseline" — a deliberate cushion for CI noise / dataset
-  # availability flakes.  CORE graduated from 15 to 25 once the core
-  # lane was expanded to include the high-LOC modules (detectors/, ml/,
-  # datasets/, api/, automl/, security/ plus a curated set of root-level
-  # `test_*.py` files) — measured baseline on the expanded lane is
-  # 31.87% combined stmt+branch coverage, giving ~7 points of cushion
-  # above the floor.  Do not lower either floor back toward 10/15 to
-  # unblock unrelated work — the floors document a non-regression
-  # guarantee, not a preference.
+  # v1.7.x floors (strengthening plan §5), graduated 2026-07-18 after
+  # re-measurement on the PR #339 head:
+  #   COVERAGE_THRESHOLD_CORE: 30  (core subset; was 25, before that 15)
+  #   COVERAGE_THRESHOLD_FULL: 55  (full suite; was 50)
+  # Measured combined stmt+branch baselines (CI-identical invocations,
+  # both lanes green at measurement): FULL 67.97%, CORE 37.94%
+  # (previous baselines: 59.84% / 31.87%).  The floors keep the same
+  # cushion policy that set 50/25 — "do not regress more than ~10 points
+  # (FULL) / ~7 points (CORE) below the measured baseline" — with ~3
+  # extra points of margin on FULL because the measurement environment
+  # carried slightly fewer optional extras than the CI [all,dev] lane
+  # (a lower-bound measurement).  Do not lower either floor to unblock
+  # unrelated work — the floors document a non-regression guarantee,
+  # not a preference.
   #
   # The 85-point pyproject target stays in place as the strict
   # aspirational nightly bar.
   # ---------------------------------------------------------------------
-  COVERAGE_THRESHOLD_CORE: 25
-  COVERAGE_THRESHOLD_FULL: 50
+  COVERAGE_THRESHOLD_CORE: 30
+  COVERAGE_THRESHOLD_FULL: 55
 
 jobs:
   # ===========================================================================
@@ -950,9 +951,10 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           # Core-lane test selection, expanded in v1.7.x for the
-          # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation.  Measured
-          # combined stmt+branch coverage on this selection (without
-          # tests/security/) is well above the 25 floor.
+          # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation (raised again to
+          # 30 on the 2026-07-18 re-measurement: 37.94% on this
+          # selection).  Measured combined stmt+branch coverage on this
+          # selection (without tests/security/) is well above the floor.
           #
           # tests/security/ stays OUT of this lane even though AMA is now
           # built here: its heavy KAT suite (NIST ACVP byte-exact vectors)

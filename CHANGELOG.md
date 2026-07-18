@@ -75,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SOFT fusion-weighting term in ``core/three_r/fusion.py``. Comments and
   docstrings only; enforcement semantics identical.
 
+### Changed: coverage merge-gate floors graduated on re-measurement (PR #339)
+
+- ``COVERAGE_THRESHOLD_CORE`` 25 → **30** and ``COVERAGE_THRESHOLD_FULL``
+  50 → **55**, backed by fresh CI-identical measurements on the PR #339
+  head (CORE 37.94% / FULL 67.97% combined stmt+branch, both lanes
+  green at measurement; previous baselines 31.87% / 59.84%). Same
+  cushion policy that set 25/50 (~7 points CORE / ~10 points FULL below
+  baseline), with ~3 extra points of FULL margin because the
+  measurement environment carried slightly fewer optional extras than
+  CI's ``[all,dev]`` lane. CONTRIBUTING.md and the ci.yml rationale
+  comment updated together.
+
 ### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
 
 - With ``is_matrix_profile=None`` (the default), ``find_discords`` now

@@ -351,18 +351,20 @@ Two thresholds matter and they do different things:
 
 - **Merge gates (blocking).** CI enforces a measured floor on every
   PR:
-  - `COVERAGE_THRESHOLD_CORE = 25 %` on the curated core-tests lane
+  - `COVERAGE_THRESHOLD_CORE = 30 %` on the curated core-tests lane
     (see `.github/workflows/ci.yml` for the file selection).
-  - `COVERAGE_THRESHOLD_FULL = 50 %` on the full ml-tests lane
+  - `COVERAGE_THRESHOLD_FULL = 55 %` on the full ml-tests lane
     (which runs the entire `tests/` tree with the AMA Cryptography
     native build).
   These floors are deliberately positioned below the most recent
-  measured baseline (CORE ≈ 31.9 % combined stmt+branch; FULL
-  ≈ 59.8 % lines on the 2026-05-17 main-branch nightly) so CI noise
-  and dataset-availability flakes do not produce false PR failures
-  while still surfacing real coverage regressions.  **Do not lower
-  these floors back toward the historical 10/15 values to unblock
-  unrelated work** — they document a non-regression guarantee.
+  measured baseline (CORE 37.94 % / FULL 67.97 % combined
+  stmt+branch, re-measured 2026-07-18 on the PR #339 head with
+  CI-identical invocations, both lanes green; previous baselines
+  31.9 % / 59.8 %) so CI noise and dataset-availability flakes do
+  not produce false PR failures while still surfacing real coverage
+  regressions.  **Do not lower these floors back toward the
+  historical 25/50 (or older 10/15) values to unblock unrelated
+  work** — they document a non-regression guarantee.
 
 - **Aspirational target (non-blocking).** `pyproject.toml
   [tool.coverage.report]` sets `fail_under = 85`, the long-term
@@ -557,8 +559,8 @@ Brief description of changes.
 - [ ] Documentation updated
 - [ ] Tests added/updated
 - [ ] All tests pass
-- [ ] Coverage does not regress the lane floors (CORE >= 25 %,
-      FULL >= 50 %) and trends toward the 85 % aspirational target
+- [ ] Coverage does not regress the lane floors (CORE >= 30 %,
+      FULL >= 55 %) and trends toward the 85 % aspirational target
 - [ ] Security scan clean
 
 ## Testing
@@ -680,6 +682,7 @@ Contributors will be recognized in:
 | 2.6.0 | 2026-05-22 | Replaced aspirational 85 / 90 / 95 % coverage claims with the actual measured-floor merge gates (CORE 25 %, FULL 50 %) plus the 85 % aspirational target.  Aligned the PR-template and new-engine checklists with the same posture. |
 | 2.7.0 | 2026-06-17 | v1.7.0 released (2026-05-20); reconciled documentation with the shipped line and source tree. The "v1.7 development cycle" wording in row 2.5.0 predates the release. |
 | 2.8.0 | 2026-07-11 | Date/version refresh; verified all cited paths, gates, coverage floors, and scripts against the current source tree. No content changes. |
+| 2.9.0 | 2026-07-18 | Coverage floors graduated on re-measurement (CI-identical invocations, both lanes green): CORE 25 → 30 % (measured 37.94 %), FULL 50 → 55 % (measured 67.97 %). Same cushion policy that set 25/50, with extra FULL margin for measurement-environment variance. |
 
 ---
 
