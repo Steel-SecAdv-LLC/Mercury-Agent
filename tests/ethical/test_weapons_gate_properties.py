@@ -20,6 +20,7 @@ import pytest
 
 hypothesis = pytest.importorskip("hypothesis")
 from hypothesis import (
+    assume,
     given,
     settings,
     strategies as st,
@@ -27,6 +28,7 @@ from hypothesis import (
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     WeaponsDisposition,
+    _gate_evidence,
     assess_weapons_uplift,
 )
 from omni_mercury_engine.cognitive.harm_classifier import _parse_probability
@@ -192,7 +194,18 @@ _OFFENSIVE_CORES = [
 def test_offensive_core_blocks_under_benign_noise(core: str, prefix: str, suffix: str) -> None:
     # Wrapping an offensive request in arbitrary benign word/number noise must
     # not let it pass -- the hazard vocabulary + actionable verb still route.
-    assert assess_weapons_uplift(f"{prefix} {core} {suffix}").blocks
+    #
+    # "benign noise" excludes noise that happens to spell a defensive OBJECT
+    # ("detector", "sensor", "vaccine", the leetspeak "DETECT0R", ...): bound to
+    # the core's production verb, that legitimately forms the documented
+    # defensive-production carve-out ("how to make a nerve agent detector" ->
+    # ALLOW_PROVENANCE, sourced-only), which `test_defensive_production_is_not_blocked`
+    # asserts must NOT block. Skip exactly those via the gate's own evidence so
+    # the guard can never drift from the carve-out lexicon; the safety property --
+    # an offensive core keeps blocking under genuinely benign noise -- is intact.
+    text = f"{prefix} {core} {suffix}"
+    assume(not _gate_evidence(text, {}).defensive_carveout)
+    assert assess_weapons_uplift(text).blocks
 
 
 @settings(max_examples=150, deadline=None)
