@@ -26,6 +26,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -68,8 +69,9 @@ def _load_collector():
     return mod
 
 
-def _artifact() -> dict:
-    return json.loads(_ARTIFACT.read_text())
+def _artifact() -> dict[str, Any]:
+    result: dict[str, Any] = json.loads(_ARTIFACT.read_text())
+    return result
 
 
 def test_artifact_wires_exactly_the_expected_scalars() -> None:
