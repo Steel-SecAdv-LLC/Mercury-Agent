@@ -5,10 +5,20 @@
 
 This is the auditable source of truth for "what can Mercury do": it walks the
 package with :mod:`ast` (no imports, no runtime) and records every top-level
-class, its module, a coarse capability category (by name suffix / base), and
-the first line of its docstring. It writes the grouped Markdown inventory
+class, its module, a coarse capability category, and the first line of its
+docstring. It writes the grouped Markdown inventory
 (``docs/CAPABILITY_INVENTORY.md``) and, on request, a machine-readable JSON
 blob (the build intermediate for the browsable capability artifact).
+
+Categorization is name-suffix first, then **base-class analysis** for anything
+the name leaves in the ``Other`` bucket: a two-pass ``ast`` walk builds a global
+``{class: bases}`` map and resolves a class by walking its ancestor chain
+(``nn.Module`` subclasses become neural components, ``Protocol``/``TypedDict``
+subclasses become support types, in-tree ``Base*`` ancestors carry their own
+suffix down to the subclass). This is honest about its limits: a class that
+inherits only from ``object`` carries no ancestral signal, so the majority of
+the residual ``Other`` bucket cannot be refined this way and is reported as
+``unresolved`` rather than force-fit.
 
 Run::
 
@@ -108,15 +118,90 @@ _SUPPORT_SUFFIXES = (
 )
 
 
-def _categorize(name: str, bases: list[str]) -> tuple[str, bool]:
-    """Return (category, is_capability) for a class name / base list."""
+_NEURAL = "Neural models & layers"
+_DATA = "Data sources & loaders"
+_SUPPORT = "Support types (config / result / enum / error)"
+_OTHER = "Other capability classes"
+
+# Well-known base classes whose SIGNAL is unambiguous even when the subclass's
+# own name carries no suffix. This is the base-class-analysis table that refines
+# the "Other" bucket: e.g. ``class Discriminator(nn.Module)`` is a neural layer
+# though "Discriminator" ends in no rule suffix. Kept conservative — only bases
+# whose meaning is not in doubt (a ``Protocol`` subclass IS an interface; an
+# ``nn.Module`` subclass IS a neural component). Ambiguous bases (``ABC``) are
+# deliberately absent so they fall through to name/ancestor resolution.
+_BASE_CATEGORY: dict[str, tuple[str, bool]] = {
+    "Module": (_NEURAL, True),  # torch nn.Module (ast sees the ``.attr`` "Module")
+    "BaseFusionModule": (_NEURAL, True),
+    "Dataset": (_DATA, True),
+    "IterableDataset": (_DATA, True),
+    "Protocol": (_SUPPORT, False),
+    "TypedDict": (_SUPPORT, False),
+    "NamedTuple": (_SUPPORT, False),
+}
+
+
+def _categorize_by_name(name: str, bases: list[str]) -> tuple[str, bool] | None:
+    """Return (category, is_capability) from the class's OWN name, or None.
+
+    None means "the name carries no categorizing suffix" — the caller then falls
+    back to base-class analysis before landing the class in the Other bucket.
+    """
     is_enum = any(b.endswith("Enum") or b == "Enum" for b in bases)
     if is_enum or name.endswith(_SUPPORT_SUFFIXES):
-        return "Support types (config / result / enum / error)", False
+        return _SUPPORT, False
     for suffixes, category in _CATEGORY_RULES:
         if name.endswith(suffixes):
             return category, True
-    return "Other capability classes", True
+    return None
+
+
+def _resolve_via_bases(
+    bases: list[str],
+    class_bases: dict[str, list[str]],
+    seen: set[str],
+    depth: int = 0,
+) -> tuple[str, bool] | None:
+    """Resolve a category by walking the base-class chain (MRO-style, ast-only).
+
+    Consults the ``_BASE_CATEGORY`` table, then each base's own name suffix, then
+    recurses into that base's bases (for in-tree ancestors). A ``seen`` set and a
+    depth bound guard against cycles / pathological hierarchies. Returns the
+    first hit, or None if no ancestor carries a signal.
+    """
+    for base in bases:
+        if base in _BASE_CATEGORY:
+            return _BASE_CATEGORY[base]
+        # Recurse through IN-TREE ancestors so a curated signal (e.g. nn.Module)
+        # propagates through an intermediate project base. Name-suffix guessing on
+        # base names is deliberately NOT done here: it misfires on cross-cutting
+        # mixins (``LoggerMixin`` must not demote its subclass to a support type)
+        # and on shadowed externals (an in-tree ``BaseModel`` that fronts pydantic
+        # must not be read as a neural "Model"). Only the curated table speaks.
+        if depth < 8 and base in class_bases and base not in seen:
+            seen.add(base)
+            resolved = _resolve_via_bases(class_bases[base], class_bases, seen, depth + 1)
+            if resolved is not None:
+                return resolved
+    return None
+
+
+def categorize(
+    name: str, bases: list[str], class_bases: dict[str, list[str]]
+) -> tuple[str, bool, str]:
+    """Return (category, is_capability, resolution) using name then base analysis.
+
+    ``resolution`` is ``"name"`` (own-name suffix / enum), ``"base"`` (refined via
+    the ancestor chain), or ``"unresolved"`` (genuinely Other — no name suffix and
+    no informative ancestor, e.g. an ``object``-only class).
+    """
+    own = _categorize_by_name(name, bases)
+    if own is not None:
+        return own[0], own[1], "name"
+    resolved = _resolve_via_bases(bases, class_bases, set())
+    if resolved is not None:
+        return resolved[0], resolved[1], "base"
+    return _OTHER, True, "unresolved"
 
 
 def _base_names(node: ast.ClassDef) -> list[str]:
@@ -130,8 +215,18 @@ def _base_names(node: ast.ClassDef) -> list[str]:
 
 
 def collect() -> dict[str, Any]:
-    """Scan the package and return the structured inventory."""
-    records: list[dict[str, Any]] = []
+    """Scan the package and return the structured inventory.
+
+    Two passes over the ``ast`` (still no imports, no runtime): pass 1 builds a
+    global ``{class_name: [base_names]}`` map so pass 2 can resolve a class's
+    category by walking its ancestor chain when its own name carries no suffix —
+    the base-class analysis that refines the ``Other`` bucket. Name-keyed base
+    resolution is a heuristic (class names can collide across modules), which is
+    acceptable for this heuristic, auditable tool and is recorded per record via
+    the ``resolution`` field.
+    """
+    scanned: list[tuple[ast.ClassDef, str, str]] = []
+    class_bases: dict[str, list[str]] = {}
     for path in sorted(_SRC.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
@@ -145,20 +240,26 @@ def collect() -> dict[str, Any]:
         for node in tree.body:  # top-level classes only
             if not isinstance(node, ast.ClassDef):
                 continue
-            bases = _base_names(node)
-            category, is_cap = _categorize(node.name, bases)
-            doc = ast.get_docstring(node) or ""
-            summary = doc.strip().splitlines()[0].strip() if doc else ""
-            records.append(
-                {
-                    "name": node.name,
-                    "module": module,
-                    "subsystem": subsystem,
-                    "category": category,
-                    "is_capability": is_cap,
-                    "summary": summary,
-                }
-            )
+            scanned.append((node, module, subsystem))
+            class_bases.setdefault(node.name, _base_names(node))
+
+    records: list[dict[str, Any]] = []
+    for node, module, subsystem in scanned:
+        bases = _base_names(node)
+        category, is_cap, resolution = categorize(node.name, bases, class_bases)
+        doc = ast.get_docstring(node) or ""
+        summary = doc.strip().splitlines()[0].strip() if doc else ""
+        records.append(
+            {
+                "name": node.name,
+                "module": module,
+                "subsystem": subsystem,
+                "category": category,
+                "is_capability": is_cap,
+                "resolution": resolution,
+                "summary": summary,
+            }
+        )
 
     subsystems: dict[str, list[dict[str, Any]]] = {}
     categories: dict[str, int] = {}
@@ -170,6 +271,10 @@ def collect() -> dict[str, Any]:
         "total_classes": len(records),
         "capability_classes": sum(1 for r in records if r["is_capability"]),
         "subsystem_count": len(subsystems),
+        "refined_by_base": sum(1 for r in records if r["resolution"] == "base"),
+        "unresolved_other": sum(
+            1 for r in records if r["category"] == _OTHER and r["is_capability"]
+        ),
         "categories": dict(sorted(categories.items(), key=lambda kv: -kv[1])),
         "records": records,
     }
@@ -194,6 +299,12 @@ def render_markdown(inv: dict[str, Any]) -> str:
         f"- **Capability-bearing classes:** {inv['capability_classes']:,} "
         "(excludes config/result/enum/error support types)",
         f"- **Subsystems (top-level packages):** {inv['subsystem_count']}",
+        f"- **Refined via base-class analysis:** {inv['refined_by_base']:,} classes "
+        "categorized from their ancestor chain (e.g. `nn.Module` subclasses whose "
+        "own name carries no suffix)",
+        f"- **Unresolved (`Other`):** {inv['unresolved_other']:,} — no name suffix and "
+        "no informative ancestor (predominantly `object`-only classes, which "
+        "base-class analysis cannot refine).",
         "",
         "## Capability classes by category",
         "",
