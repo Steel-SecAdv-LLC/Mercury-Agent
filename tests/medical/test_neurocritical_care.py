@@ -251,8 +251,8 @@ class TestICPMonitor:
         assert result["herniation_risk"] > 0
         assert "recommendations" in result
 
-    def test_icp_estimation_from_clinicals(self, monitor: ICPMonitor) -> None:
-        """Test ICP estimation when direct measurement not available."""
+    def test_no_measured_icp_is_not_fabricated(self, monitor: ICPMonitor) -> None:
+        """Without a measured ICP, no pressure is invented; a concern flag is set instead."""
         clinical_data = {
             "gcs_score": 6,
             "pupil_abnormality": True,
@@ -260,10 +260,13 @@ class TestICPMonitor:
             "mean_arterial_pressure": 70.0,
         }
         result = monitor.assess_icp(clinical_data)
-        # API returns "icp_mmhg" with estimated value
-        assert "icp_mmhg" in result
-        # API returns "icp_elevated" or "icp_critical"
-        assert result.get("icp_elevated", False) or result.get("icp_critical", False)
+        # ICP is NOT fabricated from clinical proxies.
+        assert result["icp_mmhg"] is None
+        assert result["icp_measured"] is False
+        # Pressure-derived flags abstain; a qualitative clinical concern is reported.
+        assert result["icp_elevated"] is False
+        assert result["icp_critical"] is False
+        assert result["clinical_concern"] == "high_clinical_concern"
 
     def test_cpp_threshold_assessment(self, monitor: ICPMonitor) -> None:
         """Test cerebral perfusion pressure threshold (CPP > 60 mmHg)."""
