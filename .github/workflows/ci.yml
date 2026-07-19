@@ -128,9 +128,9 @@ jobs:
           # the Type Checking job) so the type-ignore set and the docstring
           # ruleset are identical locally and in CI.  An unpinned mypy flips
           # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
-          # (1.19 vs 2.1); an unpinned pydocstyle could change the enforced
+          # (1.19 vs 2.x); an unpinned pydocstyle could change the enforced
           # google-convention docstring codes out from under a green commit.
-          pip install "black==26.5.1" flake8 mypy==2.1.0 ruff pydocstyle==6.3.0
+          pip install "black==26.5.1" flake8 mypy==2.3.0 ruff pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -506,7 +506,7 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          pip install mypy==2.1.0 types-requests==2.33.0.20260518 \
+          pip install mypy==2.3.0 types-requests==2.33.0.20260712 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
       - name: Build + install AMA Cryptography (native PQC backend)
