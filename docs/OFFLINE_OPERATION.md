@@ -38,6 +38,10 @@ before a socket is opened, so no single layer can leak past it:
   any DNS resolution**, so the guarantee holds even where no resolver is
   reachable, and it permits **loopback targets only** — a local Ollama model on
   `127.0.0.1` or a local sidecar keeps working while all external egress is cut.
+  A **VPC-air-gap** opt-in (`MERCURY_OFFLINE_ALLOW_PRIVATE=1`, see below) extends
+  this to on-prem RFC1918 hosts for callers that pass `allow_private=True`
+  (SearXNG, an on-prem Ollama), while still refusing every **public** and IMDS
+  destination — the air-gap from the public internet is preserved.
 - **Reasoning / LLM layer** — `FallbackLLMChain` and the reasoning router never
   construct or call a cloud adapter when the switch is set; local + template only.
 
@@ -53,6 +57,16 @@ path is preferred by default.
 
 - `MERCURY_OFFLINE=1` — air-gapped mode (accepts `1/true/yes/on`; read at
   call time, never at import).
+- `MERCURY_OFFLINE_ALLOW_PRIVATE=1` — **VPC-air-gap** opt-in (same truthy
+  parsing). Only meaningful *together with* `MERCURY_OFFLINE` and a caller that
+  passes `allow_private=True`. It permits reaching **on-prem RFC1918 / IPv6-ULA**
+  services (an Ollama model or SearXNG inside the operator's VPC) while the
+  air-gap from the **public internet** still holds: any public resolution is
+  refused as egress, and the cloud metadata service (IMDS `169.254.169.254`),
+  loopback abuse, multicast, reserved, and CGNAT ranges are **never** unlocked.
+  On its own (without `MERCURY_OFFLINE`) it is a no-op. For an on-prem Ollama,
+  set it alongside `MERCURY_OLLAMA_HOST` / `MERCURY_MODEL_ENDPOINT` pointing at
+  the VPC host; a loopback host always stays loopback-only regardless.
 - `MERCURY_DATA_DIR` — stable root for downloaded datasets (default
   `./data`). Set this in production so the cache survives working-directory
   changes.

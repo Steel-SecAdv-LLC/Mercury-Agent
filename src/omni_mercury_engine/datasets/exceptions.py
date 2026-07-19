@@ -51,6 +51,26 @@ def offline_mode_active() -> bool:
     }
 
 
+# VPC-air-gap opt-in. Cut from the *public* internet (MERCURY_OFFLINE) while
+# still reaching on-prem RFC1918 services (an Ollama model or SearXNG on the
+# operator's private network). This ONLY takes effect when MERCURY_OFFLINE is
+# also set AND the caller passed ``allow_private=True``; on its own it does
+# nothing. Even then the metadata service (IMDS), loopback abuse, CGNAT, and —
+# critically — any PUBLIC resolution stay refused: the air-gap from the public
+# internet is preserved, the carve-out is private-network reachability only.
+MERCURY_OFFLINE_ALLOW_PRIVATE_VAR = "MERCURY_OFFLINE_ALLOW_PRIVATE"
+
+
+def offline_allow_private_active() -> bool:
+    """Whether VPC-air-gap mode is opted in via ``MERCURY_OFFLINE_ALLOW_PRIVATE``."""
+    return os.environ.get(MERCURY_OFFLINE_ALLOW_PRIVATE_VAR, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 class OfflineModeError(RuntimeError):
     """Raised when a network fetch is attempted while MERCURY_OFFLINE is set.
 

@@ -230,6 +230,22 @@ def _is_loopback(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return ip.is_loopback
 
 
+def _host_ip_literal(
+    host: str,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Return ``host`` as an IP address if it is an IP literal, else None.
+
+    Used by the VPC-air-gap gate to classify a target *without DNS*: a public IP
+    literal is refused pre-resolution, while a private literal / named host is
+    deferred to the private-only resolve (which fails closed if DNS is down).
+    """
+    h = host.strip().strip("[]")
+    try:
+        return ipaddress.ip_address(h)
+    except ValueError:
+        return None
+
+
 def _is_loopback_host(host: str) -> bool:
     """Return True if ``host`` is a loopback target decidable without DNS.
 
@@ -403,11 +419,26 @@ class SafeHTTPClient:
         # never pulls the heavy datasets package at module load.
         from omni_mercury_engine.datasets.exceptions import (
             OfflineModeError,
+            offline_allow_private_active,
             offline_mode_active,
         )
 
+        # VPC-air-gap mode: offline (public internet cut) but the caller has
+        # explicitly opted into reaching an on-prem RFC1918 service AND the
+        # operator has set MERCURY_OFFLINE_ALLOW_PRIVATE. In that mode a private
+        # target survives the offline gate and is enforced private-only by the
+        # allow_private branch below (which still refuses IMDS and, under
+        # air-gap, any PUBLIC resolution). Everything else stays loopback-only.
+        vpc_offline = offline_mode_active() and allow_private and offline_allow_private_active()
         if offline_mode_active() and not _is_loopback_host(host):
-            raise OfflineModeError(url)
+            if not vpc_offline:
+                raise OfflineModeError(url)
+            # A public/IMDS IP LITERAL is refused pre-DNS here (no resolver
+            # needed); a private IP literal and named hosts fall through to the
+            # private-only resolve below, which fails closed if DNS is down.
+            literal = _host_ip_literal(host)
+            if literal is not None and not (literal.is_private and not _is_always_blocked(literal)):
+                raise OfflineModeError(url)
 
         # Trusted-allowlist gate -- runs for *both* schemes when the
         # URL is not user-configured.  Previously this only fired for
@@ -462,6 +493,14 @@ class SafeHTTPClient:
                         f"multicast / reserved). allow_private=True does NOT "
                         f"unlock these."
                     )
+                if vpc_offline:
+                    # VPC-air-gap: cut from the PUBLIC internet, so an
+                    # allow_private target must resolve onto the private
+                    # network. A public resolution is refused as egress —
+                    # the air-gap holds; only on-prem RFC1918 is reachable.
+                    public = [str(ip) for ip in ips if not ip.is_private and not _is_loopback(ip)]
+                    if public:
+                        raise OfflineModeError(url)
             else:
                 bad = [str(ip) for ip in ips if _is_private_or_imds(ip)]
                 if bad:
@@ -558,6 +597,22 @@ class SafeHTTPClient:
                     "allow_private=True does NOT open the IMDS / loopback / "
                     "multicast / reserved / CGNAT ranges."
                 )
+            # VPC-air-gap re-check: under MERCURY_OFFLINE + allow_private the
+            # target must stay on the private network. A private->public
+            # rebind between validation and request is refused as egress, so
+            # the air-gap holds through the TOCTOU window too.
+            from omni_mercury_engine.datasets.exceptions import (
+                OfflineModeError,
+                offline_allow_private_active,
+                offline_mode_active,
+            )
+
+            if offline_mode_active() and offline_allow_private_active():
+                public = [
+                    str(ip) for ip in resolved_ips if not ip.is_private and not _is_loopback(ip)
+                ]
+                if public:
+                    raise OfflineModeError(url)
         else:
             bad = [str(ip) for ip in resolved_ips if _is_private_or_imds(ip)]
             if bad:
