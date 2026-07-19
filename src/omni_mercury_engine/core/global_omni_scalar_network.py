@@ -717,6 +717,46 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     return SIGMA_IMMUTABLE_DEFAULT
 
 
+_SW_ENG_METRICS_PATH = Path(__file__).resolve().parent / "sw_eng_metrics.json"
+
+
+def _apply_measured_sw_eng_metrics(group: dict[str, float]) -> int:
+    """Overlay real measured values onto existing diagnostic SW-eng scalars.
+
+    Loads the artifact produced by ``scripts/collect_sw_eng_metrics.py`` (real
+    Halstead / cyclomatic / Maintainability-Index measurements over
+    ``src/omni_mercury_engine`` plus OpenSSF-Scorecard-style repo checks) and
+    updates **only keys already present** in ``group`` — so the group's
+    cardinality and the frozen σ_Immutable operational layout are unchanged, and
+    every updated scalar stays metric-only (filtered from the gate) by its
+    ``omni_halstead_`` / ``omni_mccabe_`` / ``omni_ossf_`` prefix or its
+    ``_METRIC_ONLY_KEYS`` membership.  A missing or malformed artifact is a
+    silent no-op — the static placeholders stand — so the engine never depends
+    on the collector having run.
+
+    Returns:
+        The number of scalars updated with a measured value (0 if the artifact
+        is absent).
+    """
+    import json  # local: json is only needed on this build-time-populated path
+
+    try:
+        payload = json.loads(_SW_ENG_METRICS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    if not isinstance(payload, dict) or payload.get("schema") != "sw_eng_metrics/v1":
+        return 0
+    updated = 0
+    for name, value in payload.get("scalars", {}).items():
+        if name in group:
+            try:
+                group[name] = float(value)
+                updated += 1
+            except (TypeError, ValueError):
+                continue
+    return updated
+
+
 class GlobalOmniScalarNetwork:
     """Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
@@ -819,13 +859,21 @@ class GlobalOmniScalarNetwork:
     # the hierarchical accountability bucket's semantics, and the
     # fusion pipeline's dimensional layout stay consistent.
     #
-    # HONESTY NOTE: these ~82 diagnostic scalars carry STATIC default
-    # direction/weight literals and are NOT computed from any analyzed
-    # code or system -- there is no Halstead operand counter, DORA
-    # collector, or ISO-25010 scorer in this build.  They are registered
-    # for naming/reporting only.  Treat their values as placeholders, not
-    # measurements, until a real collector is wired in (which must keep
-    # them filtered from the [0, 180) operational σ band per above).
+    # HONESTY NOTE: of these ~82 diagnostic scalars, 21 now carry REAL
+    # measurements of Mercury's own source tree — the Halstead suite (7),
+    # cyclomatic complexity (1), Maintainability Index (3) via stdlib
+    # ``ast``, and the OpenSSF-Scorecard checks (10) from repo config —
+    # collected by ``scripts/collect_sw_eng_metrics.py`` into
+    # ``core/sw_eng_metrics.json`` and overlaid at init by
+    # ``_apply_measured_sw_eng_metrics`` (updates existing keys only, so
+    # they stay metric-only and out of the [0, 180) operational σ band).
+    # The remaining ~61 (the 31 ISO/IEC 25010 quality characteristics, the
+    # 10 NIST SAMATE + 4 ISO/IEC 5055 security-assurance measures, the 4
+    # DORA CI/CD-telemetry metrics, the 4 NIST SSDF practices, the 4 SLSA
+    # levels, and the essential/design/cognitive/npath complexity variants)
+    # stay STATIC placeholder literals — computing them would be fabrication
+    # or requires external process/telemetry data — and remain registered
+    # for naming/reporting only.
     #
     # Adding a new measurement family means updating these two
     # allowlists once; no other call site needs to change.
@@ -1376,6 +1424,15 @@ class GlobalOmniScalarNetwork:
             "omni_ssdf_produce_well_secured_software": 1.26,  # PW: design, build, verify securely
             "omni_ssdf_respond_to_vulnerabilities": 1.25,  # RV: identify, assess, remediate disclosures
         }
+
+        # Overlay REAL measured values onto the diagnostic (metric-only) SW-eng
+        # scalars a collector can compute honestly — Halstead / cyclomatic / MI
+        # via ``ast`` and OpenSSF-Scorecard checks from repo config (21 of the 82
+        # placeholders; the rest stay documented placeholders rather than
+        # fabricated).  Updates existing keys only, so the count (127) and the
+        # frozen σ_Immutable operational layout are untouched and the scalars
+        # stay metric-only.  A missing artifact is a no-op.
+        _apply_measured_sw_eng_metrics(self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING])
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
         self.scalar_groups[ScalarGroup.MEDICAL] = {

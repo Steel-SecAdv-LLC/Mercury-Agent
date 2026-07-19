@@ -1,0 +1,58 @@
+{
+  "n_scalars_wired": 21,
+  "provenance": "Real software-engineering metrics computed on src/omni_mercury_engine by scripts/collect_sw_eng_metrics.py (self-referential observability). Halstead/cyclomatic/MI via stdlib ast; OpenSSF checks from repo config. Values are metric-only (filtered from the \u03c3_Immutable gate); raw values are retained for audit. Re-run when the source tree changes materially.",
+  "raw": {
+    "code": {
+      "files": 740,
+      "functions": 11153,
+      "mean_cyclomatic_per_function": 3.3775,
+      "mean_file_halstead_delivered_bugs": 3.4796,
+      "mean_file_halstead_difficulty": 25.14,
+      "mean_file_halstead_effort": 383399.89,
+      "mean_file_halstead_length": 1261.36,
+      "mean_file_halstead_time_seconds": 21299.99,
+      "mean_file_halstead_vocabulary": 207.5,
+      "mean_file_halstead_volume": 10438.81,
+      "mean_file_maintainability_index_sei": 36.56,
+      "mean_file_maintainability_index_vs": 21.38,
+      "total_loc": 307263
+    },
+    "ossf": {
+      "has_security_policy": true,
+      "n_workflows": 21,
+      "no_dangerous_workflow": true,
+      "omni_ossf_branch_protection": true,
+      "omni_ossf_ci_tests_required": true,
+      "omni_ossf_code_review_required": true,
+      "omni_ossf_dependency_update_tool": true,
+      "omni_ossf_sast_enabled": true,
+      "omni_ossf_signed_releases": true,
+      "omni_ossf_token_permissions": true,
+      "pinned_actions_fraction": 0.0043
+    }
+  },
+  "scalars": {
+    "omni_halstead_delivered_bugs": 0.687715,
+    "omni_halstead_difficulty": 0.865036,
+    "omni_halstead_effort": 0.687715,
+    "omni_halstead_length": 0.829064,
+    "omni_halstead_time_to_program": 0.684272,
+    "omni_halstead_vocabulary": 0.86807,
+    "omni_halstead_volume": 0.802902,
+    "omni_maintainability_index_delta": 1.55998,
+    "omni_maintainability_index_sei": 1.432926,
+    "omni_maintainability_index_vs": 1.430511,
+    "omni_mccabe_cyclomatic_complexity": 0.99,
+    "omni_ossf_branch_protection": 1.98,
+    "omni_ossf_ci_tests_required": 1.98,
+    "omni_ossf_code_review_required": 1.98,
+    "omni_ossf_dangerous_workflow": 0.99,
+    "omni_ossf_dependency_update_tool": 1.98,
+    "omni_ossf_pinned_dependencies": 1.02412,
+    "omni_ossf_sast_enabled": 1.98,
+    "omni_ossf_signed_releases": 1.98,
+    "omni_ossf_token_permissions": 1.98,
+    "omni_ossf_vulnerabilities": 0.99
+  },
+  "schema": "sw_eng_metrics/v1"
+}

@@ -508,6 +508,11 @@ omni_mercury_engine = [
     "security/sigma_immutable_corpus.json",
     "security/sigma_immutable_corpus.sig.json",
     "security/sigma_immutable_weights.pt",
+    # Real self-referential SW-eng metrics (Halstead/cyclomatic/MI + OpenSSF)
+    # overlaid onto the diagnostic scalars at GOSNN init by
+    # ``_apply_measured_sw_eng_metrics``; a non-editable install without it
+    # silently falls back to the static placeholders.
+    "core/sw_eng_metrics.json",
 ]
 
 # =============================================================================

@@ -74,6 +74,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fp/fn gate. Fitted parameters are unchanged (deterministic fit); this only
   adds the honest out-of-sample measurement and its merit gate.
 
+### Added: real self-referential collectors for 21 of the 82 diagnostic SW-eng scalars
+
+- The GOSNN ``SOFTWARE_ENGINEERING`` group's 82 diagnostic (metric-only)
+  scalars were static placeholder literals ("not computed from any analyzed
+  code"). ``scripts/collect_sw_eng_metrics.py`` now computes **real**
+  measurements of Mercury's own source tree — the Halstead suite (7),
+  cyclomatic complexity (1) and Maintainability Index (3) via stdlib ``ast``,
+  plus the OpenSSF-Scorecard checks (10) from real repo config — into
+  ``core/sw_eng_metrics.json``; ``_apply_measured_sw_eng_metrics`` overlays
+  them at GOSNN init. Values are mapped into each scalar's penalty/positive
+  direction band, so they now vary with the real measurement while keeping the
+  quality-model semantics (e.g. the repo's near-zero SHA-pinning of Actions
+  honestly reads at the low end of its positive band).
+- **Safety invariant preserved and pinned.** The overlay updates existing keys
+  only — the SOFTWARE_ENGINEERING count stays 127, the scalars stay metric-only
+  (filtered from the σ_Immutable operational vector), and **the σ score is
+  unchanged** by the measured values (verified). The remaining 61 scalars (ISO
+  25010 characteristics, DORA/SAMATE/ISO-5055/SSDF/SLSA, and the
+  essential/design/cognitive/npath complexity variants) stay documented
+  placeholders — computing them would be fabrication or needs external
+  telemetry. Merit-gated by ``tests/test_sw_eng_metrics_collector.py`` (real
+  values, sane bands, metric-only, σ untouched).
+
 ### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
 
 - **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →
