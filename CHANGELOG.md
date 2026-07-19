@@ -27,6 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: σ_Immutable trained on a real harvested config-integrity corpus (closes the synthetic-data gap)
+
+- The σ_Immutable EthicalGate no longer trains on synthetic ``U[0,2]``
+  vectors labelled by a threshold rule (which never occur in production).
+  ``scripts/harvest_sigma_baseline.py`` harvests the **real intact
+  operational vector** the running engine produces (127 governance
+  scalars, constant across four domains) into
+  ``security/sigma_immutable_baseline.json``;
+  ``sigma_immutable_corpus.build_integrity_samples`` then builds the
+  training + signed audit corpus from it — positives are the real baseline
+  plus intact variations holding the 24 critical ethical *anchors*
+  at-or-above threshold, negatives are real tamper mutations (anchor
+  collapse). Labelling now matches the deterministic floor's real
+  24-anchor contract instead of the earlier all-27-ethical rule that
+  mislabelled the real (narrative-low) configuration.
+- **No DoS, by construction + guard.** The exact harvested baseline is a
+  training positive, so the retrained network recognises the real
+  production vector by construction; a ``train_sigma_immutable.py``
+  ``main()`` DoS guard asserts ``score(baseline) ≥ threshold`` and refuses
+  to ship otherwise (measured **0.999922**). The surfaced
+  ``sigma_immutable_score`` stays bit-constant across normal+anomalous
+  inputs and all domains — the config-integrity posture is preserved — at
+  the new constant **0.9999216794967651** (was 0.972732842).
+- **Advisory net now agrees with the floor.** Measured alone, the old
+  synthetic network *passed* a benevolence-zeroed vector; the
+  harvested-corpus network **refuses** it (score 0.0), closing the
+  false-assurance gap — while the deterministic critical-ethical floor
+  remains the authoritative gate, composed first, and the operational
+  scalar layout stays frozen (unchanged). Weights, signed corpus (Ed25519
+  + ML-DSA-65), registry, KAT, discrimination probe, and the ledger are
+  re-based together; the σ suite (KAT / discrimination / fail-closed /
+  PQC / decision-channel / hard-enforcement) is green.
+
 ### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
 
 - **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →

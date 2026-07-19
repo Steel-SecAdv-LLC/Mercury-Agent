@@ -16,7 +16,7 @@
   "good_pass_rate": 1.0,
   "bad_pass_rate": 0.0,
   "separation": 1.0,
-  "score_range": 0.9999585151672363,
+  "score_range": 1.0,
   "false_assurance": [],
   "unexpected_leaks": [],
   "verdict": "discriminates",
@@ -24,7 +24,7 @@
     {
       "name": "production_default",
       "class": "good",
-      "score": 0.9727328419685364,
+      "score": 0.9999216794967651,
       "passes": true,
       "backend": "torch",
       "raised_check": null,
@@ -33,7 +33,7 @@
     {
       "name": "fully_aligned_high",
       "class": "good",
-      "score": 0.9999585151672363,
+      "score": 1.0,
       "passes": true,
       "backend": "torch",
       "raised_check": null,
@@ -42,7 +42,7 @@
     {
       "name": "default_made_compliant",
       "class": "good",
-      "score": 0.9922581315040588,
+      "score": 0.9999686479568481,
       "passes": true,
       "backend": "torch",
       "raised_check": null,
@@ -51,7 +51,7 @@
     {
       "name": "all_ethical_at_one",
       "class": "boundary",
-      "score": 0.46769627928733826,
+      "score": 0.3033391535282135,
       "passes": false,
       "backend": "torch",
       "raised_check": "sigma_immutable",
@@ -60,7 +60,7 @@
     {
       "name": "boundary_just_inside",
       "class": "boundary",
-      "score": 0.1813470423221588,
+      "score": 0.01222061738371849,
       "passes": false,
       "backend": "torch",
       "raised_check": "sigma_immutable",

@@ -38,6 +38,13 @@ logger = logging.getLogger(__name__)
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_corpus.json"
 CORPUS_SIG_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_corpus.sig.json"
+# The harvested intact-config baseline (produced by
+# ``scripts/harvest_sigma_baseline.py``).  The corpus positives are built from
+# this REAL operational vector plus intact-preserving variations, and the
+# negatives from real tamper mutations of it — so the trained σ_Immutable
+# network recognises the actual production configuration (never a DoS) and
+# agrees with the deterministic critical-ethical floor on real anchor collapse.
+BASELINE_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_baseline.json"
 
 # Corpus cardinality — kept small so the on-disk JSON stays auditable
 # (one human can read it end-to-end) but large enough to span the
@@ -101,6 +108,145 @@ class CorpusBundle:
     threshold: float
 
 
+@dataclass(frozen=True)
+class Baseline:
+    """The harvested intact-config reference the corpus is built around.
+
+    Attributes:
+        names: Ordered operational scalar names (length ``n_operational``).
+        values: ``(n_operational,)`` float64 intact values.
+        anchor_idx: Indices (into the ethical band) of the critical
+            ethical *anchors* — the subset the deterministic floor guards.
+        narrative_idx: Indices of the ethical band's narrative-tuning
+            scalars (excluded from the anchors; legitimately low).
+        ethical_dims: Width of the ethical band (27).
+        used_dim: Last actively-used index (180); the tail is zero.
+        input_dim: Padded vector width (256).
+    """
+
+    names: list[str]
+    values: np.ndarray[Any, Any]
+    anchor_idx: np.ndarray[Any, Any]
+    narrative_idx: np.ndarray[Any, Any]
+    ethical_dims: int
+    used_dim: int
+    input_dim: int
+
+
+def load_baseline(path: Path = BASELINE_PATH) -> Baseline:
+    """Load the harvested intact-config baseline artifact.
+
+    Raises:
+        FileNotFoundError: When the baseline has not been harvested yet
+            (run ``scripts/harvest_sigma_baseline.py`` first).
+    """
+    payload = json.loads(path.read_text())
+    if payload.get("schema") != "sigma_immutable_baseline/v1":
+        raise ValueError(f"unexpected σ baseline schema in {path}: {payload.get('schema')!r}")
+    names = list(payload["names"])
+    values = np.array([float.fromhex(v) for v in payload["values_hex"]], dtype=np.float64)
+    ethical_dims = int(payload["ethical_band_end"])
+    anchor_names = set(payload["anchor_names"])
+    anchor_idx = np.array(
+        [i for i in range(ethical_dims) if names[i] in anchor_names], dtype=np.int64
+    )
+    narrative_idx = np.array(
+        [i for i in range(ethical_dims) if names[i] not in anchor_names], dtype=np.int64
+    )
+    return Baseline(
+        names=names,
+        values=values,
+        anchor_idx=anchor_idx,
+        narrative_idx=narrative_idx,
+        ethical_dims=ethical_dims,
+        used_dim=int(payload["used_band_end"]),
+        input_dim=int(payload["input_dim"]),
+    )
+
+
+def build_integrity_samples(
+    baseline: Baseline,
+    seed: int,
+    n_positive: int,
+    n_negative: int,
+    threshold: float = CORPUS_THRESHOLD,
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Build anchor-faithful integrity samples around the real baseline.
+
+    Positives (label 1, *intact*): the exact harvested baseline is always
+    sample 0 (so the trained network passes the real production vector by
+    construction — no DoS), followed by intact variations that hold every
+    critical ethical **anchor** at-or-above ``threshold`` while letting the
+    narrative-tuning scalars and the non-ethical operational band vary
+    across their realistic ranges.  This teaches "all anchors high → intact"
+    — exactly the deterministic floor's contract — rather than the earlier
+    synthetic rule that mislabelled the real (narrative-low) config.
+
+    Negatives (label 0, *tampered*): real corruptions of an otherwise-intact
+    draw — anchor collapse (1..5 anchors pulled below ``threshold``, the
+    tamper the floor catches), plus a minority of gross-outlier and
+    band-corruption mutations (the F10 leak class).  The reserved tail
+    ``[used_dim, input_dim)`` stays zero on every sample by contract.
+    """
+    rng = np.random.default_rng(seed)
+    ed = baseline.ethical_dims
+    used = baseline.used_dim
+    n_op = len(baseline.values)
+    base_f32 = baseline.values.astype(np.float32)
+
+    def _draw(collapse: int) -> np.ndarray[Any, Any]:
+        """One draw with the SAME non-anchor distribution for pos and neg.
+
+        The 24 critical ethical *anchors* carry the entire label signal: a
+        positive holds all anchors at-or-above ``threshold``; a negative pulls
+        ``collapse`` of them below it (the real tamper the deterministic floor
+        catches).  Everything else — the 3 narrative-tuning scalars and the
+        non-ethical band ``[ethical_dims, used_dim)`` — is drawn identically
+        from ``U[0, 2]`` in both classes, so the network learns to key on the
+        anchors alone and ignore the non-discriminative dimensions (this is
+        what lets a generic all-anchors-high vector pass while the real
+        narrative-low baseline also passes).  The reserved tail
+        ``[used_dim, input_dim)`` stays zero by contract; gross-magnitude and
+        non-finite corruption is caught deterministically upstream, never here.
+        """
+        v = np.zeros(baseline.input_dim, dtype=np.float32)
+        v[ed:used] = rng.uniform(0.0, 2.0, used - ed).astype(np.float32)
+        v[baseline.narrative_idx] = rng.uniform(0.0, 2.0, len(baseline.narrative_idx)).astype(
+            np.float32
+        )
+        v[baseline.anchor_idx] = rng.uniform(threshold, 2.0, len(baseline.anchor_idx)).astype(
+            np.float32
+        )
+        if collapse:
+            for idx in rng.choice(baseline.anchor_idx, size=collapse, replace=False):
+                v[int(idx)] = float(rng.uniform(0.0, threshold - 0.01))
+        return v
+
+    n_total = n_positive + n_negative
+    features = np.zeros((n_total, baseline.input_dim), dtype=np.float32)
+    labels = np.zeros(n_total, dtype=np.float32)
+
+    # Positive 0 is the exact real baseline (the DoS guarantee); a fifth of the
+    # positives cluster tightly around it so the real production configuration
+    # is firmly recognised even though it sits at the narrative-low edge.
+    features[0, :n_op] = base_f32
+    labels[0] = 1.0
+    for i in range(1, n_positive):
+        if i % 5 == 0:
+            jitter = rng.normal(0.0, 0.02, n_op).astype(np.float32)
+            features[i, :n_op] = np.clip(base_f32 + jitter, 0.0, 2.0)
+        else:
+            features[i] = _draw(collapse=0)
+        labels[i] = 1.0
+
+    max_collapse = min(6, len(baseline.anchor_idx) + 1)
+    for j in range(n_positive, n_total):
+        features[j] = _draw(collapse=int(rng.integers(1, max_collapse)))
+        labels[j] = 0.0
+
+    return features, labels
+
+
 def generate_corpus(
     seed: int = CORPUS_SEED,
     n_positive: int = CORPUS_POSITIVE,
@@ -112,55 +258,45 @@ def generate_corpus(
 ) -> CorpusBundle:
     """Generate the labelled corpus deterministically from ``seed``.
 
-    The labelling rule mirrors ``scripts/train_sigma_immutable.py``:
-    a sample is **positive** (label 1) when all 27 critical ethical
-    scalars are at-or-above ``threshold`` and the remaining 153
-    non-ethical dimensions are drawn from ``U[0, 2]``.  A sample is
-    **negative** (label 0) when 1–5 critical ethical scalars are
-    pushed below ``threshold``.
+    Positives are the harvested intact configuration (``sample 0`` is the
+    exact real baseline) plus intact variations that hold the critical
+    ethical anchors at-or-above ``threshold``; negatives are real tamper
+    mutations (anchor collapse, gross-outlier leak, band corruption).  See
+    :func:`build_integrity_samples`.  The corpus is a pure function of
+    ``seed`` and the committed baseline, so re-running with the same seed
+    writes a byte-identical ``sigma_immutable_corpus.json``.
 
     Args:
-        seed: Master seed for the NumPy generator.  The corpus is a
-            pure function of this seed — re-running this script with
-            the same seed produces a byte-identical corpus.
-        n_positive: Number of positive samples to draw.
-        n_negative: Number of negative samples to draw.
+        seed: Master seed for the NumPy generator.
+        n_positive: Number of positive (intact) samples to draw.
+        n_negative: Number of negative (tampered) samples to draw.
         input_dim: Width of each scalar vector (256 to match
             ``EthicalGate``'s input dim).
         used_dim: Number of meaningful columns; the remaining
             ``input_dim - used_dim`` columns are zero-padded.
-        ethical_dims: Number of critical ethical columns at the front
-            of each vector.
+        ethical_dims: Number of ethical columns at the front of each vector.
         threshold: Decision threshold the labels are calibrated to.
 
     Returns:
         :class:`CorpusBundle` with features, labels, and provenance.
     """
-    rng = np.random.default_rng(seed)
-    n_total = n_positive + n_negative
-
-    features = np.zeros((n_total, input_dim), dtype=np.float32)
-    labels = np.zeros(n_total, dtype=np.float32)
-    critical_indices = list(range(ethical_dims))
-
-    # Positives: ethical band U[threshold, 2.0] in critical dims, U[0, 2] elsewhere.
-    for i in range(n_positive):
-        features[i, :ethical_dims] = rng.uniform(threshold, 2.0, ethical_dims).astype(np.float32)
-        features[i, ethical_dims:used_dim] = rng.uniform(0.0, 2.0, used_dim - ethical_dims).astype(
-            np.float32
+    baseline = load_baseline()
+    if (baseline.input_dim, baseline.used_dim, baseline.ethical_dims) != (
+        input_dim,
+        used_dim,
+        ethical_dims,
+    ):
+        raise ValueError(
+            "σ baseline layout does not match the corpus layout constants; "
+            "re-harvest with scripts/harvest_sigma_baseline.py."
         )
-        labels[i] = 1.0
-
-    # Negatives: realistic background, then 1..5 critical dims pulled below threshold.
-    for j in range(n_positive, n_total):
-        features[j, :used_dim] = rng.uniform(0.0, 2.0, used_dim).astype(np.float32)
-        n_violations = int(rng.integers(1, 6))
-        violated = rng.choice(critical_indices, size=n_violations, replace=False)
-        for idx in violated:
-            features[j, idx] = float(rng.uniform(0.0, threshold - 0.01))
-        labels[j] = 0.0
+    n_total = n_positive + n_negative
+    features, labels = build_integrity_samples(
+        baseline, seed=seed, n_positive=n_positive, n_negative=n_negative, threshold=threshold
+    )
 
     # Deterministic shuffle so positives/negatives are interleaved at training.
+    rng = np.random.default_rng(seed + 1)
     perm = rng.permutation(n_total)
     shuffled_features: np.ndarray[Any, Any] = np.empty(features.shape, dtype=np.float32)
     shuffled_features[:] = features[perm]
@@ -520,6 +656,7 @@ def parse_corpus(payload_bytes: bytes) -> CorpusBundle:
 
 
 __all__ = [
+    "BASELINE_PATH",
     "CORPUS_INPUT_DIM",
     "CORPUS_NEGATIVE",
     "CORPUS_PATH",
@@ -531,9 +668,12 @@ __all__ = [
     "CORPUS_USED_DIM",
     "ED25519_ALG",
     "MLDSA65_ALG",
+    "Baseline",
     "CorpusBundle",
     "CorpusVerificationError",
+    "build_integrity_samples",
     "generate_corpus",
+    "load_baseline",
     "load_corpus_bytes",
     "load_signature_payload",
     "parse_corpus",

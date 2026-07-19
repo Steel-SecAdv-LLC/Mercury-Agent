@@ -1,12 +1,13 @@
 {
   "model": "sigma_immutable_v1",
   "architecture": "Linear(256,64)->ReLU->Linear(64,1)->Sigmoid",
-  "sha256": "bc17f8e8356de0c77b1ec6fff683ba6ef23461dead59d921d0a40fa03baefaaf",
+  "sha256": "8b82e392e8cee7b49b7b690761fd1e749ba7bbbd3281c8d8d3daac3d680a3c0f",
   "training_seed": 42,
-  "training_samples": 10000,
-  "training_epochs": 200,
-  "best_epoch": 9,
-  "best_val_acc": 0.996,
+  "training_samples": 40000,
+  "training_epochs": 300,
+  "best_epoch": 247,
+  "best_val_acc": 0.852,
   "threshold": 0.93,
-  "labelling_source": "Scalar vectors labelled ethical (1) when all 27 ETHICAL-category scalars are at-or-above domain-calibrated thresholds; unethical (0) when 1-5 critical ethical scalars are below threshold."
+  "labelling_source": "Harvested config-integrity corpus: positives are the real intact operational vector (scripts/harvest_sigma_baseline.py) plus intact variations holding the 24 critical ethical anchors at-or-above threshold; negatives are real tamper mutations (anchor collapse, gross-outlier leak, band corruption). The exact baseline is a training positive, so the network passes the real production configuration by construction (DoS guard enforced in main()).",
+  "baseline_sigma_score": 0.9999216795
 }
