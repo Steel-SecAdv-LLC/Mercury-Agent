@@ -175,7 +175,10 @@ class ComplianceAutomationAgent:
                 applies_to=[DataCategory.BIOMETRIC],
                 severity="HIGH",
                 check_function="check_retention_schedule",
-                remediation="Publish retention schedule (3 years for FINDΩYOU™)",
+                remediation=(
+                    "Publish retention schedule (BIPA: destroy on purpose satisfaction "
+                    "or within 3 years of last interaction, whichever is first)"
+                ),
             ),
             ComplianceRule(
                 rule_id="BIPA-003",

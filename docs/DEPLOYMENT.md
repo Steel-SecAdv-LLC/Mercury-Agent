@@ -552,7 +552,7 @@ docker run -d --name mercury-agent \
 
 ### Coverage below target
 
-The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 50% on the full suite (`COVERAGE_THRESHOLD_FULL=50`) and 25% on the curated core lane (`COVERAGE_THRESHOLD_CORE=25`), per `.github/workflows/ci.yml`.
+The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 55% on the full suite (`COVERAGE_THRESHOLD_FULL=55`) and 30% on the curated core lane (`COVERAGE_THRESHOLD_CORE=30`), per `.github/workflows/ci.yml`.
 To run coverage locally:
 
 ```bash

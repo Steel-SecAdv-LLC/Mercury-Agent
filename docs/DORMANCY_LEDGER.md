@@ -1,6 +1,6 @@
 # Dormancy & Salvage Ledger
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-14.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-18.
 
 This ledger accounts for the **dormant** code in Mercury Agent — modules that are
 defined and exported in the public API but never run in any live inference,

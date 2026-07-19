@@ -94,7 +94,7 @@ class TruthDecipherResult:
 class TruthDecipherFramework(LoggerMixin):
     """Unified orchestrator for anomaly discovery, identification, ethical evaluation, and resolution.
 
-    Implements a 4-phase pipeline that ensures all anomaly handling follows ethical guidelines and
+    Implements a 5-phase pipeline that ensures all anomaly handling follows ethical guidelines and
     leverages adaptive self-healing.
     """
 
