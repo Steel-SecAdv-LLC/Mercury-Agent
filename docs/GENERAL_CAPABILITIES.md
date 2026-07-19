@@ -106,7 +106,7 @@ fail-closed semantics for a research/author capability.)
 
 The weapons control is **not** a keyword blocklist on hazardous topics (which
 would false-reject clinical toxicology, pathology, virology, critical-infrastructure
-safety, licensed demolition, dispersion modeling, and CBRN emergency response —
+safety, licensed demolition, dispersion modeling, and CBRNE emergency response —
 professions that all work *inside* the same hazard vocabulary). It is a two-axis
 assessment (`cognitive.ethical_bounding.assess_weapons_uplift`): **Axis A** routes
 on hazard domain (high-recall, never blocks alone) and **Axis B** gates on

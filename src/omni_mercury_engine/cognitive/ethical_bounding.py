@@ -353,7 +353,7 @@ _REVERSIBLE_KEYWORDS = (
 # attack false-positives on every profession that works *inside* the same
 # hazard vocabulary every day (toxicology, pathology, virology,
 # critical-infrastructure safety, licensed demolition/blasting, atmospheric
-# modeling, CBRN emergency response, ...); a gate tight enough to spare them
+# modeling, CBRNE emergency response, ...); a gate tight enough to spare them
 # misses real attacks. The two axes resolve the conflict:
 #
 #   Axis A (HazardDomain) -- a deliberately high-recall, no-precision-
@@ -373,7 +373,7 @@ _REVERSIBLE_KEYWORDS = (
 # This is deliberately *more permissive* than a keyword blocklist for every
 # legitimate profession Mercury serves, and strictly *stronger* on the thing
 # that actually matters. All lexicons below are taxonomy-level category
-# terms (the same vocabulary used in public CBRN/non-proliferation policy
+# terms (the same vocabulary used in public CBRNE / non-proliferation policy
 # literature) -- never operational specifics -- consistent with the
 # high-recall/no-precision-required role Axis A is meant to play.
 # ---------------------------------------------------------------------------
@@ -452,7 +452,7 @@ class WeaponsDisposition(Enum):
     * ``ALLOW_LOG`` -- permit, log (licensed-practice framing).
     * ``ALLOW_PROVENANCE`` -- permit, but the emitted answer MUST be
       source-attributed. Assigned to an otherwise-allowable query that sits in a
-      high-severity hazard domain (defensive/mechanistic CBRN etc.): the answer
+      high-severity hazard domain (defensive/mechanistic CBRNE etc.): the answer
       is available, but only sourced/cited -- never uncited synthesis on a
       hazardous topic. Enforced at the output boundary (GeneralAssistant), which
       withholds when no citable source is available. Non-blocking.
@@ -633,7 +633,7 @@ _HAZARD_DOMAIN_WEIGHTS: dict[HazardDomain, float] = {
 }
 
 # Per-domain weight at/above which a domain is "high severity" (mass-casualty
-# CBRN + high-yield explosive + mass-harm). Used to route an otherwise-allowable
+# CBRNE + mass-harm). Used to route an otherwise-allowable
 # query to ALLOW_PROVENANCE (source-attribution required) rather than plain ALLOW.
 HIGH_SEVERITY_WEIGHT: float = 0.85
 
@@ -984,7 +984,7 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # NEVER carved out. The narrow residual (an attacker conjoining a real
     # defensive object, "make sarin and a detector") is carried by the
     # reasoning-backed classifier + escalation + durable audit -- the deliberate
-    # bias is toward not strangling defensive CBRN work.
+    # bias is toward not strangling defensive CBRNE work.
     _DEFENSIVE_ALLOW = {
         OperationalIntent.DETECTION,
         OperationalIntent.DEFENSE,
@@ -1127,7 +1127,7 @@ def assess_weapons_uplift(
             # Hazard vocabulary present but no offensive-actionability signal at
             # all: permit. Licensed-practice framing is ALLOW_LOG; an otherwise-
             # allowable query that sits in a HIGH-severity hazard domain (weight
-            # >= HIGH_SEVERITY_WEIGHT: CBRN / high-yield-explosive / mass-harm) is
+            # >= HIGH_SEVERITY_WEIGHT: CBRNE / mass-harm) is
             # ALLOW_PROVENANCE -- answerable, but only source-attributed, never
             # uncited synthesis on a hazardous topic (enforced at the output
             # boundary). Everything else is plain ALLOW.

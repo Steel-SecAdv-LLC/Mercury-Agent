@@ -28,7 +28,7 @@ Two public surfaces:
   extend the English Axis-A / Axis-B lexicons with taxonomy-level category
   terms in the world's most widely spoken languages (native script **and**
   Latin transliteration). These are dictionary-level category nouns/verbs --
-  never operational specifics -- consistent with the public CBRN/
+  never operational specifics -- consistent with the public CBRNE/
   non-proliferation vocabulary the English lexicon already uses.
 
 Pure stdlib -- no third-party dependency -- so it loads anywhere the ethics
@@ -305,7 +305,7 @@ def normalized_haystack(text: str) -> str:
 # Multilingual hazard lexicon (Axis A extension).
 #
 # Taxonomy-level category terms only -- the same class of public
-# CBRN/non-proliferation vocabulary the English lexicon uses -- in native
+# CBRNE/non-proliferation vocabulary the English lexicon uses -- in native
 # script and Latin transliteration across widely spoken languages. High recall
 # is the goal: a hit only routes a query into the Axis-B intent gate; it never
 # refuses on its own, so broad coverage here is safe and desired.

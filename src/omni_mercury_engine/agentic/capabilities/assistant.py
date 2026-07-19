@@ -259,7 +259,7 @@ class GeneralAssistant:
     #: (the benevolence-floor model is calibrated for detection *actions* and
     #: would refuse all benign research). This catches interpersonal-harm
     #: intent; the weapons/mass-casualty uplift gate (below) is the
-    #: authoritative control for CBRN/explosive/weapon actionability, and both
+    #: authoritative control for CBRNE/weapon actionability, and both
     #: are computed in the SAME ``score_action`` call -- one harm policy.
     HARM_REFUSAL_THRESHOLD: float = 0.5
 

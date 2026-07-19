@@ -97,7 +97,7 @@ def _embed(text: str) -> np.ndarray:
 
 
 # Hazard domains whose undifferentiated-mechanism probing is worth accreting.
-# The mass-casualty CBRN + high-yield-explosive set; lower-severity domains
+# The mass-casualty CBRNE set (high-yield explosive included); lower-severity domains
 # (conventional weapon, cyber) are excluded to keep the accretion counter
 # precise (it is a volume heuristic, so it must not be noisy).
 _HIGH_SEVERITY_DOMAINS = frozenset(
