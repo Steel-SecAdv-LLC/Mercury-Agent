@@ -27,6 +27,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: doc drift left behind by the PR #339 coverage-floor graduation
+
+- A post-merge verify-first re-audit of the M1–M15 completion pass
+  (all 15 items re-verified against the merged head ``193b8e1``; 12/15
+  confirmed fully resolved in the merge) found nine doc locations still
+  quoting the superseded ``CORE 25 / FULL 50`` coverage floors as
+  current after PR #339 graduated ``ci.yml`` to ``CORE 30 / FULL 55``
+  (README ×5, ARCHITECTURE ×3, ``docs/DEPLOYMENT.md``,
+  ``docs/ROADMAP.md`` floor table, ``.coveragerc`` comment). All now
+  quote the live gates; ROADMAP supersedes rather than overwrites the
+  v1.7.x baselines to preserve measurement provenance. The new
+  ``tests/docs/test_coverage_floor_docs.py`` gate pins every site to
+  the ``ci.yml`` env values (red-to-green proven: 16/21 sites fail on
+  the unfixed docs), so the next graduation cannot drift silently.
+- Cognitive-layer counts refreshed to measurement: ``cognitive/`` is
+  30 modules (excluding ``__init__.py``) / ~32,000 LOC at HEAD — the
+  stale "23 modules / 30,073 LOC" predated the four modules PR #339
+  added (README ×2, package docstring). ``truth_decipher.py``'s class
+  docstring said "4-phase pipeline" while its module docstring, the
+  Phase 1–5 dataclass comments, and the framework test
+  (``phase_completed == 5``) all say five — corrected to five.
+- Mission-framing stragglers (M5 follow-through): ``docs/conf.py``'s
+  fallback index template still emitted the retired "orchestration /
+  cognition layer of the FINDΩYOU stack" framing (dormant while
+  ``docs/index.md`` exists, but CI's sphinx-build resurrects it in any
+  tree lacking that file); README's security-disclosure block carried
+  the tree's only "people-first mission" text. Both re-framed to the
+  canonical Civilization-First / sibling-platform wording from
+  ``docs/index.md``. The compliance subagent's BIPA-002 remediation no
+  longer prescribes sibling-platform policy; it states the statutory
+  rule (destroy on purpose satisfaction or within 3 years of last
+  interaction, whichever is first). Provenance/attribution references
+  (subagent ports, blueprint attributions, CHANGELOG history, research
+  citations, ``FIND-YOU-ARC-CODE`` contract docs) are deliberately
+  untouched.
+- ``docs/DORMANCY_LEDGER.md``'s "Last updated" header aligned with its
+  own latest amendment date (2026-07-18).
+
 ### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
 
 - ``np.math`` was removed in NumPy 2.0 (the project floor is
