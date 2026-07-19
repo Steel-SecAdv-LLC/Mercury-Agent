@@ -16,7 +16,7 @@ Diagnostic measurement (registered, but excluded from the gate):
 - NIST SAMATE software assurance metrics
 - DORA / DevOps Research and Assessment delivery metrics
 - SLSA Supply-chain Levels for Software Artifacts v1.0
-- OpenSSF Scorecard checks
+- Supply-chain / repository-integrity checks (Mercury-native)
 - ISO/IEC 5055 / CISQ automated source-code quality measures
 - NIST SP 800-218 SSDF practice groups
 """
@@ -274,8 +274,8 @@ class TestSLSASupplyChain:
             assert se_scalars[key] > 1.0
 
 
-class TestOpenSSFScorecard:
-    """OpenSSF Scorecard checks - 10 scalars."""
+class TestSupplyChainIntegrity:
+    """Supply-chain & repository-integrity checks - 10 scalars (Mercury-native)."""
 
     EXPECTED_KEYS = [
         "omni_ossf_branch_protection",
@@ -292,7 +292,7 @@ class TestOpenSSFScorecard:
 
     def test_all_ten_ossf_metrics_present(self, se_scalars: dict[str, float]) -> None:
         for key in self.EXPECTED_KEYS:
-            assert key in se_scalars, f"missing OpenSSF Scorecard metric: {key}"
+            assert key in se_scalars, f"missing supply-chain integrity metric: {key}"
 
     def test_ossf_penalty_direction(self, se_scalars: dict[str, float]) -> None:
         # Dangerous workflows and open vulnerabilities are penalty-direction.
@@ -362,7 +362,7 @@ class TestSigmaImmutableLayoutBudget:
     """The σ_Immutable trained gate has a fixed 256-D input layout where
     the active band ends at SIGMA_USED_BAND_END=180.  Diagnostic
     measurement scalars (ISO 25010, Halstead, McCabe, MI variants, NIST
-    SAMATE, DORA, SLSA, OpenSSF, ISO 5055, NIST SSDF) must NOT enter
+    SAMATE, DORA, SLSA, supply-chain integrity, ISO 5055, NIST SSDF) must NOT enter
     ``_collect_all_scalars`` or the trained network sees non-zero values
     in its reserved zero-padded tail and rejects the vector as poisoned.
     """

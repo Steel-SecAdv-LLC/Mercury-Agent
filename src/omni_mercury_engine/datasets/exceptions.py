@@ -63,9 +63,11 @@ class OfflineModeError(RuntimeError):
         self.url = url
         super().__init__(
             f"MERCURY_OFFLINE is set; refusing network fetch of {url}. "
-            "Prime the local cache while online (e.g. "
-            "`python scripts/prefetch_datasets.py --adbench cardio thyroid ...`) "
-            "or unset MERCURY_OFFLINE to allow downloads."
+            "Offline mode serves only primed local caches and loopback "
+            "services (e.g. a local Ollama model on 127.0.0.1). Prime "
+            "dataset caches while online (e.g. `python "
+            "scripts/prefetch_datasets.py --adbench cardio thyroid ...`) "
+            "or unset MERCURY_OFFLINE to allow egress."
         )
 
 

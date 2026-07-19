@@ -24,8 +24,9 @@ Eight major categories:
 - SOFTWARE_ENGINEERING (~127 scalars: 45 operational + 82 diagnostic):
   Code quality, optimization, 3R synergy, plus ISO/IEC 25010 product
   quality, Halstead, McCabe/cognitive, MI variants, NIST SAMATE
-  assurance, DORA delivery, SLSA supply-chain, OpenSSF Scorecard,
-  ISO/IEC 5055 CISQ measures, and NIST SSDF (SP 800-218) practices
+  assurance, DORA delivery, SLSA supply-chain, supply-chain /
+  repository-integrity checks (Mercury-native), ISO/IEC 5055 CISQ
+  measures, and NIST SSDF (SP 800-218) practices
 - MEDICAL (~10 scalars): Healthcare and diagnostic support
 - ADVANCED_REASONING (~16 scalars): Logic, inference, and knowledge synthesis
 
@@ -725,7 +726,8 @@ def _apply_measured_sw_eng_metrics(group: dict[str, float]) -> int:
 
     Loads the artifact produced by ``scripts/collect_sw_eng_metrics.py`` (real
     Halstead / cyclomatic / Maintainability-Index measurements over
-    ``src/omni_mercury_engine`` plus OpenSSF-Scorecard-style repo checks) and
+    ``src/omni_mercury_engine`` plus Mercury-native supply-chain /
+    repository-integrity checks handwritten from repo config) and
     updates **only keys already present** in ``group`` — so the group's
     cardinality and the frozen σ_Immutable operational layout are unchanged, and
     every updated scalar stays metric-only (filtered from the gate) by its
@@ -775,7 +777,7 @@ class GlobalOmniScalarNetwork:
     - SECURITY (~6): Threat detection and cyber defense
     - SOFTWARE_ENGINEERING (~127 = 45 op + 82 diag): Code quality, optimization,
       3R synergy; plus ISO/IEC 25010, Halstead, McCabe/cognitive, MI variants,
-      NIST SAMATE, DORA, SLSA, OpenSSF Scorecard, ISO/IEC 5055, NIST SSDF
+      NIST SAMATE, DORA, SLSA, supply-chain integrity, ISO/IEC 5055, NIST SSDF
     - MEDICAL (~10): Healthcare and diagnostic support
     - ADVANCED_REASONING (~16): Logic, inference, knowledge synthesis
 
@@ -849,8 +851,9 @@ class GlobalOmniScalarNetwork:
     #
     # The ISO/IEC 25010, Halstead, McCabe + cognitive, Maintainability
     # Index variants, NIST SAMATE, DORA delivery, SLSA supply-chain,
-    # OpenSSF Scorecard, ISO/IEC 5055 (CISQ), and NIST SSDF practice
-    # families are diagnostic measurement scalars (descriptions of code
+    # supply-chain / repository-integrity, ISO/IEC 5055 (CISQ), and NIST
+    # SSDF practice families are diagnostic measurement scalars
+    # (descriptions of code
     # / system under analysis), not operational ethical signals that
     # drive the boundary's decision.  They remain in ``scalar_groups``
     # for discoverability, registration, and downstream reporting; they
@@ -862,7 +865,8 @@ class GlobalOmniScalarNetwork:
     # HONESTY NOTE: of these ~82 diagnostic scalars, 21 now carry REAL
     # measurements of Mercury's own source tree — the Halstead suite (7),
     # cyclomatic complexity (1), Maintainability Index (3) via stdlib
-    # ``ast``, and the OpenSSF-Scorecard checks (10) from repo config —
+    # ``ast``, and the supply-chain / repository-integrity checks (10)
+    # handwritten from repo config (no external scoring product) —
     # collected by ``scripts/collect_sw_eng_metrics.py`` into
     # ``core/sw_eng_metrics.json`` and overlaid at init by
     # ``_apply_measured_sw_eng_metrics`` (updates existing keys only, so
@@ -1249,7 +1253,7 @@ class GlobalOmniScalarNetwork:
         #     6. NIST SAMATE software assurance (10)
         #     7. DORA / DevOps Research and Assessment delivery (4)
         #     8. SLSA Supply-chain Levels for Software Artifacts v1.0 (4)
-        #     9. OpenSSF Scorecard checks (10)
+        #     9. Supply-chain / repository-integrity checks (10, Mercury-native)
         #    10. ISO/IEC 5055 / CISQ automated source-code quality measures (4)
         #    11. NIST SP 800-218 SSDF practice groups (4)
         #
@@ -1393,9 +1397,16 @@ class GlobalOmniScalarNetwork:
             "omni_slsa_source_integrity": 1.30,  # Source is version-controlled and verified
             "omni_slsa_build_provenance": 1.28,  # Build produces verifiable provenance attestation
             "omni_slsa_dependency_attestation": 1.26,  # Transitive deps carry signed provenance
-            # OpenSSF Scorecard checks (Open Source Security Foundation) - 10 scalars.
-            # Aggregate of the 18 Scorecard checks collapsed onto the
-            # 10 most actionable signals; each is the project's per-check score.
+            # Supply-chain & repository-integrity checks - 10 scalars.
+            # Mercury-native signals, computed by handwritten checks over the
+            # repo's OWN configuration (workflows, CODEOWNERS, dependabot,
+            # SECURITY policy, SHA-pinning) in scripts/collect_sw_eng_metrics.py.
+            # There is NO runtime dependency on any external scoring tool or
+            # service — Mercury measures these itself. The ``omni_ossf_`` prefix
+            # is a frozen grouping label for this open-source-supply-chain band;
+            # the 10 signals track the most actionable, objectively-measurable
+            # supply-chain hardening practices (branch protection, review,
+            # pinning, SAST, least-privilege tokens, signed releases, ...).
             "omni_ossf_branch_protection": 1.22,  # Main branch protected from force-push
             "omni_ossf_code_review_required": 1.25,  # PRs require approving review
             "omni_ossf_ci_tests_required": 1.20,  # CI runs and gates on tests
@@ -1427,11 +1438,12 @@ class GlobalOmniScalarNetwork:
 
         # Overlay REAL measured values onto the diagnostic (metric-only) SW-eng
         # scalars a collector can compute honestly — Halstead / cyclomatic / MI
-        # via ``ast`` and OpenSSF-Scorecard checks from repo config (21 of the 82
-        # placeholders; the rest stay documented placeholders rather than
-        # fabricated).  Updates existing keys only, so the count (127) and the
-        # frozen σ_Immutable operational layout are untouched and the scalars
-        # stay metric-only.  A missing artifact is a no-op.
+        # via ``ast`` and Mercury-native supply-chain / repository-integrity
+        # checks handwritten from repo config (21 of the 82 placeholders; the
+        # rest stay documented placeholders rather than fabricated).  Updates
+        # existing keys only, so the count (127) and the frozen σ_Immutable
+        # operational layout are untouched and the scalars stay metric-only.
+        # A missing artifact is a no-op.
         _apply_measured_sw_eng_metrics(self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING])
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
@@ -2151,7 +2163,8 @@ class GlobalOmniScalarNetwork:
 
         Diagnostic ISO/IEC 25010, Halstead, McCabe + cognitive,
         Maintainability Index variants, NIST SAMATE, DORA, SLSA,
-        OpenSSF Scorecard, ISO/IEC 5055, and NIST SSDF entries live in
+        supply-chain / repository-integrity, ISO/IEC 5055, and NIST SSDF
+        entries live in
         ``scalar_groups`` but are filtered out here so the σ_Immutable
         trained gate continues to see the fixed operational layout it
         was trained on.  See the class-level ``_METRIC_ONLY_PREFIXES``

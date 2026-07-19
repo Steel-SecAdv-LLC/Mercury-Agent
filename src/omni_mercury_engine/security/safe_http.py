@@ -230,6 +230,27 @@ def _is_loopback(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return ip.is_loopback
 
 
+def _is_loopback_host(host: str) -> bool:
+    """Return True if ``host`` is a loopback target decidable without DNS.
+
+    Recognises loopback IP literals (127/8, ``::1``) and the
+    ``localhost`` name family. The air-gap gate uses this to permit
+    on-box adapters (a local Ollama model, a Redis sidecar) while
+    performing **no** network resolution -- so the offline guarantee
+    holds even when no resolver is reachable. A hostname that is not a
+    loopback literal is treated as non-loopback here; the strict
+    ``loopback_only`` gate still resolves and re-checks it downstream
+    when the caller has opted into on-box enforcement.
+    """
+    h = host.strip().strip("[]").lower()  # tolerate bracketed IPv6 literals
+    if h == "localhost" or h.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(h).is_loopback
+    except ValueError:
+        return False
+
+
 class _PinnedDNSHTTPAdapter:
     """Lazy proxy for the real requests-based HTTPAdapter.
 
@@ -371,6 +392,22 @@ class SafeHTTPClient:
             UnsafeURLError: any gate failed.
         """
         scheme, host = _parse_and_check_scheme(url, allow_http=allow_http)
+
+        # Air-gap gate (fires first, before any allowlist or DNS work).
+        # When MERCURY_OFFLINE is set, the only egress permitted is to a
+        # loopback target -- an on-box model (Ollama) or a local sidecar
+        # (Redis). Every other destination is refused HERE, before a
+        # resolver is touched or a socket is opened, so the guarantee
+        # holds in a true air-gap where no DNS is reachable. Imported
+        # lazily (the codebase-wide pattern) so this security primitive
+        # never pulls the heavy datasets package at module load.
+        from omni_mercury_engine.datasets.exceptions import (
+            OfflineModeError,
+            offline_mode_active,
+        )
+
+        if offline_mode_active() and not _is_loopback_host(host):
+            raise OfflineModeError(url)
 
         # Trusted-allowlist gate -- runs for *both* schemes when the
         # URL is not user-configured.  Previously this only fired for

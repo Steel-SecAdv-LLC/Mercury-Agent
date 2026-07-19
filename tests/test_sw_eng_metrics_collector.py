@@ -4,7 +4,8 @@
 
 ``scripts/collect_sw_eng_metrics.py`` computes REAL Halstead / cyclomatic /
 Maintainability-Index measurements over ``src/omni_mercury_engine`` (via stdlib
-``ast``) plus OpenSSF-Scorecard-style checks from repo config, and persists them
+``ast``) plus Mercury-native supply-chain / repository-integrity checks
+handwritten from repo config, and persists them
 to ``core/sw_eng_metrics.json``.  ``GlobalOmniScalarNetwork`` overlays them onto
 21 of the 82 diagnostic SOFTWARE_ENGINEERING scalars at init.
 

@@ -560,8 +560,26 @@ class DataSourceBase(ABC):
             HTTP response
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set — refused before
+                any socket is opened, so air-gapped deployments fail closed
+                with a remediation hint instead of hanging on a dead network.
             DataSourceError: If request fails after retries or circuit is open
         """
+        url = f"{self.base_url}{endpoint}"
+
+        # Air-gap chokepoint: refuse before touching the socket layer. This is
+        # the same fail-closed contract the dataset loaders honor, applied to
+        # the live data-source transport so MERCURY_OFFLINE holds system-wide.
+        # Imported lazily so ``data_sources`` never pulls the heavy
+        # ``datasets`` package at module load.
+        from omni_mercury_engine.datasets.exceptions import (
+            OfflineModeError,
+            offline_mode_active,
+        )
+
+        if offline_mode_active():
+            raise OfflineModeError(url)
+
         # Check circuit breaker state first
         if self._circuit_breaker is not None:
             if self._circuit_breaker.state == CircuitState.OPEN:
@@ -579,7 +597,6 @@ class DataSourceBase(ABC):
 
         await self._check_rate_limit()
 
-        url = f"{self.base_url}{endpoint}"
         client = await self._get_client()
 
         last_error: Exception | None = None
@@ -667,7 +684,23 @@ class DataSourceBase(ABC):
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        """Synchronous version of _http_get with circuit breaker support."""
+        """Synchronous version of _http_get with circuit breaker support.
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set — refused before
+                any socket is opened (mirrors :meth:`_http_get`).
+        """
+        url = f"{self.base_url}{endpoint}"
+
+        # Air-gap chokepoint: refuse before touching the socket layer.
+        from omni_mercury_engine.datasets.exceptions import (
+            OfflineModeError,
+            offline_mode_active,
+        )
+
+        if offline_mode_active():
+            raise OfflineModeError(url)
+
         # Check circuit breaker state first
         if self._circuit_breaker is not None:
             if self._circuit_breaker.state == CircuitState.OPEN:
@@ -685,7 +718,6 @@ class DataSourceBase(ABC):
 
         self._check_rate_limit_sync()
 
-        url = f"{self.base_url}{endpoint}"
         client = self._get_sync_client()
 
         last_error: Exception | None = None

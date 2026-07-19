@@ -16,9 +16,11 @@ Wired to real values (21 of 82):
   * Halstead suite (7)      — distinct/total operators & operands via ``ast``.
   * Cyclomatic complexity (1) — decision-point count via ``ast``.
   * Maintainability Index (3) — SEI / VS variants + delta, standard formulas.
-  * OpenSSF Scorecard (10)  — real repo-config checks (workflows, dependabot,
-    SHA-pinning, CodeQL/bandit, CODEOWNERS/PR template, token permissions,
-    signed releases, SECURITY policy, vulnerability posture).
+  * Supply-chain & repo integrity (10)  — Mercury-native repo-config checks
+    (workflows, dependabot, SHA-pinning, CodeQL/bandit, CODEOWNERS/PR template,
+    token permissions, signed releases, SECURITY policy, vulnerability posture).
+    Handwritten here from the repo's own files — NO dependency on any external
+    scoring tool or service; Mercury measures its own supply-chain posture.
 
 Deliberately NOT computed (stay documented placeholders — computing them would
 be fabrication or needs external telemetry): the 31 ISO/IEC 25010 quality
@@ -278,7 +280,13 @@ def _code_metrics() -> dict[str, Any]:
 
 
 def _ossf_metrics() -> dict[str, Any]:
-    """Compute OpenSSF-Scorecard-style checks from real repo configuration."""
+    """Compute Mercury-native supply-chain & repository-integrity checks.
+
+    Handwritten over the repo's OWN configuration (workflows, CODEOWNERS,
+    dependabot, SECURITY policy, SHA-pinning) — there is no dependency on
+    any external scoring tool or service. The ``omni_ossf_`` keys are a
+    frozen grouping label for this open-source-supply-chain band.
+    """
     gh = _REPO / ".github"
     workflows = list((gh / "workflows").glob("*.yml")) + list((gh / "workflows").glob("*.yaml"))
     wf_text = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in workflows)
@@ -341,7 +349,8 @@ def collect() -> dict[str, Any]:
         "provenance": (
             "Real software-engineering metrics computed on src/omni_mercury_engine "
             "by scripts/collect_sw_eng_metrics.py (self-referential observability). "
-            "Halstead/cyclomatic/MI via stdlib ast; OpenSSF checks from repo config. "
+            "Halstead/cyclomatic/MI via stdlib ast; Mercury-native supply-chain / "
+            "repository-integrity checks handwritten from repo config (no external service). "
             "Values are metric-only (filtered from the σ_Immutable gate); raw values "
             "are retained for audit. Re-run when the source tree changes materially."
         ),

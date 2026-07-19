@@ -41,6 +41,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _master_offline_active() -> bool:
+    """Whether the global ``MERCURY_OFFLINE`` master switch is set.
+
+    Thin lazy wrapper so this module never pulls the heavy ``datasets``
+    package at import time. Used to report the effective offline state
+    even when a retriever was constructed with ``offline_mode=False``.
+    """
+    from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+    return offline_mode_active()
+
+
 class ExternalSourceType(Enum):
     """Types of external information sources."""
 
@@ -223,6 +235,22 @@ class BaseExternalRetriever(ABC):
         self.config = config
         self._request_times: list[float] = []
 
+    def _offline_active(self) -> bool:
+        """Whether network egress must be refused for this retriever.
+
+        True when this retriever was configured offline OR the global
+        ``MERCURY_OFFLINE`` master switch is set. Consulting the master
+        switch here means a single env var forces every retrieval path
+        into fail-closed offline behavior regardless of per-instance
+        config -- the same air-gap contract the dataset loaders and the
+        ``SafeHTTPClient`` egress gate honor.
+        """
+        if self.config.offline_mode:
+            return True
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        return offline_mode_active()
+
     def _check_rate_limit(self) -> bool:
         """Check if request is within rate limit."""
         now = time.time()
@@ -286,7 +314,7 @@ class WebSearchRetriever(BaseExternalRetriever):
         Returns:
             List of search results
         """
-        if self.config.offline_mode:
+        if self._offline_active():
             return []
 
         if not self._check_rate_limit():
@@ -430,7 +458,7 @@ class WebSearchRetriever(BaseExternalRetriever):
         if self._is_available is not None:
             return self._is_available
 
-        if self.config.offline_mode:
+        if self._offline_active():
             self._is_available = False
             return False
 
@@ -898,7 +926,7 @@ class ExternalInformationRetriever:
                 "enabled": self.config.cache_enabled,
                 "ttl_seconds": self.config.cache_ttl_seconds,
             },
-            "offline_mode": self.config.offline_mode,
+            "offline_mode": self.config.offline_mode or _master_offline_active(),
         }
 
     def clear_cache(self) -> None:

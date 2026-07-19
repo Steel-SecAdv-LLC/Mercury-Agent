@@ -27,6 +27,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security: air-gap sovereignty — every egress path fails closed under `MERCURY_OFFLINE`, loopback stays open
+
+- **Goal.** Mercury must stay fully operable when *all* external sources are
+  cut off (network outage, mirror loss, energy/disaster conditions). A single
+  `MERCURY_OFFLINE=1` switch now closes **every** outbound path before a socket
+  opens, while explicitly keeping the **loopback** path open so an on-box model
+  (a local Ollama on `127.0.0.1`) keeps executing actions. Detection, the
+  ethical gates, the decision layer, PQC, and local/template reasoning were
+  already network-free; this pass closes the optional-enrichment egress paths
+  that previously bypassed the switch.
+- **Three egress points hardened, all fail-closed before the socket:**
+  - `SafeHTTPClient.validate_url` (the shared egress gate for narrative
+    retrieval, integrations, medical/geological loaders, and the Ollama
+    adapter) refuses every non-loopback destination **before any DNS
+    resolution** — the guarantee holds even where no resolver is reachable —
+    and permits only loopback targets (`127.0.0.1`, `::1`, `localhost`).
+  - `DataSourceBase._http_get` / `_http_get_sync` (the live data-source httpx
+    transport, which had its own transport outside the shared gate) now refuses
+    before opening a socket, raising `OfflineModeError` with a remediation hint.
+  - `SafeHFLoader.load_model` sets `local_files_only` under offline so a cached
+    foundation/VLM load succeeds and an uncached one fails fast with a clear
+    error instead of hanging on a dead network.
+- **Master switch now authoritative in narrative retrieval.** `WebSearchRetriever`
+  honors `MERCURY_OFFLINE` even when constructed with `offline_mode=False`, so
+  the env var alone forces fail-closed behavior system-wide.
+- **Proven, not asserted.** `tests/security/test_offline_egress_gate.py` pins
+  the whole contract: external refused with zero `getaddrinfo` calls, loopback
+  IP literals permitted with no resolution, `localhost` permitted, the online
+  path unaffected, and both data-source transports refused before the socket.
+  `docs/OFFLINE_OPERATION.md` is corrected to describe all egress points and
+  the loopback carve-out accurately.
+
+### Changed: supply-chain scalars reframed as Mercury-native (no external product identity)
+
+- The 10 repository-integrity scalars were documented as "OpenSSF Scorecard"
+  checks, which read as a dependency on someone else's product. They are — and
+  always were — **handwritten Mercury code** that reads the repo's own
+  configuration (workflows, `CODEOWNERS`, `dependabot`, `SECURITY` policy,
+  SHA-pinning) with **no runtime dependency on any external scoring tool or
+  service**. All docstrings, comments, the collector, the metrics artifact
+  provenance, and the tests now say so. The frozen `omni_ossf_*` scalar keys
+  and their σ_Immutable layout are **unchanged** — only the framing is
+  corrected, so the safety-layout freeze holds and the values stay metric-only.
+
 ### Added: σ_Immutable trained on a real harvested config-integrity corpus (closes the synthetic-data gap)
 
 - The σ_Immutable EthicalGate no longer trains on synthetic ``U[0,2]``
