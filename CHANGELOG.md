@@ -27,6 +27,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: flaky weapons-gate property test (pre-existing, test-only)
+
+- ``tests/ethical/test_weapons_gate_properties.py::
+  test_offensive_core_blocks_under_benign_noise`` wrapped an offensive
+  core in Hypothesis-generated letters/numbers/spaces and asserted it
+  still blocks. When the noise happened to spell a defensive OBJECT
+  (``detector`` / ``sensor`` / ``vaccine``, or the leetspeak ``DETECT0R``
+  that normalizes to ``detector``), the composed text became "how to make
+  a nerve agent detector" — which legitimately triggers the gate's
+  documented defensive-production carve-out (``ALLOW_PROVENANCE``,
+  sourced-only, no synthesis) and is the exact allow-case
+  ``test_defensive_production_is_not_blocked`` (line 47) requires must NOT
+  block. The property was self-contradictory and flaked red whenever the
+  random noise spelled one of those tokens (``.hypothesis/`` is gitignored
+  with no derandomize profile, so CI explores fresh each run; the merged
+  head passed only by never generating the token). Root cause is the
+  over-broad test, not the gate — the gate still blocks the core under
+  genuinely benign noise (``"...nerve agent xyz"`` → ``REFUSE_REDACT``,
+  verified) and the carve-out is pinned in both directions. Fixed
+  test-only, zero gate change: ``assume()`` skips examples whose composed
+  text hits the gate's own ``_gate_evidence(...).defensive_carveout``, so
+  the guard stays in lockstep with the carve-out lexicon and the safety
+  property is preserved exactly.
+
 ### Fixed: doc drift left behind by the PR #339 coverage-floor graduation
 
 - A post-merge verify-first re-audit of the M1–M15 completion pass
