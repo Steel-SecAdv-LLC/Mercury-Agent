@@ -7,15 +7,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,717
-- **Capability-bearing classes:** 1,822 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,718
+- **Capability-bearing classes:** 1,823 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1099 |
+| Other capability classes | 1100 |
 | Support types (config / result / enum / error) | 895 |
 | Detection | 171 |
 | Engines & orchestration | 103 |
@@ -1717,7 +1717,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
 
-### `medical/` — 67 classes (40 capability)
+### `medical/` — 68 classes (41 capability)
 
 **Analysis & scoring**
 
@@ -1770,6 +1770,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Other capability classes**
 
+- `ClinicalSafetyEnvelope` (`medical.safety`) — Safety metadata attached to every user/provider-facing medical result.
 - `PandemicForecast` (`medical.pandemic.forecasting.epidemic_model`) — Result from pandemic forecasting.
 
 **Prediction & forecasting**
