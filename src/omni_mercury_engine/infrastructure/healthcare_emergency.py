@@ -109,19 +109,23 @@ class HealthcareEmergencyDetector:
             Anomaly detection results
         """
         if detection_type == "patient":
-            vital_signs = {
-                "heart_rate_bpm": float(data[0]) if len(data) > 0 else 75,
-                "blood_pressure_systolic": float(data[1]) if len(data) > 1 else 120,
-                "oxygen_saturation_pct": float(data[2]) if len(data) > 2 else 98,
-            }
+            # Fail-closed: only include vitals actually present in the array;
+            # a short array leaves a vital unassessed, never fabricated as normal.
+            vital_signs = {}
+            if len(data) > 0:
+                vital_signs["heart_rate_bpm"] = float(data[0])
+            if len(data) > 1:
+                vital_signs["blood_pressure_systolic"] = float(data[1])
+            if len(data) > 2:
+                vital_signs["oxygen_saturation_pct"] = float(data[2])
             return self.detect_patient_deterioration(vital_signs, patient_history)
         elif detection_type == "emergency_calls":
             call_data = {"total_calls": int(np.sum(data))}
             return self.detect_emergency_call_anomaly(call_data)
         else:
-            vital_signs = {
-                "heart_rate_bpm": float(data[0]) if len(data) > 0 else 75,
-            }
+            vital_signs = {}
+            if len(data) > 0:
+                vital_signs["heart_rate_bpm"] = float(data[0])
             return self.detect_patient_deterioration(vital_signs, patient_history)
 
     def detect_patient_deterioration(
@@ -168,15 +172,33 @@ class HealthcareEmergencyDetector:
 
         patient_status = self._determine_patient_status(early_warning_score)
 
+        # Imported lazily so this infrastructure module never pulls the heavy
+        # ``medical`` package at import time (and to avoid the import cycle:
+        # medical modules consume this NEWS scorer).
+        from omni_mercury_engine.medical.safety import (
+            CLINICAL_DECISION_SUPPORT_DISCLAIMER,
+            EMERGENCY_GUIDANCE,
+        )
+
+        # A missing vital is reported unassessed, so the early-warning score is
+        # an explicit lower bound rather than a silently-optimistic value.
+        unassessed_vitals = [v for v in self.vital_sign_ranges if v not in vital_signs]
+        is_emergency = early_warning_score >= 7
+
         return {
             "anomalies": anomalies,
             "early_warning_score": early_warning_score,
+            "score_is_lower_bound": bool(unassessed_vitals),
+            "unassessed_vitals": unassessed_vitals,
             "patient_status": patient_status.value,
             "requires_intervention": early_warning_score >= 5,
-            "requires_icu": early_warning_score >= 7,
+            "requires_icu": is_emergency,
             "recommended_actions": self._generate_clinical_recommendations(
                 anomalies, early_warning_score
             ),
+            "disclaimer": CLINICAL_DECISION_SUPPORT_DISCLAIMER,
+            "emergency": is_emergency,
+            "emergency_guidance": EMERGENCY_GUIDANCE if is_emergency else None,
             "timestamp": datetime.now(),
         }
 
@@ -223,13 +245,17 @@ class HealthcareEmergencyDetector:
         }
 
     def _determine_patient_status(self, early_warning_score: int) -> PatientStatus:
-        """Determine patient status from early warning score."""
-        if early_warning_score >= 7:
+        """Determine patient status from early warning score.
+
+        Monotonic in the score (fixes the prior mapping where EMERGENCY sat
+        *below* DETERIORATING): higher score -> higher tier. NEWS-aligned —
+        >=5 triggers an urgent response (CRITICAL), 3-4 warrants increased
+        monitoring (DETERIORATING).
+        """
+        if early_warning_score >= 5:
             return PatientStatus.CRITICAL
-        elif early_warning_score >= 5:
-            return PatientStatus.DETERIORATING
         elif early_warning_score >= 3:
-            return PatientStatus.EMERGENCY
+            return PatientStatus.DETERIORATING
         else:
             return PatientStatus.STABLE
 
