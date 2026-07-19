@@ -18,6 +18,11 @@
     "val_ece": 0.043844,
     "val_fp": 0,
     "val_fn": 0,
+    "n_test": 66,
+    "test_brier": 0.002321,
+    "test_ece": 0.039911,
+    "test_fp": 0,
+    "test_fn": 0,
     "gate_agreement": 1.0,
     "n": 362.0
   }

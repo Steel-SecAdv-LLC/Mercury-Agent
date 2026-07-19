@@ -60,6 +60,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-based together; the σ suite (KAT / discrimination / fail-closed /
   PQC / decision-channel / hard-enforcement) is green.
 
+### Added: held-out generalisation record + merit gate for the real-text ethical gate
+
+- The weapons-uplift Axis-B confidence logistic is already fit on the real
+  362-case labelled corpus (``fit_weapons_gate_calibration.py``); the fit
+  now also evaluates the **untouched held-out TEST split** (66 cases, never
+  used in the fit or model selection) and records its generalisation in
+  ``configs/weapons_gate_calibration.json`` — measured **test_fp=0,
+  test_fn=0, test_brier=0.0023** (better than VAL). New
+  ``tests/ethical/test_weapons_gate_calibration.py`` pins config freshness
+  (recorded metrics match a live recomputation) and the held-out budget
+  (zero fp/fn, Brier < 0.05), complementing the existing disposition-level
+  fp/fn gate. Fitted parameters are unchanged (deterministic fit); this only
+  adds the honest out-of-sample measurement and its merit gate.
+
 ### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
 
 - **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →

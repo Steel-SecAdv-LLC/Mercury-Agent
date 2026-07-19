@@ -9,7 +9,9 @@ Turns the Axis-B offensive-confidence logistic from hand-set coefficients into
 + w_classifier*boost)``; this script fits ``bias, w_off, w_allow, w_weight`` by
 regularized maximum-likelihood logistic regression on the corpus features
 (``compute_gate_features``) against the offensive/benign label, on the TRAIN
-split, and reports ECE/Brier on VAL. ``w_classifier`` is *retained* at its
+split, and reports ECE/Brier/fp/fn on VAL **and on the held-out TEST split**
+(the latter untouched by both the fit and model selection — the honest
+out-of-sample generalisation number). ``w_classifier`` is *retained* at its
 default because the corpus carries no live-model signal to fit it from (all
 boosts are 0) -- fitting it would silently zero the classifier's contribution.
 
@@ -115,14 +117,26 @@ def main() -> None:
     w = _fit_logistic(x_tr, y_tr)
     bias, w_off, w_allow_signed, w_weight = (float(v) for v in w)
 
-    p_val = _predict(x_val, w)
-    brier = float(np.mean((p_val - y_val) ** 2))
-    ece = _ece(p_val, y_val)
-    # block/allow accuracy at the fitted operating point (val)
-    pred_block = p_val >= 0.5
-    want_block = y_val >= 0.5
-    fp = int(((pred_block) & (~want_block)).sum())
-    fn = int(((~pred_block) & (want_block)).sum())
+    def _eval(x: np.ndarray, y: np.ndarray) -> dict[str, float]:
+        """Brier / ECE / fp / fn at the fitted 0.5 operating point."""
+        p = _predict(x, w)
+        pred_block = p >= 0.5
+        want_block = y >= 0.5
+        return {
+            "brier": round(float(np.mean((p - y) ** 2)), 6),
+            "ece": round(_ece(p, y), 6),
+            "fp": int((pred_block & (~want_block)).sum()),
+            "fn": int(((~pred_block) & want_block).sum()),
+            "n": int(x.shape[0]),
+        }
+
+    val_metrics = _eval(x_val, y_val)
+    brier, ece = val_metrics["brier"], val_metrics["ece"]
+    fp, fn = val_metrics["fp"], val_metrics["fn"]
+    # Held-out generalisation: the TEST split is untouched by the fit AND by
+    # model selection, so its metrics are the honest out-of-sample number.
+    x_test, y_test = _features_and_labels("test")
+    test_metrics = _eval(x_test, y_test)
 
     defaults = BenevolenceCalibration()  # for retained fields
     params = {
@@ -154,6 +168,12 @@ def main() -> None:
             "val_ece": round(ece, 6),
             "val_fp": fp,
             "val_fn": fn,
+            # Held-out TEST split (never used in fit or model selection).
+            "n_test": test_metrics["n"],
+            "test_brier": test_metrics["brier"],
+            "test_ece": test_metrics["ece"],
+            "test_fp": test_metrics["fp"],
+            "test_fn": test_metrics["fn"],
             **{k: round(float(v), 6) for k, v in agreement.items()},
         },
     }
