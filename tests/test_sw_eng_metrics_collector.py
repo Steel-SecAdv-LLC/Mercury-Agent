@@ -58,6 +58,25 @@ _WIRED = {
     "omni_ossf_token_permissions",
     "omni_ossf_signed_releases",
     "omni_ossf_vulnerabilities",
+    # DORA (4) — VCS-history proxies from git log.
+    "omni_dora_deployment_frequency",
+    "omni_dora_lead_time_for_changes",
+    "omni_dora_mean_time_to_restore",
+    "omni_dora_change_failure_rate",
+    # NIST SSDF (4) — practice-group coverage from repo state.
+    "omni_ssdf_prepare_organization",
+    "omni_ssdf_protect_software",
+    "omni_ssdf_produce_well_secured_software",
+    "omni_ssdf_respond_to_vulnerabilities",
+    # SLSA (4) — build-track evidence from repo state.
+    "omni_slsa_source_integrity",
+    "omni_slsa_build_provenance",
+    "omni_slsa_dependency_attestation",
+    "omni_slsa_level",
+    # NIST SAMATE (3 computable subset; the other 7 stay placeholders).
+    "omni_samate_supply_chain_assurance",
+    "omni_samate_evidence_completeness",
+    "omni_samate_residual_risk",
 }
 
 
@@ -79,7 +98,7 @@ def test_artifact_wires_exactly_the_expected_scalars() -> None:
     payload = _artifact()
     assert payload["schema"] == "sw_eng_metrics/v1"
     assert set(payload["scalars"]) == _WIRED
-    assert payload["n_scalars_wired"] == len(_WIRED) == 21
+    assert payload["n_scalars_wired"] == len(_WIRED) == 36
 
 
 def test_collector_recomputes_real_valid_values() -> None:

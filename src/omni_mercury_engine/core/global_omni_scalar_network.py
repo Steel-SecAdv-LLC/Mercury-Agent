@@ -862,22 +862,28 @@ class GlobalOmniScalarNetwork:
     # the hierarchical accountability bucket's semantics, and the
     # fusion pipeline's dimensional layout stay consistent.
     #
-    # HONESTY NOTE: of these ~82 diagnostic scalars, 21 now carry REAL
-    # measurements of Mercury's own source tree — the Halstead suite (7),
-    # cyclomatic complexity (1), Maintainability Index (3) via stdlib
-    # ``ast``, and the supply-chain / repository-integrity checks (10)
-    # handwritten from repo config (no external scoring product) —
-    # collected by ``scripts/collect_sw_eng_metrics.py`` into
+    # HONESTY NOTE: of these ~82 diagnostic scalars, 36 now carry REAL
+    # measurements collected by ``scripts/collect_sw_eng_metrics.py`` into
     # ``core/sw_eng_metrics.json`` and overlaid at init by
-    # ``_apply_measured_sw_eng_metrics`` (updates existing keys only, so
-    # they stay metric-only and out of the [0, 180) operational σ band).
-    # The remaining ~61 (the 31 ISO/IEC 25010 quality characteristics, the
-    # 10 NIST SAMATE + 4 ISO/IEC 5055 security-assurance measures, the 4
-    # DORA CI/CD-telemetry metrics, the 4 NIST SSDF practices, the 4 SLSA
-    # levels, and the essential/design/cognitive/npath complexity variants)
-    # stay STATIC placeholder literals — computing them would be fabrication
-    # or requires external process/telemetry data — and remain registered
-    # for naming/reporting only.
+    # ``_apply_measured_sw_eng_metrics`` (updates existing keys only, so they
+    # stay metric-only and out of the [0, 180) operational σ band):
+    #   * source-tree code metrics (14): Halstead suite (7), cyclomatic (1),
+    #     Maintainability Index (3) via stdlib ``ast``, plus the 3 MI variants;
+    #   * supply-chain / repo-integrity checks (10) handwritten from repo config;
+    #   * DORA delivery metrics (4) as honest VCS-history proxies from git log
+    #     (commit cadence, inter-commit lead time, revert fraction, revert MTTR)
+    #     — proxies, NOT production deploy/incident telemetry;
+    #   * NIST SSDF practice groups (4) and SLSA build-track evidence (4) from
+    #     repo state (policy/toolchain/pinning/provenance/SBOM);
+    #   * the SAMATE subset computable offline (3): supply-chain assurance,
+    #     assurance-evidence completeness, and residual risk (active accepted-CVE
+    #     count from the ``.trivyignore`` ledger).
+    # The remaining ~46 (the 31 ISO/IEC 25010 quality characteristics, the 7
+    # SAMATE scalars needing the external SAMATE Reference Dataset / labelled
+    # ground truth, the 4 ISO/IEC 5055 measures, and the essential/design/
+    # cognitive/npath complexity variants) stay STATIC placeholder literals —
+    # computing them would be fabrication or requires an external conformant
+    # analyzer — and remain registered for naming/reporting only.
     #
     # Adding a new measurement family means updating these two
     # allowlists once; no other call site needs to change.
@@ -1438,12 +1444,13 @@ class GlobalOmniScalarNetwork:
 
         # Overlay REAL measured values onto the diagnostic (metric-only) SW-eng
         # scalars a collector can compute honestly — Halstead / cyclomatic / MI
-        # via ``ast`` and Mercury-native supply-chain / repository-integrity
-        # checks handwritten from repo config (21 of the 82 placeholders; the
-        # rest stay documented placeholders rather than fabricated).  Updates
-        # existing keys only, so the count (127) and the frozen σ_Immutable
-        # operational layout are untouched and the scalars stay metric-only.
-        # A missing artifact is a no-op.
+        # via ``ast``, Mercury-native supply-chain / repository-integrity checks
+        # from repo config, DORA VCS-history proxies from git log, and the
+        # SSDF / SLSA / computable-SAMATE families from repo state (36 of the 82
+        # placeholders; the rest stay documented placeholders rather than
+        # fabricated).  Updates existing keys only, so the count (127) and the
+        # frozen σ_Immutable operational layout are untouched and the scalars
+        # stay metric-only.  A missing artifact is a no-op.
         _apply_measured_sw_eng_metrics(self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING])
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
