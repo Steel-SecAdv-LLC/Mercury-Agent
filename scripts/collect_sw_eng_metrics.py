@@ -286,10 +286,14 @@ def _ossf_metrics() -> dict[str, Any]:
     def has(*names: str) -> bool:
         return any((_REPO / n).exists() or (gh / n).exists() for n in names)
 
-    # SHA-pinned actions: fraction of `uses:` refs pinned to a 40-hex SHA.
+    # SHA-pinned actions: fraction of EXTERNAL `uses:` refs pinned to a 40-hex
+    # SHA.  Local (``./``) composite actions and ``docker://`` refs are exempt
+    # from SHA-pinning (same exemption the workflow-hardening gate applies), so
+    # they are excluded from the denominator.
     uses = [ln.split("uses:", 1)[1].strip() for ln in wf_text.splitlines() if "uses:" in ln]
-    pinned = sum(1 for u in uses if "@" in u and len(u.split("@")[-1].split()[0]) == 40)
-    pin_frac = pinned / len(uses) if uses else 1.0
+    external = [u for u in uses if not u.startswith(("./", "docker://"))]
+    pinned = sum(1 for u in external if "@" in u and len(u.split("@")[-1].split()[0]) == 40)
+    pin_frac = pinned / len(external) if external else 1.0
 
     # Positive-direction checks (value > 1.0; pass → healthier, near 2.0).
     positive_checks = {

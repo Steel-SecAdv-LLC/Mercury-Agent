@@ -28,7 +28,7 @@
       "omni_ossf_sast_enabled": true,
       "omni_ossf_signed_releases": true,
       "omni_ossf_token_permissions": true,
-      "pinned_actions_fraction": 0.0043
+      "pinned_actions_fraction": 1.0
     }
   },
   "scalars": {
@@ -48,7 +48,7 @@
     "omni_ossf_code_review_required": 1.98,
     "omni_ossf_dangerous_workflow": 0.99,
     "omni_ossf_dependency_update_tool": 1.98,
-    "omni_ossf_pinned_dependencies": 1.02412,
+    "omni_ossf_pinned_dependencies": 1.98,
     "omni_ossf_sast_enabled": 1.98,
     "omni_ossf_signed_releases": 1.98,
     "omni_ossf_token_permissions": 1.98,

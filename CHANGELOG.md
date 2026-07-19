@@ -74,6 +74,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fp/fn gate. Fitted parameters are unchanged (deterministic fit); this only
   adds the honest out-of-sample measurement and its merit gate.
 
+### Security: SHA-pin all external GitHub Actions (supply-chain hardening)
+
+- The self-referential OpenSSF collector surfaced that only ~0.4% of
+  ``uses:`` Action refs were SHA-pinned (tag-pinned instead — the exact
+  finding the repo's ``check_workflow_hardening.py`` warned on). All 200
+  external Action refs across 20 workflows are now pinned to the commit SHA
+  their tag currently points to, with a ``# <version>`` trailer so Dependabot
+  can still bump them — **same Action code runs, zero CI behaviour change**,
+  just supply-chain hardening. Local (``./``) composite actions are exempt.
+  ``check_workflow_hardening.py`` now emits zero tag-pin warnings; the
+  ``omni_ossf_pinned_dependencies`` scalar rose from 1.02 to 1.98.
+
 ### Added: real self-referential collectors for 21 of the 82 diagnostic SW-eng scalars
 
 - The GOSNN ``SOFTWARE_ENGINEERING`` group's 82 diagnostic (metric-only)
