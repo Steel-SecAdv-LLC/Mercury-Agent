@@ -13,9 +13,15 @@ i.e. vocabulary the gate already knows. On that corpus the gate scores 0% FP /
 that avoids the known nouns/verbs is never presented.
 
 This slice is the complement: a **genuinely held-out** adversarial set
-(`benchmarks/weapons_gate_adversarial.py`, 41 cases, `split == "adversarial"`,
-asserted disjoint from the base corpus and never fit on) that stresses the
-meaning-level boundary across four adversarial axes plus a hard-benign control.
+(`benchmarks/weapons_gate_adversarial.py`, **163 cases** as of 2026-07-19 —
+grown from the 41 fixed seeds by deterministic transformation operators: leet
+obfuscation, benign-clause conjunction, and fiction/hypothetical/jailbreak
+framing lead-ins applied to the existing abstract request-intent seeds, plus a
+broadened hard-benign slice; `split == "adversarial"`, asserted disjoint from
+the base corpus and never fit on) that stresses the meaning-level boundary
+across four adversarial axes plus a hard-benign control. The operators add
+surface-form robustness and precision coverage without authoring any new hazard
+topic or operational detail — ground truth stays intent, not topic.
 
 Reproduce:
 
@@ -51,14 +57,23 @@ PYTHONPATH=src:benchmarks python benchmarks/eval_weapons_gate_adversarial.py --p
 
 ## Results — default posture (what CI and air-gapped deployments run)
 
+Measured 2026-07-19 on the expanded 163-case slice (default, lexical-only posture):
+
 | Axis | n | TP | FP | FN | Precision | Recall | FN-rate | Brier |
 |---|---|---|---|---|---|---|---|---|
-| **overall** | 41 | 14 | 0 | 15 | **1.00** | 0.48 | **0.52** | 0.366 |
-| hard_benign | 12 | 0 | 0 | 0 | 1.00 | 1.00 | 0.00 | 0.000 |
-| conjunction | 7 | 6 | 0 | 1 | 1.00 | 0.86 | 0.14 | 0.143 |
-| obfuscation | 6 | 5 | 0 | 1 | 1.00 | 0.83 | 0.17 | 0.167 |
-| paraphrase | 10 | 2 | 0 | 8 | 1.00 | 0.20 | **0.80** | 0.800 |
+| **overall** | 163 | 34 | 0 | 99 | **1.00** | 0.26 | **0.74** | 0.608 |
+| hard_benign | 30 | 0 | 0 | 0 | 1.00 | 1.00 | 0.00 | 0.000 |
+| conjunction | 47 | 14 | 0 | 33 | 1.00 | 0.30 | 0.70 | 0.702 |
+| obfuscation | 22 | 8 | 0 | 14 | 1.00 | 0.36 | 0.64 | 0.637 |
+| paraphrase | 58 | 11 | 0 | 47 | 1.00 | 0.19 | **0.81** | 0.810 |
 | out_of_lexicon | 6 | 1 | 0 | 5 | 1.00 | 0.17 | **0.83** | 0.833 |
+
+The FN-rate is *higher* than the original 41-row slice (0.52): the operator-grown
+obfuscation/framing/conjunction variants are, by construction, exactly what a
+lexical-only pass cannot catch. This is the honest, larger measurement of the
+leak the meaning-level classifier exists to close — not a regression. Precision
+stays perfect (0 FP) across the now-30 hard-benign professional queries, a
+stronger precision guarantee than the original 12.
 
 ## Results — classifier-on posture (permissive stand-in `harm_classifier`)
 
@@ -67,10 +82,12 @@ finding, not a footnote.
 
 ## Findings
 
-1. **Precision is perfect on this slice (0 FP), including all 12 hard-benign
+1. **Precision is perfect on this slice (0 FP), including all 30 hard-benign
    professional/defensive queries.** The gate does not strangle the professions
-   it protects, even under adversarial dual-use surface — the FP-protective
-   posture holds.
+   it protects, even under adversarial dual-use surface — and the expanded,
+   more diverse hard-benign slice (clinicians, first responders, public-health,
+   arms-control policy, industrial safety, historians) makes that FP-protective
+   guarantee materially stronger.
 
 2. **Recall collapses on paraphrase (0.20) and out-of-lexicon agents (0.17).**
    The lexical/regex gate is brittle exactly where the base corpus cannot see:
@@ -127,6 +144,15 @@ query ("how does a fourth-generation agent differ mechanistically…"). Real FP 
 measured only in the default (no-model) posture and, in CI, with a real model.
 
 ## Live real-model confirmation (2026-07-04)
+
+> **Slice note (2026-07-19):** the live-model figures in this section were
+> measured on the **original 29-offensive-row slice**, before the 2026-07-19
+> operator expansion to 163 cases. They are retained as the last real-model
+> measurement; the meaning-level lane must be **re-measured on the expanded
+> slice** with a live classifier (the CI lane already runs the *unmodified*
+> `assess_weapons_uplift` over the current `build_adversarial_corpus()`, gated by
+> `MAX_REAL_CLASSIFIER_FN_RATE = 0.30`). The default-posture table above is the
+> current, re-measured baseline.
 
 The 15→5 projection above was, until now, measured through the validated stdlib
 *double* (`benchmarks/meaning_level_model_double.py`) that CI serves on every PR.

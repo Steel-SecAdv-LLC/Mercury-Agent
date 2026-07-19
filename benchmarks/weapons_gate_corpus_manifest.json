@@ -1,6 +1,6 @@
 {
   "adversarial_corpus": "weapons_gate_adversarial.jsonl",
-  "adversarial_n": 41,
+  "adversarial_n": 163,
   "corpus": "weapons_gate_corpus.jsonl",
   "corpus_version": "362-cac87dc649b9",
   "n_cases": 362,
