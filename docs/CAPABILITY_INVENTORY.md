@@ -7,10 +7,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,733
+- **Total top-level classes:** 2,734
 - **Capability-bearing classes:** 1,816 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 78 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Refined via base-class analysis:** 79 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,030 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1030 |
-| Support types (config / result / enum / error) | 917 |
+| Support types (config / result / enum / error) | 918 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -2089,7 +2089,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `models/` — 140 classes (104 capability)
+### `models/` — 141 classes (104 capability)
 
 **Adapters & backends**
 
@@ -2222,9 +2222,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `AdversarialTrainer` (`models.sota.tranad`) — Adversarial Training for TranAD.
 - `MAMLOptimizer` (`models.sota.tranad`) — Model-Agnostic Meta-Learning (MAML) for TranAD.
 
-<details><summary>Support types (36)</summary>
+<details><summary>Support types (37)</summary>
 
-`AgeProgressionResult`, `AnnealingResult`, `AssociationConfig`, `BiometricResult`, `ChemicalAnomalyResult`, `ChronosConfig`, `DecoherenceConfig`, `ElementGroup`, `EnsembleConfig`, `ErrorCorrectionCode`, `ForecastResult`, `FoundationModelConfig`, `FuzzySemantics`, `GroverSearchResult`, `IngestResult`, `IsotopePredictionResult`, `IsotopeType`, `LLMAnomalyResult`, `LLMConfig`, `LLMProvider`, `MAATConfig`, `MatchCategory`, `MatrixProfileConfig`, `ModelInfo`, `OllamaConfig`, `OllamaModel`, `ParapsychologyResult`, `QKDResult`, `QuantumState`, `ReasoningMode`, `ReasoningResult`, `ReasoningState`, `ThreatLevel`, `TimeGPTConfig`, `TranADConfig`, `UniverseState`
+`AgeProgressionResult`, `AnnealingResult`, `AssociationConfig`, `BiometricResult`, `ChemicalAnomalyResult`, `ChronosConfig`, `DecoherenceConfig`, `ElementGroup`, `EnsembleConfig`, `ErrorCorrectionCode`, `ForecastResult`, `FoundationModelConfig`, `FuzzySemantics`, `GroverSearchResult`, `IngestResult`, `IsotopePredictionResult`, `IsotopeType`, `LLMAnomalyResult`, `LLMConfig`, `LLMProvider`, `MAATConfig`, `MatchCategory`, `MatrixProfileConfig`, `ModelInfo`, `OllamaConfig`, `OllamaModel`, `ParapsychologyResult`, `QKDResult`, `QuantumState`, `ReasoningMode`, `ReasoningResult`, `ReasoningState`, `ThreatLevel`, `TimeGPTConfig`, `TranADConfig`, `UniverseState`, `_EgressKwargs`
 
 </details>
 
