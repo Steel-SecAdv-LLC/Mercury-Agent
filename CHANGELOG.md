@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
+
+- **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →
+  `2.33.0.20260712`** (Dependabot #341, #342). Dependabot only edited
+  `pyproject.toml`; the repo pins these tools on four parity-checked
+  surfaces (`scripts/check_pinned_tool_versions.py` fails on drift), so all
+  four were bumped in lockstep — `pyproject.toml` `[ml]` + `[dev]`,
+  `.github/workflows/ci.yml` (Code Quality + Type Checking install lines),
+  and `.pre-commit-config.yaml` (`mirrors-mypy` rev). mypy 2.3.0 keeps the
+  `# type: ignore` set byte-identical: both lanes clean (`mypy src/` 748
+  files, `mypy tests/` 644 files), no `unused-ignore` fallout on
+  `datasets/mitbih.py:105/109`. Parity check + self-test green.
+- **redis Helm subchart `27.0.13` → `27.0.15`** (Dependabot #340,
+  helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
+  bump; infra-only, no Python runtime surface.
+
 ### Fixed: flaky weapons-gate property test (pre-existing, test-only)
 
 - ``tests/ethical/test_weapons_gate_properties.py::
