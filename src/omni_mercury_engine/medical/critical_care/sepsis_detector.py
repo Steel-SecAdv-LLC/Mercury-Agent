@@ -10,13 +10,19 @@ Advanced sepsis detection for humanitarian healthcare:
 - Multi-organ dysfunction monitoring
 - Temporal progression tracking
 
-⚠️ SIMULATION-BASED: Uses simulated clinical data. Clinical validation required.
-Consult intensivists before acting on predictions.
+Safety semantics (fail-closed): the SOFA and qSOFA instruments are deterministic
+and literature-validated. A missing input is reported as **unassessed** and never
+scored as a healthy organ/criterion — so absent data can never lower the score and
+mask organ failure; a partial total is an explicit lower bound. The neural
+progression model is gated behind ``is_fitted`` and refuses to emit a number until
+trained weights are loaded (it never surfaces an untrained network's output as
+clinical confidence). Every result carries a decision-support disclaimer,
+provenance, and red-flag emergency routing.
 
 Research sources:
 - Sepsis-3 definitions (JAMA 2016)
 - Surviving Sepsis Campaign guidelines
-- SOFA/qSOFA validation studies
+- SOFA (Vincent et al., Intensive Care Med 1996) / qSOFA validation studies
 - MIMIC-III sepsis cohort research
 """
 
@@ -29,6 +35,11 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
+
+from omni_mercury_engine.medical.safety import (
+    ClinicalSafetyEnvelope,
+    build_provenance,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -65,12 +76,25 @@ class SepsisPredictionResult:
     clinical_recommendations: list[str] = field(default_factory=list)
     bundle_compliance: list[str] = field(default_factory=list)
 
+    # Safety / honesty layer.
+    ml_available: bool = False
+    sofa_is_lower_bound: bool = False
+    unassessed_organs: list[str] = field(default_factory=list)
+    safety: ClinicalSafetyEnvelope = field(default_factory=ClinicalSafetyEnvelope)
+
 
 class SOFACalculator:
     """Sequential Organ Failure Assessment (SOFA) score calculator.
 
-    Quantifies organ dysfunction across 6 systems.
+    Quantifies organ dysfunction across 6 systems (Vincent et al., Intensive
+    Care Med 1996). Fail-closed: an organ whose required input is absent is
+    reported **unassessed** (``None``), never scored as a healthy 0 — so a
+    missing lab can never lower the score and hide organ failure. When any organ
+    is unassessed the reported total is an explicit **lower bound**.
     """
+
+    #: Instrument version, for provenance. Bump when scoring logic changes.
+    VERSION = "sepsis-3"
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -83,57 +107,53 @@ class SOFACalculator:
             patient_data: Clinical parameters for SOFA calculation
 
         Returns:
-            SOFA score and organ-specific scores
+            SOFA score and organ-specific scores. Organs with absent inputs are
+            reported as ``None`` and listed in ``unassessed_organs``; the total
+            (``sofa_score``) is a lower bound whenever any organ is unassessed.
         """
-        respiration_score = self._calculate_respiration(patient_data)
-        coagulation_score = self._calculate_coagulation(patient_data)
-        liver_score = self._calculate_liver(patient_data)
-        cardiovascular_score = self._calculate_cardiovascular(patient_data)
-        cns_score = self._calculate_cns(patient_data)
-        renal_score = self._calculate_renal(patient_data)
+        organ_scores: dict[str, int | None] = {
+            "respiration": self._calculate_respiration(patient_data),
+            "coagulation": self._calculate_coagulation(patient_data),
+            "liver": self._calculate_liver(patient_data),
+            "cardiovascular": self._calculate_cardiovascular(patient_data),
+            "cns": self._calculate_cns(patient_data),
+            "renal": self._calculate_renal(patient_data),
+        }
+        label = {
+            "respiration": "respiratory",
+            "coagulation": "coagulation",
+            "liver": "hepatic",
+            "cardiovascular": "cardiovascular",
+            "cns": "neurological",
+            "renal": "renal",
+        }
 
-        total_sofa = (
-            respiration_score
-            + coagulation_score
-            + liver_score
-            + cardiovascular_score
-            + cns_score
-            + renal_score
-        )
+        assessed = {k: v for k, v in organ_scores.items() if v is not None}
+        unassessed = [k for k, v in organ_scores.items() if v is None]
+        total_sofa = sum(assessed.values())
+        organ_dysfunctions = [label[k] for k, v in assessed.items() if v >= 2]
 
-        organ_dysfunctions = []
-        if respiration_score >= 2:
-            organ_dysfunctions.append("respiratory")
-        if coagulation_score >= 2:
-            organ_dysfunctions.append("coagulation")
-        if liver_score >= 2:
-            organ_dysfunctions.append("hepatic")
-        if cardiovascular_score >= 2:
-            organ_dysfunctions.append("cardiovascular")
-        if cns_score >= 2:
-            organ_dysfunctions.append("neurological")
-        if renal_score >= 2:
-            organ_dysfunctions.append("renal")
-
-        return {
+        result: dict[str, Any] = {
             "sofa_score": total_sofa,
-            "respiration": respiration_score,
-            "coagulation": coagulation_score,
-            "liver": liver_score,
-            "cardiovascular": cardiovascular_score,
-            "cns": cns_score,
-            "renal": renal_score,
+            "sofa_is_lower_bound": bool(unassessed),
+            "assessed_organs": sorted(assessed),
+            "unassessed_organs": unassessed,
             "organ_dysfunctions": organ_dysfunctions,
             "sepsis_indicated": total_sofa >= 2,
         }
+        result.update(organ_scores)
+        return result
 
-    def _calculate_respiration(self, data: dict[str, Any]) -> int:
-        """Respiration score based on PaO2/FiO2 ratio."""
+    def _calculate_respiration(self, data: dict[str, Any]) -> int | None:
+        """Respiration score based on PaO2/FiO2 ratio (``None`` if absent).
+
+        SOFA scores 3 and 4 require respiratory support (Vincent 1996); without
+        it, PaO2/FiO2 < 200 caps at 2.
+        """
         pao2_fio2 = data.get("pao2_fio2_ratio")
-        vent = data.get("mechanical_ventilation", False)
-
         if pao2_fio2 is None:
-            return 0
+            return None
+        vent = bool(data.get("mechanical_ventilation", False))
 
         if pao2_fio2 >= 400:
             return 0
@@ -142,13 +162,15 @@ class SOFACalculator:
         elif pao2_fio2 >= 200:
             return 2
         elif pao2_fio2 >= 100:
-            return 3 if vent else 3
+            return 3 if vent else 2
         else:
-            return 4
+            return 4 if vent else 2
 
-    def _calculate_coagulation(self, data: dict[str, Any]) -> int:
-        """Coagulation score based on platelets."""
-        platelets = data.get("platelets_k_ul", 200)
+    def _calculate_coagulation(self, data: dict[str, Any]) -> int | None:
+        """Coagulation score based on platelets (``None`` if absent)."""
+        platelets = data.get("platelets_k_ul")
+        if platelets is None:
+            return None
 
         if platelets >= 150:
             return 0
@@ -161,9 +183,11 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_liver(self, data: dict[str, Any]) -> int:
-        """Liver score based on bilirubin."""
-        bilirubin = data.get("bilirubin_mg_dl", 1.0)
+    def _calculate_liver(self, data: dict[str, Any]) -> int | None:
+        """Liver score based on bilirubin (``None`` if absent)."""
+        bilirubin = data.get("bilirubin_mg_dl")
+        if bilirubin is None:
+            return None
 
         if bilirubin < 1.2:
             return 0
@@ -176,8 +200,8 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_cardiovascular(self, data: dict[str, Any]) -> int:
-        """Cardiovascular score based on MAP and vasopressors.
+    def _calculate_cardiovascular(self, data: dict[str, Any]) -> int | None:
+        """Cardiovascular score based on MAP and vasopressors (``None`` if absent).
 
         SOFA cardiovascular scoring:
         0: MAP >= 70, no vasopressors
@@ -185,33 +209,41 @@ class SOFACalculator:
         2: Dopamine <= 5 OR dobutamine (any dose) OR norepinephrine <= 0.1
         3: Dopamine > 5 AND <= 15 OR norepinephrine > 0.1 AND <= 0.5
         4: Dopamine > 15 OR norepinephrine > 0.5
+
+        Assessable when MAP or any vasopressor value is present; absent
+        vasopressor fields mean "not administered" (0), but an entirely empty
+        cardiovascular input abstains rather than assuming a healthy MAP.
         """
-        map_val = data.get("mean_arterial_pressure", 75)
-        dopamine = data.get("dopamine_mcg_kg_min", 0.0)
-        norepinephrine = data.get("norepinephrine_mcg_kg_min", 0.0)
+        map_val = data.get("mean_arterial_pressure")
+        dopamine = data.get("dopamine_mcg_kg_min")
+        norepinephrine = data.get("norepinephrine_mcg_kg_min")
+
+        if map_val is None and dopamine is None and norepinephrine is None:
+            return None
+
+        dopamine = dopamine or 0.0
+        norepinephrine = norepinephrine or 0.0
 
         # Score 4: High-dose vasopressors
         if dopamine > 15 or norepinephrine > 0.5:
             return 4
         # Score 3: Moderate-dose vasopressors
-        # Note: dopamine <= 15 and norepinephrine <= 0.5 are guaranteed by the check above
         if dopamine > 5 or (norepinephrine > 0.1):
             return 3
         # Score 2: Low-dose vasopressors
-        # Note: dopamine <= 5 and norepinephrine <= 0.1 are guaranteed by the check above
-        if dopamine > 0:
-            return 2
-        if norepinephrine > 0:
+        if dopamine > 0 or norepinephrine > 0:
             return 2
         # Score 1: Hypotension without vasopressors
-        if map_val < 70:
+        if map_val is not None and map_val < 70:
             return 1
         # Score 0: Normal
         return 0
 
-    def _calculate_cns(self, data: dict[str, Any]) -> int:
-        """CNS score based on Glasgow Coma Scale."""
-        gcs = data.get("gcs_score", 15)
+    def _calculate_cns(self, data: dict[str, Any]) -> int | None:
+        """CNS score based on Glasgow Coma Scale (``None`` if absent)."""
+        gcs = data.get("gcs_score")
+        if gcs is None:
+            return None
 
         if gcs == 15:
             return 0
@@ -224,21 +256,36 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_renal(self, data: dict[str, Any]) -> int:
-        """Renal score based on creatinine and urine output."""
-        creatinine = data.get("creatinine_mg_dl", 1.0)
-        urine_output = data.get("urine_output_ml_day", 2000)
+    def _calculate_renal(self, data: dict[str, Any]) -> int | None:
+        """Renal score based on creatinine and urine output (``None`` if absent).
 
-        if creatinine < 1.2:
-            return 0
-        elif creatinine < 2.0:
-            return 1
-        elif creatinine < 3.5:
-            return 2
-        elif creatinine < 5.0 or urine_output < 500:
-            return 3
-        else:
+        Creatinine is the primary input. With only urine output present, only
+        the severe-oliguria bands (scores 3/4) are determinable; a normal urine
+        volume alone cannot establish a creatinine-based score, so it abstains.
+        """
+        creatinine = data.get("creatinine_mg_dl")
+        urine_output = data.get("urine_output_ml_day")
+
+        if creatinine is None and urine_output is None:
+            return None
+
+        if creatinine is None:
+            # urine_output is not None here (the both-absent case returned above).
+            if urine_output is not None and urine_output < 200:
+                return 4
+            if urine_output is not None and urine_output < 500:
+                return 3
+            return None
+
+        if creatinine >= 5.0 or (urine_output is not None and urine_output < 200):
             return 4
+        if creatinine >= 3.5 or (urine_output is not None and urine_output < 500):
+            return 3
+        if creatinine >= 2.0:
+            return 2
+        if creatinine >= 1.2:
+            return 1
+        return 0
 
 
 class QuickSOFACalculator:
@@ -251,6 +298,9 @@ class QuickSOFACalculator:
         """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
+    #: Instrument version, for provenance.
+    VERSION = "sepsis-3"
+
     def calculate_qsofa(self, vital_signs: dict[str, Any]) -> dict[str, Any]:
         """Calculate qSOFA score.
 
@@ -258,23 +308,32 @@ class QuickSOFACalculator:
             vital_signs: Respiratory rate, mental status, blood pressure
 
         Returns:
-            qSOFA score and interpretation
+            qSOFA score and interpretation. A criterion whose input is absent is
+            reported in ``unassessed_components`` and does not silently count as
+            normal; the score is a lower bound when any component is unassessed.
         """
         score = 0
-        criteria_met = []
+        criteria_met: list[str] = []
+        unassessed: list[str] = []
 
-        resp_rate = vital_signs.get("respiratory_rate_bpm", 12)
-        if resp_rate >= 22:
+        resp_rate = vital_signs.get("respiratory_rate_bpm")
+        if resp_rate is None:
+            unassessed.append("respiratory_rate_bpm")
+        elif resp_rate >= 22:
             score += 1
             criteria_met.append("tachypnea (RR ≥22)")
 
-        gcs = vital_signs.get("gcs_score", 15)
-        if gcs < 15:
+        gcs = vital_signs.get("gcs_score")
+        if gcs is None:
+            unassessed.append("gcs_score")
+        elif gcs < 15:
             score += 1
             criteria_met.append("altered_mentation (GCS <15)")
 
-        systolic_bp = vital_signs.get("systolic_bp_mmhg", 120)
-        if systolic_bp <= 100:
+        systolic_bp = vital_signs.get("systolic_bp_mmhg")
+        if systolic_bp is None:
+            unassessed.append("systolic_bp_mmhg")
+        elif systolic_bp <= 100:
             score += 1
             criteria_met.append("hypotension (SBP ≤100)")
 
@@ -282,8 +341,11 @@ class QuickSOFACalculator:
 
         return {
             "qsofa_score": score,
+            "qsofa_is_lower_bound": bool(unassessed),
             "qsofa_positive": positive,
             "criteria_met": criteria_met,
+            "unassessed_components": unassessed,
+            "assessed_component_count": 3 - len(unassessed),
             "sepsis_screening_positive": positive,
             "recommendation": (
                 "High risk for sepsis - urgent evaluation needed"
@@ -302,6 +364,12 @@ class SepsisProgressionPredictor(nn.Module):
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: a freshly-constructed network has RANDOM weights, so its
+        # output is noise, not a prediction. ``is_fitted`` stays False until real
+        # trained weights are loaded via ``load_trained_weights``; callers must
+        # refuse to surface this model's output while it is False.
+        self.is_fitted: bool = False
 
         self.temporal_encoder = nn.LSTM(
             input_size=input_dim,
@@ -359,6 +427,11 @@ class SepsisProgressionPredictor(nn.Module):
 
         return stage_logits, shock_risk, mortality_risk
 
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
+
 
 class SepsisDetector:
     """Comprehensive sepsis detection system integrating SOFA, qSOFA, and temporal progression.
@@ -394,10 +467,17 @@ class SepsisDetector:
             sepsis_stage="no_sepsis",
             risk_score=0.0,
         )
+        safety = result.safety
 
         if "vital_signs" in patient_data:
             qsofa = self.qsofa_calculator.calculate_qsofa(patient_data["vital_signs"])
             result.qsofa_score = qsofa["qsofa_score"]
+            safety.note_unassessed([f"vital_signs.{c}" for c in qsofa["unassessed_components"]])
+            safety.provenance["qsofa"] = build_provenance(
+                instrument="qSOFA",
+                version=self.qsofa_calculator.VERSION,
+                inputs=patient_data["vital_signs"],
+            )
 
             if qsofa["qsofa_positive"]:
                 result.sepsis_detected = True
@@ -406,7 +486,15 @@ class SepsisDetector:
         if "laboratory_values" in patient_data:
             sofa = self.sofa_calculator.calculate_sofa(patient_data["laboratory_values"])
             result.sofa_score = sofa["sofa_score"]
+            result.sofa_is_lower_bound = sofa["sofa_is_lower_bound"]
+            result.unassessed_organs = sofa["unassessed_organs"]
             result.organ_dysfunctions = sofa["organ_dysfunctions"]
+            safety.note_unassessed([f"sofa.{o}" for o in sofa["unassessed_organs"]])
+            safety.provenance["sofa"] = build_provenance(
+                instrument="SOFA",
+                version=self.sofa_calculator.VERSION,
+                inputs=patient_data["laboratory_values"],
+            )
 
             if sofa["sepsis_indicated"]:
                 result.sepsis_detected = True
@@ -417,16 +505,27 @@ class SepsisDetector:
                 if len(result.organ_dysfunctions) >= 2:
                     result.sepsis_stage = "severe_sepsis"
 
+        # ML progression: only surfaced when the model carries trained weights.
+        # An untrained network is refused, not dressed up as confidence.
         if self.enable_ml_prediction and "temporal_sequence" in patient_data:
             ml_result = self._predict_progression(patient_data["temporal_sequence"])
-            result.sepsis_stage = ml_result["predicted_stage"]
-            result.septic_shock_risk = ml_result["shock_risk"]
-            result.mortality_risk = ml_result["mortality_risk"]
-            result.confidence = max(result.confidence, ml_result["confidence"])
+            result.ml_available = ml_result["available"]
+            safety.provenance["progression_model"] = build_provenance(
+                instrument="SepsisProgressionPredictor",
+                version="untrained" if not ml_result["available"] else "v1",
+                inputs={"temporal_sequence": "<array>"},
+                model="SepsisProgressionPredictor",
+                model_fitted=ml_result["available"],
+            )
+            if ml_result["available"]:
+                result.sepsis_stage = ml_result["predicted_stage"]
+                result.septic_shock_risk = ml_result["shock_risk"]
+                result.mortality_risk = ml_result["mortality_risk"]
+                result.confidence = max(result.confidence, ml_result["confidence"])
 
-            if ml_result["shock_risk"] > 0.7:
-                result.sepsis_stage = "septic_shock"
-                result.sepsis_detected = True
+                if ml_result["shock_risk"] > 0.7:
+                    result.sepsis_stage = "septic_shock"
+                    result.sepsis_detected = True
 
         result.risk_score = max(
             result.septic_shock_risk,
@@ -434,32 +533,51 @@ class SepsisDetector:
             float(result.sofa_score or 0) / 24.0,
         )
 
+        # Red-flag emergency routing: sepsis and septic shock are time-critical
+        # emergencies. Tell a lay reader to seek care now, not only clinicians.
+        if result.sepsis_detected and result.sepsis_stage != "no_sepsis":
+            safety.flag_emergency(f"possible sepsis ({result.sepsis_stage})")
+        elif result.qsofa_score and result.qsofa_score >= 2:
+            safety.flag_emergency("qSOFA positive (≥2) — high sepsis risk")
+
         result.clinical_recommendations = self._generate_recommendations(result)
         result.bundle_compliance = self._generate_bundle_checklist(result)
         result.time_to_intervention_hours = self._estimate_intervention_window(result)
 
         self.logger.info(
-            f"Sepsis detection: {result.sepsis_stage}, "
-            f"SOFA={result.sofa_score}, shock_risk={result.septic_shock_risk:.2f}"
+            "Sepsis detection: %s, SOFA=%s%s, ml_available=%s, unassessed=%d",
+            result.sepsis_stage,
+            result.sofa_score,
+            " (lower bound)" if result.sofa_is_lower_bound else "",
+            result.ml_available,
+            len(safety.unassessed_inputs),
         )
 
         return result
 
     def _predict_progression(self, temporal_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict sepsis progression using ML model."""
-        if self.progression_predictor is None:
+        """Predict sepsis progression using the ML model, or abstain.
+
+        Fail-closed: if the model is absent or carries no trained weights
+        (``is_fitted`` is False), this returns ``available=False`` and no
+        numbers — an untrained network's output is noise and must never be
+        surfaced as clinical risk/confidence.
+        """
+        predictor = self.progression_predictor
+        if predictor is None or not getattr(predictor, "is_fitted", False):
             return {
-                "predicted_stage": "no_sepsis",
-                "shock_risk": 0.0,
-                "mortality_risk": 0.0,
-                "confidence": 0.0,
+                "available": False,
+                "predicted_stage": None,
+                "shock_risk": None,
+                "mortality_risk": None,
+                "confidence": None,
             }
 
         seq_tensor = torch.tensor(temporal_sequence, dtype=torch.float32).unsqueeze(0)
 
-        self.progression_predictor.eval()
+        predictor.eval()
         with torch.no_grad():
-            stage_logits, shock_risk, mortality_risk = self.progression_predictor(seq_tensor)
+            stage_logits, shock_risk, mortality_risk = predictor(seq_tensor)
 
         stage_probs = torch.softmax(stage_logits[0], dim=0)
         stage_idx = torch.argmax(stage_probs).item()
@@ -469,6 +587,7 @@ class SepsisDetector:
         predicted_stage = stages[stage_idx]  # type: ignore[index, unused-ignore]
 
         return {
+            "available": True,
             "predicted_stage": predicted_stage,
             "shock_risk": float(shock_risk[0].item()),
             "mortality_risk": float(mortality_risk[0].item()),
