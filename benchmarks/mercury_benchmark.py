@@ -1013,13 +1013,13 @@ def run_detection_tier_section(*, max_files: int | None = None) -> dict[str, Any
             import detection_tier_benchmark as tier
         except ModuleNotFoundError:
             from benchmarks import detection_tier_benchmark as tier
-    except Exception as exc:  # noqa: BLE001 - never abort the headline on an import problem
+    except Exception as exc:
         logger.warning("detection_tier section: import failed: %s", exc)
         return {"status": "import_error", "error": f"{type(exc).__name__}: {exc}"}
 
     try:
         results = tier.run_realdata_benchmark(max_files=max_files)
-    except Exception as exc:  # noqa: BLE001 - a data/download failure must not abort the headline
+    except Exception as exc:
         logger.warning("detection_tier section: data unavailable: %s", exc)
         return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
     results["run_metadata"] = {

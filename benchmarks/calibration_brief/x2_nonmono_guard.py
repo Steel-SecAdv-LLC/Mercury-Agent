@@ -20,10 +20,9 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from cal_core import BetaCalibrator, auroc, conditional_mean_remap, ensure_datasets, make_synth
 from scipy.stats import kendalltau
 from sklearn.ensemble import IsolationForest
-
-from cal_core import ensure_datasets, BetaCalibrator, auroc, conditional_mean_remap, make_synth
 
 warnings.filterwarnings("ignore")
 

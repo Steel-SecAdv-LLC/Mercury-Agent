@@ -12,7 +12,6 @@ Run:  python benchmarks/calibration_brief/run_v1_v8.py
 from __future__ import annotations
 
 import numpy as np
-
 from cal_core import (
     NB_GRID,
     PHI,

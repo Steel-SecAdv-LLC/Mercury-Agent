@@ -55,9 +55,8 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import numpy as np
-
 import competitive_benchmark as cb
+import numpy as np
 
 BASELINE_PATH = _HERE / "competitive_baseline.json"
 
@@ -127,8 +126,8 @@ def evaluate() -> dict[str, Any]:
         best_algo = max(per_pyod, key=per_pyod.__getitem__)
         datasets[name] = {
             "npz_sha256": sha,
-            "n_train": int(len(X_train)),
-            "n_test": int(len(X_test)),
+            "n_train": len(X_train),
+            "n_test": len(X_test),
             "n_test_anomalies": int(y_test.sum()),
             "mercury_tier_auc": round(float(mercury["roc_auc"]), 6),
             "pyod_auc": per_pyod,

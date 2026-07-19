@@ -20,18 +20,17 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-from sklearn.ensemble import IsolationForest
-
 from cal_core import (
-    ensure_datasets,
     NB_GRID,
     BetaCalibrator,
     auroc,
     brier,
     ece,
+    ensure_datasets,
     load_mercury_calibrators,
     net_benefit,
 )
+from sklearn.ensemble import IsolationForest
 
 warnings.filterwarnings("ignore")
 MC = load_mercury_calibrators()

@@ -63,7 +63,7 @@ def ensure_datasets(out: str = "data") -> None:
                 with urllib.request.urlopen(ADBENCH_BASE + nm + ".npz", timeout=60) as r:
                     dst.write_bytes(r.read())
                 break
-            except Exception:  # noqa: BLE001 - network retry
+            except Exception:
                 time.sleep(2**attempt)
 
 
@@ -169,7 +169,7 @@ class BetaCalibrator:
         s = clip01(np.asarray(s, dtype=float))
         return np.column_stack([np.log(s), -np.log(1.0 - s), np.ones_like(s)])
 
-    def fit(self, s: np.ndarray, y: np.ndarray) -> "BetaCalibrator":
+    def fit(self, s: np.ndarray, y: np.ndarray) -> BetaCalibrator:
         x = self._features(s)
         y = np.asarray(y, dtype=float)
         n = len(y)
