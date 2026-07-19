@@ -419,3 +419,34 @@ class TestModalityContract:
         prediction = self.detector.predict(patient)
         assert prediction["anomaly_scores"].shape == (1,)
         assert prediction["primary_specialty"] == result.primary_board
+
+
+class TestABMSNumerologyQuarantine:
+    """The golden-ratio 'omni medical scalars' must not drive clinical risk."""
+
+    def test_untrained_model_abstains_from_ml_output(self) -> None:
+        """With no trained weights, the ABMS net's board/confidence/risk are refused."""
+        detector = ABMSAnomalyDetector()
+        assert detector.model.is_fitted is False
+        result = detector.detect_medical_anomaly(
+            {
+                "vitals": {"oxygen_saturation_pct": 85, "heart_rate_bpm": 120},
+                "symptoms": ["dyspnea"],
+            }
+        )
+        assert result.ml_available is False
+        assert result.confidence == 0.0
+        assert result.risk_score == 0.0
+        assert result.anomaly_detected is False
+        # Deterministic indicators (real signal) are still surfaced.
+        assert "hypoxemia" in result.clinical_indicators
+        assert "decision-support" in result.disclaimer
+
+    def test_no_golden_ratio_in_clinical_risk_path(self) -> None:
+        """The clinical risk computation no longer references the golden-ratio scalars."""
+        import inspect
+
+        src = inspect.getsource(ABMSAnomalyDetector.detect_medical_anomaly)
+        assert "golden_ratio" not in src
+        assert "omni_diagnostic_precision" not in src
+        assert "risk_score = confidence" in src

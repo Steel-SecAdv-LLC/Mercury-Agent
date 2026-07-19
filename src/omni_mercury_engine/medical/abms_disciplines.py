@@ -94,6 +94,10 @@ class MedicalAnomalyResult:
     urgency_level: str = "routine"
     neurosymbolic_reasoning: dict[str, Any] | None = None
 
+    # Safety / honesty layer.
+    ml_available: bool = False
+    disclaimer: str = ""
+
 
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
@@ -143,6 +147,14 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             self.attention = nn.MultiheadAttention(
                 embed_dim=hidden_3, num_heads=8, dropout=0.1, batch_first=True
             )
+
+            # Fail-closed: random weights until real trained weights are loaded.
+            self.is_fitted: bool = False
+
+        def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+            """Load trained weights and mark the model fitted (safe to surface)."""
+            self.load_state_dict(state_dict)
+            self.is_fitted = True
 
         def forward(self, x: torch.Tensor, specialty: str | None = None) -> dict[str, torch.Tensor]:
             """Forward pass with optional specialty-specific prediction.
@@ -489,7 +501,44 @@ class ABMSDisciplineDetector:
         Returns:
             Medical anomaly result with specialty recommendations
         """
+        from omni_mercury_engine.medical.safety import (
+            CLINICAL_DECISION_SUPPORT_DISCLAIMER,
+        )
+
         features = self._extract_clinical_features(patient_data)
+
+        # Fail-closed: the multi-specialty network is untrained (random weights),
+        # so its specialty/confidence outputs are noise. Refuse to surface a
+        # fabricated board/risk rather than emit a golden-ratio-scaled number
+        # with no clinical basis.
+        if not getattr(self.model, "is_fitted", False):
+            self.logger.info(
+                "ABMS model has no trained weights; abstaining from ML board/risk output"
+            )
+            # The specialty board / confidence / risk come from the untrained
+            # network and are refused. The deterministic clinical indicators
+            # (tachycardia, hypoxemia, fever, ...) are real signal derived from
+            # the vitals, so they are still surfaced.
+            det_indicators = self._identify_clinical_indicators(
+                patient_data, specialty_focus or "unavailable"
+            )
+            return MedicalAnomalyResult(
+                primary_board=specialty_focus or "unavailable",
+                subspecialty=None,
+                anomaly_detected=False,
+                confidence=0.0,
+                risk_score=0.0,
+                clinical_indicators=det_indicators,
+                recommended_consultations=[],
+                treatment_considerations=[
+                    "ABMS multi-specialty model is not trained; no ML board or "
+                    "risk produced. Deterministic indicators are shown; use the "
+                    "validated instruments for assessment."
+                ],
+                urgency_level=self._assess_urgency(0.0, det_indicators),
+                ml_available=False,
+                disclaimer=CLINICAL_DECISION_SUPPORT_DISCLAIMER,
+            )
 
         x = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -501,9 +550,11 @@ class ABMSDisciplineDetector:
             predictions, patient_data
         )
 
-        risk_score = confidence * self.omni_medical_scalars["omni_diagnostic_precision"]
+        # Clinical risk is the model's own confidence — NO golden-ratio scaling.
+        # The prior `confidence * 1.42φ` / threshold `0.5φ` had no clinical basis.
+        risk_score = confidence
 
-        anomaly_detected = risk_score > (0.5 * self.golden_ratio)
+        anomaly_detected = risk_score > 0.5
 
         clinical_indicators = self._identify_clinical_indicators(patient_data, primary_board)
 
@@ -534,6 +585,8 @@ class ABMSDisciplineDetector:
             treatment_considerations=treatments,
             urgency_level=urgency,
             neurosymbolic_reasoning=neurosymbolic_reasoning,
+            ml_available=True,
+            disclaimer=CLINICAL_DECISION_SUPPORT_DISCLAIMER,
         )
 
         self.logger.info(
