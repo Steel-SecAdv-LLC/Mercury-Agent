@@ -44,6 +44,13 @@ sys.path.insert(0, str(_REPO / "benchmarks"))
 
 from eval_weapons_gate_adversarial import evaluate
 from weapons_gate_adversarial import build_adversarial_corpus
+from weapons_gate_corpus import (
+    _BENIGN_TEMPLATES,
+    _NOUNS,
+    _OFFENSIVE_BIO_TEMPLATES,
+    _OFFENSIVE_TEMPLATES,
+    build_corpus,
+)
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     HazardDomain,
@@ -86,6 +93,19 @@ def test_slice_is_held_out_and_labeled() -> None:
         "out_of_lexicon",
         "hard_benign",
     }
+    # Capability labels (hazard domain x intent tier): drawn from the base
+    # corpus's own vocabulary, imported directly rather than hardcoded here,
+    # so the two corpora's taxonomies cannot drift apart silently.
+    valid_domains = set(_NOUNS.keys()) | {"none"}
+    valid_tiers = (
+        {tier for _, tier in _OFFENSIVE_TEMPLATES}
+        | {tier for _, tier in _OFFENSIVE_BIO_TEMPLATES}
+        | {tier for _, tier in _BENIGN_TEMPLATES}
+        | {r.tags[1] for r in build_corpus() if r.tags[0] == "none"}
+    )
+    for r in rows:
+        assert r.tags[0] in valid_domains, (r.axis, r.tags)
+        assert r.tags[1] in valid_tiers, (r.axis, r.tags)
 
 
 def test_default_posture_zero_false_positive_and_fn_ceiling() -> None:
@@ -100,6 +120,28 @@ def test_default_posture_zero_false_positive_and_fn_ceiling() -> None:
         f"default-posture FN rate regressed to {overall.fn_rate:.3f} > "
         f"{MAX_DEFAULT_FN_RATE} (lexical coverage got leakier): {overall.fn_examples}"
     )
+
+
+def test_default_posture_zero_fp_per_domain_on_hard_benign() -> None:
+    """FP-safe guarantee holds PER DOMAIN on hard_benign, not just in aggregate.
+
+    hard_benign rows are 100% benign-labeled (expected == "allow"), so this
+    metric's fp count is a plain sum across domains with no true positives in
+    the mix to net against -- cross-domain FP-cancellation cannot occur for
+    this metric on this axis, mathematically. Pinned per-domain anyway: it
+    directly asserts the safety property rather than relying on that proof
+    continuing to hold as the corpus grows.
+    """
+    m = evaluate()
+    by_domain_axis = m["by_domain_axis"]
+    assert isinstance(by_domain_axis, dict)
+    hard_benign_rows = [r for r in build_adversarial_corpus() if r.axis == "hard_benign"]
+    domains_present = {r.tags[0] for r in hard_benign_rows}
+    assert domains_present, "hard_benign slice must be non-empty"
+    for domain in domains_present:
+        metrics = by_domain_axis[f"{domain}/hard_benign"]
+        assert metrics.n >= 1, (domain, metrics)
+        assert metrics.fp == 0, (domain, metrics.fp_examples)
 
 
 def test_routing_rescue_fires_on_paraphrase_with_classifier() -> None:

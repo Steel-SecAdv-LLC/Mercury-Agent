@@ -171,10 +171,14 @@ jobs:
           mkdir -p artifacts
           PYTHONPATH=src:benchmarks python -c "
           import json
-          from eval_weapons_gate_adversarial import evaluate
+          from eval_weapons_gate_adversarial import evaluate, AxisMetrics
           from omni_mercury_engine.cognitive.harm_classifier import default_harm_classifier
           metrics = evaluate(classifier=default_harm_classifier())
-          print(json.dumps({k: v.to_dict() for k, v in metrics.items()}, indent=2))
+          def to_json(v):
+              if isinstance(v, AxisMetrics):
+                  return v.to_dict()
+              return {k: m.to_dict() for k, m in v.items()}
+          print(json.dumps({k: to_json(v) for k, v in metrics.items()}, indent=2))
           " | tee artifacts/meaning_level_sample_run.txt
 
       - name: Upload meaning-level sample run
