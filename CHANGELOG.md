@@ -234,6 +234,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
   bump; infra-only, no Python runtime surface.
 
+### Changed: GitHub Actions group bump — 7 updates consolidated (Dependabot #345/#346; #341 superseded)
+
+- **The full `github-actions` Dependabot group, applied as SHA pins** —
+  byte-identical to Dependabot #346's tree, every new SHA independently
+  re-resolved from its upstream repo via `git ls-remote` before adoption:
+  - `actions/setup-python` **v6 → v7.0.0**
+    (`5fda3b95a4ea91299a34e894583c3862153e4b97`, 38 `uses:` sites);
+  - `actions/setup-go` **v6 → v7.0.0**
+    (`b7ad1dad31e06c5925ef5d2fc7ad053ef454303e`, 1 site — `ci.yml`
+    actionlint job);
+  - `actions/checkout` **v7.0.0 → v7.0.1**
+    (`3d3c42e5aac5ba805825da76410c181273ba90b1`, 104 sites);
+  - `github/codeql-action/{init,autobuild,analyze}` **v4.32.2 → v4.37.1**
+    (`7188fc363630916deb702c7fdcf4e481b751f97a`, 3 sites in
+    `security.yml`);
+  - `pypa/gh-action-pypi-publish` **release/v1 → v1.14.1 head**
+    (`ba38be9e461d3875417946c167d0b5f3d385a247`, 1 site in
+    `release.yml`).
+- **Why consolidated by hand:** Dependabot #345 proposed the setup-python /
+  setup-go bump against tag refs, went stale when the repository-wide SHA
+  pinning landed on `main`, and was auto-closed as conflicting; its
+  replacement #346 (this exact tree) supersedes it and auto-closes on
+  merge. The companion #341 (mypy `2.1.0` → `2.3.0`) needed no code
+  change — the dependency-bump fold recorded above already carried
+  mypy 2.3.0 onto `main`, and Dependabot auto-closed it.
+- **Compatibility audited before the bump:** setup-python / setup-go v7
+  are the ESM / Node 24 migration — no workflow uses the `pip-install`
+  input that setup-python v7 removed, every runner is GitHub-hosted
+  (`ubuntu-*`), and all inputs actually used (`python-version`, `cache`,
+  `go-version`) are unchanged in v7; checkout v7.0.1 and codeql-action
+  v4.37.1 are patch/minor updates within the already-running majors;
+  pypi-publish stays on the `release/v1` track. Verified with
+  `actionlint` v1.7.12 (CI flags), a YAML parse of all 21 workflows,
+  `check_workflow_hardening.py`, and `check_pinned_tool_versions.py` —
+  all green.
+
 ### Fixed: flaky weapons-gate property test (pre-existing, test-only)
 
 - ``tests/ethical/test_weapons_gate_properties.py::
