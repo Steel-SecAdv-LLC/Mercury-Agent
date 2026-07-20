@@ -30,9 +30,12 @@ Discrimination/confusion metrics reuse the D1 clinical metric engine
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.medical.clinical_metrics import confusion_at_threshold
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = [
     "EmergencyThresholdReport",
@@ -193,7 +196,9 @@ def evaluate_threshold(scores: Any, outcomes: Any, threshold: float) -> Threshol
     )
 
 
-def sweep_threshold(scores: Any, outcomes: Any, grid: list[float]) -> list[ThresholdOperatingPoint]:
+def sweep_threshold(
+    scores: Any, outcomes: Any, grid: Sequence[float]
+) -> list[ThresholdOperatingPoint]:
     """Evaluate every threshold in ``grid`` and return the operating points."""
     return [evaluate_threshold(scores, outcomes, t) for t in grid]
 
@@ -280,7 +285,7 @@ def validate_threshold(
     scores: Any,
     outcomes: Any,
     current_threshold: float,
-    grid: list[float],
+    grid: Sequence[float],
     dgp_doc: str = "",
 ) -> EmergencyThresholdReport:
     """Validate one emergency threshold and produce advisory optima."""
