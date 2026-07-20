@@ -99,9 +99,10 @@ def test_ollama_egress_kwargs_selects_policy(monkeypatch: pytest.MonkeyPatch) ->
     from omni_mercury_engine.models.foundation.ollama_adapter import (
         OllamaConfig,
         OllamaLLMAdapter,
+        _EgressKwargs,
     )
 
-    def _kwargs(host: str, *, vpc: bool) -> dict[str, bool]:
+    def _kwargs(host: str, *, vpc: bool) -> _EgressKwargs:
         _set_mode(monkeypatch, offline=True, vpc=vpc)
         adapter = OllamaLLMAdapter.__new__(OllamaLLMAdapter)
         adapter.ollama_config = OllamaConfig(host=host, model="llama3.2:1b")
