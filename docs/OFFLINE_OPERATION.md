@@ -55,22 +55,49 @@ before a socket is opened, so no single layer can leak past it:
     its own `requests` transport; an uncached download refuses, a primed
     segment cache serves (without even importing wfdb).
   - `cognitive/anomaly_detection_enhanced.py::USGSEarthquakeSource.fetch` /
-    `NOAAWeatherSource.fetch` — ad-hoc httpx enrichment sources; the refusal
-    propagates loudly (their handlers swallow transport errors only).
+    `NOAAWeatherSource.fetch` — ad-hoc httpx enrichment sources; `fetch()`
+    raises `OfflineModeError` before any socket (its handlers swallow
+    transport errors only), and the production consumer
+    (`ExternalDataIntegrator.fetch_all`) surfaces the air-gap as one explicit
+    MERCURY_OFFLINE skip log — never a generic per-source fetch error — while
+    detection continues local-only (external enrichment is optional by
+    design).
   - `compliance/nist_csf_integrator.py::NISTCSFReferenceFetcher.fetch_payload`
     — a fresh cached reference still serves; an actual fetch (including the
     one triggered by constructing `NISTCSFIntegrator` with the default
     `reference_source="live"`) refuses. Air-gapped deployments should use
     `reference_source="builtin"` or prime the cache while online.
-  - `api/routes/batch.py::_send_callback` — webhook callbacks to
-    caller-supplied URLs are suppressed as a logged skip before httpx or any
-    socket is touched (this background task's contract is "failures never
-    escape", so it skips rather than raises).
+  - `api/routes/batch.py` — a request carrying `callback_url` is rejected at
+    validation time (before the SSRF check would resolve the hostname — DNS
+    is itself egress), and `_send_callback` additionally suppresses any
+    already-queued webhook as a logged skip before httpx or any socket is
+    touched (that background task's contract is "failures never escape", so
+    it skips rather than raises).
   - `integrations/http/client.py::HTTPClient.request` and every
     `integrations/cross_platform_hub.py` adapter transport (HTTP platform,
-    Prometheus pushgateway, OTLP HTTP) — gated per call, before the circuit
-    breaker / retry machinery; a loopback sidecar (local pushgateway, OTLP
-    collector, or API stub) stays reachable.
+    Prometheus pushgateway, OTLP HTTP) — gated per call (connect, send,
+    flush, and fetch alike), before the circuit breaker / retry machinery; a
+    loopback sidecar (local pushgateway, OTLP collector, or API stub) stays
+    reachable, and `CrossPlatformHub.publish_*` records a refusal as an
+    explicit MERCURY_OFFLINE suppression per platform, never as a generic
+    publish failure.
+  - `utils/report_generator.py::EmailReportSender` — a non-loopback SMTP
+    relay is refused before any socket (logged suppression; the method's
+    contract is a boolean result); a loopback relay stays usable.
+  - `models/foundation/ollama_adapter.py::_check_availability` — the raw TCP
+    availability probe runs the adapter's full SafeHTTPClient egress policy
+    first (loopback-only by default; RFC1918 under the VPC-air-gap opt-in),
+    so a non-permitted host reads unavailable without a socket ever opening.
+  - `integrations/stubs/cache.py::RedisCache` — a non-loopback `REDIS_HOST`
+    is refused before any socket; callers fall back to the in-memory cache,
+    and the documented loopback Redis sidecar stays reachable.
+
+  Note the loopback carve-out is exactly the literal names/addresses
+  `127.0.0.1`, `::1`, and `localhost` — `*.localhost` SUBDOMAINS are
+  deliberately refused offline, because their resolution is
+  resolver-dependent (RFC 6761 SHOULD) and a hosts-file or resolver mapping
+  could point one at a public address, turning the DNS-free permit into an
+  egress bypass.
 
 **Local-first is the baseline, not a consequence of the flag.** With
 `MERCURY_OFFLINE` unset, the reasoning backend still runs local + template only

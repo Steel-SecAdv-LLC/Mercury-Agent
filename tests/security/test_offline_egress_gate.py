@@ -111,6 +111,25 @@ class TestSafeHTTPClientOfflineGate:
         with pytest.raises(OfflineModeError):
             SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
+    def test_offline_refuses_localhost_subdomain(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``*.localhost`` subdomains are refused offline, pre-DNS.
+
+        Their resolution is resolver-dependent (RFC 6761 SHOULD): a
+        hosts-file entry or hostile resolver can map ``foo.localhost`` to a
+        public address, so a name-based permit would be an egress bypass.
+        Only the literal ``localhost`` and loopback IPs are carved out.
+        """
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+
+        def _boom(*_a: Any, **_k: Any) -> Any:
+            raise AssertionError("DNS resolution attempted under MERCURY_OFFLINE")
+
+        monkeypatch.setattr(socket, "getaddrinfo", _boom)
+        with pytest.raises(OfflineModeError):
+            SafeHTTPClient.validate_url(
+                "http://exfil.localhost/x", allow_http=True, user_configured=True
+            )
+
 
 class _ProbeSource(DataSourceBase):
     """Minimal concrete data source for exercising the transport gate."""
@@ -280,6 +299,26 @@ class TestEnforceOfflineEgressHelper:
         with pytest.raises(OfflineModeError):
             enforce_offline_egress("example.com/api")
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://exfil.localhost/x",
+            "http://a.b.localhost:9999/",
+        ],
+    )
+    def test_localhost_subdomains_refused(self, url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``*.localhost`` names are NOT loopback-decidable and must refuse.
+
+        The own-transport callsites hand the URL straight to their own
+        resolver, and RFC 6761 does not guarantee ``*.localhost`` resolves
+        to loopback there -- a permit here would be an egress bypass.
+        """
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        _forbid_sockets(monkeypatch)
+        with pytest.raises(OfflineModeError):
+            enforce_offline_egress(url)
+
 
 class TestMITBIHLoaderOfflineGate:
     """The wfdb/PhysioNet path refuses uncached and serves the primed cache."""
@@ -355,6 +394,33 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         with pytest.raises(OfflineModeError):
             source.fetch()
 
+    def test_integrator_fetch_all_surfaces_offline_explicitly(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The production path never disguises the air-gap as a fetch error.
+
+        ``ExternalDataIntegrator.fetch_all`` is the sole in-repo consumer of
+        these sources (via ``EnhancedAnomalyDetector.predict``); under
+        ``MERCURY_OFFLINE`` it must emit one explicit offline log -- not a
+        per-source "Error fetching..." line -- and return empty so local
+        detection continues.
+        """
+        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+            ExternalDataIntegrator,
+            USGSEarthquakeSource,
+        )
+
+        integrator = ExternalDataIntegrator()
+        integrator.register_source("usgs_earthquakes", USGSEarthquakeSource())
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        _forbid_sockets(monkeypatch)
+        logger_name = "omni_mercury_engine.cognitive.anomaly_detection_enhanced"
+        with caplog.at_level("WARNING", logger=logger_name):
+            assert integrator.fetch_all() == []
+        assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)
+        assert not any(r.message.startswith("Error fetching") for r in caplog.records)
+
 
 class TestNISTCSFFetcherOfflineGate:
     """The compliance reference fetch refuses uncached and serves a fresh cache."""
@@ -418,6 +484,33 @@ class TestBatchWebhookOfflineGate:
         finally:
             loop.close()
         assert any("suppressed" in record.message for record in caplog.records)
+
+    def test_callback_url_rejected_at_validation_before_dns(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A request carrying callback_url is refused at validation, pre-DNS.
+
+        The SSRF validator resolves the callback hostname; DNS is itself
+        egress in a true air-gap, so under MERCURY_OFFLINE the field is
+        rejected before any resolution -- the webhook could never fire
+        anyway.
+        """
+        pytest.importorskip("fastapi")
+        import pydantic
+
+        try:
+            from omni_mercury_engine.api.routes.batch import BatchDetectRequest
+        except RuntimeError as exc:  # fastapi extras (python-multipart) missing
+            pytest.skip(f"batch routes unavailable in this environment: {exc}")
+
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        _forbid_sockets(monkeypatch)
+        with pytest.raises(pydantic.ValidationError, match="MERCURY_OFFLINE"):
+            BatchDetectRequest(
+                data=[[1.0, 2.0]],
+                callback_url="https://example.com/hook",
+            )
 
 
 class TestIntegrationsHTTPClientOfflineGate:
@@ -516,6 +609,48 @@ class TestCrossPlatformHubOfflineGate:
         # The buffered metric was NOT dropped: nothing was delivered.
         assert adapter._metrics_buffer
 
+    async def test_prometheus_connect_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A push-model adapter must not claim healthy when it can never deliver."""
+        from omni_mercury_engine.integrations.cross_platform_hub import (
+            PrometheusAdapter,
+        )
+
+        adapter = PrometheusAdapter(self._config("https://push.example.com"))
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        with pytest.raises(OfflineModeError):
+            await adapter.connect()
+        assert adapter.is_connected is False
+
+    async def test_prometheus_disconnect_never_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Cleanup completes offline: buffer retained, disconnected transition done."""
+        from omni_mercury_engine.integrations.cross_platform_hub import (
+            PrometheusAdapter,
+        )
+
+        adapter = PrometheusAdapter(self._config("https://push.example.com"))
+        adapter._connected = True
+        adapter._metrics_buffer.append("mercury_anomaly_score 1.0")
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        await adapter.disconnect()  # must not raise
+        assert adapter.is_connected is False
+        assert adapter._metrics_buffer  # retained, not silently dropped
+
+    async def test_otlp_connect_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.integrations.cross_platform_hub import (
+            OpenTelemetryAdapter,
+        )
+
+        adapter = OpenTelemetryAdapter(self._config("https://otel.example.com"))
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        with pytest.raises(OfflineModeError):
+            await adapter.connect()
+        assert adapter.is_connected is False
+
     async def test_otlp_send_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from omni_mercury_engine.integrations.cross_platform_hub import (
             AnomalyEvent,
@@ -535,3 +670,63 @@ class TestCrossPlatformHubOfflineGate:
         )
         with pytest.raises(OfflineModeError):
             await adapter.send_event(event)
+
+
+class TestEmailReportSenderOfflineGate:
+    """SMTP egress is refused pre-socket; the boolean contract is preserved."""
+
+    def test_external_relay_suppressed(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from omni_mercury_engine.utils.report_generator import EmailReportSender
+
+        sender = EmailReportSender(
+            {
+                "server": "smtp.example.com",
+                "port": "587",
+                "sender_email": "a@example.com",
+                "password": "x",
+            }
+        )
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        _forbid_sockets(monkeypatch)
+        with caplog.at_level("WARNING"):
+            assert sender.send_email_report("report", "b@example.com") is False
+        assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)
+
+
+class TestOllamaProbeOfflineGate:
+    """The raw TCP availability probe honors the adapter's egress policy."""
+
+    def test_external_host_probe_suppressed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.models.foundation.ollama_adapter import (
+            OllamaConfig,
+            OllamaLLMAdapter,
+        )
+
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        monkeypatch.delenv("MERCURY_MODEL_ENDPOINT", raising=False)
+        monkeypatch.delenv("MERCURY_OLLAMA_HOST", raising=False)
+        _forbid_dns(monkeypatch)
+        _forbid_sockets(monkeypatch)
+        adapter = OllamaLLMAdapter(
+            ollama_config=OllamaConfig(host="ollama.example.com", model="llama3")
+        )
+        assert adapter._is_available is False
+
+
+class TestRedisCacheOfflineGate:
+    """A non-loopback REDIS_HOST is refused pre-socket; callers fall back."""
+
+    async def test_external_redis_suppressed(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from omni_mercury_engine.integrations.stubs.cache import RedisCache
+
+        cache = RedisCache(host="redis.example.com")
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        _forbid_dns(monkeypatch)
+        with caplog.at_level("WARNING"):
+            assert await cache._ensure_connected() is False
+        assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)

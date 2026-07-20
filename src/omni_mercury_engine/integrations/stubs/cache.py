@@ -698,9 +698,30 @@ class RedisCache:
         )
 
     async def _ensure_connected(self) -> bool:
-        """Ensure Redis connection is established."""
+        """Ensure Redis connection is established.
+
+        Air-gap: under ``MERCURY_OFFLINE`` a non-loopback ``REDIS_HOST`` is
+        refused before any socket -- logged as an explicit MERCURY_OFFLINE
+        suppression (this method's contract is a boolean result; callers fall
+        back to the in-memory cache). A loopback Redis sidecar -- the
+        documented offline deployment -- stays reachable.
+        """
         if self._connected and self._client:
             return True
+
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        try:
+            enforce_offline_egress(f"redis://{self.host}:{self.port}")
+        except OfflineModeError as e:
+            self._connection_error = str(e)
+            logger.warning(
+                "Redis connection suppressed: MERCURY_OFFLINE is set and %s "
+                "is not a loopback host",
+                self.host,
+            )
+            return False
 
         try:
             import redis.asyncio as aioredis

@@ -898,9 +898,33 @@ class ExternalDataIntegrator:
     def fetch_all(self) -> list[ExternalDataPoint]:
         """Fetch data from all registered sources.
 
+        Air-gap contract: under ``MERCURY_OFFLINE`` no source is fetched at
+        all -- one explicit offline log line replaces the per-source refusals
+        so the air-gap never masquerades as a per-source transport error, and
+        detection continues local-only (external enrichment is optional by
+        design). A per-source ``OfflineModeError`` that still surfaces (the
+        flag is dynamic) is likewise logged as an offline refusal, never as a
+        generic fetch error.
+
         Returns:
-            List of data points from all sources
+            List of data points from all sources (empty under
+            ``MERCURY_OFFLINE``).
         """
+        from omni_mercury_engine.datasets.exceptions import (
+            OfflineModeError,
+            offline_mode_active,
+        )
+
+        if offline_mode_active():
+            if self.sources:
+                logger.warning(
+                    "External enrichment skipped: MERCURY_OFFLINE is set; %d "
+                    "registered source(s) refused egress fail-closed. "
+                    "Detection continues local-only.",
+                    len(self.sources),
+                )
+            return []
+
         all_data = []
 
         for name, source in self.sources.items():
@@ -908,6 +932,10 @@ class ExternalDataIntegrator:
                 data = source.fetch()
                 all_data.extend(data)
                 logger.debug(f"Fetched {len(data)} points from {name}")
+            except OfflineModeError as e:
+                # Surfaced distinctly: the air-gap refusal must never read as
+                # a transport blip in the logs.
+                logger.warning("External source %s refused egress: %s", name, e)
             except Exception as e:
                 logger.error(f"Error fetching from {name}: {e}")
 

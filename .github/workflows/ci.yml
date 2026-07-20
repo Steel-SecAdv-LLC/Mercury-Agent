@@ -607,9 +607,9 @@ jobs:
         #
         # Intentionally additive, mirroring the graduated-test-dirs
         # mechanism above: the rest of scripts/ carries pre-existing
-        # errors (45 across 11 files, counted 2026-07-20) and stays
-        # off the gate until each file is cleaned; when one is, add
-        # it to the list below.
+        # errors (42 across 9 files, counted 2026-07-20 after the four
+        # lane files were cleaned) and stays off the gate until each
+        # file is cleaned; when one is, add it to the list below.
         run: |
           mypy scripts/harvest_sigma_baseline.py \
             scripts/train_sigma_immutable.py \

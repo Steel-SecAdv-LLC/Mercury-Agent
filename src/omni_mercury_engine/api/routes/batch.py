@@ -254,9 +254,26 @@ class BatchDetectRequest(BaseModel):
     @field_validator("callback_url")
     @classmethod
     def validate_callback_url(cls, v: str | None) -> str | None:
-        """Validate callback URL to prevent SSRF attacks."""
+        """Validate callback URL to prevent SSRF attacks.
+
+        Air-gap: under ``MERCURY_OFFLINE`` a callback URL is rejected at
+        request-validation time, BEFORE the SSRF check resolves the hostname
+        -- DNS is itself egress in a true air-gap, and the callback would be
+        suppressed at send time anyway, so accepting it would only promise a
+        webhook that can never fire.
+        """
         if v is None:
             return v
+
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active():
+            raise ValueError(
+                "callback_url is unavailable while MERCURY_OFFLINE is set: "
+                "webhook egress is refused and callback hostnames are not "
+                "resolved. Submit without callback_url and poll the job "
+                "status endpoint instead."
+            )
         parsed = urlparse(v)
         if parsed.scheme not in ("https",):
             raise ValueError("Callback URL must use HTTPS scheme")

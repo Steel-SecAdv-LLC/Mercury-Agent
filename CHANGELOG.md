@@ -60,30 +60,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     no longer even requires wfdb).
   - `cognitive.anomaly_detection_enhanced.USGSEarthquakeSource.fetch()` /
     `NOAAWeatherSource.fetch()` — the ad-hoc httpx clients refuse before any
-    socket; their catch-all handlers swallow transport errors only, never
-    the offline refusal.
+    socket (their catch-all handlers swallow transport errors only), and the
+    production consumer `ExternalDataIntegrator.fetch_all` surfaces the
+    air-gap as one explicit MERCURY_OFFLINE skip — never a generic per-source
+    fetch error — while detection continues local-only.
   - `NISTCSFReferenceFetcher.fetch_payload()` — a fresh cached reference is
-    still served offline; an actual fetch (including at
+    still served offline (unless `force_refresh=True` bypasses the cache);
+    an actual fetch (including at
     `NISTCSFIntegrator(reference_source="live")` construction) refuses
     pre-socket with a pointer to `reference_source="builtin"`.
-  - `api/routes/batch.py::_send_callback` — webhook callbacks to
-    caller-supplied URLs are suppressed (logged skip, per the
-    "failures never escape" background-task contract) before httpx or any
-    socket is touched.
+  - `api/routes/batch.py` — a request carrying `callback_url` is rejected at
+    validation time, before the SSRF check would resolve the hostname (DNS
+    is itself egress); `_send_callback` additionally suppresses any
+    already-queued webhook (logged skip, per the "failures never escape"
+    background-task contract) before httpx or any socket is touched.
   - `integrations` — the publicly exported `HTTPClient` gates every request
     before its circuit breaker / retry / aiohttp (or stub) layers, and every
     `cross_platform_hub` adapter transport (HTTP platform, Prometheus
-    pushgateway, OTLP HTTP) gates each connect/send/fetch, keeping loopback
-    sidecars reachable.
+    pushgateway, OTLP HTTP) gates each connect/send/flush/fetch, keeping
+    loopback sidecars reachable; `CrossPlatformHub.publish_*` records a
+    refusal as an explicit per-platform MERCURY_OFFLINE suppression, and
+    `PrometheusAdapter.disconnect` never raises from its final flush
+    (buffered metrics are retained, the disconnected transition completes).
+- **Three more ungated paths found by the adversarial sweep, closed the same
+  way:** `utils/report_generator.py::EmailReportSender` (SMTP egress to a
+  non-loopback relay refused pre-socket, logged suppression, boolean
+  contract preserved); the Ollama adapter's raw TCP availability probe
+  (now runs the adapter's full SafeHTTPClient egress policy first —
+  loopback-only by default, RFC1918 under the VPC-air-gap opt-in — so a
+  non-permitted host reads unavailable with no socket); and
+  `integrations/stubs/cache.py::RedisCache` (a non-loopback `REDIS_HOST`
+  refused pre-socket; callers fall back to the in-memory cache; the
+  loopback sidecar stays reachable).
+- **`*.localhost` subdomains are refused offline.** The DNS-free loopback
+  carve-out is exactly `127.0.0.1`, `::1`, and the literal `localhost`:
+  RFC 6761 only says resolvers SHOULD answer `*.localhost` locally, so a
+  hosts-file entry or hostile resolver could map `foo.localhost` to a
+  public address and turn the name-based permit into an egress bypass for
+  callsites that hand the URL to their own transport. `_is_loopback_host`
+  (used by both the `SafeHTTPClient` air-gap gate and
+  `enforce_offline_egress`) no longer recognises the subdomain family.
 - **Master switch now authoritative in narrative retrieval.** `WebSearchRetriever`
   honors `MERCURY_OFFLINE` even when constructed with `offline_mode=False`, so
   the env var alone forces fail-closed behavior system-wide.
 - **Proven, not asserted.** `tests/security/test_offline_egress_gate.py` pins
-  the whole contract: external refused with zero `getaddrinfo` calls, loopback
-  IP literals permitted with no resolution, `localhost` permitted, the online
-  path unaffected, both data-source transports refused before the socket, and
-  every one of the five review-surfaced paths refused pre-socket (with the
-  cache-serving carve-outs of MIT-BIH and the NIST fetcher exercised offline).
+  the whole contract (the suite grew from 13 to 43 pinned cases): external
+  refused with zero `getaddrinfo` calls, loopback IP literals permitted with
+  no resolution, `localhost` permitted while `*.localhost` subdomains refuse,
+  the online path unaffected, both data-source transports refused before the
+  socket, every review-surfaced and sweep-surfaced path refused pre-socket
+  (with the cache-serving carve-outs of MIT-BIH and the NIST fetcher
+  exercised offline), the integrator's explicit offline skip, the batch
+  validator's pre-DNS rejection, the hub adapters' connect/flush/disconnect
+  behaviour, and the SMTP / Ollama-probe / Redis suppressions.
   `docs/OFFLINE_OPERATION.md` is corrected to describe all egress points and
   the loopback carve-out accurately.
 

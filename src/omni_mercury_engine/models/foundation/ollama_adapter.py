@@ -349,7 +349,47 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         self._check_availability()
 
     def _check_availability(self) -> None:
-        """Check if Ollama server is running and accessible."""
+        """Check if Ollama server is running and accessible.
+
+        The raw TCP probe below is itself egress, so it runs the SAME
+        SafeHTTPClient policy as the adapter's real requests first
+        (``_egress_kwargs``: loopback-only by default, RFC1918 under the
+        explicit VPC-air-gap opt-in). Under ``MERCURY_OFFLINE`` a
+        non-permitted host therefore marks the adapter unavailable without
+        opening a socket; a misconfigured (gate-refused) host likewise reads
+        unavailable with an operator-actionable log. The probe's contract
+        stays "never raises".
+        """
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+        try:
+            SafeHTTPClient.validate_url(
+                self.ollama_config.base_url,
+                allow_http=True,
+                user_configured=True,
+                **self._egress_kwargs(),
+            )
+        except OfflineModeError:
+            logger.info(
+                "Ollama availability probe refused: MERCURY_OFFLINE is set and "
+                "%s is not reachable under the air-gap policy; adapter "
+                "unavailable.",
+                self.ollama_config.host,
+            )
+            self._is_available = False
+            return
+        except UnsafeURLError as e:
+            logger.error(
+                "Ollama endpoint refused by the egress gate (%s); marking the "
+                "adapter unavailable. Fix OLLAMA_HOST / MERCURY_OLLAMA_HOST / "
+                "OllamaConfig.host to a loopback address (or an RFC1918 host "
+                "under MERCURY_OFFLINE_ALLOW_PRIVATE).",
+                e,
+            )
+            self._is_available = False
+            return
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.ollama_config.connect_timeout)

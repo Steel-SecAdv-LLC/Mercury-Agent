@@ -362,11 +362,13 @@ class NISTCSFReferenceFetcher:
             Raw XLSX bytes.
 
         Raises:
-            OfflineModeError: If ``MERCURY_OFFLINE`` is set and no fresh
-                cached payload exists.  A fresh cache is served above the
-                gate, so a primed air-gapped deployment keeps working; an
-                actual network fetch is refused before DNS or a socket.
-                Use ``reference_source="builtin"`` on
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the call
+                would reach the network -- i.e. no fresh cached payload
+                exists, or ``force_refresh=True`` bypassed the cache.  With
+                ``force_refresh=False`` a fresh cache is served above the
+                gate, so a primed air-gapped deployment keeps working; any
+                actual fetch is refused before DNS or a socket.  Use
+                ``reference_source="builtin"`` on
                 :class:`NISTCSFIntegrator` for cache-free air-gapped use.
             NISTCSFReferenceError: If the HTTP request fails, the
                 payload is empty, or the bytes are not a recognisable

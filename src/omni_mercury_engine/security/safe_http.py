@@ -249,17 +249,27 @@ def _host_ip_literal(
 def _is_loopback_host(host: str) -> bool:
     """Return True if ``host`` is a loopback target decidable without DNS.
 
-    Recognises loopback IP literals (127/8, ``::1``) and the
-    ``localhost`` name family. The air-gap gate uses this to permit
+    Recognises loopback IP literals (127/8, ``::1``) and the literal
+    ``localhost`` name only. The air-gap gate uses this to permit
     on-box adapters (a local Ollama model, a Redis sidecar) while
     performing **no** network resolution -- so the offline guarantee
     holds even when no resolver is reachable. A hostname that is not a
     loopback literal is treated as non-loopback here; the strict
     ``loopback_only`` gate still resolves and re-checks it downstream
     when the caller has opted into on-box enforcement.
+
+    ``*.localhost`` SUBDOMAINS are deliberately **not** recognised:
+    RFC 6761 only says resolvers SHOULD answer them locally, and on
+    glibc without systemd-resolved they are forwarded to the configured
+    resolver -- an ``/etc/hosts`` entry, a dnsmasq wildcard, or a
+    hostile resolver can map ``foo.localhost`` to a public address,
+    which would turn this DNS-free permit into an egress bypass under
+    ``MERCURY_OFFLINE`` for callsites that hand the URL to their own
+    transport. Operators should address on-box services as ``localhost``
+    or a loopback IP literal (the documented carve-out).
     """
     h = host.strip().strip("[]").lower()  # tolerate bracketed IPv6 literals
-    if h == "localhost" or h.endswith(".localhost"):
+    if h == "localhost":
         return True
     try:
         return ipaddress.ip_address(h).is_loopback

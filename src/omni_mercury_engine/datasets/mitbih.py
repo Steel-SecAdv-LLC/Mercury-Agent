@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-from .exceptions import DataSourceUnavailableError, OfflineModeError, offline_mode_active
+from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -160,8 +160,12 @@ class MITBIHLoader(DatasetLoader):
             logger.info("MIT-BIH already cached")
             return True
 
-        if offline_mode_active():
-            raise OfflineModeError(self.DATASET_URL)
+        # Shared air-gap gate (lazy import, the codebase-wide pattern).
+        # PhysioNet is never a loopback host, so this refuses exactly when
+        # MERCURY_OFFLINE is set.
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        enforce_offline_egress(self.DATASET_URL)
 
         try:
             import wfdb
