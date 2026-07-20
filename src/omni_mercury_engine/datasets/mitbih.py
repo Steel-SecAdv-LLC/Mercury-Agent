@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-from .exceptions import DataSourceUnavailableError
+from .exceptions import DataSourceUnavailableError, OfflineModeError, offline_mode_active
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +147,22 @@ class MITBIHLoader(DatasetLoader):
         """Download MIT-BIH records via wfdb.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the segments
+                are not already cached.  wfdb fetches from PhysioNet with its
+                own ``requests`` transport, outside the dataset chokepoint
+                (``base.http_get_with_retry``) and outside ``SafeHTTPClient``,
+                so the air-gap refusal must land here -- before wfdb (or any
+                socket) is touched.  A primed cache keeps working offline.
             DataSourceUnavailableError: If wfdb is not installed or download fails.
         """
+        cache_file = self.data_path / "mitbih_segments.npz"
+        if cache_file.exists():
+            logger.info("MIT-BIH already cached")
+            return True
+
+        if offline_mode_active():
+            raise OfflineModeError(self.DATASET_URL)
+
         try:
             import wfdb
         except ImportError as e:
@@ -160,11 +174,6 @@ class MITBIHLoader(DatasetLoader):
                     "MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
                 ),
             ) from e
-
-        cache_file = self.data_path / "mitbih_segments.npz"
-        if cache_file.exists():
-            logger.info("MIT-BIH already cached")
-            return True
 
         self.data_path.mkdir(parents=True, exist_ok=True)
 

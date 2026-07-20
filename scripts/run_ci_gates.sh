@@ -27,7 +27,7 @@
 #
 # Usage:
 #   bash scripts/run_ci_gates.sh            # all gates (mypy lanes dominate; ~5-10 minutes)
-#   bash scripts/run_ci_gates.sh --fast     # skip the three mypy lanes (finishes in ~1 minute)
+#   bash scripts/run_ci_gates.sh --fast     # skip the four mypy lanes (finishes in ~1 minute)
 set -uo pipefail
 
 FAST=0
@@ -94,9 +94,20 @@ if [[ "${FAST}" -eq 0 ]]; then
     --disallow-subclassing-any \
     --show-error-codes \
     --no-warn-unused-configs
+
+  # Shipped-artifact scripts — KEEP IN LOCKSTEP with the ci.yml list
+  # ("Run MyPy on shipped-artifact scripts").  The rest of scripts/
+  # carries pre-existing errors and graduates file-by-file, mirroring
+  # the strict-test-dirs mechanism above.
+  run_gate "mypy shipped-artifact scripts lane (ci.yml: scripts)" \
+    mypy scripts/harvest_sigma_baseline.py \
+    scripts/train_sigma_immutable.py \
+    scripts/collect_sw_eng_metrics.py \
+    scripts/fit_weapons_gate_calibration.py \
+    --show-error-codes
 else
   echo ""
-  echo "==> (--fast: skipping the three mypy lanes)"
+  echo "==> (--fast: skipping the four mypy lanes)"
 fi
 
 # --- Summary ----------------------------------------------------------------

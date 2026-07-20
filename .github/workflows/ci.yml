@@ -596,6 +596,28 @@ jobs:
             --pretty \
             --no-warn-unused-configs
 
+      - name: Run MyPy on shipped-artifact scripts
+        # ---- scripts/ blind-spot closure (PR #344 review) ----
+        # The src/ and tests/ lanes never covered scripts/, so type
+        # errors in the build-time pipeline scripts that REGENERATE
+        # shipped artifacts (σ_Immutable baseline + weights + corpus,
+        # the SW-eng metrics overlay, the weapons-gate calibration)
+        # went uncaught.  This lane pins those scripts under the same
+        # strict pyproject config as src/.
+        #
+        # Intentionally additive, mirroring the graduated-test-dirs
+        # mechanism above: the rest of scripts/ carries pre-existing
+        # errors (45 across 11 files, counted 2026-07-20) and stays
+        # off the gate until each file is cleaned; when one is, add
+        # it to the list below.
+        run: |
+          mypy scripts/harvest_sigma_baseline.py \
+            scripts/train_sigma_immutable.py \
+            scripts/collect_sw_eng_metrics.py \
+            scripts/fit_weapons_gate_calibration.py \
+            --show-error-codes \
+            --pretty
+
       - name: Pin numpy to the declared floor (regression guard)
         # The steps above type-check against whatever numpy ``pip`` resolves
         # (currently 2.4.6).  pyproject declares ``numpy>=2.4.0`` as the
@@ -626,6 +648,12 @@ jobs:
             --show-error-codes \
             --pretty \
             --no-warn-unused-configs
+          mypy scripts/harvest_sigma_baseline.py \
+            scripts/train_sigma_immutable.py \
+            scripts/collect_sw_eng_metrics.py \
+            scripts/fit_weapons_gate_calibration.py \
+            --show-error-codes \
+            --pretty
 
   # ===========================================================================
   # Stage 3: Security Scanning

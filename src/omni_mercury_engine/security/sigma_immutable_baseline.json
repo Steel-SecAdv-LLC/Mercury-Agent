@@ -165,7 +165,8 @@
     "omni_metasymbolic_grounding"
   ],
   "provenance": "Harvested intact operational scalar vector from a healthy engine (GlobalOmniScalarNetwork._collect_all_scalars). This is the config-integrity reference the \u03c3_Immutable gate is trained to recognise; deviations are tampers. Regenerate via scripts/harvest_sigma_baseline.py when the operational layout changes.",
-  "reference_sigma_score": 0.972732842,
+  "reference_sigma_score": 0.9999216795,
+  "reference_sigma_score_note": "Point-in-time snapshot: the score assigned by the \u03c3_Immutable gate whose weights were shipped when this harvest ran. Retraining the gate from this baseline (scripts/train_sigma_immutable.py) changes the shipped gate's live constant (security/sigma_calibration.py::SIGMA_FROZEN_CONSTANT) without touching this file, so this field lags the live score until the next harvest. Corpus generation and training consume names/values_hex/anchor_names only; this score is informational.",
   "schema": "sigma_immutable_baseline/v1",
   "used_band_end": 180,
   "values_hex": [

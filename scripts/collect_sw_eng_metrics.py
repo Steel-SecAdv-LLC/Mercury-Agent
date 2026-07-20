@@ -343,7 +343,7 @@ def _ossf_metrics() -> dict[str, Any]:
     scalars["omni_ossf_dangerous_workflow"] = _penalty(1.0 if no_dangerous else 0.0)
     scalars["omni_ossf_vulnerabilities"] = _penalty(1.0 if has_security_policy else 0.0)
 
-    raw = {k: bool(v) for k, v in positive_checks.items()}
+    raw: dict[str, Any] = {k: bool(v) for k, v in positive_checks.items()}
     raw["no_dangerous_workflow"] = bool(no_dangerous)
     raw["has_security_policy"] = bool(has_security_policy)
     raw["pinned_actions_fraction"] = round(pin_frac, 4)

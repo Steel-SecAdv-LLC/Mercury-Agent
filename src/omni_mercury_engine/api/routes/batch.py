@@ -503,7 +503,22 @@ async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
     real source of callback timeouts) and ``asyncio.TimeoutError`` (Python's
     builtin ``TimeoutError`` since 3.11) so the intent is documented and the
     distinction shows up in logs.
+
+    Air-gap: ``MERCURY_OFFLINE`` suppresses the callback entirely.  Callback
+    URLs are caller-supplied and validated to be public HTTPS endpoints, so
+    under the air-gap every one of them is refused egress; because this
+    coroutine's contract is "failures never escape", the refusal is a logged
+    skip (before httpx or any socket is touched), not a raise.
     """
+    from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+    if offline_mode_active():
+        logger.warning(
+            "Callback for job %s suppressed: MERCURY_OFFLINE is set; "
+            "refusing webhook egress to the caller-supplied URL",
+            job_id,
+        )
+        return
     try:
         import httpx
 

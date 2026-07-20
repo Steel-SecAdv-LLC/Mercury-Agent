@@ -34,6 +34,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -46,7 +47,7 @@ BASELINE_PATH = _SECURITY_DIR / "sigma_immutable_baseline.json"
 BASELINE_SCHEMA = "sigma_immutable_baseline/v1"
 
 
-def harvest(domains: list[str]) -> dict:
+def harvest(domains: list[str]) -> dict[str, Any]:
     """Harvest the intact operational vector and verify cross-domain constancy."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
     from omni_mercury_engine.core.global_omni_scalar_network import (
@@ -111,6 +112,17 @@ def harvest(domains: list[str]) -> dict:
         "domains_verified": list(domains),
         "domains_constant": len(set(per_domain_scores.values())) == 1,
         "reference_sigma_score": per_domain_scores[domains[0]],
+        "reference_sigma_score_note": (
+            "Point-in-time snapshot: the score assigned by the σ_Immutable "
+            "gate whose weights were shipped when this harvest ran. "
+            "Retraining the gate from this baseline "
+            "(scripts/train_sigma_immutable.py) changes the shipped gate's "
+            "live constant (security/sigma_calibration.py::"
+            "SIGMA_FROZEN_CONSTANT) without touching this file, so this "
+            "field lags the live score until the next harvest. Corpus "
+            "generation and training consume names/values_hex/anchor_names "
+            "only; this score is informational."
+        ),
         "ethical_band_end": int(SIGMA_ETHICAL_BAND_END),
         "used_band_end": int(SIGMA_USED_BAND_END),
         "input_dim": int(SIGMA_IMMUTABLE_DIM),

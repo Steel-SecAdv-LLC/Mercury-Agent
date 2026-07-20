@@ -509,10 +509,24 @@ class HTTPClient:
             HTTP response.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the target
+                is not a loopback host.  ``HTTPClient`` is publicly exported
+                with its own aiohttp transport (outside ``SafeHTTPClient``),
+                so it enforces the air-gap itself -- before the circuit
+                breaker, the retry loop, or any socket.  A loopback target
+                (a local sidecar) stays reachable.
             CircuitOpenError: If circuit breaker is open.
             HTTPError: If request fails or returns error status.
         """
         url = self._build_url(endpoint)
+
+        # Air-gap gate: fires before the resilience machinery so an offline
+        # refusal is never retried, never trips a breaker, and never reaches
+        # a transport (aiohttp or the no-network stub).
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        enforce_offline_egress(url)
+
         merged_headers = self._merge_headers(headers)
         circuit_breaker = self._get_circuit_breaker(endpoint)
 

@@ -24,6 +24,7 @@ optional integrations.
 | On-box model (Ollama at `127.0.0.1:11434`) and local sidecars (Redis) | Reachable | **Still reachable** — loopback is explicitly permitted so a local model keeps executing actions air-gapped |
 | Live data-source integrations (`data_sources/`) | Reach their upstreams | Refused before the socket at the source's own transport gate (`data_sources/base.py::_http_get`/`_http_get_sync`) |
 | Web/API enrichment via the shared egress client (`narrative/`, `integrations/`, medical/geological loaders) | Reach their upstreams | Refused before DNS or socket at the `SafeHTTPClient` egress gate — every non-loopback destination raises `OfflineModeError` |
+| Own-transport callsites (MIT-BIH via wfdb, cognitive httpx sources, NIST CSF reference fetch, batch webhook callbacks, `integrations` HTTPClient + platform adapters) | Reach their upstreams | Refused pre-DNS/pre-socket via the shared `safe_http.enforce_offline_egress` gate; primed caches (MIT-BIH segments, NIST CSF reference) still serve, loopback sidecars stay reachable, and the batch webhook is a logged skip (its contract is "failures never escape") |
 
 The switch is enforced at **every outbound egress point**, each failing closed
 before a socket is opened, so no single layer can leak past it:
@@ -44,6 +45,32 @@ before a socket is opened, so no single layer can leak past it:
   destination — the air-gap from the public internet is preserved.
 - **Reasoning / LLM layer** — `FallbackLLMChain` and the reasoning router never
   construct or call a cloud adapter when the switch is set; local + template only.
+- **Own-transport callsites** — a handful of callsites legitimately keep a
+  transport that is neither the dataset chokepoint, the data-source httpx
+  layer, nor `SafeHTTPClient`. Each applies the same policy through the shared
+  `security/safe_http.py::enforce_offline_egress` gate (non-loopback refused
+  **before DNS or a socket**; loopback permitted), so none of them can leak
+  past the switch:
+  - `datasets/mitbih.py::MITBIHLoader.download` — wfdb fetches PhysioNet with
+    its own `requests` transport; an uncached download refuses, a primed
+    segment cache serves (without even importing wfdb).
+  - `cognitive/anomaly_detection_enhanced.py::USGSEarthquakeSource.fetch` /
+    `NOAAWeatherSource.fetch` — ad-hoc httpx enrichment sources; the refusal
+    propagates loudly (their handlers swallow transport errors only).
+  - `compliance/nist_csf_integrator.py::NISTCSFReferenceFetcher.fetch_payload`
+    — a fresh cached reference still serves; an actual fetch (including the
+    one triggered by constructing `NISTCSFIntegrator` with the default
+    `reference_source="live"`) refuses. Air-gapped deployments should use
+    `reference_source="builtin"` or prime the cache while online.
+  - `api/routes/batch.py::_send_callback` — webhook callbacks to
+    caller-supplied URLs are suppressed as a logged skip before httpx or any
+    socket is touched (this background task's contract is "failures never
+    escape", so it skips rather than raises).
+  - `integrations/http/client.py::HTTPClient.request` and every
+    `integrations/cross_platform_hub.py` adapter transport (HTTP platform,
+    Prometheus pushgateway, OTLP HTTP) — gated per call, before the circuit
+    breaker / retry machinery; a loopback sidecar (local pushgateway, OTLP
+    collector, or API stub) stays reachable.
 
 **Local-first is the baseline, not a consequence of the flag.** With
 `MERCURY_OFFLINE` unset, the reasoning backend still runs local + template only
@@ -108,5 +135,11 @@ Two suites pin the whole contract:
   permits loopback IP literals with no resolution and `localhost`, leaves the
   online path unaffected, and refuses even an allowlisted external host under
   the switch; the live data-source httpx transport (sync and async) refuses
-  before the socket; and `WebSearchRetriever` honors the master switch even when
-  constructed with `offline_mode=False`.
+  before the socket; `WebSearchRetriever` honors the master switch even when
+  constructed with `offline_mode=False`; and every own-transport callsite is
+  pinned — the `enforce_offline_egress` helper itself (external refused
+  pre-DNS, loopback permitted, no-op online), the MIT-BIH loader (uncached
+  refused pre-socket, primed cache served offline), the cognitive httpx
+  sources, the NIST CSF fetcher (uncached refused, fresh cache served
+  offline), the batch webhook (suppressed without touching a socket), the
+  integrations `HTTPClient`, and the cross-platform hub adapters.

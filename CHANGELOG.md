@@ -49,13 +49,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `SafeHFLoader.load_model` sets `local_files_only` under offline so a cached
     foundation/VLM load succeeds and an uncached one fails fast with a clear
     error instead of hanging on a dead network.
+- **Five own-transport egress paths closed (review follow-up).** A review sweep
+  found five callsites whose transports run outside both the dataset
+  chokepoint and `SafeHTTPClient`; each now applies the same air-gap policy
+  via the new shared `security.safe_http.enforce_offline_egress` gate
+  (non-loopback refused pre-DNS/pre-socket, loopback stays open):
+  - `MITBIHLoader.download()` — wfdb fetches PhysioNet with its own
+    `requests` transport; an uncached download now refuses offline (and a
+    primed cache is served before the wfdb import, so cached air-gapped use
+    no longer even requires wfdb).
+  - `cognitive.anomaly_detection_enhanced.USGSEarthquakeSource.fetch()` /
+    `NOAAWeatherSource.fetch()` — the ad-hoc httpx clients refuse before any
+    socket; their catch-all handlers swallow transport errors only, never
+    the offline refusal.
+  - `NISTCSFReferenceFetcher.fetch_payload()` — a fresh cached reference is
+    still served offline; an actual fetch (including at
+    `NISTCSFIntegrator(reference_source="live")` construction) refuses
+    pre-socket with a pointer to `reference_source="builtin"`.
+  - `api/routes/batch.py::_send_callback` — webhook callbacks to
+    caller-supplied URLs are suppressed (logged skip, per the
+    "failures never escape" background-task contract) before httpx or any
+    socket is touched.
+  - `integrations` — the publicly exported `HTTPClient` gates every request
+    before its circuit breaker / retry / aiohttp (or stub) layers, and every
+    `cross_platform_hub` adapter transport (HTTP platform, Prometheus
+    pushgateway, OTLP HTTP) gates each connect/send/fetch, keeping loopback
+    sidecars reachable.
 - **Master switch now authoritative in narrative retrieval.** `WebSearchRetriever`
   honors `MERCURY_OFFLINE` even when constructed with `offline_mode=False`, so
   the env var alone forces fail-closed behavior system-wide.
 - **Proven, not asserted.** `tests/security/test_offline_egress_gate.py` pins
   the whole contract: external refused with zero `getaddrinfo` calls, loopback
   IP literals permitted with no resolution, `localhost` permitted, the online
-  path unaffected, and both data-source transports refused before the socket.
+  path unaffected, both data-source transports refused before the socket, and
+  every one of the five review-surfaced paths refused pre-socket (with the
+  cache-serving carve-outs of MIT-BIH and the NIST fetcher exercised offline).
   `docs/OFFLINE_OPERATION.md` is corrected to describe all egress points and
   the loopback carve-out accurately.
 
@@ -120,34 +148,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security: SHA-pin all external GitHub Actions (supply-chain hardening)
 
-- The self-referential OpenSSF collector surfaced that only ~0.4% of
+- The self-referential supply-chain collector surfaced that only ~0.5% of
   ``uses:`` Action refs were SHA-pinned (tag-pinned instead — the exact
-  finding the repo's ``check_workflow_hardening.py`` warned on). All 200
-  external Action refs across 20 workflows are now pinned to the commit SHA
-  their tag currently points to, with a ``# <version>`` trailer so Dependabot
-  can still bump them — **same Action code runs, zero CI behaviour change**,
-  just supply-chain hardening. Local (``./``) composite actions are exempt.
+  finding the repo's ``check_workflow_hardening.py`` warned on). All **201**
+  external Action refs across the repo's **21** workflows are now pinned to
+  the commit SHA their tag currently points to (200 newly pinned here across
+  20 workflow files; the single ``dependabot/fetch-metadata`` ref in
+  ``dependabot-auto-merge.yml`` was already SHA-pinned), with a
+  ``# <version>`` trailer so Dependabot can still bump them — **same Action
+  code runs, zero CI behaviour change**, just supply-chain hardening. Local
+  (``./``) composite actions are exempt.
   ``check_workflow_hardening.py`` now emits zero tag-pin warnings; the
   ``omni_ossf_pinned_dependencies`` scalar rose from 1.02 to 1.98.
 
-### Added: real self-referential collectors for 21 of the 82 diagnostic SW-eng scalars
+### Added: real self-referential collectors for 36 of the 82 diagnostic SW-eng scalars
 
 - The GOSNN ``SOFTWARE_ENGINEERING`` group's 82 diagnostic (metric-only)
   scalars were static placeholder literals ("not computed from any analyzed
   code"). ``scripts/collect_sw_eng_metrics.py`` now computes **real**
   measurements of Mercury's own source tree — the Halstead suite (7),
-  cyclomatic complexity (1) and Maintainability Index (3) via stdlib ``ast``,
-  plus the OpenSSF-Scorecard checks (10) from real repo config — into
+  cyclomatic complexity (1) and Maintainability Index (3) via stdlib ``ast``;
+  the 10 Mercury-native supply-chain / repository-integrity checks from real
+  repo config; the 4 DORA metrics as VCS-history proxies from ``git log``;
+  the 4 NIST SSDF practice groups and 4 SLSA build-track measures from repo
+  state; and the 3 computable NIST SAMATE assurance measures — into
   ``core/sw_eng_metrics.json``; ``_apply_measured_sw_eng_metrics`` overlays
   them at GOSNN init. Values are mapped into each scalar's penalty/positive
   direction band, so they now vary with the real measurement while keeping the
   quality-model semantics (e.g. the repo's near-zero SHA-pinning of Actions
-  honestly reads at the low end of its positive band).
+  honestly read at the low end of its positive band until the pinning pass
+  below).
 - **Safety invariant preserved and pinned.** The overlay updates existing keys
   only — the SOFTWARE_ENGINEERING count stays 127, the scalars stay metric-only
   (filtered from the σ_Immutable operational vector), and **the σ score is
-  unchanged** by the measured values (verified). The remaining 61 scalars (ISO
-  25010 characteristics, DORA/SAMATE/ISO-5055/SSDF/SLSA, and the
+  unchanged** by the measured values (verified). The remaining 46 scalars (the
+  31 ISO 25010 quality characteristics, the 7 non-computable NIST SAMATE
+  measures, the 4 ISO/IEC 5055 assurance measures, and the
   essential/design/cognitive/npath complexity variants) stay documented
   placeholders — computing them would be fabrication or needs external
   telemetry. Merit-gated by ``tests/test_sw_eng_metrics_collector.py`` (real

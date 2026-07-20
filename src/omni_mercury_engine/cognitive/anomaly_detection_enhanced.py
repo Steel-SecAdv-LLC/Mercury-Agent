@@ -663,7 +663,20 @@ class USGSEarthquakeSource(ExternalDataSource):
         Returns:
             List of ExternalDataPoint objects with earthquake data.
             Returns empty list if API call fails (with warning logged).
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set.  This source
+                keeps its own httpx transport (outside ``SafeHTTPClient``),
+                so the air-gap gate fires here, before any socket; the
+                handlers below swallow transport errors only, never the
+                offline refusal.
         """
+        # Lazy import so the cognitive package never pays the security
+        # package's import cost unless a live fetch is actually attempted.
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        enforce_offline_egress(self.USGS_API_BASE)
+
         end_time = datetime.now(UTC)
         start_time = end_time - timedelta(days=self.days_back)
 
@@ -783,8 +796,17 @@ class NOAAWeatherSource(ExternalDataSource):
         Returns:
             List of ExternalDataPoint objects with weather alert data.
             Returns empty list if API call fails (with warning logged).
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set.  Same contract
+                as :meth:`USGSEarthquakeSource.fetch` -- this source keeps
+                its own httpx transport, so the air-gap gate fires here,
+                before any socket.
         """
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
         url = f"{self.NOAA_API_BASE}/alerts/active"
+        enforce_offline_egress(url)
         params: dict[str, str] = {"status": "actual"}
 
         if self.state:

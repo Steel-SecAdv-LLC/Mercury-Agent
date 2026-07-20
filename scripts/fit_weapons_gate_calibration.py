@@ -77,7 +77,8 @@ def _fit_logistic(
 
 def _predict(x: np.ndarray, w: np.ndarray) -> np.ndarray:
     xb = np.hstack([np.ones((x.shape[0], 1)), x])
-    return 1.0 / (1.0 + np.exp(-np.clip(xb @ w, -60, 60)))
+    p: np.ndarray = 1.0 / (1.0 + np.exp(-np.clip(xb @ w, -60, 60)))
+    return p
 
 
 def _ece(p: np.ndarray, y: np.ndarray, bins: int = 10) -> float:

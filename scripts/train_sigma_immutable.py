@@ -70,6 +70,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -115,7 +116,7 @@ def build_gate_network() -> nn.Sequential:
 def generate_dataset(
     n_samples: int = 10_000,
     seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Generate the labelled scalar-vector corpus from the harvested baseline.
 
     Positive (label 1, *intact*): the real harvested configuration plus
@@ -165,7 +166,7 @@ def train(
     lr: float = 1e-3,
     seed: int = 42,
     n_samples: int = 10_000,
-) -> tuple[nn.Sequential, dict]:
+) -> tuple[nn.Sequential, dict[str, Any]]:
     """Train the gate network and return (model, metrics)."""
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -189,7 +190,7 @@ def train(
 
     best_val_acc = 0.0
     best_state = model.state_dict()
-    metrics: dict = {"epochs": [], "best_epoch": 0, "best_val_acc": 0.0}
+    metrics: dict[str, Any] = {"epochs": [], "best_epoch": 0, "best_val_acc": 0.0}
 
     for epoch in range(1, epochs + 1):
         # --- train ---

@@ -7,7 +7,7 @@ Maintainability-Index measurements over ``src/omni_mercury_engine`` (via stdlib
 ``ast``) plus Mercury-native supply-chain / repository-integrity checks
 handwritten from repo config, and persists them
 to ``core/sw_eng_metrics.json``.  ``GlobalOmniScalarNetwork`` overlays them onto
-21 of the 82 diagnostic SOFTWARE_ENGINEERING scalars at init.
+36 of the 82 diagnostic SOFTWARE_ENGINEERING scalars at init.
 
 This gate pins the invariants that keep the wiring honest AND safe:
 
@@ -102,7 +102,7 @@ def test_artifact_wires_exactly_the_expected_scalars() -> None:
 
 
 def test_collector_recomputes_real_valid_values() -> None:
-    """A live run of the collector produces real, in-band values for all 21 scalars.
+    """A live run of the collector produces real, in-band values for all 36 scalars.
 
     Not pinned bit-exact to the committed artifact: the metrics are a live
     function of the source tree (and of the Python ``ast`` version CI runs on),

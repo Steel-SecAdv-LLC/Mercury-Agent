@@ -267,6 +267,42 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+def enforce_offline_egress(url: str) -> None:
+    """Air-gap gate for callsites that keep their own HTTP transport.
+
+    Most egress goes through :class:`SafeHTTPClient`, whose
+    :meth:`~SafeHTTPClient.validate_url` enforces ``MERCURY_OFFLINE``
+    already.  A handful of callsites legitimately keep a different
+    transport (httpx sources, aiohttp adapters, the wfdb PhysioNet
+    downloader, webhook callbacks) and must apply the same policy
+    before their transport opens a socket.  This helper is that policy:
+    under ``MERCURY_OFFLINE`` every non-loopback destination raises,
+    decided **without DNS** (the same pre-resolution predicate the
+    ``SafeHTTPClient`` gate uses) so the refusal holds where no
+    resolver is reachable, while a loopback target (a local Ollama
+    model, a Prometheus sidecar) stays permitted.
+
+    Args:
+        url: The destination the caller is about to contact.
+
+    Raises:
+        OfflineModeError: ``MERCURY_OFFLINE`` is set and ``url`` does
+            not target a loopback host.
+    """
+    # Lazy import -- the codebase-wide pattern -- so this security
+    # primitive never pulls the heavy datasets package at module load.
+    from omni_mercury_engine.datasets.exceptions import (
+        OfflineModeError,
+        offline_mode_active,
+    )
+
+    if not offline_mode_active():
+        return
+    host = urlparse(url).hostname or ""
+    if not _is_loopback_host(host):
+        raise OfflineModeError(url)
+
+
 class _PinnedDNSHTTPAdapter:
     """Lazy proxy for the real requests-based HTTPAdapter.
 
@@ -932,4 +968,5 @@ class SafeHTTPClient:
 __all__ = [
     "SafeHTTPClient",
     "UnsafeURLError",
+    "enforce_offline_egress",
 ]
