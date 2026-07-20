@@ -109,9 +109,11 @@ triaging survivors into the corpus/pending set, not by a single benchmark run.
 
 The **enforced CI floor is the pinned baseline `0.34`**. The dominant bypass class
 is character obfuscation (spacing/punctuation) that defeats lexical matching; the
-deterministic first-run survival rate (`0.333333`, see
-`benchmarks/red_team_baseline.json`) is rounded up to the pinned no-weakening
-ceiling `0.34`. The lane checks `improves_on_baseline`, not `meets_target`:
+deterministic first-run survival rate (`0.335306` against the current 163-row
+seed corpus, re-pinned 2026-07-20; `0.333333` at the original 41-row corpus --
+see `benchmarks/red_team_baseline.json`) is rounded up to the pinned
+no-weakening ceiling `0.34`. The lane checks `improves_on_baseline`, not
+`meets_target`:
 
 ```bash
 PYTHONPATH=src python benchmarks/red_team_harness.py --check    # no-weakening gate (exit 1)
@@ -120,7 +122,7 @@ PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the su
 
 `--check` fails (exit 1) when a gate change *raises* the survival rate above the
 floor — i.e. weakens the gate. It reads the floor from the pinned
-`red_team_baseline.json` (`survival_rate`, `0.333333`) and separately enforces
+`red_team_baseline.json` (`survival_rate`, `0.335306`) and separately enforces
 that this floor stays ≤ the declared
 `VALUE_METRICS["adversarial_co_training"].baseline` (`0.34`, the ceiling), so a
 higher floor can never be pinned without first re-declaring the value metric.

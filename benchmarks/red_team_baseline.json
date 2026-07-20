@@ -1,7 +1,7 @@
 {
   "harness_version": "1.0",
-  "n_candidates": 420,
-  "n_skipped_seeds": 15,
-  "n_survivors": 140,
-  "survival_rate": 0.333333
+  "n_candidates": 1014,
+  "n_skipped_seeds": 99,
+  "n_survivors": 340,
+  "survival_rate": 0.335306
 }

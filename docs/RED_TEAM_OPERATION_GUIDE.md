@@ -89,12 +89,12 @@ The summary shape:
 ```json
 {
   "harness_version": "1.0",
-  "n_seeds": 29,
-  "n_skipped_seeds": 15,
-  "n_candidates": 420,
-  "n_survivors": 140,
+  "n_seeds": 133,
+  "n_skipped_seeds": 99,
+  "n_candidates": 1014,
+  "n_survivors": 340,
   "n_downgraded": 0,
-  "survival_rate": 0.333333,
+  "survival_rate": 0.335306,
   "appended_to_pending": 0
 }
 ```
@@ -118,11 +118,14 @@ The dominant bypass class is **character obfuscation** — `char_spacing` and
 `s.a.r.i.n` no longer match the `sarin` lexicon entry while remaining trivially
 legible to a human or a meaning-level model.
 
-The measured deterministic first-run survival rate is **~0.33**
-(`benchmarks/red_team_baseline.json`: `survival_rate=0.333333`, `n_candidates=420`,
-`n_survivors=140`). This is a transparent finding, not a bug to paper over: a
-lexical-only gate surface *is* obfuscation-porous. It is pinned as a
-**no-weakening floor** so the number can only go down.
+The measured deterministic first-run survival rate is **~0.335**
+(`benchmarks/red_team_baseline.json`: `survival_rate=0.335306`, `n_candidates=1014`,
+`n_survivors=340`, re-pinned 2026-07-20 against the seed corpus's 41->163-row
+expansion -- see `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`; the underlying rate
+against a fixed seed set is essentially unchanged, 0.333333 -> 0.335306, well
+under the 0.34 declared ceiling). This is a transparent finding, not a bug to
+paper over: a lexical-only gate surface *is* obfuscation-porous. It is pinned
+as a **no-weakening floor** so the number can only go down.
 
 The stream's value metric (`omni_mercury_engine.intel.value_metrics.VALUE_METRICS['adversarial_co_training']`):
 
