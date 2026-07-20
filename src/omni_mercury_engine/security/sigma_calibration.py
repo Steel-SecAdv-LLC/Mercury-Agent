@@ -48,6 +48,8 @@ from omni_mercury_engine.medical.clinical_metrics import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
     from omni_mercury_engine.security.sigma_immutable_corpus import Baseline
 
@@ -261,7 +263,7 @@ def threshold_sweep(
     logits: np.ndarray[Any, Any],
     labels: np.ndarray[Any, Any],
     *,
-    thresholds: list[float],
+    thresholds: Sequence[float],
     temperature: float = 1.0,
     n_bins: int = 10,
 ) -> tuple[list[SigmaCalibrationPoint], float]:
@@ -270,7 +272,7 @@ def threshold_sweep(
     Args:
         logits: Gate logits.
         labels: Binary labels.
-        thresholds: Threshold grid to evaluate.
+        thresholds: Threshold grid to evaluate (read-only; a list or ndarray both work).
         temperature: Fixed temperature during the threshold sweep.
         n_bins: Bin count for calibration metrics.
 
