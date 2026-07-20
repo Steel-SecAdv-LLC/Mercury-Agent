@@ -9,8 +9,13 @@ Advanced cardiac anomaly detection for humanitarian healthcare:
 - Myocardial infarction risk prediction
 - Heart failure progression modeling
 
-⚠️ SIMULATION-BASED: Uses simulated ECG and biomarker data. Clinical validation required.
-Consult cardiologists before acting on predictions.
+Safety semantics (fail-closed): the Framingham risk score and cardiac biomarker
+reference ranges are deterministic, literature-validated instruments. Biomarker
+analysis only assesses the markers actually provided — a missing troponin is not
+read as normal. The ECG rhythm network is gated behind ``is_fitted`` and refuses
+to emit a rhythm class on random weights. Every result carries a decision-support
+disclaimer, provenance, and red-flag emergency routing (acute MI, life-threatening
+arrhythmia).
 
 Research sources:
 - MIT-BIH Arrhythmia Database methodologies
@@ -28,6 +33,11 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
+
+from omni_mercury_engine.medical.safety import (
+    ClinicalSafetyEnvelope,
+    build_provenance,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -71,6 +81,11 @@ class CardiologyPredictionResult:
     framingham_score: float | None = None
     acute_intervention_needed: bool = False
 
+    # Safety / honesty layer.
+    ml_ecg_available: bool = False
+    framingham_missing_inputs: list[str] = field(default_factory=list)
+    safety: ClinicalSafetyEnvelope = field(default_factory=ClinicalSafetyEnvelope)
+
 
 class ECGRhythmAnalyzer(nn.Module):
     """1D CNN + LSTM for ECG rhythm analysis.
@@ -84,6 +99,9 @@ class ECGRhythmAnalyzer(nn.Module):
     ) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.conv_layers = nn.Sequential(
             nn.Conv1d(num_leads, 64, kernel_size=7, padding=3),
@@ -140,6 +158,11 @@ class ECGRhythmAnalyzer(nn.Module):
         classification = self.classifier(context)
 
         return classification, attention_weights.squeeze(-1)
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
 
 
 class CardiacBiomarkerAnalyzer:
@@ -201,10 +224,12 @@ class CardiacBiomarkerAnalyzer:
         mi_risk = min(mi_indicators / 2.0, 1.0)
         hf_risk = min(heart_failure_indicators / 2.0, 1.0)
 
-        acute_mi = (
-            biomarkers.get("troponin_i_ng_ml", 0) > 0.4
-            or biomarkers.get("troponin_t_ng_ml", 0) > 0.1
-        )
+        # Acute-MI is assessed only from troponin that was actually provided — a
+        # missing troponin is not read as a normal (0) value.
+        trop_i = biomarkers.get("troponin_i_ng_ml")
+        trop_t = biomarkers.get("troponin_t_ng_ml")
+        troponin_measured = trop_i is not None or trop_t is not None
+        acute_mi = (trop_i is not None and trop_i > 0.4) or (trop_t is not None and trop_t > 0.1)
 
         return {
             "biomarker_anomalies": anomalies,
@@ -212,6 +237,7 @@ class CardiacBiomarkerAnalyzer:
             "mi_risk": mi_risk,
             "heart_failure_risk": hf_risk,
             "acute_mi_suspected": acute_mi,
+            "troponin_measured": troponin_measured,
             "recommendations": self._generate_biomarker_recommendations(mi_risk, hf_risk, acute_mi),
         }
 
@@ -254,6 +280,17 @@ class FraminghamRiskCalculator:
         Returns:
             Risk score and interpretation
         """
+        # A Framingham estimate needs these core drivers; when one is absent we
+        # fall back to a population-typical default but report which, so the
+        # estimate's assumptions are explicit rather than hidden.
+        core_inputs = (
+            "age",
+            "total_cholesterol_mg_dl",
+            "hdl_cholesterol_mg_dl",
+            "systolic_bp_mmhg",
+        )
+        missing_inputs = [k for k in core_inputs if patient_data.get(k) is None]
+
         age = patient_data.get("age", 50)
         gender = patient_data.get("gender", "male")
         total_chol = patient_data.get("total_cholesterol_mg_dl", 200)
@@ -280,6 +317,8 @@ class FraminghamRiskCalculator:
             "10_year_cvd_risk_percent": risk_percent,
             "risk_category": interpretation["category"],
             "recommendations": interpretation["recommendations"],
+            "missing_inputs": missing_inputs,
+            "complete": not missing_inputs,
         }
 
     def _calculate_male_points(
@@ -384,10 +423,12 @@ class FraminghamRiskCalculator:
             points += -2
         elif total_chol < 200:
             points += 0
-        elif total_chol < 240 or total_chol < 280:
+        elif total_chol < 240:
             points += 1
-        else:
+        elif total_chol < 280:
             points += 2
+        else:
+            points += 3
 
         if hdl_chol >= 60:
             points += -2
@@ -532,14 +573,25 @@ class CardiologyPredictor:
             stroke_risk=0.0,
         )
 
+        safety = result.safety
+
         if self.enable_ecg and "ecg_signal" in patient_data:
             ecg_result = self._analyze_ecg(patient_data["ecg_signal"])
-            result.arrhythmia_type = ecg_result["arrhythmia_type"]
-            result.ecg_anomalies = ecg_result["anomalies"]
-            result.confidence = max(result.confidence, ecg_result["confidence"])
+            result.ml_ecg_available = ecg_result["available"]
+            if ecg_result["available"]:
+                result.arrhythmia_type = ecg_result["arrhythmia_type"]
+                result.ecg_anomalies = ecg_result["anomalies"]
+                result.confidence = max(result.confidence, ecg_result["confidence"])
 
-            if ecg_result["arrhythmia_type"] != "normal_sinus_rhythm":
-                result.cardiac_risk_detected = True
+                if ecg_result["arrhythmia_type"] != "normal_sinus_rhythm":
+                    result.cardiac_risk_detected = True
+                if ecg_result["arrhythmia_type"] in (
+                    "ventricular_tachycardia",
+                    "ventricular_fibrillation",
+                ):
+                    safety.flag_emergency(
+                        f"life-threatening arrhythmia ({ecg_result['arrhythmia_type']})"
+                    )
 
         if self.enable_biomarkers and "biomarkers" in patient_data:
             if self.biomarker_analyzer is not None:
@@ -551,14 +603,30 @@ class CardiologyPredictor:
                 result.heart_failure_risk = biomarker_result["heart_failure_risk"]
                 result.clinical_recommendations.extend(biomarker_result["recommendations"])
                 result.acute_intervention_needed = biomarker_result["acute_mi_suspected"]
+                safety.provenance["biomarkers"] = build_provenance(
+                    instrument="CardiacBiomarkerAnalyzer",
+                    version="v1",
+                    inputs=patient_data["biomarkers"],
+                )
 
-                if biomarker_result["mi_risk"] > 0.5:
+                if biomarker_result["mi_risk"] > 0.5 or biomarker_result["acute_mi_suspected"]:
+                    # A suspected acute MI is, unambiguously, detected cardiac
+                    # risk — a real biomarker signal, independent of the ECG net.
                     result.cardiac_risk_detected = True
+                if biomarker_result["acute_mi_suspected"]:
+                    safety.flag_emergency("biomarkers suggest acute myocardial infarction")
 
         if "demographics" in patient_data:
             framingham = self.risk_calculator.calculate_risk(patient_data["demographics"])
             result.framingham_score = framingham["framingham_score"]
+            result.framingham_missing_inputs = framingham["missing_inputs"]
             result.clinical_recommendations.extend(framingham["recommendations"])
+            safety.note_unassessed([f"framingham.{k}" for k in framingham["missing_inputs"]])
+            safety.provenance["framingham"] = build_provenance(
+                instrument="FraminghamRiskScore",
+                version="v1",
+                inputs=patient_data["demographics"],
+            )
 
             cvd_risk = framingham["10_year_cvd_risk_percent"] / 100.0
             result.stroke_risk = cvd_risk * 0.3
@@ -567,16 +635,22 @@ class CardiologyPredictor:
         result.confidence = max(result.confidence, result.risk_score)
 
         self.logger.info(
-            f"Cardiology prediction: {result.arrhythmia_type}, "
-            f"MI risk={result.mi_risk:.2f}, HF risk={result.heart_failure_risk:.2f}"
+            "Cardiology prediction: %s (ml_ecg=%s), MI risk=%.2f, HF risk=%.2f, emergency=%s",
+            result.arrhythmia_type,
+            result.ml_ecg_available,
+            result.mi_risk,
+            result.heart_failure_risk,
+            result.safety.emergency,
         )
 
         return result
 
     def _analyze_ecg(self, ecg_signal: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze ECG signal for arrhythmias."""
-        if self.ecg_analyzer is None:
+        """Analyze ECG signal for arrhythmias, or abstain if untrained."""
+        if self.ecg_analyzer is None or not getattr(self.ecg_analyzer, "is_fitted", False):
+            # Fail-closed: an untrained ECG network's rhythm class is noise.
             return {
+                "available": False,
                 "arrhythmia_type": "normal_sinus_rhythm",
                 "confidence": 0.0,
                 "anomalies": [],
@@ -603,6 +677,7 @@ class CardiologyPredictor:
             anomalies.append("LIFE-THREATENING ARRHYTHMIA - IMMEDIATE INTERVENTION REQUIRED")
 
         return {
+            "available": True,
             "arrhythmia_type": detected_rhythm,
             "confidence": confidence,
             "anomalies": anomalies,

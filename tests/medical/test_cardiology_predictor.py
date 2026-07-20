@@ -625,3 +625,68 @@ class TestCardiologyIntegration:
         result = predictor.predict_cardiac_risk(patient_data)
         # Should detect risk due to critical troponin
         assert result.cardiac_risk_detected is True or result.acute_intervention_needed is True
+
+
+class TestCardiologyPhase1Safety:
+    """Phase 1 honesty: fail-closed instruments, gated ECG net, Framingham bug fix."""
+
+    def test_framingham_female_cholesterol_bands(self) -> None:
+        """The female total-cholesterol bands are distinct (fixes the unreachable <280 branch)."""
+        calc = FraminghamRiskCalculator()
+        base = {
+            "age": 45,  # 0 points female
+            "gender": "female",
+            "hdl_cholesterol_mg_dl": 50.0,  # -1
+            "systolic_bp_mmhg": 120,  # 0
+            "smoker": False,
+            "diabetes": False,
+        }
+        pts = {}
+        for chol in (150.0, 180.0, 220.0, 260.0, 300.0):
+            r = calc.calculate_risk({**base, "total_cholesterol_mg_dl": chol})
+            pts[chol] = r["framingham_score"]
+        # <160 -> -2, <200 -> 0, <240 -> +1, <280 -> +2, >=280 -> +3 (net of the
+        # constant -1 HDL). The four upper bands must be strictly increasing.
+        assert pts[180.0] < pts[220.0] < pts[260.0] < pts[300.0]
+        # The old bug collapsed 240-279 and 200-239 into the same +1 band.
+        assert pts[260.0] - pts[220.0] == 1
+        assert pts[300.0] - pts[260.0] == 1
+
+    def test_framingham_reports_missing_inputs(self) -> None:
+        """A Framingham estimate reports which core drivers were defaulted."""
+        calc = FraminghamRiskCalculator()
+        r = calc.calculate_risk({"gender": "male", "age": 55})
+        assert set(r["missing_inputs"]) == {
+            "total_cholesterol_mg_dl",
+            "hdl_cholesterol_mg_dl",
+            "systolic_bp_mmhg",
+        }
+        assert r["complete"] is False
+
+    def test_biomarker_missing_troponin_not_normalized(self) -> None:
+        """A missing troponin is unassessed, not read as a normal (0) value."""
+        analyzer = CardiacBiomarkerAnalyzer()
+        r = analyzer.analyze_biomarkers({"bnp_pg_ml": 500.0})
+        assert r["troponin_measured"] is False
+        assert r["acute_mi_suspected"] is False  # absence is not a normal troponin
+
+    def test_ecg_net_gated_when_untrained(self) -> None:
+        """The untrained ECG network does not surface a rhythm class."""
+        predictor = CardiologyPredictor()
+        assert predictor.ecg_analyzer is not None
+        assert predictor.ecg_analyzer.is_fitted is False
+        result = predictor.predict_cardiac_risk({"ecg_signal": np.random.randn(12, 1000)})
+        assert result.ml_ecg_available is False
+        # No arrhythmia is asserted from random weights.
+        assert result.arrhythmia_type == "normal_sinus_rhythm"
+        assert result.ecg_anomalies == []
+
+    def test_safety_envelope_and_acute_mi_emergency(self) -> None:
+        """Acute-MI biomarkers route to emergency; disclaimer + provenance present."""
+        predictor = CardiologyPredictor()
+        result = predictor.predict_cardiac_risk({"biomarkers": {"troponin_i_ng_ml": 0.9}})
+        assert result.acute_intervention_needed is True
+        assert result.cardiac_risk_detected is True
+        assert result.safety.emergency is True
+        assert "decision-support" in result.safety.disclaimer
+        assert "biomarkers" in result.safety.provenance

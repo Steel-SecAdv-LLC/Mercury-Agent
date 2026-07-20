@@ -38,10 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -75,10 +75,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -124,10 +124,10 @@ jobs:
       MERCURY_CI_REQUIRE_REAL_CLASSIFIER: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -171,15 +171,19 @@ jobs:
           mkdir -p artifacts
           PYTHONPATH=src:benchmarks python -c "
           import json
-          from eval_weapons_gate_adversarial import evaluate
+          from eval_weapons_gate_adversarial import evaluate, AxisMetrics
           from omni_mercury_engine.cognitive.harm_classifier import default_harm_classifier
           metrics = evaluate(classifier=default_harm_classifier())
-          print(json.dumps({k: v.to_dict() for k, v in metrics.items()}, indent=2))
+          def to_json(v):
+              if isinstance(v, AxisMetrics):
+                  return v.to_dict()
+              return {k: m.to_dict() for k, m in v.items()}
+          print(json.dumps({k: to_json(v) for k, v in metrics.items()}, indent=2))
           " | tee artifacts/meaning_level_sample_run.txt
 
       - name: Upload meaning-level sample run
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: meaning-level-sample-run
           path: artifacts/meaning_level_sample_run.txt
@@ -190,10 +194,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -224,7 +228,7 @@ jobs:
 
       - name: Upload OOF metrics + baseline + report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: rolling-corpus-oof
           path: |

@@ -31,6 +31,10 @@ _PACKAGE_ROOT = _REPO_ROOT / "src" / "omni_mercury_engine"
 # and so are intentionally excluded from package-data.
 _NOT_RUNTIME_DATA = {
     "security/sigma_immutable_registry.json",  # written by scripts/train_sigma_immutable.py only
+    # Build-time only: harvested by scripts/harvest_sigma_baseline.py and read by
+    # sigma_immutable_corpus.generate_corpus at corpus-build time; the runtime
+    # gate reads only the corpus/weights/signature, never the baseline.
+    "security/sigma_immutable_baseline.json",
 }
 
 

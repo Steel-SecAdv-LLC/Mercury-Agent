@@ -1098,10 +1098,15 @@ class ExplainableAnomalyDetector:
 
 CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
 
-| Lane                       | v1.7.x floor | Measured baseline | Headroom |
+| Lane                       | Current floor | Measured baseline | Headroom |
 |----------------------------|:------------:|:----------------------------------------------------:|:--------:|
-| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % (2026-05-17, run #1182 on `main`) | ~9.8 pts |
-| `COVERAGE_THRESHOLD_CORE` (core lane)    | **25** | 31.87 % (expanded lane, 2026-05-21)       | ~6.9 pts |
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **55** | 67.97 % (2026-07-18, PR #339 head) | ~13.0 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **30** | 37.94 % (2026-07-18, PR #339 head) | ~7.9 pts |
+
+Previous floors, kept for provenance: v1.7.x ran FULL **50** (baseline
+59.84 %, 2026-05-17, run #1182 on `main`) and CORE **25** (baseline
+31.87 %, expanded lane, 2026-05-21); both graduated to 55/30 in v2.1.x
+on the 2026-07-18 re-measurement.
 
 `.coveragerc` intentionally carries no `fail_under` — the gates are
 job-scoped only — and `pyproject.toml [tool.coverage.report] fail_under

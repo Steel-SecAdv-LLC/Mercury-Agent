@@ -407,7 +407,7 @@ class TestEngineSigmaImmutableInputFilter:
 
     A direct iteration of ``scalar_groups`` would let diagnostic
     measurement scalars (ISO 25010, Halstead, McCabe, NIST SAMATE, DORA,
-    SLSA, OpenSSF, ISO 5055, NIST SSDF) leak into the trained gate's
+    SLSA, supply-chain integrity, ISO 5055, NIST SSDF) leak into the trained gate's
     input vector — exactly the layout-poisoning failure the σ_Immutable
     fix is meant to prevent.  These regressions catch any future
     refactor that swaps in an unfiltered iteration at the boundary.

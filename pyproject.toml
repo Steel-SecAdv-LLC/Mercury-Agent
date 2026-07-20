@@ -136,9 +136,11 @@ ml = [
     # disagree about the ``requests.Session.request`` monkeypatch in
     # ``datasets/mitbih.py`` (lines 105/109): an unpinned/older mypy reports
     # the two ``# type: ignore`` comments as ``unused-ignore`` while the
-    # pinned 2.1.0 needs them.  Bump all three sites together.
-    "mypy==2.1.0",
-    "types-requests==2.33.0.20260518",
+    # pinned mypy needs them (verified still needed under 2.3.0).  Bump all
+    # three sites together (this [ml] extra, [dev] below, and the two
+    # ``.github/workflows/ci.yml`` install lines).
+    "mypy==2.3.0",
+    "types-requests==2.33.0.20260712",
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
     # Range requests; numcodecs (Blosc) decodes ARCO-ERA5 zarr chunks fetched
@@ -373,8 +375,8 @@ dev = [
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
-    "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
-    "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
+    "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",
     "pre-commit>=3.5.0",
 ]
@@ -506,6 +508,11 @@ omni_mercury_engine = [
     "security/sigma_immutable_corpus.json",
     "security/sigma_immutable_corpus.sig.json",
     "security/sigma_immutable_weights.pt",
+    # Real self-referential SW-eng metrics (Halstead/cyclomatic/MI + OpenSSF)
+    # overlaid onto the diagnostic scalars at GOSNN init by
+    # ``_apply_measured_sw_eng_metrics``; a non-editable install without it
+    # silently falls back to the static placeholders.
+    "core/sw_eng_metrics.json",
 ]
 
 # =============================================================================

@@ -27,7 +27,7 @@ class TestSOFACalculator:
     """Tests for Sequential Organ Failure Assessment scoring."""
 
     @pytest.fixture
-    def calculator(self):
+    def calculator(self) -> SOFACalculator:
         """Provide SOFA calculator instance."""
         return SOFACalculator()
 
@@ -46,15 +46,27 @@ class TestSOFACalculator:
         score = calculator._calculate_respiration({"pao2_fio2_ratio": 250})
         assert score == 2
 
-    def test_respiration_score_severe(self, calculator: Any) -> None:
-        """Test severe respiratory failure (100-199)."""
-        score = calculator._calculate_respiration({"pao2_fio2_ratio": 150})
-        assert score == 3
+    def test_respiration_score_severe_requires_support(self, calculator: Any) -> None:
+        """SOFA 3 (PaO2/FiO2 100-199) requires respiratory support; else caps at 2."""
+        # Without respiratory support, <200 caps at 2 (Vincent 1996).
+        assert calculator._calculate_respiration({"pao2_fio2_ratio": 150}) == 2
+        # With respiratory support, 100-199 scores 3.
+        assert (
+            calculator._calculate_respiration(
+                {"pao2_fio2_ratio": 150, "mechanical_ventilation": True}
+            )
+            == 3
+        )
 
-    def test_respiration_score_critical(self, calculator: Any) -> None:
-        """Test critical respiratory failure (<100)."""
-        score = calculator._calculate_respiration({"pao2_fio2_ratio": 80})
-        assert score == 4
+    def test_respiration_score_critical_requires_support(self, calculator: Any) -> None:
+        """SOFA 4 (PaO2/FiO2 <100) requires respiratory support; else caps at 2."""
+        assert calculator._calculate_respiration({"pao2_fio2_ratio": 80}) == 2
+        assert (
+            calculator._calculate_respiration(
+                {"pao2_fio2_ratio": 80, "mechanical_ventilation": True}
+            )
+            == 4
+        )
 
     def test_coagulation_score_normal(self, calculator: Any) -> None:
         """Test normal platelet count (>= 150k)."""
@@ -175,7 +187,7 @@ class TestQuickSOFACalculator:
     """Tests for qSOFA bedside screening."""
 
     @pytest.fixture
-    def calculator(self):
+    def calculator(self) -> QuickSOFACalculator:
         """Provide qSOFA calculator instance."""
         return QuickSOFACalculator()
 
@@ -263,7 +275,7 @@ class TestSepsisDetector:
     """Tests for the main SepsisDetector class."""
 
     @pytest.fixture
-    def detector(self):
+    def detector(self) -> SepsisDetector:
         """Provide SepsisDetector instance."""
         return SepsisDetector(enable_ml_prediction=False)
 
@@ -366,6 +378,186 @@ class TestSepsisDetector:
 
         if result.sepsis_stage not in [SepsisStage.NO_SEPSIS.value, "no_sepsis", 0]:
             assert result.bundle_compliance is not None
+
+
+class TestSOFAFailClosed:
+    """Missing inputs must abstain (unassessed), never score as a healthy organ."""
+
+    @pytest.fixture
+    def calculator(self) -> SOFACalculator:
+        """Provide SOFA calculator instance."""
+        return SOFACalculator()
+
+    def test_missing_organ_inputs_return_none(self, calculator: Any) -> None:
+        """Each organ scorer returns None when its required input is absent."""
+        assert calculator._calculate_respiration({}) is None
+        assert calculator._calculate_coagulation({}) is None
+        assert calculator._calculate_liver({}) is None
+        assert calculator._calculate_cardiovascular({}) is None
+        assert calculator._calculate_cns({}) is None
+        assert calculator._calculate_renal({}) is None
+
+    def test_empty_input_scores_zero_not_healthy(self, calculator: Any) -> None:
+        """An empty SOFA input yields 0 assessed organs, all unassessed — not a healthy 0/24."""
+        result = calculator.calculate_sofa({})
+        assert result["sofa_score"] == 0
+        assert result["sofa_is_lower_bound"] is True
+        assert set(result["unassessed_organs"]) == {
+            "respiration",
+            "coagulation",
+            "liver",
+            "cardiovascular",
+            "cns",
+            "renal",
+        }
+        assert result["assessed_organs"] == []
+
+    def test_partial_input_is_lower_bound(self, calculator: Any) -> None:
+        """A partial SOFA is flagged as a lower bound and lists what was unassessed."""
+        # Only platelets present (severe thrombocytopenia). Missing organs must
+        # not be scored as 0 — the total is a lower bound.
+        result = calculator.calculate_sofa({"platelets_k_ul": 15})
+        assert result["sofa_score"] == 4  # coagulation only
+        assert result["sofa_is_lower_bound"] is True
+        assert "coagulation" in result["assessed_organs"]
+        assert "renal" in result["unassessed_organs"]
+
+    def test_missing_creatinine_does_not_falsely_normalize_renal(self, calculator: Any) -> None:
+        """A missing creatinine with normal urine abstains rather than scoring renal 0."""
+        assert calculator._calculate_renal({"urine_output_ml_day": 1500}) is None
+        # Severe oliguria alone is still determinable.
+        assert calculator._calculate_renal({"urine_output_ml_day": 150}) == 4
+
+
+class TestQSOFAFailClosed:
+    """qSOFA abstains on missing components instead of assuming normal vitals."""
+
+    @pytest.fixture
+    def calculator(self) -> QuickSOFACalculator:
+        """Provide qSOFA calculator instance."""
+        return QuickSOFACalculator()
+
+    def test_missing_components_are_unassessed(self, calculator: Any) -> None:
+        """Absent vitals are reported unassessed and do not count as normal."""
+        result = calculator.calculate_qsofa({"respiratory_rate_bpm": 28})
+        assert result["qsofa_is_lower_bound"] is True
+        assert set(result["unassessed_components"]) == {"gcs_score", "systolic_bp_mmhg"}
+        assert result["qsofa_score"] == 1  # only the one present, met criterion
+
+
+class TestSepsisMLGate:
+    """The untrained progression network must never surface a number."""
+
+    def test_untrained_model_abstains(self) -> None:
+        """With ML enabled but no trained weights, no ML risk is emitted."""
+        import numpy as np
+
+        detector = SepsisDetector(enable_ml_prediction=True)
+        assert detector.progression_predictor is not None
+        assert detector.progression_predictor.is_fitted is False
+
+        patient_data = {
+            "vital_signs": {
+                "respiratory_rate_bpm": 26,
+                "gcs_score": 13,
+                "systolic_bp_mmhg": 90,
+            },
+            "temporal_sequence": np.zeros((8, 32), dtype=np.float32),
+        }
+        result = detector.detect_sepsis(patient_data)
+        assert result.ml_available is False
+        # Untrained net contributes nothing to the surfaced risks.
+        assert result.septic_shock_risk == 0.0
+        assert result.mortality_risk == 0.0
+
+    def test_predict_progression_reports_unavailable(self) -> None:
+        """_predict_progression returns available=False when unfitted."""
+        import numpy as np
+
+        detector = SepsisDetector(enable_ml_prediction=True)
+        out = detector._predict_progression(np.zeros((8, 32), dtype=np.float32))
+        assert out["available"] is False
+        assert out["shock_risk"] is None
+
+
+class TestSepsisSafetyEnvelope:
+    """Every result carries a disclaimer, provenance, and emergency routing."""
+
+    @pytest.fixture
+    def detector(self) -> SepsisDetector:
+        """Provide SepsisDetector without ML."""
+        return SepsisDetector(enable_ml_prediction=False)
+
+    def test_disclaimer_and_provenance_present(self, detector: Any) -> None:
+        """Result carries a decision-support disclaimer and input-hashed provenance."""
+        patient_data = {
+            "vital_signs": {
+                "respiratory_rate_bpm": 16,
+                "gcs_score": 15,
+                "systolic_bp_mmhg": 120,
+            },
+            "laboratory_values": {
+                "pao2_fio2_ratio": 450,
+                "platelets_k_ul": 250,
+                "bilirubin_mg_dl": 0.5,
+                "mean_arterial_pressure": 85,
+                "gcs_score": 15,
+                "creatinine_mg_dl": 0.9,
+                "urine_output_ml_day": 1500,
+            },
+        }
+        result = detector.detect_sepsis(patient_data)
+        assert result.safety.is_decision_support is True
+        assert result.safety.is_diagnosis is False
+        assert "decision-support" in result.safety.disclaimer
+        assert "sofa" in result.safety.provenance
+        assert len(result.safety.provenance["sofa"]["input_sha256"]) == 64
+
+    def test_septic_shock_flags_emergency(self, detector: Any) -> None:
+        """A septic presentation routes a lay reader to emergency care."""
+        patient_data = {
+            "vital_signs": {
+                "respiratory_rate_bpm": 28,
+                "gcs_score": 12,
+                "systolic_bp_mmhg": 85,
+            },
+            "laboratory_values": {
+                "pao2_fio2_ratio": 180,
+                "platelets_k_ul": 70,
+                "bilirubin_mg_dl": 5.0,
+                "mean_arterial_pressure": 55,
+                "gcs_score": 12,
+                "creatinine_mg_dl": 3.0,
+                "norepinephrine_mcg_kg_min": 0.2,
+                "urine_output_ml_day": 200,
+            },
+        }
+        result = detector.detect_sepsis(patient_data)
+        assert result.sepsis_detected is True
+        assert result.safety.emergency is True
+        assert result.safety.emergency_guidance is not None
+        assert "emergency" in result.safety.emergency_guidance.lower()
+
+    def test_healthy_patient_no_emergency(self, detector: Any) -> None:
+        """A clearly healthy assessment does not raise the emergency flag."""
+        patient_data = {
+            "vital_signs": {
+                "respiratory_rate_bpm": 14,
+                "gcs_score": 15,
+                "systolic_bp_mmhg": 125,
+            },
+            "laboratory_values": {
+                "pao2_fio2_ratio": 450,
+                "platelets_k_ul": 280,
+                "bilirubin_mg_dl": 0.6,
+                "creatinine_mg_dl": 0.8,
+                "mean_arterial_pressure": 90,
+                "gcs_score": 15,
+                "urine_output_ml_day": 1800,
+            },
+        }
+        result = detector.detect_sepsis(patient_data)
+        assert result.safety.emergency is False
 
 
 class TestSepsisStage:

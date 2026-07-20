@@ -230,6 +230,89 @@ def _is_loopback(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return ip.is_loopback
 
 
+def _host_ip_literal(
+    host: str,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Return ``host`` as an IP address if it is an IP literal, else None.
+
+    Used by the VPC-air-gap gate to classify a target *without DNS*: a public IP
+    literal is refused pre-resolution, while a private literal / named host is
+    deferred to the private-only resolve (which fails closed if DNS is down).
+    """
+    h = host.strip().strip("[]")
+    try:
+        return ipaddress.ip_address(h)
+    except ValueError:
+        return None
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True if ``host`` is a loopback target decidable without DNS.
+
+    Recognises loopback IP literals (127/8, ``::1``) and the literal
+    ``localhost`` name only. The air-gap gate uses this to permit
+    on-box adapters (a local Ollama model, a Redis sidecar) while
+    performing **no** network resolution -- so the offline guarantee
+    holds even when no resolver is reachable. A hostname that is not a
+    loopback literal is treated as non-loopback here; the strict
+    ``loopback_only`` gate still resolves and re-checks it downstream
+    when the caller has opted into on-box enforcement.
+
+    ``*.localhost`` SUBDOMAINS are deliberately **not** recognised:
+    RFC 6761 only says resolvers SHOULD answer them locally, and on
+    glibc without systemd-resolved they are forwarded to the configured
+    resolver -- an ``/etc/hosts`` entry, a dnsmasq wildcard, or a
+    hostile resolver can map ``foo.localhost`` to a public address,
+    which would turn this DNS-free permit into an egress bypass under
+    ``MERCURY_OFFLINE`` for callsites that hand the URL to their own
+    transport. Operators should address on-box services as ``localhost``
+    or a loopback IP literal (the documented carve-out).
+    """
+    h = host.strip().strip("[]").lower()  # tolerate bracketed IPv6 literals
+    if h == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(h).is_loopback
+    except ValueError:
+        return False
+
+
+def enforce_offline_egress(url: str) -> None:
+    """Air-gap gate for callsites that keep their own HTTP transport.
+
+    Most egress goes through :class:`SafeHTTPClient`, whose
+    :meth:`~SafeHTTPClient.validate_url` enforces ``MERCURY_OFFLINE``
+    already.  A handful of callsites legitimately keep a different
+    transport (httpx sources, aiohttp adapters, the wfdb PhysioNet
+    downloader, webhook callbacks) and must apply the same policy
+    before their transport opens a socket.  This helper is that policy:
+    under ``MERCURY_OFFLINE`` every non-loopback destination raises,
+    decided **without DNS** (the same pre-resolution predicate the
+    ``SafeHTTPClient`` gate uses) so the refusal holds where no
+    resolver is reachable, while a loopback target (a local Ollama
+    model, a Prometheus sidecar) stays permitted.
+
+    Args:
+        url: The destination the caller is about to contact.
+
+    Raises:
+        OfflineModeError: ``MERCURY_OFFLINE`` is set and ``url`` does
+            not target a loopback host.
+    """
+    # Lazy import -- the codebase-wide pattern -- so this security
+    # primitive never pulls the heavy datasets package at module load.
+    from omni_mercury_engine.datasets.exceptions import (
+        OfflineModeError,
+        offline_mode_active,
+    )
+
+    if not offline_mode_active():
+        return
+    host = urlparse(url).hostname or ""
+    if not _is_loopback_host(host):
+        raise OfflineModeError(url)
+
+
 class _PinnedDNSHTTPAdapter:
     """Lazy proxy for the real requests-based HTTPAdapter.
 
@@ -372,6 +455,37 @@ class SafeHTTPClient:
         """
         scheme, host = _parse_and_check_scheme(url, allow_http=allow_http)
 
+        # Air-gap gate (fires first, before any allowlist or DNS work).
+        # When MERCURY_OFFLINE is set, the only egress permitted is to a
+        # loopback target -- an on-box model (Ollama) or a local sidecar
+        # (Redis). Every other destination is refused HERE, before a
+        # resolver is touched or a socket is opened, so the guarantee
+        # holds in a true air-gap where no DNS is reachable. Imported
+        # lazily (the codebase-wide pattern) so this security primitive
+        # never pulls the heavy datasets package at module load.
+        from omni_mercury_engine.datasets.exceptions import (
+            OfflineModeError,
+            offline_allow_private_active,
+            offline_mode_active,
+        )
+
+        # VPC-air-gap mode: offline (public internet cut) but the caller has
+        # explicitly opted into reaching an on-prem RFC1918 service AND the
+        # operator has set MERCURY_OFFLINE_ALLOW_PRIVATE. In that mode a private
+        # target survives the offline gate and is enforced private-only by the
+        # allow_private branch below (which still refuses IMDS and, under
+        # air-gap, any PUBLIC resolution). Everything else stays loopback-only.
+        vpc_offline = offline_mode_active() and allow_private and offline_allow_private_active()
+        if offline_mode_active() and not _is_loopback_host(host):
+            if not vpc_offline:
+                raise OfflineModeError(url)
+            # A public/IMDS IP LITERAL is refused pre-DNS here (no resolver
+            # needed); a private IP literal and named hosts fall through to the
+            # private-only resolve below, which fails closed if DNS is down.
+            literal = _host_ip_literal(host)
+            if literal is not None and not (literal.is_private and not _is_always_blocked(literal)):
+                raise OfflineModeError(url)
+
         # Trusted-allowlist gate -- runs for *both* schemes when the
         # URL is not user-configured.  Previously this only fired for
         # https://, which let an ``allow_http=True`` dataset mirror
@@ -425,6 +539,14 @@ class SafeHTTPClient:
                         f"multicast / reserved). allow_private=True does NOT "
                         f"unlock these."
                     )
+                if vpc_offline:
+                    # VPC-air-gap: cut from the PUBLIC internet, so an
+                    # allow_private target must resolve onto the private
+                    # network. A public resolution is refused as egress —
+                    # the air-gap holds; only on-prem RFC1918 is reachable.
+                    public = [str(ip) for ip in ips if not ip.is_private and not _is_loopback(ip)]
+                    if public:
+                        raise OfflineModeError(url)
             else:
                 bad = [str(ip) for ip in ips if _is_private_or_imds(ip)]
                 if bad:
@@ -521,6 +643,22 @@ class SafeHTTPClient:
                     "allow_private=True does NOT open the IMDS / loopback / "
                     "multicast / reserved / CGNAT ranges."
                 )
+            # VPC-air-gap re-check: under MERCURY_OFFLINE + allow_private the
+            # target must stay on the private network. A private->public
+            # rebind between validation and request is refused as egress, so
+            # the air-gap holds through the TOCTOU window too.
+            from omni_mercury_engine.datasets.exceptions import (
+                OfflineModeError,
+                offline_allow_private_active,
+                offline_mode_active,
+            )
+
+            if offline_mode_active() and offline_allow_private_active():
+                public = [
+                    str(ip) for ip in resolved_ips if not ip.is_private and not _is_loopback(ip)
+                ]
+                if public:
+                    raise OfflineModeError(url)
         else:
             bad = [str(ip) for ip in resolved_ips if _is_private_or_imds(ip)]
             if bad:
@@ -840,4 +978,5 @@ class SafeHTTPClient:
 __all__ = [
     "SafeHTTPClient",
     "UnsafeURLError",
+    "enforce_offline_egress",
 ]

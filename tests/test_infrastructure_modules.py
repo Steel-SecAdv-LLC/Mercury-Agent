@@ -237,3 +237,46 @@ class TestHealthcareEmergencyDetector:
 
         assert result["call_volume_status"] in ["HIGH", "CRITICAL"]
         assert "call_surge" in result["anomalies"]
+
+
+class TestHealthcareEmergencyPhase1Safety:
+    """Phase 1 honesty: fail-closed NEWS, monotonic tiers, no fabricated vitals."""
+
+    def test_missing_vitals_reported_unassessed(self) -> None:
+        """A missing vital is reported unassessed; the score is a lower bound."""
+        detector = HealthcareEmergencyDetector()
+        result = detector.detect_patient_deterioration({"heart_rate_bpm": 80})
+        assert result["score_is_lower_bound"] is True
+        assert "oxygen_saturation_pct" in result["unassessed_vitals"]
+        assert "respiratory_rate_bpm" in result["unassessed_vitals"]
+
+    def test_short_array_does_not_fabricate_normal_vitals(self) -> None:
+        """detect() with a short array leaves vitals unassessed, not defaulted to normal."""
+        detector = HealthcareEmergencyDetector()
+        result = detector.detect(np.array([80.0]), detection_type="patient")
+        # Only heart rate was provided; BP and SpO2 must be unassessed, not 120/98.
+        assert "blood_pressure_systolic" in result["unassessed_vitals"]
+        assert "oxygen_saturation_pct" in result["unassessed_vitals"]
+
+    def test_status_is_monotonic_in_score(self) -> None:
+        """Higher early-warning score never maps to a lower-severity tier."""
+        detector = HealthcareEmergencyDetector()
+        # 3-4 -> DETERIORATING, >=5 -> CRITICAL (EMERGENCY no longer sits below them).
+        assert detector._determine_patient_status(0) == PatientStatus.STABLE
+        assert detector._determine_patient_status(3) == PatientStatus.DETERIORATING
+        assert detector._determine_patient_status(5) == PatientStatus.CRITICAL
+        assert detector._determine_patient_status(14) == PatientStatus.CRITICAL
+
+    def test_emergency_flag_and_disclaimer(self) -> None:
+        """A high NEWS score flags an emergency and every result carries a disclaimer."""
+        detector = HealthcareEmergencyDetector()
+        result = detector.detect_patient_deterioration(
+            {
+                "heart_rate_bpm": 140,
+                "oxygen_saturation_pct": 80,
+                "respiratory_rate_bpm": 35,
+            }
+        )
+        assert result["emergency"] is True
+        assert result["emergency_guidance"] is not None
+        assert "decision-support" in result["disclaimer"]

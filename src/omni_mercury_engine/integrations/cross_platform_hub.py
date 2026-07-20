@@ -33,6 +33,31 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _enforce_offline_egress(endpoint: str) -> None:
+    """Air-gap gate shared by every adapter transport in this module.
+
+    The platform adapters keep their own aiohttp transports (they speak
+    platform-native protocols ``SafeHTTPClient`` does not), so each
+    egress method calls this before touching its session.  Under
+    ``MERCURY_OFFLINE`` any non-loopback platform endpoint raises
+    ``OfflineModeError`` pre-socket; a loopback endpoint (an on-box
+    Prometheus pushgateway or OTLP collector sidecar) stays reachable.
+    The gate runs *outside* the adapters' catch-all error handling so
+    the refusal propagates loudly out of the adapter instead of
+    degrading into a return value that reads as a transport blip. One
+    layer up, ``CrossPlatformHub.publish_event`` / ``publish_batch``
+    keep their per-platform isolation contract but catch
+    ``OfflineModeError`` distinctly, recording the refusal as an
+    explicit MERCURY_OFFLINE suppression -- never as a generic publish
+    failure.
+    """
+    # Lazy import -- the codebase-wide pattern -- so this module never
+    # pulls the security package's crypto surface at import time.
+    from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+    enforce_offline_egress(endpoint)
+
+
 class PlatformType(StrEnum):
     """Supported external platform types."""
 
@@ -412,7 +437,13 @@ class HTTPPlatformAdapter(PlatformAdapter):
         self._session: Any = None
 
     async def connect(self) -> bool:
-        """Establish HTTP session."""
+        """Establish HTTP session.
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the
+                configured endpoint is not a loopback host.
+        """
+        _enforce_offline_egress(self.config.endpoint)
         try:
             import aiohttp
 
@@ -473,6 +504,9 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
     async def send_event(self, event: AnomalyEvent) -> bool:
         """Send single event via HTTP POST."""
+        # Gate every send, not just connect(): the flag is dynamic, so a
+        # session opened while online must not keep sending air-gapped.
+        _enforce_offline_egress(self.config.endpoint)
         if not self._session:
             await self.connect()
 
@@ -492,6 +526,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
     async def send_batch(self, events: list[AnomalyEvent]) -> int:
         """Send batch of events."""
+        _enforce_offline_egress(self.config.endpoint)
         if not self._session:
             await self.connect()
 
@@ -516,6 +551,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data via HTTP GET."""
+        _enforce_offline_egress(self.config.endpoint)
         if not self._session:
             await self.connect()
 
@@ -554,14 +590,36 @@ class PrometheusAdapter(PlatformAdapter):
         self._metrics_buffer: list[str] = []
 
     async def connect(self) -> bool:
-        """Prometheus uses push model, no persistent connection needed."""
+        """Prometheus uses push model, no persistent connection needed.
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the configured
+                pushgateway is not a loopback host -- an adapter that can never
+                deliver must not report itself connected/healthy.
+        """
+        _enforce_offline_egress(self.config.endpoint)
         self._connected = True
         return True
 
     async def disconnect(self) -> None:
-        """Flush remaining metrics."""
+        """Flush remaining metrics.
+
+        Cleanup must never raise: an offline refusal from the final flush is
+        logged (the buffered metrics are retained for inspection) and the
+        adapter still transitions to disconnected.
+        """
         if self._metrics_buffer:
-            await self._flush_metrics()
+            from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
+            try:
+                await self._flush_metrics()
+            except OfflineModeError as e:
+                logger.warning(
+                    "Final metrics flush suppressed on disconnect: %s "
+                    "(%d buffered metric(s) retained)",
+                    e,
+                    len(self._metrics_buffer),
+                )
         self._connected = False
 
     async def send_event(self, event: AnomalyEvent) -> bool:
@@ -588,6 +646,10 @@ class PrometheusAdapter(PlatformAdapter):
         """Push metrics to Prometheus pushgateway."""
         if not self._metrics_buffer:
             return True
+
+        # A loopback pushgateway sidecar keeps working air-gapped; any
+        # external gateway is refused loudly before a socket opens.
+        _enforce_offline_egress(self.config.endpoint)
 
         try:
             import aiohttp
@@ -621,6 +683,7 @@ class PrometheusAdapter(PlatformAdapter):
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Query Prometheus for data."""
+        _enforce_offline_egress(self.config.endpoint)
         try:
             import aiohttp
 
@@ -658,7 +721,14 @@ class OpenTelemetryAdapter(PlatformAdapter):
         self._exporter: Any = None
 
     async def connect(self) -> bool:
-        """Initialize OpenTelemetry exporter."""
+        """Initialize OpenTelemetry exporter.
+
+        Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the configured
+                collector is not a loopback host -- an adapter whose every
+                delivery would be refused must not report itself connected.
+        """
+        _enforce_offline_egress(self.config.endpoint)
         try:
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                 OTLPMetricExporter,
@@ -701,6 +771,9 @@ class OpenTelemetryAdapter(PlatformAdapter):
 
     async def send_event(self, event: AnomalyEvent) -> bool:
         """Send event via OpenTelemetry."""
+        # A loopback OTLP collector sidecar keeps working air-gapped;
+        # any external collector is refused loudly before a socket opens.
+        _enforce_offline_egress(self.config.endpoint)
         try:
             import aiohttp
 
@@ -873,9 +946,17 @@ class CrossPlatformHub:
             if adapter:
                 tasks.append((platform_name, adapter.send_event(event)))
 
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
         for platform_name, task in tasks:
             try:
                 results[platform_name] = await task
+            except OfflineModeError as e:
+                # Per-platform isolation is the hub's contract, but the
+                # air-gap refusal is recorded as such -- never as a generic
+                # publish failure.
+                logger.warning("Publish to %s suppressed: %s", platform_name, e)
+                results[platform_name] = False
             except Exception as e:
                 logger.error(f"Failed to publish to {platform_name}: {e}")
                 results[platform_name] = False
@@ -907,12 +988,17 @@ class CrossPlatformHub:
 
         results = {}
 
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
         for platform_name in target_platforms:
             adapter = self._adapters.get(platform_name)
             if adapter:
                 try:
                     count = await adapter.send_batch(events)
                     results[platform_name] = count
+                except OfflineModeError as e:
+                    logger.warning("Batch publish to %s suppressed: %s", platform_name, e)
+                    results[platform_name] = 0
                 except Exception as e:
                     logger.error(f"Failed batch publish to {platform_name}: {e}")
                     results[platform_name] = 0

@@ -47,13 +47,13 @@ own history:
    product, "academic" framings, transliteration).
 2. **Topic ≠ harm.** Clinical toxicology, pathology, virology / biosurveillance,
    critical-infrastructure safety, licensed demolition engineering, atmospheric /
-   plume modeling, and CBRN mass-casualty response all work inside the same
+   plume modeling, and CBRNE mass-casualty response all work inside the same
    vocabulary an attacker uses. A gate loose enough to catch the attacker
    false-positives on all of them; tight enough to spare them, it misses the
    attacker. **The conflict is unresolvable on a single lexical axis** — it
    resolves the moment the decision axis becomes *operational intent*, not *topic*.
 
-A curated CBRN/weapons lexicon is still used — but only as the **Axis-A routing
+A curated CBRNE/weapons lexicon is still used — but only as the **Axis-A routing
 recall filter** (deciding *whether to run the full assessment*), never as a judge.
 
 ## 3. The two-axis model
@@ -77,7 +77,7 @@ Ordered low → high actionability-toward-harm:
 | B3 | Response / triage / consequence & dispersion modeling | ALLOW |
 | B4 | Policy / compliance / history / safety standards | ALLOW |
 | B5 | Licensed professional practice (e.g. controlled demolition) | ALLOW + LOG |
-| B0–B4 in a **high-severity** hazard domain (CBRN / high-yield explosive) | ALLOW + **PROVENANCE** (answer only from cited sources) |
+| B0–B4 in a **high-severity** hazard domain (CBRNE: CBRN + high-yield explosive) | ALLOW + **PROVENANCE** (answer only from cited sources) |
 | B6 | **Production / synthesis route** toward a weapon | REFUSE (ESCALATE if genuinely ambiguous) |
 | B7 | **Weaponization / delivery / dissemination design** | HARD REFUSE |
 | B8 | **Acquisition / diversion / screening-evasion** of controlled material | HARD REFUSE |
@@ -132,7 +132,7 @@ offensive and are **never** unblocked by a defensive noun. The narrow residual (
 attacker conjoining a genuine defensive object, "make sarin and a detector") is
 itself provenance-gated (cited-only, no free synthesis) and further carried by the
 reasoning-backed classifier, escalation, and the audit log — the deliberate bias is
-toward not strangling defensive CBRN work.
+toward not strangling defensive CBRNE work.
 
 Nuclear-weapon production is routed on the enrichment/reprocessing vocabulary in
 its morphological variants ("enrich uranium" as well as "enriching uranium" /
@@ -345,6 +345,6 @@ Replace any scalar "does this mention a hazardous topic" check with a two-axis
 mechanism/detection/treatment/response/policy/licensed-practice and REFUSES only
 the operational-offensive intersection (B6–B10); fold it into the single
 `BenevolenceScorer` / `HarmReducer` hard gate; enforce at input, post-retrieval,
-pre-emission, and the orchestration boundary; keep the CBRN lexicon as an Axis-A
+pre-emission, and the orchestration boundary; keep the CBRNE lexicon as an Axis-A
 router only; fail closed on error; and gate CI on **both** false-negatives
 (red-team) and false-positives (legitimate professionals).

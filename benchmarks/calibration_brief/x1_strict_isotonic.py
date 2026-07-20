@@ -19,10 +19,9 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from cal_core import auroc, ece, ensure_datasets, make_synth
 from sklearn.ensemble import IsolationForest
 from sklearn.isotonic import IsotonicRegression
-
-from cal_core import ensure_datasets, auroc, ece, make_synth
 
 warnings.filterwarnings("ignore")
 

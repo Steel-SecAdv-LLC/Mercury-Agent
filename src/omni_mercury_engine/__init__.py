@@ -19,7 +19,7 @@ The framework ships:
 * A 7-phase cognitive evolution stack (neural memory → symbolic logic →
   hybrid fusion → enhanced anomaly detection → autonomous OODA agent →
   ethical bounding → curiosity-driven exploration), integrated with the
-  wider 23-module cognitive layer by ``cognitive.orchestrator.CognitiveOrchestrator``.
+  wider 30-module cognitive layer by ``cognitive.orchestrator.CognitiveOrchestrator``.
 * 30 specialised detection engines, 16 live data-loader classes under
   ``loaders/`` (CI-gated count), and the ``datasets/`` benchmark corpus
   (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …).

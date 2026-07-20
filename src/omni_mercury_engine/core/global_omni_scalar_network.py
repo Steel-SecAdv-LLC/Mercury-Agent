@@ -24,8 +24,9 @@ Eight major categories:
 - SOFTWARE_ENGINEERING (~127 scalars: 45 operational + 82 diagnostic):
   Code quality, optimization, 3R synergy, plus ISO/IEC 25010 product
   quality, Halstead, McCabe/cognitive, MI variants, NIST SAMATE
-  assurance, DORA delivery, SLSA supply-chain, OpenSSF Scorecard,
-  ISO/IEC 5055 CISQ measures, and NIST SSDF (SP 800-218) practices
+  assurance, DORA delivery, SLSA supply-chain, supply-chain /
+  repository-integrity checks (Mercury-native), ISO/IEC 5055 CISQ
+  measures, and NIST SSDF (SP 800-218) practices
 - MEDICAL (~10 scalars): Healthcare and diagnostic support
 - ADVANCED_REASONING (~16 scalars): Logic, inference, and knowledge synthesis
 
@@ -717,6 +718,47 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     return SIGMA_IMMUTABLE_DEFAULT
 
 
+_SW_ENG_METRICS_PATH = Path(__file__).resolve().parent / "sw_eng_metrics.json"
+
+
+def _apply_measured_sw_eng_metrics(group: dict[str, float]) -> int:
+    """Overlay real measured values onto existing diagnostic SW-eng scalars.
+
+    Loads the artifact produced by ``scripts/collect_sw_eng_metrics.py`` (real
+    Halstead / cyclomatic / Maintainability-Index measurements over
+    ``src/omni_mercury_engine`` plus Mercury-native supply-chain /
+    repository-integrity checks handwritten from repo config) and
+    updates **only keys already present** in ``group`` — so the group's
+    cardinality and the frozen σ_Immutable operational layout are unchanged, and
+    every updated scalar stays metric-only (filtered from the gate) by its
+    ``omni_halstead_`` / ``omni_mccabe_`` / ``omni_ossf_`` prefix or its
+    ``_METRIC_ONLY_KEYS`` membership.  A missing or malformed artifact is a
+    silent no-op — the static placeholders stand — so the engine never depends
+    on the collector having run.
+
+    Returns:
+        The number of scalars updated with a measured value (0 if the artifact
+        is absent).
+    """
+    import json  # local: json is only needed on this build-time-populated path
+
+    try:
+        payload = json.loads(_SW_ENG_METRICS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    if not isinstance(payload, dict) or payload.get("schema") != "sw_eng_metrics/v1":
+        return 0
+    updated = 0
+    for name, value in payload.get("scalars", {}).items():
+        if name in group:
+            try:
+                group[name] = float(value)
+                updated += 1
+            except (TypeError, ValueError):
+                continue
+    return updated
+
+
 class GlobalOmniScalarNetwork:
     """Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
@@ -735,7 +777,7 @@ class GlobalOmniScalarNetwork:
     - SECURITY (~6): Threat detection and cyber defense
     - SOFTWARE_ENGINEERING (~127 = 45 op + 82 diag): Code quality, optimization,
       3R synergy; plus ISO/IEC 25010, Halstead, McCabe/cognitive, MI variants,
-      NIST SAMATE, DORA, SLSA, OpenSSF Scorecard, ISO/IEC 5055, NIST SSDF
+      NIST SAMATE, DORA, SLSA, supply-chain integrity, ISO/IEC 5055, NIST SSDF
     - MEDICAL (~10): Healthcare and diagnostic support
     - ADVANCED_REASONING (~16): Logic, inference, knowledge synthesis
 
@@ -809,8 +851,9 @@ class GlobalOmniScalarNetwork:
     #
     # The ISO/IEC 25010, Halstead, McCabe + cognitive, Maintainability
     # Index variants, NIST SAMATE, DORA delivery, SLSA supply-chain,
-    # OpenSSF Scorecard, ISO/IEC 5055 (CISQ), and NIST SSDF practice
-    # families are diagnostic measurement scalars (descriptions of code
+    # supply-chain / repository-integrity, ISO/IEC 5055 (CISQ), and NIST
+    # SSDF practice families are diagnostic measurement scalars
+    # (descriptions of code
     # / system under analysis), not operational ethical signals that
     # drive the boundary's decision.  They remain in ``scalar_groups``
     # for discoverability, registration, and downstream reporting; they
@@ -819,13 +862,28 @@ class GlobalOmniScalarNetwork:
     # the hierarchical accountability bucket's semantics, and the
     # fusion pipeline's dimensional layout stay consistent.
     #
-    # HONESTY NOTE: these ~82 diagnostic scalars carry STATIC default
-    # direction/weight literals and are NOT computed from any analyzed
-    # code or system -- there is no Halstead operand counter, DORA
-    # collector, or ISO-25010 scorer in this build.  They are registered
-    # for naming/reporting only.  Treat their values as placeholders, not
-    # measurements, until a real collector is wired in (which must keep
-    # them filtered from the [0, 180) operational σ band per above).
+    # HONESTY NOTE: of these ~82 diagnostic scalars, 36 now carry REAL
+    # measurements collected by ``scripts/collect_sw_eng_metrics.py`` into
+    # ``core/sw_eng_metrics.json`` and overlaid at init by
+    # ``_apply_measured_sw_eng_metrics`` (updates existing keys only, so they
+    # stay metric-only and out of the [0, 180) operational σ band):
+    #   * source-tree code metrics (14): Halstead suite (7), cyclomatic (1),
+    #     Maintainability Index (3) via stdlib ``ast``, plus the 3 MI variants;
+    #   * supply-chain / repo-integrity checks (10) handwritten from repo config;
+    #   * DORA delivery metrics (4) as honest VCS-history proxies from git log
+    #     (commit cadence, inter-commit lead time, revert fraction, revert MTTR)
+    #     — proxies, NOT production deploy/incident telemetry;
+    #   * NIST SSDF practice groups (4) and SLSA build-track evidence (4) from
+    #     repo state (policy/toolchain/pinning/provenance/SBOM);
+    #   * the SAMATE subset computable offline (3): supply-chain assurance,
+    #     assurance-evidence completeness, and residual risk (active accepted-CVE
+    #     count from the ``.trivyignore`` ledger).
+    # The remaining ~46 (the 31 ISO/IEC 25010 quality characteristics, the 7
+    # SAMATE scalars needing the external SAMATE Reference Dataset / labelled
+    # ground truth, the 4 ISO/IEC 5055 measures, and the essential/design/
+    # cognitive/npath complexity variants) stay STATIC placeholder literals —
+    # computing them would be fabrication or requires an external conformant
+    # analyzer — and remain registered for naming/reporting only.
     #
     # Adding a new measurement family means updating these two
     # allowlists once; no other call site needs to change.
@@ -1201,7 +1259,7 @@ class GlobalOmniScalarNetwork:
         #     6. NIST SAMATE software assurance (10)
         #     7. DORA / DevOps Research and Assessment delivery (4)
         #     8. SLSA Supply-chain Levels for Software Artifacts v1.0 (4)
-        #     9. OpenSSF Scorecard checks (10)
+        #     9. Supply-chain / repository-integrity checks (10, Mercury-native)
         #    10. ISO/IEC 5055 / CISQ automated source-code quality measures (4)
         #    11. NIST SP 800-218 SSDF practice groups (4)
         #
@@ -1345,9 +1403,16 @@ class GlobalOmniScalarNetwork:
             "omni_slsa_source_integrity": 1.30,  # Source is version-controlled and verified
             "omni_slsa_build_provenance": 1.28,  # Build produces verifiable provenance attestation
             "omni_slsa_dependency_attestation": 1.26,  # Transitive deps carry signed provenance
-            # OpenSSF Scorecard checks (Open Source Security Foundation) - 10 scalars.
-            # Aggregate of the 18 Scorecard checks collapsed onto the
-            # 10 most actionable signals; each is the project's per-check score.
+            # Supply-chain & repository-integrity checks - 10 scalars.
+            # Mercury-native signals, computed by handwritten checks over the
+            # repo's OWN configuration (workflows, CODEOWNERS, dependabot,
+            # SECURITY policy, SHA-pinning) in scripts/collect_sw_eng_metrics.py.
+            # There is NO runtime dependency on any external scoring tool or
+            # service — Mercury measures these itself. The ``omni_ossf_`` prefix
+            # is a frozen grouping label for this open-source-supply-chain band;
+            # the 10 signals track the most actionable, objectively-measurable
+            # supply-chain hardening practices (branch protection, review,
+            # pinning, SAST, least-privilege tokens, signed releases, ...).
             "omni_ossf_branch_protection": 1.22,  # Main branch protected from force-push
             "omni_ossf_code_review_required": 1.25,  # PRs require approving review
             "omni_ossf_ci_tests_required": 1.20,  # CI runs and gates on tests
@@ -1376,6 +1441,17 @@ class GlobalOmniScalarNetwork:
             "omni_ssdf_produce_well_secured_software": 1.26,  # PW: design, build, verify securely
             "omni_ssdf_respond_to_vulnerabilities": 1.25,  # RV: identify, assess, remediate disclosures
         }
+
+        # Overlay REAL measured values onto the diagnostic (metric-only) SW-eng
+        # scalars a collector can compute honestly — Halstead / cyclomatic / MI
+        # via ``ast``, Mercury-native supply-chain / repository-integrity checks
+        # from repo config, DORA VCS-history proxies from git log, and the
+        # SSDF / SLSA / computable-SAMATE families from repo state (36 of the 82
+        # placeholders; the rest stay documented placeholders rather than
+        # fabricated).  Updates existing keys only, so the count (127) and the
+        # frozen σ_Immutable operational layout are untouched and the scalars
+        # stay metric-only.  A missing artifact is a no-op.
+        _apply_measured_sw_eng_metrics(self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING])
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
         self.scalar_groups[ScalarGroup.MEDICAL] = {
@@ -2094,7 +2170,8 @@ class GlobalOmniScalarNetwork:
 
         Diagnostic ISO/IEC 25010, Halstead, McCabe + cognitive,
         Maintainability Index variants, NIST SAMATE, DORA, SLSA,
-        OpenSSF Scorecard, ISO/IEC 5055, and NIST SSDF entries live in
+        supply-chain / repository-integrity, ISO/IEC 5055, and NIST SSDF
+        entries live in
         ``scalar_groups`` but are filtered out here so the σ_Immutable
         trained gate continues to see the fixed operational layout it
         was trained on.  See the class-level ``_METRIC_ONLY_PREFIXES``

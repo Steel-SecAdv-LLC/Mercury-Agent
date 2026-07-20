@@ -27,6 +27,275 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security: air-gap sovereignty — every egress path fails closed under `MERCURY_OFFLINE`, loopback stays open
+
+- **Goal.** Mercury must stay fully operable when *all* external sources are
+  cut off (network outage, mirror loss, energy/disaster conditions). A single
+  `MERCURY_OFFLINE=1` switch now closes **every** outbound path before a socket
+  opens, while explicitly keeping the **loopback** path open so an on-box model
+  (a local Ollama on `127.0.0.1`) keeps executing actions. Detection, the
+  ethical gates, the decision layer, PQC, and local/template reasoning were
+  already network-free; this pass closes the optional-enrichment egress paths
+  that previously bypassed the switch.
+- **Three egress points hardened, all fail-closed before the socket:**
+  - `SafeHTTPClient.validate_url` (the shared egress gate for narrative
+    retrieval, integrations, medical/geological loaders, and the Ollama
+    adapter) refuses every non-loopback destination **before any DNS
+    resolution** — the guarantee holds even where no resolver is reachable —
+    and permits only loopback targets (`127.0.0.1`, `::1`, `localhost`).
+  - `DataSourceBase._http_get` / `_http_get_sync` (the live data-source httpx
+    transport, which had its own transport outside the shared gate) now refuses
+    before opening a socket, raising `OfflineModeError` with a remediation hint.
+  - `SafeHFLoader.load_model` sets `local_files_only` under offline so a cached
+    foundation/VLM load succeeds and an uncached one fails fast with a clear
+    error instead of hanging on a dead network.
+- **Five own-transport egress paths closed (review follow-up).** A review sweep
+  found five callsites whose transports run outside both the dataset
+  chokepoint and `SafeHTTPClient`; each now applies the same air-gap policy
+  via the new shared `security.safe_http.enforce_offline_egress` gate
+  (non-loopback refused pre-DNS/pre-socket, loopback stays open):
+  - `MITBIHLoader.download()` — wfdb fetches PhysioNet with its own
+    `requests` transport; an uncached download now refuses offline (and a
+    primed cache is served before the wfdb import, so cached air-gapped use
+    no longer even requires wfdb).
+  - `cognitive.anomaly_detection_enhanced.USGSEarthquakeSource.fetch()` /
+    `NOAAWeatherSource.fetch()` — the ad-hoc httpx clients refuse before any
+    socket (their catch-all handlers swallow transport errors only), and the
+    production consumer `ExternalDataIntegrator.fetch_all` surfaces the
+    air-gap as one explicit MERCURY_OFFLINE skip — never a generic per-source
+    fetch error — while detection continues local-only.
+  - `NISTCSFReferenceFetcher.fetch_payload()` — a fresh cached reference is
+    still served offline (unless `force_refresh=True` bypasses the cache);
+    an actual fetch (including at
+    `NISTCSFIntegrator(reference_source="live")` construction) refuses
+    pre-socket with a pointer to `reference_source="builtin"`.
+  - `api/routes/batch.py` — a request carrying `callback_url` is rejected at
+    validation time, before the SSRF check would resolve the hostname (DNS
+    is itself egress); `_send_callback` additionally suppresses any
+    already-queued webhook (logged skip, per the "failures never escape"
+    background-task contract) before httpx or any socket is touched.
+  - `integrations` — the publicly exported `HTTPClient` gates every request
+    before its circuit breaker / retry / aiohttp (or stub) layers, and every
+    `cross_platform_hub` adapter transport (HTTP platform, Prometheus
+    pushgateway, OTLP HTTP) gates each connect/send/flush/fetch, keeping
+    loopback sidecars reachable; `CrossPlatformHub.publish_*` records a
+    refusal as an explicit per-platform MERCURY_OFFLINE suppression, and
+    `PrometheusAdapter.disconnect` never raises from its final flush
+    (buffered metrics are retained, the disconnected transition completes).
+- **Three more ungated paths found by the adversarial sweep, closed the same
+  way:** `utils/report_generator.py::EmailReportSender` (SMTP egress to a
+  non-loopback relay refused pre-socket, logged suppression, boolean
+  contract preserved); the Ollama adapter's raw TCP availability probe
+  (now runs the adapter's full SafeHTTPClient egress policy first —
+  loopback-only by default, RFC1918 under the VPC-air-gap opt-in — so a
+  non-permitted host reads unavailable with no socket); and
+  `integrations/stubs/cache.py::RedisCache` (a non-loopback `REDIS_HOST`
+  refused pre-socket; callers fall back to the in-memory cache; the
+  loopback sidecar stays reachable).
+- **`*.localhost` subdomains are refused offline.** The DNS-free loopback
+  carve-out is exactly `127.0.0.1`, `::1`, and the literal `localhost`:
+  RFC 6761 only says resolvers SHOULD answer `*.localhost` locally, so a
+  hosts-file entry or hostile resolver could map `foo.localhost` to a
+  public address and turn the name-based permit into an egress bypass for
+  callsites that hand the URL to their own transport. `_is_loopback_host`
+  (used by both the `SafeHTTPClient` air-gap gate and
+  `enforce_offline_egress`) no longer recognises the subdomain family.
+- **Master switch now authoritative in narrative retrieval.** `WebSearchRetriever`
+  honors `MERCURY_OFFLINE` even when constructed with `offline_mode=False`, so
+  the env var alone forces fail-closed behavior system-wide.
+- **Proven, not asserted.** `tests/security/test_offline_egress_gate.py` pins
+  the whole contract (the suite grew from 13 to 43 pinned cases): external
+  refused with zero `getaddrinfo` calls, loopback IP literals permitted with
+  no resolution, `localhost` permitted while `*.localhost` subdomains refuse,
+  the online path unaffected, both data-source transports refused before the
+  socket, every review-surfaced and sweep-surfaced path refused pre-socket
+  (with the cache-serving carve-outs of MIT-BIH and the NIST fetcher
+  exercised offline), the integrator's explicit offline skip, the batch
+  validator's pre-DNS rejection, the hub adapters' connect/flush/disconnect
+  behaviour, and the SMTP / Ollama-probe / Redis suppressions.
+  `docs/OFFLINE_OPERATION.md` is corrected to describe all egress points and
+  the loopback carve-out accurately.
+
+### Changed: supply-chain scalars reframed as Mercury-native (no external product identity)
+
+- The 10 repository-integrity scalars were documented as "OpenSSF Scorecard"
+  checks, which read as a dependency on someone else's product. They are — and
+  always were — **handwritten Mercury code** that reads the repo's own
+  configuration (workflows, `CODEOWNERS`, `dependabot`, `SECURITY` policy,
+  SHA-pinning) with **no runtime dependency on any external scoring tool or
+  service**. All docstrings, comments, the collector, the metrics artifact
+  provenance, and the tests now say so. The frozen `omni_ossf_*` scalar keys
+  and their σ_Immutable layout are **unchanged** — only the framing is
+  corrected, so the safety-layout freeze holds and the values stay metric-only.
+
+### Added: σ_Immutable trained on a real harvested config-integrity corpus (closes the synthetic-data gap)
+
+- The σ_Immutable EthicalGate no longer trains on synthetic ``U[0,2]``
+  vectors labelled by a threshold rule (which never occur in production).
+  ``scripts/harvest_sigma_baseline.py`` harvests the **real intact
+  operational vector** the running engine produces (127 governance
+  scalars, constant across four domains) into
+  ``security/sigma_immutable_baseline.json``;
+  ``sigma_immutable_corpus.build_integrity_samples`` then builds the
+  training + signed audit corpus from it — positives are the real baseline
+  plus intact variations holding the 24 critical ethical *anchors*
+  at-or-above threshold, negatives are real tamper mutations (anchor
+  collapse). Labelling now matches the deterministic floor's real
+  24-anchor contract instead of the earlier all-27-ethical rule that
+  mislabelled the real (narrative-low) configuration.
+- **No DoS, by construction + guard.** The exact harvested baseline is a
+  training positive, so the retrained network recognises the real
+  production vector by construction; a ``train_sigma_immutable.py``
+  ``main()`` DoS guard asserts ``score(baseline) ≥ threshold`` and refuses
+  to ship otherwise (measured **0.999922**). The surfaced
+  ``sigma_immutable_score`` stays bit-constant across normal+anomalous
+  inputs and all domains — the config-integrity posture is preserved — at
+  the new constant **0.9999216794967651** (was 0.972732842).
+- **Advisory net now agrees with the floor.** Measured alone, the old
+  synthetic network *passed* a benevolence-zeroed vector; the
+  harvested-corpus network **refuses** it (score 0.0), closing the
+  false-assurance gap — while the deterministic critical-ethical floor
+  remains the authoritative gate, composed first, and the operational
+  scalar layout stays frozen (unchanged). Weights, signed corpus (Ed25519
+  + ML-DSA-65), registry, KAT, discrimination probe, and the ledger are
+  re-based together; the σ suite (KAT / discrimination / fail-closed /
+  PQC / decision-channel / hard-enforcement) is green.
+
+### Added: held-out generalisation record + merit gate for the real-text ethical gate
+
+- The weapons-uplift Axis-B confidence logistic is already fit on the real
+  362-case labelled corpus (``fit_weapons_gate_calibration.py``); the fit
+  now also evaluates the **untouched held-out TEST split** (66 cases, never
+  used in the fit or model selection) and records its generalisation in
+  ``configs/weapons_gate_calibration.json`` — measured **test_fp=0,
+  test_fn=0, test_brier=0.0023** (better than VAL). New
+  ``tests/ethical/test_weapons_gate_calibration.py`` pins config freshness
+  (recorded metrics match a live recomputation) and the held-out budget
+  (zero fp/fn, Brier < 0.05), complementing the existing disposition-level
+  fp/fn gate. Fitted parameters are unchanged (deterministic fit); this only
+  adds the honest out-of-sample measurement and its merit gate.
+
+### Security: SHA-pin all external GitHub Actions (supply-chain hardening)
+
+- The self-referential supply-chain collector surfaced that only ~0.5% of
+  ``uses:`` Action refs were SHA-pinned (tag-pinned instead — the exact
+  finding the repo's ``check_workflow_hardening.py`` warned on). All **201**
+  external Action refs across the repo's **21** workflows are now pinned to
+  the commit SHA their tag currently points to (200 newly pinned here across
+  20 workflow files; the single ``dependabot/fetch-metadata`` ref in
+  ``dependabot-auto-merge.yml`` was already SHA-pinned), with a
+  ``# <version>`` trailer so Dependabot can still bump them — **same Action
+  code runs, zero CI behaviour change**, just supply-chain hardening. Local
+  (``./``) composite actions are exempt.
+  ``check_workflow_hardening.py`` now emits zero tag-pin warnings; the
+  ``omni_ossf_pinned_dependencies`` scalar rose from 1.02 to 1.98.
+
+### Added: real self-referential collectors for 36 of the 82 diagnostic SW-eng scalars
+
+- The GOSNN ``SOFTWARE_ENGINEERING`` group's 82 diagnostic (metric-only)
+  scalars were static placeholder literals ("not computed from any analyzed
+  code"). ``scripts/collect_sw_eng_metrics.py`` now computes **real**
+  measurements of Mercury's own source tree — the Halstead suite (7),
+  cyclomatic complexity (1) and Maintainability Index (3) via stdlib ``ast``;
+  the 10 Mercury-native supply-chain / repository-integrity checks from real
+  repo config; the 4 DORA metrics as VCS-history proxies from ``git log``;
+  the 4 NIST SSDF practice groups and 4 SLSA build-track measures from repo
+  state; and the 3 computable NIST SAMATE assurance measures — into
+  ``core/sw_eng_metrics.json``; ``_apply_measured_sw_eng_metrics`` overlays
+  them at GOSNN init. Values are mapped into each scalar's penalty/positive
+  direction band, so they now vary with the real measurement while keeping the
+  quality-model semantics (e.g. the repo's near-zero SHA-pinning of Actions
+  honestly read at the low end of its positive band until the pinning pass
+  below).
+- **Safety invariant preserved and pinned.** The overlay updates existing keys
+  only — the SOFTWARE_ENGINEERING count stays 127, the scalars stay metric-only
+  (filtered from the σ_Immutable operational vector), and **the σ score is
+  unchanged** by the measured values (verified). The remaining 46 scalars (the
+  31 ISO 25010 quality characteristics, the 7 non-computable NIST SAMATE
+  measures, the 4 ISO/IEC 5055 assurance measures, and the
+  essential/design/cognitive/npath complexity variants) stay documented
+  placeholders — computing them would be fabrication or needs external
+  telemetry. Merit-gated by ``tests/test_sw_eng_metrics_collector.py`` (real
+  values, sane bands, metric-only, σ untouched).
+
+### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
+
+- **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →
+  `2.33.0.20260712`** (Dependabot #341, #342). Dependabot only edited
+  `pyproject.toml`; the repo pins these tools on four parity-checked
+  surfaces (`scripts/check_pinned_tool_versions.py` fails on drift), so all
+  four were bumped in lockstep — `pyproject.toml` `[ml]` + `[dev]`,
+  `.github/workflows/ci.yml` (Code Quality + Type Checking install lines),
+  and `.pre-commit-config.yaml` (`mirrors-mypy` rev). mypy 2.3.0 keeps the
+  `# type: ignore` set byte-identical: both lanes clean (`mypy src/` 748
+  files, `mypy tests/` 644 files), no `unused-ignore` fallout on
+  `datasets/mitbih.py:105/109`. Parity check + self-test green.
+- **redis Helm subchart `27.0.13` → `27.0.15`** (Dependabot #340,
+  helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
+  bump; infra-only, no Python runtime surface.
+
+### Fixed: flaky weapons-gate property test (pre-existing, test-only)
+
+- ``tests/ethical/test_weapons_gate_properties.py::
+  test_offensive_core_blocks_under_benign_noise`` wrapped an offensive
+  core in Hypothesis-generated letters/numbers/spaces and asserted it
+  still blocks. When the noise happened to spell a defensive OBJECT
+  (``detector`` / ``sensor`` / ``vaccine``, or the leetspeak ``DETECT0R``
+  that normalizes to ``detector``), the composed text became "how to make
+  a nerve agent detector" — which legitimately triggers the gate's
+  documented defensive-production carve-out (``ALLOW_PROVENANCE``,
+  sourced-only, no synthesis) and is the exact allow-case
+  ``test_defensive_production_is_not_blocked`` (line 47) requires must NOT
+  block. The property was self-contradictory and flaked red whenever the
+  random noise spelled one of those tokens (``.hypothesis/`` is gitignored
+  with no derandomize profile, so CI explores fresh each run; the merged
+  head passed only by never generating the token). Root cause is the
+  over-broad test, not the gate — the gate still blocks the core under
+  genuinely benign noise (``"...nerve agent xyz"`` → ``REFUSE_REDACT``,
+  verified) and the carve-out is pinned in both directions. Fixed
+  test-only, zero gate change: ``assume()`` skips examples whose composed
+  text hits the gate's own ``_gate_evidence(...).defensive_carveout``, so
+  the guard stays in lockstep with the carve-out lexicon and the safety
+  property is preserved exactly.
+
+### Fixed: doc drift left behind by the PR #339 coverage-floor graduation
+
+- A post-merge verify-first re-audit of the M1–M15 completion pass
+  (all 15 items re-verified against the merged head ``193b8e1``; 12/15
+  confirmed fully resolved in the merge) found nine doc locations still
+  quoting the superseded ``CORE 25 / FULL 50`` coverage floors as
+  current after PR #339 graduated ``ci.yml`` to ``CORE 30 / FULL 55``
+  (README ×5, ARCHITECTURE ×3, ``docs/DEPLOYMENT.md``,
+  ``docs/ROADMAP.md`` floor table, ``.coveragerc`` comment). All now
+  quote the live gates; ROADMAP supersedes rather than overwrites the
+  v1.7.x baselines to preserve measurement provenance. The new
+  ``tests/docs/test_coverage_floor_docs.py`` gate pins every site to
+  the ``ci.yml`` env values (red-to-green proven: 16/21 sites fail on
+  the unfixed docs), so the next graduation cannot drift silently.
+- Cognitive-layer counts refreshed to measurement: ``cognitive/`` is
+  30 modules (excluding ``__init__.py``) / ~32,000 LOC at HEAD — the
+  stale "23 modules / 30,073 LOC" predated the four modules PR #339
+  added (README ×2, package docstring). ``truth_decipher.py``'s class
+  docstring said "4-phase pipeline" while its module docstring, the
+  Phase 1–5 dataclass comments, and the framework test
+  (``phase_completed == 5``) all say five — corrected to five.
+- Mission-framing stragglers (M5 follow-through): ``docs/conf.py``'s
+  fallback index template still emitted the retired "orchestration /
+  cognition layer of the FINDΩYOU stack" framing (dormant while
+  ``docs/index.md`` exists, but CI's sphinx-build resurrects it in any
+  tree lacking that file); README's security-disclosure block carried
+  the tree's only "people-first mission" text. Both re-framed to the
+  canonical Civilization-First / sibling-platform wording from
+  ``docs/index.md``. The compliance subagent's BIPA-002 remediation no
+  longer prescribes sibling-platform policy; it states the statutory
+  rule (destroy on purpose satisfaction or within 3 years of last
+  interaction, whichever is first). Provenance/attribution references
+  (subagent ports, blueprint attributions, CHANGELOG history, research
+  citations, ``FIND-YOU-ARC-CODE`` contract docs) are deliberately
+  untouched.
+- ``docs/DORMANCY_LEDGER.md``'s "Last updated" header aligned with its
+  own latest amendment date (2026-07-18).
+
 ### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
 
 - ``np.math`` was removed in NumPy 2.0 (the project floor is

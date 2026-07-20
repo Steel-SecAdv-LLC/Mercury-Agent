@@ -362,6 +362,14 @@ class NISTCSFReferenceFetcher:
             Raw XLSX bytes.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the call
+                would reach the network -- i.e. no fresh cached payload
+                exists, or ``force_refresh=True`` bypassed the cache.  With
+                ``force_refresh=False`` a fresh cache is served above the
+                gate, so a primed air-gapped deployment keeps working; any
+                actual fetch is refused before DNS or a socket.  Use
+                ``reference_source="builtin"`` on
+                :class:`NISTCSFIntegrator` for cache-free air-gapped use.
             NISTCSFReferenceError: If the HTTP request fails, the
                 payload is empty, or the bytes are not a recognisable
                 XLSX file.
@@ -372,6 +380,14 @@ class NISTCSFReferenceFetcher:
                 return cache_path.read_bytes()
             except OSError as exc:
                 _LOG.warning("Cache read failed for %s: %s; refetching", cache_path, exc)
+
+        # Air-gap gate: this fetcher keeps its own requests.Session (it
+        # predates SafeHTTPClient and pins its own allowlist above), so the
+        # MERCURY_OFFLINE refusal must land here -- after the cache has had
+        # its chance to serve, before the transport opens a socket.
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        enforce_offline_egress(self._url)
 
         _LOG.info("Fetching NIST CSF 2.0 reference from %s", self._url)
         try:
@@ -923,6 +939,13 @@ class NISTCSFIntegrator:
             NISTCSFReferenceError: If the live reference cannot be
                 loaded when ``reference_source == "live"`` and no
                 cached payload exists.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set with
+                ``reference_source == "live"`` and no fresh cached
+                payload exists -- construction fetches the reference
+                tree, and that fetch is refused before any socket.
+                Air-gapped deployments should pass
+                ``reference_source="builtin"`` or prime the cache
+                while online.
         """
         if reference_source not in {"live", "builtin"}:
             raise ValueError(

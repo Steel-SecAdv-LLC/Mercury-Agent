@@ -14,7 +14,7 @@ Transparency constraints, deliberately preserved:
 
 * **Taxonomy-level only.** Every string is a *category* framing ("how to make a
   <nerve agent>", "treatment for <nerve agent> exposure") -- the same class of
-  public CBRN/non-proliferation vocabulary the gate lexicon already uses. There
+  public CBRNE/non-proliferation vocabulary the gate lexicon already uses. There
   are **no** operational specifics (no quantities, precursors, routes, or
   conditions) anywhere in this corpus.
 * **Ground truth is the intent, not the topic.** ``label`` is ``offensive`` when

@@ -147,8 +147,26 @@ class MITBIHLoader(DatasetLoader):
         """Download MIT-BIH records via wfdb.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the segments
+                are not already cached.  wfdb fetches from PhysioNet with its
+                own ``requests`` transport, outside the dataset chokepoint
+                (``base.http_get_with_retry``) and outside ``SafeHTTPClient``,
+                so the air-gap refusal must land here -- before wfdb (or any
+                socket) is touched.  A primed cache keeps working offline.
             DataSourceUnavailableError: If wfdb is not installed or download fails.
         """
+        cache_file = self.data_path / "mitbih_segments.npz"
+        if cache_file.exists():
+            logger.info("MIT-BIH already cached")
+            return True
+
+        # Shared air-gap gate (lazy import, the codebase-wide pattern).
+        # PhysioNet is never a loopback host, so this refuses exactly when
+        # MERCURY_OFFLINE is set.
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+        enforce_offline_egress(self.DATASET_URL)
+
         try:
             import wfdb
         except ImportError as e:
@@ -160,11 +178,6 @@ class MITBIHLoader(DatasetLoader):
                     "MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
                 ),
             ) from e
-
-        cache_file = self.data_path / "mitbih_segments.npz"
-        if cache_file.exists():
-            logger.info("MIT-BIH already cached")
-            return True
 
         self.data_path.mkdir(parents=True, exist_ok=True)
 

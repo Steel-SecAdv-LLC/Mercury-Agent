@@ -230,7 +230,18 @@ class SafeHFLoader:
             allowlist=allowlist,
             trust_remote_code=trust_remote_code,
         )
-        effective_revision = revision if not _is_local_path(model_id) else None
+        is_local = _is_local_path(model_id)
+        effective_revision = revision if not is_local else None
+        # Air-gap contract: under MERCURY_OFFLINE a Hub id must resolve from the
+        # local cache only — never a network fetch.  Forcing ``local_files_only``
+        # turns an uncached model into an immediate, actionable cache-miss error
+        # instead of a hung/raw Hub network failure, so the foundation/VLM model
+        # path fails closed cleanly like the dataset chokepoint.  A local path is
+        # already offline-safe.  An explicit caller override is honoured.
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active() and not is_local:
+            kwargs.setdefault("local_files_only", True)
         # ``cls_`` arrives as a parameter, so bandit's B615 static
         # check cannot match this call site (and a suppression
         # marker here would warn as unused). The equivalent

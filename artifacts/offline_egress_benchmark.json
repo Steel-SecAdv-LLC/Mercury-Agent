@@ -1,0 +1,37 @@
+{
+  "gate_overhead": {
+    "offline_permit_loopback_validate": {
+      "mean_ms": 0.009011613342408964,
+      "median_ms": 0.007668500074942131,
+      "min_ms": 0.006268999641179107,
+      "p95_ms": 0.017246149946004152
+    },
+    "offline_refusal_external": {
+      "mean_ms": 0.009060736674655345,
+      "median_ms": 0.007403499921565526,
+      "min_ms": 0.00583099972573109,
+      "p95_ms": 0.01749370007928519
+    }
+  },
+  "iters": 300,
+  "loopback_roundtrip": {
+    "available": true,
+    "latency": {
+      "mean_ms": 2.1684983166627108,
+      "median_ms": 2.0911275000798923,
+      "min_ms": 1.609477000329207,
+      "p95_ms": 2.7981552004121113
+    },
+    "payload_bytes": 65536,
+    "requests_per_sec": 478.2,
+    "throughput_mb_per_sec": 29.89
+  },
+  "provenance": {
+    "commit": "8c55759",
+    "note": "Offline egress path measured entirely on-box (MERCURY_OFFLINE=1). No external socket is opened \u2014 refusal timings are pure CPU, the round-trip is loopback-only (127.0.0.1).",
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15"
+  },
+  "schema": "offline_egress_benchmark/v1"
+}

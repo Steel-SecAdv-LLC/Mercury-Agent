@@ -51,15 +51,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-competitive-${{ hashFiles('pyproject.toml') }}
@@ -67,7 +67,7 @@ jobs:
             ${{ runner.os }}-pip-competitive-
 
       - name: Cache ADBench datasets
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           # Cache the Classical NPZs AND the CV/NLP embedding NPZs
           # (competitive_benchmark.py --quick downloads the latter under
@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload competitive results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: competitive-results-${{ github.sha }}
           path: |

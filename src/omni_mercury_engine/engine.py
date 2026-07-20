@@ -4779,17 +4779,20 @@ class OmniMercuryEngine(LoggerMixin):
         # σ_Immutable is NOT a per-input-data classifier: it evaluates the
         # 127 operational governance scalars (padded to the network's 256-d
         # input), and those are a property of the system's *configuration*,
-        # not of the row being detected.  Measured (2026-07-17) across
-        # normal+anomalous inputs and four domains: all 127 operational
-        # scalars are bit-constant and the surfaced sigma_immutable_score is
-        # the exact constant 0.972732842 on every call.  So σ_Immutable is a
-        # config-integrity / tamper check — it reads "intact" constantly on
-        # normal operation and only moves if a critical ethical scalar is
-        # corrupted (e.g. an anchor zeroed).  The AUTHORITATIVE catch for
-        # that case is the deterministic critical-ethical floor below
+        # not of the row being detected.  Measured across normal+anomalous
+        # inputs and four domains: all 127 operational scalars are bit-constant
+        # and the surfaced sigma_immutable_score is the exact constant
+        # 0.9999216794967651 on every call (the network is now trained on the
+        # harvested intact config — scripts/harvest_sigma_baseline.py — so it
+        # recognises the real production vector by construction).  So
+        # σ_Immutable is a config-integrity / tamper check — it reads "intact"
+        # constantly on normal operation and only moves if a critical ethical
+        # scalar is corrupted (e.g. an anchor zeroed).  The AUTHORITATIVE catch
+        # for that case is the deterministic critical-ethical floor below
         # (enforce_ethical_floor); the learned score over the full vector is
-        # advisory.  Per-call ethical sensitivity lives in BenevolenceScorer,
-        # not here.
+        # advisory (and, since the harvested retrain, agrees with the floor on
+        # anchor collapse instead of falsely assuring it).  Per-call ethical
+        # sensitivity lives in BenevolenceScorer, not here.
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 

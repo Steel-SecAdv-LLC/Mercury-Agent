@@ -9,8 +9,14 @@ Specialized neurocritical care for humanitarian healthcare:
 - Traumatic brain injury (TBI) severity assessment
 - Neurological deterioration early warning
 
-⚠️ SIMULATION-BASED: Uses simulated neurological data. Clinical validation required.
-Consult neurologists/neurosurgeons before acting on predictions.
+Safety semantics (fail-closed): NIHSS and GCS/TBI are deterministic instruments.
+A missing NIHSS exam item is reported unassessed (never scored 0), so a partial
+exam cannot under-score toward "no stroke"; the total is a lower bound. ICP is
+**never fabricated** — when no ICP is measured, ``icp_mmhg`` is ``None`` and only
+a clearly-labelled qualitative clinical-sign concern is reported, not an invented
+pressure. The stroke and seizure networks are gated behind ``is_fitted`` and
+refuse to emit a number on random weights. Every result carries a decision-support
+disclaimer, provenance, and red-flag emergency routing.
 
 Research sources:
 - NIH Stroke Scale (NIHSS) methodologies
@@ -28,6 +34,11 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
+
+from omni_mercury_engine.medical.safety import (
+    ClinicalSafetyEnvelope,
+    build_provenance,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -84,6 +95,13 @@ class NeurocriticalPredictionResult:
     clinical_recommendations: list[str] = field(default_factory=list)
     time_sensitive_interventions: list[str] = field(default_factory=list)
 
+    # Safety / honesty layer.
+    ml_stroke_available: bool = False
+    ml_seizure_available: bool = False
+    icp_measured: bool = False
+    nihss_is_lower_bound: bool = False
+    safety: ClinicalSafetyEnvelope = field(default_factory=ClinicalSafetyEnvelope)
+
 
 class StrokeDetector(nn.Module):
     """Neural network for stroke detection and classification.
@@ -94,6 +112,9 @@ class StrokeDetector(nn.Module):
     def __init__(self, input_dim: int = 64) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -132,6 +153,11 @@ class StrokeDetector(nn.Module):
 
         return classification, severity
 
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
+
 
 class SeizurePredictor(nn.Module):
     """LSTM-based seizure detection and prediction.
@@ -142,6 +168,9 @@ class SeizurePredictor(nn.Module):
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.lstm = nn.LSTM(
             input_size=input_dim,
@@ -186,6 +215,11 @@ class SeizurePredictor(nn.Module):
 
         return classification, risk, attention_weights.squeeze(-1)
 
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
+
 
 class ICPMonitor:
     """Intracranial Pressure (ICP) monitoring and prediction.
@@ -211,53 +245,72 @@ class ICPMonitor:
         """
         measured_icp = patient_data.get("icp_mmhg")
         cpp = patient_data.get("cerebral_perfusion_pressure")
+        icp_measured = measured_icp is not None
 
-        if measured_icp is None:
-            estimated_icp = self._estimate_icp_from_clinicals(patient_data)
-            measured_icp = estimated_icp
+        clinical_concern: str | None = None
 
-        icp_elevated = measured_icp > self.elevated_threshold
-        icp_critical = measured_icp > self.critical_threshold
-
-        if cpp is None:
-            map_val = patient_data.get("mean_arterial_pressure", 90)
-            cpp = map_val - measured_icp
+        if measured_icp is not None:
+            icp_elevated = measured_icp > self.elevated_threshold
+            icp_critical = measured_icp > self.critical_threshold
+            herniation_risk = float(measured_icp > 25) * 0.8
+            if cpp is None:
+                map_val = patient_data.get("mean_arterial_pressure")
+                cpp = (map_val - measured_icp) if map_val is not None else None
+        else:
+            # No measured ICP: DO NOT fabricate a pressure. Report a clearly
+            # labelled qualitative concern from clinical signs; the numeric ICP
+            # and any pressure-derived risk abstain.
+            icp_elevated = False
+            icp_critical = False
+            herniation_risk = 0.0
+            clinical_concern = self._clinical_icp_concern(patient_data)
 
         recommendations = self._generate_icp_recommendations(
-            measured_icp, cpp, icp_elevated, icp_critical
+            cpp, icp_elevated, icp_critical, icp_measured, clinical_concern
         )
 
         return {
-            "icp_mmhg": measured_icp,
+            "icp_mmhg": measured_icp,  # None when not measured — never invented
+            "icp_measured": icp_measured,
             "icp_elevated": icp_elevated,
             "icp_critical": icp_critical,
             "cerebral_perfusion_pressure": cpp,
-            "herniation_risk": float(measured_icp > 25) * 0.8,
+            "herniation_risk": herniation_risk,
+            "clinical_concern": clinical_concern,
             "recommendations": recommendations,
         }
 
-    def _estimate_icp_from_clinicals(self, patient_data: dict[str, Any]) -> float:
-        """Estimate ICP from clinical signs when direct measurement unavailable."""
-        baseline_icp = 10.0
+    def _clinical_icp_concern(self, patient_data: dict[str, Any]) -> str:
+        """Qualitative ICP concern from clinical signs (NOT a measured pressure).
 
-        gcs = patient_data.get("gcs_score", 15)
-        if gcs < 8:
-            baseline_icp += 10.0
-        elif gcs < 13:
-            baseline_icp += 5.0
+        Returns a coarse concern band derived from GCS, pupillary abnormality,
+        and motor posturing. This is a clinical-sign flag prompting measurement,
+        explicitly not a substitute for a monitored ICP value.
+        """
+        concern = 0
+        gcs = patient_data.get("gcs_score")
+        if gcs is not None and gcs < 8:
+            concern += 2
+        elif gcs is not None and gcs < 13:
+            concern += 1
+        if patient_data.get("pupil_abnormality"):
+            concern += 2
+        if patient_data.get("motor_posturing"):
+            concern += 2
 
-        pupil_abnormal = patient_data.get("pupil_abnormality", False)
-        if pupil_abnormal:
-            baseline_icp += 8.0
-
-        posturing = patient_data.get("motor_posturing", False)
-        if posturing:
-            baseline_icp += 7.0
-
-        return min(baseline_icp, 40.0)
+        if concern >= 3:
+            return "high_clinical_concern"
+        if concern >= 1:
+            return "some_clinical_concern"
+        return "no_clinical_signs"
 
     def _generate_icp_recommendations(
-        self, icp: float, cpp: float, elevated: bool, critical: bool
+        self,
+        cpp: float | None,
+        elevated: bool,
+        critical: bool,
+        icp_measured: bool,
+        clinical_concern: str | None,
     ) -> list[str]:
         """Generate ICP management recommendations."""
         recs = []
@@ -274,7 +327,21 @@ class ICPMonitor:
             recs.append("Consider moderate hyperventilation (PCO2 30-35)")
             recs.append("Sedation and analgesia optimization")
 
-        if cpp < 60:
+        if not icp_measured:
+            if clinical_concern == "high_clinical_concern":
+                recs.append(
+                    "No measured ICP; clinical signs raise concern for raised ICP — "
+                    "urgent neurosurgical evaluation and ICP monitoring."
+                )
+            elif clinical_concern == "some_clinical_concern":
+                recs.append(
+                    "No measured ICP; some clinical signs present — consider ICP "
+                    "monitoring and neurological reassessment."
+                )
+            else:
+                recs.append("No measured ICP available; monitor and reassess.")
+
+        if cpp is not None and cpp < 60:
             recs.append(f"Low CPP ({cpp:.1f} mmHg) - risk of cerebral ischemia")
             recs.append("Consider vasopressors to maintain CPP >60 mmHg")
 
@@ -287,6 +354,25 @@ class NIHSSCalculator:
     Standardized neurological deficit assessment for stroke severity.
     """
 
+    #: The 15 NIHSS exam items, in order.
+    ITEMS = (
+        "loc",
+        "loc_questions",
+        "loc_commands",
+        "gaze",
+        "visual_fields",
+        "facial_palsy",
+        "motor_arm_left",
+        "motor_arm_right",
+        "motor_leg_left",
+        "motor_leg_right",
+        "limb_ataxia",
+        "sensory",
+        "language",
+        "dysarthria",
+        "extinction_inattention",
+    )
+
     def __init__(self) -> None:
         """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
@@ -298,37 +384,49 @@ class NIHSSCalculator:
             exam_findings: Neurological exam components
 
         Returns:
-            NIHSS score and severity interpretation
+            NIHSS score and severity interpretation. A missing exam item is
+            reported unassessed (not scored 0), so a partial exam cannot
+            under-score toward "no stroke"; the total is a lower bound.
         """
         score = 0
+        assessed: list[str] = []
+        unassessed: list[str] = []
+        for item in self.ITEMS:
+            value = exam_findings.get(item)
+            if value is None:
+                unassessed.append(item)
+            else:
+                score += value
+                assessed.append(item)
 
-        score += exam_findings.get("loc", 0)
-        score += exam_findings.get("loc_questions", 0)
-        score += exam_findings.get("loc_commands", 0)
-        score += exam_findings.get("gaze", 0)
-        score += exam_findings.get("visual_fields", 0)
-        score += exam_findings.get("facial_palsy", 0)
-        score += exam_findings.get("motor_arm_left", 0)
-        score += exam_findings.get("motor_arm_right", 0)
-        score += exam_findings.get("motor_leg_left", 0)
-        score += exam_findings.get("motor_leg_right", 0)
-        score += exam_findings.get("limb_ataxia", 0)
-        score += exam_findings.get("sensory", 0)
-        score += exam_findings.get("language", 0)
-        score += exam_findings.get("dysarthria", 0)
-        score += exam_findings.get("extinction_inattention", 0)
-
-        severity = self._interpret_nihss(score)
+        is_lower_bound = bool(unassessed)
+        severity = self._interpret_nihss(score, partial=is_lower_bound)
 
         return {
             "nihss_score": score,
+            "nihss_is_lower_bound": is_lower_bound,
+            "assessed_items": assessed,
+            "unassessed_items": unassessed,
             "severity": severity["category"],
             "stroke_risk": severity["stroke_risk"],
             "recommendations": severity["recommendations"],
         }
 
-    def _interpret_nihss(self, score: int) -> dict[str, Any]:
-        """Interpret NIHSS score."""
+    def _interpret_nihss(self, score: int, *, partial: bool = False) -> dict[str, Any]:
+        """Interpret NIHSS score.
+
+        When the exam is partial and the assessed items sum to 0, the score is
+        not reported as "no stroke symptoms" — an incomplete exam cannot
+        establish a normal neurological status.
+        """
+        if score == 0 and partial:
+            return {
+                "category": "Incomplete exam — not scorable as normal",
+                "stroke_risk": 0.0,
+                "recommendations": [
+                    "Complete the NIHSS exam before ruling out stroke",
+                ],
+            }
         if score == 0:
             return {
                 "category": "No stroke symptoms",
@@ -430,53 +528,92 @@ class NeurocriticalCarePredictor:
             seizure_type="no_seizure",
         )
 
+        safety = result.safety
+
         if self.enable_stroke and "clinical_features" in patient_data:
             stroke_result = self._detect_stroke(patient_data["clinical_features"])
-            result.stroke_detected = stroke_result["stroke_detected"]
-            result.stroke_type = stroke_result["stroke_type"]
-            result.confidence = max(result.confidence, stroke_result["confidence"])
-            result.clinical_recommendations.extend(stroke_result["recommendations"])
+            result.ml_stroke_available = stroke_result["available"]
+            if stroke_result["available"]:
+                result.stroke_detected = stroke_result["stroke_detected"]
+                result.stroke_type = stroke_result["stroke_type"]
+                result.confidence = max(result.confidence, stroke_result["confidence"])
+                result.clinical_recommendations.extend(stroke_result["recommendations"])
 
-            if stroke_result["stroke_detected"]:
-                result.neurological_emergency_detected = True
-                result.emergency_type = "stroke"
+                if stroke_result["stroke_detected"]:
+                    result.neurological_emergency_detected = True
+                    result.emergency_type = "stroke"
+                    safety.flag_emergency(f"possible stroke ({stroke_result['stroke_type']})")
 
         if "exam_findings" in patient_data:
             nihss = self.nihss_calculator.calculate_nihss(patient_data["exam_findings"])
             result.nihss_score = nihss["nihss_score"]
+            result.nihss_is_lower_bound = nihss["nihss_is_lower_bound"]
             result.risk_score = max(result.risk_score, nihss["stroke_risk"])
             result.clinical_recommendations.extend(nihss["recommendations"])
+            safety.note_unassessed([f"nihss.{i}" for i in nihss["unassessed_items"]])
+            safety.provenance["nihss"] = build_provenance(
+                instrument="NIHSS",
+                version="v1",
+                inputs=patient_data["exam_findings"],
+            )
+            # A moderate-or-worse deficit is a time-critical neurological
+            # emergency (tPA / thrombectomy window) — a real, deterministic
+            # signal, independent of any ML model.
+            if nihss["stroke_risk"] >= 0.6:
+                result.neurological_emergency_detected = True
+                if result.emergency_type == "none":
+                    result.emergency_type = "stroke"
+                safety.flag_emergency("NIHSS indicates moderate-or-worse stroke deficit")
 
         if self.enable_seizure and "temporal_sequence" in patient_data:
             seizure_result = self._predict_seizure(patient_data["temporal_sequence"])
-            result.seizure_detected = seizure_result["seizure_detected"]
-            result.seizure_type = seizure_result["seizure_type"]
-            result.seizure_risk_score = seizure_result["risk_score"]
-            result.clinical_recommendations.extend(seizure_result["recommendations"])
+            result.ml_seizure_available = seizure_result["available"]
+            if seizure_result["available"]:
+                result.seizure_detected = seizure_result["seizure_detected"]
+                result.seizure_type = seizure_result["seizure_type"]
+                result.seizure_risk_score = seizure_result["risk_score"]
+                result.clinical_recommendations.extend(seizure_result["recommendations"])
 
-            if seizure_result["seizure_type"] == "status_epilepticus":
-                result.neurological_emergency_detected = True
-                result.emergency_type = "status_epilepticus"
-                result.time_sensitive_interventions.append(
-                    "URGENT: Status epilepticus - benzodiazepines immediately"
-                )
+                if seizure_result["seizure_type"] == "status_epilepticus":
+                    result.neurological_emergency_detected = True
+                    result.emergency_type = "status_epilepticus"
+                    result.time_sensitive_interventions.append(
+                        "URGENT: Status epilepticus - benzodiazepines immediately"
+                    )
+                    safety.flag_emergency("possible status epilepticus")
 
         if self.enable_icp and "icp_data" in patient_data:
             if self.icp_monitor is not None:
                 icp_result = self.icp_monitor.assess_icp(patient_data["icp_data"])
+                result.icp_measured = icp_result["icp_measured"]
                 result.icp_elevated = icp_result["icp_elevated"]
                 result.icp_mmhg = icp_result["icp_mmhg"]
                 result.clinical_recommendations.extend(icp_result["recommendations"])
+                if not icp_result["icp_measured"]:
+                    safety.note_unassessed(["icp_data.icp_mmhg"])
+                safety.provenance["icp"] = build_provenance(
+                    instrument="ICPMonitor",
+                    version="v1",
+                    inputs=patient_data["icp_data"],
+                )
 
                 if icp_result["icp_critical"]:
                     result.neurological_emergency_detected = True
                     result.emergency_type = "elevated_icp"
+                    safety.flag_emergency("critical intracranial pressure")
+                elif icp_result["clinical_concern"] == "high_clinical_concern":
+                    safety.flag_emergency("clinical signs concerning for raised ICP")
 
         if "tbi_features" in patient_data:
             tbi_result = self._assess_tbi(patient_data["tbi_features"])
             result.tbi_severity = tbi_result["severity"]
             result.gcs_score = tbi_result["gcs_score"]
             result.clinical_recommendations.extend(tbi_result["recommendations"])
+            if tbi_result["severity"] == "severe":
+                result.neurological_emergency_detected = True
+                if result.emergency_type == "none":
+                    result.emergency_type = "severe_tbi"
+                safety.flag_emergency("severe traumatic brain injury (GCS ≤ 8)")
 
         result.risk_score = max(
             result.risk_score, result.seizure_risk_score, float(result.icp_elevated) * 0.7
@@ -484,16 +621,26 @@ class NeurocriticalCarePredictor:
         result.confidence = max(result.confidence, result.risk_score)
 
         self.logger.info(
-            f"Neurocritical prediction: {result.emergency_type}, "
-            f"stroke={result.stroke_detected}, seizure={result.seizure_detected}"
+            "Neurocritical prediction: %s, stroke=%s (ml=%s), seizure=%s (ml=%s), "
+            "icp_measured=%s, unassessed=%d",
+            result.emergency_type,
+            result.stroke_detected,
+            result.ml_stroke_available,
+            result.seizure_detected,
+            result.ml_seizure_available,
+            result.icp_measured,
+            len(safety.unassessed_inputs),
         )
 
         return result
 
     def _detect_stroke(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Detect and classify stroke."""
-        if self.stroke_detector is None:
+        """Detect and classify stroke, or abstain if the model is untrained."""
+        if self.stroke_detector is None or not getattr(self.stroke_detector, "is_fitted", False):
+            # Fail-closed: an untrained network's output is noise, not a
+            # prediction. Refuse rather than surface a fabricated stroke class.
             return {
+                "available": False,
                 "stroke_detected": False,
                 "stroke_type": "no_stroke",
                 "confidence": 0.0,
@@ -524,6 +671,7 @@ class NeurocriticalCarePredictor:
             recs.append("Blood pressure control critical")
 
         return {
+            "available": True,
             "stroke_detected": stroke_detected,
             "stroke_type": detected_type,
             "confidence": confidence,
@@ -531,9 +679,13 @@ class NeurocriticalCarePredictor:
         }
 
     def _predict_seizure(self, sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict seizure occurrence and type."""
-        if self.seizure_predictor is None:
+        """Predict seizure occurrence and type, or abstain if untrained."""
+        if self.seizure_predictor is None or not getattr(
+            self.seizure_predictor, "is_fitted", False
+        ):
+            # Fail-closed: refuse the untrained network rather than emit noise.
             return {
+                "available": False,
                 "seizure_detected": False,
                 "seizure_type": "no_seizure",
                 "risk_score": 0.0,
@@ -564,6 +716,7 @@ class NeurocriticalCarePredictor:
             recs.append("Antiepileptic medication consideration")
 
         return {
+            "available": True,
             "seizure_detected": seizure_detected,
             "seizure_type": detected_type,
             "risk_score": risk_score,
@@ -571,8 +724,16 @@ class NeurocriticalCarePredictor:
         }
 
     def _assess_tbi(self, tbi_features: dict[str, Any]) -> dict[str, Any]:
-        """Assess traumatic brain injury severity."""
-        gcs = tbi_features.get("gcs_score", 15)
+        """Assess traumatic brain injury severity (abstains without a GCS)."""
+        gcs = tbi_features.get("gcs_score")
+        if gcs is None:
+            return {
+                "severity": None,
+                "gcs_score": None,
+                "recommendations": [
+                    "TBI severity requires a Glasgow Coma Scale; none provided.",
+                ],
+            }
 
         if gcs >= 13:
             severity = "mild"

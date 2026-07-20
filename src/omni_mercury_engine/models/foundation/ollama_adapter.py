@@ -24,7 +24,7 @@ import socket
 import urllib.parse
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -137,6 +137,13 @@ def _usage_from_ollama(data: dict[str, Any]) -> tuple[int | None, int | None, in
         _as_count(data.get("eval_count")),
         None,
     )
+
+
+class _EgressKwargs(TypedDict, total=False):
+    """The subset of SafeHTTPClient egress kwargs the Ollama adapter selects."""
+
+    loopback_only: bool
+    allow_private: bool
 
 
 class OllamaModel(StrEnum):
@@ -342,7 +349,47 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         self._check_availability()
 
     def _check_availability(self) -> None:
-        """Check if Ollama server is running and accessible."""
+        """Check if Ollama server is running and accessible.
+
+        The raw TCP probe below is itself egress, so it runs the SAME
+        SafeHTTPClient policy as the adapter's real requests first
+        (``_egress_kwargs``: loopback-only by default, RFC1918 under the
+        explicit VPC-air-gap opt-in). Under ``MERCURY_OFFLINE`` a
+        non-permitted host therefore marks the adapter unavailable without
+        opening a socket; a misconfigured (gate-refused) host likewise reads
+        unavailable with an operator-actionable log. The probe's contract
+        stays "never raises".
+        """
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+        try:
+            SafeHTTPClient.validate_url(
+                self.ollama_config.base_url,
+                allow_http=True,
+                user_configured=True,
+                **self._egress_kwargs(),
+            )
+        except OfflineModeError:
+            logger.info(
+                "Ollama availability probe refused: MERCURY_OFFLINE is set and "
+                "%s is not reachable under the air-gap policy; adapter "
+                "unavailable.",
+                self.ollama_config.host,
+            )
+            self._is_available = False
+            return
+        except UnsafeURLError as e:
+            logger.error(
+                "Ollama endpoint refused by the egress gate (%s); marking the "
+                "adapter unavailable. Fix OLLAMA_HOST / MERCURY_OLLAMA_HOST / "
+                "OllamaConfig.host to a loopback address (or an RFC1918 host "
+                "under MERCURY_OFFLINE_ALLOW_PRIVATE).",
+                e,
+            )
+            self._is_available = False
+            return
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.ollama_config.connect_timeout)
@@ -370,6 +417,28 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             logger.debug(f"Ollama availability check failed: {e}")
             self._is_available = False
 
+    def _egress_kwargs(self) -> _EgressKwargs:
+        """Return the SafeHTTPClient egress policy for the configured Ollama host.
+
+        A loopback host (the default: on-box Ollama) stays ``loopback_only`` —
+        the strictest policy. A non-loopback host is only reachable when the
+        operator has explicitly opted into the VPC-air-gap mode
+        (``MERCURY_OFFLINE_ALLOW_PRIVATE``), which switches to ``allow_private``
+        (RFC1918 permitted; IMDS / public egress still refused under
+        ``MERCURY_OFFLINE``). Absent that opt-in, a non-loopback host keeps
+        ``loopback_only`` so it fails closed at the gate rather than silently
+        egressing — the operator gets the remediation-hinted UnsafeURLError.
+        """
+        from urllib.parse import urlparse
+
+        from omni_mercury_engine.datasets.exceptions import offline_allow_private_active
+        from omni_mercury_engine.security.safe_http import _is_loopback_host
+
+        host = urlparse(self.ollama_config.base_url).hostname or ""
+        if not _is_loopback_host(host) and offline_allow_private_active():
+            return {"allow_private": True}
+        return {"loopback_only": True}
+
     def _verify_model_available(self) -> bool:
         """Verify the configured model is available in Ollama.
 
@@ -383,17 +452,19 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         is only to report the truth so that chain runs.
         """
         try:
-            # Ollama runs on the local box; loopback_only enforces
-            # that fact (an operator who points Ollama at a remote
-            # host will hit the gate at config-time, not after a
-            # silent SSRF pivot).
+            # Ollama runs on the local box by default (loopback_only); an
+            # operator on a private VPC can opt into an RFC1918 host via
+            # MERCURY_OFFLINE_ALLOW_PRIVATE (allow_private), still without any
+            # public/IMDS egress. Either way a misconfigured public host hits
+            # the gate at config-time, not after a silent SSRF pivot. See
+            # ``_egress_kwargs``.
             data = SafeHTTPClient.get_json(
                 f"{self.ollama_config.base_url}/api/tags",
                 headers={"Accept": "application/json"},
                 timeout=self.ollama_config.connect_timeout,
                 allow_http=True,
                 user_configured=True,
-                loopback_only=True,
+                **self._egress_kwargs(),
             )
             available_models = [m["name"] for m in data.get("models", [])]
 
@@ -475,7 +546,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 timeout=self.ollama_config.timeout,
                 allow_http=True,
                 user_configured=True,
-                loopback_only=True,
+                **self._egress_kwargs(),
             )
             # Extract content first: record usage only after a successful
             # extraction, so a malformed payload books nothing (failed calls
@@ -534,7 +605,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 timeout=self.ollama_config.timeout,
                 allow_http=True,
                 user_configured=True,
-                loopback_only=True,
+                **self._egress_kwargs(),
             )
             # Extract content first: record usage only after a successful
             # extraction, so a malformed payload books nothing (failed calls

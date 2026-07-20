@@ -25,10 +25,9 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from cal_core import PHI, auroc, brier, ensure_datasets
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor, NearestNeighbors
-
-from cal_core import ensure_datasets, PHI, auroc, brier
 
 warnings.filterwarnings("ignore")
 
@@ -49,7 +48,7 @@ EQUAL = np.array([1 / 3, 1 / 3, 1 / 3])
 
 def simplex_grid(step=0.05):
     pts = []
-    ks = int(round(1 / step))
+    ks = round(1 / float(step))  # float() -> Python int from round(), robust to a numpy-scalar step
     for i in range(ks + 1):
         for j in range(ks + 1 - i):
             k = ks - i - j

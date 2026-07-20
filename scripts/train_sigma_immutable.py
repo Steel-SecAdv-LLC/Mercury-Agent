@@ -3,38 +3,38 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Train the σ_Immutable EthicalGate neural network.
 
-Labelling source
-----------------
-The GOSNN scalar system registers ~209 omni-scalars across 8 categories
-(ETHICAL, COSMIC, QUANTUM_CONSCIOUSNESS, HUMANITARIAN, SECURITY,
-SOFTWARE_ENGINEERING, MEDICAL, ADVANCED_REASONING) of which 127 are
-operational and participate in the σ_Immutable input vector — the rest
-are diagnostic measurement scalars that ``_is_metric_only_scalar``
-filters out.  A scalar vector is **ethical** (label 1) when the 27
-ETHICAL-category scalars are all at-or-above their domain-calibrated
-thresholds, and **unethical** (label 0) when one or more critical
-ethical scalars is below threshold.
+Labelling source (harvested config-integrity corpus)
+----------------------------------------------------
+The σ_Immutable gate is a **config-integrity / tamper check**: on a healthy
+system the 127 operational governance scalars are bit-constant, and the gate's
+job is to recognise that intact configuration and refuse when it is corrupted.
+Training therefore uses the **real** harvested intact vector
+(``scripts/harvest_sigma_baseline.py`` → ``sigma_immutable_baseline.json``),
+not synthetic ``U[0,2]`` noise:
 
-This is a defensible labelling source because:
-  - The thresholds come from ``centralized_constants.py`` and have been
-    domain-calibrated (medical=0.93, infrastructure=0.995, default=0.96).
-  - The BenevolenceScorer's ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) sets the
-    absolute baseline.
-  - The training data spans the full scalar space — the network learns
-    non-obvious correlations among the 127 operational dimensions that a
-    single threshold check misses.
+  - **Positives (intact):** the exact harvested baseline plus intact
+    variations that hold the 24 critical ethical *anchors* at-or-above
+    threshold, while the narrative-tuning scalars and the non-ethical
+    operational band vary across their real ranges.  Labelling matches the
+    deterministic floor's real 24-anchor contract — not the earlier
+    all-27-ethical rule, which mislabelled the real (narrative-low) config.
+  - **Negatives (tampered):** real corruptions of an intact draw — anchor
+    collapse (1..5 anchors below threshold), plus gross-outlier leaks (the
+    F10 timestamp class) and band corruption.
 
-Limitation (why the learned score is advisory, not authoritative)
------------------------------------------------------------------
-The corpus is SYNTHETIC: generated scalar vectors labelled by the
-threshold rule above, not real-world ethical outcomes.  Measured
-consequence: the trained network, alone, passed vectors with a single
-critical ethical dimension zeroed (e.g. benevolence -> 0).  Production
-therefore composes the deterministic critical-ethical floor
-(``SigmaImmutableGate.enforce_ethical_floor``) BEFORE the learned score
-at every boundary — the floor is the authoritative gate; this network is
-a secondary, advisory check.  Replacing the synthetic corpus with real
-labelled ethical-outcome data is tracked in ``docs/DORMANCY_LEDGER.md``.
+Because the exact baseline is a training positive, the network passes the
+real production vector **by construction** — a ``main()`` DoS guard asserts
+``score(baseline) >= threshold`` and refuses to ship otherwise.
+
+Why the learned score stays advisory, not authoritative
+-------------------------------------------------------
+The deterministic critical-ethical floor (``SigmaImmutableGate.enforce_ethical_floor``)
+is composed BEFORE the learned score at every boundary and remains the
+authoritative gate — a collapsed anchor is a categorical fail-closed refusal no
+learned score can override.  The harvested corpus makes the *advisory* network
+agree with the floor on real anchor collapse and recognise the real intact
+config, closing the synthetic-data gap tracked in ``docs/DORMANCY_LEDGER.md``
+without changing the gate's ratified constant-score / config-integrity posture.
 
 Outputs
 -------
@@ -70,6 +70,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -115,42 +116,46 @@ def build_gate_network() -> nn.Sequential:
 def generate_dataset(
     n_samples: int = 10_000,
     seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Generate labelled scalar-vector corpus.
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Generate the labelled scalar-vector corpus from the harvested baseline.
 
-    Positive (label 1): all 27 ethical scalars >= their threshold, plus
-    realistic noise on the remaining 153 non-ethical dimensions.
+    Positive (label 1, *intact*): the real harvested configuration plus
+    intact variations holding every critical ethical **anchor** at-or-above
+    threshold (the deterministic floor's contract); the exact baseline is
+    always present so the trained network passes the real production vector
+    by construction (no DoS).
 
-    Negative (label 0): at least one critical ethical scalar drawn below
-    threshold, with realistic noise elsewhere.
+    Negative (label 0, *tampered*): real corruptions — anchor collapse plus a
+    minority of gross-outlier / band-corruption mutations.
+
+    The construction is shared with the signed audit corpus via
+    :func:`build_integrity_samples`, so the trainer and the corpus can never
+    label differently.  Falls back to the earlier synthetic scheme only if
+    the baseline artifact is absent (with a warning).
     """
-    rng = np.random.default_rng(seed)
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+    try:
+        from omni_mercury_engine.security.sigma_immutable_corpus import (
+            build_integrity_samples,
+            load_baseline,
+        )
 
-    X = np.zeros((n_samples, INPUT_DIM), dtype=np.float32)
-    y = np.zeros(n_samples, dtype=np.float32)
+        baseline = load_baseline()
+    except (FileNotFoundError, ValueError) as exc:  # pragma: no cover - build guard
+        logger.error(
+            "σ baseline unavailable (%s); run scripts/harvest_sigma_baseline.py first.", exc
+        )
+        raise SystemExit(1) from exc
 
     n_positive = n_samples // 2
-
-    # --- positive samples ---
-    for i in range(n_positive):
-        # Ethical scalars: drawn from U[threshold, 2.0] (typical scalar range)
-        X[i, :N_ETHICAL_SCALARS] = rng.uniform(THRESHOLD, 2.0, N_ETHICAL_SCALARS)
-        # Non-ethical scalars: realistic range [0, 2]
-        X[i, N_ETHICAL_SCALARS:180] = rng.uniform(0.0, 2.0, 180 - N_ETHICAL_SCALARS)
-        y[i] = 1.0
-
-    # --- negative samples ---
-    for i in range(n_positive, n_samples):
-        # Start with realistic values
-        X[i, :180] = rng.uniform(0.0, 2.0, 180)
-        # Force 1–5 critical ethical scalars below threshold
-        n_violations = rng.integers(1, 6)
-        violated = rng.choice(CRITICAL_INDICES, size=n_violations, replace=False)
-        for idx in violated:
-            X[i, idx] = rng.uniform(0.0, THRESHOLD - 0.01)
-        y[i] = 0.0
-
-    # Shuffle
+    X, y = build_integrity_samples(
+        baseline,
+        seed=seed,
+        n_positive=n_positive,
+        n_negative=n_samples - n_positive,
+        threshold=THRESHOLD,
+    )
+    rng = np.random.default_rng(seed + 1)
     perm = rng.permutation(n_samples)
     return X[perm], y[perm]
 
@@ -161,7 +166,7 @@ def train(
     lr: float = 1e-3,
     seed: int = 42,
     n_samples: int = 10_000,
-) -> tuple[nn.Sequential, dict]:
+) -> tuple[nn.Sequential, dict[str, Any]]:
     """Train the gate network and return (model, metrics)."""
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -185,7 +190,7 @@ def train(
 
     best_val_acc = 0.0
     best_state = model.state_dict()
-    metrics: dict = {"epochs": [], "best_epoch": 0, "best_val_acc": 0.0}
+    metrics: dict[str, Any] = {"epochs": [], "best_epoch": 0, "best_val_acc": 0.0}
 
     for epoch in range(1, epochs + 1):
         # --- train ---
@@ -248,9 +253,14 @@ def train(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train σ_Immutable EthicalGate")
-    parser.add_argument("--epochs", type=int, default=200)
+    # Defaults reproduce the shipped weights: the harvested anchor-faithful
+    # corpus needs more data/epochs than the old synthetic scheme for the
+    # shallow gate to crisply isolate the 24 anchor positions from the 3
+    # narrative dims in the same band (so a generic all-anchors-high vector
+    # passes while the narrative-low real baseline also passes robustly).
+    parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--samples", type=int, default=10_000)
+    parser.add_argument("--samples", type=int, default=40_000)
     args = parser.parse_args()
 
     model, metrics = train(
@@ -258,6 +268,31 @@ def main() -> int:
         seed=args.seed,
         n_samples=args.samples,
     )
+
+    # ------------------------------------------------------------------
+    # DoS guard: the trained network MUST pass the real harvested intact
+    # config vector, or every production detect_with_fusion call would
+    # fail-closed.  This is the invariant the harvested corpus exists to
+    # guarantee; assert it before shipping the weights.
+    # ------------------------------------------------------------------
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+    from omni_mercury_engine.security.sigma_immutable_corpus import load_baseline
+
+    baseline = load_baseline()
+    baseline_vec = np.zeros(INPUT_DIM, dtype=np.float32)
+    baseline_vec[: len(baseline.values)] = baseline.values.astype(np.float32)
+    model.eval()
+    with torch.no_grad():
+        baseline_score = float(model(torch.from_numpy(baseline_vec)).squeeze(-1).item())
+    logger.info("DoS guard — trained score on the real intact baseline: %.6f", baseline_score)
+    if baseline_score < THRESHOLD:
+        logger.error(
+            "REFUSING to ship: retrained σ network scores the real intact config %.6f < %.2f — "
+            "this would DoS production. Adjust the corpus/epochs and retry.",
+            baseline_score,
+            THRESHOLD,
+        )
+        return 1
 
     # Persist weights
     WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -277,10 +312,15 @@ def main() -> int:
         "best_val_acc": metrics["best_val_acc"],
         "threshold": THRESHOLD,
         "labelling_source": (
-            "Scalar vectors labelled ethical (1) when all 27 ETHICAL-category "
-            "scalars are at-or-above domain-calibrated thresholds; unethical (0) "
-            "when 1-5 critical ethical scalars are below threshold."
+            "Harvested config-integrity corpus: positives are the real intact "
+            "operational vector (scripts/harvest_sigma_baseline.py) plus intact "
+            "variations holding the 24 critical ethical anchors at-or-above "
+            "threshold; negatives are real tamper mutations (anchor collapse, "
+            "gross-outlier leak, band corruption). The exact baseline is a "
+            "training positive, so the network passes the real production "
+            "configuration by construction (DoS guard enforced in main())."
         ),
+        "baseline_sigma_score": round(baseline_score, 10),
     }
     REGISTRY_PATH.write_text(json.dumps(registry, indent=2) + "\n")
     logger.info("Registry written to %s (SHA-256: %s)", REGISTRY_PATH, sha256)

@@ -51,6 +51,26 @@ def offline_mode_active() -> bool:
     }
 
 
+# VPC-air-gap opt-in. Cut from the *public* internet (MERCURY_OFFLINE) while
+# still reaching on-prem RFC1918 services (an Ollama model or SearXNG on the
+# operator's private network). This ONLY takes effect when MERCURY_OFFLINE is
+# also set AND the caller passed ``allow_private=True``; on its own it does
+# nothing. Even then the metadata service (IMDS), loopback abuse, CGNAT, and —
+# critically — any PUBLIC resolution stay refused: the air-gap from the public
+# internet is preserved, the carve-out is private-network reachability only.
+MERCURY_OFFLINE_ALLOW_PRIVATE_VAR = "MERCURY_OFFLINE_ALLOW_PRIVATE"
+
+
+def offline_allow_private_active() -> bool:
+    """Whether VPC-air-gap mode is opted in via ``MERCURY_OFFLINE_ALLOW_PRIVATE``."""
+    return os.environ.get(MERCURY_OFFLINE_ALLOW_PRIVATE_VAR, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 class OfflineModeError(RuntimeError):
     """Raised when a network fetch is attempted while MERCURY_OFFLINE is set.
 
@@ -63,9 +83,11 @@ class OfflineModeError(RuntimeError):
         self.url = url
         super().__init__(
             f"MERCURY_OFFLINE is set; refusing network fetch of {url}. "
-            "Prime the local cache while online (e.g. "
-            "`python scripts/prefetch_datasets.py --adbench cardio thyroid ...`) "
-            "or unset MERCURY_OFFLINE to allow downloads."
+            "Offline mode serves only primed local caches and loopback "
+            "services (e.g. a local Ollama model on 127.0.0.1). Prime "
+            "dataset caches while online (e.g. `python "
+            "scripts/prefetch_datasets.py --adbench cardio thyroid ...`) "
+            "or unset MERCURY_OFFLINE to allow egress."
         )
 
 

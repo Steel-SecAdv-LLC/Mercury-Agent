@@ -631,6 +631,11 @@ class EmailReportSender:
     ) -> bool:
         """Send report via email.
 
+        Air-gap: under ``MERCURY_OFFLINE`` a non-loopback SMTP server is
+        refused before any socket -- the refusal is logged as an explicit
+        MERCURY_OFFLINE suppression (this method's contract is a boolean
+        result, never a raise) and a loopback relay stays usable.
+
         Args:
             report: Report text
             recipient: Recipient email address
@@ -639,6 +644,9 @@ class EmailReportSender:
         Returns:
             Success status
         """
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
         try:
             import smtplib
             from email.mime.multipart import MIMEMultipart
@@ -646,6 +654,10 @@ class EmailReportSender:
 
             smtp_server = self.smtp_config.get("server", "smtp.gmail.com")
             smtp_port = int(self.smtp_config.get("port", 587))
+            # Air-gap gate: fires before credentials are even considered,
+            # and long before smtplib.SMTP opens a socket.
+            enforce_offline_egress(f"smtp://{smtp_server}:{smtp_port}")
+
             sender_email = self.smtp_config.get("sender_email")
             sender_password = self.smtp_config.get("password")
 
@@ -668,6 +680,12 @@ class EmailReportSender:
             self.logger.info(f"Email report sent to {recipient}")
             return True
 
+        except OfflineModeError:
+            self.logger.warning(
+                "Email report suppressed: MERCURY_OFFLINE is set; refusing "
+                "SMTP egress to a non-loopback relay"
+            )
+            return False
         except Exception as e:
             self.logger.error(f"Failed to send email: {e}")
             return False

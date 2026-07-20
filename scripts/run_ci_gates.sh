@@ -18,7 +18,7 @@
 #   * the Code Quality job ("Run Black/Ruff/Flake8", header + docstring gates)
 #   * the Type Checking job (mypy src lane, lenient tests lane, and the
 #     graduated strict lane's directory list)
-# Tool pins (black==26.5.1, mypy==2.1.0, pydocstyle==6.3.0) are mirrored in
+# Tool pins (black==26.5.1, mypy==2.3.0, pydocstyle==6.3.0) are mirrored in
 # pyproject and enforced across surfaces by scripts/check_pinned_tool_versions.py.
 #
 # Behaviour: every gate runs (no fail-fast), failures are summarised at the
@@ -27,7 +27,7 @@
 #
 # Usage:
 #   bash scripts/run_ci_gates.sh            # all gates (mypy lanes dominate; ~5-10 minutes)
-#   bash scripts/run_ci_gates.sh --fast     # skip the three mypy lanes (finishes in ~1 minute)
+#   bash scripts/run_ci_gates.sh --fast     # skip the four mypy lanes (finishes in ~1 minute)
 set -uo pipefail
 
 FAST=0
@@ -94,9 +94,20 @@ if [[ "${FAST}" -eq 0 ]]; then
     --disallow-subclassing-any \
     --show-error-codes \
     --no-warn-unused-configs
+
+  # Shipped-artifact scripts — KEEP IN LOCKSTEP with the ci.yml list
+  # ("Run MyPy on shipped-artifact scripts").  The rest of scripts/
+  # carries pre-existing errors and graduates file-by-file, mirroring
+  # the strict-test-dirs mechanism above.
+  run_gate "mypy shipped-artifact scripts lane (ci.yml: scripts)" \
+    mypy scripts/harvest_sigma_baseline.py \
+    scripts/train_sigma_immutable.py \
+    scripts/collect_sw_eng_metrics.py \
+    scripts/fit_weapons_gate_calibration.py \
+    --show-error-codes
 else
   echo ""
-  echo "==> (--fast: skipping the three mypy lanes)"
+  echo "==> (--fast: skipping the four mypy lanes)"
 fi
 
 # --- Summary ----------------------------------------------------------------

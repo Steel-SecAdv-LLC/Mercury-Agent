@@ -254,9 +254,26 @@ class BatchDetectRequest(BaseModel):
     @field_validator("callback_url")
     @classmethod
     def validate_callback_url(cls, v: str | None) -> str | None:
-        """Validate callback URL to prevent SSRF attacks."""
+        """Validate callback URL to prevent SSRF attacks.
+
+        Air-gap: under ``MERCURY_OFFLINE`` a callback URL is rejected at
+        request-validation time, BEFORE the SSRF check resolves the hostname
+        -- DNS is itself egress in a true air-gap, and the callback would be
+        suppressed at send time anyway, so accepting it would only promise a
+        webhook that can never fire.
+        """
         if v is None:
             return v
+
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active():
+            raise ValueError(
+                "callback_url is unavailable while MERCURY_OFFLINE is set: "
+                "webhook egress is refused and callback hostnames are not "
+                "resolved. Submit without callback_url and poll the job "
+                "status endpoint instead."
+            )
         parsed = urlparse(v)
         if parsed.scheme not in ("https",):
             raise ValueError("Callback URL must use HTTPS scheme")
@@ -503,7 +520,22 @@ async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
     real source of callback timeouts) and ``asyncio.TimeoutError`` (Python's
     builtin ``TimeoutError`` since 3.11) so the intent is documented and the
     distinction shows up in logs.
+
+    Air-gap: ``MERCURY_OFFLINE`` suppresses the callback entirely.  Callback
+    URLs are caller-supplied and validated to be public HTTPS endpoints, so
+    under the air-gap every one of them is refused egress; because this
+    coroutine's contract is "failures never escape", the refusal is a logged
+    skip (before httpx or any socket is touched), not a raise.
     """
+    from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+    if offline_mode_active():
+        logger.warning(
+            "Callback for job %s suppressed: MERCURY_OFFLINE is set; "
+            "refusing webhook egress to the caller-supplied URL",
+            job_id,
+        )
+        return
     try:
         import httpx
 

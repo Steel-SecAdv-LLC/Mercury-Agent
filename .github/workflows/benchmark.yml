@@ -119,7 +119,7 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
@@ -132,7 +132,7 @@ jobs:
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
@@ -143,7 +143,7 @@ jobs:
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Free up disk space
         run: |
@@ -153,12 +153,12 @@ jobs:
           docker system prune -af --volumes || true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml') }}
@@ -245,7 +245,7 @@ jobs:
           "
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: benchmark-results-${{ github.sha }}
           path: benchmarks/mercury_benchmark_results.json
@@ -425,7 +425,7 @@ jobs:
 
       - name: Upload empirical results (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: empirical-results-${{ github.sha }}
           path: benchmarks/empirical_benchmark_results.json
@@ -446,7 +446,7 @@ jobs:
             --json benchmarks/seven_axis_results.json
 
       - name: Upload seven-axis results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: seven-axis-results-${{ github.sha }}
           path: benchmarks/seven_axis_results.json
@@ -519,7 +519,7 @@ jobs:
 
     steps:
       - name: Download current benchmark results
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: benchmark-results-${{ github.sha }}
           path: current
