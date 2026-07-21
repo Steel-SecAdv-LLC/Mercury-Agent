@@ -90,8 +90,7 @@ def _genuine_probe(
         Minutia(
             x=m.x + tx + float(rng.uniform(-jitter, jitter)),
             y=m.y + ty + float(rng.uniform(-jitter, jitter)),
-            orientation=(m.orientation + float(rng.uniform(-ang_jitter, ang_jitter)))
-            % (2 * np.pi),
+            orientation=(m.orientation + float(rng.uniform(-ang_jitter, ang_jitter))) % (2 * np.pi),
             type=m.type,
             quality=1.0,
         )
@@ -111,9 +110,7 @@ def _run_sweep() -> dict[str, float]:
 
     for i in range(N_IDENTITIES):
         for p in range(PROBES_PER_IDENTITY):
-            probe = _features_from(
-                _genuine_probe(templates[i], seed=5000 + i * 10 + p)
-            )
+            probe = _features_from(_genuine_probe(templates[i], seed=5000 + i * 10 + p))
             result = matcher.match(probe, gallery[i])
             genuine_scores.append(result.match_score)
             genuine_total += 1

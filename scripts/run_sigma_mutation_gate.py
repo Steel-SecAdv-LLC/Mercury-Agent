@@ -650,9 +650,7 @@ def run_gate(
 
     effective_jobs = max(1, min(jobs, len(selected)))
     if effective_jobs > 1:
-        outcomes = _run_parallel(
-            selected, sources, cmd, test_timeout, repo_root, effective_jobs
-        )
+        outcomes = _run_parallel(selected, sources, cmd, test_timeout, repo_root, effective_jobs)
     else:
         outcomes = _run_serial(selected, sources, cmd, test_timeout, repo_root)
 

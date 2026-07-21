@@ -310,12 +310,8 @@ class TestAllProtocolsRoundTrip:
         with np.load(out_path, allow_pickle=False) as archive:
             assert set(archive.files) == {"modality_a", "modality_b", "labels"}
             np.testing.assert_array_equal(archive["labels"], expected["labels"])
-            np.testing.assert_array_equal(
-                archive["modality_a"], expected["features"]["modality_a"]
-            )
-            np.testing.assert_array_equal(
-                archive["modality_b"], expected["features"]["modality_b"]
-            )
+            np.testing.assert_array_equal(archive["modality_a"], expected["features"]["modality_a"])
+            np.testing.assert_array_equal(archive["modality_b"], expected["features"]["modality_b"])
 
     @pytest.mark.parametrize("protocol", [0, 1, 2])
     def test_low_protocol_varied_dtypes_round_trip(self, protocol: int, tmp_path: Path) -> None:

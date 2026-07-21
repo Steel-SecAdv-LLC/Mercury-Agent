@@ -34,9 +34,7 @@ def _run(conclusion: str | None, status: str = "completed", minutes_ago: int = 5
     return {
         "status": status,
         "conclusion": conclusion,
-        "createdAt": datetime.fromtimestamp(started, tz=UTC)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "createdAt": datetime.fromtimestamp(started, tz=UTC).isoformat().replace("+00:00", "Z"),
         "event": "pull_request",
     }
 
