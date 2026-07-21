@@ -142,13 +142,14 @@ lane, native AMA, Python 3.11:
   round's changes keep the core lane green.
 - **Post-expansion run** (this round adds `tests/biometric/` +
   `tests/quantum_computing/` to the core lane, so the six modules' 93–100%
-  coverage now counts toward the core floor): rerun of the same selection
-  with the two dirs added; measured coverage rises above the 38.30% baseline.
-  The `COVERAGE_THRESHOLD_CORE` floor is **kept at 30** (the round only ADDS
-  core-lane coverage, never removes it, so the existing floor stays a valid
-  non-regression guarantee with an even larger cushion). Raising it is
-  deferred to a dedicated re-calibration commit rather than bundled here, per
-  the "do not raise a floor without a fresh measured justification" policy.
+  coverage now counts toward the core floor): same selection + the two dirs,
+  native AMA, Python 3.11 — **5,487 passed, 49 skipped, 0 failed; combined
+  stmt+branch coverage 40.57%** (up +2.27 points from the 38.30% baseline).
+  On that fresh measurement `COVERAGE_THRESHOLD_CORE` **graduates 30 → 33**,
+  holding the same ~7-point cushion-below-measured policy (40.57 − 33 = 7.6).
+  The floor is a non-regression guarantee, not a target; 33 stays safe across
+  the 3.11–3.14 matrix (the pre-expansion 3.14 CI lane already measured
+  38.26%, and biometric/quantum only add coverage).
 <!-- /CORE_LANE_RESULT -->
 
 ## 7. Mutation testing (task: cheap sample + survivor disposition)

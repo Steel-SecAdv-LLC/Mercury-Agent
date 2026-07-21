@@ -55,16 +55,19 @@ env:
   # behavioral tests across twelve previously weak or untested
   # modules (see docs/MAINT1_2_COVERAGE_REMEDIATION.md §5).  The 62
   # floor keeps the established "~7-point cushion below measured"
-  # policy.  CORE stays at its 2026-07-18 calibration (37.94%
-  # measured; the round only ADDED core-lane suites — tests/fairness/
-  # — so the floor remains conservative; re-measure before raising).
+  # policy.  CORE re-measured 2026-07-21 (engineering-pass round) after
+  # adding tests/biometric/ + tests/quantum_computing/ to the core-lane
+  # selection: 40.57% combined stmt+branch (CI-identical invocation,
+  # native AMA, 5,487 passing tests; up from 38.30% pre-expansion), so
+  # the floor graduates 30 -> 33, holding the same ~7-point cushion (see
+  # docs/ENGINEERING_PASS_REMEDIATION.md §6).
   # Do not lower either floor to unblock unrelated work — the floors
   # document a non-regression guarantee, not a preference.
   #
   # The 85-point pyproject target stays in place as the strict
   # aspirational nightly bar.
   # ---------------------------------------------------------------------
-  COVERAGE_THRESHOLD_CORE: 30
+  COVERAGE_THRESHOLD_CORE: 33
   COVERAGE_THRESHOLD_FULL: 62
 
 jobs:
