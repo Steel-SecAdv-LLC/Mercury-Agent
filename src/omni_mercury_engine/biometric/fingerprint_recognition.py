@@ -545,7 +545,7 @@ class MinutiaeExtractor:
 
                 cn = 0
                 for k in range(8):
-                    cn += abs(neighbors[k] - neighbors[(k + 1) % 8])
+                    cn += abs(int(neighbors[k]) - int(neighbors[(k + 1) % 8]))
                 cn = cn // 2
 
                 if cn == 1:

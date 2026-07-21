@@ -177,7 +177,7 @@ class QuantumAnomalyDetector:
             QuantumDetectionResult with anomaly scores and predictions
         """
         method = method or self._method or "vqe_anomaly"
-        threshold = threshold or self._threshold
+        threshold = self._threshold if threshold is None else threshold
 
         if self._trained_model is None and method in [
             "quantum_kernel",
