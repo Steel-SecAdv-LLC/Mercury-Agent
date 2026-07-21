@@ -588,9 +588,11 @@ jobs:
         #                            + ISO hardening Lyapunov validator (#238)
         # * tests/loaders/       -- ISO hardening (already clean) (#238)
         # * tests/narrative/     -- ISO hardening (already clean) (#238)
+        # * tests/fairness/      -- intersectional fairness metrics
+        #                            (ROADMAP row 6 closure; authored clean)
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
-            tests/loaders/ tests/narrative/ \
+            tests/loaders/ tests/narrative/ tests/fairness/ \
             --disallow-subclassing-any \
             --show-error-codes \
             --pretty \
@@ -1008,6 +1010,7 @@ jobs:
             tests/datasets/ \
             tests/api/ \
             tests/automl/ \
+            tests/fairness/ \
             tests/tools/ \
             tests/scripts/test_run_ablation.py \
             tests/scripts/test_check_readme_lyapunov.py \

@@ -3055,6 +3055,13 @@ class OmniMercuryEngine(LoggerMixin):
         sensitive demographic groups. This supports ethical AI principles
         and regulatory compliance.
 
+        When the audit receives two or more named sensitive features (the
+        ``_audit_fairness`` dict shape), marginal metrics are computed per
+        feature and intersectional (joint-subgroup) parity / equalized
+        odds are computed across the crossed cells — a model can satisfy
+        every marginal constraint while still disadvantaging a joint
+        subgroup, and only the intersectional metrics catch that.
+
         Args:
             sensitive_features: List of feature names that are sensitive
                 attributes (e.g., age, gender, race).
@@ -3663,7 +3670,7 @@ class OmniMercuryEngine(LoggerMixin):
         try:
             fairness_report = self.fairness_auditor.audit(
                 predictions=predictions,
-                sensitive_features=sensitive_data,  # type: ignore[arg-type, unused-ignore]
+                sensitive_features=sensitive_data,
             )
             if not fairness_report.is_fair:
                 logger.warning(
