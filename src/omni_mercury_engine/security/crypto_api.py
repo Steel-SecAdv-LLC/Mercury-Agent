@@ -132,6 +132,28 @@ class KeyPair:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+#: Length, in hex characters, of the advisory key fingerprint stored in
+#: :attr:`Signature.public_key_hash`.  Single source of truth for every
+#: site that formats the fingerprint (signing here, corpus verification
+#: in ``sigma_immutable_corpus``) so the persisted record format cannot
+#: drift between writers.
+KEY_FINGERPRINT_HEX_CHARS = 16
+
+
+def key_fingerprint(key_material: bytes) -> str:
+    """Format the advisory SHA3-256 key fingerprint for ``Signature`` records.
+
+    Args:
+        key_material: Key bytes to fingerprint (public key, or a secret-key
+            prefix at signing time).
+
+    Returns:
+        The first :data:`KEY_FINGERPRINT_HEX_CHARS` hex characters of the
+        SHA3-256 digest.
+    """
+    return hashlib.sha3_256(key_material).hexdigest()[:KEY_FINGERPRINT_HEX_CHARS]
+
+
 @dataclass
 class Signature:
     """Digital signature with metadata."""
@@ -490,7 +512,7 @@ class MercuryCrypto:
         return Signature(
             signature=sig_bytes,
             algorithm=algorithm,
-            public_key_hash=hashlib.sha3_256(secret_key[:32]).hexdigest()[:16],
+            public_key_hash=key_fingerprint(secret_key[:32]),
         )
 
     def verify(

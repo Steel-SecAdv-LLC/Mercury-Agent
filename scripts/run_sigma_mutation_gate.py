@@ -97,6 +97,7 @@ DEFAULT_TARGETS = (
 DEFAULT_TEST_CMD = (
     "pytest -x -q -p no:cacheprovider "
     "tests/security/test_sigma_immutable_gate_semantics.py "
+    "tests/security/test_sigma_immutable_corpus_semantics.py "
     "tests/security/test_sigma_immutable_kat.py "
     "tests/security/test_sigma_immutable_pqc_classification.py "
     "tests/test_sigma_immutable_discrimination.py"
