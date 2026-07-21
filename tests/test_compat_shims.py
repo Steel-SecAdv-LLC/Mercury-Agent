@@ -203,3 +203,90 @@ class TestAnomalyPackageShim:
         module = importlib.import_module("omni_mercury_engine.anomaly")
         assert module.__doc__ is not None
         assert "cross-domain" in module.__doc__.lower()
+
+
+# =============================================================================
+# core.di deprecation (steel/maint1/2-coverage round — ROADMAP row 19)
+# =============================================================================
+
+_DI_MODULE = "omni_mercury_engine.core.di"
+
+
+@pytest.fixture()
+def fresh_di_module() -> Iterator[None]:
+    """Drop core.di from sys.modules so import-time warnings re-fire."""
+    saved = sys.modules.pop(_DI_MODULE, None)
+    try:
+        yield
+    finally:
+        sys.modules.pop(_DI_MODULE, None)
+        if saved is not None:
+            sys.modules[_DI_MODULE] = saved
+
+
+def _import_di_capturing_warnings(
+    monkeypatch: pytest.MonkeyPatch, *, suppress: str | None
+) -> tuple[Any, list[warnings.WarningMessage]]:
+    """Freshly import core.di, recording emitted warnings."""
+    if suppress is None:
+        monkeypatch.delenv(_SUPPRESS_ENV, raising=False)
+    else:
+        monkeypatch.setenv(_SUPPRESS_ENV, suppress)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        module = importlib.import_module(_DI_MODULE)
+    return module, list(caught)
+
+
+def _di_deprecation_warnings(
+    caught: list[warnings.WarningMessage],
+) -> list[warnings.WarningMessage]:
+    return [
+        w
+        for w in caught
+        if issubclass(w.category, DeprecationWarning)
+        and w.category.__name__ == "DIDeprecationWarning"
+    ]
+
+
+class TestDIDeprecation:
+    """core.di is deprecated (orphaned; injection inert under PEP 563)."""
+
+    @pytest.mark.usefixtures("fresh_di_module")
+    def test_deprecation_warning_fires_on_import(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _, caught = _import_di_capturing_warnings(monkeypatch, suppress=None)
+        emitted = _di_deprecation_warnings(caught)
+        assert len(emitted) == 1
+        message = str(emitted[0].message)
+        assert "deprecated" in message
+        assert "direct construction" in message
+        assert _SUPPRESS_ENV in message
+
+    @pytest.mark.parametrize("value", ["1", "true", "YES"])
+    @pytest.mark.usefixtures("fresh_di_module")
+    def test_env_var_suppresses_warning(self, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+        _, caught = _import_di_capturing_warnings(monkeypatch, suppress=value)
+        assert _di_deprecation_warnings(caught) == []
+
+    @pytest.mark.usefixtures("fresh_di_module")
+    def test_module_remains_functional_after_deprecation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Preservation policy: deprecated items keep working.  The full
+        # contract lives in tests/core/test_di.py; this pins the basics
+        # through the deprecated import path itself.
+        module, _ = _import_di_capturing_warnings(monkeypatch, suppress="1")
+        container = module.ServiceContainer()
+
+        class _Service:
+            pass
+
+        container.register_singleton(_Service)
+        assert container.resolve(_Service) is container.resolve(_Service)
+
+    @pytest.mark.usefixtures("fresh_di_module")
+    def test_warning_category_is_importable_and_well_typed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        module, _ = _import_di_capturing_warnings(monkeypatch, suppress="1")
+        assert issubclass(module.DIDeprecationWarning, DeprecationWarning)

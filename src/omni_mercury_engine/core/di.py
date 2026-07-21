@@ -2,6 +2,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Dependency Injection Framework for Mercury Agent.
 
+.. deprecated:: 2.1.x (steel/maint1/2-coverage round)
+    This module is **deprecated**: it has had zero importers anywhere in
+    src/tests/scripts/tools since inception (its built-in detector/model
+    maps had bit-rotted to nonexistent class names, which is only
+    possible in dead code), and its constructor-injection mechanism is
+    inert for every class in this codebase — ``from __future__ import
+    annotations`` (used across src/) turns ``__init__`` annotations into
+    strings, which the injector does not resolve.  Mercury composes its
+    components by direct construction; use that pattern.  Per the
+    DEPRECATION.md preservation policy the module remains functional and
+    contract-pinned by ``tests/core/test_di.py``; see DEPRECATION.md
+    §"Module Compatibility Shims" for the entry and suppression options.
+
 Provides:
 - Service container with lifecycle management
 - Factory pattern for component creation
@@ -13,7 +26,9 @@ Provides:
 from __future__ import annotations
 
 import logging
+import os
 import threading
+import warnings
 from abc import ABC  # noqa: F401 - kept for potential future use
 from dataclasses import dataclass, field
 from enum import Enum
@@ -23,6 +38,45 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+
+class DIDeprecationWarning(DeprecationWarning):
+    """Deprecation warning for the ``core.di`` module.
+
+    Issued on import of the deprecated ``omni_mercury_engine.core.di``
+    module (orphaned since inception; injection inert under PEP 563 —
+    see the module docstring for the full evidence).
+
+    To suppress this warning:
+        - Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Use warnings.filterwarnings('ignore', category=DIDeprecationWarning)
+        - Compose components by direct construction instead
+    """
+
+
+def _emit_deprecation_warning() -> None:
+    """Emit the deprecation warning unless suppressed via environment."""
+    if os.environ.get("MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return
+
+    warnings.warn(
+        "omni_mercury_engine.core.di is deprecated: it has no in-repo "
+        "consumers and its constructor injection cannot resolve the "
+        "string annotations produced by `from __future__ import "
+        "annotations` (all of src/). Compose components by direct "
+        "construction. "
+        "Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress "
+        "this warning.",
+        DIDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+_emit_deprecation_warning()
 
 T = TypeVar("T")
 

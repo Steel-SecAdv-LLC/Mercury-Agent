@@ -18,9 +18,11 @@ Covers:
   "requires human assessment" (correlation, never prediction)
 - ``BandOverlap`` immutability (frozen dataclass)
 
-NOTE: ``cross_domain_frequency`` is not imported anywhere else in ``src/``
-(verified by repo-wide grep); these tests pin its documented public contract
-so the module cannot rot silently while it remains unwired.
+NOTE: ``cross_domain_frequency`` was unreferenced anywhere else in ``src/``
+when this suite was written (verified by repo-wide grep); it has since been
+wired into the ``omni_mercury_engine.detectors`` public surface (lazy
+export + ``__all__``) as the executed ROADMAP row-19 decision, and
+``TestPublicWiring`` below pins that wiring.
 """
 
 from __future__ import annotations
@@ -417,3 +419,25 @@ class TestBandOverlapDataclass:
         assert isinstance(result.domain_pairs_checked, int)
         assert isinstance(result.significant_overlaps, int)
         assert isinstance(result.description, str)
+
+
+# =============================================================================
+# Public wiring (ROADMAP row 19 executed decision)
+# =============================================================================
+
+
+class TestPublicWiring:
+    """The module is reachable from the detectors public surface."""
+
+    def test_exported_from_detectors_package(self) -> None:
+        import omni_mercury_engine.detectors as detectors_pkg
+
+        for name in (
+            "BandOverlap",
+            "CrossDomainCorrelation",
+            "CrossDomainFrequencyCorrelator",
+            "DomainBandInfo",
+        ):
+            exported = getattr(detectors_pkg, name)
+            assert exported.__module__ == "omni_mercury_engine.detectors.cross_domain_frequency"
+            assert name in detectors_pkg.__all__

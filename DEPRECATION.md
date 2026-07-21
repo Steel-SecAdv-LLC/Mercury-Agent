@@ -128,6 +128,45 @@ from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
 
 ---
 
+### 1.3 `core/di.py` (deprecated module, 2026-07-21)
+
+**Status:** Deprecated — functional, contract-pinned, no replacement shim
+(there is nothing to route to; Mercury composes components by direct
+construction).
+
+**Deprecated import (continues to work, emits `DIDeprecationWarning`):**
+```python
+from omni_mercury_engine.core.di import ServiceContainer, ComponentFactory
+```
+
+**Recommended pattern (what the codebase actually does):**
+```python
+# Compose components by direct construction, e.g.:
+from omni_mercury_engine.engine import OmniMercuryEngine
+engine = OmniMercuryEngine()
+```
+
+**Evidence for deprecation (steel/maint1/2-coverage round):**
+- Zero importers anywhere in src/tests/scripts/tools since inception —
+  earlier claims of importers were regex false positives.
+- Its built-in `detector_map`/`model_map` had bit-rotted to class names
+  that never existed post-rename (fixed in the same round) — only
+  possible in dead code.
+- Constructor injection is inert for every class in this codebase:
+  `from __future__ import annotations` (used across src/) makes
+  `__init__` annotations strings, which the injector does not resolve.
+
+**Justification for preservation:**
+- Public import path under `core/`; external integrations may construct
+  containers even though nothing in-repo does.
+- Preservation is cheap: the module is self-contained and its contract
+  is pinned by `tests/core/test_di.py` (56 tests, 94% coverage), so it
+  cannot rot silently again.
+- Removal would require the full policy criteria above (24-month
+  zero-usage telemetry, RFC), which are not met.
+
+---
+
 ## 2. Scalar Name Aliases (Dual Support)
 
 The Global Omni-Scalar Network (GOSNN) supports **both** legacy and omni-prefixed naming conventions. No migration is required, but new code should prefer the omni-prefixed names.
