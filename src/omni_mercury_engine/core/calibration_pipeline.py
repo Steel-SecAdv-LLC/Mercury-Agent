@@ -773,15 +773,36 @@ class ThresholdCalibrationPipeline:
                     threshold_name=key,
                     n_candidate_thresholds=n_candidate_thresholds,
                 )
-                # Clamp to system guardrails
+                # Clamp to system guardrails.  The registry record written
+                # by calibrate_from_data above holds the raw optimum, so it
+                # must be rewritten to the clamped operating point too —
+                # otherwise get_threshold() would serve a value violating
+                # the MIN_THRESHOLD_FLOOR/MAX_THRESHOLD_CAP guardrails that
+                # every other consumer of this result is protected by.
+                raw_threshold = result.threshold
+                clamped_threshold = float(
+                    np.clip(
+                        raw_threshold,
+                        ANOMALY.MIN_THRESHOLD_FLOOR,
+                        ANOMALY.MAX_THRESHOLD_CAP,
+                    )
+                )
+                if clamped_threshold != raw_threshold:
+                    record = self._thresholds[key]
+                    self._thresholds[key] = ThresholdRecord(
+                        name=record.name,
+                        value=clamped_threshold,
+                        status=record.status,
+                        strategy=record.strategy,
+                        dataset_fingerprint=record.dataset_fingerprint,
+                        metric_at_threshold=record.metric_at_threshold,
+                        metadata={
+                            **record.metadata,
+                            "guardrail_clamped_from": raw_threshold,
+                        },
+                    )
                 result = ThresholdResult(
-                    threshold=float(
-                        np.clip(
-                            result.threshold,
-                            ANOMALY.MIN_THRESHOLD_FLOOR,
-                            ANOMALY.MAX_THRESHOLD_CAP,
-                        )
-                    ),
+                    threshold=clamped_threshold,
                     metric_name=result.metric_name,
                     metric_value=result.metric_value,
                     strategy=result.strategy,
