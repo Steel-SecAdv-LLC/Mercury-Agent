@@ -28,6 +28,8 @@ on:
       - "src/omni_mercury_engine/security/sigma_immutable_corpus.py"
       - "scripts/run_sigma_mutation_gate.py"
       - "tests/scripts/test_run_sigma_mutation_gate.py"
+      - "tests/security/test_sigma_immutable_gate_semantics.py"
+      - "tests/security/test_sigma_immutable_corpus_semantics.py"
       - "tests/security/test_sigma_immutable_kat.py"
       - "tests/security/test_sigma_immutable_pqc_classification.py"
       - "tests/test_sigma_immutable_discrimination.py"

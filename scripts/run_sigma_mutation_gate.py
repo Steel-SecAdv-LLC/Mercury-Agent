@@ -86,8 +86,17 @@ DEFAULT_TARGETS = (
 #: gate's evaluate/enforce semantics, the corpus loader, and the trained
 #: classifier's discrimination floor.  ``-x`` short-circuits so killed
 #: mutants exit on the first failing test.
+#:
+#: The ``*_semantics`` file exists specifically for this gate: the
+#: first full measurement (2026-07-21) showed the interface-level subset
+#: alone killed only 9.7% of mutants — constant tweaks and operator
+#: swaps in the projection band math, the vector builders, and the
+#: corpus-generation arithmetic all survived.  The semantic suite pins
+#: those closed forms directly; do not remove it from this command
+#: without re-measuring the kill rate.
 DEFAULT_TEST_CMD = (
     "pytest -x -q -p no:cacheprovider "
+    "tests/security/test_sigma_immutable_gate_semantics.py "
     "tests/security/test_sigma_immutable_kat.py "
     "tests/security/test_sigma_immutable_pqc_classification.py "
     "tests/test_sigma_immutable_discrimination.py"
