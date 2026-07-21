@@ -67,6 +67,9 @@ run_gate "pydocstyle google convention (ci.yml: Run pydocstyle)" \
 run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
   python scripts/check_benchmark_integrity.py
 
+run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper)" \
+  python scripts/check_torch_load_safety.py
+
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
   # Guard the pin before running any lane: a full [all,dev] install can leave
@@ -123,6 +126,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/generate_anomaly_panel.py \
     scripts/run_sigma_mutation_gate.py \
     scripts/check_benchmark_integrity.py \
+    scripts/check_torch_load_safety.py \
     --show-error-codes
 else
   echo ""
