@@ -96,14 +96,25 @@ if [[ "${FAST}" -eq 0 ]]; then
     --no-warn-unused-configs
 
   # Shipped-artifact scripts — KEEP IN LOCKSTEP with the ci.yml list
-  # ("Run MyPy on shipped-artifact scripts").  The rest of scripts/
-  # carries pre-existing errors and graduates file-by-file, mirroring
-  # the strict-test-dirs mechanism above.
+  # ("Run MyPy on shipped-artifact scripts").  2026-07-21: the whole
+  # directory is on the gate — the historical pre-existing-errors
+  # carve-out was retired when the last nine files were cleaned; a new
+  # script must be added here AND in ci.yml when created.
   run_gate "mypy shipped-artifact scripts lane (ci.yml: scripts)" \
     mypy scripts/harvest_sigma_baseline.py \
     scripts/train_sigma_immutable.py \
     scripts/collect_sw_eng_metrics.py \
     scripts/fit_weapons_gate_calibration.py \
+    scripts/train_gosnn_fusion.py \
+    scripts/sweep_fusion_capacity.py \
+    scripts/generate_docs_images.py \
+    scripts/generate_calibration_visuals.py \
+    scripts/measure_codebase_scale.py \
+    scripts/update_readme_benchmarks.py \
+    scripts/run_api.py \
+    scripts/normalize_headers.py \
+    scripts/generate_anomaly_panel.py \
+    scripts/run_sigma_mutation_gate.py \
     --show-error-codes
 else
   echo ""
