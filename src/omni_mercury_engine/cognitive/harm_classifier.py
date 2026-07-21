@@ -191,9 +191,9 @@ def default_harm_classifier() -> Callable[[str], float]:
             if not active.startswith(_REAL_MODEL_PREFIXES):
                 return 0.0  # template / no real model: not a harm probability
             adapter = _DEFAULT_CACHE.get("adapter")
-            if adapter is None:
+            if not callable(adapter):
                 return 0.0
-            return float(adapter(text))  # type: ignore[operator]
+            return float(adapter(text))
         except Exception as exc:  # pragma: no cover - fail-open
             logger.info("default harm classifier failed (%s); contributing 0.0", exc)
             return 0.0

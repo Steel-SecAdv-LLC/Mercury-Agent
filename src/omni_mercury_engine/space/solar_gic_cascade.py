@@ -283,9 +283,12 @@ class SolarGICCascadeDetector:
 
         warning_satisfied = watch_satisfied and bool(open_windows) and kp_elevated
         if warning_satisfied:
+            # warning_satisfied implies kp_elevated, and kp_elevated is only
+            # True when kp_hit is present (see kp_elevated above).
+            assert kp_hit is not None
             warning_reason = (
                 f"{len(open_windows)} arrival window(s) open at now and observed "
-                f"Kp {kp_hit[1]:.2f} >= {self.kp_watch_threshold:.1f} "  # type: ignore[index]
+                f"Kp {kp_hit[1]:.2f} >= {self.kp_watch_threshold:.1f} "
                 "(G1 watch level)"
             )
         elif not watch_satisfied:
@@ -300,8 +303,10 @@ class SolarGICCascadeDetector:
                 f"{self.kp_watch_threshold:.1f}"
             )
         if kp_elevated and not watch_satisfied:
+            # kp_elevated is only True when kp_hit is present (see above).
+            assert kp_hit is not None
             notes.append(
-                f"unattributed_kp: observed Kp {kp_hit[1]:.2f} with no upstream "  # type: ignore[index]
+                f"unattributed_kp: observed Kp {kp_hit[1]:.2f} with no upstream "
                 "solar driver in the inputs; not escalating without the causal chain."
             )
 
