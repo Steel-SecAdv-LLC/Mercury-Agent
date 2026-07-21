@@ -64,6 +64,9 @@ run_gate "canonical headers (ci.yml: normalize_headers --check)" \
 run_gate "pydocstyle google convention (ci.yml: Run pydocstyle)" \
   pydocstyle src/omni_mercury_engine/ --convention=google
 
+run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
+  python scripts/check_benchmark_integrity.py
+
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
   # Guard the pin before running any lane: a full [all,dev] install can leave
@@ -90,7 +93,11 @@ if [[ "${FAST}" -eq 0 ]]; then
   # ("Run MyPy strict on graduated test directories").
   run_gate "mypy graduated strict lane (ci.yml: strict test dirs)" \
     mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
-    tests/loaders/ tests/narrative/ \
+    tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
+    tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
+    tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
+    tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+    tests/utils/ \
     --disallow-subclassing-any \
     --show-error-codes \
     --no-warn-unused-configs
@@ -115,6 +122,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/normalize_headers.py \
     scripts/generate_anomaly_panel.py \
     scripts/run_sigma_mutation_gate.py \
+    scripts/check_benchmark_integrity.py \
     --show-error-codes
 else
   echo ""

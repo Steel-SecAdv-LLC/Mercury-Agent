@@ -424,6 +424,20 @@ jobs:
         # --update README.md` and commit the regenerated block.
         run: python scripts/measure_codebase_scale.py --check README.md
 
+      - name: Run benchmark-integrity gate (ROADMAP row 17 offline fallback)
+        # Dependency-free, no-network structural + recomputation gate over
+        # benchmarks/mercury_benchmark_results.json and the README benchmark
+        # block: total == successful + failed, the per-dataset error count
+        # matches `failed`, the headline mean/median AUC + oracle-F1
+        # RECOMPUTE from the genuine-labelled per_dataset rows (not just
+        # restate the summary), and the README block matches the JSON.  This
+        # is the offline CI-gated fallback for the deferred, network-blocked
+        # live benchmark refresh (docs/ROADMAP.md row 17): while the fuller
+        # refresh of the 9 failed corpora is deferred, the committed headline
+        # cannot silently rot or be fabricated.  Fix a real drift with
+        # `python scripts/update_readme_benchmarks.py`; do not loosen the gate.
+        run: python scripts/check_benchmark_integrity.py
+
   # ===========================================================================
   # Stage 2: Type Checking
   # ===========================================================================
@@ -657,6 +671,7 @@ jobs:
             scripts/normalize_headers.py \
             scripts/generate_anomaly_panel.py \
             scripts/run_sigma_mutation_gate.py \
+            scripts/check_benchmark_integrity.py \
             --show-error-codes \
             --pretty
 
