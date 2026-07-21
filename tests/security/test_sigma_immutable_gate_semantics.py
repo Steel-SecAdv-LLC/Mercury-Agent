@@ -34,6 +34,7 @@ import dataclasses
 import numpy as np
 import pytest
 
+from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 from omni_mercury_engine.core.centralized_constants import ETHICAL
 from omni_mercury_engine.security.sigma_immutable_gate import (
@@ -248,6 +249,16 @@ class TestEvaluationAndGateContracts:
 # =============================================================================
 
 
+@pytest.mark.skipif(
+    not HAS_TORCH,
+    reason=(
+        "the trained σ_Immutable network requires torch (the [ml] extra); this "
+        "class asserts backend=='torch', which is meaningless in a no-torch lane "
+        "(e.g. pqc-production-check installs only [dev,api]). The fail-closed "
+        "no-torch path is covered separately by TestFailClosedContracts / "
+        "TestPQCUnavailableClassifier."
+    ),
+)
 class TestTrainedGateEndToEnd:
     """The shipped trained network enforces the calibrated threshold."""
 
