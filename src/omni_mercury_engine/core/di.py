@@ -164,8 +164,12 @@ class ServiceContainer:
 
             descriptor = self._services[service_type]
 
-            # Return existing singleton instance
-            if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
+            # Return existing singleton instance.  Presence is `is not
+            # None`, NOT truthiness: a legitimately falsy singleton (an
+            # empty container, a zero-length registry) would otherwise be
+            # re-created on every resolve, silently violating the
+            # singleton contract.
+            if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance is not None:
                 return cast("T", descriptor.instance)
 
             # Return scoped instance if exists
@@ -365,13 +369,16 @@ class ComponentFactory:
         Returns:
             Configured detector instance
         """
-        # Map detector types to implementations
+        # Map detector types to implementations.  Class names must match
+        # the real exports of each module — these entries had bit-rotted
+        # to names that never existed post-rename, so every built-in
+        # create_detector() call raised AttributeError.
         detector_map = {
-            "statistical": "omni_mercury_engine.detectors.statistical.StatisticalDetector",
-            "temporal": "omni_mercury_engine.detectors.temporal.TemporalDetector",
-            "spatial": "omni_mercury_engine.detectors.spatial.SpatialDetector",
-            "dimensional": "omni_mercury_engine.detectors.dimensional.DimensionalDetector",
-            "directive": "omni_mercury_engine.detectors.directive.DirectiveDetector",
+            "statistical": "omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector",
+            "temporal": "omni_mercury_engine.detectors.temporal.TemporalAnomalyDetector",
+            "spatial": "omni_mercury_engine.detectors.spatial.SpatialAnomalyDetector",
+            "dimensional": "omni_mercury_engine.detectors.dimensional.DimensionalAnalyzer",
+            "directive": "omni_mercury_engine.detectors.directive.SigmaDirectiveDetector",
         }
 
         if detector_type in self._registered_plugins:
@@ -412,8 +419,8 @@ class ComponentFactory:
             "astrophysical": "omni_mercury_engine.models.astrophysical.AstrophysicalAnomalyModel",
             "biometric": "omni_mercury_engine.models.biometric.BiometricAnomalyModel",
             "affective": "omni_mercury_engine.models.affective.AffectiveAnomalyModel",
-            "neural": "omni_mercury_engine.models.neural.NeuralAnomalyModel",
-            "consciousness": "omni_mercury_engine.models.consciousness.ConsciousnessAnomalyModel",
+            "neural": "omni_mercury_engine.models.neural.NeuralCognitiveModel",
+            "consciousness": "omni_mercury_engine.models.consciousness.ConsciousnessPreservationModel",
         }
 
         if model_type in self._registered_plugins:
