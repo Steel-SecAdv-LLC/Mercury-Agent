@@ -51,23 +51,33 @@ Usage
 -----
 ::
 
-    python scripts/run_sigma_mutation_gate.py                  # full run, default floor
-    python scripts/run_sigma_mutation_gate.py --max-mutants 80 # bounded CI run
+    python scripts/run_sigma_mutation_gate.py                  # full run, serial
+    python scripts/run_sigma_mutation_gate.py --jobs 4         # full run, 4 parallel workers
+    python scripts/run_sigma_mutation_gate.py --max-mutants 24 --jobs 4  # cheap PR sample
     python scripts/run_sigma_mutation_gate.py --list           # enumerate only, no test runs
     python scripts/run_sigma_mutation_gate.py --report out.json
+
+Parallelism (``--jobs N``) is the structural fix for the gate's runtime: N
+mutants complete in ~N/jobs wall-clock, so a full run stays inside the CI
+job's wall-clock limit by construction rather than only by a tuned
+per-mutant budget. Each worker runs in its own isolated copy of the tree, so
+concurrent mutants never share a target file.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import concurrent.futures
 import copy
 import json
 import os
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -353,7 +363,12 @@ def _terminate_process_group(proc: subprocess.Popen[bytes]) -> None:
         proc.communicate()
 
 
-def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, bool]:
+def run_test_command(
+    cmd: list[str],
+    timeout: float,
+    cwd: Path,
+    env: dict[str, str] | None = None,
+) -> tuple[bool, bool]:
     """Run the test command; returns (passed, timed_out).
 
     The child is launched in its own session (``start_new_session=True``) so a
@@ -366,6 +381,10 @@ def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, b
     ``Add -> Sub`` mutant stalled the gate for 82 min past mutant 69, leaving
     orphan pytest processes). Killing the group makes the timeout honoured so
     the mutant is correctly counted as ``timeout_killed``.
+
+    ``env`` (when given) fully replaces the child environment. Parallel workers
+    pass an env with ``PYTHONPATH`` pointing at the worker's own ``src`` copy so
+    the mutated package — not the shared editable install — is imported.
     """
     with subprocess.Popen(  # noqa: S603 - operator-supplied test command, same trust boundary as the CI job invoking this gate
         cmd,
@@ -373,6 +392,7 @@ def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, b
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
+        env=env,
     ) as proc:
         try:
             proc.communicate(timeout=timeout)
@@ -380,6 +400,198 @@ def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, b
             _terminate_process_group(proc)
             return False, True
         return proc.returncode == 0, False
+
+
+#: Directory names never copied into a parallel worker tree — VCS metadata,
+#: caches, and virtualenvs are irrelevant to a mutation test run and dominate
+#: copy time/space if included.
+_WORKER_COPY_IGNORE = shutil.ignore_patterns(
+    ".git",
+    "__pycache__",
+    "*.pyc",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".coverage",
+    "htmlcov",
+)
+
+
+def _prepare_worker_tree(repo_root: Path, worker_dir: Path) -> None:
+    """Copy the repo into an isolated worker tree for parallel mutation.
+
+    In-place mutation is serial by construction: two mutants cannot share one
+    on-disk target file. Each parallel worker instead gets its own copy of the
+    tree, mutates *its* target, and runs the test subprocess with
+    ``cwd`` + ``PYTHONPATH`` pointing at that copy — so the package's import
+    machinery is exactly the production one, just rooted in the worker's tree.
+    """
+    shutil.copytree(
+        repo_root,
+        worker_dir,
+        ignore=_WORKER_COPY_IGNORE,
+        symlinks=True,
+        dirs_exist_ok=True,
+    )
+
+
+def _worker_env(worker_dir: Path) -> dict[str, str]:
+    """Environment for a worker's test subprocess.
+
+    Prepends the worker's ``src`` to ``PYTHONPATH`` so ``import
+    omni_mercury_engine`` resolves to the mutated copy ahead of the shared
+    editable install (a plain ``.pth`` path entry, which PYTHONPATH outranks).
+    Harmless when the tree has no ``src`` (e.g. the harness's own fixture).
+    """
+    env = dict(os.environ)
+    worker_src = str(worker_dir / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = worker_src + (os.pathsep + existing if existing else "")
+    return env
+
+
+def evaluate_mutant(
+    site: MutationSite,
+    original_source: str,
+    target_path: Path,
+    cmd: list[str],
+    test_timeout: float,
+    cwd: Path,
+    env: dict[str, str] | None = None,
+) -> MutantOutcome:
+    """Apply one mutant, run the tests, restore the file, and classify.
+
+    ``target_path`` is the file to mutate and ``cwd``/``env`` scope the test
+    run — for serial mode these point at the real repo, for parallel mode at a
+    worker copy. Restoration in ``finally`` guarantees the tree is left
+    byte-exact even if the test run raises.
+    """
+    mutated = mutate_source(original_source, site.index)
+    if mutated is None:
+        return MutantOutcome(site=site, status="invalid", duration_seconds=0.0)
+
+    start = time.monotonic()
+    try:
+        target_path.write_text(mutated, encoding="utf-8")
+        passed, timed_out = run_test_command(cmd, test_timeout, cwd, env)
+    finally:
+        target_path.write_text(original_source, encoding="utf-8")
+    duration = time.monotonic() - start
+
+    if timed_out:
+        status = "timeout_killed"
+    elif passed:
+        status = "survived"
+    else:
+        status = "killed"
+    return MutantOutcome(site=site, status=status, duration_seconds=duration)
+
+
+def _print_progress(ordinal: int, total: int, outcome: MutantOutcome) -> None:
+    site = outcome.site
+    print(
+        f"  [{ordinal}/{total}] {site.target}:{site.lineno} "
+        f"{site.operator} ({site.description}) -> {outcome.status} "
+        f"({outcome.duration_seconds:.1f}s)"
+    )
+
+
+def _run_serial(
+    selected: list[MutationSite],
+    sources: dict[str, str],
+    cmd: list[str],
+    test_timeout: float,
+    repo_root: Path,
+) -> list[MutantOutcome]:
+    """Evaluate mutants one at a time, mutating the target file in place."""
+    outcomes: list[MutantOutcome] = []
+    total = len(selected)
+    for ordinal, site in enumerate(selected, start=1):
+        outcome = evaluate_mutant(
+            site,
+            sources[site.target],
+            repo_root / site.target,
+            cmd,
+            test_timeout,
+            repo_root,
+        )
+        outcomes.append(outcome)
+        _print_progress(ordinal, total, outcome)
+    return outcomes
+
+
+def _run_parallel(
+    selected: list[MutationSite],
+    sources: dict[str, str],
+    cmd: list[str],
+    test_timeout: float,
+    repo_root: Path,
+    jobs: int,
+) -> list[MutantOutcome]:
+    """Evaluate mutants concurrently, each worker in its own isolated tree.
+
+    Mutants are partitioned across ``jobs`` workers by an interleaved stride so
+    every worker spans the whole site list (balanced load). Each worker copies
+    the repo once, then runs its share serially inside that copy — so N mutants
+    execute on N/jobs wall-clock instead of N, with byte-exact isolation
+    between concurrent mutants (they never share a target file).
+    """
+    total = len(selected)
+    worker_index_sets = [list(range(w, total, jobs)) for w in range(jobs)]
+    worker_index_sets = [idxs for idxs in worker_index_sets if idxs]
+    n_workers = len(worker_index_sets)
+    print(
+        f"==> parallel: {n_workers} workers over {total} mutants "
+        f"(isolated repo copy per worker)"
+    )
+
+    tmp_root = Path(tempfile.mkdtemp(prefix="sigma_mut_workers_"))
+    results: list[MutantOutcome | None] = [None] * total
+    completed = 0
+
+    def worker(worker_id: int, idxs: list[int]) -> list[tuple[int, MutantOutcome]]:
+        wdir = tmp_root / f"w{worker_id}"
+        _prepare_worker_tree(repo_root, wdir)
+        env = _worker_env(wdir)
+        out: list[tuple[int, MutantOutcome]] = []
+        for idx in idxs:
+            site = selected[idx]
+            outcome = evaluate_mutant(
+                site,
+                sources[site.target],
+                wdir / site.target,
+                cmd,
+                test_timeout,
+                wdir,
+                env,
+            )
+            out.append((idx, outcome))
+        return out
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = [
+                pool.submit(worker, worker_id, idxs)
+                for worker_id, idxs in enumerate(worker_index_sets)
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                for idx, outcome in future.result():
+                    results[idx] = outcome
+                    completed += 1
+                    _print_progress(completed, total, outcome)
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    # Every index is filled by exactly one worker; assert to catch a partition
+    # bug rather than silently dropping a mutant from the denominator.
+    missing = [i for i, oc in enumerate(results) if oc is None]
+    if missing:  # pragma: no cover - defensive; partition is exhaustive
+        raise RuntimeError(f"parallel run dropped mutants at indices {missing}")
+    return [oc for oc in results if oc is not None]
 
 
 def run_gate(
@@ -391,6 +603,7 @@ def run_gate(
     repo_root: Path,
     report_path: str | None = None,
     list_only: bool = False,
+    jobs: int = 1,
 ) -> int:
     """Execute the mutation gate; returns the process exit code."""
     all_sites: list[MutationSite] = []
@@ -435,39 +648,17 @@ def run_gate(
         return 2
     print(f"    baseline green in {baseline_duration:.1f}s")
 
-    outcomes: list[MutantOutcome] = []
-    killed = survived = invalid = 0
-    for ordinal, site in enumerate(selected, start=1):
-        original = sources[site.target]
-        mutated = mutate_source(original, site.index)
-        if mutated is None:
-            invalid += 1
-            outcomes.append(MutantOutcome(site=site, status="invalid", duration_seconds=0.0))
-            continue
-
-        target_path = repo_root / site.target
-        start = time.monotonic()
-        try:
-            target_path.write_text(mutated, encoding="utf-8")
-            passed, timed_out = run_test_command(cmd, test_timeout, repo_root)
-        finally:
-            target_path.write_text(original, encoding="utf-8")
-        duration = time.monotonic() - start
-
-        if timed_out:
-            status = "timeout_killed"
-            killed += 1
-        elif passed:
-            status = "survived"
-            survived += 1
-        else:
-            status = "killed"
-            killed += 1
-        outcomes.append(MutantOutcome(site=site, status=status, duration_seconds=duration))
-        print(
-            f"  [{ordinal}/{len(selected)}] {site.target}:{site.lineno} "
-            f"{site.operator} ({site.description}) -> {status} ({duration:.1f}s)"
+    effective_jobs = max(1, min(jobs, len(selected)))
+    if effective_jobs > 1:
+        outcomes = _run_parallel(
+            selected, sources, cmd, test_timeout, repo_root, effective_jobs
         )
+    else:
+        outcomes = _run_serial(selected, sources, cmd, test_timeout, repo_root)
+
+    killed = sum(1 for o in outcomes if o.status in ("killed", "timeout_killed"))
+    survived = sum(1 for o in outcomes if o.status == "survived")
+    invalid = sum(1 for o in outcomes if o.status == "invalid")
 
     evaluated = killed + survived
     kill_rate = (100.0 * killed / evaluated) if evaluated else 0.0
@@ -534,6 +725,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="bound execution to N stride-sampled mutants (0 = all)",
     )
     parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help=(
+            "number of parallel workers (default 1 = serial in-place). With "
+            "N>1 each worker runs in its own isolated repo copy, so N mutants "
+            "complete in ~N/jobs wall-clock. This is the structural fix for the "
+            "gate's runtime bound: parallelism (not just a tuned per-mutant "
+            "budget) keeps a full run inside the CI job's wall-clock limit."
+        ),
+    )
+    parser.add_argument(
         "--test-timeout",
         type=float,
         default=120.0,
@@ -573,6 +776,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         repo_root=Path(args.repo_root),
         report_path=args.report,
         list_only=args.list,
+        jobs=args.jobs,
     )
 
 

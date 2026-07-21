@@ -90,4 +90,4 @@ class TestRealTree:
         assert rc == 0
 
     def test_wrapper_is_the_only_allowlisted_file(self) -> None:
-        assert gate.ALLOWLIST == frozenset({"src/omni_mercury_engine/security/safe_torch.py"})
+        assert frozenset({"src/omni_mercury_engine/security/safe_torch.py"}) == gate.ALLOWLIST

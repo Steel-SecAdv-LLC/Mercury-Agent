@@ -250,6 +250,95 @@ def test_report_artifact_written(fixture_repo: tuple[Path, str], tmp_path: Path)
     assert statuses.issubset({"killed", "survived", "timeout_killed", "invalid"})
 
 
+# =============================================================================
+# Parallel execution
+# =============================================================================
+
+
+def test_parallel_matches_serial_verdict_and_restores(fixture_repo: tuple[Path, str]) -> None:
+    """jobs>1 must reach the same pass verdict and never touch the real tree."""
+    root, rel = fixture_repo
+    original_bytes = (root / rel).read_bytes()
+    exit_code = run_gate(
+        targets=[rel],
+        test_cmd=_test_cmd(KILLING_TEST),
+        fail_under=95.0,
+        max_mutants=0,
+        test_timeout=60.0,
+        repo_root=root,
+        jobs=4,
+    )
+    assert exit_code == 0
+    # The real target file is never mutated in parallel mode (workers use
+    # isolated copies), so it is byte-identical afterwards.
+    assert (root / rel).read_bytes() == original_bytes
+
+
+def test_parallel_report_counts_every_selected_mutant(
+    fixture_repo: tuple[Path, str], tmp_path: Path
+) -> None:
+    """No mutant is dropped from the denominator under parallel partitioning."""
+    root, rel = fixture_repo
+    report_path = tmp_path / "report.json"
+    exit_code = run_gate(
+        targets=[rel],
+        test_cmd=_test_cmd(KILLING_TEST),
+        fail_under=95.0,
+        max_mutants=0,
+        test_timeout=60.0,
+        repo_root=root,
+        jobs=3,
+        report_path=str(report_path),
+    )
+    assert exit_code == 0
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    n = report["n_selected"]
+    assert len(report["outcomes"]) == n
+    assert report["killed"] + report["survived"] + report["invalid"] == n
+
+
+def test_parallel_blind_tests_fail_gate(fixture_repo: tuple[Path, str]) -> None:
+    """A blind suite fails the floor identically whether serial or parallel."""
+    root, rel = fixture_repo
+    exit_code = run_gate(
+        targets=[rel],
+        test_cmd=_test_cmd(BLIND_TEST),
+        fail_under=50.0,
+        max_mutants=0,
+        test_timeout=60.0,
+        repo_root=root,
+        jobs=4,
+    )
+    assert exit_code == 1
+
+
+def test_parallel_and_serial_agree_per_site(fixture_repo: tuple[Path, str], tmp_path: Path) -> None:
+    """Per-mutant classification is identical serial vs parallel (order aside)."""
+    root, rel = fixture_repo
+    serial_report = tmp_path / "serial.json"
+    parallel_report = tmp_path / "parallel.json"
+    for jobs, report in ((1, serial_report), (4, parallel_report)):
+        run_gate(
+            targets=[rel],
+            test_cmd=_test_cmd(KILLING_TEST),
+            fail_under=0.0,
+            max_mutants=0,
+            test_timeout=60.0,
+            repo_root=root,
+            jobs=jobs,
+            report_path=str(report),
+        )
+
+    def _by_site(path: Path) -> dict[tuple[str, int, int], str]:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            (o["site"]["target"], o["site"]["lineno"], o["site"]["col_offset"]): o["status"]
+            for o in data["outcomes"]
+        }
+
+    assert _by_site(serial_report) == _by_site(parallel_report)
+
+
 def test_main_list_mode_runs_no_tests(fixture_repo: tuple[Path, str]) -> None:
     root, rel = fixture_repo
     exit_code = main(

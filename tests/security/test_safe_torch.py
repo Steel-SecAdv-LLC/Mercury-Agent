@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -23,9 +22,6 @@ from omni_mercury_engine.security.safe_torch import (
     UnsafeCheckpointError,
     safe_torch_load,
 )
-
-if TYPE_CHECKING:
-    pass
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHECKPOINT_DIR = REPO_ROOT / "src" / "omni_mercury_engine" / "models" / "checkpoints"
