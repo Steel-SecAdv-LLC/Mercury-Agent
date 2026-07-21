@@ -673,10 +673,19 @@ class AgenticAutonomy:
         self, data: np.ndarray[Any, Any], transformation: str
     ) -> np.ndarray[Any, Any]:
         """Apply data transformation."""
+        # Typed intermediates: numpy arithmetic stubs as Any, so binding the
+        # result to an ndarray-typed name is what removes the no-any-return
+        # ignore (holds under both the current and floor numpy stubs).
         if transformation == "normalize":
-            return np.asarray((data - np.mean(data)) / (np.std(data) + 1e-8))  # type: ignore[no-any-return, unused-ignore]
+            normalized: np.ndarray[Any, Any] = np.asarray(
+                (data - np.mean(data)) / (np.std(data) + 1e-8)
+            )
+            return normalized
         elif transformation == "scale":
-            return np.asarray((data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8))  # type: ignore[no-any-return, unused-ignore]
+            scaled: np.ndarray[Any, Any] = np.asarray(
+                (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)
+            )
+            return scaled
         else:
             return data
 
@@ -922,7 +931,7 @@ class AgenticAutonomy:
         is_converged = False
         if len(self.policy_metrics.convergence_history) >= 10:
             recent_errors = self.policy_metrics.convergence_history[-10:]
-            is_converged = bool(np.mean(recent_errors) < 0.1)  # type: ignore[assignment, unused-ignore]
+            is_converged = bool(np.mean(recent_errors) < 0.1)
 
         return {
             "autonomy_level": self.autonomy_level,
