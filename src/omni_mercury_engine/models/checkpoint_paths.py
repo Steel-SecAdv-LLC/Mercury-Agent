@@ -8,8 +8,8 @@ accompanied by a ``<name>.provenance.json`` sidecar recording the real data it
 was trained on and the held-out learned-vs-physics evaluation that justified
 shipping it; loaders surface that provenance so a model never runs silently.
 
-This module is a stdlib+torch leaf so both detectors and the training
-pipeline can import it without cycles.
+This module is a stdlib leaf (torch is pulled lazily by ``safe_torch_load``)
+so both detectors and the training pipeline can import it without cycles.
 """
 
 from __future__ import annotations
@@ -19,8 +19,6 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
-
-import torch
 
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
