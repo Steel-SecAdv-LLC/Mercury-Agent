@@ -82,14 +82,21 @@ jobs:
         run: pytest tests/scripts/test_run_sigma_mutation_gate.py -q
 
       # The real measurement: every enumerated mutant of the sigma hot path
-      # runs against the sigma-focused test subset. The floor is set from
-      # the measured baseline kill rate minus a small equivalent-mutant
-      # margin (see docs/ROADMAP.md row 8); raising it requires a measured
-      # justification, lowering it is a gate-weakening change.
+      # runs against the sigma-focused test subset. Floor calibration
+      # (2026-07-21, local, native AMA v3.3.0): 119/120 mutants killed —
+      # 99.2% — after the two *_semantics suites landed (the first honest
+      # measurement with the interface-level subset alone was 9.7%). The
+      # single survivor is the exc_info=True flip inside a diagnostic
+      # logger.warning (log verbosity, zero behavioral effect) —
+      # documented in docs/MAINT1_2_COVERAGE_REMEDIATION.md §3. The floor
+      # sits at 90 so legitimate new mutation sites and environment
+      # variance don't flake the lane while any real weakening (several
+      # new survivors) fails it. Raising the floor requires a fresh
+      # measured justification; lowering it is a gate-weakening change.
       - name: Sigma-Immutable mutation gate
         run: |
           python scripts/run_sigma_mutation_gate.py \
-            --fail-under 70 \
+            --fail-under 90 \
             --report mutation_report.json
 
       - name: Upload mutation report
