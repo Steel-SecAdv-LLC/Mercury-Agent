@@ -19,6 +19,7 @@ import pytest
 
 from omni_mercury_engine.security.safe_torch import (
     DEFAULT_MAX_CHECKPOINT_BYTES,
+    RefusedCheckpointError,
     UnsafeCheckpointError,
     safe_torch_load,
 )
@@ -81,6 +82,22 @@ class TestPolicyNoTorch:
     def test_error_type_is_valueerror_subclass(self) -> None:
         # Call sites that catch ValueError/Exception must still catch us.
         assert issubclass(UnsafeCheckpointError, ValueError)
+
+    def test_refused_checkpoint_error_preserves_both_contracts(self) -> None:
+        # RefusedCheckpointError (raised on a bad/hostile pickle stream) must be
+        # catchable BOTH as the wrapper's UnsafeCheckpointError AND as
+        # pickle.UnpicklingError — call sites/tests that caught
+        # (pickle.UnpicklingError, RuntimeError) on a corrupt checkpoint before
+        # the wrapper landed must keep catching it.
+        import pickle
+
+        assert issubclass(RefusedCheckpointError, UnsafeCheckpointError)
+        assert issubclass(RefusedCheckpointError, pickle.UnpicklingError)
+        assert issubclass(RefusedCheckpointError, ValueError)
+        # An instance is caught by all three except-forms.
+        err = RefusedCheckpointError("x")
+        assert isinstance(err, UnsafeCheckpointError)
+        assert isinstance(err, pickle.UnpicklingError)
 
 
 # ---------------------------------------------------------------------------

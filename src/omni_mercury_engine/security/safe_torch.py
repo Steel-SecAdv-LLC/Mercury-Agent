@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_MAX_CHECKPOINT_BYTES",
+    "RefusedCheckpointError",
     "UnsafeCheckpointError",
     "safe_torch_load",
 ]
@@ -72,6 +73,23 @@ class UnsafeCheckpointError(ValueError):
     checkpoint whose pickle stream references a global the restricted
     unpickler refuses (the RCE-class signature). The message never echoes
     payload bytes.
+    """
+
+
+class RefusedCheckpointError(UnsafeCheckpointError, pickle.UnpicklingError):
+    """A checkpoint's pickle stream was refused by the restricted unpickler.
+
+    Raised specifically for the ``weights_only`` unpickler's rejection — the
+    payload references a global the safe loader will not resolve (a hostile
+    checkpoint) or is not a plain state dict (corrupt data torch also surfaces
+    as an ``UnpicklingError``).
+
+    It multiply-inherits from :class:`UnsafeCheckpointError` (so the wrapper's
+    single security-error contract holds) *and* :class:`pickle.UnpicklingError`
+    (so the pre-existing call sites and tests that catch
+    ``(pickle.UnpicklingError, RuntimeError)`` on a bad checkpoint keep
+    catching it — replacing a raw ``torch.load`` with the wrapper must not
+    silently change the exception type they rely on).
     """
 
 
@@ -186,8 +204,10 @@ def safe_torch_load(
         # torch raises UnpicklingError from the restricted unpickler when a
         # checkpoint references a disallowed global — exactly the RCE-class
         # payload this wrapper defends against. Surface it as a security
-        # refusal rather than a generic load failure.
-        raise UnsafeCheckpointError(
+        # refusal that is STILL a pickle.UnpicklingError, so existing callers
+        # that catch (pickle.UnpicklingError, RuntimeError) on a bad checkpoint
+        # keep working after their raw torch.load became safe_torch_load.
+        raise RefusedCheckpointError(
             f"Refusing checkpoint: the restricted (weights_only) unpickler "
             f"rejected a global in the pickle stream — the checkpoint is not "
             f"a plain state dict and may be hostile. Underlying error: {exc}"
