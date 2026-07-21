@@ -21,6 +21,11 @@ every threshold in the Mercury Agent system. Key capabilities:
    - SHA-256 fingerprint of :math:`(\\mu, \\sigma, n, q_{0.25}, q_{0.50}, q_{0.75})`
    - KL divergence: :math:`D_{KL}(P \\| Q) = \\sum P(x) \\log \\frac{P(x)}{Q(x)}`
    - KS statistic: :math:`D = \\sup_x |F_n(x) - F_m(x)|`
+   - The KL drift decision is self-calibrated by default: the observed
+     symmetric KL is compared against the :math:`(1 - \\alpha)` quantile
+     of a seeded permutation null built with the same histogram
+     estimator, so the decision is unbiased at any sample size.  Passing
+     an explicit ``kl_threshold`` restores the fixed-threshold behavior.
 
 4. **System-wide recalibration** via ``calibrate_all_thresholds()``
    which sweeps anomaly, ethical, and confidence-band thresholds.
@@ -220,6 +225,11 @@ class DriftResult:
         ks_p_value: p-value of the KS test (per-feature minimum).
         per_feature_ks: Per-feature KS statistics.
         per_feature_kl: Per-feature KL divergence values.
+        kl_null_quantile: The :math:`(1 - \\alpha)` quantile of the
+            seeded permutation-null symmetric-KL distribution that the
+            observed ``kl_divergence`` was compared against, or ``None``
+            when the fixed-threshold path was used (explicit
+            ``kl_threshold``) or no features were compared.
         message: Human-readable summary.
     """
 
@@ -229,6 +239,7 @@ class DriftResult:
     ks_p_value: float
     per_feature_ks: list[float] = field(default_factory=list)
     per_feature_kl: list[float] = field(default_factory=list)
+    kl_null_quantile: float | None = None
     message: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -240,6 +251,7 @@ class DriftResult:
             "ks_p_value": self.ks_p_value,
             "per_feature_ks": self.per_feature_ks,
             "per_feature_kl": self.per_feature_kl,
+            "kl_null_quantile": self.kl_null_quantile,
             "message": self.message,
         }
 
@@ -281,15 +293,14 @@ def compute_dataset_fingerprint(X: NDArray[np.float64]) -> DatasetFingerprint:
         X = X.reshape(-1, 1)
 
     n_samples, n_features = X.shape
+    # X is always 2-D here (1-D input is reshaped above), so the axis-0
+    # reductions are 1-D arrays and ``.tolist()`` always yields a list —
+    # no scalar fallback is needed.
     mean = np.nanmean(X, axis=0).tolist()
     std = np.nanstd(X, axis=0).tolist()
     q25 = np.nanpercentile(X, 25, axis=0).tolist()
     q50 = np.nanpercentile(X, 50, axis=0).tolist()
     q75 = np.nanpercentile(X, 75, axis=0).tolist()
-
-    # Ensure list form even for scalar case
-    if not isinstance(mean, list):
-        mean, std, q25, q50, q75 = [mean], [std], [q25], [q50], [q75]
 
     payload = {
         "mean": [round(v, 10) for v in mean],
@@ -518,10 +529,25 @@ class ThresholdCalibrationPipeline:
         ks_alpha: Significance level for the KS drift test.
             If the KS p-value drops below this value the pipeline flags
             the data as drifted.  Default ``0.05``.
-        kl_threshold: If the symmetric KL divergence exceeds this value
-            the pipeline flags the data as drifted.  Default ``0.1``.
+        kl_threshold: Fixed symmetric-KL drift threshold.  When left at
+            the default ``None`` the KL decision is instead calibrated
+            against a seeded permutation null (see ``n_permutations``,
+            ``kl_alpha``, ``permutation_seed``), which is unbiased at
+            any sample size.  Passing an explicit float restores the
+            historical behavior: drift is flagged whenever the observed
+            symmetric KL exceeds that value, regardless of sample size.
         n_histogram_bins: Number of bins for histogram-based density
             estimation (used by KL divergence).  Default ``50``.
+        n_permutations: Number of seeded permutation splits used to
+            build the null symmetric-KL distribution when
+            ``kl_threshold`` is ``None``.  Default ``200``.
+        kl_alpha: Significance level for the permutation-calibrated KL
+            decision: drift is flagged when the observed symmetric KL
+            exceeds the ``(1 - kl_alpha)`` quantile of the permutation
+            null.  Default ``0.05``.
+        permutation_seed: Fixed seed for the permutation RNG so drift
+            decisions are deterministic and reproducible for identical
+            inputs.  Default ``0``.
 
     Example::
 
@@ -539,13 +565,19 @@ class ThresholdCalibrationPipeline:
     def __init__(
         self,
         ks_alpha: float = 0.05,
-        kl_threshold: float = 0.1,
+        kl_threshold: float | None = None,
         n_histogram_bins: int = 50,
+        n_permutations: int = 200,
+        kl_alpha: float = 0.05,
+        permutation_seed: int = 0,
     ) -> None:
         """Initialize the instance."""
         self.ks_alpha = ks_alpha
         self.kl_threshold = kl_threshold
         self.n_histogram_bins = n_histogram_bins
+        self.n_permutations = n_permutations
+        self.kl_alpha = kl_alpha
+        self.permutation_seed = permutation_seed
 
         # Internal registry: name -> ThresholdRecord
         self._thresholds: dict[str, ThresholdRecord] = {}
@@ -949,8 +981,17 @@ class ThresholdCalibrationPipeline:
         Uses two complementary tests:
 
         1. **KL divergence** (histogram-based, per-feature, then averaged).
-           Flags drift when the symmetric KL divergence exceeds
-           ``self.kl_threshold``.
+           By default (``self.kl_threshold is None``) the observed
+           symmetric KL is compared against the ``(1 - self.kl_alpha)``
+           quantile of a permutation null: the two samples are pooled and
+           split ``self.n_permutations`` times (seeded by
+           ``self.permutation_seed``) into pseudo-samples of the original
+           sizes, and the same histogram estimator is applied to each
+           split.  Because the null carries the estimator's own small-n
+           binning bias, the decision is self-calibrating at any sample
+           size and any bin count.  When ``self.kl_threshold`` is an
+           explicit float, drift is instead flagged whenever the observed
+           symmetric KL exceeds that fixed value (historical behavior).
 
         2. **KS test** (per-feature, using the minimum p-value).
            Flags drift when the p-value drops below ``self.ks_alpha``.
@@ -963,6 +1004,9 @@ class ThresholdCalibrationPipeline:
 
         Returns:
             A :class:`DriftResult` summarizing the detection outcome.
+            ``kl_null_quantile`` records the permutation-null quantile
+            used for the KL decision (``None`` on the fixed-threshold
+            path or when no features were compared).
         """
         X_new = np.asarray(X_new, dtype=np.float64)
         X_cal = np.asarray(X_calibration, dtype=np.float64)
@@ -996,14 +1040,31 @@ class ThresholdCalibrationPipeline:
         max_ks = float(np.max(per_feature_ks)) if per_feature_ks else 0.0
         min_pval = float(np.min(per_feature_pval)) if per_feature_pval else 1.0
 
-        kl_drifted = avg_kl > self.kl_threshold
+        kl_null_quantile: float | None = None
+        if self.kl_threshold is not None:
+            # Historical fixed-threshold path (explicit caller opt-in).
+            kl_drifted = avg_kl > self.kl_threshold
+            kl_reason = f"KL divergence {avg_kl:.4f} exceeds threshold {self.kl_threshold}"
+        elif n_features > 0:
+            # Permutation-calibrated path: compare the observed statistic
+            # against the null distribution of the SAME estimator on
+            # same-size splits of the pooled data.
+            kl_null_quantile = self._kl_permutation_null_quantile(X_cal, X_new, n_features)
+            kl_drifted = avg_kl > kl_null_quantile
+            kl_reason = (
+                f"KL divergence {avg_kl:.4f} exceeds permutation null "
+                f"quantile {kl_null_quantile:.4f} (alpha={self.kl_alpha})"
+            )
+        else:
+            kl_drifted = False
+            kl_reason = ""
         ks_drifted = min_pval < self.ks_alpha
 
         drifted = kl_drifted or ks_drifted
 
         parts: list[str] = []
         if kl_drifted:
-            parts.append(f"KL divergence {avg_kl:.4f} exceeds threshold {self.kl_threshold}")
+            parts.append(kl_reason)
         if ks_drifted:
             parts.append(f"KS p-value {min_pval:.4e} below alpha {self.ks_alpha}")
         if not drifted:
@@ -1025,8 +1086,54 @@ class ThresholdCalibrationPipeline:
             ks_p_value=min_pval,
             per_feature_ks=per_feature_ks,
             per_feature_kl=per_feature_kl,
+            kl_null_quantile=kl_null_quantile,
             message=message,
         )
+
+    def _kl_permutation_null_quantile(
+        self,
+        X_cal: NDArray[np.float64],
+        X_new: NDArray[np.float64],
+        n_features: int,
+    ) -> float:
+        """Compute the permutation-null quantile for the KL drift decision.
+
+        The calibration and runtime samples are pooled and repeatedly
+        re-split (``self.n_permutations`` seeded permutations) into
+        pseudo-samples of the original sizes.  Each split is scored with
+        exactly the same histogram-based symmetric-KL statistic as the
+        observed comparison (per-feature, then averaged), so the null
+        distribution inherits the estimator's finite-sample binning bias
+        and the resulting quantile is calibrated for the actual sample
+        sizes and bin count in use.
+
+        Args:
+            X_cal: Calibration data of shape ``(m, d)`` (2-D).
+            X_new: Runtime data of shape ``(n, d)`` (2-D).
+            n_features: Number of leading features to compare (already
+                clipped to ``min(d_new, d_cal)`` by the caller).
+
+        Returns:
+            The ``(1 - self.kl_alpha)`` quantile of the null
+            symmetric-KL distribution.
+        """
+        m = X_cal.shape[0]
+        pooled = np.concatenate(
+            [X_cal[:, :n_features], X_new[:, :n_features]],
+            axis=0,
+        )
+        rng = np.random.default_rng(self.permutation_seed)
+        null_stats = np.empty(self.n_permutations, dtype=np.float64)
+        for i in range(self.n_permutations):
+            idx = rng.permutation(pooled.shape[0])
+            split_cal = pooled[idx[:m]]
+            split_new = pooled[idx[m:]]
+            feature_kls = np.empty(n_features, dtype=np.float64)
+            for j in range(n_features):
+                p, q = _histogram_densities(split_cal[:, j], split_new[:, j], self.n_histogram_bins)
+                feature_kls[j] = symmetric_kl_divergence(p, q)
+            null_stats[i] = float(np.mean(feature_kls))
+        return float(np.quantile(null_stats, 1.0 - self.kl_alpha))
 
     # ------------------------------------------------------------------
     # Public: provenance introspection

@@ -19,6 +19,10 @@ Covers:
   degenerate constant-score fallback), single-class degradation.
 - Drift detection: no-drift and drift directions, KL-only and KS-only
   triggers, per-feature outputs, zero-width inputs, stale marking.
+- Permutation-calibrated KL decision (default path): small-n regressions
+  at n=400 (same-distribution not flagged, mean-shift flagged), the
+  explicit-``kl_threshold`` legacy fixed-threshold path, and seeded
+  determinism of the full DriftResult.
 - Error paths: single-class labels, length mismatch, unknown strategy.
 """
 
@@ -716,7 +720,15 @@ class TestDetectDrift:
         assert result.message == "No significant drift detected"
 
     def test_same_distribution_large_sample_no_drift(self) -> None:
-        """Independent large samples from one distribution do not drift."""
+        """Independent large samples from one distribution do not drift.
+
+        n=2000 was originally chosen to dodge the histogram estimator's
+        small-n bias under the old fixed ``kl_threshold=0.1`` default.
+        The default decision is now permutation-calibrated (small-n
+        behavior is pinned separately in
+        :class:`TestPermutationCalibratedDrift`); this test keeps the
+        large-sample anchor where the binning bias has washed out.
+        """
         rng = np.random.default_rng(42)
         X_cal = rng.normal(0.0, 1.0, 2000)
         X_new = rng.normal(0.0, 1.0, 2000)
@@ -724,6 +736,10 @@ class TestDetectDrift:
         assert result.drifted is False
         assert result.kl_divergence < 0.1
         assert result.ks_p_value > 0.05
+        # The calibrated decision compared the observed KL against the
+        # permutation-null quantile, which it does not exceed.
+        assert result.kl_null_quantile is not None
+        assert result.kl_divergence <= result.kl_null_quantile
 
     def test_shifted_distribution_detected_by_both_tests(self) -> None:
         """N(0,1) vs N(8,1): disjoint supports trip both KL and KS."""
@@ -739,7 +755,11 @@ class TestDetectDrift:
         assert "KS p-value" in result.message
 
     def test_kl_only_trigger(self) -> None:
-        """ks_alpha=0 disables KS; a tiny kl_threshold still flags drift."""
+        """ks_alpha=0 disables KS; an explicit tiny kl_threshold flags drift.
+
+        Passing ``kl_threshold`` opts into the legacy fixed-threshold
+        path, so no permutation null is computed.
+        """
         rng = np.random.default_rng(7)
         X_cal = rng.normal(0.0, 1.0, 400)
         X_new = rng.normal(0.0, 1.0, 400)
@@ -748,6 +768,7 @@ class TestDetectDrift:
         assert result.drifted is True
         assert "KL divergence" in result.message
         assert "KS p-value" not in result.message
+        assert result.kl_null_quantile is None
 
     def test_ks_only_trigger(self) -> None:
         """kl_threshold=inf disables KL; the KS test alone flags drift."""
@@ -813,6 +834,8 @@ class TestDetectDrift:
         assert result.ks_p_value == 1.0
         assert result.per_feature_ks == []
         assert result.per_feature_kl == []
+        # No features -> no permutation null is computed.
+        assert result.kl_null_quantile is None
 
     def test_drift_result_to_dict_is_json_serializable(self) -> None:
         """DriftResult serializes to plain JSON types."""
@@ -827,6 +850,122 @@ class TestDetectDrift:
             "ks_p_value",
             "per_feature_ks",
             "per_feature_kl",
+            "kl_null_quantile",
             "message",
         }
         assert json.loads(json.dumps(d)) == d
+
+
+# ---------------------------------------------------------------------------
+# Permutation-calibrated KL drift decision
+# ---------------------------------------------------------------------------
+
+
+def _small_n_same_distribution() -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Two independent seeded N(0,1) samples at n=400 (no true drift)."""
+    rng = np.random.default_rng(42)
+    X_cal = rng.normal(0.0, 1.0, 400)
+    X_new = rng.normal(0.0, 1.0, 400)
+    return X_cal, X_new
+
+
+def _small_n_mean_shift() -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Seeded N(0,1) calibration vs N(1.5,1) runtime at n=400 (true drift)."""
+    rng = np.random.default_rng(42)
+    X_cal = rng.normal(0.0, 1.0, 400)
+    X_new = rng.normal(1.5, 1.0, 400)
+    return X_cal, X_new
+
+
+class TestPermutationCalibratedDrift:
+    """Small-n regressions for the permutation-calibrated KL default path.
+
+    The histogram symmetric-KL estimator is biased upward at small n:
+    two independent N(0,1) samples of n=400 measure ~0.32-0.52 with 50
+    bins, so the old fixed default ``kl_threshold=0.1`` flagged
+    same-distribution data as drifted (the bias only washes out by
+    n~2000).  The default decision now compares the observed KL against
+    the (1 - kl_alpha) quantile of a seeded permutation null built with
+    the same estimator, which absorbs the bias by construction.
+    """
+
+    def test_small_n_same_distribution_not_flagged(self) -> None:
+        """Independent N(0,1) samples at n=400 must NOT be flagged.
+
+        Regression: under the old fixed default this exact data measured
+        KL ~0.37 > 0.1 and was falsely flagged as drifted.
+        """
+        X_cal, X_new = _small_n_same_distribution()
+        result = ThresholdCalibrationPipeline().detect_drift(X_new, X_cal)
+        assert result.drifted is False
+        assert result.message == "No significant drift detected"
+        # The estimator bias is real: the observed KL still exceeds the
+        # retired fixed default of 0.1 ...
+        assert result.kl_divergence == pytest.approx(0.3705, abs=0.005)
+        # ... but not the self-calibrated permutation-null quantile.
+        assert result.kl_null_quantile is not None
+        assert result.kl_null_quantile == pytest.approx(0.5025, abs=0.005)
+        assert result.kl_divergence <= result.kl_null_quantile
+
+    def test_small_n_mean_shift_flagged(self) -> None:
+        """A genuine N(0,1) -> N(1.5,1) shift at n=400 MUST be flagged."""
+        X_cal, X_new = _small_n_mean_shift()
+        result = ThresholdCalibrationPipeline().detect_drift(X_new, X_cal)
+        assert result.drifted is True
+        # The calibrated KL decision itself fires (not only the KS test).
+        assert result.kl_null_quantile is not None
+        assert result.kl_divergence > result.kl_null_quantile
+        assert result.kl_divergence == pytest.approx(2.9049, abs=0.005)
+        assert result.kl_null_quantile == pytest.approx(0.4647, abs=0.005)
+        assert "permutation null quantile" in result.message
+
+    def test_small_n_mean_shift_flagged_by_kl_alone(self) -> None:
+        """With the KS test disabled, the calibrated KL path alone flags."""
+        X_cal, X_new = _small_n_mean_shift()
+        pipeline = ThresholdCalibrationPipeline(ks_alpha=0.0)
+        result = pipeline.detect_drift(X_new, X_cal)
+        assert result.drifted is True
+        assert "permutation null quantile" in result.message
+        assert "KS p-value" not in result.message
+
+    def test_explicit_kl_threshold_keeps_legacy_fixed_behavior(self) -> None:
+        """An explicit kl_threshold pins the historical fixed-threshold path.
+
+        Callers who pass a float keep the old semantics unchanged --
+        including the small-n false positive on same-distribution data
+        -- and no permutation null is computed or reported.
+        """
+        X_cal, X_new = _small_n_same_distribution()
+        pipeline = ThresholdCalibrationPipeline(kl_threshold=0.1, ks_alpha=0.0)
+        result = pipeline.detect_drift(X_new, X_cal)
+        assert result.drifted is True
+        assert result.message == "KL divergence 0.3705 exceeds threshold 0.1"
+        assert result.kl_null_quantile is None
+
+    def test_detect_drift_is_deterministic(self) -> None:
+        """Same inputs + same (default) seed -> identical DriftResult."""
+        X_cal, X_new = _small_n_same_distribution()
+        pipeline = ThresholdCalibrationPipeline()
+        first = pipeline.detect_drift(X_new, X_cal)
+        second = pipeline.detect_drift(X_new, X_cal)
+        fresh = ThresholdCalibrationPipeline().detect_drift(X_new, X_cal)
+        assert first.to_dict() == second.to_dict()
+        assert first.to_dict() == fresh.to_dict()
+
+    def test_permutation_parameters_are_honored(self) -> None:
+        """n_permutations / permutation_seed change the null, not the call.
+
+        A different seed and permutation count produce a (deterministic)
+        different null quantile; the same-distribution data still is not
+        flagged.
+        """
+        X_cal, X_new = _small_n_same_distribution()
+        default = ThresholdCalibrationPipeline().detect_drift(X_new, X_cal)
+        custom = ThresholdCalibrationPipeline(n_permutations=50, permutation_seed=1).detect_drift(
+            X_new, X_cal
+        )
+        assert custom.kl_null_quantile is not None
+        assert default.kl_null_quantile is not None
+        assert custom.kl_null_quantile != default.kl_null_quantile
+        assert custom.kl_null_quantile == pytest.approx(0.4974, abs=0.005)
+        assert custom.drifted is False
