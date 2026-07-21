@@ -196,8 +196,9 @@ def with_circuit_breaker(
             return breaker.call(func, *args, **kwargs)
 
         # Add circuit_breaker attribute for introspection
-        wrapper.circuit_breaker = breaker  # type: ignore[attr-defined]
-        return cast("_CircuitBreakerWrapper", wrapper)
+        typed_wrapper = cast("_CircuitBreakerWrapper", wrapper)
+        typed_wrapper.circuit_breaker = breaker
+        return typed_wrapper
 
     return decorator
 

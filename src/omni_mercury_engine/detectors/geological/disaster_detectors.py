@@ -917,7 +917,10 @@ class TsunamiDetector:
             tsunami_flagged = [dp for dp in candidates if dp.data.get("tsunami")]
             pool = tsunami_flagged or candidates
             strongest = max(pool, key=lambda dp: float(dp.data.get("magnitude", 0.0)))
-            lat, lon, _depth = strongest.location  # type: ignore[misc]
+            # strongest is drawn from candidates/pool, both filtered to
+            # dp.location is not None above, so the unpack is total.
+            assert strongest.location is not None
+            lat, lon, _depth = strongest.location
             distance_km = haversine_km(station_lat, station_lon, lat, lon)
             source_info = {
                 "distance_km": distance_km,

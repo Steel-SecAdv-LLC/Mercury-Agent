@@ -203,13 +203,19 @@ def _line_is_allowed(line_text: str, allowed_contexts: list[str]) -> bool:
     return any(substring in line_text for substring in allowed_contexts)
 
 
-def _pqc_declarations() -> dict[str, bool]:
-    """Return the declared-availability flags from ``pqc_backends``."""
+def _pqc_declarations() -> dict[str, bool | str]:
+    """Return the declared-availability flags from ``pqc_backends``.
+
+    On success the values are ``bool`` availability flags. If ``pqc_backends``
+    cannot be imported, the single ``__import_error__`` key carries the error
+    text instead (callers detect this via key membership, never by value).
+    """
     try:
         from omni_mercury_engine.security import pqc_backends
     except ImportError as exc:
-        return {"__import_error__": str(exc)}  # type: ignore[dict-item]
-    flags = {}
+        err: dict[str, bool | str] = {"__import_error__": str(exc)}
+        return err
+    flags: dict[str, bool | str] = {}
     for name in (
         "KYBER_AVAILABLE",
         "DILITHIUM_AVAILABLE",
