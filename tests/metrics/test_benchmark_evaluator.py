@@ -13,8 +13,9 @@ Covers:
   detector-failure resilience, mask/anomaly-map pixel metrics, per-category
   metrics, prediction persistence (``.npz``), progress logging, and both
   ``tune_on`` policies (val-split and the small-data in-sample fallback)
-- The documented sharp edge that an all-skipped dataset raises ``ValueError``
-  from the underlying metric reductions
+- The fail-fast contract that an all-skipped dataset raises a domain-specific
+  ``ValueError`` ("No usable samples ...") naming the dataset and detector,
+  before any empty array reaches the underlying metric reductions
 - ``BenchmarkEvaluator.compare``: table layout, N/A cells for missing
   detector/dataset combos, missing-metric default of 0.0, best/mean summary
 - ``BenchmarkEvaluator.generate_report``: markdown structure and metric rows
@@ -459,15 +460,14 @@ class TestEvaluateSampleHandling:
         assert "Processed 100/100 samples" in caplog.text
         assert result.metrics["auroc"] == 1.0
 
-    def test_all_samples_skipped_raises_value_error(self, tmp_path: Path) -> None:
-        # Documented sharp edge: with zero usable samples the empty score
-        # array reaches numpy reductions inside AnomalyMetrics and raises
-        # ValueError ("zero-size array to reduction operation ...") rather
-        # than a domain-specific error.  Pinned so a future change to a
-        # clearer exception is a conscious contract change.
+    def test_all_samples_skipped_raises_no_usable_samples_error(self, tmp_path: Path) -> None:
+        # With zero usable samples the evaluator fails fast with a
+        # domain-specific ValueError naming the dataset and detector,
+        # instead of letting an empty score array reach numpy reductions
+        # inside AnomalyMetrics ("zero-size array to reduction ...").
         dataset: list[dict[str, Any]] = [{"label": 0, "text": "no visuals"}] * 4
-        with pytest.raises(ValueError, match="zero-size"):
-            _evaluator(tmp_path).evaluate(_ScoreDetector(), dataset)
+        with pytest.raises(ValueError, match=r"No usable samples.*'EmptyBench'.*'_ScoreDetector'"):
+            _evaluator(tmp_path).evaluate(_ScoreDetector(), dataset, dataset_name="EmptyBench")
 
 
 class TestEvaluateMasksAndCategories:

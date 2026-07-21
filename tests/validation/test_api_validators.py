@@ -6,9 +6,10 @@ Covers:
 - ``ValidationError``/``ValidationResult`` serialization contracts, including
   the 100-character value truncation in API error payloads
 - ``ValidationConfig`` defaults that define the public size/value limits
-- ``InputSanitizer``: HTML-entity escaping, truncate-then-escape ordering,
-  null-byte and control-character stripping, non-string coercion, and
-  recursive dict/list sanitization with depth capping
+- ``InputSanitizer``: HTML-entity escaping, escape-then-truncate ordering
+  (the output never exceeds ``max_length`` and never splits an ``&...;``
+  escape entity), null-byte and control-character stripping, non-string
+  coercion, and recursive dict/list sanitization with depth capping
 - ``DataArrayValidator.validate_univariate`` / ``validate_multivariate``:
   happy paths plus every triggerable rejection — non-numeric and ragged
   input, wrong dimensionality, exact boundaries around the configured size
@@ -21,13 +22,14 @@ Covers:
 - ``APIRequestValidator`` and the module-level convenience functions:
   error/warning aggregation, feature-count constraint, config threading,
   and tolerance of unknown kwargs
-- Every reachable ``ValidationErrorType``.  ``MISSING_REQUIRED`` is defined
-  but no code path in the module constructs it, so it cannot be triggered
-  legitimately.
+- Every ``ValidationErrorType`` is reachable, including ``MISSING_REQUIRED``,
+  which the request validators emit when the required ``data`` key is absent
+  (``None``).
 """
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -185,11 +187,32 @@ class TestSanitizeString:
         # "&" must be escaped before "<" so the inserted "&lt;" is not re-escaped.
         assert InputSanitizer.sanitize_string("&<") == "&amp;&lt;"
 
-    def test_truncates_input_before_escaping(self) -> None:
-        # Truncation applies to the RAW input; entity expansion can therefore
-        # legitimately exceed max_length in the output.
+    def test_escapes_before_truncating_output_capped_at_max_length(self) -> None:
+        # Escaping happens BEFORE truncation, so entity expansion can never
+        # push the output past max_length.  max_length=5 fits one complete
+        # "&lt;" entity; the cut inside the second entity walks back to its
+        # "&" boundary.
         out = InputSanitizer.sanitize_string("<" * 10, max_length=5)
-        assert out == "&lt;" * 5
+        assert out == "&lt;"
+        assert len(out) <= 5
+
+    def test_truncation_at_entity_boundary_keeps_complete_entity(self) -> None:
+        # "ab<cd" escapes to "ab&lt;cd"; the cut at 6 lands exactly after the
+        # ";" terminator, so the complete entity is kept.
+        assert InputSanitizer.sanitize_string("ab<cd", max_length=6) == "ab&lt;"
+
+    def test_truncation_inside_entity_walks_back_to_boundary(self) -> None:
+        # "ab<cd" escapes to "ab&lt;cd"; the cut at 5 lands inside "&lt;",
+        # so truncation walks back to the "&" that starts the entity.
+        assert InputSanitizer.sanitize_string("ab<cd", max_length=5) == "ab"
+
+    @pytest.mark.parametrize("max_length", [0, 1, 3, 4, 5, 8, 40, 100])
+    def test_output_never_exceeds_max_length_nor_splits_entities(self, max_length: int) -> None:
+        out = InputSanitizer.sanitize_string("&<>\"'x" * 10, max_length=max_length)
+        assert len(out) <= max_length
+        # The output is a sequence of complete escape entities and plain
+        # characters — no entity is ever split mid-way.
+        assert re.fullmatch(r"(?:&(?:amp|lt|gt|quot|#x27);|[^&])*", out)
 
     def test_removes_null_bytes(self) -> None:
         assert InputSanitizer.sanitize_string("a\x00b\x00c") == "abc"
@@ -464,14 +487,15 @@ class TestValidateMultivariate:
         assert _error_types(result) == [ValidationErrorType.INVALID_VALUE]
         assert "Inf ratio" in result.errors[0].message
 
-    def test_inf_ratio_under_limit_accepted_silently(self) -> None:
-        # Unlike the univariate path, multivariate emits NO warning for a
-        # sub-threshold Inf count — the data simply passes.
+    def test_inf_ratio_under_limit_warns_like_univariate(self) -> None:
+        # Consistent with the univariate path: a sub-threshold Inf count
+        # passes validation but is surfaced as a warning, never silently.
         arr = np.arange(200.0).reshape(100, 2)
         arr[0, 0] = np.inf  # 1/200 = 0.5% < 1% limit
         result = DataArrayValidator().validate_multivariate(arr)
         assert result.is_valid
         assert result.errors == []
+        assert any("1 Inf" in w for w in result.warnings)
 
     def test_all_nan_data_rejected_without_range_errors(self) -> None:
         arr = np.full((3, 2), np.nan)
@@ -528,19 +552,21 @@ class TestValidateSensitivity:
         assert isinstance(result.sanitized_data, float)
 
     @pytest.mark.parametrize("value", [-0.1, 1.5, 100.0])
-    def test_out_of_range_rejected(self, value: float) -> None:
+    def test_out_of_range_rejected_without_propagating_value(self, value: float) -> None:
         result = ParameterValidator().validate_sensitivity(value)
         assert not result.is_valid
         assert _error_types(result) == [ValidationErrorType.INVALID_RANGE]
         assert result.errors[0].constraint == "[0.0, 1.0]"
-        # sanitized_data passes the raw number through; callers must gate on
-        # is_valid before consuming it.
-        assert result.sanitized_data == value
+        # Fail closed: the invalid value must NOT flow into sanitized_data,
+        # so a caller that skips the is_valid check cannot consume it.
+        assert result.sanitized_data is None
 
-    def test_nan_rejected_as_invalid_range(self) -> None:
+    def test_nan_rejected_as_invalid_range_without_propagating_value(self) -> None:
         result = ParameterValidator().validate_sensitivity(NAN)
         assert not result.is_valid
         assert _error_types(result) == [ValidationErrorType.INVALID_RANGE]
+        # NaN is out of range too, and equally must not reach callers.
+        assert result.sanitized_data is None
 
     def test_non_numeric_rejected_with_default_fallback(self) -> None:
         result = ParameterValidator().validate_sensitivity(cast("float", "high"))
@@ -606,12 +632,15 @@ class TestValidateFeatureNames:
         assert result.is_valid
         assert result.sanitized_data == ["a" * 256]
 
-    def test_entity_expansion_past_limit_rejected(self) -> None:
-        # HTML escaping expands "&" fivefold AFTER truncation, so a name of
-        # 256 ampersands sanitizes to >256 chars and trips the size check.
+    def test_entity_expansion_capped_at_limit(self) -> None:
+        # HTML escaping expands "&" fivefold, but sanitize_string truncates
+        # AFTER escaping, so the sanitized name can never exceed the limit.
+        # "a" + "&amp;"*300 is cut at an entity boundary to exactly 256 chars
+        # ("a" + 51 entities), then format repair maps "&amp;" -> "_amp_".
         result = ParameterValidator().validate_feature_names(["a" + "&" * 300])
-        assert not result.is_valid
-        assert ValidationErrorType.SIZE_LIMIT_EXCEEDED in _error_types(result)
+        assert result.is_valid
+        assert result.sanitized_data == ["a" + "_amp_" * 51]
+        assert len(result.sanitized_data[0]) <= 256
 
     @pytest.mark.parametrize(
         "payload",
@@ -727,6 +756,18 @@ class TestUnivariateRequest:
             "invalid_range",
             "size_limit_exceeded",
         ]
+        # Fail closed at the request level too: the out-of-range sensitivity
+        # is omitted from the sanitized bundle.
+        assert result.sanitized_data["sensitivity"] is None
+
+    def test_none_data_is_missing_required(self) -> None:
+        result = APIRequestValidator().validate_univariate_request(cast("list[float]", None))
+        assert not result.is_valid
+        assert _error_types(result) == [ValidationErrorType.MISSING_REQUIRED]
+        assert result.errors[0].field == "data"
+        assert result.sanitized_data["data"] is None
+        # Optional parameters still validate; the default is reported.
+        assert result.sanitized_data["sensitivity"] == 0.5
 
     def test_data_warnings_propagated(self) -> None:
         data = [float(i) for i in range(9)] + [NAN]
@@ -782,6 +823,17 @@ class TestMultivariateRequest:
         result = APIRequestValidator().validate_multivariate_request(self._data())
         assert result.is_valid
         assert result.sanitized_data["features"] is None
+
+    def test_none_data_is_missing_required(self) -> None:
+        result = APIRequestValidator().validate_multivariate_request(
+            cast("list[list[float]]", None), features=["a"]
+        )
+        assert not result.is_valid
+        assert _error_types(result) == [ValidationErrorType.MISSING_REQUIRED]
+        assert result.errors[0].field == "data"
+        # No sanitized array exists, so the feature-count check is skipped.
+        assert result.sanitized_data["data"] is None
+        assert result.sanitized_data["features"] == ["a"]
 
     def test_1d_data_with_features_fails_format_only(self) -> None:
         # When the data fails shape validation there is no sanitized array, so
