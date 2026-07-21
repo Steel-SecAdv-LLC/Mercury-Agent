@@ -68,6 +68,16 @@ Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
   empty minutiae) — cast to signed int; (2) `quantum_computing/detector.py`
   used `threshold or self._threshold`, silently discarding an explicit
   `threshold=0.0` — replaced with a `None`-check.
+- **Mutation gate could never complete on a PR runner (fixed).** Once the
+  3.14 core fix unblocked the `needs: core-tests` chain, the σ mutation
+  job ran and hit its 120-min timeout: `run_test_command` used
+  `subprocess.run(timeout=...)`, which SIGKILLs only the direct child and
+  then blocks in `communicate()` on a grandchild holding the stdout pipe,
+  so one mutant's stray subprocess stalled the whole gate (82 min, orphan
+  pytest processes). Fixed by running the test child in its own session
+  and `killpg`-ing the whole process group on timeout (default
+  `--test-timeout` 600 → 120s). Full local re-run: 120/120 mutants, no
+  hang, 119 killed / 1 survived (99.2%) in 8m40s.
 
 ### Maintenance round steel/maint1/2-coverage: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
 

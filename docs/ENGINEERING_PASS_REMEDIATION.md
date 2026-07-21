@@ -155,16 +155,36 @@ lane, native AMA, Python 3.11:
 ## 7. Mutation testing (task: cheap sample + survivor disposition)
 
 <!-- MUTATION_RESULT -->
-Cheap validation sample (bounds the harness before the full ~1-CPU-hour
-PR run): `run_sigma_mutation_gate.py --max-mutants 12` over the 120
-enumerated σ hot-path sites — baseline green in 5.0s, **12/12 killed,
-0 survived, kill rate 100.0%** (int/float/bool/compare/arith/not mutants
-across both `sigma_immutable_gate.py` and `sigma_immutable_corpus.py`),
-byte-exact restoration verified. This confirms the harness and the
-semantic pinning suites are effective; the full-matrix measurement stays
-the authoritative 119/120 (99.2%) from PR #348, enforced blocking at
-`--fail-under 90` in `mutation-testing.yml` (which also completed on the
-PR runners this round).
+Cheap validation sample first (per the measure-cheap-first policy):
+`run_sigma_mutation_gate.py --max-mutants 12` — baseline green in 5.0s,
+**12/12 killed, kill rate 100.0%**, byte-exact restoration verified.
+
+**Pre-existing harness defect found and fixed (the gate could never
+complete on a PR runner).** Once the Python-3.14 core fix unblocked the
+`needs: core-tests` chain, the `Sigma hot-path mutation kill-rate floor`
+job actually ran — and hit its 120-min timeout (`cancelled`). The job log
+shows it reached mutant 69/120, then produced **no output for 82 minutes**
+and left orphan `python`/`pytest` processes at cleanup. Root cause:
+`run_test_command` used `subprocess.run(cmd, timeout=..., capture_output=
+True)`, which on timeout SIGKILLs only the *direct* child and then blocks
+in `communicate()` on any grandchild still holding the inherited stdout
+pipe — so a single mutant whose test run spawned a surviving subprocess
+stalled the whole gate until the CI wall-clock limit. (The σ files, the
+harness's mutation logic, and the test subset were untouched this round,
+so this was latent on PR #348 too; it only surfaced when the gate finally
+ran far enough.) **Fix:** launch the test child with
+`start_new_session=True` and, on timeout, `os.killpg(SIGKILL)` the whole
+process group before reaping; tighten the default `--test-timeout`
+600 → 120s (the baseline is ~5s, so 120s is ample headroom while bounding
+an infinite-loop mutant to ~2 min). Harness semantics unchanged
+(`tests/scripts/test_run_sigma_mutation_gate.py` 11/11 pass).
+
+**Full local re-run with the fix:** all **120/120 mutants processed, no
+hang, 119 killed / 1 survived — 99.2% kill rate** (floor 90) in **8m40s**.
+The single survivor is the documented `sigma_immutable_gate.py:192`
+`exc_info=True→False` flip (diagnostic `logger.warning` verbosity, zero
+behavioral effect) — unchanged from PR #348. The gate is now bounded well
+under the CI 120-min budget so it completes on the PR runner.
 <!-- /MUTATION_RESULT -->
 
 The one accepted survivor from #348 (an `exc_info=True→False` flip inside

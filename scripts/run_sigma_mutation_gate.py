@@ -63,7 +63,9 @@ import argparse
 import ast
 import copy
 import json
+import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -331,19 +333,53 @@ def stride_sample(sites: list[MutationSite], max_mutants: int) -> list[MutationS
     return [sites[i] for i in picked]
 
 
-def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, bool]:
-    """Run the test command; returns (passed, timed_out)."""
+def _terminate_process_group(proc: subprocess.Popen[bytes]) -> None:
+    """SIGKILL the child's whole process group, then reap it.
+
+    A timed-out mutant is only reliably killed if *every* descendant dies.
+    ``subprocess.run(timeout=...)`` SIGKILLs the direct child then blocks in
+    ``communicate()`` on any grandchild still holding the inherited stdout
+    pipe open — so one hanging mutant can stall the gate until the CI job's
+    wall-clock limit. Killing the process group closes those pipes.
+    """
     try:
-        completed = subprocess.run(  # noqa: S603 - operator-supplied test command, same trust boundary as the CI job invoking this gate
-            cmd,
-            cwd=cwd,
-            timeout=timeout,
-            capture_output=True,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return False, True
-    return completed.returncode == 0, False
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):  # pragma: no cover - already-reaped race
+        proc.kill()
+    try:
+        proc.communicate(timeout=15)
+    except subprocess.TimeoutExpired:  # pragma: no cover - group kill should free the pipes
+        proc.kill()
+        proc.communicate()
+
+
+def run_test_command(cmd: list[str], timeout: float, cwd: Path) -> tuple[bool, bool]:
+    """Run the test command; returns (passed, timed_out).
+
+    The child is launched in its own session (``start_new_session=True``) so a
+    mutant that hangs the test run — e.g. an ``Add -> Sub`` mutant that induces
+    an infinite loop, or a test spawning a subprocess that inherits the stdout
+    pipe — can be killed *as a whole process tree* on timeout via
+    :func:`_terminate_process_group`. Plain ``subprocess.run(timeout=...)``
+    only SIGKILLs the direct child and then hangs in ``communicate()`` on a
+    surviving grandchild (observed on a GitHub runner: the corpus
+    ``Add -> Sub`` mutant stalled the gate for 82 min past mutant 69, leaving
+    orphan pytest processes). Killing the group makes the timeout honoured so
+    the mutant is correctly counted as ``timeout_killed``.
+    """
+    with subprocess.Popen(  # noqa: S603 - operator-supplied test command, same trust boundary as the CI job invoking this gate
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    ) as proc:
+        try:
+            proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _terminate_process_group(proc)
+            return False, True
+        return proc.returncode == 0, False
 
 
 def run_gate(
@@ -500,8 +536,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--test-timeout",
         type=float,
-        default=600.0,
-        help="per-mutant test-run timeout in seconds; a timeout counts as killed",
+        default=120.0,
+        help=(
+            "per-mutant test-run timeout in seconds; a timeout counts as killed. "
+            "The unmutated baseline runs in ~5s, so 120s is generous headroom "
+            "for a slow CI runner while bounding an infinite-loop mutant to ~2 min "
+            "(the whole process tree is killed, see run_test_command)."
+        ),
     )
     parser.add_argument(
         "--report",
