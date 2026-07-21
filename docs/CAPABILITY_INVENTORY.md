@@ -7,10 +7,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,737
+- **Total top-level classes:** 2,738
 - **Capability-bearing classes:** 1,817 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 79 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Refined via base-class analysis:** 80 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,031 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1031 |
-| Support types (config / result / enum / error) | 920 |
+| Support types (config / result / enum / error) | 921 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -1705,7 +1705,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
 
-### `medical/` — 82 classes (52 capability)
+### `medical/` — 83 classes (52 capability)
 
 **Adapters & backends**
 
@@ -1792,9 +1792,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `TreatmentPathwayOptimizer` (`medical.medical_cure_predictor`) — Treatment pathway optimization using multiverse exploration.
 - `_IdentityCalibrator` (`medical.clinical_calibration`) — Degraded fallback: pass scores through unchanged.
 
-<details><summary>Support types (30)</summary>
+<details><summary>Support types (31)</summary>
 
-`ABMSBoard`, `AnesthesiaPredictionResult`, `AnesthesiaRisk`, `AnesthesiaType`, `ArrhythmiaType`, `BioThreatResult`, `CGMReading`, `CalibratorProtocol`, `CardiologyPredictionResult`, `ClinicalMetricReport`, `ConfigurationError`, `DataSourceError`, `DexcomConfig`, `EmergencyThresholdReport`, `EndocrinologyPredictionResult`, `FHIRConfig`, `GlycemicState`, `InsulinDeliveryMethod`, `MedicalAnomalyResult`, `MedicalPredictionResult`, `NeurocriticalPredictionResult`, `OutbreakSeverity`, `PandemicPredictionResult`, `SeizureType`, `SepsisPredictionResult`, `SepsisStage`, `StrokeType`, `VariantConcern`, `VitalsReading`, `_ModuleInfo`
+`ABMSBoard`, `AnesthesiaPredictionResult`, `AnesthesiaRisk`, `AnesthesiaType`, `ArrhythmiaType`, `BioThreatResult`, `CGMReading`, `CalibratorProtocol`, `CardiologyPredictionResult`, `ClinicalMetricReport`, `ConfigurationError`, `DataSourceError`, `DexcomConfig`, `EmergencyThresholdReport`, `EndocrinologyPredictionResult`, `FHIRConfig`, `GlycemicState`, `InsulinDeliveryMethod`, `MedicalAnomalyResult`, `MedicalPredictionResult`, `NeurocriticalPredictionResult`, `OutbreakSeverity`, `PandemicPredictionResult`, `SeizureType`, `SepsisPredictionResult`, `SepsisStage`, `StrokeType`, `VariantConcern`, `VitalsReading`, `_ClockLike`, `_ModuleInfo`
 
 </details>
 
