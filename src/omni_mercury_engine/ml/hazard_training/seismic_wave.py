@@ -78,6 +78,8 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
@@ -1516,7 +1518,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     cand_path, _ = candidate_paths(ctx.data_dir, HOOK_NAME)
     if not cand_path.exists():
         raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
-    cand_payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    cand_payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = cand_payload.get("operating_point")
     parameter_count = int(sum(v.numel() for v in cand_payload["seismic_analyzer"].values()))
 

@@ -132,6 +132,7 @@ from omni_mercury_engine.ml.hazard_training.common import (
     sha256_file,
     ship_checkpoint,
 )
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -1943,7 +1944,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det.load_neural_weights(str(cand_path))
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = payload.get("operating_point")
     learned_bar = DEPLOYED_PROB_THRESHOLD
     if operating_point is not None:

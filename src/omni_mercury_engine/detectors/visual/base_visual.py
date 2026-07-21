@@ -18,6 +18,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.base import DetectorMetrics
@@ -399,7 +400,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 accepts (schema drift).
         """
         try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+            checkpoint = safe_torch_load(path, map_location=self.device)
         except Exception as e:
             raise RuntimeError(
                 f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

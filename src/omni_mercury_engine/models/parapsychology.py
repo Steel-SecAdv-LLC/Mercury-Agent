@@ -52,6 +52,8 @@ import torch
 from scipy import stats
 from torch import nn
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 
 class PsiPhenomenon(str):
     """Types of psi phenomena."""
@@ -530,7 +532,7 @@ class ParapsychologyDetector:
 
             loaded, _provenance = load_shipped_checkpoint("reg_deviation_gcp")
         elif isinstance(loaded, str):
-            loaded = torch.load(loaded, map_location="cpu", weights_only=True)
+            loaded = safe_torch_load(loaded, map_location="cpu")
         if isinstance(loaded, dict) and "field_analyzer" in loaded:
             loaded = loaded["field_analyzer"]  # wrapped pipeline payload
         self.field_analyzer.load_state_dict(loaded)

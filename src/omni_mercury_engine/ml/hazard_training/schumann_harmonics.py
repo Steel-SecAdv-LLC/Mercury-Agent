@@ -58,6 +58,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
@@ -1689,7 +1691,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = SchumannResonanceDetector(sampling_rate=FS_HZ)
     learned_det = SchumannResonanceDetector(sampling_rate=FS_HZ)
     learned_det.load_neural_weights(str(cand_path))
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = payload.get("operating_point")
     # Tens of thousands of public-API calls follow; the detector logs one INFO
     # line per call, which would swamp the evaluation log.

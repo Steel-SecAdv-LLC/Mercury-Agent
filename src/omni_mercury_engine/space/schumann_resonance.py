@@ -51,6 +51,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.geomagnetic import BGSELFStationSource
@@ -565,7 +566,7 @@ class SchumannResonanceDetector:
         else:
             loaded = state_dict
             if isinstance(state_dict, str):
-                loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+                loaded = safe_torch_load(state_dict, map_location="cpu")
             if isinstance(loaded, dict) and "harmonic_analyzer" in loaded:
                 # Wrapped training-pipeline payload; a bare analyser state_dict
                 # only ever carries parameter names like "cnn_encoder.0.weight".

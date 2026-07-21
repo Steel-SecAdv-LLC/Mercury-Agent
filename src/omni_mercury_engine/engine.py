@@ -84,6 +84,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 try:
     import torch
 
@@ -5858,9 +5860,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Load best model
         if os.path.exists(best_checkpoint_path):
-            checkpoint = torch.load(
-                best_checkpoint_path, map_location=self.device, weights_only=True
-            )
+            checkpoint = safe_torch_load(best_checkpoint_path, map_location=self.device)
             self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
 
         self.fusion_model.eval()
@@ -6060,7 +6060,7 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             return
 
-        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+        checkpoint = safe_torch_load(path, map_location=self.device)
 
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             feature_dims = checkpoint.get("feature_dims")

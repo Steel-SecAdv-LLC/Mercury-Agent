@@ -49,6 +49,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
 
@@ -425,7 +426,7 @@ class DisasterPrecursorDetector:
             checkpoint, _provenance = load_shipped_checkpoint("earthquake_precursor_ca")
             source = "shipped default 'earthquake_precursor_ca'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         # Parse the standardization stats into locals, then replace instance
         # state wholesale: a checkpoint that omits feature_mean/feature_std

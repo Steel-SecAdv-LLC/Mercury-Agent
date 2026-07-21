@@ -108,6 +108,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -1681,7 +1683,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         manifest_counts = json.loads(manifest_path.read_text()).get("counts", {})
 
     year_counts = {int(y): int(np.sum(ds.years == y)) for y in np.unique(ds.years)}
-    cand_payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    cand_payload = safe_torch_load(cand_path, map_location="cpu")
     assert learned_det.radar_analyzer is not None  # constructed with enable_radar=True
     learned_param_count = int(sum(p.numel() for p in learned_det.radar_analyzer.parameters()))
     outcome = EvaluationOutcome(

@@ -81,6 +81,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -1221,7 +1223,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = TsunamiDetector(sampling_rate=1.0 / SAMPLE_PERIOD_S)
     learned_det = TsunamiDetector(sampling_rate=1.0 / SAMPLE_PERIOD_S)
     learned_det.load_neural_weights(str(cand_path))
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = payload.get("operating_point")
 
     labels = ds.labels[test_idx]
