@@ -272,3 +272,125 @@ class TestTrainedGateEndToEnd:
         for benevolence in (0.0, 0.5, 0.8, 1.0):
             result = gate.evaluate(build_sigma_immutable_vector(benevolence))
             assert result.passes == (result.score >= result.threshold and result.backend == "torch")
+
+
+# =============================================================================
+# Final-survivor kills: fail-closed reporting + boundary exactness
+# =============================================================================
+
+
+class _UnimportableEthicalGate:
+    """Stub whose construction raises ImportError (torch-missing shape)."""
+
+    def __init__(self, **_: object) -> None:
+        raise ImportError("stub: EthicalGate unavailable")
+
+
+class _UntrainedEthicalGate:
+    """Stub EthicalGate carrying no ``_trained`` attribute at all."""
+
+    def __init__(self, **_: object) -> None:
+        pass
+
+
+class TestFailClosedContracts:
+    """Kill the final measurement's surviving mutants with contract pins."""
+
+    def test_dual_gate_signal_defaults_are_zero(self) -> None:
+        # Kills the 0.0 tweaks on enforce_dual_ethical_gate's keyword
+        # defaults: severity/anomaly default to exactly zero so a plain
+        # benevolence-only boundary reproduces the base vector.
+        import inspect
+
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            enforce_dual_ethical_gate,
+        )
+
+        parameters = inspect.signature(enforce_dual_ethical_gate).parameters
+        assert parameters["severity"].default == 0.0
+        assert parameters["anomaly_prob"].default == 0.0
+
+    def test_unavailable_gate_evaluation_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Kills the score 0.0->0.1 tweak and the passes False->True flip
+        # in evaluate()'s unavailable branch: with no trained network the
+        # verdict must be a hard fail with the honest zero sentinel.
+        import omni_mercury_engine.core.global_omni_scalar_network as gosnn_module
+
+        monkeypatch.setattr(gosnn_module, "EthicalGate", _UnimportableEthicalGate)
+        gate = SigmaImmutableGate(verify_corpus=False)
+        result = gate.evaluate(build_sigma_immutable_vector(1.0))
+        assert result.backend == "unavailable"
+        assert result.passes is False
+        assert result.score == 0.0
+        assert result.threshold == gate.threshold
+
+    def test_gate_object_without_trained_flag_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Kills the getattr(gate, "_trained", False) default flip: an
+        # EthicalGate exposing no _trained attribute at all is ambiguous
+        # and must be refused as untrained, not accepted.
+        import omni_mercury_engine.core.global_omni_scalar_network as gosnn_module
+
+        monkeypatch.setattr(gosnn_module, "EthicalGate", _UntrainedEthicalGate)
+        gate = SigmaImmutableGate(verify_corpus=False)
+        assert gate.is_trained is False
+        assert gate.gate_load_error is not None
+        assert "untrained" in gate.gate_load_error
+
+    def test_anchor_exactly_at_floor_is_compliant(self) -> None:
+        # Kills Lt->LtE on the critical floor comparison: the trainer's
+        # labelling rule draws positives from U[floor, 2.0], so an anchor
+        # exactly AT the floor is compliant; just below is a violation.
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            CRITICAL_ETHICAL_FLOOR,
+        )
+
+        gate = SigmaImmutableGate(verify_corpus=False)
+        assert gate.critical_ethical_floor_violations({"a": CRITICAL_ETHICAL_FLOOR}) == []
+        below = CRITICAL_ETHICAL_FLOOR - 1e-9
+        assert gate.critical_ethical_floor_violations({"a": below}) == [("a", below)]
+        nan_violations = gate.critical_ethical_floor_violations({"a": float("nan")})
+        assert len(nan_violations) == 1
+
+    def test_corpus_error_refusal_reports_zero_score(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Kills the score 0.0->0.1 tweak in the corpus-error refusal: the
+        # reported score of a refused action is the honest zero, never a
+        # fabricated non-zero.
+        import omni_mercury_engine.security.sigma_immutable_corpus as corpus_module
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+
+        def _boom() -> None:
+            raise corpus_module.CorpusVerificationError("tampered")
+
+        monkeypatch.setattr(corpus_module, "verify_corpus_signatures", _boom)
+        gate = SigmaImmutableGate()
+        with pytest.raises(EthicalConstraintViolationError) as excinfo:
+            gate.enforce(action="unit", scalar_vector=build_sigma_immutable_vector(1.0))
+        assert excinfo.value.check == "sigma_immutable"
+        assert excinfo.value.score == 0.0
+
+    def test_unavailable_gate_refusal_reports_fallback_message_and_zero_score(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Kills the `or` -> `and` swap on the gate_load_error fallback and
+        # the score 0.0->0.1 tweak in the gosnn_unavailable refusal.  The
+        # None/None state cannot be reached through _init_gate (it always
+        # records an error when the gate stays None), so the fallback is
+        # pinned white-box: it exists precisely for that defensive gap.
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+
+        gate = SigmaImmutableGate(verify_corpus=False)
+        gate._gate = None
+        gate._gate_load_error = None
+        with pytest.raises(EthicalConstraintViolationError) as excinfo:
+            gate.enforce(action="unit", scalar_vector=build_sigma_immutable_vector(1.0))
+        assert excinfo.value.check == "gosnn_unavailable"
+        assert excinfo.value.score == 0.0
+        assert excinfo.value.details["gate_load_error"] == "σ_Immutable trained gate unavailable"
