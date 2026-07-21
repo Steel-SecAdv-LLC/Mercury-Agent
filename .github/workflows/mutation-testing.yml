@@ -1,0 +1,99 @@
+# Mercury-Agent Sigma-Immutable Mutation Gate (ROADMAP row 8)
+# Mutates security/sigma_immutable_gate.py + sigma_immutable_corpus.py one
+# operator at a time and fails CI when the sigma-focused test subset cannot
+# kill enough mutants. A surviving mutant is a change to the ethical-gate
+# hot path that the suite cannot detect — the exact silent-weakening class
+# the sigma_Immutable contract must be immune to.
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Sigma-Immutable Mutation Gate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-testing-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    # Path-filtered: full-matrix mutation runs cost ~1 CPU-hour, so the
+    # blocking lane runs only when the mutated surface or the gate itself
+    # changes. The weekly cron below catches indirect drift (e.g. a test
+    # refactor that quietly weakens sigma coverage without touching these
+    # paths).
+    paths:
+      - "src/omni_mercury_engine/security/sigma_immutable_gate.py"
+      - "src/omni_mercury_engine/security/sigma_immutable_corpus.py"
+      - "scripts/run_sigma_mutation_gate.py"
+      - "tests/scripts/test_run_sigma_mutation_gate.py"
+      - "tests/security/test_sigma_immutable_kat.py"
+      - "tests/security/test_sigma_immutable_pqc_classification.py"
+      - "tests/test_sigma_immutable_discrimination.py"
+      - ".github/workflows/mutation-testing.yml"
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 04:00 UTC.
+    - cron: "0 4 * * 1"
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Fail closed: the sigma discrimination tests exercise the trained
+  # classifier, which requires the ML extra.
+  MERCURY_REQUIRES_ML: "1"
+  AMA_REQUIRE_REAL_PQC: "true"
+
+jobs:
+  mutation-gate:
+    name: Sigma hot-path mutation kill-rate floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      # AMA Cryptography is the mandatory PQC backend; the package fails
+      # closed at import without it, and every mutant test run imports the
+      # package, so the native backend must exist before the gate starts.
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.3.0
+
+      # Fast: pins the harness's own semantics (enumeration determinism,
+      # byte-exact restoration, red-baseline abort, kill/survive
+      # classification) against a fixture module before trusting its verdict
+      # on the real hot path.
+      - name: Mutation-harness unit tests
+        run: pytest tests/scripts/test_run_sigma_mutation_gate.py -q
+
+      # The real measurement: every enumerated mutant of the sigma hot path
+      # runs against the sigma-focused test subset. The floor is set from
+      # the measured baseline kill rate minus a small equivalent-mutant
+      # margin (see docs/ROADMAP.md row 8); raising it requires a measured
+      # justification, lowering it is a gate-weakening change.
+      - name: Sigma-Immutable mutation gate
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --fail-under 70 \
+            --report mutation_report.json
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sigma-mutation-report
+          path: mutation_report.json
+          if-no-files-found: ignore
