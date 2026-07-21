@@ -13,9 +13,10 @@ import importlib.util
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pytest
+if TYPE_CHECKING:
+    import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _MOD = REPO_ROOT / "scripts" / "ci_gate_watchdog.py"
