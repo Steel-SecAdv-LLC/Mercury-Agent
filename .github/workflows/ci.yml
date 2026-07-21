@@ -608,15 +608,28 @@ jobs:
         # strict pyproject config as src/.
         #
         # Intentionally additive, mirroring the graduated-test-dirs
-        # mechanism above: the rest of scripts/ carries pre-existing
-        # errors (42 across 9 files, counted 2026-07-20 after the four
-        # lane files were cleaned) and stays off the gate until each
-        # file is cleaned; when one is, add it to the list below.
+        # mechanism above.  2026-07-21: the remaining scripts/ debt (42
+        # errors across 9 files, counted 2026-07-20 after the four
+        # original lane files were cleaned) is CLEARED — all nine files
+        # were cleaned with real typing fixes (no blanket ignores) and
+        # graduate below, together with the new sigma mutation-gate
+        # harness (authored clean).  Every file in scripts/ is now on
+        # the gate; a new script must be added here when created.
         run: |
           mypy scripts/harvest_sigma_baseline.py \
             scripts/train_sigma_immutable.py \
             scripts/collect_sw_eng_metrics.py \
             scripts/fit_weapons_gate_calibration.py \
+            scripts/train_gosnn_fusion.py \
+            scripts/sweep_fusion_capacity.py \
+            scripts/generate_docs_images.py \
+            scripts/generate_calibration_visuals.py \
+            scripts/measure_codebase_scale.py \
+            scripts/update_readme_benchmarks.py \
+            scripts/run_api.py \
+            scripts/normalize_headers.py \
+            scripts/generate_anomaly_panel.py \
+            scripts/run_sigma_mutation_gate.py \
             --show-error-codes \
             --pretty
 

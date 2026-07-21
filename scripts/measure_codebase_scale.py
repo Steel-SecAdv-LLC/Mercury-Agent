@@ -43,6 +43,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "omni_mercury_engine"
@@ -73,6 +74,22 @@ SCALE_PROVENANCE = (
     "and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); "
     "do not hand-edit between the markers._"
 )
+
+
+class ScaleStats(TypedDict):
+    """Measured codebase-scale numbers, keyed exactly as emitted by ``--json``."""
+
+    src_files: int
+    src_loc: int
+    subpackages: list[str]
+    subpackage_count: int
+    detector_classes: int
+    loader_classes: int
+    test_files: int
+    test_loc: int
+    torch_importing_files: int
+    nn_module_subclasses: int
+    workflow_count: int
 
 
 def _round_loc(loc: int) -> int:
@@ -124,7 +141,7 @@ def _count_class_matches(directory: Path, pattern: re.Pattern[str]) -> int:
     return total
 
 
-def measure() -> dict[str, object]:
+def measure() -> ScaleStats:
     src_files = sorted(SRC.rglob("*.py")) if SRC.is_dir() else []
     test_files = sorted(TESTS.rglob("test_*.py")) if TESTS.is_dir() else []
     subpackages = (
@@ -158,7 +175,7 @@ def measure() -> dict[str, object]:
     }
 
 
-def render_block(stats: dict[str, object]) -> str:
+def render_block(stats: ScaleStats) -> str:
     """Render the deterministic README scale block (between the markers)."""
     rows = [
         ("Python source files in `src/omni_mercury_engine/`", f"**{stats['src_files']}**"),

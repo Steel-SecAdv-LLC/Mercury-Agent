@@ -30,7 +30,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 START_MARKER = "<!-- BENCHMARK:START -->"
 END_MARKER = "<!-- BENCHMARK:END -->"
@@ -41,7 +41,9 @@ def _load_json(path: Path) -> dict[str, Any] | None:
         return None
     try:
         with path.open("r", encoding="utf-8") as fh:
-            return json.load(fh)
+            # ``json.load`` returns ``Any``; the result file is a JSON object
+            # (``main`` verifies the ``summary`` block before use).
+            return cast("dict[str, Any]", json.load(fh))
     except (OSError, json.JSONDecodeError):
         return None
 
@@ -62,7 +64,9 @@ def _previous_snapshot(path: Path) -> dict[str, Any] | None:
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         return None
     try:
-        return json.loads(completed.stdout.decode("utf-8"))
+        # ``json.loads`` returns ``Any``; the committed snapshot has the same
+        # JSON-object shape as the current results file.
+        return cast("dict[str, Any]", json.loads(completed.stdout.decode("utf-8")))
     except json.JSONDecodeError:
         return None
 
