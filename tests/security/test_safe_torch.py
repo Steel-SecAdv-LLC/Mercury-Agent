@@ -137,7 +137,7 @@ class TestLoadWithTorch:
         marker = tmp_path / "PWNED"
 
         class Evil:
-            def __reduce__(self):  # type: ignore[no-untyped-def]
+            def __reduce__(self):
                 return (os.system, (f"touch {marker}",))
 
         p = tmp_path / "evil.pt"

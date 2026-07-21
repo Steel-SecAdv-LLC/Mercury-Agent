@@ -13,6 +13,9 @@ import importlib.util
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _MOD = REPO_ROOT / "scripts" / "ci_gate_watchdog.py"
@@ -29,7 +32,7 @@ _spec.loader.exec_module(wd)
 NOW = datetime(2026, 7, 21, 12, 0, 0, tzinfo=UTC)
 
 
-def _run(conclusion: str | None, status: str = "completed", minutes_ago: int = 5) -> dict:
+def _run(conclusion: str | None, status: str = "completed", minutes_ago: int = 5) -> dict[str, Any]:
     started = NOW.timestamp() - minutes_ago * 60
     return {
         "status": status,
@@ -103,7 +106,9 @@ class TestAnalyze:
 
 
 class TestMainCli:
-    def test_main_reads_file_and_emits_json(self, tmp_path: Path, capsys) -> None:
+    def test_main_reads_file_and_emits_json(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         import json
 
         runs = [_run("cancelled") for _ in range(4)]
