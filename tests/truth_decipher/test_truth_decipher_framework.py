@@ -336,3 +336,28 @@ class TestTruthDecipherIntegration:
         assert result.phase_completed >= 1
         if result.anomaly_detected and result.issue_type == "CRITICAL":
             assert "Immediate investigation required" in result.recommendations
+
+
+class TestDetermineEthicsContextMutation:
+    """Regression: determine_ethics must not mutate the caller's context dict."""
+
+    def test_caller_context_is_not_mutated(self) -> None:
+        framework = TruthDecipherFramework()
+        identification_result = {"severity": 0.5, "issue_type": "HIGH"}
+        context = {"caller_key": "sentinel", "infrastructure": "healthcare"}
+        snapshot = dict(context)
+
+        framework.determine_ethics(identification_result, context)
+
+        # The system-property keys (has_rollback, test_coverage, ...) must go
+        # into a private copy, never back into the caller's dict.
+        assert context == snapshot
+        assert "has_rollback" not in context
+        assert "test_coverage" not in context
+
+    def test_none_context_is_accepted(self) -> None:
+        framework = TruthDecipherFramework()
+        identification_result = {"severity": 0.9, "issue_type": "CRITICAL"}
+        # Must not raise (context=None path builds a fresh dict).
+        result = framework.determine_ethics(identification_result, None)
+        assert result is not None

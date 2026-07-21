@@ -29,7 +29,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 import numpy as np
 
@@ -38,12 +38,21 @@ from omni_mercury_engine._compat import HAS_TORCH
 # torch is an optional [ml] dependency. Import it only when available (or for
 # type-checking) so the pure-numpy feature-selection helpers in this module —
 # compute_feature_importance / select_top_features — and the numpy cache path
-# are importable and testable in the torch-free core lane. Runtime tensor
-# handling is guarded by ``HAS_TORCH and isinstance(x, torch.Tensor)``, which
-# short-circuits (never evaluating ``torch.Tensor``) when torch is absent and
-# which mypy narrows on.
+# are importable and testable in the torch-free core lane.
 if TYPE_CHECKING or HAS_TORCH:
     import torch
+
+
+def _is_tensor(value: object) -> TypeGuard[torch.Tensor]:
+    """Narrowing tensor check that is safe when torch is not installed.
+
+    A plain ``HAS_TORCH and isinstance(x, torch.Tensor)`` is runtime-safe (it
+    short-circuits before evaluating ``torch.Tensor``) but does not let mypy
+    narrow the ``else`` branch to ``ndarray`` — leaving spurious union-attr
+    errors on ``.copy()`` / ``.tobytes()``. A ``TypeGuard`` restores the
+    narrowing while keeping the short-circuit.
+    """
+    return HAS_TORCH and isinstance(value, torch.Tensor)
 
 
 class QuantizationType(Enum):
@@ -236,7 +245,11 @@ class MemoryEfficientFeatureCache:
             INT8 (or DYNAMIC-int8) path and are required to reconstruct the
             original magnitudes.
         """
-        np_data = data.detach().cpu().numpy() if HAS_TORCH and isinstance(data, torch.Tensor) else data.copy()
+        if _is_tensor(data):
+            np_data = data.detach().cpu().numpy()
+        else:
+            # ndarray input: copy so we never mutate the caller's array.
+            np_data = np.asarray(data).copy()
 
         is_sparse = False
         sparse_indices = None
@@ -420,11 +433,10 @@ class IncrementalFeatureComputer:
         Returns:
             Hash string
         """
-        if HAS_TORCH and isinstance(data, torch.Tensor):
-            data = data.detach().cpu().numpy()
+        array = data.detach().cpu().numpy() if _is_tensor(data) else np.asarray(data)
 
         # Use SHA3-256 for AMA Cryptography alignment (non-cryptographic use for cache keys)
-        return hashlib.sha3_256(data.tobytes()).hexdigest()
+        return hashlib.sha3_256(array.tobytes()).hexdigest()
 
     def needs_update(self, key: str, data: np.ndarray[Any, Any] | torch.Tensor) -> bool:
         """Check if features need to be recomputed.
