@@ -402,11 +402,21 @@ class BiometricAnomalyDetector:
                 "duration": features.duration,
             }
 
-        combined_quality = np.mean(list(modality_scores.values())) if modality_scores else 0.0
-        combined_liveness = np.mean(list(liveness_scores.values())) if liveness_scores else 0.0
+        # np.mean returns a numpy scalar (np.float64); coerce to real Python
+        # floats at the boundary so anomaly_score is a genuine float and the
+        # downstream is_anomaly comparison yields a genuine bool. Without the
+        # float() the dataclass would silently carry numpy scalars, which
+        # serialize inconsistently (JSON, logging) and compare by identity in
+        # some contexts — the smell the removed type-ignores were papering over.
+        combined_quality = (
+            float(np.mean(list(modality_scores.values()))) if modality_scores else 0.0
+        )
+        combined_liveness = (
+            float(np.mean(list(liveness_scores.values()))) if liveness_scores else 0.0
+        )
         anomaly_score = 1.0 - (0.5 * combined_quality + 0.5 * combined_liveness)
 
-        is_anomaly = anomaly_score > self._anomaly_threshold
+        is_anomaly = bool(anomaly_score > self._anomaly_threshold)
         anomaly_type = None
         if is_anomaly:
             if combined_liveness < 0.5:
@@ -417,8 +427,8 @@ class BiometricAnomalyDetector:
                 anomaly_type = "suspicious_pattern"
 
         return BiometricAnomalyResult(
-            is_anomaly=is_anomaly,  # type: ignore[arg-type, unused-ignore]
-            anomaly_score=anomaly_score,  # type: ignore[arg-type, unused-ignore]
+            is_anomaly=is_anomaly,
+            anomaly_score=anomaly_score,
             anomaly_type=anomaly_type,
             modality_scores=modality_scores,
             liveness_scores=liveness_scores,
@@ -441,18 +451,19 @@ class BiometricAnomalyDetector:
                     return False, 0.0
 
         if self._fusion_strategy == FusionStrategy.SCORE_LEVEL:
-            avg_score = np.mean([s[0] for s in scores])
-            is_verified = bool(avg_score >= 0.5)
-            return is_verified, float(avg_score)  # type: ignore[return-value, unused-ignore]
+            # float() at the np.mean boundary keeps the return a real float.
+            avg_score = float(np.mean([s[0] for s in scores]))
+            is_verified = avg_score >= 0.5
+            return is_verified, avg_score
 
         elif self._fusion_strategy == FusionStrategy.DECISION_LEVEL:
             matches = sum(
                 1 for _, result in modality_results.items() if result.get("is_match", False)
             )
             total = len(modality_results)
-            is_verified = bool(matches > total / 2)  # type: ignore[assignment, unused-ignore]
+            is_verified = matches > total / 2
             confidence = matches / total if total > 0 else 0.0
-            return is_verified, confidence  # type: ignore[return-value, unused-ignore]
+            return is_verified, confidence
 
         else:
             total_weight = sum(q for _, q in scores)
@@ -460,8 +471,8 @@ class BiometricAnomalyDetector:
                 return False, 0.0
 
             weighted_score = sum(s * q for s, q in scores) / total_weight
-            is_verified = bool(weighted_score >= 0.5)  # type: ignore[assignment, unused-ignore]
-            return is_verified, float(weighted_score)  # type: ignore[return-value, unused-ignore]
+            is_verified = weighted_score >= 0.5
+            return is_verified, weighted_score
 
 
 __all__ = [

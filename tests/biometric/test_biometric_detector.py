@@ -358,7 +358,7 @@ class TestDetectAnomaly:
         det = BiometricAnomalyDetector(modalities=["fingerprint"])
         res = det.detect_anomaly()
         assert isinstance(res, BiometricAnomalyResult)
-        assert bool(res.is_anomaly) is True
+        assert res.is_anomaly is True
         assert res.anomaly_score == pytest.approx(1.0)
         assert res.anomaly_type == "presentation_attack"
         assert res.modality_scores == {}
@@ -368,7 +368,7 @@ class TestDetectAnomaly:
         det = BiometricAnomalyDetector(modalities=["fingerprint"], anomaly_threshold=0.5)
         res = det.detect_anomaly(fingerprint_image=_fingerprint_image(seed=1234))
         # score ~0.44 < 0.5 -> not anomalous, so no type is assigned.
-        assert bool(res.is_anomaly) is False
+        assert res.is_anomaly is False
         assert res.anomaly_type is None
         assert "fingerprint" in res.modality_scores
         assert "fingerprint" in res.liveness_scores
@@ -384,7 +384,7 @@ class TestDetectAnomaly:
         low_contrast = np.clip(128.0 + 2.0 * _rng(3).standard_normal((64, 64)), 0.0, 255.0)
         res = det.detect_anomaly(fingerprint_image=low_contrast)
         # quality < 0.5 but liveness >= 0.5 -> classified as poor_quality.
-        assert bool(res.is_anomaly) is True
+        assert res.is_anomaly is True
         assert res.anomaly_type == "poor_quality"
 
     def test_fingerprint_random_suspicious(self) -> None:
@@ -393,7 +393,7 @@ class TestDetectAnomaly:
         # as suspicious_pattern rather than poor_quality.
         det = BiometricAnomalyDetector(modalities=["fingerprint"], anomaly_threshold=0.3)
         res = det.detect_anomaly(fingerprint_image=_fingerprint_image(seed=1234))
-        assert bool(res.is_anomaly) is True
+        assert res.is_anomaly is True
         assert res.anomaly_type == "suspicious_pattern"
 
     def test_ridge_pattern_suspicious(self) -> None:
@@ -403,7 +403,7 @@ class TestDetectAnomaly:
         ridge = (128 + 100 * np.sin(2 * np.pi * xx / 8.0)).astype(np.float64)
         det = BiometricAnomalyDetector(modalities=["fingerprint"], anomaly_threshold=0.3)
         res = det.detect_anomaly(fingerprint_image=ridge)
-        assert bool(res.is_anomaly) is True
+        assert res.is_anomaly is True
         assert res.anomaly_type == "suspicious_pattern"
 
     def test_voice_anomaly_reports_scores(self) -> None:
@@ -420,9 +420,33 @@ class TestDetectAnomaly:
         det = BiometricAnomalyDetector(modalities=["iris"])
         res = det.detect_anomaly(iris_image=_iris_image())
         assert res.liveness_scores["iris"] == pytest.approx(0.0)
-        assert bool(res.is_anomaly) is True
+        assert res.is_anomaly is True
         assert res.anomaly_type == "presentation_attack"
         assert "pupil_response" in res.details["iris"]
+
+    def test_result_carries_real_python_scalars_not_numpy(self) -> None:
+        # Regression pin: ``anomaly_score`` derives from ``np.mean`` and
+        # ``is_anomaly`` from a numpy comparison, both of which yield numpy
+        # scalars (``np.float64`` / ``np.bool_``) unless coerced at the
+        # boundary. A numpy scalar leaking out serializes inconsistently
+        # (json.dumps raises on np.bool_) and is not ``is``-comparable to the
+        # Python singletons the rest of the code and tests rely on. ``type() is``
+        # (not ``isinstance``) is deliberate: ``np.bool_`` is NOT a subclass of
+        # ``bool`` and ``np.float64`` IS a subclass of ``float``, so only an
+        # exact-type check catches the float regression.
+        det = BiometricAnomalyDetector(modalities=["fingerprint"], anomaly_threshold=0.5)
+        res = det.detect_anomaly(fingerprint_image=_fingerprint_image(seed=1234))
+        assert type(res.is_anomaly) is bool
+        assert type(res.anomaly_score) is float
+        # The empty-input presentation-attack path builds the score/flag from
+        # the constant fallbacks (0.0), a separate code path -- pin it too.
+        empty = det.detect_anomaly()
+        assert type(empty.is_anomaly) is bool
+        assert type(empty.anomaly_score) is float
+        # And json-serializability is the practical consequence we care about.
+        import json
+
+        json.dumps({"is_anomaly": res.is_anomaly, "anomaly_score": res.anomaly_score})
 
 
 # ---------------------------------------------------------------------------
@@ -513,3 +537,13 @@ class TestFuseResults:
     def test_quality_weighted_zero_total_weight(self) -> None:
         det = self._detector("quality_weighted")
         assert det._fuse_results([(0.9, 0.0)], {}, {}) == (False, 0.0)
+
+    @pytest.mark.parametrize("strategy", ["score_level", "decision_level", "quality_weighted"])
+    def test_fuse_returns_real_python_scalars(self, strategy: str) -> None:
+        # score_level routes through np.mean; all three must return a real
+        # Python (bool, float) tuple, never numpy scalars (regression pin for
+        # the removed return-value type-ignores).
+        det = self._detector(strategy)
+        verified, conf = det._fuse_results([(0.8, 1.0)], {"m": {"is_match": True}}, {})
+        assert type(verified) is bool
+        assert type(conf) is float
