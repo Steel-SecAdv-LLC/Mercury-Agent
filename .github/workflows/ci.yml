@@ -45,26 +45,27 @@ env:
   # the target quality bar in `pyproject.toml [tool.coverage.report]`
   # is `fail_under = 85`.
   #
-  # v1.7.x floors (strengthening plan §5), graduated 2026-07-18 after
-  # re-measurement on the PR #339 head:
+  # Floors graduated 2026-07-21 (steel/maint1/2-coverage) after
+  # re-measurement on the round's head:
   #   COVERAGE_THRESHOLD_CORE: 30  (core subset; was 25, before that 15)
-  #   COVERAGE_THRESHOLD_FULL: 55  (full suite; was 50)
-  # Measured combined stmt+branch baselines (CI-identical invocations,
-  # both lanes green at measurement): FULL 67.97%, CORE 37.94%
-  # (previous baselines: 59.84% / 31.87%).  The floors keep the same
-  # cushion policy that set 50/25 — "do not regress more than ~10 points
-  # (FULL) / ~7 points (CORE) below the measured baseline" — with ~3
-  # extra points of margin on FULL because the measurement environment
-  # carried slightly fewer optional extras than the CI [all,dev] lane
-  # (a lower-bound measurement).  Do not lower either floor to unblock
-  # unrelated work — the floors document a non-regression guarantee,
-  # not a preference.
+  #   COVERAGE_THRESHOLD_FULL: 62  (full suite; was 55, before that 50)
+  # Measured combined stmt+branch FULL baseline (CI-identical
+  # invocation, [all,dev] + native AMA, 12,818 passing tests):
+  # 68.95% — up from 68.05% at the round's start after ~660 new
+  # behavioral tests across twelve previously weak or untested
+  # modules (see docs/MAINT1_2_COVERAGE_REMEDIATION.md §5).  The 62
+  # floor keeps the established "~7-point cushion below measured"
+  # policy.  CORE stays at its 2026-07-18 calibration (37.94%
+  # measured; the round only ADDED core-lane suites — tests/fairness/
+  # — so the floor remains conservative; re-measure before raising).
+  # Do not lower either floor to unblock unrelated work — the floors
+  # document a non-regression guarantee, not a preference.
   #
   # The 85-point pyproject target stays in place as the strict
   # aspirational nightly bar.
   # ---------------------------------------------------------------------
   COVERAGE_THRESHOLD_CORE: 30
-  COVERAGE_THRESHOLD_FULL: 55
+  COVERAGE_THRESHOLD_FULL: 62
 
 jobs:
   # ===========================================================================

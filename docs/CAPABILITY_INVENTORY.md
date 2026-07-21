@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,734
-- **Capability-bearing classes:** 1,816 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,735
+- **Capability-bearing classes:** 1,817 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 79 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,030 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,031 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1030 |
+| Other capability classes | 1031 |
 | Support types (config / result / enum / error) | 918 |
 | Detection | 171 |
 | Neural models & layers | 157 |
@@ -549,7 +549,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 361 classes (229 capability)
+### `core/` — 362 classes (230 capability)
 
 **Adapters & backends**
 
@@ -664,6 +664,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ConformalCalibrationBridge` (`core.conformal_prediction`) — Bridge between conformal prediction and the calibration pipeline.
 - `ConformalPredictionSet` (`core.conformal_prediction`) — Result of conformal prediction.
 - `ConstantRegistry` (`core.centralized_constants`) — Registry for accessing and overriding constants.
+- `DIDeprecationWarning` (`core.di`) — Deprecation warning for the ``core.di`` module.
 - `DatasetFingerprint` (`core.calibration_pipeline`) — SHA-256 fingerprint of a dataset's summary statistics.
 - `DatasetSpecificEnsemble` (`core.adaptive_detector`) — Ensemble detector that uses dataset-specific strategies.
 - `DecisionCurve` (`core.decision_curve`) — A decision curve: net benefit of the model vs the treat-all/none envelopes.

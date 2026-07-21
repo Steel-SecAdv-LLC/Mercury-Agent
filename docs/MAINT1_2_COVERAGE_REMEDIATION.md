@@ -130,10 +130,14 @@ file, retiring the "pre-existing errors stay off the lane" carve-out.
 | compat shims (`spectral_domain_oracle`, `core/self_healing`, `anomaly/__init__`) | 0.00% | 100.00% | `tests/test_compat_shims.py` (re-export identity vs canonical modules, deprecation-warning behavior) |
 | σ hot path (`sigma_immutable_gate` + `corpus`) | (indirect) | 99.2% mutation kill (§3) | the two semantic suites (§3) |
 
-Full-suite total: 68.05% → **[final re-measurement in flight at this
-commit; the closing commit of this branch records the measured figure
-and the corresponding `COVERAGE_THRESHOLD_FULL` raise from 55, with the
-cushion noted in ci.yml]**.
+Full-suite total: 68.05% → **68.95%** (12,818 passing tests, +490 over
+baseline; CI-identical invocation). `COVERAGE_THRESHOLD_FULL` raised
+55 → **62**, keeping the established ~7-point cushion below the
+measured figure; the policy note lives at the ci.yml env block. The
+final run's only two failures were the repo's own freshness gates
+correctly catching this branch's additions (README scale block after
+the late test suites; capability inventory after the newly wired
+detector exports) — both artifacts regenerated in the closing commit.
 
 ## 6. Defects found and fixed at the root (this round)
 
