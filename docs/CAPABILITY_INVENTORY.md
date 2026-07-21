@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,735
+- **Total top-level classes:** 2,737
 - **Capability-bearing classes:** 1,817 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 79 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1031 |
-| Support types (config / result / enum / error) | 918 |
+| Support types (config / result / enum / error) | 920 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -2410,7 +2410,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 159 classes (92 capability)
+### `security/` — 161 classes (92 capability)
 
 **Adapters & backends**
 
@@ -2537,9 +2537,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (67)</summary>
+<details><summary>Support types (69)</summary>
 
-`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CryptoSystem`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `OverwatchNexusResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
+`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CryptoSystem`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `OverwatchNexusResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
 
 </details>
 
