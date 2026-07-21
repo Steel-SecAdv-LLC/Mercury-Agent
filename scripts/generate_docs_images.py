@@ -23,6 +23,7 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
 
@@ -30,6 +31,9 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -78,7 +82,7 @@ def _apply_theme() -> None:
     )
 
 
-def _load_data() -> dict:
+def _load_data() -> dict[str, Any]:
     if not RESULTS_PATH.exists():
         print(
             f"ERROR: {RESULTS_PATH} not found.\n"
@@ -86,10 +90,11 @@ def _load_data() -> dict:
         )
         sys.exit(1)
     with open(RESULTS_PATH) as f:
-        return json.load(f)
+        # json.load returns Any; the benchmark results file is a JSON object.
+        return cast("dict[str, Any]", json.load(f))
 
 
-def _stamp(fig: plt.Figure) -> None:
+def _stamp(fig: Figure) -> None:
     """Add source file and timestamp label to the figure."""
     fig.text(
         0.99,
@@ -105,7 +110,7 @@ def _stamp(fig: plt.Figure) -> None:
 # ---------------------------------------------------------------------------
 # Chart 1: Neuro-Symbolic Benchmark Report
 # ---------------------------------------------------------------------------
-def generate_neuro_symbolic_report(data: dict) -> None:
+def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     summary = data.get("summary", {})
     comp = data.get("component_summary", {})
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
@@ -243,7 +248,7 @@ def generate_neuro_symbolic_report(data: dict) -> None:
 # ---------------------------------------------------------------------------
 # Chart 2: Anomaly Detection Panel
 # ---------------------------------------------------------------------------
-def generate_anomaly_detection_panel(data: dict) -> None:
+def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
 
     fig, axes = plt.subplots(2, 2, figsize=(20, 14))
@@ -350,7 +355,7 @@ def generate_anomaly_detection_panel(data: dict) -> None:
 # ---------------------------------------------------------------------------
 # Chart 3: Performance Dashboard
 # ---------------------------------------------------------------------------
-def generate_performance_dashboard(data: dict) -> None:
+def generate_performance_dashboard(data: dict[str, Any]) -> None:
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
     summary = data.get("summary", {})
     domain_summary = data.get("domain_summary", {})
@@ -481,7 +486,7 @@ def generate_performance_dashboard(data: dict) -> None:
 # ---------------------------------------------------------------------------
 # Chart 4: Benchmark Summary (Live Data)
 # ---------------------------------------------------------------------------
-def generate_benchmark_summary(data: dict) -> None:
+def generate_benchmark_summary(data: dict[str, Any]) -> None:
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
     summary = data.get("summary", {})
     meta = data.get("metadata", {})

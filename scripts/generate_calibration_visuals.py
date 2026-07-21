@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import matplotlib
 
@@ -30,13 +31,14 @@ RESULTS_PATH = Path(__file__).parent.parent / "benchmarks" / "calibration_valida
 IMAGES_DIR = Path(__file__).parent.parent / "docs" / "images"
 
 
-def load_results() -> dict:
+def load_results() -> dict[str, Any]:
     """Load calibration validation results."""
     with open(RESULTS_PATH) as f:
-        return json.load(f)
+        # json.load returns Any; the validation results file is a JSON object.
+        return cast("dict[str, Any]", json.load(f))
 
 
-def generate_calibration_improvement(data: dict) -> None:
+def generate_calibration_improvement(data: dict[str, Any]) -> None:
     """Generate calibration improvement bar chart (MD-011)."""
     results = [
         r
@@ -108,7 +110,7 @@ def generate_calibration_improvement(data: dict) -> None:
     print(f"  Saved: {IMAGES_DIR / 'calibration_improvement.png'}")
 
 
-def generate_conformal_coverage(data: dict) -> None:
+def generate_conformal_coverage(data: dict[str, Any]) -> None:
     """Generate conformal coverage scatter plot using score-based metric (MD-005)."""
     results = [
         r
@@ -211,7 +213,7 @@ def generate_conformal_coverage(data: dict) -> None:
     print(f"  Saved: {IMAGES_DIR / 'conformal_coverage.png'}")
 
 
-def generate_weight_distribution(data: dict) -> None:
+def generate_weight_distribution(data: dict[str, Any]) -> None:
     """Generate adaptive weight distribution box plot with CV overlay (MD-003)."""
     results = [
         r
@@ -273,7 +275,8 @@ def generate_weight_distribution(data: dict) -> None:
             colors="red",
             linestyles="dashed",
             linewidth=1.5,
-            label="Default (0.4/0.3/0.3)" if i == 0 else None,
+            # "_nolegend_" hides the entry exactly like None, but satisfies hlines' str type.
+            label="Default (0.4/0.3/0.3)" if i == 0 else "_nolegend_",
         )
 
     # CV-optimal weight overlay (diamond markers)

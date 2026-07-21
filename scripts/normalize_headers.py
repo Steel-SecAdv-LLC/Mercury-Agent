@@ -11,6 +11,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGET_DIRS = (
@@ -162,12 +163,14 @@ def string_literal_body(segment: str) -> str:
     quote_positions = [
         (index, quote) for quote in ('"""', "'''") if (index := stripped.find(quote)) >= 0
     ]
+    # ast.literal_eval returns Any; the segment is a string-expression AST
+    # node's source, so the evaluated value is always a str.
     if not quote_positions:
-        return ast.literal_eval(stripped)
+        return cast("str", ast.literal_eval(stripped))
     start, quote = min(quote_positions, key=lambda item: item[0])
     end = stripped.rfind(quote)
     if end <= start:
-        return ast.literal_eval(stripped)
+        return cast("str", ast.literal_eval(stripped))
     return stripped[start + len(quote) : end]
 
 
