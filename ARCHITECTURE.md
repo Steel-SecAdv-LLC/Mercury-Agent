@@ -968,7 +968,7 @@ pytest tests/test_harmonic_biometric.py -v
 
 ### Coverage Posture
 
-- **Merge gates (blocking)**: CORE ≥ 30 % on the curated core lane and FULL ≥ 55 % on the ML lane, enforced per-job via `--cov-fail-under` in `.github/workflows/ci.yml`.
+- **Merge gates (blocking)**: CORE ≥ 33 % on the curated core lane and FULL ≥ 62 % on the ML lane, enforced per-job via `--cov-fail-under` in `.github/workflows/ci.yml`.
 - **Aspirational target (non-blocking)**: `pyproject.toml [tool.coverage.report] fail_under = 85`.
 - Coverage is measured per release from the per-PR coverage artifacts, not pinned in prose. See CONTRIBUTING.md §"Test Coverage Requirements".
 
@@ -1242,7 +1242,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **8,789 tests collected** (verified by `pytest --collect-only -q` 2026-06-10 with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 30` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 55` on the full suite (each set roughly 8–13 points below the most recent measured baseline — CORE 37.94 % / FULL 67.97 %, 2026-07-18 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **8,789 tests collected** (verified by `pytest --collect-only -q` 2026-06-10 with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (each set roughly 7 points below the most recent measured baseline — CORE 40.57 % / FULL 68.95 %, 2026-07-21 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
@@ -1282,7 +1282,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   for the collection methodology.
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
-  CORE ≥ 30 % / FULL ≥ 55 %; the aspirational target is 85 %.
+  CORE ≥ 33 % / FULL ≥ 62 %; the aspirational target is 85 %.
 - **Documentation:** 72 markdown documents at the project surface
   (7 top-level, 56 in `docs/` — including the drone/medical SETUP
   runbooks and the research literature review — 8 in `benchmarks/`,

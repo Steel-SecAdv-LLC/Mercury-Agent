@@ -351,9 +351,9 @@ Two thresholds matter and they do different things:
 
 - **Merge gates (blocking).** CI enforces a measured floor on every
   PR:
-  - `COVERAGE_THRESHOLD_CORE = 30 %` on the curated core-tests lane
+  - `COVERAGE_THRESHOLD_CORE = 33 %` on the curated core-tests lane
     (see `.github/workflows/ci.yml` for the file selection).
-  - `COVERAGE_THRESHOLD_FULL = 55 %` on the full ml-tests lane
+  - `COVERAGE_THRESHOLD_FULL = 62 %` on the full ml-tests lane
     (which runs the entire `tests/` tree with the AMA Cryptography
     native build).
   These floors are deliberately positioned below the most recent
@@ -559,8 +559,8 @@ Brief description of changes.
 - [ ] Documentation updated
 - [ ] Tests added/updated
 - [ ] All tests pass
-- [ ] Coverage does not regress the lane floors (CORE >= 30 %,
-      FULL >= 55 %) and trends toward the 85 % aspirational target
+- [ ] Coverage does not regress the lane floors (CORE >= 33 %,
+      FULL >= 62 %) and trends toward the 85 % aspirational target
 - [ ] Security scan clean
 
 ## Testing

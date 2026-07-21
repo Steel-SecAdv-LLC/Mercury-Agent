@@ -1101,8 +1101,8 @@ CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
 
 | Lane                       | Current floor | Measured baseline | Headroom |
 |----------------------------|:------------:|:----------------------------------------------------:|:--------:|
-| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **55** | 67.97 % (2026-07-18, PR #339 head) | ~13.0 pts |
-| `COVERAGE_THRESHOLD_CORE` (core lane)    | **30** | 37.94 % (2026-07-18, PR #339 head) | ~7.9 pts |
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **62** | 68.95 % (2026-07-21) | ~6.9 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **33** | 40.57 % (2026-07-21) | ~7.6 pts |
 
 Previous floors, kept for provenance: v1.7.x ran FULL **50** (baseline
 59.84 %, 2026-05-17, run #1182 on `main`) and CORE **25** (baseline

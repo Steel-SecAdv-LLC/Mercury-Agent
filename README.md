@@ -1283,7 +1283,7 @@ The test suite includes:
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: the merge gate enforces measured floors
-  (CORE ≥ 30 %, FULL ≥ 55 %) on every PR; `pyproject.toml
+  (CORE ≥ 33 %, FULL ≥ 62 %) on every PR; `pyproject.toml
   [tool.coverage.report] fail_under = 85` is the long-term
   aspirational target.  Coverage is regenerated per release via
   `pytest --cov=src/omni_mercury_engine --cov-report=term`; do not
@@ -1340,12 +1340,12 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `ci.yml` | Workflow Hardening | yes | actionlint + zizmor + repository workflow invariants |
 | `ci.yml` | Type Checking | yes | mypy on `src/` and graduated strict test directories |
 | `ci.yml` | Security Scan | yes | bandit, safety, pip-audit, semgrep against an isolated install |
-| `ci.yml` | Core Tests | yes | pytest, ≥ 30 % combined stmt+branch coverage on the curated core lane |
+| `ci.yml` | Core Tests | yes | pytest, ≥ 33 % combined stmt+branch coverage on the curated core lane |
 | `ci.yml` | Neuro-Symbolic Tests | yes | 7-phase cognitive architecture + safeguards + ethics regression suite |
 | `ci.yml` | Integration Tests | yes | `tests/integration/` against mocked external services |
 | `ci.yml` | Performance Benchmark | PR-only | TTLCache / synthetic-gradient regression gate |
 | `ci.yml` | Ethics Audit | yes | `benchmarks/run_ethics_audit.py` (EthicalAutonomyGovernor, σ_Immutable, OAE) |
-| `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 55 % coverage, real AMA Cryptography build |
+| `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 62 % coverage, real AMA Cryptography build |
 | `ci.yml` | Docker Build + Trivy | yes | Multi-stage runtime image, CRITICAL/HIGH = 0 beyond the enumerated, expiring `.trivyignore` ledger (`ignore-unfixed: false`) |
 | `ci.yml` | Docs Build | yes | Sphinx build of the narrative docs |
 | `iso-hardening.yml` | Docs λ Drift Gate | yes | `scripts/check_readme_lyapunov.py` -- canonical λ = 0.25 across docs |
@@ -1365,7 +1365,7 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 
 - **Python Versions**: 3.11, 3.12, 3.13, 3.14 (declared in `pyproject.toml` and exercised by `ci.yml`'s `code-quality` / `core-tests` / `type-checking` matrix).
 - **Platforms**: Ubuntu Latest (Linux x86_64).  macOS and Windows are supported as install targets but are not part of the CI matrix (see [Cross-Platform Support](#cross-platform-support)).
-- **Coverage floors**: `COVERAGE_THRESHOLD_CORE = 30 %` on the curated core lane, `COVERAGE_THRESHOLD_FULL = 55 %` on the ML lane.  The 85 % figure quoted under [Code Quality Standards](#code-quality-standards) is the aspirational nightly target, not the merge gate; the floors above are the actual blocking thresholds and are documented in `.github/workflows/ci.yml` alongside the measured baseline that justifies them.
+- **Coverage floors**: `COVERAGE_THRESHOLD_CORE = 33 %` on the curated core lane, `COVERAGE_THRESHOLD_FULL = 62 %` on the ML lane.  The 85 % figure quoted under [Code Quality Standards](#code-quality-standards) is the aspirational nightly target, not the merge gate; the floors above are the actual blocking thresholds and are documented in `.github/workflows/ci.yml` alongside the measured baseline that justifies them.
 - **Required status checks**: `Code Quality`, `Workflow Hardening`, `Type Checking`, `Security Scan`, `Core Tests`, `Neuro-Symbolic Tests`, `Integration Tests`, `Performance Benchmark`, `CI Success` (rollup), `ISO Hardening Success` (rollup), `PQC Production Readiness`.
 
 </details>
@@ -1681,7 +1681,7 @@ bandit -r src/
 |----------|-----------|
 | Python | PEP 8, type hints, docstrings |
 | Security | OWASP validation, no hardcoded secrets |
-| Testing | CI floors: CORE ≥ 30 %, FULL ≥ 55 % (measured); aspirational target 85 % (`[tool.coverage.report] fail_under = 85`) |
+| Testing | CI floors: CORE ≥ 33 %, FULL ≥ 62 % (measured); aspirational target 85 % (`[tool.coverage.report] fail_under = 85`) |
 | Ethics | Fairlearn bias auditing on all ML models |
 
 </details>
