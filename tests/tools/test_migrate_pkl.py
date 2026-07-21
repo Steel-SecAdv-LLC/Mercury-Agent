@@ -69,10 +69,18 @@ safe_exec = importlib.import_module("omni_mercury_engine.security.safe_exec")
 _SEED = 42
 
 
-def _write_pickle(path: Path, payload: object) -> Path:
-    """Serialise *payload* to *path* with stdlib pickle (fixture creation only)."""
+def _write_pickle(path: Path, payload: object, *, protocol: int | None = None) -> Path:
+    """Serialise *payload* to *path* with stdlib pickle (fixture creation only).
+
+    ``protocol=None`` uses the interpreter default (4 on Python <= 3.13,
+    5 on Python >= 3.14).  Tests that must exercise a *specific* reduce
+    path -- notably the protocol-5 numpy ``_frombuffer`` zero-copy path
+    that Python 3.14 selects by default -- pass an explicit protocol so
+    the coverage holds on every interpreter, not only the one whose
+    default happens to match.
+    """
     with path.open("wb") as f:
-        pickle.dump(payload, f)
+        pickle.dump(payload, f, protocol=protocol)
     return path
 
 
@@ -95,9 +103,19 @@ def _args(input_path: Path, output_path: Path, *extra: str) -> argparse.Namespac
     )
 
 
-@pytest.fixture
-def legacy_pkl(tmp_path: Path) -> Path:
-    return _write_pickle(tmp_path / "legacy.pkl", _legacy_payload())
+@pytest.fixture(params=[4, 5], ids=["proto4", "proto5"])
+def legacy_pkl(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
+    """A legitimate legacy payload, written under BOTH pickle protocols.
+
+    Protocol 4 is numpy's classic ``multiarray._reconstruct`` path
+    (Python <= 3.13 default); protocol 5 is the PEP-574 zero-copy
+    ``numeric._frombuffer`` path that Python 3.14 makes the default.
+    Parametrising here reruns every consumer (happy path, signing,
+    dispatch) under both reduce paths, so the 3.14 regression -- an
+    array-bearing payload refusing with exit 5 because ``_frombuffer``
+    was missing from the allow-list -- is caught on any interpreter.
+    """
+    return _write_pickle(tmp_path / "legacy.pkl", _legacy_payload(), protocol=request.param)
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +155,9 @@ class TestAllowedGlobals:
             ("numpy._core.multiarray", "_reconstruct"),
             ("numpy", "ndarray"),
             ("numpy", "dtype"),
+            # Protocol-5 (Python 3.14 default) zero-copy reduce path.
+            ("numpy._core.numeric", "_frombuffer"),
+            ("numpy.core.numeric", "_frombuffer"),
         ]:
             assert entry in _ALLOWED_GLOBALS
 
@@ -191,6 +212,73 @@ class TestRestrictedUnpickler:
         unpickler, refusal_exc = self._unpickler(io.BytesIO(b""))
         with pytest.raises(refusal_exc, match="refusing global"):
             unpickler.find_class(module, name)
+
+
+# ---------------------------------------------------------------------------
+# Protocol-5 (_frombuffer) reduce path -- the Python 3.14 default-protocol
+# regression.  Pinned explicitly so the contract holds on EVERY interpreter,
+# not only the one whose pickle.DEFAULT_PROTOCOL happens to be 5.
+# ---------------------------------------------------------------------------
+
+
+class TestProtocol5Reconstruction:
+    """Numpy's protocol-5 zero-copy reduce path must migrate cleanly.
+
+    Under ``pickle`` protocol 5 -- which Python 3.14 makes the default --
+    a contiguous ndarray serialises through
+    ``numpy._core.numeric._frombuffer`` + a ``PickleBuffer`` instead of
+    the protocol-<=4 ``multiarray._reconstruct`` path.  Before
+    ``_frombuffer`` was allow-listed, every array-bearing payload
+    refused with exit ``5`` the instant the default protocol flipped,
+    reddening the whole Core-Tests lane on Python 3.14 while 3.13 stayed
+    green.  These tests reproduce that path directly (explicit
+    ``protocol=5``) so it cannot regress on any interpreter.
+    """
+
+    def test_protocol5_payload_actually_emits_frombuffer(self) -> None:
+        # Guard the guard: confirm this fixture really exercises the
+        # _frombuffer reduce path.  If numpy ever changes its protocol-5
+        # reduce, this fails loudly instead of the round-trip test
+        # silently passing through the old path.
+        import pickletools
+
+        raw = pickle.dumps(_legacy_payload(), protocol=5)
+        modules = {
+            arg
+            for op, arg, _ in pickletools.genops(raw)
+            if op.name == "SHORT_BINUNICODE" and isinstance(arg, str)
+        }
+        assert "_frombuffer" in modules, modules
+        assert any(m.endswith("numeric") for m in modules), modules
+
+    def test_find_class_resolves_frombuffer(self) -> None:
+        import io
+
+        unpickler_cls, _ = _make_restricted_unpickler()
+        unpickler = unpickler_cls(io.BytesIO(b""))
+        resolved = unpickler.find_class("numpy._core.numeric", "_frombuffer")
+        # It is a callable array reconstructor, not a stray attribute.
+        assert callable(resolved)
+        assert resolved.__name__ == "_frombuffer"
+
+    def test_protocol5_round_trip_produces_pickle_free_npz(self, tmp_path: Path) -> None:
+        pkl = _write_pickle(tmp_path / "legacy_p5.pkl", _legacy_payload(), protocol=5)
+        out_path = tmp_path / "out.npz"
+        rc = _do_migration(_args(pkl, out_path))
+        assert rc == 0, "protocol-5 payload must migrate, not refuse with exit 5"
+        with np.load(out_path, allow_pickle=False) as archive:
+            expected = _legacy_payload()
+            assert set(archive.files) == {"modality_a", "modality_b", "labels"}
+            np.testing.assert_array_equal(archive["labels"], expected["labels"])
+            np.testing.assert_array_equal(archive["modality_a"], expected["features"]["modality_a"])
+
+    def test_protocol5_signing_round_trip(self, tmp_path: Path) -> None:
+        pkl = _write_pickle(tmp_path / "legacy_p5.pkl", _legacy_payload(), protocol=5)
+        out_path = tmp_path / "signed.npz"
+        key_hex = "22" * 32
+        rc = _do_migration(_args(pkl, out_path, "--sign-key-hex", key_hex))
+        assert rc == 0
+        verify_npz_signature(out_path, bytes.fromhex(key_hex))
 
 
 # ---------------------------------------------------------------------------

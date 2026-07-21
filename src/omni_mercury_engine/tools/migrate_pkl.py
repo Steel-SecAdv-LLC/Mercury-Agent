@@ -190,6 +190,22 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
 #: scalars -- ``eval`` / ``exec`` / ``__import__`` / ``getattr`` /
 #: ``compile`` / ``open`` are deliberately omitted so a reduce-chain
 #: cannot bootstrap into arbitrary code through ``builtins``.
+#:
+#: Pickle-protocol note (the ``_frombuffer`` entries): ``ndarray``
+#: has *two* reduce paths.  Under protocol <= 4 (Python <= 3.13's
+#: ``pickle.DEFAULT_PROTOCOL``) numpy serialises a contiguous array
+#: through ``multiarray._reconstruct`` + a ``BINSTRING`` state.  Under
+#: protocol 5 -- which Python 3.14 makes the *default* -- numpy takes
+#: the PEP-574 zero-copy path instead, emitting
+#: ``numpy._core.numeric._frombuffer`` (numpy 1.x: ``numpy.core.numeric``)
+#: with a ``PickleBuffer``.  Both reconstructors are inert array
+#: builders (buffer -> ndarray; no OS / import / attribute access), so
+#: allow-listing ``_frombuffer`` alongside ``_reconstruct`` is the same
+#: security posture while letting the tool migrate pickles written by
+#: *any* supported interpreter.  Omitting it made every array-bearing
+#: payload refuse with exit 5 the moment the default protocol flipped
+#: to 5 on Python 3.14 (regression pinned in
+#: ``tests/tools/test_migrate_pkl.py::TestProtocol5Reconstruction``).
 _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
     {
         # Numpy 1.x array reconstruction surface.
@@ -202,6 +218,12 @@ _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
         # pickles produced under 2.x reference the new path.
         ("numpy._core.multiarray", "_reconstruct"),
         ("numpy._core.multiarray", "scalar"),
+        # Protocol-5 (Python 3.14 default) zero-copy array path. numpy
+        # 2.x emits ``numpy._core.numeric._frombuffer``; numpy 1.x the
+        # ``numpy.core.numeric`` alias. Same inert buffer->ndarray
+        # builder as ``_reconstruct``; see the protocol note above.
+        ("numpy._core.numeric", "_frombuffer"),
+        ("numpy.core.numeric", "_frombuffer"),
         # Inert builtins -- no callable that touches the OS, the
         # import system, or arbitrary attribute lookup.
         ("builtins", "dict"),
