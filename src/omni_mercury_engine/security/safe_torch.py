@@ -40,12 +40,12 @@ routed around silently.
 
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 if TYPE_CHECKING:
-    import os
     from typing import IO
 
     import torch
@@ -92,8 +92,9 @@ def _validate_checkpoint_path(source: str | os.PathLike[str], max_bytes: int) ->
         )
 
 
-def _is_path_like(source: object) -> bool:
-    return isinstance(source, (str, Path)) or hasattr(source, "__fspath__")
+def _is_path_like(source: object) -> TypeGuard[str | os.PathLike[str]]:
+    """Narrowing check for a filesystem-path source (vs an open stream)."""
+    return isinstance(source, (str, os.PathLike))
 
 
 def safe_torch_load(
@@ -167,7 +168,7 @@ def safe_torch_load(
         )
 
     if _is_path_like(source):
-        _validate_checkpoint_path(source, max_bytes)  # type: ignore[arg-type]
+        _validate_checkpoint_path(source, max_bytes)
 
     import torch  # lazy: keep the security package importable without the ml extra
 
