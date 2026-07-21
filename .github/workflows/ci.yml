@@ -591,9 +591,35 @@ jobs:
         # * tests/narrative/     -- ISO hardening (already clean) (#238)
         # * tests/fairness/      -- intersectional fairness metrics
         #                            (ROADMAP row 6 closure; authored clean)
+        # * tests/scripts/       -- engineering-pass graduation (this round)
+        # * tests/cyber/         -- engineering-pass graduation (this round)
+        # * tests/decision/      -- engineering-pass graduation (this round)
+        # * tests/distributed/   -- engineering-pass graduation (this round)
+        # * tests/emergent/      -- engineering-pass graduation (this round)
+        # * tests/evaluation/    -- engineering-pass graduation (this round)
+        # * tests/federated/     -- engineering-pass graduation (this round)
+        # * tests/medical/       -- engineering-pass graduation (this round)
+        # * tests/metrics/       -- engineering-pass graduation (this round)
+        # * tests/proofs/        -- engineering-pass graduation (this round)
+        # * tests/reasoning/     -- engineering-pass graduation (this round)
+        # * tests/research/      -- engineering-pass graduation (this round)
+        # * tests/truth_decipher/ -- engineering-pass graduation (this round)
+        # * tests/utils/         -- engineering-pass graduation (this round)
+        #
+        # This round's engineering pass graduated the 14 test directories
+        # that were ALREADY fully annotated (measured 0 strict errors each;
+        # 131 files clean in the combined invocation).  The ordered
+        # dir-by-dir plan for the remaining relaxed-lane debt (automl 2 ...
+        # detectors 51) and the exact per-dir error counts live in
+        # docs/MYPY_TEST_STRICT_MIGRATION.md.  When a directory graduates,
+        # add it here and strike it from that plan in the same commit.
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
-            tests/loaders/ tests/narrative/ tests/fairness/ \
+            tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
+            tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
+            tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
+            tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+            tests/utils/ \
             --disallow-subclassing-any \
             --show-error-codes \
             --pretty \
