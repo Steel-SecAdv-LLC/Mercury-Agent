@@ -281,6 +281,119 @@ class TestProtocol5Reconstruction:
         verify_npz_signature(out_path, bytes.fromhex(key_hex))
 
 
+class TestAllProtocolsRoundTrip:
+    """Every pickle protocol 0-5 must migrate cleanly, not just the defaults.
+
+    Legacy operator pickles predate the tool and can be in ANY protocol; the
+    oldest (0-2) are the most likely to need migrating. Under protocols 0-2
+    numpy stores the array databuffer as a latin-1 ``str`` and rebuilds the
+    bytes on load through ``_codecs.encode(state, 'latin1')`` — a global that
+    was NOT in the allow-list, so every array-bearing payload written at
+    protocol <= 2 refused with exit 5. This parametrised round-trip is the
+    regression pin for that fix and the structural guard that a future numpy
+    protocol change is caught the moment it breaks any supported protocol.
+    """
+
+    @pytest.mark.parametrize("protocol", list(range(0, pickle.HIGHEST_PROTOCOL + 1)))
+    def test_round_trip_at_protocol(self, protocol: int, tmp_path: Path) -> None:
+        pkl = _write_pickle(
+            tmp_path / f"legacy_p{protocol}.pkl", _legacy_payload(), protocol=protocol
+        )
+        out_path = tmp_path / f"out_p{protocol}.npz"
+        rc = _do_migration(_args(pkl, out_path))
+        assert rc == 0, (
+            f"protocol-{protocol} payload must migrate, not refuse — a refusal "
+            f"means the allow-list is missing a reconstruction global for this "
+            f"protocol on this numpy/Python"
+        )
+        expected = _legacy_payload()
+        with np.load(out_path, allow_pickle=False) as archive:
+            assert set(archive.files) == {"modality_a", "modality_b", "labels"}
+            np.testing.assert_array_equal(archive["labels"], expected["labels"])
+            np.testing.assert_array_equal(
+                archive["modality_a"], expected["features"]["modality_a"]
+            )
+            np.testing.assert_array_equal(
+                archive["modality_b"], expected["features"]["modality_b"]
+            )
+
+    @pytest.mark.parametrize("protocol", [0, 1, 2])
+    def test_low_protocol_varied_dtypes_round_trip(self, protocol: int, tmp_path: Path) -> None:
+        # Exercise several reconstruction paths (dtype kinds, F-order, bool) at
+        # the low protocols where the _codecs.encode state path is taken.
+        payload: dict[str, Any] = {
+            "features": {
+                "f64": np.arange(6, dtype=np.float64).reshape(2, 3),
+                "i32": np.array([1, 2, 3], dtype=np.int32),
+                "fortran": np.asfortranarray(np.arange(4, dtype=np.float32).reshape(2, 2)),
+                "boolean": np.array([True, False, True]),
+            },
+            "labels": np.array([0, 1, 0], dtype=np.int64),
+        }
+        pkl = _write_pickle(tmp_path / f"varied_p{protocol}.pkl", payload, protocol=protocol)
+        out_path = tmp_path / f"varied_p{protocol}.npz"
+        assert _do_migration(_args(pkl, out_path)) == 0
+        with np.load(out_path, allow_pickle=False) as archive:
+            for key, arr in payload["features"].items():
+                np.testing.assert_array_equal(archive[key], arr)
+
+
+class TestAllowlistCompletenessProactive:
+    """Proactively catch a future numpy/protocol reconstruction global.
+
+    The allow-list is a hand-maintained deny-by-default set; it is only safe
+    to rely on as long as it stays COMPLETE for the numpy/Python the CI matrix
+    actually runs. This test records every global numpy resolves while
+    rebuilding a real payload across all protocols and asserts the allow-list
+    covers them — so a numpy release (or Python protocol default flip) that
+    introduces a new reconstruction global fails HERE, on the matrix's
+    interpreters, before it can silently red-line production migrations.
+    """
+
+    def _resolved_globals(self, payload: object) -> set[tuple[str, str]]:
+        import io
+
+        resolved: set[tuple[str, str]] = set()
+
+        class _Recording(pickle.Unpickler):
+            # Permissive on purpose: we are enumerating what numpy resolves,
+            # not enforcing policy. find_class is the single choke point every
+            # GLOBAL / STACK_GLOBAL opcode passes through.
+            def find_class(self, module: str, name: str) -> Any:
+                resolved.add((module, name))
+                return super().find_class(module, name)
+
+        for protocol in range(0, pickle.HIGHEST_PROTOCOL + 1):
+            raw = pickle.dumps(payload, protocol=protocol)
+            _Recording(io.BytesIO(raw)).load()
+        return resolved
+
+    def test_allowlist_covers_every_numpy_reconstruction_global(self) -> None:
+        resolved = self._resolved_globals(_legacy_payload())
+        # Every global numpy actually needs to reconstruct the payload — across
+        # all protocols — must already be allow-listed.
+        missing = resolved - _ALLOWED_GLOBALS
+        assert not missing, (
+            f"numpy resolves reconstruction global(s) not in migrate_pkl's "
+            f"allow-list on numpy {np.__version__} / Python "
+            f"{sys.version_info.major}.{sys.version_info.minor}: {sorted(missing)}. "
+            f"Add each verified-inert reconstruction global to _ALLOWED_GLOBALS "
+            f"with a security justification — do NOT loosen find_class."
+        )
+
+    def test_codecs_encode_is_allowlisted_and_inert(self) -> None:
+        # The protocol-0/1/2 array-state reconstruction global.
+        assert ("_codecs", "encode") in _ALLOWED_GLOBALS
+        import io
+
+        unpickler_cls, _ = _make_restricted_unpickler()
+        resolved = unpickler_cls(io.BytesIO(b"")).find_class("_codecs", "encode")
+        assert callable(resolved)
+        # It is the stdlib codec transform — inert (bytes<->str), not an exec
+        # or import primitive.
+        assert resolved("abc", "latin1") == b"abc"
+
+
 # ---------------------------------------------------------------------------
 # _do_migration: happy paths
 # ---------------------------------------------------------------------------

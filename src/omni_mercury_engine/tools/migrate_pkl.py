@@ -224,6 +224,28 @@ _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
         # builder as ``_reconstruct``; see the protocol note above.
         ("numpy._core.numeric", "_frombuffer"),
         ("numpy.core.numeric", "_frombuffer"),
+        # Protocol 0/1/2 array-state reconstruction. Under the OLD pickle
+        # protocols (0-2) — the protocols legacy operator pickles are most
+        # likely to be in — numpy does NOT store the array databuffer as
+        # raw bytes; it stores it as a latin-1 ``str`` and reconstructs the
+        # bytes on load via ``_codecs.encode(state_str, 'latin1')``. Without
+        # this entry EVERY array-bearing payload written at protocol <= 2
+        # refused with exit 5, silently defeating the tool's entire purpose
+        # for the oldest pickles (regression pinned in
+        # tests/tools/test_migrate_pkl.py::TestAllProtocolsRoundTrip).
+        #
+        # Security: ``_codecs.encode`` is an INERT byte/string transform. It
+        # cannot import, exec, spawn, or touch the OS, and it takes only
+        # ``(obj, encoding)`` where ``encoding`` selects a registered codec —
+        # all stdlib codecs are pure transforms and the restricted unpickler
+        # exposes no ``codecs.register`` to add a hostile one. With no
+        # ``eval``/``exec``/``__import__``/``getattr`` in this allow-list its
+        # output (bytes/str) cannot be chained into code execution. Allowing
+        # it keeps the deny-by-default posture: one more inert reconstruction
+        # primitive, not an execution primitive. (The module docstring's
+        # "codecs.encode reduce-chain tricks" caveat refers to chains that
+        # also need an exec gadget — none is reachable here.)
+        ("_codecs", "encode"),
         # Inert builtins -- no callable that touches the OS, the
         # import system, or arbitrary attribute lookup.
         ("builtins", "dict"),
