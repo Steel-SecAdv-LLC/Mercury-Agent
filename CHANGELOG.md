@@ -27,6 +27,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Engineering pass (continuation of the coverage round): Python-3.14 CI fix, strict-mypy graduation, ROADMAP 17/18 offline gates, heavy-ML coverage uplift, two root-cause fixes
+
+Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
+
+- **Fixed the Python-3.14 Core-Tests failure** (the round's only red lane).
+  Python 3.14 raises `pickle.DEFAULT_PROTOCOL` 4→5; under protocol 5 numpy
+  serialises arrays via `numpy._core.numeric._frombuffer` instead of
+  `multiarray._reconstruct`, which `tools/migrate_pkl.py`'s restricted
+  unpickler did not allow-list, so every array-bearing payload refused
+  with exit 5. Allow-listed `_frombuffer` (an inert buffer→ndarray builder,
+  same posture as `_reconstruct`; RCE globals still refused); regression
+  parametrised over pickle protocol {4,5}.
+- **Fixed a pre-existing verify-real-pqc failure:** the trained-σ-gate
+  test asserted `backend=='torch'` in the deliberately-no-torch
+  pqc-production-check lane; guarded `TestTrainedGateEndToEnd` with
+  `skipif(not HAS_TORCH)` (fail-closed path still covered elsewhere).
+- **Strict-mypy graduation:** 14 already-clean test dirs (scripts, cyber,
+  decision, distributed, emergent, evaluation, federated, medical, metrics,
+  proofs, reasoning, research, truth_decipher, utils) moved from the relaxed
+  to the strict lane (0 errors each; 131 files clean combined).
+  `docs/MYPY_TEST_STRICT_MIGRATION.md` is the dir-by-dir plan for the rest.
+- **ROADMAP row 17 offline CI-gated fallback:** `scripts/check_benchmark_integrity.py`
+  fails closed unless the committed benchmark JSON is internally consistent
+  and its headline AUC/F1 **recompute** from the per-dataset rows (fabrication-
+  proof), plus README parity; wired blocking in workflow-hardening + a 13-test
+  suite. **Row 18 CI-gated honesty lock:** `tests/narrative/test_language_scope.py`
+  enforces the README English-only scope. Both rows gain concrete plans +
+  dependency lists.
+- **Coverage uplift on six heavy under-covered modules** (`biometric/*`,
+  `quantum_computing/*`, `core/adaptive_fusion`, `ml/compression`,
+  `datasets/ocean`): 621 deterministic, no-network tests taking the target
+  surface from ~0 to **98.62%** line+branch (3,307 stmts + 968 branches).
+  New `tests/biometric/` + `tests/quantum_computing/` packages wired into the
+  core lane.
+- **Two root-cause defects surfaced by that pass, fixed with regressions:**
+  (1) `biometric/fingerprint_recognition.py` computed the minutiae crossing
+  number on raw uint8 skeletons, so a 0→1 transition underflowed and ridge
+  endings/bifurcations were never detected via `extract()` (matching ran on
+  empty minutiae) — cast to signed int; (2) `quantum_computing/detector.py`
+  used `threshold or self._threshold`, silently discarding an explicit
+  `threshold=0.0` — replaced with a `None`-check.
+
 ### Maintenance round steel/maint1/2-coverage: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
 
 Full audit trail with measured before/after evidence:

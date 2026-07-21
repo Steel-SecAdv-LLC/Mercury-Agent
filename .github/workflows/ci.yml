@@ -1067,6 +1067,8 @@ jobs:
             tests/automl/ \
             tests/fairness/ \
             tests/tools/ \
+            tests/biometric/ \
+            tests/quantum_computing/ \
             tests/scripts/test_run_ablation.py \
             tests/scripts/test_check_readme_lyapunov.py \
             tests/scripts/test_run_hardware_benchmark.py \
