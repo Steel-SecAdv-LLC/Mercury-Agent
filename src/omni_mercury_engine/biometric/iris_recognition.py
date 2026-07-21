@@ -373,9 +373,12 @@ class IrisEncoder:
             code_mask.append(mask)
 
         iris_code = np.stack(code_bits, axis=0)
-        code_mask = np.stack(code_mask, axis=0)  # type: ignore[assignment, unused-ignore]
+        # Stack into a distinct array name: reusing ``code_mask`` (a list) as the
+        # ndarray target was the only reason mypy needed the assignment/return
+        # ignores here.
+        mask_code = np.stack(code_mask, axis=0)
 
-        return iris_code, code_mask  # type: ignore[return-value, unused-ignore]
+        return iris_code, mask_code
 
 
 class IrisMatcher:
@@ -510,21 +513,24 @@ class IrisLivenessDetector:
     ) -> float:
         """Analyze pupil light response dynamics."""
         if pupil_radii is not None and len(pupil_radii) >= 2:
-            radii = np.array(pupil_radii)
+            radii = np.asarray(pupil_radii, dtype=float)
         else:
-            radii = []  # type: ignore[assignment, unused-ignore]
+            # Collect into a real list, then convert once — keeping ``radii`` an
+            # ndarray in both branches removes the assignment/attr-defined
+            # ignores that a list/ndarray type clash forced.
+            radii_list: list[float] = []
             segmenter = IrisSegmenter()
             for img in images:
                 try:
                     _, pupil_r, _, _ = segmenter.segment(img)
-                    radii.append(pupil_r)  # type: ignore[attr-defined, unused-ignore]
+                    radii_list.append(pupil_r)
                 except Exception as e:
                     logger.debug("Iris segmentation failed for image: %s", e)
 
-            if len(radii) < 2:
+            if len(radii_list) < 2:
                 return 0.0
 
-            radii = np.array(radii)
+            radii = np.asarray(radii_list, dtype=float)
 
         variation = np.std(radii) / (np.mean(radii) + 1e-8)
         response_score = min(1.0, variation / 0.2)
@@ -690,18 +696,20 @@ class IrisRecognizer:
         mask: np.ndarray[Any, Any],
     ) -> float:
         """Compute iris image quality score."""
-        usable_ratio = np.sum(mask) / mask.size
+        # float() at the numpy boundary keeps usable_ratio a real float, so the
+        # weighted-sum below is unambiguously float (no operator ignore needed).
+        usable_ratio = float(np.sum(mask) / mask.size)
 
         gradient_x = np.diff(normalized_iris, axis=1)
         gradient_y = np.diff(normalized_iris, axis=0)
-        sharpness = np.mean(np.abs(gradient_x)) + np.mean(np.abs(gradient_y))
+        sharpness = float(np.mean(np.abs(gradient_x)) + np.mean(np.abs(gradient_y)))
 
-        contrast = np.std(normalized_iris[mask])
+        contrast = float(np.std(normalized_iris[mask]))
 
-        quality = (  # type: ignore[operator, unused-ignore]
+        quality = (
             0.4 * usable_ratio
-            + 0.3 * min(1.0, float(sharpness * 10))
-            + 0.3 * min(1.0, float(contrast * 5))
+            + 0.3 * min(1.0, sharpness * 10)
+            + 0.3 * min(1.0, contrast * 5)
         )
 
         return float(quality)

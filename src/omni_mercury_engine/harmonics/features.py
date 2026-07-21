@@ -355,7 +355,7 @@ class HarmonicSimilarity:
                 float(np.linalg.norm(desc2.bispectrum.components)),
                 1e-10,
             )
-            distances["bispectrum"] = float(bs_dist) / max_bs  # type: ignore[operator, unused-ignore]
+            distances["bispectrum"] = float(bs_dist) / max_bs
 
         energy_dist = np.linalg.norm(desc1.energy_distribution - desc2.energy_distribution)
         distances["energy"] = energy_dist / np.sqrt(2.0)
