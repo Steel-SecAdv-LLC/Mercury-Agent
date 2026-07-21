@@ -27,6 +27,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security + CI-integrity hardening pass: centralized torch checkpoint loader, gate-integrity fixes, root-cause bug fixes
+
+Continuation of the coverage/engineering round, focused on the load-bearing
+security surface and on CI gates that could pass without actually protecting
+anything.
+
+- **Centralized, fail-closed `torch.load` (RCE hardening).** `torch.load`
+  runs a pickle VM; without `weights_only=True` a malicious `.pt` executes
+  arbitrary code at load time. The property was spread across ~27 call sites
+  each passing the keyword by hand — one omission (or a torch downgrade) from
+  re-opening the hole. New `omni_mercury_engine.security.safe_torch.safe_torch_load`
+  is the single sanctioned loader (hard-pins `weights_only=True`, no bypass;
+  validates path/size; rejects a custom `pickle_module`; translates the
+  restricted-unpickler refusal). Every call site (engine, geological/visual
+  detectors, ml inference + hazard training, space, core) routes through it,
+  and `scripts/check_torch_load_safety.py` (wired blocking in workflow-hardening)
+  fails on any raw `torch.load(` in `src/` outside the wrapper. Tests prove a
+  malicious `__reduce__` payload is refused and never executed.
+- **`migrate_pkl` legacy protocol 0–2 fix.** Beyond the protocol-5 fix below,
+  array pickles written at protocols 0–2 (the oldest legacy artefacts) refused
+  with exit 5: numpy stores the databuffer as a latin-1 `str` and rebuilds it
+  via `_codecs.encode`, which was not allow-listed. Added `_codecs.encode` (an
+  inert byte transform — no import/exec/OS access, un-chainable to RCE under
+  this allow-list) with a security justification, a protocol 0..HIGHEST
+  round-trip suite, and a proactive completeness test that fails if a future
+  numpy resolves any reconstruction global outside the allow-list.
+- **CI gate-integrity fixes.** `CI Success` now aggregates *every* blocking job
+  (ml-tests, ethics-audit, docker-build, docs-build were omitted), and a
+  `skipped` spine job (upstream failure) is a distinct non-passing state rather
+  than green. The σ mutation gate's `cancel-in-progress` is `false` (it was
+  cancelled on every push and never reached a verdict), runs a cheap parallel
+  sample on every PR plus the exhaustive lane on hot-path/scheduled runs, and
+  the harness gained `--jobs` (isolated per-worker trees) so a full run is
+  bounded structurally, not just by a per-mutant budget. New `gate-watchdog.yml`
+  + unit-tested `scripts/ci_gate_watchdog.py` file/update a tracking issue when
+  a blocking gate repeatedly cancels, times out, or never completes.
+- **Root-cause bug fixes with regressions.** (1) `biometric` `detect_anomaly`
+  returned numpy scalars (`np.bool_`/`np.float64`) papered over by nine
+  `# type: ignore[...,unused-ignore]` comments — coerced at the boundary to
+  real `bool`/`float`, all nine ignores deleted, strict-type tests added.
+  (2) `utils/feature_cache` INT8 dequantization divided by 255 without
+  restoring the scale/zero-point, corrupting every cached value to ~[0,1];
+  fixed the affine inverse (params carried on the entry) and
+  `select_top_features(k=0)` (returned all features). (3) `truth_decipher`
+  `isinstance(x, torch.Tensor)` crashed when torch is absent, and
+  `determine_ethics` mutated the caller's context dict. (4) `utils/report_generator`
+  wrote reports with no `encoding=`, raising `UnicodeEncodeError` on a
+  non-UTF-8 locale — all writes now UTF-8.
+- **Fingerprint matching accuracy floor.** New labeled genuine-vs-impostor
+  sweep (measured TAR 1.00 / FAR 0.00) with floors, so a silent matcher
+  regression fails a functional gate instead of passing every unit test.
+
 ### Engineering pass (continuation of the coverage round): Python-3.14 CI fix, strict-mypy graduation, ROADMAP 17/18 offline gates, heavy-ML coverage uplift, two root-cause fixes
 
 Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
