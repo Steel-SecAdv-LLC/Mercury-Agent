@@ -706,10 +706,6 @@ class IrisRecognizer:
 
         contrast = float(np.std(normalized_iris[mask]))
 
-        quality = (
-            0.4 * usable_ratio
-            + 0.3 * min(1.0, sharpness * 10)
-            + 0.3 * min(1.0, contrast * 5)
-        )
+        quality = 0.4 * usable_ratio + 0.3 * min(1.0, sharpness * 10) + 0.3 * min(1.0, contrast * 5)
 
         return float(quality)
