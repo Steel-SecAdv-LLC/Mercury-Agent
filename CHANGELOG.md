@@ -27,6 +27,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Maintenance round steel/maint1/2-coverage: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
+
+Full audit trail with measured before/after evidence:
+`docs/MAINT1_2_COVERAGE_REMEDIATION.md`.
+
+- **Intersectional fairness (row 6 closed).** `ml/fairness.py` gains
+  joint-subgroup metrics — `build_intersectional_groups`,
+  `FairnessAuditor.compute_intersectional_parity`,
+  `compute_intersectional_equalized_odds` — with an
+  `intersectional_min_group_size` floor that excludes and *reports*
+  sparse cells, and an `insufficient_data` flag instead of a fabricated
+  verdict. `audit()` accepts multi-feature input (mapping or 2-D array);
+  the engine's `_audit_fairness` dict shape is now natively typed — the
+  removed `type: ignore` had masked a dead runtime path (the dict hit
+  `np.unique()`, raised, and the broad `except` silently returned
+  `None`). Pinned by a Simpson's-paradox regression: marginals exactly
+  fair, joint disparity 0.3 flagged naming the worst-off cell.
+  `tests/fairness/` (41 tests) graduates into the strict mypy lane and
+  the core coverage lane.
+- **σ_Immutable mutation-testing gate (row 8 closed).**
+  `scripts/run_sigma_mutation_gate.py`: deterministic AST-based
+  mutation over the σ hot path, in-place mutants with byte-exact
+  restoration, red-baseline abort, timeout-as-killed, stride-sampled
+  bounds, JSON report; 11 harness unit tests. First honest measurement:
+  **9.7%** kill rate (12/124) — the interface-level σ subset pinned no
+  arithmetic. Two semantic pinning suites respond
+  (`test_sigma_immutable_gate_semantics.py`,
+  `test_sigma_immutable_corpus_semantics.py`), raising the measured
+  kill rate to the floor now enforced by the blocking, path-filtered
+  `.github/workflows/mutation-testing.yml` lane (plus weekly cron).
+- **Orphan dispositions executed (row 19 closed).**
+  `detectors/cross_domain_frequency.py` (implemented, documented, but
+  unreachable) is wired into the `detectors` public surface;
+  `core/di.py` (zero consumers since inception, injection inert under
+  PEP 563, maps bit-rotted) is deprecated via `DIDeprecationWarning` +
+  DEPRECATION.md §1.3, kept functional per the preservation policy.
+- **Nine defects fixed at the root**, each with a regression test:
+  (1) engine fairness audit dead for its documented dict input; (2)
+  integer-typed groups silently zero-filled in threshold mitigation;
+  (3) reweighting mitigation was a placeholder — now real
+  Kamiran–Calders weights with `get_sample_weights`; (4)
+  `calibrate_all_thresholds()` stored the *unclamped* optimum in the
+  threshold registry while returning the clamped value, so
+  `get_threshold()` served operating points above `MAX_THRESHOLD_CAP`;
+  (5) `PointAdjustmentEvaluator(search_best_threshold=False)` was never
+  consulted — now honored fail-loud; (6) `ServiceContainer.resolve`
+  re-created falsy singletons (truthiness vs `is not None`); (7+8)
+  `ComponentFactory` detector/model maps named nonexistent classes —
+  every built-in `create_detector` call raised `AttributeError`; (9)
+  drift detection's fixed `kl_threshold=0.1` default falsely flagged
+  same-distribution data below n≈2000 (measured histogram-estimator
+  bias) — replaced by a deterministic permutation-null calibration
+  (`kl_threshold=None` default; explicit floats keep the legacy branch
+  byte-for-byte; `DriftResult.kl_null_quantile` exposes the null).
+- **Input-validation hardening.** `MISSING_REQUIRED` is now actually
+  emitted; `sanitize_string` output can no longer exceed `max_length`
+  nor split an escape entity; invalid sensitivity values no longer leak
+  into `sanitized_data`; multivariate Inf warnings now match the
+  univariate path; `BenchmarkEvaluator.evaluate()` raises a domain
+  error on zero usable samples.
+- **`scripts/` mypy debt cleared (42 → 0 across 9 files)** with real
+  typing fixes only; the ci.yml scripts lane now lists every `scripts/`
+  file, retiring the pre-existing-errors carve-out.
+- **Coverage uplift** (measured, full-suite baseline 68.05% on 12,328
+  passing tests): `calibration_pipeline` 47→99.5%, `point_adjustment`
+  72→100%, `api_validators` 61→100%, `benchmark_evaluator` 55→100%,
+  `core/di` 0→94%, `cross_domain_frequency` 0→98%, `migrate_pkl`
+  11→100% (adversarial pickle payloads proven inert), three compat
+  shims 0→100%, plus the two σ semantic suites.
+- **Cross-cutting.** The advisory `Signature.public_key_hash` format is
+  hoisted to the single `crypto_api.key_fingerprint` helper;
+  `parse_corpus` no longer redundantly re-copies locally-built arrays;
+  README codebase-scale block regenerated via its gate.
+
 ### Security: air-gap sovereignty — every egress path fails closed under `MERCURY_OFFLINE`, loopback stays open
 
 - **Goal.** Mercury must stay fully operable when *all* external sources are
