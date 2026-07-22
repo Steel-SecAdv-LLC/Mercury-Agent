@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import numpy as np
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -883,13 +884,10 @@ def load_dataset(
 # Register datasets
 for dataset_name in ADREPOSITORY_DATASETS:
 
-    def _make_loader(dn: str) -> type[DatasetLoader]:
-        class _NamedADRepositoryLoader(ADRepositoryLoader):
-            """ADRepositoryLoader pinned to one named dataset for the registry."""
+    def _make_loader(dn: str) -> Callable[[DatasetConfig], DatasetLoader]:
+        def _factory(cfg: DatasetConfig) -> DatasetLoader:
+            return ADRepositoryLoader(cfg, dataset_name=dn)
 
-            def __init__(self, cfg: DatasetConfig) -> None:
-                super().__init__(cfg, dataset_name=dn)
-
-        return _NamedADRepositoryLoader
+        return _factory
 
     DatasetRegistry.register(f"adrepository-{dataset_name}", _make_loader(dataset_name))
