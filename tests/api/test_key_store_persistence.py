@@ -162,9 +162,7 @@ def test_build_key_store_defaults_to_in_memory(monkeypatch: pytest.MonkeyPatch) 
     assert isinstance(build_key_store(), APIKeyStore)
 
 
-def test_build_key_store_selects_sqlite(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_build_key_store_selects_sqlite(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A configured path selects the durable SQLite backend."""
     monkeypatch.setenv(KEYSTORE_PATH_ENV, str(tmp_path / "configured.db"))
     built = build_key_store()
@@ -182,7 +180,7 @@ def test_get_api_key_store_honours_env_and_caches(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """get_api_key_store() builds the env-selected backend once and caches it."""
-    import omni_mercury_engine.api.auth as auth
+    from omni_mercury_engine.api import auth
 
     monkeypatch.setattr(auth, "_api_key_store", None)
     monkeypatch.setenv(KEYSTORE_PATH_ENV, str(tmp_path / "singleton.db"))
