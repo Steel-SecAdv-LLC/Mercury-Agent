@@ -72,6 +72,8 @@ if TYPE_CHECKING:
 
     from fastapi import HTTPException, Request, status
     from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+
+    from omni_mercury_engine.api.key_store import KeyStore
 else:
     try:
         from fastapi import HTTPException, Request, status
@@ -548,15 +550,30 @@ class AuthKeyManager:
         return result
 
 
-# Global API key store (in production, use dependency injection)
-_api_key_store = APIKeyStore()
+# Global API key store. The concrete backend is selected once, lazily, by
+# ``key_store.build_key_store()``: in-memory by default (unchanged dev/test
+# behaviour), durable SQLite when ``MERCURY_KEYSTORE_PATH`` is set. Lazy
+# construction keeps the same-instance contract callers rely on while letting
+# the environment pick the backend without importing ``key_store`` eagerly
+# (which would create an import cycle: key_store imports the models from here).
+_api_key_store: KeyStore | None = None
 
 # Global AMA key manager instance
 _auth_key_manager: AuthKeyManager | None = None
 
 
-def get_api_key_store() -> APIKeyStore:
-    """Get the API key store instance."""
+def get_api_key_store() -> KeyStore:
+    """Get the process-wide API key store, constructing it on first use.
+
+    The backend is chosen by ``key_store.build_key_store()`` from the
+    environment; the constructed instance is cached so every caller shares one
+    store for the process lifetime.
+    """
+    global _api_key_store
+    if _api_key_store is None:
+        from omni_mercury_engine.api.key_store import build_key_store
+
+        _api_key_store = build_key_store()
     return _api_key_store
 
 
