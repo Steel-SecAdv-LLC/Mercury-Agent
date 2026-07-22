@@ -265,6 +265,7 @@ These configure the engine / streaming-worker tier. CLI flags
 | `MERCURY_STREAM_OUTPUT_TOPIC` | `mercury-anomalies` | Topic/stream anomaly results are published to |
 | `MERCURY_STREAM_CONSUMER_GROUP` | `mercury-streaming-workers` | Consumer group for load-balanced consumption |
 | `MERCURY_METRICS_PORT` | `9090` | Port for the worker's Prometheus `/metrics` endpoint (`0` disables) |
+| `MERCURY_METRICS_HOST` | `127.0.0.1` | Bind address for `/metrics`. Loopback by default so bare-host runs never expose it implicitly; the in-repo k8s configmap and Helm values set `0.0.0.0` so in-cluster Prometheus can scrape cross-pod |
 
 ### Logging
 
