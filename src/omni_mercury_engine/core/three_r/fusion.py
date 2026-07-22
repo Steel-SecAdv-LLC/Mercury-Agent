@@ -336,6 +336,46 @@ class OmniAvaEquation:
         is_stable = bool(estimated_lambda > 0)
         return is_stable, float(estimated_lambda)
 
+    def get_dominance_proof(self) -> dict[str, Any]:
+        """Generate mathematical proof of fusion equation dominance over baselines.
+
+        Ported from the legacy OAE implementation so that
+        ``ThreeRMechanism.get_dominance_proof`` (which delegates to its
+        ``fusion`` instance) resolves on the modern equation instead of
+        raising ``AttributeError``.
+
+        Returns:
+            Dictionary containing proof elements for MATH_DERIVATIONS.md
+        """
+        is_stable, estimated_lambda = self.verify_lyapunov_stability()
+
+        return {
+            "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ",
+            "equation_name": "Omni-Ava Equation (OAE)",
+            "golden_ratio_constant": self.golden_ratio,
+            "ethical_compliance_threshold": self.ethical_compliance_threshold,
+            "fusion_weights": self.weights,
+            "lyapunov_stability": {
+                "is_stable": is_stable,
+                "target_convergence_rate": self.convergence_rate_param,
+                "estimated_convergence_rate": estimated_lambda,
+                "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.convergence_rate_param}*t)",
+            },
+            "baseline_comparison": {
+                "nsl_kdd_f1": 0.797,
+                "target_f1": 0.92,
+                "improvement_factor": 0.92 / 0.797,  # ~1.154 (15.4% improvement)
+            },
+            "ethical_scaling": {
+                "eta_ethical_phi": self.ethical_compliance_threshold**self.golden_ratio,
+                "fp_reduction_estimate": "10-15% via stricter ethical gating",
+            },
+            # Backward-compatible keys
+            "phi": self.phi,
+            "sigma_immutable": self.sigma_immutable,
+            "weights": self.weights,
+        }
+
 
 class OAEWeightOptimizer:
     """Optimizer for OAE weights using gradient-based methods.

@@ -545,21 +545,12 @@ class FloodDetector:
             if resonance_anomalies["is_anomalous"]:
                 indicators_detected += 0.4
 
-        if (
-            self.enable_refactoring
-            and "observed_data" in flood_data
-            and self.prediction_optimizer is not None
-        ):
-            refactor_input: dict[str, Any] = {
-                "confidence": result.confidence,
-                "indicators": indicators_detected,
-                "severity": result.severity,
-            }
-            core_refactor_result = self.core_refactoring_engine.detect_code_anomalies(
-                str(refactor_input)  # type: ignore[arg-type]
-            )
-            if float(core_refactor_result.get("anomaly_score", 0)) > 0.5:
-                indicators_detected += 0.2
+        # The refactoring-engine integration happens above via
+        # ``prediction_optimizer.optimize_prediction`` (same guard). A second
+        # block here used to feed ``str(<result dict>)`` to
+        # ``RefactoringEngine.detect_code_anomalies``, which requires a real
+        # callable (``inspect.getsource``); it always failed internally,
+        # logged a warning, and contributed exactly 0 — so it was removed.
 
         result.flood_likely = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)
