@@ -64,8 +64,30 @@ __all__ = [
     "build_auth_service",
 ]
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# Linear (backtracking-free) email shape check. The two ``[^@\s]+`` runs are
+# separated by a literal ``@`` that neither can match, so there is exactly one
+# possible split and no polynomial backtracking (the previous
+# ``...@[^@\s]+\.[^@\s]+`` overlapped the dot with the surrounding runs, a ReDoS
+# on adversarial input). The required dot in the domain is checked separately.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
+_MAX_EMAIL_LENGTH = 320  # RFC 5321 max; also bounds the shape check up front.
 _MIN_PASSWORD_LENGTH = 8
+
+
+def _is_valid_email(email: str) -> bool:
+    """Validate an email's shape in linear time (length-bounded, no backtracking).
+
+    Args:
+        email: The candidate address (already stripped by the caller).
+
+    Returns:
+        ``True`` if it has exactly one ``@``, non-empty local and domain parts,
+        and a dot in the domain; ``False`` otherwise.
+    """
+    if len(email) > _MAX_EMAIL_LENGTH or not _EMAIL_RE.match(email):
+        return False
+    domain = email.rsplit("@", 1)[1]
+    return "." in domain and not domain.startswith(".") and not domain.endswith(".")
 
 
 class AuthError(Exception):
@@ -189,7 +211,7 @@ class AuthService:
             WeakPasswordError: If ``password`` is shorter than the minimum.
             EmailAlreadyRegisteredError: If the email is already registered.
         """
-        if not _EMAIL_RE.match(email.strip()):
+        if not _is_valid_email(email.strip()):
             raise InvalidEmailError("enter a valid email address")
         if len(password) < _MIN_PASSWORD_LENGTH:
             raise WeakPasswordError(f"password must be at least {_MIN_PASSWORD_LENGTH} characters")

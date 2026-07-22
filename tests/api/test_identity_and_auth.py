@@ -23,6 +23,7 @@ from omni_mercury_engine.api.auth_service import (
     AuthService,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidEmailError,
     InvalidTokenError,
     InvalidTwoFactorError,
     TwoFactorRequiredError,
@@ -275,6 +276,24 @@ def test_register_rejects_bad_email_and_weak_password(
         service.register("not-an-email", "a-strong-password")
     with pytest.raises(WeakPasswordError):
         service.register("ok@example.com", "short")
+
+
+def test_register_rejects_malformed_and_oversized_emails(
+    service_setup: tuple[AuthService, RecordingMailer, FakeClock],
+) -> None:
+    """The linear (ReDoS-safe) email check rejects crafted and oversized inputs."""
+    service, _, _ = service_setup
+    bad_emails = [
+        "a@@b.com",  # two @
+        "a@b.",  # trailing dot in domain
+        "a@.b.com",  # leading dot in domain
+        "a@localhost",  # no dot in domain
+        "!@!." + "!." * 200,  # the pathological shape CodeQL flagged
+        "a" * 400 + "@b.com",  # over the length bound
+    ]
+    for email in bad_emails:
+        with pytest.raises(InvalidEmailError):
+            service.register(email, "a-strong-password")
 
 
 def test_duplicate_registration_rejected(
