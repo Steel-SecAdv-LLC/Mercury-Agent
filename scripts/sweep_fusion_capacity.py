@@ -78,6 +78,7 @@ import json
 import statistics
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 
@@ -90,6 +91,17 @@ from scripts.train_default_fusion import (
     _stratified_split,
     build_dataset,
 )
+
+
+class SweepRun(TypedDict):
+    """One (dim, seed, dataset) evaluation, exactly as serialised to ``--output``."""
+
+    dim: int
+    seed: int
+    dataset: str
+    auc: float
+    ece: float
+    n_test: int
 
 
 def _evaluate_once(
@@ -159,7 +171,7 @@ def _load_ucr(name: str, data_dir: str) -> tuple[np.ndarray, np.ndarray]:
     y = np.asarray(y).astype(np.int64).ravel()
     # Reframe: largest class is "normal" (0), rest are "anomalies" (1).
     counts = {int(c): int((y == c).sum()) for c in np.unique(y)}
-    normal_class = max(counts, key=counts.get)
+    normal_class = max(counts, key=counts.__getitem__)
     y_bin = np.where(y == normal_class, 0, 1).astype(np.int64)
     return X, y_bin
 
@@ -228,7 +240,7 @@ def main() -> int:
 
     # Datasets are loaded once per seed (the seeded subsample depends on it), so
     # build the corpus inside the seed loop. Detectors are re-fit per run.
-    runs: list[dict[str, object]] = []
+    runs: list[SweepRun] = []
     for dim in dims:
         for seed in seeds:
             corpora = _load_corpus(args.source, names, args.data_dir, args.cap_per_dataset, seed)

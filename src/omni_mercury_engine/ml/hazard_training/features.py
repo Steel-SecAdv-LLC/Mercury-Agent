@@ -102,12 +102,26 @@ GEOMAG_DEFAULT_FILL: dict[str, float] = {
 }
 
 
+def _as_float(raw: object) -> float:
+    """Coerce a loosely-typed observation field to ``float``.
+
+    ``fields`` is typed ``Mapping[str, object]`` at the parse boundary, so a
+    raw value arrives as ``object``; the geomag spec requires numeric inputs.
+    This accepts Python/NumPy numbers and numeric strings and raises a clear
+    ``TypeError`` for anything else, rather than letting ``float`` surface its
+    opaque "float() argument must be..." message.
+    """
+    if isinstance(raw, (str, int, float, np.integer, np.floating)):
+        return float(raw)
+    raise TypeError(f"expected a numeric geomag field, got {type(raw).__name__}")
+
+
 def _get(fields: Mapping[str, object], key: str, fill: Mapping[str, float]) -> tuple[float, bool]:
     """Fetch a numeric field, returning (value, was_observed)."""
     raw = fields.get(key)
     if raw is None:
         return float(fill.get(key, GEOMAG_DEFAULT_FILL.get(key, 0.0))), False
-    value = float(raw)  # type: ignore[arg-type]
+    value = _as_float(raw)
     if not np.isfinite(value):
         return float(fill.get(key, GEOMAG_DEFAULT_FILL.get(key, 0.0))), False
     return value, True
@@ -142,8 +156,8 @@ def build_geomag_feature_vector(
             "geomag feature spec v1 requires 'solar_wind_speed_km_s' and 'bz_imf_nt'; "
             f"got keys {sorted(fields.keys())}"
         )
-    v = float(v_raw)  # type: ignore[arg-type]
-    bz = float(bz_raw)  # type: ignore[arg-type]
+    v = _as_float(v_raw)
+    bz = _as_float(bz_raw)
     if not (np.isfinite(v) and np.isfinite(bz)):
         raise ValueError(f"non-finite solar wind speed ({v}) or Bz ({bz})")
 
@@ -157,8 +171,9 @@ def build_geomag_feature_vector(
     clock = float(np.arctan2(abs(by), bz))
     sin3 = float(np.sin(clock / 2.0) ** 3)
     bs = max(-bz, 0.0)
-    if pressure_raw is not None and np.isfinite(float(pressure_raw)):  # type: ignore[arg-type]
-        pressure = float(pressure_raw)  # type: ignore[arg-type]
+    pressure_val = _as_float(pressure_raw) if pressure_raw is not None else None
+    if pressure_val is not None and np.isfinite(pressure_val):
+        pressure = pressure_val
     else:
         # Standard dynamic-pressure formula (proton-only): 2e-6 * n * v^2 nPa.
         pressure = 2.0e-6 * density * v**2

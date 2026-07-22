@@ -48,6 +48,7 @@ from scipy import signal
 from torch import nn
 
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
 class LandslideRiskLevel(Enum):
@@ -637,7 +638,7 @@ class LandslideDetector:
             checkpoint, _provenance = load_shipped_checkpoint("landslide_coolr")
             source = "shipped default 'landslide_coolr'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         # Ratified operating point (validation-selected alert threshold for
         # the learned path -- part of the deployed decision rule the merit

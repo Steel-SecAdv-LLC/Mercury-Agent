@@ -2,6 +2,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Dependency Injection Framework for Mercury Agent.
 
+.. deprecated:: 2.1.x (steel/maint1/2-coverage round)
+    This module is **deprecated**: it has had zero importers anywhere in
+    src/tests/scripts/tools since inception (its built-in detector/model
+    maps had bit-rotted to nonexistent class names, which is only
+    possible in dead code), and its constructor-injection mechanism is
+    inert for every class in this codebase — ``from __future__ import
+    annotations`` (used across src/) turns ``__init__`` annotations into
+    strings, which the injector does not resolve.  Mercury composes its
+    components by direct construction; use that pattern.  Per the
+    DEPRECATION.md preservation policy the module remains functional and
+    contract-pinned by ``tests/core/test_di.py``; see DEPRECATION.md
+    §"Module Compatibility Shims" for the entry and suppression options.
+
 Provides:
 - Service container with lifecycle management
 - Factory pattern for component creation
@@ -13,7 +26,9 @@ Provides:
 from __future__ import annotations
 
 import logging
+import os
 import threading
+import warnings
 from abc import ABC  # noqa: F401 - kept for potential future use
 from dataclasses import dataclass, field
 from enum import Enum
@@ -23,6 +38,45 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+
+class DIDeprecationWarning(DeprecationWarning):
+    """Deprecation warning for the ``core.di`` module.
+
+    Issued on import of the deprecated ``omni_mercury_engine.core.di``
+    module (orphaned since inception; injection inert under PEP 563 —
+    see the module docstring for the full evidence).
+
+    To suppress this warning:
+        - Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Use warnings.filterwarnings('ignore', category=DIDeprecationWarning)
+        - Compose components by direct construction instead
+    """
+
+
+def _emit_deprecation_warning() -> None:
+    """Emit the deprecation warning unless suppressed via environment."""
+    if os.environ.get("MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return
+
+    warnings.warn(
+        "omni_mercury_engine.core.di is deprecated: it has no in-repo "
+        "consumers and its constructor injection cannot resolve the "
+        "string annotations produced by `from __future__ import "
+        "annotations` (all of src/). Compose components by direct "
+        "construction. "
+        "Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress "
+        "this warning.",
+        DIDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+_emit_deprecation_warning()
 
 T = TypeVar("T")
 
@@ -164,8 +218,12 @@ class ServiceContainer:
 
             descriptor = self._services[service_type]
 
-            # Return existing singleton instance
-            if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
+            # Return existing singleton instance.  Presence is `is not
+            # None`, NOT truthiness: a legitimately falsy singleton (an
+            # empty container, a zero-length registry) would otherwise be
+            # re-created on every resolve, silently violating the
+            # singleton contract.
+            if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance is not None:
                 return cast("T", descriptor.instance)
 
             # Return scoped instance if exists
@@ -200,10 +258,11 @@ class ServiceContainer:
 
         impl_type = descriptor.implementation_type or descriptor.service_type
 
-        # Inspect constructor for dependencies
+        # Inspect constructor for dependencies. signature(cls) resolves the
+        # constructor (__init__/__new__) with ``self`` already stripped.
         import inspect
 
-        sig = inspect.signature(impl_type.__init__)  # type: ignore[misc]
+        sig = inspect.signature(impl_type)
         kwargs: dict[str, Any] = {}
 
         for param_name, param in sig.parameters.items():
@@ -365,13 +424,16 @@ class ComponentFactory:
         Returns:
             Configured detector instance
         """
-        # Map detector types to implementations
+        # Map detector types to implementations.  Class names must match
+        # the real exports of each module — these entries had bit-rotted
+        # to names that never existed post-rename, so every built-in
+        # create_detector() call raised AttributeError.
         detector_map = {
-            "statistical": "omni_mercury_engine.detectors.statistical.StatisticalDetector",
-            "temporal": "omni_mercury_engine.detectors.temporal.TemporalDetector",
-            "spatial": "omni_mercury_engine.detectors.spatial.SpatialDetector",
-            "dimensional": "omni_mercury_engine.detectors.dimensional.DimensionalDetector",
-            "directive": "omni_mercury_engine.detectors.directive.DirectiveDetector",
+            "statistical": "omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector",
+            "temporal": "omni_mercury_engine.detectors.temporal.TemporalAnomalyDetector",
+            "spatial": "omni_mercury_engine.detectors.spatial.SpatialAnomalyDetector",
+            "dimensional": "omni_mercury_engine.detectors.dimensional.DimensionalAnalyzer",
+            "directive": "omni_mercury_engine.detectors.directive.SigmaDirectiveDetector",
         }
 
         if detector_type in self._registered_plugins:
@@ -412,8 +474,8 @@ class ComponentFactory:
             "astrophysical": "omni_mercury_engine.models.astrophysical.AstrophysicalAnomalyModel",
             "biometric": "omni_mercury_engine.models.biometric.BiometricAnomalyModel",
             "affective": "omni_mercury_engine.models.affective.AffectiveAnomalyModel",
-            "neural": "omni_mercury_engine.models.neural.NeuralAnomalyModel",
-            "consciousness": "omni_mercury_engine.models.consciousness.ConsciousnessAnomalyModel",
+            "neural": "omni_mercury_engine.models.neural.NeuralCognitiveModel",
+            "consciousness": "omni_mercury_engine.models.consciousness.ConsciousnessPreservationModel",
         }
 
         if model_type in self._registered_plugins:

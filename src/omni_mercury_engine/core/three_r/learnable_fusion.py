@@ -35,6 +35,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -1073,7 +1075,7 @@ class Learnable3REngine:
             return
 
         try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+            checkpoint = safe_torch_load(path, map_location=self.device)
         except Exception as e:
             raise RuntimeError(
                 f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

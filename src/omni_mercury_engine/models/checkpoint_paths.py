@@ -8,8 +8,8 @@ accompanied by a ``<name>.provenance.json`` sidecar recording the real data it
 was trained on and the held-out learned-vs-physics evaluation that justified
 shipping it; loaders surface that provenance so a model never runs silently.
 
-This module is a stdlib+torch leaf so both detectors and the training
-pipeline can import it without cycles.
+This module is a stdlib leaf (torch is pulled lazily by ``safe_torch_load``)
+so both detectors and the training pipeline can import it without cycles.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import torch
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def load_shipped_checkpoint(name: str) -> tuple[dict[str, Any], dict[str, Any] |
         # Hard-pinned to weights_only=True (house convention): shipped
         # checkpoints are state dicts + primitive containers only, so the
         # safe-load mode admits them and arbitrary-code pickles are refused.
-        payload = torch.load(path, map_location="cpu", weights_only=True)
+        payload = safe_torch_load(path, map_location="cpu")
     except Exception as exc:
         raise RuntimeError(
             f"shipped checkpoint {path} is unreadable/corrupt: {exc}. Refusing to "

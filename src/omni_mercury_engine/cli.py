@@ -1883,16 +1883,17 @@ def stream(
             def log_message(self, *_args: Any) -> None:  # silence per-request logging
                 return
 
-        # Bind all interfaces: this endpoint exists solely as a Prometheus scrape
-        # target reached cross-pod at <pod-ip>:<metrics_port> (the engine/streaming
-        # deployment annotates prometheus.io/scrape + prometheus.io/port). A
-        # loopback bind would make it unreachable to the scraper and defeat the
-        # metrics tier. Exposure is bounded to the metrics-only port; set
+        # Secure-by-default bind: loopback unless the operator widens it. On a
+        # bare host (VPS, laptop) the endpoint must not be implicitly exposed
+        # to the network. Kubernetes needs Prometheus to reach it cross-pod at
+        # <pod-ip>:<metrics_port>, so the in-repo manifests (k8s configmap +
+        # Helm values) set MERCURY_METRICS_HOST=0.0.0.0 explicitly — the
+        # exposure decision lives in the deployment, not the code. Set
         # MERCURY_METRICS_PORT=0 to disable the server entirely.
-        bind_host = "0.0.0.0"  # noqa: S104  # nosec B104 - metrics scrape target (see above)
+        bind_host = os.environ.get("MERCURY_METRICS_HOST", "127.0.0.1")
         server = http.server.ThreadingHTTPServer((bind_host, metrics_port), _MetricsHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
-        click.echo(f"  Metrics:        http://0.0.0.0:{metrics_port}/metrics", err=True)
+        click.echo(f"  Metrics:        http://{bind_host}:{metrics_port}/metrics", err=True)
         return server
 
     async def _run() -> None:

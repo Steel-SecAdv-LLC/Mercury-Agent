@@ -29,12 +29,27 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Final, Protocol
 
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 logger = logging.getLogger(__name__)
+
+
+class _ClockLike(Protocol):
+    """An object exposing ``now(tz) -> datetime`` -- the injected-clock contract.
+
+    Satisfied by the :class:`datetime.datetime` class itself (the production
+    default) and by the frozen test doubles the medical adapters accept for
+    deterministic timestamps. Typing the injection point as this Protocol
+    replaces a bare ``object`` (whose missing ``now`` attribute forced an
+    attr-defined suppression at every ``self._clock.now(...)`` call) with a
+    checked structural contract.
+    """
+
+    def now(self, tz: timezone | None = None) -> datetime: ...
+
 
 # Public OAuth2 token endpoint (Dexcom Developer API v2 issues tokens for v3).
 _DEXCOM_TOKEN_PATH: Final[str] = "/v2/oauth2/token"  # noqa: S105 - URL path, not a secret
@@ -514,7 +529,7 @@ class DexcomV3DataSource(CGMDataSource):
         *,
         timeout_seconds: float = 15.0,
         user_agent: str = "Mercury-Agent/1.7 Endocrinology",
-        clock: object = datetime,
+        clock: _ClockLike = datetime,
     ) -> None:
         """Initialise the Dexcom adapter.
 
@@ -586,7 +601,7 @@ class DexcomV3DataSource(CGMDataSource):
     def _now_utc(self) -> datetime:
         # ``self._clock`` is the ``datetime`` type by default; tests inject a
         # frozen stub exposing the same ``now(tz)`` signature.
-        return self._clock.now(UTC)  # type: ignore[attr-defined]
+        return self._clock.now(UTC)
 
     def _refresh_access_token(self) -> str:
         """Exchange the refresh token for a fresh access token.
@@ -756,7 +771,7 @@ class FHIRObservationVitalsSource(VitalsDataSource):
         *,
         timeout_seconds: float = 15.0,
         user_agent: str = "Mercury-Agent/1.7 Anesthesiology",
-        clock: object = datetime,
+        clock: _ClockLike = datetime,
     ) -> None:
         """Initialise the FHIR adapter.
 
@@ -818,7 +833,7 @@ class FHIRObservationVitalsSource(VitalsDataSource):
         return self._config
 
     def _now_utc(self) -> datetime:
-        return self._clock.now(UTC)  # type: ignore[attr-defined]
+        return self._clock.now(UTC)
 
     def fetch_recent_vitals(self, window_minutes: int = 5) -> list[VitalsReading]:
         """Fetch vital-sign observations for the last ``window_minutes`` minutes.

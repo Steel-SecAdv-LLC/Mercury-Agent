@@ -36,6 +36,7 @@ from scipy.fft import fft, fftfreq
 from torch import nn
 
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
 HOTSPOT_THRESHOLD_K = 350.0
@@ -696,7 +697,7 @@ class WildfireDetector:
             checkpoint, _provenance = load_shipped_checkpoint("wildfire_firms")
             source = "shipped default 'wildfire_firms'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         self.ignition_detector.load_state_dict(checkpoint["ignition_detector"])
         if self.enhanced_cnn is not None and "enhanced_cnn" in checkpoint:

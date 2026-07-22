@@ -341,7 +341,7 @@ class ReportGenerator:
             os.makedirs(parent_dir, exist_ok=True)
 
         content = self.generate(data, format)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
 
 
@@ -589,7 +589,7 @@ class PDFReportGenerator:
                 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
             except ImportError:
                 self.logger.warning("reportlab not installed - saving as text instead")
-                with open(output_path.replace(".pdf", ".txt"), "w") as f:
+                with open(output_path.replace(".pdf", ".txt"), "w", encoding="utf-8") as f:
                     f.write(text_report)
                 return False
 
@@ -729,10 +729,10 @@ class ReportManager:
             elif config.format == "html":
                 self._save_html_report(text_report, config.output_path)
             elif config.format == "json":
-                with open(config.output_path, "w") as f:
+                with open(config.output_path, "w", encoding="utf-8") as f:
                     json.dump(results, f, indent=2, default=str)
             else:
-                with open(config.output_path, "w") as f:
+                with open(config.output_path, "w", encoding="utf-8") as f:
                     f.write(text_report)
 
         return text_report
@@ -770,5 +770,5 @@ class ReportManager:
         </body>
         </html>
         """
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_template)

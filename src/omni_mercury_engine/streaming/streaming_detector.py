@@ -20,12 +20,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
-def _get_detector_class() -> type:
+def _get_detector_class() -> type[MercuryAnomalyDetector]:
     """Lazy import MercuryAnomalyDetector to avoid torch at import time."""
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -173,7 +175,7 @@ class StreamingDetector:
                 if np.any(is_anom):
                     self.on_anomaly(result)
 
-            return result  # type: ignore[no-any-return]
+            return result
 
         except Exception as exc:
             logger.warning("StreamingDetector detection failed: %s", exc)
@@ -221,7 +223,7 @@ class StreamingDetector:
                 if np.any(is_anom):
                     self.on_anomaly(result)
 
-            return result  # type: ignore[no-any-return]
+            return result
 
         except Exception as exc:
             logger.warning("StreamingDetector batch detection failed: %s", exc)

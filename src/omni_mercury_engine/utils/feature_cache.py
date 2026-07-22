@@ -29,10 +29,30 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 import numpy as np
-import torch
+
+from omni_mercury_engine._compat import HAS_TORCH
+
+# torch is an optional [ml] dependency. Import it only when available (or for
+# type-checking) so the pure-numpy feature-selection helpers in this module —
+# compute_feature_importance / select_top_features — and the numpy cache path
+# are importable and testable in the torch-free core lane.
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
+
+
+def _is_tensor(value: object) -> TypeGuard[torch.Tensor]:
+    """Narrowing tensor check that is safe when torch is not installed.
+
+    A plain ``HAS_TORCH and isinstance(x, torch.Tensor)`` is runtime-safe (it
+    short-circuits before evaluating ``torch.Tensor``) but does not let mypy
+    narrow the ``else`` branch to ``ndarray`` — leaving spurious union-attr
+    errors on ``.copy()`` / ``.tobytes()``. A ``TypeGuard`` restores the
+    narrowing while keeping the short-circuit.
+    """
+    return HAS_TORCH and isinstance(value, torch.Tensor)
 
 
 class QuantizationType(Enum):
@@ -80,6 +100,11 @@ class CacheEntry:
     access_count: int = 0
     created_at: float = 0.0
     last_accessed: float = 0.0
+    # Affine INT8 dequantization parameters (original = q * scale + zero_point).
+    # Set only when the stored ``data`` is uint8 (INT8 / DYNAMIC-int8 path); the
+    # reconstruction is lossy without them, so they must ride with the entry.
+    quant_scale: float | None = None
+    quant_zero_point: float | None = None
 
 
 class MemoryEfficientFeatureCache:
@@ -127,7 +152,9 @@ class MemoryEfficientFeatureCache:
             if key in self._cache:
                 self._remove_entry(key)
 
-            processed_data, is_sparse, sparse_indices = self._process_data(data)
+            processed_data, is_sparse, sparse_indices, quant_scale, quant_zero_point = (
+                self._process_data(data)
+            )
 
             memory_bytes = self._estimate_memory(processed_data)
 
@@ -146,8 +173,9 @@ class MemoryEfficientFeatureCache:
 
             now = time.time()
 
-            original_dtype = data.dtype if isinstance(data, np.ndarray) else data.dtype
-            original_shape = data.shape
+            # Both np.ndarray and torch.Tensor expose ``.dtype`` / ``.shape``.
+            original_dtype = data.dtype
+            original_shape = tuple(data.shape)
 
             entry = CacheEntry(
                 key=key,
@@ -160,6 +188,8 @@ class MemoryEfficientFeatureCache:
                 access_count=0,
                 created_at=now,
                 last_accessed=now,
+                quant_scale=quant_scale,
+                quant_zero_point=quant_zero_point,
             )
 
             self._cache[key] = entry
@@ -203,16 +233,23 @@ class MemoryEfficientFeatureCache:
 
     def _process_data(
         self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> tuple[np.ndarray[Any, Any], bool, Any]:
+    ) -> tuple[np.ndarray[Any, Any], bool, Any, float | None, float | None]:
         """Process data for storage with quantization and sparsification.
 
         Args:
             data: Input data
 
         Returns:
-            Tuple of (processed_data, is_sparse, sparse_indices)
+            Tuple of ``(processed_data, is_sparse, sparse_indices, quant_scale,
+            quant_zero_point)``. The two quant params are non-None only on the
+            INT8 (or DYNAMIC-int8) path and are required to reconstruct the
+            original magnitudes.
         """
-        np_data = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else data.copy()
+        if _is_tensor(data):
+            np_data = data.detach().cpu().numpy()
+        else:
+            # ndarray input: copy so we never mutate the caller's array.
+            np_data = np.asarray(data).copy()
 
         is_sparse = False
         sparse_indices = None
@@ -224,34 +261,47 @@ class MemoryEfficientFeatureCache:
                 sparse_indices = np.where(np.abs(np_data) >= self.config.sparsity_threshold)
                 np_data = np_data[sparse_indices]
 
+        quant_scale: float | None = None
+        quant_zero_point: float | None = None
         if self.config.quantization == QuantizationType.INT8:
-            np_data = self._quantize_int8(np_data)
+            np_data, quant_scale, quant_zero_point = self._quantize_int8(np_data)
         elif self.config.quantization == QuantizationType.FP16:
             np_data = np_data.astype(np.float16)
         elif self.config.quantization == QuantizationType.DYNAMIC:
             if np_data.size > 10000:
-                np_data = self._quantize_int8(np_data)
+                np_data, quant_scale, quant_zero_point = self._quantize_int8(np_data)
             elif np_data.size > 1000:
                 np_data = np_data.astype(np.float16)
 
-        return np_data, is_sparse, sparse_indices
+        return np_data, is_sparse, sparse_indices, quant_scale, quant_zero_point
 
-    def _quantize_int8(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Quantize data to INT8.
+    def _quantize_int8(
+        self, data: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], float, float]:
+        """Affine-quantize data to uint8, returning the dequant parameters.
+
+        Maps ``[min, max] -> [0, 255]`` as ``q = round((x - min) / scale)`` with
+        ``scale = (max - min) / 255``. The inverse (applied in
+        :meth:`_reconstruct_data`) is ``x = q * scale + min``, so both ``scale``
+        and the zero point (``min``) must be returned and stored — reconstructing
+        with only ``/ 255`` (the previous behaviour) corrupted every cached
+        value to roughly ``[0, 1]`` regardless of its true magnitude.
 
         Args:
-            data: Input data
+            data: Input data.
 
         Returns:
-            Quantized data
+            ``(quantized_uint8, scale, zero_point)``.
         """
-        min_val = data.min()
-        max_val = data.max()
+        min_val = float(data.min())
+        max_val = float(data.max())
+        # Degenerate (constant) array: scale 1.0 so every value maps to 0 and
+        # reconstructs exactly to min_val.
         scale = (max_val - min_val) / 255.0 if max_val != min_val else 1.0
 
-        quantized = ((data - min_val) / scale).astype(np.uint8)
+        quantized = np.round((data - min_val) / scale).astype(np.uint8)
 
-        return np.asarray(quantized)
+        return np.asarray(quantized), scale, min_val
 
     def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray[Any, Any]:
         """Reconstruct original data from cache entry.
@@ -264,9 +314,16 @@ class MemoryEfficientFeatureCache:
         """
         data = entry.data
 
-        if self.config.quantization in (QuantizationType.INT8, QuantizationType.DYNAMIC):
-            if isinstance(data, np.ndarray) and data.dtype == np.uint8:
-                data = data.astype(np.float32) / 255.0
+        if (
+            isinstance(data, np.ndarray)
+            and data.dtype == np.uint8
+            and entry.quant_scale is not None
+            and entry.quant_zero_point is not None
+        ):
+            # Invert the affine quantization: x = q * scale + zero_point.
+            # (The previous ``/ 255`` restored neither scale nor zero point and
+            # corrupted every dequantized value to ~[0, 1].)
+            data = data.astype(np.float32) * entry.quant_scale + entry.quant_zero_point
 
         if self.config.quantization == QuantizationType.FP16:
             if isinstance(data, np.ndarray):
@@ -376,11 +433,10 @@ class IncrementalFeatureComputer:
         Returns:
             Hash string
         """
-        if isinstance(data, torch.Tensor):
-            data = data.detach().cpu().numpy()
+        array = data.detach().cpu().numpy() if _is_tensor(data) else np.asarray(data)
 
         # Use SHA3-256 for AMA Cryptography alignment (non-cryptographic use for cache keys)
-        return hashlib.sha3_256(data.tobytes()).hexdigest()
+        return hashlib.sha3_256(array.tobytes()).hexdigest()
 
     def needs_update(self, key: str, data: np.ndarray[Any, Any] | torch.Tensor) -> bool:
         """Check if features need to be recomputed.
@@ -486,8 +542,14 @@ def select_top_features(
         Tuple of (selected_features, selected_indices)
     """
     if k is not None:
-        k = min(k, len(importance))
-        indices = np.argsort(importance)[-k:]
+        k = min(max(k, 0), len(importance))
+        # ``np.argsort(...)[-k:]`` returns the WHOLE array when k == 0 (``[-0:]``
+        # is ``[0:]``), so select-zero-features silently returned every feature.
+        # Guard k == 0 explicitly to select nothing.
+        if k == 0:
+            indices = np.array([], dtype=np.intp)
+        else:
+            indices = np.argsort(importance)[-k:]
     elif threshold is not None:
         indices = np.where(importance >= threshold)[0]
     else:

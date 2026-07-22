@@ -190,6 +190,22 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
 #: scalars -- ``eval`` / ``exec`` / ``__import__`` / ``getattr`` /
 #: ``compile`` / ``open`` are deliberately omitted so a reduce-chain
 #: cannot bootstrap into arbitrary code through ``builtins``.
+#:
+#: Pickle-protocol note (the ``_frombuffer`` entries): ``ndarray``
+#: has *two* reduce paths.  Under protocol <= 4 (Python <= 3.13's
+#: ``pickle.DEFAULT_PROTOCOL``) numpy serialises a contiguous array
+#: through ``multiarray._reconstruct`` + a ``BINSTRING`` state.  Under
+#: protocol 5 -- which Python 3.14 makes the *default* -- numpy takes
+#: the PEP-574 zero-copy path instead, emitting
+#: ``numpy._core.numeric._frombuffer`` (numpy 1.x: ``numpy.core.numeric``)
+#: with a ``PickleBuffer``.  Both reconstructors are inert array
+#: builders (buffer -> ndarray; no OS / import / attribute access), so
+#: allow-listing ``_frombuffer`` alongside ``_reconstruct`` is the same
+#: security posture while letting the tool migrate pickles written by
+#: *any* supported interpreter.  Omitting it made every array-bearing
+#: payload refuse with exit 5 the moment the default protocol flipped
+#: to 5 on Python 3.14 (regression pinned in
+#: ``tests/tools/test_migrate_pkl.py::TestProtocol5Reconstruction``).
 _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
     {
         # Numpy 1.x array reconstruction surface.
@@ -202,6 +218,34 @@ _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
         # pickles produced under 2.x reference the new path.
         ("numpy._core.multiarray", "_reconstruct"),
         ("numpy._core.multiarray", "scalar"),
+        # Protocol-5 (Python 3.14 default) zero-copy array path. numpy
+        # 2.x emits ``numpy._core.numeric._frombuffer``; numpy 1.x the
+        # ``numpy.core.numeric`` alias. Same inert buffer->ndarray
+        # builder as ``_reconstruct``; see the protocol note above.
+        ("numpy._core.numeric", "_frombuffer"),
+        ("numpy.core.numeric", "_frombuffer"),
+        # Protocol 0/1/2 array-state reconstruction. Under the OLD pickle
+        # protocols (0-2) — the protocols legacy operator pickles are most
+        # likely to be in — numpy does NOT store the array databuffer as
+        # raw bytes; it stores it as a latin-1 ``str`` and reconstructs the
+        # bytes on load via ``_codecs.encode(state_str, 'latin1')``. Without
+        # this entry EVERY array-bearing payload written at protocol <= 2
+        # refused with exit 5, silently defeating the tool's entire purpose
+        # for the oldest pickles (regression pinned in
+        # tests/tools/test_migrate_pkl.py::TestAllProtocolsRoundTrip).
+        #
+        # Security: ``_codecs.encode`` is an INERT byte/string transform. It
+        # cannot import, exec, spawn, or touch the OS, and it takes only
+        # ``(obj, encoding)`` where ``encoding`` selects a registered codec —
+        # all stdlib codecs are pure transforms and the restricted unpickler
+        # exposes no ``codecs.register`` to add a hostile one. With no
+        # ``eval``/``exec``/``__import__``/``getattr`` in this allow-list its
+        # output (bytes/str) cannot be chained into code execution. Allowing
+        # it keeps the deny-by-default posture: one more inert reconstruction
+        # primitive, not an execution primitive. (The module docstring's
+        # "codecs.encode reduce-chain tricks" caveat refers to chains that
+        # also need an exec gadget — none is reachable here.)
+        ("_codecs", "encode"),
         # Inert builtins -- no callable that touches the OS, the
         # import system, or arbitrary attribute lookup.
         ("builtins", "dict"),

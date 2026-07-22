@@ -131,18 +131,20 @@ class InputSanitizer:
     def sanitize_string(cls, value: str, max_length: int = 256) -> str:
         """Sanitize a string value.
 
+        HTML entities are escaped BEFORE truncation, so entity expansion can
+        never push the result past ``max_length``.  When the cut point lands
+        inside an escape entity (``&...;``), truncation walks back to the
+        entity boundary so no escape sequence is ever split mid-way.
+
         Args:
             value: String to sanitize
-            max_length: Maximum allowed length
+            max_length: Maximum allowed length of the returned string
 
         Returns:
-            Sanitized string
+            Sanitized string of at most ``max_length`` characters
         """
         if not isinstance(value, str):
             value = str(value)
-
-        # Truncate to max length
-        value = value[:max_length]
 
         # Escape HTML entities
         for char, entity in cls.HTML_ENTITIES.items():
@@ -153,6 +155,17 @@ class InputSanitizer:
 
         # Remove control characters (except newline and tab)
         value = "".join(c for c in value if c.isprintable() or c in "\n\t")
+
+        # Truncate to max length AFTER escaping.  Every "&" in the escaped
+        # string starts one of our entities (raw "&" was escaped to "&amp;"),
+        # so if the last "&" before the cut has no terminating ";" before the
+        # cut, the cut would split an entity — walk back to that "&" instead.
+        if len(value) > max_length:
+            cut = max_length
+            amp = value.rfind("&", 0, cut)
+            if amp != -1 and ";" not in value[amp:cut]:
+                cut = amp
+            value = value[:cut]
 
         return value
 
@@ -450,19 +463,22 @@ class DataArrayValidator:
                     )
                 )
 
-        # Check for Inf values
+        # Check for Inf values (same warning semantics as the univariate
+        # path: over-threshold ratio is an error, any sub-threshold Inf
+        # presence is surfaced as a warning rather than passing silently)
         inf_count = np.sum(np.isinf(arr))
-        if inf_count > 0:
-            inf_ratio = inf_count / arr.size
-            if inf_ratio > self.config.max_inf_ratio:
-                errors.append(
-                    ValidationError(
-                        error_type=ValidationErrorType.INVALID_VALUE,
-                        field="data",
-                        message=f"Inf ratio {inf_ratio:.2%} exceeds maximum",
-                        value=inf_ratio,
-                    )
+        inf_ratio = inf_count / (arr.size + 1e-10)
+        if inf_ratio > self.config.max_inf_ratio:
+            errors.append(
+                ValidationError(
+                    error_type=ValidationErrorType.INVALID_VALUE,
+                    field="data",
+                    message=f"Inf ratio {inf_ratio:.2%} exceeds maximum",
+                    value=inf_ratio,
                 )
+            )
+        elif inf_count > 0:
+            warnings.append(f"Data contains {inf_count} Inf values ({inf_ratio:.2%})")
 
         # Check value range
         finite_arr = arr[np.isfinite(arr)]
@@ -522,32 +538,38 @@ class ParameterValidator:
         if value is None:
             return ValidationResult(is_valid=True, sanitized_data=0.5)
 
-        errors = []
         if not isinstance(value, (int, float)):
-            errors.append(
-                ValidationError(
-                    error_type=ValidationErrorType.INVALID_TYPE,
-                    field="sensitivity",
-                    message="Sensitivity must be a number",
-                    value=type(value).__name__,
-                )
-            )
-        elif not 0.0 <= value <= 1.0:
-            errors.append(
-                ValidationError(
-                    error_type=ValidationErrorType.INVALID_RANGE,
-                    field="sensitivity",
-                    message="Sensitivity must be between 0.0 and 1.0",
-                    value=value,
-                    constraint="[0.0, 1.0]",
-                )
+            return ValidationResult(
+                is_valid=False,
+                errors=[
+                    ValidationError(
+                        error_type=ValidationErrorType.INVALID_TYPE,
+                        field="sensitivity",
+                        message="Sensitivity must be a number",
+                        value=type(value).__name__,
+                    )
+                ],
+                sanitized_data=0.5,
             )
 
-        return ValidationResult(
-            is_valid=len(errors) == 0,
-            errors=errors,
-            sanitized_data=float(value) if isinstance(value, (int, float)) else 0.5,
-        )
+        if not 0.0 <= value <= 1.0:
+            # Fail closed: an out-of-range value must never flow into
+            # sanitized_data, so a caller that skips the is_valid check
+            # cannot accidentally consume it.  sanitized_data stays None.
+            return ValidationResult(
+                is_valid=False,
+                errors=[
+                    ValidationError(
+                        error_type=ValidationErrorType.INVALID_RANGE,
+                        field="sensitivity",
+                        message="Sensitivity must be between 0.0 and 1.0",
+                        value=value,
+                        constraint="[0.0, 1.0]",
+                    )
+                ],
+            )
+
+        return ValidationResult(is_valid=True, sanitized_data=float(value))
 
     def validate_feature_names(self, names: list[str] | None) -> ValidationResult:
         """Validate feature name list."""
@@ -573,19 +595,10 @@ class ParameterValidator:
                 )
                 continue
 
-            # Sanitize
+            # Sanitize.  sanitize_string escapes before truncating and caps
+            # the output at max_string_length, so no post-hoc length check is
+            # needed: entity expansion can no longer exceed the limit.
             safe_name = InputSanitizer.sanitize_string(name, self.config.max_string_length)
-
-            # Check length
-            if len(safe_name) > self.config.max_string_length:
-                errors.append(
-                    ValidationError(
-                        error_type=ValidationErrorType.SIZE_LIMIT_EXCEEDED,
-                        field=f"features[{i}]",
-                        message=f"Feature name too long (max {self.config.max_string_length})",
-                        value=len(name),
-                    )
-                )
 
             # Check format
             if not self._feature_name_pattern.match(safe_name):
@@ -677,6 +690,28 @@ class APIRequestValidator:
         self.data_validator = DataArrayValidator(config)
         self.param_validator = ParameterValidator(config)
 
+    @staticmethod
+    def _missing_data_result() -> ValidationResult:
+        """Build the failure result for a request missing its ``data`` key.
+
+        ``data`` is the one required top-level key of every detection
+        request; when it is absent (``None``), the request fails with
+        ``MISSING_REQUIRED`` instead of a downstream conversion error.
+
+        Returns:
+            Invalid result carrying a single ``MISSING_REQUIRED`` error.
+        """
+        return ValidationResult(
+            is_valid=False,
+            errors=[
+                ValidationError(
+                    error_type=ValidationErrorType.MISSING_REQUIRED,
+                    field="data",
+                    message="Missing required field: data",
+                )
+            ],
+        )
+
     def validate_univariate_request(
         self,
         data: list[float],
@@ -696,8 +731,11 @@ class APIRequestValidator:
         all_errors: list[ValidationError] = []
         all_warnings: list[str] = []
 
-        # Validate data
-        data_result = self.data_validator.validate_univariate(data)
+        # Validate data (required top-level key)
+        if data is None:
+            data_result = self._missing_data_result()
+        else:
+            data_result = self.data_validator.validate_univariate(data)
         all_errors.extend(data_result.errors)
         all_warnings.extend(data_result.warnings)
 
@@ -737,8 +775,11 @@ class APIRequestValidator:
         all_errors: list[ValidationError] = []
         all_warnings: list[str] = []
 
-        # Validate data
-        data_result = self.data_validator.validate_multivariate(data)
+        # Validate data (required top-level key)
+        if data is None:
+            data_result = self._missing_data_result()
+        else:
+            data_result = self.data_validator.validate_multivariate(data)
         all_errors.extend(data_result.errors)
         all_warnings.extend(data_result.warnings)
 

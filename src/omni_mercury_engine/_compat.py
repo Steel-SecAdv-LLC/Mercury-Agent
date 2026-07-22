@@ -139,7 +139,10 @@ def preload_triton_before_tensorflow() -> None:
         return
     try:
         import triton  # noqa: F401
-    except Exception:  # nosec B110 - triton absent or unloadable here is fine:
-        # torch._dynamo's own probe would fail the same way and proceed
-        # without it, so there is no later crash to prevent.
+    except ImportError:
+        # triton absent here is fine: torch's own probe
+        # (torch.utils._triton.has_triton_package) catches exactly
+        # ImportError and proceeds without it, so there is no later crash
+        # to prevent. Any other exception type would crash torch's probe
+        # too and must surface here rather than be swallowed.
         pass

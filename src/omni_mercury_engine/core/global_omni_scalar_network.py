@@ -61,6 +61,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -217,7 +219,7 @@ class EthicalGate:
             )
             return
         try:
-            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+            state_dict = safe_torch_load(weights_path, map_location="cpu")
             self.gate_network.load_state_dict(state_dict)
             self.gate_network.eval()
             self._trained = True
@@ -607,7 +609,7 @@ class MultiHeadAttentionFusion:
             )
         payload: dict[str, Any]
         if isinstance(source, (str, Path)):
-            payload = torch.load(source, map_location="cpu", weights_only=True)
+            payload = safe_torch_load(source, map_location="cpu")
         else:
             payload = source
         self.projection.load_state_dict(payload["projection"])

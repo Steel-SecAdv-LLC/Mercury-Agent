@@ -51,6 +51,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -721,7 +722,7 @@ class TornadoDetector:
             checkpoint, _provenance = load_shipped_checkpoint("tornado_nexrad")
             source = "shipped default 'tornado_nexrad'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
         op = checkpoint.get("operating_point")

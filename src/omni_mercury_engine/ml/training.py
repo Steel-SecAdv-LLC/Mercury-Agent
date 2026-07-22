@@ -14,6 +14,7 @@ from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # pytorch_lightning is optional - gracefully degrade when not available
 try:
@@ -323,7 +324,7 @@ class Trainer:
                 ``weights_only=True``.
         """
         try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+            checkpoint = safe_torch_load(path, map_location=self.device)
         except Exception as e:
             raise RuntimeError(
                 f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

@@ -25,7 +25,10 @@ _thresholds = ThresholdConfig()
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return np.asarray(arr.cpu().numpy())  # type: ignore[no-any-return, unused-ignore]
+        # Typed intermediate: arr is Any, so bind to an ndarray-typed name to
+        # drop the no-any-return ignore.
+        converted: np.ndarray[Any, Any] = np.asarray(arr.cpu().numpy())
+        return converted
     return np.asarray(arr)
 
 

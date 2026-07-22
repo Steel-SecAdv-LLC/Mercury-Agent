@@ -84,6 +84,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 try:
     import torch
 
@@ -1072,6 +1074,8 @@ class OmniMercuryEngine(LoggerMixin):
             ValueError: If ``name`` is not in the manifest, its manifest
                 ``module_path`` is outside the ``omni_mercury_engine``
                 package, or it is already enabled.
+            TypeError: If the manifest entry constructs an object that is
+                not a :class:`~omni_mercury_engine.core.base.BaseDetector`.
         """
         import importlib
 
@@ -1093,8 +1097,14 @@ class OmniMercuryEngine(LoggerMixin):
         module = importlib.import_module(entry.module_path)
         detector_cls = getattr(module, entry.class_name)
         detector = detector_cls()
+        if not isinstance(detector, BaseDetector):
+            raise TypeError(
+                f"Manifest detector {name!r} "
+                f"({entry.module_path}.{entry.class_name}) constructed a "
+                f"{type(detector).__name__}, which is not a BaseDetector"
+            )
         self.register_detector(name, detector)
-        return detector  # type: ignore[no-any-return]
+        return detector
 
     def available_detectors(self) -> dict[str, bool]:
         """Map every manifest detector name to whether it is currently active.
@@ -3055,6 +3065,13 @@ class OmniMercuryEngine(LoggerMixin):
         sensitive demographic groups. This supports ethical AI principles
         and regulatory compliance.
 
+        When the audit receives two or more named sensitive features (the
+        ``_audit_fairness`` dict shape), marginal metrics are computed per
+        feature and intersectional (joint-subgroup) parity / equalized
+        odds are computed across the crossed cells — a model can satisfy
+        every marginal constraint while still disadvantaging a joint
+        subgroup, and only the intersectional metrics catch that.
+
         Args:
             sensitive_features: List of feature names that are sensitive
                 attributes (e.g., age, gender, race).
@@ -3663,7 +3680,7 @@ class OmniMercuryEngine(LoggerMixin):
         try:
             fairness_report = self.fairness_auditor.audit(
                 predictions=predictions,
-                sensitive_features=sensitive_data,  # type: ignore[arg-type, unused-ignore]
+                sensitive_features=sensitive_data,
             )
             if not fairness_report.is_fair:
                 logger.warning(
@@ -5851,9 +5868,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Load best model
         if os.path.exists(best_checkpoint_path):
-            checkpoint = torch.load(
-                best_checkpoint_path, map_location=self.device, weights_only=True
-            )
+            checkpoint = safe_torch_load(best_checkpoint_path, map_location=self.device)
             self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
 
         self.fusion_model.eval()
@@ -6053,7 +6068,7 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             return
 
-        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+        checkpoint = safe_torch_load(path, map_location=self.device)
 
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             feature_dims = checkpoint.get("feature_dims")

@@ -22,7 +22,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar, cast
 
 import numpy as np
 
@@ -156,10 +156,25 @@ class MemoryEfficientCache:
         }
 
 
+class _CachedCallable(Protocol):
+    """A callable decorated by :func:`memory_efficient_lru_cache`.
+
+    Declares the cache-introspection attributes the decorator attaches, so the
+    wrapper can expose them as a checked structural type instead of forcing an
+    ``attr-defined`` suppression at each assignment.
+    """
+
+    cache: MemoryEfficientCache
+    cache_clear: Callable[[], None]
+    cache_stats: Callable[[], dict[str, Any]]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
 def memory_efficient_lru_cache(
     max_size_mb: float = 128.0,
     max_entries: int = 128,
-) -> Any:
+) -> Callable[[F], _CachedCallable]:
     """Decorator for memory-efficient LRU caching.
 
     Args:
@@ -167,11 +182,12 @@ def memory_efficient_lru_cache(
         max_entries: Maximum number of entries
 
     Returns:
-        Decorated function with memory-aware caching
+        Decorated function with memory-aware caching (a :class:`_CachedCallable`
+        exposing ``.cache`` / ``.cache_clear`` / ``.cache_stats``).
     """
     cache = MemoryEfficientCache(max_size_mb, max_entries)
 
-    def decorator(func: F) -> F:
+    def decorator(func: F) -> _CachedCallable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Create cache key
@@ -187,10 +203,11 @@ def memory_efficient_lru_cache(
             cache.put(key, result)
             return result
 
-        wrapper.cache = cache  # type: ignore[attr-defined]
-        wrapper.cache_clear = cache.clear  # type: ignore[attr-defined]
-        wrapper.cache_stats = lambda: cache.stats  # type: ignore[attr-defined]
-        return wrapper  # type: ignore[return-value]
+        typed_wrapper = cast("_CachedCallable", wrapper)
+        typed_wrapper.cache = cache
+        typed_wrapper.cache_clear = cache.clear
+        typed_wrapper.cache_stats = lambda: cache.stats
+        return typed_wrapper
 
     return decorator
 

@@ -1,0 +1,97 @@
+# Mercury-Agent CI gate watchdog.
+# A blocking gate that never completes (cancelled on every push, timed out, or
+# stuck) protects nothing while still looking configured. This scheduled
+# watchdog inspects the recent run history of the critical blocking workflows
+# and files/updates a tracking issue when one repeatedly fails to reach a clean
+# verdict. The decision logic lives in scripts/ci_gate_watchdog.py (unit-tested,
+# no network); this workflow is the thin glue that feeds it live data and opens
+# the alert.
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: CI Gate Watchdog
+
+on:
+  schedule:
+    # Every 6 hours.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: gate-watchdog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    name: Inspect blocking gates for non-completion
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # "workflow file|display name" for each blocking gate to watch.
+      WATCHED: |
+        mutation-testing.yml|Sigma-Immutable Mutation Gate
+        ci.yml|CI/CD Pipeline
+        pqc-production-check.yml|PQC Production Readiness
+        tier0-safety.yml|Tier 0 Safety
+        iso-hardening.yml|ISO Hardening
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Inspect gates and alert on non-completion
+        run: |
+          set -euo pipefail
+          any_alert=0
+          while IFS='|' read -r wf_file wf_name; do
+            [ -z "${wf_file}" ] && continue
+            echo "::group::${wf_name} (${wf_file})"
+            # A workflow that has never run has no runs endpoint; tolerate that.
+            if ! gh run list --workflow "${wf_file}" --limit 20 \
+                 --json status,conclusion,createdAt,event,url,databaseId \
+                 > runs.json 2>/dev/null; then
+              echo "no run history for ${wf_file}; skipping."
+              echo "::endgroup::"
+              continue
+            fi
+            verdict="$(python scripts/ci_gate_watchdog.py \
+              --workflow "${wf_name}" --runs runs.json)"
+            echo "${verdict}"
+            alert="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["alert"])')"
+            if [ "${alert}" = "True" ]; then
+              any_alert=1
+              title="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["title"])')"
+              body="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["body"])')"
+              # Idempotent: update the existing open watchdog issue for this
+              # workflow if present, else open a new one.
+              existing="$(gh issue list --state open --label ci-watchdog \
+                --search "${title} in:title" --json number --jq '.[0].number' 2>/dev/null || true)"
+              if [ -n "${existing}" ]; then
+                echo "updating existing issue #${existing}"
+                printf '%s' "${body}" | gh issue comment "${existing}" --body-file -
+              else
+                echo "opening new watchdog issue"
+                # Ensure the label exists (idempotent).
+                gh label create ci-watchdog --color B60205 \
+                  --description "CI gate watchdog alerts" 2>/dev/null || true
+                printf '%s' "${body}" | gh issue create --title "${title}" \
+                  --label ci-watchdog --body-file -
+              fi
+            fi
+            echo "::endgroup::"
+          done <<< "${WATCHED}"
+
+          if [ "${any_alert}" = "1" ]; then
+            echo "::warning::One or more blocking gates are not completing cleanly (see filed issues)."
+          else
+            echo "All watched gates are completing cleanly."
+          fi

@@ -265,6 +265,7 @@ These configure the engine / streaming-worker tier. CLI flags
 | `MERCURY_STREAM_OUTPUT_TOPIC` | `mercury-anomalies` | Topic/stream anomaly results are published to |
 | `MERCURY_STREAM_CONSUMER_GROUP` | `mercury-streaming-workers` | Consumer group for load-balanced consumption |
 | `MERCURY_METRICS_PORT` | `9090` | Port for the worker's Prometheus `/metrics` endpoint (`0` disables) |
+| `MERCURY_METRICS_HOST` | `127.0.0.1` | Bind address for `/metrics`. Loopback by default so bare-host runs never expose it implicitly; the in-repo k8s configmap and Helm values set `0.0.0.0` so in-cluster Prometheus can scrape cross-pod |
 
 ### Logging
 
@@ -552,7 +553,7 @@ docker run -d --name mercury-agent \
 
 ### Coverage below target
 
-The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 55% on the full suite (`COVERAGE_THRESHOLD_FULL=55`) and 30% on the curated core lane (`COVERAGE_THRESHOLD_CORE=30`), per `.github/workflows/ci.yml`.
+The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 62% on the full suite (`COVERAGE_THRESHOLD_FULL=62`) and 33% on the curated core lane (`COVERAGE_THRESHOLD_CORE=33`), per `.github/workflows/ci.yml`.
 To run coverage locally:
 
 ```bash

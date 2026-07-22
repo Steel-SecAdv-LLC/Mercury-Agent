@@ -11,16 +11,14 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 import torch
 from torch import nn
 
-from omni_mercury_engine.core.base import BaseDetector
-
-if TYPE_CHECKING:
-    from omni_mercury_engine.core.base import DetectorMetrics
+from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
 class BackboneType(Enum):
@@ -111,7 +109,10 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self.threshold = self.visual_config.threshold
         self._is_fitted = False
         self._name = self.__class__.__name__
-        self._metrics: DetectorMetrics | None = None  # type: ignore[assignment]
+        # BaseDetector's contract (its ``metrics`` property) promises a
+        # real DetectorMetrics, so honour it even though we skip
+        # BaseDetector.__init__ to avoid the nn.Module MRO conflict.
+        self._metrics = DetectorMetrics()
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None
@@ -399,7 +400,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 accepts (schema drift).
         """
         try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+            checkpoint = safe_torch_load(path, map_location=self.device)
         except Exception as e:
             raise RuntimeError(
                 f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

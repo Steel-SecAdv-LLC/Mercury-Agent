@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 _MODULE_DESCRIPTION = """
 Production inference utilities for fusion model
 """
@@ -245,7 +247,7 @@ class FusionInference:
 
     def load_model(self, checkpoint_path: str) -> OmniFusionModel:
         """Load model from checkpoint."""
-        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
+        checkpoint = safe_torch_load(checkpoint_path, map_location=self.device)
 
         model = OmniFusionModel()
         model.load_state_dict(checkpoint["state_dict"])

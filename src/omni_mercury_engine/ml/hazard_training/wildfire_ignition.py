@@ -61,6 +61,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -1144,7 +1146,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         else 0
     )
 
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = payload.get("operating_point")
 
     per_test_year: dict[int, dict[str, Any]] = {}

@@ -45,6 +45,7 @@ from omni_mercury_engine.core.three_r_mechanism import (
     ResonanceEngine,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
@@ -500,7 +501,7 @@ class HurricaneDetector:
             checkpoint, _provenance = load_shipped_checkpoint("hurricane_era5")
             source = "shipped default 'hurricane_era5'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         self.wind_analyzer.load_state_dict(checkpoint["wind_analyzer"])
         self.wind_analyzer.eval()

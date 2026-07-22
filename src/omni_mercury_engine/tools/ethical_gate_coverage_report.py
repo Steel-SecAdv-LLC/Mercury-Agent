@@ -80,7 +80,13 @@ def _module_files(pkg_root: Path) -> list[Path]:
 
 def _collect(args: argparse.Namespace) -> Certificate:
     pkg = importlib.import_module(args.package)
-    pkg_root = Path(pkg.__file__).resolve().parent  # type: ignore[arg-type]
+    pkg_file = pkg.__file__
+    if pkg_file is None:
+        raise RuntimeError(
+            f"Package {args.package!r} has no __file__ (namespace package or "
+            "built-in?); cannot locate its source tree for the coverage scan."
+        )
+    pkg_root = Path(pkg_file).resolve().parent
     files = _module_files(pkg_root)
 
     # Pass 1: scan every file for any token in _GATE_TOKENS to build a

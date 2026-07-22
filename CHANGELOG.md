@@ -27,6 +27,184 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security + CI-integrity hardening pass: centralized torch checkpoint loader, gate-integrity fixes, root-cause bug fixes
+
+Continuation of the coverage/engineering round, focused on the load-bearing
+security surface and on CI gates that could pass without actually protecting
+anything.
+
+- **Centralized, fail-closed `torch.load` (RCE hardening).** `torch.load`
+  runs a pickle VM; without `weights_only=True` a malicious `.pt` executes
+  arbitrary code at load time. The property was spread across ~27 call sites
+  each passing the keyword by hand — one omission (or a torch downgrade) from
+  re-opening the hole. New `omni_mercury_engine.security.safe_torch.safe_torch_load`
+  is the single sanctioned loader (hard-pins `weights_only=True`, no bypass;
+  validates path/size; rejects a custom `pickle_module`; translates the
+  restricted-unpickler refusal). Every call site (engine, geological/visual
+  detectors, ml inference + hazard training, space, core) routes through it,
+  and `scripts/check_torch_load_safety.py` (wired blocking in workflow-hardening)
+  fails on any raw `torch.load(` in `src/` outside the wrapper. Tests prove a
+  malicious `__reduce__` payload is refused and never executed.
+- **`migrate_pkl` legacy protocol 0–2 fix.** Beyond the protocol-5 fix below,
+  array pickles written at protocols 0–2 (the oldest legacy artefacts) refused
+  with exit 5: numpy stores the databuffer as a latin-1 `str` and rebuilds it
+  via `_codecs.encode`, which was not allow-listed. Added `_codecs.encode` (an
+  inert byte transform — no import/exec/OS access, un-chainable to RCE under
+  this allow-list) with a security justification, a protocol 0..HIGHEST
+  round-trip suite, and a proactive completeness test that fails if a future
+  numpy resolves any reconstruction global outside the allow-list.
+- **CI gate-integrity fixes.** `CI Success` now aggregates *every* blocking job
+  (ml-tests, ethics-audit, docker-build, docs-build were omitted), and a
+  `skipped` spine job (upstream failure) is a distinct non-passing state rather
+  than green. The σ mutation gate's `cancel-in-progress` is `false` (it was
+  cancelled on every push and never reached a verdict), runs a cheap parallel
+  sample on every PR plus the exhaustive lane on hot-path/scheduled runs, and
+  the harness gained `--jobs` (isolated per-worker trees) so a full run is
+  bounded structurally, not just by a per-mutant budget. New `gate-watchdog.yml`
+  + unit-tested `scripts/ci_gate_watchdog.py` file/update a tracking issue when
+  a blocking gate repeatedly cancels, times out, or never completes.
+- **Root-cause bug fixes with regressions.** (1) `biometric` `detect_anomaly`
+  returned numpy scalars (`np.bool_`/`np.float64`) papered over by nine
+  `# type: ignore[...,unused-ignore]` comments — coerced at the boundary to
+  real `bool`/`float`, all nine ignores deleted, strict-type tests added.
+  (2) `utils/feature_cache` INT8 dequantization divided by 255 without
+  restoring the scale/zero-point, corrupting every cached value to ~[0,1];
+  fixed the affine inverse (params carried on the entry) and
+  `select_top_features(k=0)` (returned all features). (3) `truth_decipher`
+  `isinstance(x, torch.Tensor)` crashed when torch is absent, and
+  `determine_ethics` mutated the caller's context dict. (4) `utils/report_generator`
+  wrote reports with no `encoding=`, raising `UnicodeEncodeError` on a
+  non-UTF-8 locale — all writes now UTF-8.
+- **Fingerprint matching accuracy floor.** New labeled genuine-vs-impostor
+  sweep (measured TAR 1.00 / FAR 0.00) with floors, so a silent matcher
+  regression fails a functional gate instead of passing every unit test.
+
+### Engineering pass (continuation of the coverage round): Python-3.14 CI fix, strict-mypy graduation, ROADMAP 17/18 offline gates, heavy-ML coverage uplift, two root-cause fixes
+
+Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
+
+- **Fixed the Python-3.14 Core-Tests failure** (the round's only red lane).
+  Python 3.14 raises `pickle.DEFAULT_PROTOCOL` 4→5; under protocol 5 numpy
+  serialises arrays via `numpy._core.numeric._frombuffer` instead of
+  `multiarray._reconstruct`, which `tools/migrate_pkl.py`'s restricted
+  unpickler did not allow-list, so every array-bearing payload refused
+  with exit 5. Allow-listed `_frombuffer` (an inert buffer→ndarray builder,
+  same posture as `_reconstruct`; RCE globals still refused); regression
+  parametrised over pickle protocol {4,5}.
+- **Fixed a pre-existing verify-real-pqc failure:** the trained-σ-gate
+  test asserted `backend=='torch'` in the deliberately-no-torch
+  pqc-production-check lane; guarded `TestTrainedGateEndToEnd` with
+  `skipif(not HAS_TORCH)` (fail-closed path still covered elsewhere).
+- **Strict-mypy graduation:** 14 already-clean test dirs (scripts, cyber,
+  decision, distributed, emergent, evaluation, federated, medical, metrics,
+  proofs, reasoning, research, truth_decipher, utils) moved from the relaxed
+  to the strict lane (0 errors each; 131 files clean combined).
+  `docs/MYPY_TEST_STRICT_MIGRATION.md` is the dir-by-dir plan for the rest.
+- **ROADMAP row 17 offline CI-gated fallback:** `scripts/check_benchmark_integrity.py`
+  fails closed unless the committed benchmark JSON is internally consistent
+  and its headline AUC/F1 **recompute** from the per-dataset rows (fabrication-
+  proof), plus README parity; wired blocking in workflow-hardening + a 13-test
+  suite. **Row 18 CI-gated honesty lock:** `tests/narrative/test_language_scope.py`
+  enforces the README English-only scope. Both rows gain concrete plans +
+  dependency lists.
+- **Coverage uplift on six heavy under-covered modules** (`biometric/*`,
+  `quantum_computing/*`, `core/adaptive_fusion`, `ml/compression`,
+  `datasets/ocean`): 621 deterministic, no-network tests taking the target
+  surface from ~0 to **98.62%** line+branch (3,307 stmts + 968 branches).
+  New `tests/biometric/` + `tests/quantum_computing/` packages wired into the
+  core lane.
+- **Two root-cause defects surfaced by that pass, fixed with regressions:**
+  (1) `biometric/fingerprint_recognition.py` computed the minutiae crossing
+  number on raw uint8 skeletons, so a 0→1 transition underflowed and ridge
+  endings/bifurcations were never detected via `extract()` (matching ran on
+  empty minutiae) — cast to signed int; (2) `quantum_computing/detector.py`
+  used `threshold or self._threshold`, silently discarding an explicit
+  `threshold=0.0` — replaced with a `None`-check.
+- **Mutation gate could never complete on a PR runner (fixed).** Once the
+  3.14 core fix unblocked the `needs: core-tests` chain, the σ mutation
+  job ran and hit its 120-min timeout: `run_test_command` used
+  `subprocess.run(timeout=...)`, which SIGKILLs only the direct child and
+  then blocks in `communicate()` on a grandchild holding the stdout pipe,
+  so one mutant's stray subprocess stalled the whole gate (82 min, orphan
+  pytest processes). Fixed by running the test child in its own session
+  and `killpg`-ing the whole process group on timeout (default
+  `--test-timeout` 600 → 120s). Full local re-run: 120/120 mutants, no
+  hang, 119 killed / 1 survived (99.2%) in 8m40s.
+
+### Maintenance round steel/maint1/2-coverage: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
+
+Full audit trail with measured before/after evidence:
+`docs/MAINT1_2_COVERAGE_REMEDIATION.md`.
+
+- **Intersectional fairness (row 6 closed).** `ml/fairness.py` gains
+  joint-subgroup metrics — `build_intersectional_groups`,
+  `FairnessAuditor.compute_intersectional_parity`,
+  `compute_intersectional_equalized_odds` — with an
+  `intersectional_min_group_size` floor that excludes and *reports*
+  sparse cells, and an `insufficient_data` flag instead of a fabricated
+  verdict. `audit()` accepts multi-feature input (mapping or 2-D array);
+  the engine's `_audit_fairness` dict shape is now natively typed — the
+  removed `type: ignore` had masked a dead runtime path (the dict hit
+  `np.unique()`, raised, and the broad `except` silently returned
+  `None`). Pinned by a Simpson's-paradox regression: marginals exactly
+  fair, joint disparity 0.3 flagged naming the worst-off cell.
+  `tests/fairness/` (41 tests) graduates into the strict mypy lane and
+  the core coverage lane.
+- **σ_Immutable mutation-testing gate (row 8 closed).**
+  `scripts/run_sigma_mutation_gate.py`: deterministic AST-based
+  mutation over the σ hot path, in-place mutants with byte-exact
+  restoration, red-baseline abort, timeout-as-killed, stride-sampled
+  bounds, JSON report; 11 harness unit tests. First honest measurement:
+  **9.7%** kill rate (12/124) — the interface-level σ subset pinned no
+  arithmetic. Two semantic pinning suites respond
+  (`test_sigma_immutable_gate_semantics.py`,
+  `test_sigma_immutable_corpus_semantics.py`), raising the measured
+  kill rate to the floor now enforced by the blocking, path-filtered
+  `.github/workflows/mutation-testing.yml` lane (plus weekly cron).
+- **Orphan dispositions executed (row 19 closed).**
+  `detectors/cross_domain_frequency.py` (implemented, documented, but
+  unreachable) is wired into the `detectors` public surface;
+  `core/di.py` (zero consumers since inception, injection inert under
+  PEP 563, maps bit-rotted) is deprecated via `DIDeprecationWarning` +
+  DEPRECATION.md §1.3, kept functional per the preservation policy.
+- **Nine defects fixed at the root**, each with a regression test:
+  (1) engine fairness audit dead for its documented dict input; (2)
+  integer-typed groups silently zero-filled in threshold mitigation;
+  (3) reweighting mitigation was a placeholder — now real
+  Kamiran–Calders weights with `get_sample_weights`; (4)
+  `calibrate_all_thresholds()` stored the *unclamped* optimum in the
+  threshold registry while returning the clamped value, so
+  `get_threshold()` served operating points above `MAX_THRESHOLD_CAP`;
+  (5) `PointAdjustmentEvaluator(search_best_threshold=False)` was never
+  consulted — now honored fail-loud; (6) `ServiceContainer.resolve`
+  re-created falsy singletons (truthiness vs `is not None`); (7+8)
+  `ComponentFactory` detector/model maps named nonexistent classes —
+  every built-in `create_detector` call raised `AttributeError`; (9)
+  drift detection's fixed `kl_threshold=0.1` default falsely flagged
+  same-distribution data below n≈2000 (measured histogram-estimator
+  bias) — replaced by a deterministic permutation-null calibration
+  (`kl_threshold=None` default; explicit floats keep the legacy branch
+  byte-for-byte; `DriftResult.kl_null_quantile` exposes the null).
+- **Input-validation hardening.** `MISSING_REQUIRED` is now actually
+  emitted; `sanitize_string` output can no longer exceed `max_length`
+  nor split an escape entity; invalid sensitivity values no longer leak
+  into `sanitized_data`; multivariate Inf warnings now match the
+  univariate path; `BenchmarkEvaluator.evaluate()` raises a domain
+  error on zero usable samples.
+- **`scripts/` mypy debt cleared (42 → 0 across 9 files)** with real
+  typing fixes only; the ci.yml scripts lane now lists every `scripts/`
+  file, retiring the pre-existing-errors carve-out.
+- **Coverage uplift** (measured, full-suite baseline 68.05% on 12,328
+  passing tests): `calibration_pipeline` 47→99.5%, `point_adjustment`
+  72→100%, `api_validators` 61→100%, `benchmark_evaluator` 55→100%,
+  `core/di` 0→94%, `cross_domain_frequency` 0→98%, `migrate_pkl`
+  11→100% (adversarial pickle payloads proven inert), three compat
+  shims 0→100%, plus the two σ semantic suites.
+- **Cross-cutting.** The advisory `Signature.public_key_hash` format is
+  hoisted to the single `crypto_api.key_fingerprint` helper;
+  `parse_corpus` no longer redundantly re-copies locally-built arrays;
+  README codebase-scale block regenerated via its gate.
+
 ### Security: air-gap sovereignty — every egress path fails closed under `MERCURY_OFFLINE`, loopback stays open
 
 - **Goal.** Mercury must stay fully operable when *all* external sources are

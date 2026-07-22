@@ -25,54 +25,32 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+# P2 Integration modules. These are plain imports, not guarded fallbacks:
+# all three depend only on numpy/scipy (hard core dependencies this module
+# itself imports above) and first-party code, so a failed import here means
+# the installation is broken and must fail loudly rather than silently
+# disabling domain features, adaptive thresholding, or GOSNN-3R.
+from omni_mercury_engine.core.adaptive_domain_thresholding import (
+    AdaptiveDomainThresholdManager,
+    create_domain_threshold_manager,
+)
+
 # P2-P3 Integration: Import centralized constants and domain modules
 from omni_mercury_engine.core.centralized_constants import (
     ETHICAL,
     MATH,
 )
 from omni_mercury_engine.core.config import ThresholdConfig
+from omni_mercury_engine.core.domain_feature_extractors import (
+    BaseDomainExtractor,
+    DomainFeatureExtractorFactory,
+)
 from omni_mercury_engine.core.fibring_fusion import FibringComposer
-
-# Domain-specific feature extraction (P2 Integration)
-try:
-    from omni_mercury_engine.core.domain_feature_extractors import (
-        BaseDomainExtractor,
-        DomainFeatureExtractorFactory,
-    )
-
-    DOMAIN_EXTRACTORS_AVAILABLE = True
-except ImportError:
-    DOMAIN_EXTRACTORS_AVAILABLE = False
-    DomainFeatureExtractorFactory = None  # type: ignore[misc, assignment]
-    BaseDomainExtractor = None  # type: ignore[misc, assignment]
-
-# Adaptive domain thresholding (P2 Integration)
-try:
-    from omni_mercury_engine.core.adaptive_domain_thresholding import (
-        AdaptiveDomainThresholdManager,
-        create_domain_threshold_manager,
-    )
-
-    ADAPTIVE_THRESHOLDING_AVAILABLE = True
-except ImportError:
-    ADAPTIVE_THRESHOLDING_AVAILABLE = False
-    AdaptiveDomainThresholdManager = None  # type: ignore[misc, assignment]
-    create_domain_threshold_manager = None  # type: ignore[assignment]
-
-# GOSNN-3R bidirectional integration (P2 Integration)
-try:
-    from omni_mercury_engine.core.gosnn_3r_integration import (
-        GOSNN3RIntegration,
-        SlidingWindowConfig,
-        SlidingWindowNormalizer,
-    )
-
-    GOSNN_3R_AVAILABLE = True
-except ImportError:
-    GOSNN_3R_AVAILABLE = False
-    GOSNN3RIntegration = None  # type: ignore[misc, assignment]
-    SlidingWindowConfig = None  # type: ignore[misc, assignment]
-    SlidingWindowNormalizer = None  # type: ignore[misc, assignment]
+from omni_mercury_engine.core.gosnn_3r_integration import (
+    GOSNN3RIntegration,
+    SlidingWindowConfig,
+    SlidingWindowNormalizer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -766,32 +744,28 @@ class NeuroSymbolicHub:
         self._sliding_normalizer: SlidingWindowNormalizer | None = None
 
         # Initialize domain feature extractor
-        if enable_domain_features and DOMAIN_EXTRACTORS_AVAILABLE and domain:
+        if enable_domain_features and domain:
             try:
-                if DomainFeatureExtractorFactory is not None:
-                    self._domain_extractor = DomainFeatureExtractorFactory.create(domain)
-                    logger.info(f"Domain feature extractor initialized for: {domain}")
+                self._domain_extractor = DomainFeatureExtractorFactory.create(domain)
+                logger.info(f"Domain feature extractor initialized for: {domain}")
             except Exception as e:
                 logger.warning(f"Failed to initialize domain extractor: {e}")
 
         # Initialize adaptive domain thresholding
-        if enable_adaptive_thresholding and ADAPTIVE_THRESHOLDING_AVAILABLE and domain:
+        if enable_adaptive_thresholding and domain:
             try:
-                if create_domain_threshold_manager is not None:
-                    self._threshold_manager = create_domain_threshold_manager(domain)
-                    logger.info(f"Adaptive threshold manager initialized for: {domain}")
+                self._threshold_manager = create_domain_threshold_manager(domain)
+                logger.info(f"Adaptive threshold manager initialized for: {domain}")
             except Exception as e:
                 logger.warning(f"Failed to initialize threshold manager: {e}")
 
         # Initialize GOSNN-3R integration
-        if enable_gosnn_3r and GOSNN_3R_AVAILABLE:
+        if enable_gosnn_3r:
             try:
-                if GOSNN3RIntegration is not None:
-                    self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
-                if SlidingWindowNormalizer is not None and SlidingWindowConfig is not None:
-                    self._sliding_normalizer = SlidingWindowNormalizer(
-                        config=SlidingWindowConfig(window_size=100)
-                    )
+                self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
+                self._sliding_normalizer = SlidingWindowNormalizer(
+                    config=SlidingWindowConfig(window_size=100)
+                )
                 logger.info("GOSNN-3R bidirectional integration initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize GOSNN-3R integration: {e}")
@@ -1231,20 +1205,29 @@ class NeuroSymbolicHub:
         X_enhanced = X
         if self._domain_extractor is not None:
             try:
-                # Extract domain-specific features
-                extracted_features, feature_names = self._domain_extractor.extract_features(X)  # type: ignore[attr-defined]
+                # Extract domain-specific features via the BaseDomainExtractor
+                # contract. (The previous ``extract_features(X)`` call named a
+                # method that does not exist on any extractor; it raised
+                # AttributeError into the except-fallback below on every call,
+                # silently disabling domain features.)
+                extraction = self._domain_extractor.extract(X)
+                extracted_features = extraction.features
+                feature_names = extraction.feature_names
 
-                # If we got enhanced features, use them
-                if extracted_features is not None and len(extracted_features) > 0:
-                    # Concatenate original features with domain features
-                    if extracted_features.shape[0] == X.shape[0]:
+                if len(extracted_features) > 0:
+                    # Row-aligned (2-D, one row per sample) domain features are
+                    # concatenated into the detection matrix. The current
+                    # extractors return dataset-level 1-D summary vectors,
+                    # which cannot be concatenated per-row; those are surfaced
+                    # via the reasoning-chain metadata below instead.
+                    if extracted_features.ndim == 2 and extracted_features.shape[0] == X.shape[0]:
                         X_enhanced = np.concatenate([X, extracted_features], axis=1)
-                        domain_features = {
-                            "domain": self.domain,
-                            "extracted_feature_count": len(feature_names),
-                            "feature_names": feature_names,
-                        }
-                        logger.debug(f"Domain features extracted: {len(feature_names)} features")
+                    domain_features = {
+                        "domain": self.domain,
+                        "extracted_feature_count": len(feature_names),
+                        "feature_names": feature_names,
+                    }
+                    logger.debug(f"Domain features extracted: {len(feature_names)} features")
             except Exception as e:
                 logger.warning(f"Domain feature extraction failed: {e}")
                 # Fall back to original features

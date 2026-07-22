@@ -53,6 +53,16 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "create_spectral_detector",
         "create_uiux_detector",
     ),
+    # Wired in the steel/maint1/2-coverage round (ROADMAP row 19): the
+    # module was fully implemented and documented in ARCHITECTURE.md /
+    # CAPABILITY_INVENTORY.md but never exported, so it was unreachable
+    # from the public detector surface.
+    "omni_mercury_engine.detectors.cross_domain_frequency": (
+        "BandOverlap",
+        "CrossDomainCorrelation",
+        "CrossDomainFrequencyCorrelator",
+        "DomainBandInfo",
+    ),
     "omni_mercury_engine.detectors.spectral_domain_frequency": (
         "SpectralDomainFrequency",
         "SpectralDomainFrequencyConfig",
@@ -148,16 +158,20 @@ __all__ = [
     "AnomalyMathArrest",
     "AnyAnomalyDetector",
     "BOCPDDetector",
+    "BandOverlap",
     "BaseVLMDetector",
     "BaseVisualDetector",
     "CFlowDetector",
     "COPODDetector",
     "ContrastiveLearningDetector",
+    "CrossDomainCorrelation",
+    "CrossDomainFrequencyCorrelator",
     "DeepLogSequenceDetector",
     "DeepSVDDDetector",
     "DiffusionReconstructionDetector",
     "DigitalTwinResidualDetector",
     "DimensionalAnalyzer",
+    "DomainBandInfo",
     "EchoStateDetector",
     "EnergyBasedDetector",
     "EnergyState",

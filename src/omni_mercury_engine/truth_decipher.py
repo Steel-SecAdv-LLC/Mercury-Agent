@@ -187,13 +187,16 @@ class TruthDecipherFramework(LoggerMixin):
         # === PHASE 2: COGNITIVE ANALYSIS ===
         # This integrates: knowledge graph, uncertainty, causality, reasoning, CBR, indicators
         if self.enable_cognitive and self.cognitive:
-            # Get raw data as numpy for cognitive analysis
-            if isinstance(data_stream, torch.Tensor):
+            # Get raw data as numpy for cognitive analysis. Guard the tensor
+            # branch with TORCH_AVAILABLE: torch is None in a torch-free install,
+            # so a bare ``isinstance(x, torch.Tensor)`` would raise AttributeError
+            # on the numpy/dict inputs this method is documented to accept.
+            if TORCH_AVAILABLE and isinstance(data_stream, torch.Tensor):
                 raw_data = data_stream.cpu().numpy()
             elif isinstance(data_stream, dict):
                 raw_data = np.array(list(data_stream.values()))
             else:
-                raw_data = data_stream
+                raw_data = np.asarray(data_stream)
 
             cognitive_result = self.cognitive.analyze(
                 detection_result=discovery_result,
@@ -365,7 +368,10 @@ class TruthDecipherFramework(LoggerMixin):
             "require_confirmation": identification_result.get("issue_type") in ["CRITICAL", "HIGH"],
         }
 
-        ethics_context = context or {}
+        # Copy, don't mutate: ``context`` is the caller's dict. The previous
+        # ``context or {}`` + in-place ``update`` injected these system-property
+        # keys back into the caller's object as a side effect.
+        ethics_context = dict(context) if context else {}
         ethics_context.update(
             {
                 "has_rollback": True,
@@ -407,12 +413,12 @@ class TruthDecipherFramework(LoggerMixin):
             "signature_id": None,
         }
 
-        if isinstance(original_data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(original_data, torch.Tensor):
             data_array = original_data.cpu().numpy()
         elif isinstance(original_data, dict):
             data_array = np.array(list(original_data.values()))
         else:
-            data_array = original_data
+            data_array = np.asarray(original_data)
 
         autonomy_result = self.autonomy.autonomous_detect(
             data_array, context={"severity": identification_result.get("severity", 0.0)}

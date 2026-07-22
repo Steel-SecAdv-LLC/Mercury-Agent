@@ -16,6 +16,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 logger = logging.getLogger(__name__)
@@ -330,7 +331,7 @@ class AnomalyDetector(LoggerMixin):
         older code path that need to round-trip must be re-saved by
         the operator.
         """
-        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+        checkpoint = safe_torch_load(path, map_location="cpu")
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],

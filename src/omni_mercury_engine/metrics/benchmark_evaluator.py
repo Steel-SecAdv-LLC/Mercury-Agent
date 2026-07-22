@@ -133,6 +133,10 @@ class BenchmarkEvaluator:
 
         Returns:
             Evaluation result
+
+        Raises:
+            ValueError: If the dataset yields no usable samples (every sample
+                was skipped or failed detection), so there is nothing to score.
         """
         detector_name = detector_name or detector.__class__.__name__
         dataset_name = dataset_name or dataset.__class__.__name__
@@ -185,6 +189,15 @@ class BenchmarkEvaluator:
 
             if (i + 1) % 100 == 0:
                 logger.info(f"Processed {i + 1}/{len(dataset)} samples")
+
+        # Fail fast with a domain-specific error instead of letting an empty
+        # score array reach the numpy reductions inside AnomalyMetrics.
+        if not all_scores:
+            raise ValueError(
+                f"No usable samples: dataset '{dataset_name}' yielded zero scored "
+                f"samples for detector '{detector_name}' (every sample was skipped "
+                "or failed detection)"
+            )
 
         # Convert to arrays
         scores = np.array(all_scores)

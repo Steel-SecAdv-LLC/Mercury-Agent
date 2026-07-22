@@ -39,6 +39,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     import torch
     from torch import nn
@@ -791,7 +793,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
 
 else:
 
-    class GeomagneticStormPredictor:  # type: ignore[no-redef]
+    class GeomagneticStormPredictor:
         """Stub: GeomagneticStormPredictor requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -911,7 +913,7 @@ class SolarStormDetector:
             checkpoint, _provenance = load_shipped_checkpoint("solar_storm_geomag")
             source = "shipped default 'solar_storm_geomag'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         # Parse + validate the entire payload into locals BEFORE mutating any
         # instance attribute, so a load either fully replaces the prior weights,

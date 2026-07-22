@@ -548,6 +548,7 @@ def verify_corpus_signatures(
         AlgorithmType,
         MercuryCrypto,
         Signature,
+        key_fingerprint,
     )
 
     payload_bytes = load_corpus_bytes(corpus_path)
@@ -578,7 +579,7 @@ def verify_corpus_signatures(
         Signature(
             signature=bytes.fromhex(ed["signature_hex"]),
             algorithm=AlgorithmType.ED25519,
-            public_key_hash=hashlib.sha3_256(bytes.fromhex(ed["public_key_hex"])).hexdigest()[:16],
+            public_key_hash=key_fingerprint(bytes.fromhex(ed["public_key_hex"])),
         ),
         bytes.fromhex(ed["public_key_hex"]),
     )
@@ -603,9 +604,7 @@ def verify_corpus_signatures(
         Signature(
             signature=bytes.fromhex(mldsa["signature_hex"]),
             algorithm=AlgorithmType.ML_DSA_65,
-            public_key_hash=hashlib.sha3_256(bytes.fromhex(mldsa["public_key_hex"])).hexdigest()[
-                :16
-            ],
+            public_key_hash=key_fingerprint(bytes.fromhex(mldsa["public_key_hex"])),
         ),
         bytes.fromhex(mldsa["public_key_hex"]),
     )
@@ -639,8 +638,9 @@ def parse_corpus(payload_bytes: bytes) -> CorpusBundle:
         [float.fromhex(v) for v in payload["labels_hex"]],
         dtype=np.float32,
     )
-    features = np.array(features, copy=True)
-    labels = np.array(labels, copy=True)
+    # The arrays are constructed locally just above, so they can be
+    # frozen directly — no defensive re-copy needed (a caller never
+    # holds a reference to them).
     features.setflags(write=False)
     labels.setflags(write=False)
 

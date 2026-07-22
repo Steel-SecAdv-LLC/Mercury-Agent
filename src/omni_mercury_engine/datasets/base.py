@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 try:
     import pandas as pd
@@ -685,18 +685,26 @@ class DatasetLoader(ABC):
 
 
 class DatasetRegistry:
-    """Registry of available dataset loaders."""
+    """Registry of available dataset loaders.
 
-    _loaders: dict[str, type[DatasetLoader]] = {}
+    Entries are factories: anything callable as ``factory(config) ->
+    DatasetLoader``. A loader *class* is the common case; parameterized
+    registrations (e.g. the per-dataset ``adrepository-*`` names, which
+    close over a dataset name and delegate to one loader class) register
+    a closure instead. This is the registry's real contract — ``create``
+    only ever calls the entry with a config.
+    """
+
+    _loaders: dict[str, Callable[[DatasetConfig], DatasetLoader]] = {}
 
     @classmethod
-    def register(cls, name: str, loader_class: type[DatasetLoader]) -> None:
-        """Register a dataset loader."""
-        cls._loaders[name] = loader_class
+    def register(cls, name: str, loader_factory: Callable[[DatasetConfig], DatasetLoader]) -> None:
+        """Register a dataset loader class or factory."""
+        cls._loaders[name] = loader_factory
 
     @classmethod
-    def get(cls, name: str) -> type[DatasetLoader] | None:
-        """Get a registered loader class."""
+    def get(cls, name: str) -> Callable[[DatasetConfig], DatasetLoader] | None:
+        """Get a registered loader class or factory."""
         return cls._loaders.get(name)
 
     @classmethod
@@ -707,7 +715,7 @@ class DatasetRegistry:
     @classmethod
     def create(cls, name: str, config: DatasetConfig) -> DatasetLoader:
         """Create a dataset loader instance."""
-        loader_class = cls.get(name)
-        if loader_class is None:
+        loader_factory = cls.get(name)
+        if loader_factory is None:
             raise ValueError(f"Unknown dataset: {name}")
-        return loader_class(config)
+        return loader_factory(config)

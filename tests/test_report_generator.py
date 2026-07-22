@@ -331,6 +331,38 @@ class TestReportExport:
 
         assert nested_path.exists()
 
+    def test_export_unicode_content_round_trips(self, tmp_path: Any) -> None:
+        """Regression: writes are UTF-8 so unicode/emoji never raise on a
+        non-UTF-8 default locale (open(..., "w") without encoding used the
+        locale's preferred encoding, which is ASCII under C/POSIX and raised
+        UnicodeEncodeError on the ⚠️ / non-Latin content these reports emit).
+
+        JSON escapes non-ASCII (ensure_ascii) so it never hit the bug and its
+        file carries the escaped form; HTML/Markdown carry the raw glyphs and
+        are where the UTF-8 write matters.
+        """
+        data = {
+            "title": "危機レポート ⚠️",
+            "summary": "Émeute — 火災 — β decay",
+            "content": "línea con acentos y emoji 🚨",
+        }
+        # Every format must export without raising, regardless of locale.
+        for fmt, suffix in (
+            (ReportFormat.JSON, "json"),
+            (ReportFormat.HTML, "html"),
+            (ReportFormat.MARKDOWN, "md"),
+        ):
+            path = tmp_path / f"unicode.{suffix}"
+            self.generator.export(data, str(path), format=fmt)
+            assert path.exists()
+            assert path.read_text(encoding="utf-8")  # readable back as UTF-8
+
+        # HTML and Markdown carry the raw non-ASCII glyphs intact.
+        for suffix in ("html", "md"):
+            text = (tmp_path / f"unicode.{suffix}").read_text(encoding="utf-8")
+            assert "⚠️" in text
+            assert "危機レポート" in text
+
 
 class TestReportValidation:
     """Tests for report validation."""

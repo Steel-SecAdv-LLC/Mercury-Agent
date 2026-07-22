@@ -45,26 +45,30 @@ env:
   # the target quality bar in `pyproject.toml [tool.coverage.report]`
   # is `fail_under = 85`.
   #
-  # v1.7.x floors (strengthening plan §5), graduated 2026-07-18 after
-  # re-measurement on the PR #339 head:
+  # Floors graduated 2026-07-21 (steel/maint1/2-coverage) after
+  # re-measurement on the round's head:
   #   COVERAGE_THRESHOLD_CORE: 30  (core subset; was 25, before that 15)
-  #   COVERAGE_THRESHOLD_FULL: 55  (full suite; was 50)
-  # Measured combined stmt+branch baselines (CI-identical invocations,
-  # both lanes green at measurement): FULL 67.97%, CORE 37.94%
-  # (previous baselines: 59.84% / 31.87%).  The floors keep the same
-  # cushion policy that set 50/25 — "do not regress more than ~10 points
-  # (FULL) / ~7 points (CORE) below the measured baseline" — with ~3
-  # extra points of margin on FULL because the measurement environment
-  # carried slightly fewer optional extras than the CI [all,dev] lane
-  # (a lower-bound measurement).  Do not lower either floor to unblock
-  # unrelated work — the floors document a non-regression guarantee,
-  # not a preference.
+  #   COVERAGE_THRESHOLD_FULL: 62  (full suite; was 55, before that 50)
+  # Measured combined stmt+branch FULL baseline (CI-identical
+  # invocation, [all,dev] + native AMA, 12,818 passing tests):
+  # 68.95% — up from 68.05% at the round's start after ~660 new
+  # behavioral tests across twelve previously weak or untested
+  # modules (see docs/MAINT1_2_COVERAGE_REMEDIATION.md §5).  The 62
+  # floor keeps the established "~7-point cushion below measured"
+  # policy.  CORE re-measured 2026-07-21 (engineering-pass round) after
+  # adding tests/biometric/ + tests/quantum_computing/ to the core-lane
+  # selection: 40.57% combined stmt+branch (CI-identical invocation,
+  # native AMA, 5,487 passing tests; up from 38.30% pre-expansion), so
+  # the floor graduates 30 -> 33, holding the same ~7-point cushion (see
+  # docs/ENGINEERING_PASS_REMEDIATION.md §6).
+  # Do not lower either floor to unblock unrelated work — the floors
+  # document a non-regression guarantee, not a preference.
   #
   # The 85-point pyproject target stays in place as the strict
   # aspirational nightly bar.
   # ---------------------------------------------------------------------
-  COVERAGE_THRESHOLD_CORE: 30
-  COVERAGE_THRESHOLD_FULL: 55
+  COVERAGE_THRESHOLD_CORE: 33
+  COVERAGE_THRESHOLD_FULL: 62
 
 jobs:
   # ===========================================================================
@@ -385,6 +389,15 @@ jobs:
       - name: Run suppression hygiene checks
         run: python scripts/check_suppression_hygiene.py
 
+      - name: Run torch.load safety gate
+        # Security breaker: forbids any raw torch.load( in src/ outside the
+        # sanctioned safe_torch_load wrapper, which hard-pins weights_only=True.
+        # A raw torch.load with the pre-2.6 default runs the full pickle VM and
+        # executes arbitrary code embedded in a checkpoint (RCE). Static
+        # tokenize scan -- no ML deps, runs on every PR at the hardening stage
+        # alongside the other security gates.
+        run: python scripts/check_torch_load_safety.py
+
       - name: Run pinned dev-tool version parity gate
         # Dependency-free structural gate: black/mypy/types-requests/pydocstyle
         # are pinned *exactly* for byte-identical behaviour local<->CI.  Each
@@ -422,6 +435,20 @@ jobs:
         # this fails, run `python scripts/measure_codebase_scale.py
         # --update README.md` and commit the regenerated block.
         run: python scripts/measure_codebase_scale.py --check README.md
+
+      - name: Run benchmark-integrity gate (ROADMAP row 17 offline fallback)
+        # Dependency-free, no-network structural + recomputation gate over
+        # benchmarks/mercury_benchmark_results.json and the README benchmark
+        # block: total == successful + failed, the per-dataset error count
+        # matches `failed`, the headline mean/median AUC + oracle-F1
+        # RECOMPUTE from the genuine-labelled per_dataset rows (not just
+        # restate the summary), and the README block matches the JSON.  This
+        # is the offline CI-gated fallback for the deferred, network-blocked
+        # live benchmark refresh (docs/ROADMAP.md row 17): while the fuller
+        # refresh of the 9 failed corpora is deferred, the committed headline
+        # cannot silently rot or be fabricated.  Fix a real drift with
+        # `python scripts/update_readme_benchmarks.py`; do not loosen the gate.
+        run: python scripts/check_benchmark_integrity.py
 
   # ===========================================================================
   # Stage 2: Type Checking
@@ -588,9 +615,37 @@ jobs:
         #                            + ISO hardening Lyapunov validator (#238)
         # * tests/loaders/       -- ISO hardening (already clean) (#238)
         # * tests/narrative/     -- ISO hardening (already clean) (#238)
+        # * tests/fairness/      -- intersectional fairness metrics
+        #                            (ROADMAP row 6 closure; authored clean)
+        # * tests/scripts/       -- engineering-pass graduation (this round)
+        # * tests/cyber/         -- engineering-pass graduation (this round)
+        # * tests/decision/      -- engineering-pass graduation (this round)
+        # * tests/distributed/   -- engineering-pass graduation (this round)
+        # * tests/emergent/      -- engineering-pass graduation (this round)
+        # * tests/evaluation/    -- engineering-pass graduation (this round)
+        # * tests/federated/     -- engineering-pass graduation (this round)
+        # * tests/medical/       -- engineering-pass graduation (this round)
+        # * tests/metrics/       -- engineering-pass graduation (this round)
+        # * tests/proofs/        -- engineering-pass graduation (this round)
+        # * tests/reasoning/     -- engineering-pass graduation (this round)
+        # * tests/research/      -- engineering-pass graduation (this round)
+        # * tests/truth_decipher/ -- engineering-pass graduation (this round)
+        # * tests/utils/         -- engineering-pass graduation (this round)
+        #
+        # This round's engineering pass graduated the 14 test directories
+        # that were ALREADY fully annotated (measured 0 strict errors each;
+        # 131 files clean in the combined invocation).  The ordered
+        # dir-by-dir plan for the remaining relaxed-lane debt (automl 2 ...
+        # detectors 51) and the exact per-dir error counts live in
+        # docs/MYPY_TEST_STRICT_MIGRATION.md.  When a directory graduates,
+        # add it here and strike it from that plan in the same commit.
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
-            tests/loaders/ tests/narrative/ \
+            tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
+            tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
+            tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
+            tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+            tests/utils/ \
             --disallow-subclassing-any \
             --show-error-codes \
             --pretty \
@@ -606,15 +661,31 @@ jobs:
         # strict pyproject config as src/.
         #
         # Intentionally additive, mirroring the graduated-test-dirs
-        # mechanism above: the rest of scripts/ carries pre-existing
-        # errors (42 across 9 files, counted 2026-07-20 after the four
-        # lane files were cleaned) and stays off the gate until each
-        # file is cleaned; when one is, add it to the list below.
+        # mechanism above.  2026-07-21: the remaining scripts/ debt (42
+        # errors across 9 files, counted 2026-07-20 after the four
+        # original lane files were cleaned) is CLEARED — all nine files
+        # were cleaned with real typing fixes (no blanket ignores) and
+        # graduate below, together with the new sigma mutation-gate
+        # harness (authored clean).  Every file in scripts/ is now on
+        # the gate; a new script must be added here when created.
         run: |
           mypy scripts/harvest_sigma_baseline.py \
             scripts/train_sigma_immutable.py \
             scripts/collect_sw_eng_metrics.py \
             scripts/fit_weapons_gate_calibration.py \
+            scripts/train_gosnn_fusion.py \
+            scripts/sweep_fusion_capacity.py \
+            scripts/generate_docs_images.py \
+            scripts/generate_calibration_visuals.py \
+            scripts/measure_codebase_scale.py \
+            scripts/update_readme_benchmarks.py \
+            scripts/run_api.py \
+            scripts/normalize_headers.py \
+            scripts/generate_anomaly_panel.py \
+            scripts/run_sigma_mutation_gate.py \
+            scripts/check_benchmark_integrity.py \
+            scripts/check_torch_load_safety.py \
+            scripts/ci_gate_watchdog.py \
             --show-error-codes \
             --pretty
 
@@ -1008,7 +1079,10 @@ jobs:
             tests/datasets/ \
             tests/api/ \
             tests/automl/ \
+            tests/fairness/ \
             tests/tools/ \
+            tests/biometric/ \
+            tests/quantum_computing/ \
             tests/scripts/test_run_ablation.py \
             tests/scripts/test_check_readme_lyapunov.py \
             tests/scripts/test_run_hardware_benchmark.py \
@@ -1883,6 +1957,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs:
       - code-quality
       - workflow-hardening
@@ -1891,56 +1966,78 @@ jobs:
       - neuro-symbolic-tests
       - security-scan
       - integration-tests
+      - ethics-audit
+      - ml-tests
       - performance-benchmark
+      - docker-build
+      - docs-build
     if: always()
 
     steps:
       - name: Check all jobs
         run: |
-          # Check all blocking jobs.  neuro-symbolic-tests is part of the
-          # rollup so the 7-phase cognitive architecture + safeguards
-          # cannot regress without failing the CI Success gate.
+          # Aggregate gate. Every blocking job feeds this rollup so none of
+          # them can fail while CI Success stays green (the pre-fix rollup
+          # omitted ml-tests / ethics-audit / docker-build / docs-build, so
+          # their failures were invisible to the aggregate).
           #
-          # ``cancelled`` is treated as a blocking outcome alongside
-          # ``failure`` so a cancelled (e.g. concurrency-cancelled or
-          # manually-cancelled) upstream job cannot quietly turn into a
-          # green CI Success.  ``skipped`` remains non-blocking because
-          # performance-benchmark intentionally skips on push events and
-          # would otherwise deadlock main/develop/feature pushes.
+          # Two result policies:
+          #
+          #  * SPINE jobs have NO legitimate skip on any trigger — they run on
+          #    every push/PR/schedule. A ``skipped`` spine job therefore means
+          #    an UPSTREAM gate failed and this validation never ran. That is a
+          #    distinct, non-passing state: we fail on it instead of treating
+          #    it as green. (``core-tests`` is in the spine, so any downstream
+          #    skip it induces is caught at the root as well.)
+          #  * CONDITIONAL jobs legitimately skip on some triggers
+          #    (performance-benchmark on push; ml-tests off main/develop PRs;
+          #    docker-build on schedule; docs-build on schedule; security-scan
+          #    when the dispatch input disables it). For these ``skipped`` is
+          #    allowed, but ``failure``/``cancelled`` still blocks.
+          #
+          # ``cancelled`` is blocking for every job so a concurrency- or
+          # timeout-cancelled gate can never turn into a green CI Success.
+          declare -A RESULT=(
+            [code-quality]="${{ needs.code-quality.result }}"
+            [workflow-hardening]="${{ needs.workflow-hardening.result }}"
+            [type-checking]="${{ needs.type-checking.result }}"
+            [core-tests]="${{ needs.core-tests.result }}"
+            [neuro-symbolic-tests]="${{ needs.neuro-symbolic-tests.result }}"
+            [integration-tests]="${{ needs.integration-tests.result }}"
+            [ethics-audit]="${{ needs.ethics-audit.result }}"
+            [security-scan]="${{ needs.security-scan.result }}"
+            [performance-benchmark]="${{ needs.performance-benchmark.result }}"
+            [ml-tests]="${{ needs.ml-tests.result }}"
+            [docker-build]="${{ needs.docker-build.result }}"
+            [docs-build]="${{ needs.docs-build.result }}"
+          )
+          SPINE="code-quality workflow-hardening type-checking core-tests neuro-symbolic-tests integration-tests ethics-audit"
+          CONDITIONAL="security-scan performance-benchmark ml-tests docker-build docs-build"
+
           fail=0
-          for upstream in \
-            "code-quality:${{ needs.code-quality.result }}" \
-            "workflow-hardening:${{ needs.workflow-hardening.result }}" \
-            "type-checking:${{ needs.type-checking.result }}" \
-            "core-tests:${{ needs.core-tests.result }}" \
-            "neuro-symbolic-tests:${{ needs.neuro-symbolic-tests.result }}" \
-            "security-scan:${{ needs.security-scan.result }}" \
-            "integration-tests:${{ needs.integration-tests.result }}" \
-            "performance-benchmark:${{ needs.performance-benchmark.result }}"; do
-            result="${upstream#*:}"
-            case "$result" in
-              success|skipped) : ;;
-              *) fail=1 ;;
+          for job in $SPINE; do
+            case "${RESULT[$job]}" in
+              success) : ;;
+              skipped)
+                echo "::error::${job} was SKIPPED — a required gate did not run (upstream failure); this is a non-passing state, not a green skip."
+                fail=1 ;;
+              *) echo "::error::${job} = ${RESULT[$job]}"; fail=1 ;;
             esac
           done
+          for job in $CONDITIONAL; do
+            case "${RESULT[$job]}" in
+              success|skipped) : ;;
+              *) echo "::error::${job} = ${RESULT[$job]}"; fail=1 ;;
+            esac
+          done
+
+          echo "---- job results ----"
+          for job in $SPINE $CONDITIONAL; do
+            printf '  %-22s %s\n' "${job}:" "${RESULT[$job]}"
+          done
+
           if [[ "$fail" -eq 1 ]]; then
             echo "❌ CI Pipeline Failed"
-            echo "  code-quality: ${{ needs.code-quality.result }}"
-            echo "  workflow-hardening: ${{ needs.workflow-hardening.result }}"
-            echo "  type-checking: ${{ needs.type-checking.result }}"
-            echo "  core-tests: ${{ needs.core-tests.result }}"
-            echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
-            echo "  security-scan: ${{ needs.security-scan.result }}"
-            echo "  integration-tests: ${{ needs.integration-tests.result }}"
-            echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"
             exit 1
           fi
           echo "✅ CI Pipeline Passed"
-          echo "  code-quality: ${{ needs.code-quality.result }}"
-          echo "  workflow-hardening: ${{ needs.workflow-hardening.result }}"
-          echo "  type-checking: ${{ needs.type-checking.result }}"
-          echo "  core-tests: ${{ needs.core-tests.result }}"
-          echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
-          echo "  security-scan: ${{ needs.security-scan.result }}"
-          echo "  integration-tests: ${{ needs.integration-tests.result }}"
-          echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"

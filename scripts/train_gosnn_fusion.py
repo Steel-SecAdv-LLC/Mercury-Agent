@@ -183,6 +183,18 @@ def _precompute_views(calls: list[HarvestCall]) -> None:
         call.phi_fused = _phi_reference(call.padded)
 
 
+def _view(cache: np.ndarray | None) -> np.ndarray:
+    """Return a call's precomputed array view, narrowed to non-``None``.
+
+    ``_precompute_views`` fills ``padded`` / ``members_t`` / ``phi_fused`` on
+    every call before any consumer runs; the ``None`` default exists only
+    between construction and that pass.  (``members_t``, the lone tensor
+    view, is narrowed in place at its single consumer.)
+    """
+    assert cache is not None
+    return cache
+
+
 def _unique_state_lists(calls: list[HarvestCall]) -> int:
     """Number of distinct harvested state lists (rounded to 9 decimals)."""
     seen = set()
@@ -346,7 +358,7 @@ def _head_standardizer(
     train, and they ship inside the head's ``state_dict`` for exact serve
     parity.
     """
-    reference = np.stack([calls[i].phi_fused for i in train_idx])
+    reference = np.stack([_view(calls[i].phi_fused) for i in train_idx])
     mean = torch.tensor(reference.mean(axis=0), dtype=torch.float32)
     std = torch.tensor(reference.std(axis=0), dtype=torch.float32)
     return mean, std
@@ -442,7 +454,9 @@ def _head_scores(
     scores = []
     with torch.no_grad():
         for i in indices:
-            scores.append(float(torch.sigmoid(model.detection_logit(calls[i].members_t)).item()))
+            members_t = calls[i].members_t
+            assert members_t is not None  # filled by _precompute_views
+            scores.append(float(torch.sigmoid(model.detection_logit(members_t)).item()))
     return np.array(scores)
 
 
@@ -692,7 +706,7 @@ def _collapse_metrics(
         for i in indices:
             fused = model(calls[i].members_t).numpy()
             fused_stds.append(float(np.std(fused)))
-            member_stds.append(float(np.std(calls[i].padded)))
+            member_stds.append(float(np.std(_view(calls[i].padded))))
     return {"fused_std": float(np.mean(fused_stds)), "member_std": float(np.mean(member_stds))}
 
 
@@ -710,8 +724,9 @@ def _recon_disclosure(
             call = calls[i]
             if len(call.states) < 2:
                 continue
-            rest = np.delete(call.padded, call.masked_index, axis=0)
-            target = call.padded[call.masked_index]
+            padded = _view(call.padded)
+            rest = np.delete(padded, call.masked_index, axis=0)
+            target = padded[call.masked_index]
             fused = model(torch.tensor(rest, dtype=torch.float32)).numpy()
             learned_se.append(float(np.mean((fused - target) ** 2)))
             reference_se.append(float(np.mean((_phi_reference(rest) - target) ** 2)))
@@ -783,8 +798,8 @@ def main() -> int:
             [
                 np.mean(
                     (
-                        _phi_reference(np.delete(calls[i].padded, calls[i].masked_index, 0))
-                        - calls[i].padded[calls[i].masked_index]
+                        _phi_reference(np.delete(_view(calls[i].padded), calls[i].masked_index, 0))
+                        - _view(calls[i].padded)[calls[i].masked_index]
                     )
                     ** 2
                 )
@@ -816,7 +831,7 @@ def main() -> int:
     phi_scores_test = _reference_head_scores(reference_head, calls, pools.test)
     mean_scores_test = _mean_detector_scores(calls, pools.test)
     engine_scores_test = _engine_prob_scores(calls, pools.test)
-    baselines = {
+    baselines: dict[str, dict[str, Any]] = {
         "phi_reference_head": {
             "test_auc": _aggregate_auc(phi_scores_test, calls, pools.test),
             "test_auc_per_dataset": _per_dataset_auc(phi_scores_test, calls, pools.test),

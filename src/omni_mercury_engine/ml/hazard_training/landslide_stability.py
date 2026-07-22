@@ -132,6 +132,7 @@ from omni_mercury_engine.ml.hazard_training.common import (
     sha256_file,
     ship_checkpoint,
 )
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -1513,7 +1514,9 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
                     type_logits[mapped], tb[mapped]
                 )
             optimizer.zero_grad()
-            loss.backward()  # type: ignore[no-untyped-call]
+            # Tensor.backward is untyped in torch's stubs; the typed
+            # torch.autograd.backward it delegates to is the same call.
+            torch.autograd.backward(loss)
             optimizer.step()
             epoch_loss += float(loss.item()) * batch_idx.shape[0]
 
@@ -1943,7 +1946,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     physics_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det = LandslideDetector(enable_ml_ensemble=False, enable_recursion=False)
     learned_det.load_neural_weights(str(cand_path))
-    payload = torch.load(cand_path, map_location="cpu", weights_only=True)
+    payload = safe_torch_load(cand_path, map_location="cpu")
     operating_point = payload.get("operating_point")
     learned_bar = DEPLOYED_PROB_THRESHOLD
     if operating_point is not None:

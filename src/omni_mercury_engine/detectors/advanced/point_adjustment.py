@@ -248,7 +248,16 @@ class PointAdjustmentEvaluator:
             if scores is None:
                 raise ValueError("Either predictions or scores must be provided")
             if threshold is None:
-                # Search for best threshold
+                # The search is opt-out: with search_best_threshold=False
+                # and no explicit threshold there is nothing principled to
+                # binarise with (anomaly scores have arbitrary scale, so a
+                # fixed default like 0.5 would silently fabricate an
+                # operating point) — fail loud instead.
+                if not self.search_best_threshold:
+                    raise ValueError(
+                        "threshold is required when search_best_threshold=False "
+                        "and only scores are provided"
+                    )
                 threshold = self._find_best_threshold(scores, labels)
             predictions = (scores > threshold).astype(int)
 

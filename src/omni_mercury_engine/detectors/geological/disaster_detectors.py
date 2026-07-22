@@ -43,6 +43,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
 if TYPE_CHECKING:
     import torch
     from torch import nn
@@ -668,7 +670,7 @@ class TsunamiDetector:
             checkpoint, _provenance = load_shipped_checkpoint("tsunami_dart")
             source = "shipped default 'tsunami_dart'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         self.waveform_analyzer.load_state_dict(checkpoint["waveform_analyzer"])
         # Input contract carried by trained checkpoints (see
@@ -915,7 +917,10 @@ class TsunamiDetector:
             tsunami_flagged = [dp for dp in candidates if dp.data.get("tsunami")]
             pool = tsunami_flagged or candidates
             strongest = max(pool, key=lambda dp: float(dp.data.get("magnitude", 0.0)))
-            lat, lon, _depth = strongest.location  # type: ignore[misc]
+            # strongest is drawn from candidates/pool, both filtered to
+            # dp.location is not None above, so the unpack is total.
+            assert strongest.location is not None
+            lat, lon, _depth = strongest.location
             distance_km = haversine_km(station_lat, station_lon, lat, lon)
             source_info = {
                 "distance_km": distance_km,
@@ -1162,7 +1167,7 @@ class EarthquakeDetector:
             checkpoint, _provenance = load_shipped_checkpoint("seismic_stead")
             source = "shipped default 'seismic_stead'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         # Ratified operating point (validation-selected alert threshold for
         # the learned path -- part of the deployed decision rule the merit

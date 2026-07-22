@@ -55,6 +55,10 @@ data:
   MERCURY_STREAM_OUTPUT_TOPIC: "mercury-anomalies"
   MERCURY_STREAM_CONSUMER_GROUP: "mercury-streaming-workers"
   MERCURY_METRICS_PORT: "9090"
+  # The CLI's /metrics server binds loopback by default (secure-by-default on
+  # bare hosts). In-cluster, Prometheus scrapes cross-pod at
+  # <pod-ip>:MERCURY_METRICS_PORT, so widen the bind here explicitly.
+  MERCURY_METRICS_HOST: "0.0.0.0"
 ---
 # ConfigMap for Prometheus metrics configuration
 apiVersion: v1

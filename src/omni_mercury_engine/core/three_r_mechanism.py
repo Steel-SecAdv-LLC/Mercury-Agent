@@ -2912,7 +2912,7 @@ class ThreeRMechanism:
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
         """
-        return self.fusion.get_dominance_proof()  # type: ignore[attr-defined, no-any-return]
+        return self.fusion.get_dominance_proof()
 
     def verify_stability(self) -> tuple[bool, float]:
         """Verify Lyapunov stability of the 3R mechanism.

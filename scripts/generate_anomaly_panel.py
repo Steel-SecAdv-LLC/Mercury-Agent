@@ -204,7 +204,7 @@ def generate_anomaly_detection_panel() -> Path:
         verticalalignment="bottom",
     )
 
-    plt.tight_layout(rect=[0, 0.08, 1, 0.96])
+    plt.tight_layout(rect=(0, 0.08, 1, 0.96))
 
     # Save to docs/images
     output_path = Path(__file__).parent.parent / "docs" / "images" / "anomaly_detection_panel.png"

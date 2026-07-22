@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,734
-- **Capability-bearing classes:** 1,816 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,739
+- **Capability-bearing classes:** 1,817 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 79 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,030 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 81 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,031 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1030 |
-| Support types (config / result / enum / error) | 918 |
+| Other capability classes | 1031 |
+| Support types (config / result / enum / error) | 922 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -549,7 +549,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 361 classes (229 capability)
+### `core/` — 362 classes (230 capability)
 
 **Adapters & backends**
 
@@ -664,6 +664,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ConformalCalibrationBridge` (`core.conformal_prediction`) — Bridge between conformal prediction and the calibration pipeline.
 - `ConformalPredictionSet` (`core.conformal_prediction`) — Result of conformal prediction.
 - `ConstantRegistry` (`core.centralized_constants`) — Registry for accessing and overriding constants.
+- `DIDeprecationWarning` (`core.di`) — Deprecation warning for the ``core.di`` module.
 - `DatasetFingerprint` (`core.calibration_pipeline`) — SHA-256 fingerprint of a dataset's summary statistics.
 - `DatasetSpecificEnsemble` (`core.adaptive_detector`) — Ensemble detector that uses dataset-specific strategies.
 - `DecisionCurve` (`core.decision_curve`) — A decision curve: net benefit of the model vs the treat-all/none envelopes.
@@ -1704,7 +1705,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
 
-### `medical/` — 82 classes (52 capability)
+### `medical/` — 83 classes (52 capability)
 
 **Adapters & backends**
 
@@ -1791,9 +1792,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `TreatmentPathwayOptimizer` (`medical.medical_cure_predictor`) — Treatment pathway optimization using multiverse exploration.
 - `_IdentityCalibrator` (`medical.clinical_calibration`) — Degraded fallback: pass scores through unchanged.
 
-<details><summary>Support types (30)</summary>
+<details><summary>Support types (31)</summary>
 
-`ABMSBoard`, `AnesthesiaPredictionResult`, `AnesthesiaRisk`, `AnesthesiaType`, `ArrhythmiaType`, `BioThreatResult`, `CGMReading`, `CalibratorProtocol`, `CardiologyPredictionResult`, `ClinicalMetricReport`, `ConfigurationError`, `DataSourceError`, `DexcomConfig`, `EmergencyThresholdReport`, `EndocrinologyPredictionResult`, `FHIRConfig`, `GlycemicState`, `InsulinDeliveryMethod`, `MedicalAnomalyResult`, `MedicalPredictionResult`, `NeurocriticalPredictionResult`, `OutbreakSeverity`, `PandemicPredictionResult`, `SeizureType`, `SepsisPredictionResult`, `SepsisStage`, `StrokeType`, `VariantConcern`, `VitalsReading`, `_ModuleInfo`
+`ABMSBoard`, `AnesthesiaPredictionResult`, `AnesthesiaRisk`, `AnesthesiaType`, `ArrhythmiaType`, `BioThreatResult`, `CGMReading`, `CalibratorProtocol`, `CardiologyPredictionResult`, `ClinicalMetricReport`, `ConfigurationError`, `DataSourceError`, `DexcomConfig`, `EmergencyThresholdReport`, `EndocrinologyPredictionResult`, `FHIRConfig`, `GlycemicState`, `InsulinDeliveryMethod`, `MedicalAnomalyResult`, `MedicalPredictionResult`, `NeurocriticalPredictionResult`, `OutbreakSeverity`, `PandemicPredictionResult`, `SeizureType`, `SepsisPredictionResult`, `SepsisStage`, `StrokeType`, `VariantConcern`, `VitalsReading`, `_ClockLike`, `_ModuleInfo`
 
 </details>
 
@@ -1810,7 +1811,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `ml/` — 303 classes (241 capability)
+### `ml/` — 304 classes (241 capability)
 
 **Adapters & backends**
 
@@ -2083,9 +2084,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (62)</summary>
+<details><summary>Support types (63)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `_CachedCallable`
 
 </details>
 
@@ -2409,7 +2410,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 159 classes (92 capability)
+### `security/` — 161 classes (92 capability)
 
 **Adapters & backends**
 
@@ -2536,9 +2537,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (67)</summary>
+<details><summary>Support types (69)</summary>
 
-`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CryptoSystem`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `OverwatchNexusResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
+`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CryptoSystem`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `OverwatchNexusResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
 
 </details>
 

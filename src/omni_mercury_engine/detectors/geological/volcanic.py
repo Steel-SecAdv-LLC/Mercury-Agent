@@ -49,6 +49,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -888,7 +889,7 @@ class VolcanicEruptionDetector:
             checkpoint, _provenance = load_shipped_checkpoint("volcanic_avo_seismic")
             source = "shipped default 'volcanic_avo_seismic'"
         else:
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
             source = checkpoint_path
         self.eruption_model.load_state_dict(checkpoint["eruption_model"])
         if self.seismic_detector is not None and "seismic_detector" in checkpoint:
