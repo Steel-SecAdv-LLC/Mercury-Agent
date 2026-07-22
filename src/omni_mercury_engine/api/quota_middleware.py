@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from fastapi import Request, Response
+    from starlette.types import ASGIApp
 
     from omni_mercury_engine.api.quota import QuotaEnforcer
 
@@ -56,7 +57,7 @@ def quota_enforcement_enabled() -> bool:
 class QuotaMiddleware(BaseHTTPMiddleware):
     """Reserve-run-commit quota enforcement over the metered path prefixes."""
 
-    def __init__(self, app: object, enforcer: QuotaEnforcer | None = None) -> None:
+    def __init__(self, app: ASGIApp, enforcer: QuotaEnforcer | None = None) -> None:
         """Wire the middleware; the enforcer builds lazily from the env.
 
         Args:
@@ -64,7 +65,7 @@ class QuotaMiddleware(BaseHTTPMiddleware):
             enforcer: Injected enforcer for tests; ``None`` builds one on
                 first use (after env/test fixtures are in place).
         """
-        super().__init__(app)  # type: ignore[arg-type]
+        super().__init__(app)
         self._enforcer = enforcer
         self._enforcer_lock = threading.Lock()
         prefixes = os.getenv("MERCURY_QUOTA_METERED_PREFIXES", _DEFAULT_METERED_PREFIXES)

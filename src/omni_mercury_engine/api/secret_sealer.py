@@ -42,8 +42,12 @@ import hmac
 import logging
 import os
 import secrets
+from typing import TYPE_CHECKING
 
 from omni_mercury_engine.security.encryption import SecureDataHandler
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.api.identity_store import IdentityStore
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +209,7 @@ def build_secret_sealer(*, store_is_durable: bool) -> SecretSealer:
     return SecretSealer(secrets.token_bytes(32), key_is_stable=True)
 
 
-def migrate_plaintext_totp_secrets(store: object, sealer: SecretSealer) -> int:
+def migrate_plaintext_totp_secrets(store: IdentityStore, sealer: SecretSealer) -> int:
     """Seal every plaintext TOTP secret currently in ``store``.
 
     Safe to run repeatedly (already-sealed rows are skipped) and a no-op when
@@ -213,8 +217,7 @@ def migrate_plaintext_totp_secrets(store: object, sealer: SecretSealer) -> int:
     would break every enrolled account at the next restart.
 
     Args:
-        store: An identity store exposing ``iter_accounts()`` and
-            ``update_account()``.
+        store: An identity store (uses ``iter_accounts`` / ``update_account``).
         sealer: The active sealer.
 
     Returns:
@@ -223,11 +226,11 @@ def migrate_plaintext_totp_secrets(store: object, sealer: SecretSealer) -> int:
     if not sealer.key_is_stable:
         return 0
     migrated = 0
-    for account in store.iter_accounts():  # type: ignore[attr-defined]
+    for account in store.iter_accounts():
         secret = account.totp_secret
         if secret and not sealer.is_sealed(secret):
             account.totp_secret = sealer.seal(secret, aad=account.id)
-            store.update_account(account)  # type: ignore[attr-defined]
+            store.update_account(account)
             migrated += 1
     if migrated:
         logger.info("sealed %d previously plaintext TOTP secret(s)", migrated)
