@@ -64,12 +64,26 @@ def test_password_verify_fails_closed_on_garbage() -> None:
     assert not passwords.verify_password("x", "not-a-valid-hash")
 
 
-def test_password_needs_rehash_on_lower_iterations() -> None:
-    """A hash below the target iteration count is flagged for upgrade."""
-    weak = passwords.hash_password("pw", iterations=1000)
-    assert passwords.needs_rehash(weak, iterations=600_000)
-    strong = passwords.hash_password("pw", iterations=600_000)
-    assert not passwords.needs_rehash(strong, iterations=600_000)
+def test_password_needs_rehash_on_legacy_and_weak_params() -> None:
+    """Legacy PBKDF2 hashes and below-target scrypt hashes are flagged for upgrade."""
+    # A legacy pbkdf2 hash (the pre-scrypt format) still verifies but needs upgrade.
+    import hashlib as _hashlib
+
+    salt = bytes.fromhex("00" * 16)
+    legacy_digest = _hashlib.pbkdf2_hmac("sha256", b"pw", salt, 1000)
+    legacy = f"pbkdf2_sha256$1000${salt.hex()}${legacy_digest.hex()}"
+    assert passwords.verify_password("pw", legacy)
+    assert passwords.needs_rehash(legacy)
+
+    # A current-parameter scrypt hash does not need rehashing.
+    strong = passwords.hash_password("pw")
+    assert strong.startswith("scrypt$")
+    assert not passwords.needs_rehash(strong)
+
+    # An scrypt hash below the configured cost is flagged.
+    weakened = strong.split("$")
+    weakened[1] = str(int(weakened[1]) // 2)
+    assert passwords.needs_rehash("$".join(weakened))
 
 
 # --------------------------------------------------------------------------- #
@@ -212,9 +226,25 @@ class RecordingMailer:
         """Start with an empty outbox."""
         self.sent: list[dict[str, str]] = []
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         """Record the message instead of delivering it."""
-        self.sent.append({"to": to, "subject": subject, "body": body})
+        self.sent.append(
+            {
+                "to": to,
+                "subject": subject,
+                "body": body,
+                "html_body": html_body or "",
+                "headers": str(headers or {}),
+            }
+        )
 
     def last_token(self) -> str:
         """Extract the token from the most recent email link."""
@@ -408,14 +438,15 @@ def test_token_single_use_and_expiry(
 def test_two_factor_enrollment_and_login(
     service_setup: tuple[AuthService, RecordingMailer, FakeClock],
 ) -> None:
-    """Enrolling TOTP makes login require a valid code."""
+    """Enrolling TOTP makes login require a valid code (fresh time step)."""
     service, mailer, clock = service_setup
     account = service.register("user@example.com", "a-strong-password")
     service.verify_email(mailer.last_token())
 
     enrollment = service.start_totp_enrollment(account.id)
     code = totp.generate_totp(enrollment.secret, at=clock.now.timestamp())
-    service.confirm_totp_enrollment(account.id, code)
+    recovery_codes = service.confirm_totp_enrollment(account.id, code)
+    assert len(recovery_codes) == 10  # backup codes issued exactly once
 
     # Without a code -> TwoFactorRequired.
     with pytest.raises(TwoFactorRequiredError):
@@ -423,7 +454,9 @@ def test_two_factor_enrollment_and_login(
     # Wrong code -> InvalidTwoFactor.
     with pytest.raises(InvalidTwoFactorError):
         service.login("user@example.com", "a-strong-password", totp_code="000000")
-    # Correct code -> success.
+    # Correct code from a NEW time step -> success (the enrollment code's
+    # step was consumed by the replay tracker).
+    clock.advance(timedelta(seconds=60))
     good = totp.generate_totp(enrollment.secret, at=clock.now.timestamp())
     result = service.login("user@example.com", "a-strong-password", totp_code=good)
     assert result.account.email == "user@example.com"

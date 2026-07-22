@@ -27,6 +27,7 @@ __all__ = [
     "generate_totp",
     "provisioning_uri",
     "verify_totp",
+    "verify_totp_with_step",
 ]
 
 _DEFAULT_DIGITS = 6
@@ -80,6 +81,50 @@ def generate_totp(
     return _hotp(secret, counter, digits)
 
 
+def verify_totp_with_step(
+    secret: str,
+    code: str,
+    *,
+    at: float | None = None,
+    digits: int = _DEFAULT_DIGITS,
+    period: int = _DEFAULT_PERIOD,
+    window: int = 1,
+) -> int | None:
+    """Verify a TOTP code and report *which* time step it matched.
+
+    The matched step is what makes replay rejection possible: the caller
+    persists the highest accepted step per account and refuses any code whose
+    step is not strictly greater, so a code sniffed (or shoulder-surfed)
+    inside its 30-second validity window cannot be submitted a second time.
+
+    Args:
+        secret: The base32 secret the code should match.
+        code: The user-submitted code.
+        at: Unix time to verify against; defaults to now.
+        digits: Number of digits expected.
+        period: Time step in seconds.
+        window: Number of steps before/after to also accept (clock skew).
+
+    Returns:
+        The absolute matched step (``unix_time // period`` adjusted for the
+        skew offset), or ``None`` when the code matches no accepted step
+        (including a non-numeric or wrong-length code).
+    """
+    candidate = code.strip()
+    if not candidate.isdigit() or len(candidate) != digits:
+        return None
+    now = time.time() if at is None else at
+    counter = int(now // period)
+    matched: int | None = None
+    # Constant-shape scan: every window position is always compared (no early
+    # exit), so timing does not reveal which step matched.
+    for step in range(-window, window + 1):
+        expected = _hotp(secret, counter + step, digits)
+        if hmac.compare_digest(expected, candidate) and matched is None:
+            matched = counter + step
+    return matched
+
+
 def verify_totp(
     secret: str,
     code: str,
@@ -103,16 +148,10 @@ def verify_totp(
         ``True`` if ``code`` matches any accepted step, ``False`` otherwise
         (including for a non-numeric or wrong-length code).
     """
-    candidate = code.strip()
-    if not candidate.isdigit() or len(candidate) != digits:
-        return False
-    now = time.time() if at is None else at
-    counter = int(now // period)
-    for step in range(-window, window + 1):
-        expected = _hotp(secret, counter + step, digits)
-        if hmac.compare_digest(expected, candidate):
-            return True
-    return False
+    return (
+        verify_totp_with_step(secret, code, at=at, digits=digits, period=period, window=window)
+        is not None
+    )
 
 
 def provisioning_uri(secret: str, account_name: str, issuer: str) -> str:

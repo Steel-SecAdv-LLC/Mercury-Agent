@@ -557,9 +557,11 @@ class AuthKeyManager:
 # the environment pick the backend without importing ``key_store`` eagerly
 # (which would create an import cycle: key_store imports the models from here).
 _api_key_store: KeyStore | None = None
+_api_key_store_lock = threading.Lock()
 
 # Global AMA key manager instance
 _auth_key_manager: AuthKeyManager | None = None
+_auth_key_manager_lock = threading.Lock()
 
 
 def get_api_key_store() -> KeyStore:
@@ -567,13 +569,18 @@ def get_api_key_store() -> KeyStore:
 
     The backend is chosen by ``key_store.build_key_store()`` from the
     environment; the constructed instance is cached so every caller shares one
-    store for the process lifetime.
+    store for the process lifetime. Construction is lock-guarded
+    (double-checked): two request threads racing the first build must never
+    each construct a store — with the in-memory backend the loser's keys
+    would silently vanish when the winner's instance is later returned.
     """
     global _api_key_store
     if _api_key_store is None:
-        from omni_mercury_engine.api.key_store import build_key_store
+        with _api_key_store_lock:
+            if _api_key_store is None:
+                from omni_mercury_engine.api.key_store import build_key_store
 
-        _api_key_store = build_key_store()
+                _api_key_store = build_key_store()
     return _api_key_store
 
 
@@ -647,7 +654,9 @@ def get_auth_key_manager() -> AuthKeyManager:
     """
     global _auth_key_manager
     if _auth_key_manager is None:
-        _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
+        with _auth_key_manager_lock:
+            if _auth_key_manager is None:
+                _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
     return _auth_key_manager
 
 
@@ -1092,11 +1101,20 @@ class RequestRateLimiter:
         self.burst_size = burst_size
 
     def _get_key(self, request: Request, user: User | None = None) -> str:
-        """Get rate limit key for request."""
+        """Get rate limit key for request.
+
+        Anonymous callers are keyed by their trusted-proxy-resolved client IP
+        (see :mod:`omni_mercury_engine.api.client_ip`), never by a raw
+        client-writable header.
+        """
         if user:
             return f"user:{user.id}"
-        # Fall back to IP
-        client_ip = request.client.host if request.client else "unknown"
+        from omni_mercury_engine.api.client_ip import resolve_client_ip
+
+        client_ip = resolve_client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("X-Forwarded-For"),
+        )
         return f"ip:{client_ip}"
 
     def is_allowed(

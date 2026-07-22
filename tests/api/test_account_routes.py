@@ -10,7 +10,7 @@ error-to-status mapping, and the 2FA challenge — no network, no secrets.
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -33,7 +33,15 @@ class RecordingMailer:
         """Start with an empty outbox."""
         self.sent: list[dict[str, str]] = []
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         """Record instead of delivering."""
         self.sent.append({"to": to, "subject": subject, "body": body})
 
@@ -45,7 +53,7 @@ class RecordingMailer:
 
 
 class FakeClock:
-    """A fixed clock so TOTP codes are deterministic."""
+    """A movable clock so TOTP codes and expiries are deterministic."""
 
     def __init__(self, start: datetime) -> None:
         """Start the clock at ``start``."""
@@ -54,6 +62,10 @@ class FakeClock:
     def __call__(self) -> datetime:
         """Return the current fake time."""
         return self.now
+
+    def advance(self, delta: timedelta) -> None:
+        """Move the clock forward by ``delta``."""
+        self.now += delta
 
 
 @pytest.fixture
@@ -64,16 +76,24 @@ def client_and_mail(
     # Allow the session cookie to ride back over the TestClient's http transport.
     monkeypatch.setenv("MERCURY_SESSION_COOKIE_SECURE", "false")
     mailer = RecordingMailer()
-    service = AuthService(
-        InMemoryIdentityStore(),
-        mailer,
-        clock=FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
-    )
+    clock = FakeClock(datetime(2026, 1, 1, tzinfo=UTC))
+    service = AuthService(InMemoryIdentityStore(), mailer, clock=clock)
     app = FastAPI()
     app.include_router(accounts.router)
     app.dependency_overrides[accounts.get_auth_service] = lambda: service
     with TestClient(app) as client:
+        client.fake_clock = clock  # type: ignore[attr-defined]
         yield client, mailer, service
+
+
+_DEFAULT_PW = "a-strong-pw"
+
+
+def _login(client: TestClient, email: str, password: str = _DEFAULT_PW) -> str:
+    """Log in and return the CSRF token for state-changing calls."""
+    resp = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert resp.status_code == 200
+    return str(resp.json()["csrf_token"])
 
 
 def _register_and_verify(client: TestClient, mailer: RecordingMailer, email: str) -> None:
@@ -210,14 +230,19 @@ def test_two_factor_challenge(
 ) -> None:
     """Enrolling 2FA makes login require a code; the code path is exercised."""
     client, mailer, service = client_and_mail
+    clock: FakeClock = client.fake_clock  # type: ignore[attr-defined]
     _register_and_verify(client, mailer, "u@b.com")
-    client.post("/api/v1/auth/login", json={"email": "u@b.com", "password": "a-strong-pw"})
+    csrf = _login(client, "u@b.com")
 
-    enroll = client.post("/api/v1/auth/2fa/enroll")
+    enroll = client.post("/api/v1/auth/2fa/enroll", headers={"X-CSRF-Token": csrf})
     assert enroll.status_code == 200
     secret = enroll.json()["secret"]
-    code = totp.generate_totp(secret, at=datetime(2026, 1, 1, tzinfo=UTC).timestamp())
-    assert client.post("/api/v1/auth/2fa/confirm", json={"code": code}).status_code == 200
+    code = totp.generate_totp(secret, at=clock.now.timestamp())
+    confirm = client.post(
+        "/api/v1/auth/2fa/confirm", json={"code": code}, headers={"X-CSRF-Token": csrf}
+    )
+    assert confirm.status_code == 200
+    assert len(confirm.json()["recovery_codes"]) == 10
 
     client.post("/api/v1/auth/logout")
     # Password alone is now rejected with the two_factor_required signal.
@@ -226,8 +251,10 @@ def test_two_factor_challenge(
     )
     assert challenge.status_code == 401
     assert challenge.json()["detail"]["code"] == "two_factor_required"
-    # Password + valid code succeeds.
-    good = totp.generate_totp(secret, at=datetime(2026, 1, 1, tzinfo=UTC).timestamp())
+    # Password + a fresh-step code succeeds (the confirm code's step was
+    # consumed by the replay tracker).
+    clock.advance(timedelta(seconds=60))
+    good = totp.generate_totp(secret, at=clock.now.timestamp())
     ok = client.post(
         "/api/v1/auth/login",
         json={"email": "u@b.com", "password": "a-strong-pw", "totp_code": good},

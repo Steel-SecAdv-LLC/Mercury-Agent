@@ -24,6 +24,15 @@ Run conclusions treated as *not a clean completion*:
 ``cancelled``, ``timed_out``, ``startup_failure``. A ``failure`` conclusion is
 NOT a watchdog concern — that is the gate working (it ran and reported red).
 
+**Superseded-head cancellations are benign.** With ``cancel-in-progress:
+true``, every push to an active PR cancels the previous run on that branch by
+design. That cancellation is only a problem when the branch *never* got a
+verdict; when a newer run on the same ``headBranch`` reached a clean
+pass/fail, the cancelled run was simply superseded and counting it would fire
+a false alarm on every busy PR. :func:`analyze` therefore excuses a cancelled
+run iff a newer run on the same branch concluded ``success`` or ``failure``.
+Runs without a ``headBranch`` field (older feeds) keep the strict behaviour.
+
 Exit code is always 0 (this is an analyzer, not a gate); the verdict is the
 JSON on stdout.
 """
@@ -117,13 +126,29 @@ def analyze(
     reasons: list[str] = []
     unhealthy = 0
     stuck = 0
+    superseded = 0
+
+    # Branches that DID reach a clean verdict somewhere in the window: a
+    # cancellation on such a branch was superseded by that verdict, not a
+    # gate that never completes. ``considered`` is newest-first, so any
+    # clean-verdict run on the branch qualifies (the cancelled run either
+    # predates it — the normal cancel-in-progress shape — or a later verdict
+    # exists anyway, which is the property that matters).
+    verdict_branches = {
+        str(run.get("headBranch"))
+        for run in considered
+        if str(run.get("conclusion", "") or "") in ("success", "failure") and run.get("headBranch")
+    }
 
     for run in considered:
         status = str(run.get("status", ""))
         conclusion = str(run.get("conclusion", "") or "")
         started = _parse_ts(str(run.get("createdAt", "")))
+        branch = run.get("headBranch")
 
-        if conclusion in UNHEALTHY_CONCLUSIONS:
+        if conclusion == "cancelled" and branch and str(branch) in verdict_branches:
+            superseded += 1
+        elif conclusion in UNHEALTHY_CONCLUSIONS:
             unhealthy += 1
         elif status == "in_progress" and started is not None:
             age_min = (now - started).total_seconds() / 60.0
@@ -136,6 +161,7 @@ def analyze(
             f"{unhealthy} of the last {len(considered)} runs did not reach a "
             f"clean verdict (cancelled / timed out / startup failure"
             + (f"; {stuck} still running past {stuck_minutes} min" if stuck else "")
+            + (f"; {superseded} superseded cancellation(s) excused as benign" if superseded else "")
             + f") — at or above the alert threshold of {threshold}."
         )
 

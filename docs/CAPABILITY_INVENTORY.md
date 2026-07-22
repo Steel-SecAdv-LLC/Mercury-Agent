@@ -7,24 +7,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,781
-- **Capability-bearing classes:** 1,831 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,801
+- **Capability-bearing classes:** 1,842 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 85 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,044 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,054 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1044 |
-| Support types (config / result / enum / error) | 950 |
+| Other capability classes | 1054 |
+| Support types (config / result / enum / error) | 959 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
 | Data sources & loaders | 102 |
 | Training & optimization | 62 |
-| Adapters & backends | 61 |
+| Adapters & backends | 62 |
 | Analysis & scoring | 56 |
 | Monitoring | 24 |
 | Prediction & forecasting | 21 |
@@ -155,7 +155,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 123 classes (39 capability)
+### `api/` — 143 classes (50 capability)
+
+**Adapters & backends**
+
+- `SqliteRateLimitBackend` (`api.rate_limit_store`) — Cross-worker, restart-persistent token-bucket state in SQLite.
 
 **Engines & orchestration**
 
@@ -163,7 +167,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Ethics & governance**
 
-- `QuotaEnforcer` (`api.quota`) — Checks and records per-account usage against a :class:`QuotaConfig`.
+- `QuotaEnforcer` (`api.quota`) — Checks, reserves, and records per-account usage against resolved configs.
 
 **Neural models & layers**
 
@@ -176,20 +180,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `APIKeyAuth` (`api.auth`) — API Key authentication dependency.
 - `APIKeyStore` (`api.auth`) — In-memory API key store.
 - `Account` (`api.identity_store`) — A user account.
+- `ActionRateLimiter` (`api.rate_limit_store`) — Named fixed-window throttles over an atomic :class:`CounterStore`.
+- `ActionRule` (`api.rate_limit_store`) — One action's fixed-window ceiling: at most ``max_attempts``/``window``.
 - `AnomalyPoint` (`api.server`) — Individual anomaly point information.
+- `AuthAuditor` (`api.auth_audit`) — Records auth events to the secure audit trail (or structured logs).
 - `AuthProvider` (`api.auth`) — Abstract base class for authentication providers.
-- `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, a mailer, and 2FA.
+- `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, mailer, sealer, and 2FA.
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
 - `ConsoleMailer` (`api.mailer`) — Mailer that logs messages instead of sending them (dev/test default).
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
 - `DataStore` (`api.routes.export`) — In-memory data store for demonstration.
+- `EmailContent` (`api.email_templates`) — A fully rendered transactional email.
 - `EmailToken` (`api.identity_store`) — A single-use, expiring email token (only the token hash is stored).
 - `ExportJob` (`api.routes.export`) — Export job record.
 - `HealthCheck` (`api.health`) — Health check definition.
 - `HealthChecker` (`api.health`) — Health check manager.
+- `InMemoryCounterStore` (`api.rate_limit_store`) — Process-local counter store (dev/test default; not shared).
 - `InMemoryIdentityStore` (`api.identity_store`) — Process-local identity store (dev/test default; not durable).
+- `InMemoryQuotaOverrideStore` (`api.quota`) — Process-local override store (dev/test default).
 - `InMemoryUsageLedger` (`api.usage_ledger`) — Process-local usage ledger (dev/test default; not durable).
 - `JWTAuth` (`api.auth`) — JWT Bearer token authentication dependency.
 - `ModelMetrics` (`api.routes.models`) — Model performance metrics.
@@ -197,20 +207,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ModelVersion` (`api.routes.models`) — Model version record.
 - `PIIMaskingFilter` (`api.server`) — Filter to mask PII data in log messages for security compliance.
 - `QuotaDecision` (`api.quota`) — The outcome of a quota check, including the usage it was based on.
+- `QuotaMiddleware` (`api.quota_middleware`) — Reserve-run-commit quota enforcement over the metered path prefixes.
 - `RateLimitMiddleware` (`api.server`) — Token bucket rate limiting middleware.
 - `RequestRateLimiter` (`api.auth`) — Request-aware rate limiter wrapper.
+- `SecretSealer` (`api.secret_sealer`) — Seals/opens short account secrets with AAD-bound at-rest encryption.
 - `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
 - `SmtpMailer` (`api.mailer`) — Mailer that delivers over SMTP using environment-supplied credentials.
+- `SqliteCounterStore` (`api.rate_limit_store`) — Durable, cross-worker counter store on the shared SQLite file.
 - `SqliteIdentityStore` (`api.identity_store`) — Durable identity store backed by stdlib ``sqlite3`` (WAL, lock-guarded).
 - `SqliteKeyStore` (`api.key_store`) — Durable, restart-surviving API-key store backed by stdlib ``sqlite3``.
+- `SqliteQuotaOverrideStore` (`api.quota`) — Durable override store on the shared SQLite file.
 - `SqliteUsageLedger` (`api.usage_ledger`) — Durable usage ledger backed by stdlib ``sqlite3`` (WAL, lock-guarded).
 - `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (84)</summary>
+<details><summary>Support types (93)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ComponentStatus`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `Permission`, `QuotaConfig`, `ReadinessResponse`, `RegisterRequest`, `ResetConfirmRequest`, `RootCauseRequest`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `WeakPasswordError`
 
 </details>
 

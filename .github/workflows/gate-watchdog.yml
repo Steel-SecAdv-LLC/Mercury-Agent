@@ -57,7 +57,7 @@ jobs:
             echo "::group::${wf_name} (${wf_file})"
             # A workflow that has never run has no runs endpoint; tolerate that.
             if ! gh run list --workflow "${wf_file}" --limit 20 \
-                 --json status,conclusion,createdAt,event,url,databaseId \
+                 --json status,conclusion,createdAt,event,url,databaseId,headBranch \
                  > runs.json 2>/dev/null; then
               echo "no run history for ${wf_file}; skipping."
               echo "::endgroup::"

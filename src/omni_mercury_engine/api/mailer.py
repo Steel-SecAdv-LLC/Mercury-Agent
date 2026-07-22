@@ -55,17 +55,37 @@ SMTP_HOST_ENV = "MERCURY_SMTP_HOST"
 
 @runtime_checkable
 class Mailer(Protocol):
-    """Contract for sending a single plaintext email."""
+    """Contract for sending a single transactional email."""
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
-        """Send an email to ``to`` with ``subject`` and plaintext ``body``."""
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        """Send an email: plaintext ``body``, optional HTML alternative.
+
+        ``headers`` carries deliverability metadata (e.g. ``List-Unsubscribe``)
+        that the transport should attach verbatim.
+        """
         ...
 
 
 class ConsoleMailer:
     """Mailer that logs messages instead of sending them (dev/test default)."""
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         """Log the message at INFO; never touches the network."""
         logger.info("ConsoleMailer -> %s | %s\n%s", to, subject, body)
 
@@ -97,7 +117,15 @@ class SmtpMailer:
         self._use_starttls = use_starttls
         self._timeout = timeout
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         """Deliver one message, opening and closing a fresh SMTP session.
 
         Raises:
@@ -108,7 +136,14 @@ class SmtpMailer:
         message["From"] = self._from_addr
         message["To"] = to
         message["Subject"] = subject
+        for name, value in (headers or {}).items():
+            message[name] = value
         message.set_content(body)
+        if html_body is not None:
+            # multipart/alternative: clients render the HTML part, and the
+            # plaintext part keeps deliverability scoring and text-only
+            # clients working.
+            message.add_alternative(html_body, subtype="html")
 
         context = ssl.create_default_context()
         if self._use_starttls:

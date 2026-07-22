@@ -173,20 +173,45 @@ class QuantumResistantEncryption:
 
 
 class SecureDataHandler:
-    """Handle sensitive data securely with post-quantum encryption options."""
+    """Handle sensitive data securely with post-quantum encryption options.
+
+    Two protection modes are offered:
+
+    * **Hybrid KEM-DEM** (:meth:`encrypt_quantum_resistant`) — ML-KEM-1024 +
+      AES-256-GCM under a per-instance ephemeral key pair. Right for data that
+      lives no longer than the process.
+    * **At-rest symmetric** (:meth:`encrypt_at_rest`) — AES-256-GCM (via the
+      same AMA backend; a 256-bit key keeps a ≥128-bit margin against Grover)
+      under a caller-supplied *stable* key, so ciphertexts written before a
+      restart decrypt after it. This is the mode durable stores (e.g. TOTP
+      secrets in the identity database) must use — sealing them under the
+      ephemeral KEM pair would orphan every row on redeploy.
+    """
 
     qr_encryption: QuantumResistantEncryption | None
     public_key: bytes | None
     private_key: bytes | None
 
-    def __init__(self, enable_quantum_resistant: bool = True) -> None:
+    def __init__(
+        self,
+        enable_quantum_resistant: bool = True,
+        at_rest_key: bytes | None = None,
+    ) -> None:
         """Initialize secure data handler.
 
         Args:
             enable_quantum_resistant: Provision an ML-KEM-1024 key pair for
                 :meth:`encrypt_quantum_resistant` / decrypt.
+            at_rest_key: Optional stable 32-byte AES-256 key enabling
+                :meth:`encrypt_at_rest` / :meth:`decrypt_at_rest`.
+
+        Raises:
+            ValueError: If ``at_rest_key`` is provided but not 32 bytes.
         """
+        if at_rest_key is not None and len(at_rest_key) != 32:
+            raise ValueError("at_rest_key must be exactly 32 bytes (AES-256)")
         self.enable_quantum_resistant = enable_quantum_resistant
+        self._at_rest_key = at_rest_key
         if enable_quantum_resistant:
             self.qr_encryption = QuantumResistantEncryption()
             self.public_key, self.private_key = self.qr_encryption.generate_keypair()
@@ -242,3 +267,61 @@ class SecureDataHandler:
 
         assert self.private_key is not None
         return self.qr_encryption.decrypt_hybrid(encrypted_data, self.private_key)
+
+    # -- stable-key at-rest protection ------------------------------------- #
+    def _require_at_rest_crypto(self) -> tuple[MercuryCrypto, bytes]:
+        """Return the AMA crypto facade + at-rest key, or fail loudly."""
+        if self._at_rest_key is None:
+            raise ValueError(
+                "at-rest encryption requires an at_rest_key (32 bytes) at construction"
+            )
+        if self.qr_encryption is not None:
+            return self.qr_encryption._crypto, self._at_rest_key
+        from omni_mercury_engine.security.crypto_api import MercuryCrypto
+
+        return MercuryCrypto(), self._at_rest_key
+
+    def encrypt_at_rest(self, data: str | bytes, *, aad: bytes = b"") -> bytes:
+        """AES-256-GCM-encrypt ``data`` under the stable at-rest key.
+
+        Args:
+            data: Plaintext to protect.
+            aad: Additional authenticated data binding the ciphertext to its
+                context (e.g. the owning row's identity) — swapping two
+                ciphertexts between rows then fails authentication.
+
+        Returns:
+            Envelope bytes: ``nonce(12) || tag(16) || ciphertext``.
+
+        Raises:
+            ValueError: If no at-rest key was configured.
+        """
+        crypto, key = self._require_at_rest_crypto()
+        if isinstance(data, str):
+            data = data.encode()
+        sealed = crypto.encrypt(data, key=key, aad=aad)
+        nonce: bytes = sealed["nonce"]
+        tag: bytes = sealed["tag"]
+        ciphertext: bytes = sealed["ciphertext"]
+        return nonce + tag + ciphertext
+
+    def decrypt_at_rest(self, envelope: bytes, *, aad: bytes = b"") -> bytes:
+        """Decrypt an :meth:`encrypt_at_rest` envelope (fails closed).
+
+        Args:
+            envelope: ``nonce || tag || ciphertext`` bytes.
+            aad: The same additional authenticated data used at encryption.
+
+        Returns:
+            Recovered plaintext bytes.
+
+        Raises:
+            ValueError: If the envelope is truncated, the key is wrong, the
+                AAD does not match, or any byte was tampered with (GCM
+                authentication failure).
+        """
+        crypto, key = self._require_at_rest_crypto()
+        if len(envelope) < 12 + 16:
+            raise ValueError("at-rest envelope too short")
+        nonce, tag, ciphertext = envelope[:12], envelope[12:28], envelope[28:]
+        return crypto.decrypt(ciphertext, key=key, nonce=nonce, tag=tag, aad=aad)

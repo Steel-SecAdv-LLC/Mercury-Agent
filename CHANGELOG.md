@@ -27,6 +27,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Free-service platform hardening: auth abuse controls, at-rest 2FA, quotas, lifecycle, sessions
+
+Hardening pass over the account/persistence/auth/metering platform (PR #350) so
+Mercury Agent can run as a free, public, account-based service. **Additive and
+opt-in throughout** — a solo self-hoster who clones and runs the repo keeps
+byte-identical behaviour (in-memory, no accounts, no SMTP, no quotas); the
+machinery activates only when the documented env vars are set. Full design,
+threat model, configuration, deployment, migration, and acceptance checklist:
+`docs/PLATFORM_HARDENING.md`.
+
+**Added**
+
+- **`api/client_ip.py`** — trusted-proxy client-IP resolution: the client is
+  read from the right-most trusted `X-Forwarded-For` hop
+  (`MERCURY_TRUSTED_PROXY_HOPS`, default 0 = header untrusted), closing the
+  rate-limit bypass where a rotating header minted a fresh bucket per request.
+- **`api/rate_limit_store.py`** — shared, restart-persistent SQLite token-bucket
+  (atomic `consume_token`) + fixed-window counter stores, and an
+  `ActionRateLimiter` with per-IP and per-account limits on login, register,
+  password-reset request, and resend-verification
+  (`MERCURY_AUTH_RATE_<ACTION>`). Limits are now global across workers and
+  survive restarts.
+- **`api/secret_sealer.py`** — TOTP seeds sealed at rest with AES-256-GCM via
+  the quantum-resistant `SecureDataHandler.encrypt_at_rest`, AAD-bound to the
+  account. Stable key from `MERCURY_DATA_ENC_KEY` or HKDF-derived from
+  `AMA_MASTER_SEED`; refuses to seal under a process-lifetime key for a durable
+  store.
+- **2FA recovery codes** — ten single-use backup codes issued on enrollment
+  (hashes only), consumed atomically, with a security-notice email on use.
+- **TOTP replay rejection** — `verify_totp_with_step` + persisted
+  `totp_last_step` reject any code whose time step is not strictly greater.
+- **Account lifecycle endpoints** — authenticated change-password
+  (session-rotating), two-step change-email (re-verifies the new address),
+  account deletion, and data export; plus `POST /auth/resend-verification`.
+- **CSRF defense-in-depth** — SameSite=Lax cookies + double-submit
+  `X-CSRF-Token` on every state-changing authenticated POST
+  (`MERCURY_CSRF_PROTECTION`).
+- **`api/quota.py` / `api/quota_middleware.py`** — per-account/per-tier quotas
+  (`MERCURY_QUOTA_TIER_*`, `quota_overrides`), wired into the metered detection
+  and batch routes with an atomic reserve→run→commit path (hard request ceiling,
+  HTTP 429 + `Retry-After`), gated by `MERCURY_QUOTA_ENABLED`.
+- **`api/auth_audit.py`** — auth-event audit trail (login success/failure,
+  password/2FA/email/deletion) via `SecureAuditLogger` when
+  `MERCURY_AUDIT_LOG_DIR` is set, else structured logging; account id only, never
+  the email.
+- **`api/maintenance.py`** — startup + periodic pruning sweeps for expired
+  sessions, consumed/expired tokens, aged usage-ledger rows, and stale
+  rate-limit state, which also apply the plaintext-TOTP → sealed migration.
+- **`api/email_templates.py`** — matched plaintext + inline-styled HTML
+  transactional emails with a `List-Unsubscribe` header.
+- **`scripts/calibrate_password_kdf.py`** — measures the scrypt cost ladder on
+  the target hardware.
+
+**Changed**
+
+- **Password KDF upgraded to memory-hard scrypt** (`hashlib.scrypt`,
+  `n=2^15,r=8,p=3`, `MERCURY_SCRYPT_*`-tunable). Legacy PBKDF2 hashes still
+  verify and are transparently rehashed on the next successful login.
+- **Session hardening** — idle vs absolute timeouts, rotation on privilege
+  change, and a configurable remember-me (`MERCURY_SESSION_*`).
+- **Login is timing-uniform** — the unknown-email path burns the same KDF cost
+  as a wrong-password attempt (no enumeration by response time).
+- **Singleton lazy init is race-free** — `get_api_key_store`,
+  `get_auth_service`, `get_action_limiter`, `get_rate_limiter`, and
+  `get_audit_logger` use lock-guarded double-checked construction.
+- **CI gate watchdog** (`scripts/ci_gate_watchdog.py`) excuses superseded
+  `cancel-in-progress` cancellations (a newer clean verdict on the same branch)
+  while still alerting on a branch that never completes — cutting false-red
+  alarms on busy PRs. `gate-watchdog.yml` now feeds `headBranch`.
+
 ### Security + CI-integrity hardening pass: centralized torch checkpoint loader, gate-integrity fixes, root-cause bug fixes
 
 Continuation of the coverage/engineering round, focused on the load-bearing
