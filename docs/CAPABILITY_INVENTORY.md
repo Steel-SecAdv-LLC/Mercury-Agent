@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,739
-- **Capability-bearing classes:** 1,817 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,781
+- **Capability-bearing classes:** 1,831 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 81 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,031 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 85 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,044 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1031 |
-| Support types (config / result / enum / error) | 922 |
+| Other capability classes | 1044 |
+| Support types (config / result / enum / error) | 950 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -28,7 +28,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Analysis & scoring | 56 |
 | Monitoring | 24 |
 | Prediction & forecasting | 21 |
-| Ethics & governance | 12 |
+| Ethics & governance | 13 |
 | Solvers & scorers | 9 |
 | Biometric & recognition | 8 |
 
@@ -155,11 +155,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 81 classes (25 capability)
+### `api/` — 123 classes (39 capability)
 
 **Engines & orchestration**
 
 - `AuthKeyManager` (`api.auth`) — AMA Key Management integration for Mercury's auth layer.
+
+**Ethics & governance**
+
+- `QuotaEnforcer` (`api.quota`) — Checks and records per-account usage against a :class:`QuotaConfig`.
 
 **Neural models & layers**
 
@@ -171,29 +175,42 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `APIKey` (`api.auth`) — API key information.
 - `APIKeyAuth` (`api.auth`) — API Key authentication dependency.
 - `APIKeyStore` (`api.auth`) — In-memory API key store.
+- `Account` (`api.identity_store`) — A user account.
 - `AnomalyPoint` (`api.server`) — Individual anomaly point information.
 - `AuthProvider` (`api.auth`) — Abstract base class for authentication providers.
+- `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, a mailer, and 2FA.
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
+- `ConsoleMailer` (`api.mailer`) — Mailer that logs messages instead of sending them (dev/test default).
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
 - `DataStore` (`api.routes.export`) — In-memory data store for demonstration.
+- `EmailToken` (`api.identity_store`) — A single-use, expiring email token (only the token hash is stored).
 - `ExportJob` (`api.routes.export`) — Export job record.
 - `HealthCheck` (`api.health`) — Health check definition.
 - `HealthChecker` (`api.health`) — Health check manager.
+- `InMemoryIdentityStore` (`api.identity_store`) — Process-local identity store (dev/test default; not durable).
+- `InMemoryUsageLedger` (`api.usage_ledger`) — Process-local usage ledger (dev/test default; not durable).
 - `JWTAuth` (`api.auth`) — JWT Bearer token authentication dependency.
 - `ModelMetrics` (`api.routes.models`) — Model performance metrics.
 - `ModelRegistry` (`api.routes.models`) — Model registry with versioning and lifecycle management.
 - `ModelVersion` (`api.routes.models`) — Model version record.
 - `PIIMaskingFilter` (`api.server`) — Filter to mask PII data in log messages for security compliance.
+- `QuotaDecision` (`api.quota`) — The outcome of a quota check, including the usage it was based on.
 - `RateLimitMiddleware` (`api.server`) — Token bucket rate limiting middleware.
 - `RequestRateLimiter` (`api.auth`) — Request-aware rate limiter wrapper.
+- `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
+- `SmtpMailer` (`api.mailer`) — Mailer that delivers over SMTP using environment-supplied credentials.
+- `SqliteIdentityStore` (`api.identity_store`) — Durable identity store backed by stdlib ``sqlite3`` (WAL, lock-guarded).
+- `SqliteKeyStore` (`api.key_store`) — Durable, restart-surviving API-key store backed by stdlib ``sqlite3``.
+- `SqliteUsageLedger` (`api.usage_ledger`) — Durable usage ledger backed by stdlib ``sqlite3`` (WAL, lock-guarded).
+- `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (56)</summary>
+<details><summary>Support types (84)</summary>
 
-`AuditLogRecord`, `AuthConfig`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ComponentStatus`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `JobStatus`, `LivenessResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `Permission`, `ReadinessResponse`, `RootCauseRequest`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `UnivariateRequest`, `UnivariateResponse`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ComponentStatus`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `Permission`, `QuotaConfig`, `ReadinessResponse`, `RegisterRequest`, `ResetConfirmRequest`, `RootCauseRequest`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `WeakPasswordError`
 
 </details>
 
