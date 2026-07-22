@@ -21,11 +21,15 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
 from omni_mercury_engine.core.centralized_constants import ETHICAL, LYAPUNOV, MATH
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.calibration import CalibrationEnsemble
+    from omni_mercury_engine.core.conformal_prediction import SplitConformalPredictor
 
 logger = logging.getLogger(__name__)
 
@@ -360,8 +364,8 @@ class GOSNNIntegration:
         self.domains: dict[str, DomainConfig] = {}
 
         # Calibration components
-        self._calibrator = None
-        self._conformal = None
+        self._calibrator: CalibrationEnsemble | None = None
+        self._conformal: SplitConformalPredictor | None = None
 
         # Tracking
         self._fitted = False
@@ -764,7 +768,7 @@ class GOSNNIntegration:
 
             calibrator = CalibrationEnsemble()
             calibrator.fit(fused, y_val)
-            self._calibrator = calibrator  # type: ignore[assignment]
+            self._calibrator = calibrator
 
         except ImportError:
             logger.debug("Calibration module not available")
@@ -784,7 +788,7 @@ class GOSNNIntegration:
 
             conformal = SplitConformalPredictor(coverage=self.conformal_alpha)
             conformal.fit(fused)
-            self._conformal = conformal  # type: ignore[assignment]
+            self._conformal = conformal
 
         except ImportError:
             logger.debug("Conformal prediction module not available")

@@ -258,10 +258,11 @@ class ServiceContainer:
 
         impl_type = descriptor.implementation_type or descriptor.service_type
 
-        # Inspect constructor for dependencies
+        # Inspect constructor for dependencies. signature(cls) resolves the
+        # constructor (__init__/__new__) with ``self`` already stripped.
         import inspect
 
-        sig = inspect.signature(impl_type.__init__)  # type: ignore[misc]
+        sig = inspect.signature(impl_type)
         kwargs: dict[str, Any] = {}
 
         for param_name, param in sig.parameters.items():

@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
+    from omni_mercury_engine.core.calibration import CalibrationEnsemble
+
 logger = logging.getLogger(__name__)
 
 
@@ -1184,7 +1186,7 @@ class ScoreCalibrationManager:
             max_contamination=max_contamination,
         )
 
-        self._probability_calibrator = None
+        self._probability_calibrator: CalibrationEnsemble | None = None
         self._last_result: CalibrationResult | None = None
 
     def calibrate(
@@ -1297,7 +1299,7 @@ class ScoreCalibrationManager:
             from omni_mercury_engine.core.calibration import CalibrationEnsemble
 
             if self._probability_calibrator is None:
-                self._probability_calibrator = CalibrationEnsemble()  # type: ignore[assignment]
+                self._probability_calibrator = CalibrationEnsemble()
 
             # Fit and transform - calibrator is guaranteed non-None after above check
             calibrator = self._probability_calibrator

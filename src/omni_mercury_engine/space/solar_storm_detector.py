@@ -793,7 +793,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
 
 else:
 
-    class GeomagneticStormPredictor:  # type: ignore[no-redef]
+    class GeomagneticStormPredictor:
         """Stub: GeomagneticStormPredictor requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:

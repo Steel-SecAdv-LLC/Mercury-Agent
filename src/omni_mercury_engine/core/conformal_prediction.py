@@ -424,13 +424,15 @@ class ConformalAnomalyDetector:
         if isinstance(self.conformal, SplitConformalPredictor):
             self.conformal.fit(cal_scores)
         elif isinstance(self.conformal, CrossConformalPredictor):
-            # For cross-conformal, need scoring function
+            # For cross-conformal, need scoring function. The parameter is
+            # named ``X`` to satisfy the ScoringFunction protocol (parameter
+            # names are part of a protocol's callable contract).
             def score_fn(
-                X_input: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+                X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
             ) -> np.ndarray[Any, Any]:
-                return self._get_anomaly_scores(X_input)
+                return self._get_anomaly_scores(X)
 
-            self.conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
+            self.conformal.fit(X_cal, score_fn)
 
         self._fitted = True
         return self
@@ -1323,11 +1325,11 @@ def add_conformal_to_detector(
         cross_conformal = CrossConformalPredictor(coverage=coverage)
 
         def score_fn(
-            X_input: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+            X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
         ) -> np.ndarray[Any, Any]:
-            return _extract_detector_scores(detector, X_input)
+            return _extract_detector_scores(detector, X)
 
-        cross_conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
+        cross_conformal.fit(X_cal, score_fn)
         conformal = cross_conformal
 
     return conformal, conformal.get_anomaly_threshold()

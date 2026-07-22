@@ -15,9 +15,12 @@ from __future__ import annotations
 import argparse
 import http.server
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.centralized_constants import MathConstants
 
 _SCHEMA = "mercury.tools.prometheus_metrics_exporter/v1"
 
@@ -53,12 +56,13 @@ def _collect_metrics() -> dict[str, Any]:
     unavailable the entry is reported as ``None`` rather than omitted
     so the schema remains stable across deployments.
     """
+    math_constants: MathConstants | None
     try:
-        from omni_mercury_engine.core.centralized_constants import MATH
+        from omni_mercury_engine.core.centralized_constants import MATH as math_constants
     except ImportError:
-        MATH = None  # type: ignore[assignment]
+        math_constants = None
 
-    phi = float(MATH.GOLDEN_RATIO) if MATH else 1.618033988749895
+    phi = float(math_constants.GOLDEN_RATIO) if math_constants else 1.618033988749895
     phi_sum = phi + 2.0
     w_R = phi / phi_sum
     w_H = w_O = 1.0 / phi_sum

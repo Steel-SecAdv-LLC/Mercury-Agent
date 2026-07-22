@@ -16,9 +16,12 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.calibration import PlattScaling
 
 logger = logging.getLogger(__name__)
 
@@ -622,10 +625,10 @@ class EnhancedBaseDetector:
         self.spatial_metrics = SpatialAutocorrelation() if domain in ["spatial", "graph"] else None
 
         # Calibrator (lazy initialization)
-        self._calibrator = None
+        self._calibrator: PlattScaling | None = None
 
         # Tracking
-        self._threshold = None
+        self._threshold: float | None = None
         self._fitted = False
 
     def fit(
@@ -654,7 +657,7 @@ class EnhancedBaseDetector:
 
         # Compute adaptive threshold
         threshold_result = self.threshold_optimizer.compute_threshold(scores, y)
-        self._threshold = threshold_result.threshold  # type: ignore[assignment]
+        self._threshold = threshold_result.threshold
 
         # Set up calibration if enabled
         if self.use_calibration and y is not None:
@@ -745,7 +748,7 @@ class EnhancedBaseDetector:
 
             calibrator = PlattScaling()
             calibrator.fit(scores, labels)
-            self._calibrator = calibrator  # type: ignore[assignment]
+            self._calibrator = calibrator
         except ImportError:
             logger.debug("Calibration module not available")
 

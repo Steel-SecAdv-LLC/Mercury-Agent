@@ -1335,7 +1335,9 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
                 rot_mse = torch.zeros((), dtype=xb.dtype)
             loss = bce + rot_mse
             optimizer.zero_grad()
-            loss.backward()  # type: ignore[no-untyped-call]
+            # Tensor.backward is untyped in torch's stubs; the typed
+            # torch.autograd.backward it delegates to is the same call.
+            torch.autograd.backward(loss)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             optimizer.step()
             epoch_loss += float(loss.item()) * batch_idx.shape[0]

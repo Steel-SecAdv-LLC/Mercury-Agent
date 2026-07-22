@@ -1074,6 +1074,8 @@ class OmniMercuryEngine(LoggerMixin):
             ValueError: If ``name`` is not in the manifest, its manifest
                 ``module_path`` is outside the ``omni_mercury_engine``
                 package, or it is already enabled.
+            TypeError: If the manifest entry constructs an object that is
+                not a :class:`~omni_mercury_engine.core.base.BaseDetector`.
         """
         import importlib
 
@@ -1095,8 +1097,14 @@ class OmniMercuryEngine(LoggerMixin):
         module = importlib.import_module(entry.module_path)
         detector_cls = getattr(module, entry.class_name)
         detector = detector_cls()
+        if not isinstance(detector, BaseDetector):
+            raise TypeError(
+                f"Manifest detector {name!r} "
+                f"({entry.module_path}.{entry.class_name}) constructed a "
+                f"{type(detector).__name__}, which is not a BaseDetector"
+            )
         self.register_detector(name, detector)
-        return detector  # type: ignore[no-any-return]
+        return detector
 
     def available_detectors(self) -> dict[str, bool]:
         """Map every manifest detector name to whether it is currently active.

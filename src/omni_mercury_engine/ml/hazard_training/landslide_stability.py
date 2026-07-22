@@ -1514,7 +1514,9 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
                     type_logits[mapped], tb[mapped]
                 )
             optimizer.zero_grad()
-            loss.backward()  # type: ignore[no-untyped-call]
+            # Tensor.backward is untyped in torch's stubs; the typed
+            # torch.autograd.backward it delegates to is the same call.
+            torch.autograd.backward(loss)
             optimizer.step()
             epoch_loss += float(loss.item()) * batch_idx.shape[0]
 

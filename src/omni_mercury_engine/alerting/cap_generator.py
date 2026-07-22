@@ -332,7 +332,10 @@ class CAPAlertGenerator:
                 SubElement(gc, "valueName").text = name
                 SubElement(gc, "value").text = value
 
-        return tostring(alert, encoding="unicode", xml_declaration=True)  # type: ignore[no-any-return]
+        # defusedxml is stubless (Any), but tostring(..., encoding="unicode")
+        # is documented to return str; the annotation pins that contract.
+        xml_str: str = tostring(alert, encoding="unicode", xml_declaration=True)
+        return xml_str
 
     def from_detection(
         self,

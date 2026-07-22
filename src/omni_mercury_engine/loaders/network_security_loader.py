@@ -466,8 +466,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
                     name="nsl-kdd",
                     preprocessing={"binary": True},
                 )
-                loader = NSLKDDLoader(config)
-                _features, labels = loader.load_data()
+                nsl_loader = NSLKDDLoader(config)
+                _features, labels = nsl_loader.load_data()
                 return labels.astype(np.int64)
 
             elif event_id == "cicids_2017":
@@ -478,8 +478,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
                     name="cicids",
                     preprocessing={"binary": True},
                 )
-                loader = CICIDSLoader(config)  # type: ignore[assignment]
-                _features, labels = loader.load_data()
+                cicids_loader = CICIDSLoader(config)
+                _features, labels = cicids_loader.load_data()
                 return labels.astype(np.int64)
 
             elif event_id == "batadal":
@@ -487,8 +487,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 from omni_mercury_engine.datasets.industrial import BATADALLoader
 
                 config = DatasetConfig(name="batadal")
-                loader = BATADALLoader(config)  # type: ignore[assignment]
-                _features, labels = loader.load()
+                batadal_loader = BATADALLoader(config)
+                _features, labels = batadal_loader.load()
                 return labels.astype(np.int64)
 
         except Exception as exc:

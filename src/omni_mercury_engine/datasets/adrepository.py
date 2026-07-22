@@ -883,10 +883,13 @@ def load_dataset(
 # Register datasets
 for dataset_name in ADREPOSITORY_DATASETS:
 
-    def _make_loader(dn: str) -> DatasetLoader:
-        def _factory(cfg: DatasetConfig) -> DatasetLoader:
-            return ADRepositoryLoader(cfg, dataset_name=dn)
+    def _make_loader(dn: str) -> type[DatasetLoader]:
+        class _NamedADRepositoryLoader(ADRepositoryLoader):
+            """ADRepositoryLoader pinned to one named dataset for the registry."""
 
-        return _factory  # type: ignore[return-value]
+            def __init__(self, cfg: DatasetConfig) -> None:
+                super().__init__(cfg, dataset_name=dn)
 
-    DatasetRegistry.register(f"adrepository-{dataset_name}", _make_loader(dataset_name))  # type: ignore[arg-type]
+        return _NamedADRepositoryLoader
+
+    DatasetRegistry.register(f"adrepository-{dataset_name}", _make_loader(dataset_name))

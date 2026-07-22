@@ -450,7 +450,12 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         elif data_type == "interactions":
             # Fit UI/UX detector
             if self._uiux_detector is not None:
-                self._uiux_detector.fit(data)  # type: ignore[arg-type]
+                if not isinstance(data, list):
+                    raise DetectorException(
+                        "Interactions data type requires list[UserInteraction], "
+                        f"got {type(data).__name__}"
+                    )
+                self._uiux_detector.fit(data)
 
         elif data_type == "mixed":
             # Fit each detector with appropriate data
