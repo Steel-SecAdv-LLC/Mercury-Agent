@@ -1304,6 +1304,16 @@ try:
 except ImportError as e:
     logger.warning(f"Advanced detection routes not available: {e}")
 
+# Include Self-Service Account Routes (opt-in: inert unless the flows are used;
+# store/mailer default to in-memory/console without MERCURY_KEYSTORE_PATH/SMTP)
+try:
+    from omni_mercury_engine.api.routes.accounts import router as accounts_router
+
+    app.include_router(accounts_router)
+    logger.info("Account routes registered")
+except ImportError as e:
+    logger.warning(f"Account routes not available: {e}")
+
 # Include Hazard Visualization Routes
 try:
     from omni_mercury_engine.api.routes.hazard import router as hazard_router

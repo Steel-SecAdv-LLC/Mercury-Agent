@@ -111,11 +111,20 @@ class InvalidTokenError(AuthError):
 class LoginResult:
     """The outcome of a successful login: the account and its raw session token."""
 
-    def __init__(self, account: Account, session_token: str, expires_at: datetime) -> None:
-        """Store the authenticated account and its freshly minted session token."""
+    def __init__(
+        self,
+        account: Account,
+        session_token: str,
+        expires_at: datetime,
+        max_age_seconds: int,
+    ) -> None:
+        """Store the authenticated account, its session token, and cookie lifetime."""
         self.account = account
         self.session_token = session_token
         self.expires_at = expires_at
+        #: Session lifetime in seconds — the correct cookie ``max_age`` (the
+        #: cookie should live for the session TTL, not since account creation).
+        self.max_age_seconds = max_age_seconds
 
 
 class EnrollmentResult:
@@ -279,7 +288,12 @@ class AuthService:
                 expires_at=expires_at,
             )
         )
-        return LoginResult(account=account, session_token=raw_session, expires_at=expires_at)
+        return LoginResult(
+            account=account,
+            session_token=raw_session,
+            expires_at=expires_at,
+            max_age_seconds=int(self._session_ttl.total_seconds()),
+        )
 
     def authenticate_session(self, raw_session: str) -> Account | None:
         """Resolve a session token to its active account, or ``None``.
