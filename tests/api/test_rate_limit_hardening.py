@@ -260,7 +260,11 @@ class TestMiddlewareSpoofImmunity:
         def probe() -> dict[str, bool]:
             return {"ok": True}
 
-        app.add_middleware(RateLimitMiddleware, requests_per_minute=60, burst_size=5)
+        app.add_middleware(
+            RateLimitMiddleware,  # type: ignore[arg-type, unused-ignore]
+            requests_per_minute=60,
+            burst_size=5,
+        )
 
         with TestClient(app) as client:
             statuses = [
@@ -289,7 +293,11 @@ class TestMiddlewareSpoofImmunity:
         def probe() -> dict[str, bool]:
             return {"ok": True}
 
-        app.add_middleware(RateLimitMiddleware, requests_per_minute=60, burst_size=2)
+        app.add_middleware(
+            RateLimitMiddleware,  # type: ignore[arg-type, unused-ignore]
+            requests_per_minute=60,
+            burst_size=2,
+        )
 
         with TestClient(app) as client:
             a1 = client.get("/probe", headers={"X-Forwarded-For": "198.51.100.7"})

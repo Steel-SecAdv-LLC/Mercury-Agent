@@ -68,10 +68,14 @@ class FakeClock:
         self.now += delta
 
 
+#: What ``client_and_mail`` yields (named so tests annotate it fully).
+ClientAndMail = tuple[TestClient, RecordingMailer, AuthService, FakeClock]
+
+
 @pytest.fixture
 def client_and_mail(
     monkeypatch: pytest.MonkeyPatch,
-) -> Iterator[tuple[TestClient, RecordingMailer, AuthService]]:
+) -> Iterator[ClientAndMail]:
     """A TestClient wired to an in-memory auth service via dependency override."""
     # Allow the session cookie to ride back over the TestClient's http transport.
     monkeypatch.setenv("MERCURY_SESSION_COOKIE_SECURE", "false")
@@ -82,8 +86,7 @@ def client_and_mail(
     app.include_router(accounts.router)
     app.dependency_overrides[accounts.get_auth_service] = lambda: service
     with TestClient(app) as client:
-        client.fake_clock = clock  # type: ignore[attr-defined]
-        yield client, mailer, service
+        yield client, mailer, service, clock
 
 
 _DEFAULT_PW = "a-strong-pw"
@@ -106,10 +109,10 @@ def _register_and_verify(client: TestClient, mailer: RecordingMailer, email: str
 
 
 def test_register_validation(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """Bad email -> 400, weak password -> 400, duplicate -> 409."""
-    client, _, _ = client_and_mail
+    client, _, _, _ = client_and_mail
     assert (
         client.post(
             "/api/v1/auth/register", json={"email": "x", "password": "a-strong-pw"}
@@ -137,10 +140,10 @@ def test_register_validation(
 
 
 def test_login_requires_verification_then_succeeds(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """Login is 403 before verification and 200 (with a session) after."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     client.post("/api/v1/auth/register", json={"email": "u@b.com", "password": "a-strong-pw"})
     early = client.post("/api/v1/auth/login", json={"email": "u@b.com", "password": "a-strong-pw"})
     assert early.status_code == 403
@@ -152,10 +155,10 @@ def test_login_requires_verification_then_succeeds(
 
 
 def test_me_requires_session(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """/me is 401 without a session and 200 with one."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     assert client.get("/api/v1/auth/me").status_code == 401
     _register_and_verify(client, mailer, "u@b.com")
     client.post("/api/v1/auth/login", json={"email": "u@b.com", "password": "a-strong-pw"})
@@ -165,20 +168,20 @@ def test_me_requires_session(
 
 
 def test_wrong_password_is_401(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """A wrong password yields 401."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     _register_and_verify(client, mailer, "u@b.com")
     resp = client.post("/api/v1/auth/login", json={"email": "u@b.com", "password": "wrong-pw!!"})
     assert resp.status_code == 401
 
 
 def test_logout_clears_session(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """After logout, /me is 401 again."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     _register_and_verify(client, mailer, "u@b.com")
     client.post("/api/v1/auth/login", json={"email": "u@b.com", "password": "a-strong-pw"})
     assert client.get("/api/v1/auth/me").status_code == 200
@@ -187,10 +190,10 @@ def test_logout_clears_session(
 
 
 def test_password_reset_flow(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """Reset request -> confirm -> old password fails, new works."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     _register_and_verify(client, mailer, "u@b.com")
 
     req = client.post("/api/v1/auth/password-reset/request", json={"email": "u@b.com"})
@@ -216,21 +219,20 @@ def test_password_reset_flow(
 
 
 def test_password_reset_unknown_email_is_202_and_silent(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """Reset for an unknown email is 202 and sends nothing (no enumeration)."""
-    client, mailer, _ = client_and_mail
+    client, mailer, _, _ = client_and_mail
     resp = client.post("/api/v1/auth/password-reset/request", json={"email": "ghost@b.com"})
     assert resp.status_code == 202
     assert mailer.sent == []
 
 
 def test_two_factor_challenge(
-    client_and_mail: tuple[TestClient, RecordingMailer, AuthService],
+    client_and_mail: ClientAndMail,
 ) -> None:
     """Enrolling 2FA makes login require a code; the code path is exercised."""
-    client, mailer, service = client_and_mail
-    clock: FakeClock = client.fake_clock  # type: ignore[attr-defined]
+    client, mailer, service, clock = client_and_mail
     _register_and_verify(client, mailer, "u@b.com")
     csrf = _login(client, "u@b.com")
 

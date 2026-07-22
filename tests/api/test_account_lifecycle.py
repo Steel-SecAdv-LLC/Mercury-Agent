@@ -73,10 +73,15 @@ class FakeClock:
         self.now += timedelta(**kwargs)
 
 
+#: The tuple the ``setup`` fixture yields; named so every test annotates it fully
+#: (the strict test-mypy gate rejects a bare ``tuple``).
+Setup = tuple[TestClient, RecordingMailer, AuthService, FakeClock]
+
+
 @pytest.fixture
 def setup(
     monkeypatch: pytest.MonkeyPatch,
-) -> Iterator[tuple[TestClient, RecordingMailer, AuthService, FakeClock]]:
+) -> Iterator[Setup]:
     """TestClient + service over an in-memory store with a movable clock."""
     monkeypatch.setenv("MERCURY_SESSION_COOKIE_SECURE", "false")
     mailer = RecordingMailer()
@@ -111,7 +116,7 @@ def _register_verify_login(
 class TestCsrfDefenseInDepth:
     """State-changing POSTs demand the double-submit header."""
 
-    def test_missing_header_is_403(self, setup: tuple) -> None:
+    def test_missing_header_is_403(self, setup: Setup) -> None:
         """An authenticated POST without X-CSRF-Token is rejected."""
         client, mailer, _service, _clock = setup
         _register_verify_login(client, mailer)
@@ -122,7 +127,7 @@ class TestCsrfDefenseInDepth:
         assert resp.status_code == 403
         assert "X-CSRF-Token" in str(resp.json()["detail"])
 
-    def test_wrong_token_is_403(self, setup: tuple) -> None:
+    def test_wrong_token_is_403(self, setup: Setup) -> None:
         """A forged token value is rejected."""
         client, mailer, _service, _clock = setup
         _register_verify_login(client, mailer)
@@ -131,7 +136,7 @@ class TestCsrfDefenseInDepth:
         )
         assert resp.status_code == 403
 
-    def test_correct_token_passes(self, setup: tuple) -> None:
+    def test_correct_token_passes(self, setup: Setup) -> None:
         """The token issued at login authorises the request."""
         client, mailer, _service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -140,14 +145,14 @@ class TestCsrfDefenseInDepth:
             == 200
         )
 
-    def test_csrf_cookie_is_set_at_login(self, setup: tuple) -> None:
+    def test_csrf_cookie_is_set_at_login(self, setup: Setup) -> None:
         """The readable CSRF cookie rides alongside the httpOnly session."""
         client, mailer, _service, _clock = setup
         csrf = _register_verify_login(client, mailer)
         assert client.cookies.get(accounts.CSRF_COOKIE) == csrf
 
     def test_enforcement_can_be_disabled_for_api_clients(
-        self, setup: tuple, monkeypatch: pytest.MonkeyPatch
+        self, setup: Setup, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """MERCURY_CSRF_PROTECTION=false waives the header (documented escape)."""
         client, mailer, _service, _clock = setup
@@ -159,7 +164,7 @@ class TestCsrfDefenseInDepth:
 class TestChangePassword:
     """Authenticated password change: re-auth, rotation, continuity."""
 
-    def test_change_rotates_sessions_and_keeps_caller_signed_in(self, setup: tuple) -> None:
+    def test_change_rotates_sessions_and_keeps_caller_signed_in(self, setup: Setup) -> None:
         """Other sessions die; the caller continues on fresh cookies."""
         client, mailer, service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -190,7 +195,7 @@ class TestChangePassword:
             == 200
         )
 
-    def test_wrong_current_password_is_401(self, setup: tuple) -> None:
+    def test_wrong_current_password_is_401(self, setup: Setup) -> None:
         """A hijacked cookie alone cannot change the password."""
         client, mailer, _service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -201,7 +206,7 @@ class TestChangePassword:
         )
         assert resp.status_code == 401
 
-    def test_change_invalidates_outstanding_reset_tokens(self, setup: tuple) -> None:
+    def test_change_invalidates_outstanding_reset_tokens(self, setup: Setup) -> None:
         """A pre-issued reset link dies when the password changes."""
         client, mailer, service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -222,7 +227,7 @@ class TestChangePassword:
 class TestChangeEmail:
     """Two-step email change with re-verification of the new address."""
 
-    def test_full_flow(self, setup: tuple) -> None:
+    def test_full_flow(self, setup: Setup) -> None:
         """Request → confirmation link to NEW address → address flips."""
         client, mailer, service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -246,7 +251,7 @@ class TestChangeEmail:
         with pytest.raises(InvalidCredentialsError):
             service.login("u@b.com", "a-strong-pw")
 
-    def test_taken_address_is_409(self, setup: tuple) -> None:
+    def test_taken_address_is_409(self, setup: Setup) -> None:
         """A new address owned by someone else is rejected up front."""
         client, mailer, service, _clock = setup
         service.register("taken@b.com", "another-strong-pw")
@@ -258,7 +263,7 @@ class TestChangeEmail:
         )
         assert resp.status_code == 409
 
-    def test_race_on_confirm_is_rejected(self, setup: tuple) -> None:
+    def test_race_on_confirm_is_rejected(self, setup: Setup) -> None:
         """Uniqueness is re-checked at commit: a raced claim loses cleanly."""
         client, mailer, service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -277,7 +282,7 @@ class TestChangeEmail:
 class TestDeletionAndExport:
     """Account deletion (re-authenticated) and data export."""
 
-    def test_delete_requires_password_and_removes_account(self, setup: tuple) -> None:
+    def test_delete_requires_password_and_removes_account(self, setup: Setup) -> None:
         """Deletion re-authenticates, then the account and sessions are gone."""
         client, mailer, service, _clock = setup
         csrf = _register_verify_login(client, mailer)
@@ -300,7 +305,7 @@ class TestDeletionAndExport:
         # The email is registrable again (hard delete, not a tombstone).
         assert service.register("u@b.com", "brand-new-pw123").email == "u@b.com"
 
-    def test_export_returns_profile_without_secrets(self, setup: tuple) -> None:
+    def test_export_returns_profile_without_secrets(self, setup: Setup) -> None:
         """The export carries the profile and never any secret material."""
         client, mailer, _service, _clock = setup
         _register_verify_login(client, mailer)
@@ -365,7 +370,7 @@ class TestSessionHardening:
         clock.advance(hours=20)  # past the 1-day short TTL
         assert service.authenticate_session(result.session_token) is None
 
-    def test_remember_me_off_sets_browser_session_cookie(self, setup: tuple) -> None:
+    def test_remember_me_off_sets_browser_session_cookie(self, setup: Setup) -> None:
         """The cookie for a non-remembered login carries no Max-Age."""
         client, mailer, _service, _clock = setup
         client.post("/api/v1/auth/register", json={"email": "s@b.com", "password": "a-strong-pw"})

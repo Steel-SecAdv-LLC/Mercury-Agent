@@ -33,7 +33,12 @@ from omni_mercury_engine.api.usage_ledger import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+    from fastapi import FastAPI
+
+    from omni_mercury_engine.api.usage_ledger import UsageLedger
 
 
 class FixedClock:
@@ -52,16 +57,16 @@ class TestAtomicReservation:
     """The request ceiling is hard under concurrency."""
 
     @pytest.fixture(params=["memory", "sqlite"])
-    def ledger(self, request: pytest.FixtureRequest, tmp_path: Path):
+    def ledger(self, request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[UsageLedger]:
         """Both ledger backends."""
         if request.param == "memory":
             yield InMemoryUsageLedger()
         else:
-            ledger = SqliteUsageLedger(tmp_path / "usage.db")
-            yield ledger
-            ledger.close()
+            sqlite_ledger = SqliteUsageLedger(tmp_path / "usage.db")
+            yield sqlite_ledger
+            sqlite_ledger.close()
 
-    def test_concurrent_reserve_never_overruns(self, ledger) -> None:
+    def test_concurrent_reserve_never_overruns(self, ledger: UsageLedger) -> None:
         """40 threads racing a 10-request window admit exactly 10."""
         config = QuotaConfig(window_seconds=3600, max_requests=10, max_compute_ms=1e12)
         enforcer = QuotaEnforcer(ledger, config, clock=FixedClock())
@@ -80,7 +85,7 @@ class TestAtomicReservation:
             t.join()
         assert sum(allowed) == 10
 
-    def test_reserve_then_commit_records_compute(self, ledger) -> None:
+    def test_reserve_then_commit_records_compute(self, ledger: UsageLedger) -> None:
         """Commit back-fills the measured cost onto the reserved row."""
         clock = FixedClock()
         config = QuotaConfig(window_seconds=3600, max_requests=100, max_compute_ms=1e9)
@@ -93,12 +98,13 @@ class TestAtomicReservation:
         assert summary.request_count == 1
         assert summary.compute_ms == 250.0
 
-    def test_compute_ceiling_denies(self, ledger) -> None:
+    def test_compute_ceiling_denies(self, ledger: UsageLedger) -> None:
         """Once the compute budget is spent, reservation is denied."""
         clock = FixedClock()
         config = QuotaConfig(window_seconds=3600, max_requests=1000, max_compute_ms=500.0)
         enforcer = QuotaEnforcer(ledger, config, clock=clock)
         first = enforcer.reserve("acct", "/detect")
+        assert first.event_id is not None
         enforcer.commit(first.event_id, 600.0)  # blow the compute budget
         denied = enforcer.reserve("acct", "/detect")
         assert denied.allowed is False
@@ -201,7 +207,7 @@ class TestCheckReadOnly:
 class TestQuotaMiddleware:
     """End-to-end HTTP wiring over a metered route."""
 
-    def _app(self, enforcer: QuotaEnforcer):
+    def _app(self, enforcer: QuotaEnforcer) -> FastAPI:
         from fastapi import FastAPI
 
         from omni_mercury_engine.api.quota_middleware import QuotaMiddleware

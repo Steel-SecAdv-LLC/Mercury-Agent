@@ -122,7 +122,7 @@ class TestAuditSeam:
 
     def test_events_recorded(self) -> None:
         """Login success/failure produce audit records."""
-        records: list[dict] = []
+        records: list[dict[str, object]] = []
 
         class CapturingLogger:
             def log_authentication(self, **kwargs: object) -> str:
