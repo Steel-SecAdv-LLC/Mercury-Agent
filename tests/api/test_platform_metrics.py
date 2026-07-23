@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the platform Prometheus counters (registrations, logins, throttles,
-quotas, mail, maintenance).
+"""Tests for the platform Prometheus counters.
 
+Covers registrations, logins, throttles, quotas, mail, and maintenance.
 Each test drives the real event path (HTTP route, middleware, service, or
 sweep) and asserts the counter moved in the ``/metrics`` exposition — deltas,
 not absolutes, because the prometheus default registry is process-wide. A
