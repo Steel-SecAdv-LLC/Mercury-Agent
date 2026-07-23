@@ -55,6 +55,7 @@ from omni_mercury_engine.api.auth_service import (
 )
 from omni_mercury_engine.api.client_ip import resolve_client_ip
 from omni_mercury_engine.api.identity_store import hash_token
+from omni_mercury_engine.api.quota import QuotaEnforcer, get_shared_quota_enforcer
 from omni_mercury_engine.api.rate_limit_store import (
     ActionRateLimiter,
     build_action_rate_limiter,
@@ -326,6 +327,25 @@ class RecoveryCodesResponse(BaseModel):
 
     recovery_codes: list[str]
     message: str
+
+
+class UsageResponse(BaseModel):
+    """The caller's in-window usage next to its effective quota limits.
+
+    ``tier`` is the account's tier *name*; the reported limits are the
+    resolved ceilings (a per-account override wins over the tier config, which
+    wins over the deployment default), so the numbers shown are exactly the
+    numbers enforcement judges.
+    """
+
+    tier: str
+    window_seconds: int
+    window_start: str
+    window_end: str
+    requests_used: int
+    requests_limit: int
+    compute_ms_used: float
+    compute_ms_limit: float
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -605,6 +625,61 @@ def export_data(
 ) -> dict[str, object]:
     """Export the account's stored personal data (portability)."""
     return service.export_account_data(account.id)
+
+
+def session_or_api_key_account(
+    request: Request,
+    service: AuthService = Depends(get_auth_service),
+) -> Account:
+    """Authenticate via the session cookie OR the ``X-API-Key`` header.
+
+    The read-only account surfaces (usage reporting) serve both browser
+    sessions and programmatic callers. An API key resolves to its *owning*
+    account — the same attribution the quota middleware charges — so a key
+    reads exactly the bucket its traffic spends from.
+
+    Raises:
+        HTTPException: 401 when neither credential resolves to an active
+            account (revoked/expired keys and orphaned keys included).
+    """
+    raw_session = request.cookies.get(SESSION_COOKIE)
+    if raw_session:
+        resolved = service.resolve_session(raw_session)
+        if resolved is not None:
+            return resolved[0]
+    raw_key = request.headers.get("X-API-Key")
+    if raw_key:
+        key = get_api_key_store().get_by_key(raw_key)
+        if key is not None and key.is_active and not key.is_expired:
+            account = service.get_account(key.user_id)
+            if account is not None and account.is_active:
+                return account
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not authenticated")
+
+
+@router.get("/usage", response_model=UsageResponse)
+def usage(
+    account: Account = Depends(session_or_api_key_account),
+    enforcer: QuotaEnforcer = Depends(get_shared_quota_enforcer),
+) -> UsageResponse:
+    """Report the caller's in-window usage and effective quota limits.
+
+    Read-only (GET, nothing charged, no CSRF needed) and served for both
+    session and API-key callers; an API-key caller reads the owning account's
+    bucket. The snapshot comes from the same enforcer the quota middleware
+    charges, so the dashboard's numbers match enforcement exactly.
+    """
+    snap = enforcer.snapshot(account.id, account.tier)
+    return UsageResponse(
+        tier=account.tier,
+        window_seconds=snap.config.window_seconds,
+        window_start=snap.window_start.isoformat(),
+        window_end=snap.window_end.isoformat(),
+        requests_used=snap.request_count,
+        requests_limit=snap.config.max_requests,
+        compute_ms_used=snap.compute_ms,
+        compute_ms_limit=snap.config.max_compute_ms,
+    )
 
 
 # --------------------------------------------------------------------------- #

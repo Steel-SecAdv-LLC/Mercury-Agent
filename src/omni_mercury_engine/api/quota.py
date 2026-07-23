@@ -54,8 +54,10 @@ __all__ = [
     "QuotaDecision",
     "QuotaEnforcer",
     "QuotaOverrideStore",
+    "QuotaSnapshot",
     "SqliteQuotaOverrideStore",
     "build_quota_enforcer",
+    "get_shared_quota_enforcer",
 ]
 
 
@@ -116,6 +118,22 @@ class QuotaDecision:
     #: Ledger row backing an allowed :meth:`QuotaEnforcer.reserve`; pass to
     #: :meth:`QuotaEnforcer.commit` with the measured cost.
     event_id: int | None = None
+
+
+@dataclass(frozen=True)
+class QuotaSnapshot:
+    """An account's in-window usage next to its effective ceilings.
+
+    The read-only view behind ``GET /api/v1/auth/usage``: what the account has
+    spent inside the current rolling window and which config
+    (override > tier > default) those numbers are judged against.
+    """
+
+    config: QuotaConfig
+    request_count: int
+    compute_ms: float
+    window_start: datetime
+    window_end: datetime
 
 
 # --------------------------------------------------------------------------- #
@@ -278,6 +296,32 @@ class QuotaEnforcer:
             return override
         return self._tiers.get(tier.lower(), self._config)
 
+    def snapshot(self, account_id: str, tier: str = "free") -> QuotaSnapshot:
+        """Report an account's in-window usage against its effective config.
+
+        Purely read-only (nothing is charged or reserved) — the backing query
+        is the same windowed summary :meth:`check` decides on, so the numbers
+        a dashboard shows are exactly the numbers enforcement would judge.
+
+        Args:
+            account_id: The account to report on.
+            tier: The account's tier name (unknown names fall back to default).
+
+        Returns:
+            A :class:`QuotaSnapshot` with the usage and the resolved config.
+        """
+        config = self.config_for(account_id, tier)
+        window_end = self._clock()
+        window_start = window_end - timedelta(seconds=config.window_seconds)
+        summary = self._ledger.summary_since(account_id, window_start)
+        return QuotaSnapshot(
+            config=config,
+            request_count=summary.request_count,
+            compute_ms=summary.compute_ms,
+            window_start=window_start,
+            window_end=window_end,
+        )
+
     def check(self, account_id: str, tier: str = "free") -> QuotaDecision:
         """Decide (read-only) whether ``account_id`` may make another request.
 
@@ -412,3 +456,27 @@ def build_quota_enforcer() -> QuotaEnforcer:
         tiers=_tier_configs_from_env(default),
         overrides=overrides,
     )
+
+
+_shared_enforcer: QuotaEnforcer | None = None
+_shared_enforcer_lock = threading.Lock()
+
+
+def get_shared_quota_enforcer() -> QuotaEnforcer:
+    """Return the process-wide quota enforcer, building it lazily from the env.
+
+    The quota middleware (charging usage) and the usage endpoint (reporting
+    it) must observe the *same* ledger: with the durable SQLite backend any
+    two enforcers share the file anyway, but with the in-memory dev/test
+    backend two independently built enforcers would silently disagree.
+    Construction is lock-guarded (double-checked) like the other process-wide
+    singletons, and FastAPI callers use this function directly as a dependency
+    so tests can substitute an in-memory enforcer via
+    ``app.dependency_overrides``.
+    """
+    global _shared_enforcer
+    if _shared_enforcer is None:
+        with _shared_enforcer_lock:
+            if _shared_enforcer is None:
+                _shared_enforcer = build_quota_enforcer()
+    return _shared_enforcer

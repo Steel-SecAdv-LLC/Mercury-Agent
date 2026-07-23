@@ -72,13 +72,18 @@ class QuotaMiddleware(BaseHTTPMiddleware):
         self._prefixes = tuple(p.strip() for p in prefixes.split(",") if p.strip())
 
     def _get_enforcer(self) -> QuotaEnforcer:
-        """Build (once, lock-guarded) or return the quota enforcer."""
+        """Return the injected enforcer, else the process-wide shared one.
+
+        The shared singleton (rather than a private build) keeps the ledger
+        this middleware charges and the ledger ``GET /api/v1/auth/usage``
+        reports from being two different in-memory instances.
+        """
         if self._enforcer is None:
             with self._enforcer_lock:
                 if self._enforcer is None:
-                    from omni_mercury_engine.api.quota import build_quota_enforcer
+                    from omni_mercury_engine.api.quota import get_shared_quota_enforcer
 
-                    self._enforcer = build_quota_enforcer()
+                    self._enforcer = get_shared_quota_enforcer()
         return self._enforcer
 
     def _resolve_principal(self, request: Request) -> tuple[str, str]:
