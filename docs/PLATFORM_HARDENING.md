@@ -456,6 +456,13 @@ Enabling the platform on an **existing** deployment:
 | 18 | Email-change request throttle | Emailed a caller-supplied address unthrottled (outbound-email abuse) | `test_api_key_routes.py::TestEmailChangeThrottle` |
 | 19 | Operator-configurable audit retention + time-based prune | Rotation knobs were hardcoded; no time-based compliance retention | `test_audit_retention.py` |
 | 20 | TOTP at-rest key rotation tool | No way to rotate `MERCURY_DATA_ENC_KEY` without bricking 2FA | `test_reseal_totp_secrets.py` |
+| 21 | `GET /api/v1/auth/usage` + shared quota enforcer | Dashboard had nothing to read; two in-memory enforcers could disagree | `test_usage_endpoint.py` |
+| 22 | Browser account frontend (opt-in) | Auth emails linked to pages that did not exist | `test_frontend.py` (pages, E2E, off-mode, CSP hygiene) |
+| 23 | `mercury-agent platform` operator CLI | Tiers/overrides reachable only from Python or raw SQL | `test_platform_cli.py` |
+| 24 | Platform Prometheus counters | Auth/quota/mailer/maintenance paths were log-only | `test_platform_metrics.py` |
+| 25 | Throttle dispatched-action boot invariant | Allow-on-unknown was guarded by promise, not code | `test_hardening_polish.py` |
+| 26 | `MERCURY_QUOTA_FAIL_CLOSED` | Quota-store outage always admitted unmetered | `test_hardening_polish.py` |
+| 27 | Compose platform overlay + Caddy TLS edge | No durable volume, no env wiring, no TLS in the shipped compose | `test_compose_platform.py` |
 
 ## Acceptance checklist
 

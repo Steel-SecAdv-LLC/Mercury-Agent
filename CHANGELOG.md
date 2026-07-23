@@ -27,6 +27,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Platform completion: account frontend, usage endpoint, operator CLI, platform metrics, deployment profile
+
+The launch-facing half of the platform work (PR #350, continued): everything a
+public deployment still lacked on top of the hardened backend below. The
+additive/opt-in contract is unchanged — with no env vars set, behaviour is
+byte-identical (the frontend is off by default and `/` keeps returning 404).
+
+**Added**
+
+- **`api/frontend.py` + `api/frontend_assets/`** — the opt-in browser account
+  UI (`MERCURY_FRONTEND_ENABLED=true`): landing, register, login with an
+  inline second step on the API's stable `two_factor_required` code, the three
+  pages the auth emails already link to (`/verify-email`, `/reset-password`,
+  `/confirm-email-change`), and the dashboard — profile, API keys with the
+  one-time raw-key reveal, usage vs. effective limits, password/email change,
+  the full 2FA lifecycle (client-side QR via the vendored MIT
+  `qrcode-generator`; one-time recovery-code display), JSON data export, and
+  typed-confirmation deletion. Vanilla HTML/CSS/JS with `fetch`; the
+  `mercury_csrf` cookie is echoed as `X-CSRF-Token` on every state-changing
+  call; no build toolchain, no CDN, no inline handlers (CSP-hygiene test).
+- **`GET /api/v1/auth/usage`** — the caller's in-window usage next to its
+  effective limits (override > tier > default) and tier name, for browser
+  sessions and `X-API-Key` callers alike (a key reads its owning account's
+  bucket). Backed by the new read-only `QuotaEnforcer.snapshot()` and a
+  process-wide shared enforcer, so the numbers shown are exactly the numbers
+  the quota middleware enforces.
+- **`mercury-agent platform …`** — the operator CLI over the shared SQLite
+  store and audit dir: `account show|list|set-tier|disable|enable` (disable
+  also revokes live sessions), `quota override set|clear|show`,
+  `usage report [--account|--top N]`, and `audit verify` (wraps
+  `SecureAuditLogger.verify_log_integrity`; exit 1 on a broken chain).
+  Refuses clearly when `MERCURY_KEYSTORE_PATH` / `MERCURY_AUDIT_LOG_DIR` are
+  unset; never prints secret material.
+- **`api/platform_metrics.py`** — lazily-registered Prometheus counters for
+  the platform paths, served by the existing `/metrics` target:
+  registrations, logins (`ok`/`fail`/`2fa_challenged`), throttle denials by
+  action, quota denials by ceiling, mailer sent/failed, maintenance sweep
+  results (per-step pruned counts, TOTP sealing migrations, audit segment
+  prunes, step errors). Import-guarded — the core lane needs no prometheus —
+  and label cardinality is bounded to code-defined sets.
+- **`docker-compose.platform.yml` + `deploy/Caddyfile`** — the single-host
+  deployment profile as a compose overlay: a named volume at
+  `/var/lib/mercury` for the SQLite/audit state, host-env pass-through with
+  safe defaults for every documented `MERCURY_*` variable,
+  `MERCURY_TRUSTED_PROXY_HOPS=1`, and a Caddy TLS edge (auto-TLS for
+  `app.mercuryagent.global`, active `/health` checks). Runbook in
+  `docs/PLATFORM_HARDENING.md` → Deployment; a structural test keeps the
+  overlay's env vars in lockstep with the configuration reference.
+
+**Changed**
+
+- **Throttle boot invariant shipped** — `routes/accounts.py` declares
+  `DISPATCHED_THROTTLE_ACTIONS`; a test locks it to `DEFAULT_ACTION_RULES`
+  in both directions and the first limiter build cross-checks it at runtime
+  (error log + `mercury_platform_throttle_rule_mismatch_total`, never a
+  crash). Request-time `check()` stays allow-on-unknown.
+- **`MERCURY_QUOTA_FAIL_CLOSED`** (default `false`) — a failure of the quota
+  infrastructure itself can now deny metered routes with 503 instead of
+  admitting unmetered, for operators who rate accounting above availability.
+- **Platform contact default** moved from the personal gmail address to
+  `contact@mercuryagent.global` (`MERCURY_CONTACT_EMAIL` still overrides).
+- **Agent runtime requirements documented** — `[ml]` is a hard requirement
+  for the agentic stack (torch imports at module load), and the σ_Immutable
+  gate refuses with `check="gosnn_unavailable"` when the trained network is
+  unavailable; a new orchestrator-boundary guard test pins that refusal.
+
 ### Free-service platform hardening: auth abuse controls, at-rest 2FA, quotas, lifecycle, sessions
 
 Hardening pass over the account/persistence/auth/metering platform (PR #350) so
