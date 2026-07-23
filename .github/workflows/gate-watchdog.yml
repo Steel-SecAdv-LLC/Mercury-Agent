@@ -67,14 +67,15 @@ jobs:
               --workflow "${wf_name}" --runs runs.json)"
             echo "${verdict}"
             alert="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["alert"])')"
+            title="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["title"])')"
+            body="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["body"])')"
+            # The open tracking issue for this gate, if one was filed earlier.
+            existing="$(gh issue list --state open --label ci-watchdog \
+              --search "${title} in:title" --json number --jq '.[0].number' 2>/dev/null || true)"
             if [ "${alert}" = "True" ]; then
               any_alert=1
-              title="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["title"])')"
-              body="$(printf '%s' "${verdict}" | python -c 'import json,sys; print(json.load(sys.stdin)["body"])')"
               # Idempotent: update the existing open watchdog issue for this
               # workflow if present, else open a new one.
-              existing="$(gh issue list --state open --label ci-watchdog \
-                --search "${title} in:title" --json number --jq '.[0].number' 2>/dev/null || true)"
               if [ -n "${existing}" ]; then
                 echo "updating existing issue #${existing}"
                 printf '%s' "${body}" | gh issue comment "${existing}" --body-file -
@@ -86,6 +87,14 @@ jobs:
                 printf '%s' "${body}" | gh issue create --title "${title}" \
                   --label ci-watchdog --body-file -
               fi
+            elif [ -n "${existing}" ]; then
+              # The gate recovered: close the stale alert with the all-clear
+              # body so the issue records why it closed. Without this, every
+              # transient alert lingers as an open issue until a human
+              # notices (the exact shape of #351/#352).
+              echo "gate healthy again; closing issue #${existing}"
+              printf '%s' "${body}" | gh issue comment "${existing}" --body-file -
+              gh issue close "${existing}" --reason completed
             fi
             echo "::endgroup::"
           done <<< "${WATCHED}"
