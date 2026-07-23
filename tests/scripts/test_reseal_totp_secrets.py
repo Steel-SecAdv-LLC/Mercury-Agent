@@ -145,11 +145,11 @@ class TestResealCore:
         assert untouched is not None and untouched.totp_secret == original
 
     def test_accounts_without_secret_are_ignored(self) -> None:
-        """Accounts with no TOTP secret never count toward with_secret."""
+        """Accounts with no TOTP secret never count toward with_totp."""
         store = InMemoryIdentityStore()
         store.create_account(_account("n1", None))
         report = reseal.reseal_totp_secrets(store, new_sealer=_new(), old_sealer=_old())
-        assert report.total_accounts == 1 and report.with_secret == 0
+        assert report.total_accounts == 1 and report.with_totp == 0
 
 
 class TestDurableRoundTrip:

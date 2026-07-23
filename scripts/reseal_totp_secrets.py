@@ -68,7 +68,7 @@ class ResealReport:
     """Outcome of a re-seal pass."""
 
     total_accounts: int = 0
-    with_secret: int = 0
+    with_totp: int = 0
     resealed: int = 0
     sealed_plaintext: int = 0
     already_current: int = 0
@@ -111,7 +111,7 @@ def reseal_totp_secrets(
         secret = account.totp_secret
         if not secret:
             continue
-        report.with_secret += 1
+        report.with_totp += 1
         aad = account.id
 
         if SecretSealer.is_sealed(secret):
@@ -218,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
 
     verb = "would reseal" if args.dry_run else "resealed"
     print(f"accounts scanned:        {report.total_accounts}")
-    print(f"accounts with a secret:  {report.with_secret}")
+    print(f"accounts with 2FA:       {report.with_totp}")
     print(f"{verb} (old→new key):   {report.resealed}")
     print(f"{verb} (plaintext→new): {report.sealed_plaintext}")
     print(f"already under new key:   {report.already_current}")
