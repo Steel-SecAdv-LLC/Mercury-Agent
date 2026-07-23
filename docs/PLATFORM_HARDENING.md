@@ -165,17 +165,42 @@ with `Retry-After` and usage headers.
 
 **Auth-event audit.** `AuthAuditor` records login success/failure,
 registration, password change/reset, 2FA enable/disable, recovery-code use,
-email change, and deletion — to `SecureAuditLogger` (tamper-evident,
-hash-chained) when `MERCURY_AUDIT_LOG_DIR` is set, else structured logging.
-Events carry the account id, never the email. The sink can never raise into the
-request path.
+email change, deletion, and API-key create/revoke — to `SecureAuditLogger`
+(tamper-evident, hash-chained) when `MERCURY_AUDIT_LOG_DIR` is set, else
+structured logging. Events carry the account id, never the email. The sink can
+never raise into the request path. Retention is operator-configurable: the
+logger rotates the active file at `MERCURY_AUDIT_ROTATE_SIZE_MB` (default 100)
+and keeps `MERCURY_AUDIT_MAX_FILES` rotated segments (default 10); setting
+`MERCURY_AUDIT_RETENTION_DAYS` additionally makes the maintenance sweep delete
+whole rotated segments (and their `.sha256` sidecars) older than that horizon —
+never the active file or individual lines, so every retained segment's hash
+chain stays independently verifiable.
 
 **Account lifecycle + CSRF.** New authenticated endpoints: change-password
 (re-authenticated, rotates all sessions), change-email (two-step,
 re-verifies the new address), account deletion (re-authenticated, hard delete),
 and data export (no secrets). Every state-changing authenticated POST requires
 a matching `X-CSRF-Token` (double-submit against the session-bound token),
-toggleable with `MERCURY_CSRF_PROTECTION`.
+toggleable with `MERCURY_CSRF_PROTECTION`. The change-email *request* is
+additionally throttled per IP and per acting account
+(`MERCURY_AUTH_RATE_EMAIL_CHANGE_IP` / `_ACCOUNT`) because it emails a
+confirmation link to a caller-supplied address — an outbound-email abuse vector
+if left unbounded.
+
+**Account-scoped API keys.** Self-service issuance links keys to accounts:
+`POST /api/v1/auth/api-keys` mints a key owned by the calling account (raw key
+returned exactly once; only its hash is stored), `GET /api/v1/auth/api-keys`
+lists the caller's keys (metadata only), and `DELETE
+/api/v1/auth/api-keys/{key_id}` revokes one (ownership-enforced — another
+account's key id 404s). Issuance requires a verified account, is CSRF-protected,
+enforces a per-account active-key cap (`MERCURY_MAX_API_KEYS_PER_ACCOUNT`,
+default 10), and validates requested permissions against a self-service
+whitelist (`read`, `detect`, `export` — never `write`/`delete`/`admin`, so a
+user cannot self-grant privileges it lacks). Because a key carries its owner's
+account id, `QuotaMiddleware` now charges API-key traffic at the owning
+**account's tier** (not a flat `free`), and a user's session and API key share
+one per-account quota bucket. Issuance and revocation are recorded on the auth
+audit trail (`api_key_created` / `api_key_revoked`).
 
 ### P2 — Quality / optimization
 
@@ -231,8 +256,10 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
 | `MERCURY_CONTACT_EMAIL` | `steel.sa.llc@gmail.com` | `List-Unsubscribe` contact |
 | `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key for TOTP sealing (`python scripts/generate_secret_key.py`) |
+| `MERCURY_DATA_ENC_KEY_OLD` | *(unset)* | Retiring at-rest key, read by `scripts/reseal_totp_secrets.py` during key rotation |
 | `AMA_MASTER_SEED` | *(unset)* | Fleet HD seed; TOTP sealing key derived via HKDF when set |
-| `MERCURY_AUTH_RATE_<ACTION>` | *(built-in)* | Per-action limit `"<max>/<seconds>"` (LOGIN_IP, LOGIN_ACCOUNT, REGISTER_IP, RESET_IP, RESET_ACCOUNT, RESEND_IP, RESEND_ACCOUNT) |
+| `MERCURY_AUTH_RATE_<ACTION>` | *(built-in)* | Per-action limit `"<max>/<seconds>"` (LOGIN_IP, LOGIN_ACCOUNT, REGISTER_IP, RESET_IP, RESET_ACCOUNT, RESEND_IP, RESEND_ACCOUNT, EMAIL_CHANGE_IP, EMAIL_CHANGE_ACCOUNT) |
+| `MERCURY_MAX_API_KEYS_PER_ACCOUNT` | `10` | Cap on active API keys per account (issuance 409s at the cap) |
 | `MERCURY_SCRYPT_N/R/P` | `32768/8/3` | scrypt cost parameters |
 | `MERCURY_SESSION_TTL_SECONDS` | `1209600` (14 d) | Absolute session lifetime (remember-me) |
 | `MERCURY_SESSION_TTL_SHORT_SECONDS` | `86400` (1 d) | Absolute lifetime without remember-me |
@@ -246,6 +273,9 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_MAINTENANCE_INTERVAL_SECONDS` | `3600` | Sweep interval (`0` disables the periodic loop) |
 | `MERCURY_USAGE_RETENTION_DAYS` | `30` | Usage-ledger retention (must exceed the largest quota window) |
 | `MERCURY_AUDIT_LOG_DIR` | *(unset → logging)* | Tamper-evident audit trail directory |
+| `MERCURY_AUDIT_ROTATE_SIZE_MB` | `100` | Rotate the active audit log at this size |
+| `MERCURY_AUDIT_MAX_FILES` | `10` | Rotated audit segments to retain (count-based cap) |
+| `MERCURY_AUDIT_RETENTION_DAYS` | *(unset → count-based only)* | Also delete rotated segments older than this many days (sweep-driven) |
 
 ## Deployment
 
@@ -294,6 +324,20 @@ Enabling the platform on an **existing** deployment:
    not reconstructed. Point `MERCURY_AUDIT_LOG_DIR` at a fresh directory.
 5. **Rehash on login.** Existing PBKDF2 password hashes upgrade to scrypt
    automatically on each user's next successful login — no bulk migration.
+6. **Rotating the at-rest key.** To change `MERCURY_DATA_ENC_KEY` without
+   bricking 2FA (a sealed secret only opens under the key it was sealed with),
+   run the re-seal tool with the retiring key alongside the new one:
+   ```bash
+   export MERCURY_KEYSTORE_PATH=/var/lib/mercury/mercury.db
+   export MERCURY_DATA_ENC_KEY=<new key>        # seal under this
+   export MERCURY_DATA_ENC_KEY_OLD=<old key>    # unseal with this
+   python scripts/reseal_totp_secrets.py --dry-run   # preview
+   python scripts/reseal_totp_secrets.py             # apply
+   ```
+   It is idempotent (already-migrated rows are skipped), never overwrites a
+   value it cannot open under either key, and exits non-zero if any such row
+   remains — so a bad old key is caught, not silently lost. Deploy the new
+   `MERCURY_DATA_ENC_KEY` only after the tool reports zero failures.
 
 ## Change log
 
@@ -315,6 +359,10 @@ Enabling the platform on an **existing** deployment:
 | 14 | Session idle/absolute/rotation/remember-me | Single fixed TTL; no rotation on privilege change | `test_account_lifecycle.py::TestSessionHardening` |
 | 15 | HTML emails + List-Unsubscribe | Deliverability + UX | `test_maintenance_and_mailer.py::test_emails_carry_html_and_unsubscribe` |
 | 16 | CI watchdog superseded-cancel logic | False alarms on every busy PR | `test_ci_gate_watchdog.py` |
+| 17 | Account-scoped API-key issuance + owner-tier quota | Keys weren't linked to accounts; key traffic was flat-`free` tier | `test_api_key_routes.py` |
+| 18 | Email-change request throttle | Emailed a caller-supplied address unthrottled (outbound-email abuse) | `test_api_key_routes.py::TestEmailChangeThrottle` |
+| 19 | Operator-configurable audit retention + time-based prune | Rotation knobs were hardcoded; no time-based compliance retention | `test_audit_retention.py` |
+| 20 | TOTP at-rest key rotation tool | No way to rotate `MERCURY_DATA_ENC_KEY` without bricking 2FA | `test_reseal_totp_secrets.py` |
 
 ## Acceptance checklist
 
@@ -349,6 +397,12 @@ native AMA backend on `LD_LIBRARY_PATH` (see `.github/actions/build-ama-cryptogr
       `python scripts/calibrate_password_kdf.py`
 - [x] **P2 session hardening.**
       `pytest tests/api/test_account_lifecycle.py::TestSessionHardening`
+- [x] **Account-scoped API keys + owner-tier quota + email-change throttle.**
+      `pytest tests/api/test_api_key_routes.py`
+- [x] **Configurable audit retention + segment prune.**
+      `pytest tests/api/test_audit_retention.py`
+- [x] **At-rest key rotation (TOTP re-seal).**
+      `pytest tests/scripts/test_reseal_totp_secrets.py`
 - [x] **Main-branch CI watchdog.**
       `pytest tests/scripts/test_ci_gate_watchdog.py`
 - [x] **No regressions.**
@@ -370,6 +424,9 @@ native AMA backend on `LD_LIBRARY_PATH` (see `.github/actions/build-ama-cryptogr
 | Quotas | `test_quota_enforcement.py` | quota middleware | 40-thread reserve overrun race |
 | Sessions | `test_account_lifecycle.py` | cookie flow | Idle vs absolute vs activity |
 | Lifecycle / CSRF | `test_account_lifecycle.py` | full HTTP flows | Missing/forged CSRF; email-change race |
+| API keys | `test_api_key_routes.py` | issue/list/revoke HTTP flows | Cross-account revoke 404; cap 409; permission-whitelist escalation; owner-tier quota; email-change throttle |
+| Audit retention | `test_audit_retention.py` | `build_auth_auditor` env config | Time-based segment prune preserves active chain integrity |
+| At-rest key rotation | `test_reseal_totp_secrets.py` | SQLite round-trip + CLI | No-old-key/unopenable → reported, never overwritten; idempotent re-run |
 | Singletons | `test_singleton_race.py` | — | 24-thread first-build stampede |
 | Maintenance | `test_maintenance_and_mailer.py` | — | Failure isolation, idempotent migration |
 | CI watchdog | `test_ci_gate_watchdog.py` | — | Superseded vs pathological cancellation |

@@ -355,6 +355,17 @@ class APIKeyStore:
         """Get API key by ID."""
         return self._keys.get(key_id)
 
+    def list_by_user(self, user_id: str) -> list[APIKey]:
+        """Return every key owned by ``user_id``, newest first.
+
+        Mirrors :meth:`SqliteKeyStore.list_by_user`: metadata only (the raw
+        key is never retained), ordered newest-first so the two backends are
+        interchangeable behind the :class:`KeyStore` contract.
+        """
+        owned = [key for key in self._keys.values() if key.user_id == user_id]
+        owned.sort(key=lambda k: k.created_at, reverse=True)
+        return owned
+
     def revoke(self, key_id: str) -> bool:
         """Revoke an API key."""
         if key_id in self._keys:

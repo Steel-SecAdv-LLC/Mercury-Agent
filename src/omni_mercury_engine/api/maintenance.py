@@ -88,6 +88,11 @@ def run_maintenance_sweep(now: datetime | None = None) -> dict[str, int]:
     Returns:
         Per-step counts (``-1`` marks a step that errored; see logs).
     """
+    from omni_mercury_engine.api.auth_audit import (
+        AUDIT_DIR_ENV,
+        audit_retention_days,
+        prune_rotated_audit_segments,
+    )
     from omni_mercury_engine.api.identity_store import (
         build_identity_store,
         identity_store_is_durable,
@@ -133,6 +138,20 @@ def run_maintenance_sweep(now: datetime | None = None) -> dict[str, int]:
             "rate_counters",
             results,
             lambda: counter_store.prune_stale(int(time.time()) - 2 * 86400),
+        )
+
+    # Time-based audit retention (compliance): delete whole rotated segments
+    # older than MERCURY_AUDIT_RETENTION_DAYS. Only runs when both the audit dir
+    # and a positive retention are configured; the logger's own size/count
+    # rotation still bounds growth otherwise. Never touches the active file.
+    audit_dir = os.getenv(AUDIT_DIR_ENV, "").strip()
+    retention_days = audit_retention_days()
+    if audit_dir and retention_days > 0:
+        cutoff_epoch = (moment - timedelta(days=retention_days)).timestamp()
+        _isolated(
+            "audit_segments",
+            results,
+            lambda: prune_rotated_audit_segments(audit_dir, cutoff_epoch),
         )
 
     logger.info("maintenance sweep completed: %s", results)

@@ -305,7 +305,8 @@ class ActionRule:
 
 #: Default per-action rules. Values chosen against the attack each blocks:
 #: online password guessing (login), signup flooding (register), reset-email
-#: bombing (reset), and verification-email bombing (resend). All are
+#: bombing (reset), verification-email bombing (resend), and change-email
+#: bombing toward an attacker-supplied address (email_change). All are
 #: overridable per deployment via ``MERCURY_AUTH_RATE_<ACTION>``.
 DEFAULT_ACTION_RULES: dict[str, ActionRule] = {
     "login_ip": ActionRule(max_attempts=10, window_seconds=300),
@@ -315,6 +316,11 @@ DEFAULT_ACTION_RULES: dict[str, ActionRule] = {
     "reset_account": ActionRule(max_attempts=3, window_seconds=3600),
     "resend_ip": ActionRule(max_attempts=5, window_seconds=3600),
     "resend_account": ActionRule(max_attempts=3, window_seconds=3600),
+    # Email change sends a confirmation link to a *new*, caller-chosen address;
+    # without a ceiling a logged-in account is an open relay toward arbitrary
+    # mailboxes. Keyed per IP and per acting account (mirrors the reset limits).
+    "email_change_ip": ActionRule(max_attempts=5, window_seconds=3600),
+    "email_change_account": ActionRule(max_attempts=3, window_seconds=3600),
 }
 
 

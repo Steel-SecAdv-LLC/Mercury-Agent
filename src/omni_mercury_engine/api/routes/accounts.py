@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+from omni_mercury_engine.api.auth import Permission, get_api_key_store
 from omni_mercury_engine.api.auth_service import (
     AccountDisabledError,
     AccountNotVerifiedError,
@@ -60,6 +61,7 @@ from omni_mercury_engine.api.rate_limit_store import (
 )
 
 if TYPE_CHECKING:
+    from omni_mercury_engine.api.auth import APIKey
     from omni_mercury_engine.api.identity_store import Account, Session
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Accounts"])
@@ -70,6 +72,19 @@ SESSION_COOKIE = "mercury_session"
 CSRF_COOKIE = "mercury_csrf"
 #: Header carrying the CSRF token on state-changing requests.
 CSRF_HEADER = "X-CSRF-Token"
+
+#: Permissions a self-service account may grant to its own API keys. The
+#: privileged verbs (``WRITE`` / ``DELETE`` / ``ADMIN``) are deliberately
+#: excluded: a public free-service key must never be able to mutate or
+#: administer the platform, only read and run detections/exports.
+_SELF_SERVICE_KEY_PERMISSIONS: frozenset[Permission] = frozenset(
+    {Permission.READ, Permission.DETECT, Permission.EXPORT}
+)
+#: Default permission set when a create request names none.
+_DEFAULT_KEY_PERMISSIONS: frozenset[Permission] = frozenset({Permission.READ, Permission.DETECT})
+#: Fallback per-account active-key cap (override with
+#: ``MERCURY_MAX_API_KEYS_PER_ACCOUNT``).
+_DEFAULT_MAX_API_KEYS_PER_ACCOUNT = 10
 
 _service: AuthService | None = None
 _service_lock = threading.Lock()
@@ -313,6 +328,40 @@ class RecoveryCodesResponse(BaseModel):
     message: str
 
 
+class CreateApiKeyRequest(BaseModel):
+    """Payload to mint a new API key for the current account."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    #: Optional lifetime in days; ``None`` mints a non-expiring key.
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+    #: Optional permission names; ``None`` uses the safe default set. Every
+    #: name must fall inside the self-service whitelist or the request is
+    #: rejected 400 (a user cannot grant its own key privileges it lacks).
+    permissions: list[str] | None = Field(default=None, max_length=16)
+
+
+class ApiKeyResponse(BaseModel):
+    """Public view of a stored API key (never the raw secret or its hash)."""
+
+    key_id: str
+    name: str
+    permissions: list[str]
+    created_at: str
+    expires_at: str | None
+    last_used_at: str | None
+    is_active: bool
+
+
+class ApiKeyCreatedResponse(BaseModel):
+    """Creation result: the raw key (shown once) plus its stored metadata."""
+
+    #: The raw API key. Returned exactly once — only its hash is persisted, so
+    #: it can never be retrieved again.
+    api_key: str
+    key: ApiKeyResponse
+    message: str
+
+
 def _account_view(account: Account) -> AccountResponse:
     """Project an :class:`Account` to its public response shape."""
     return AccountResponse(
@@ -322,6 +371,69 @@ def _account_view(account: Account) -> AccountResponse:
         totp_enabled=account.totp_enabled,
         tier=account.tier,
     )
+
+
+def _api_key_view(key: APIKey) -> ApiKeyResponse:
+    """Project an :class:`APIKey` to its public response shape (no secret)."""
+    return ApiKeyResponse(
+        key_id=key.key_id,
+        name=key.name,
+        permissions=sorted(p.value for p in key.permissions),
+        created_at=key.created_at.isoformat(),
+        expires_at=key.expires_at.isoformat() if key.expires_at is not None else None,
+        last_used_at=key.last_used_at.isoformat() if key.last_used_at is not None else None,
+        is_active=key.is_active,
+    )
+
+
+def _resolve_key_permissions(names: list[str] | None) -> set[Permission]:
+    """Validate requested permission names against the self-service whitelist.
+
+    Args:
+        names: The requested permission values, or ``None`` for the default set.
+
+    Returns:
+        The resolved permission set.
+
+    Raises:
+        HTTPException: 400 if a name is unknown or outside the whitelist — a
+            self-service user must not be able to grant its own key a
+            privilege (``WRITE`` / ``DELETE`` / ``ADMIN``) it does not hold.
+    """
+    if not names:
+        return set(_DEFAULT_KEY_PERMISSIONS)
+    resolved: set[Permission] = set()
+    for name in names:
+        try:
+            permission = Permission(name.strip().lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": f"unknown permission: {name!r}"},
+            ) from None
+        if permission not in _SELF_SERVICE_KEY_PERMISSIONS:
+            allowed = ", ".join(sorted(p.value for p in _SELF_SERVICE_KEY_PERMISSIONS))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": (
+                        f"permission not allowed for self-service keys: "
+                        f"{permission.value} (allowed: {allowed})"
+                    )
+                },
+            )
+        resolved.add(permission)
+    return resolved
+
+
+def _max_api_keys_per_account() -> int:
+    """The per-account active-key cap (``MERCURY_MAX_API_KEYS_PER_ACCOUNT``)."""
+    raw = os.getenv("MERCURY_MAX_API_KEYS_PER_ACCOUNT", "").strip()
+    try:
+        value = int(raw) if raw else _DEFAULT_MAX_API_KEYS_PER_ACCOUNT
+    except ValueError:
+        return _DEFAULT_MAX_API_KEYS_PER_ACCOUNT
+    return value if value > 0 else _DEFAULT_MAX_API_KEYS_PER_ACCOUNT
 
 
 def current_session(
@@ -569,14 +681,25 @@ def request_email_change(
     session_pair: tuple[Account, Session] = Depends(csrf_protected),
     service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
-    """Start an email change; a confirmation link goes to the new address."""
+    """Start an email change; a confirmation link goes to the new address.
+
+    Throttled per IP and per acting account: the route emails a
+    caller-supplied address, so without a ceiling a logged-in account could be
+    used to bomb arbitrary mailboxes with confirmation links.
+    """
     account, _session = session_pair
+    ip = _client_ip(request)
+    _enforce_action_limits(
+        request,
+        ("email_change_ip", ip),
+        ("email_change_account", account.id),
+    )
     try:
         service.request_email_change(
             account.id,
             payload.new_email,
             payload.current_password,
-            client_ip=_client_ip(request),
+            client_ip=ip,
         )
     except AuthError as exc:
         raise _http_from_auth_error(exc) from exc
@@ -688,3 +811,106 @@ def regenerate_recovery_codes(
         recovery_codes=codes,
         message="New recovery codes issued; the old ones no longer work.",
     )
+
+
+# --------------------------------------------------------------------------- #
+# API-key management (account-scoped, one-time reveal)
+# --------------------------------------------------------------------------- #
+@router.post(
+    "/api-keys",
+    response_model=ApiKeyCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_api_key(
+    payload: CreateApiKeyRequest,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> ApiKeyCreatedResponse:
+    """Mint a new API key for the current account (raw key shown once).
+
+    The key is owned by the account (``user_id == account.id``), so it inherits
+    the account's quota tier and appears in :func:`list_api_keys`. Only a
+    verified account may issue keys, permissions are whitelist-validated, and a
+    per-account active-key cap bounds blast radius. The raw key is returned in
+    this response body only — never stored, never retrievable again.
+    """
+    account, _session = session_pair
+    if not account.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "verify your email before issuing API keys"},
+        )
+    permissions = _resolve_key_permissions(payload.permissions)
+    store = get_api_key_store()
+    active = [key for key in store.list_by_user(account.id) if key.is_active and not key.is_expired]
+    if len(active) >= _max_api_keys_per_account():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": (
+                    "active API-key limit reached; revoke an existing key before "
+                    "creating another"
+                )
+            },
+        )
+    raw_key, key = store.create_key(
+        name=payload.name,
+        user_id=account.id,
+        permissions=permissions,
+        expires_in_days=payload.expires_in_days,
+    )
+    service.record_event(
+        "api_key_created",
+        outcome="success",
+        account_id=account.id,
+        client_ip=_client_ip(request),
+        details={"key_id": key.key_id},
+    )
+    return ApiKeyCreatedResponse(
+        api_key=raw_key,
+        key=_api_key_view(key),
+        message="Store this key now — it is shown only once and cannot be retrieved again.",
+    )
+
+
+@router.get("/api-keys", response_model=list[ApiKeyResponse])
+def list_api_keys(
+    account: Account = Depends(current_account),
+) -> list[ApiKeyResponse]:
+    """List the current account's API keys (metadata only; newest first)."""
+    store = get_api_key_store()
+    return [_api_key_view(key) for key in store.list_by_user(account.id)]
+
+
+@router.delete("/api-keys/{key_id}", response_model=MessageResponse)
+def revoke_api_key(
+    key_id: str,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    """Revoke one of the current account's API keys.
+
+    Ownership is enforced by returning 404 for a key that does not exist *or*
+    belongs to another account — a caller learns nothing about keys it does
+    not own. Revocation is idempotent (a second call still 200s if the key is
+    still the caller's).
+    """
+    account, _session = session_pair
+    store = get_api_key_store()
+    key = store.get_by_id(key_id)
+    if key is None or key.user_id != account.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "API key not found"},
+        )
+    store.revoke(key_id)
+    service.record_event(
+        "api_key_revoked",
+        outcome="success",
+        account_id=account.id,
+        client_ip=_client_ip(request),
+        details={"key_id": key_id},
+    )
+    return MessageResponse(message="API key revoked.")

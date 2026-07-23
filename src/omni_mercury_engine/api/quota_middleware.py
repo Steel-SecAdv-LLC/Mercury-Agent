@@ -108,7 +108,19 @@ class QuotaMiddleware(BaseHTTPMiddleware):
             except Exception:  # pragma: no cover - principal resolution is best-effort
                 key_obj = None
             if key_obj is not None and key_obj.is_active and not key_obj.is_expired:
-                return f"key:{key_obj.user_id}", "free"
+                # Charge the key's usage to its owning account at that account's
+                # tier: a paid tier's programmatic traffic then gets the paid
+                # ceiling, and a user's session and API key share one per-account
+                # bucket rather than two independent ones. Fall back to the key's
+                # user_id under the free tier if the account can't be resolved
+                # (e.g. deleted between key lookup and this call).
+                try:
+                    account = get_auth_service().get_account(key_obj.user_id)
+                except Exception:  # pragma: no cover - best-effort resolution
+                    account = None
+                if account is not None:
+                    return account.id, account.tier
+                return key_obj.user_id, "free"
 
         ip = resolve_client_ip(
             request.client.host if request.client else None,

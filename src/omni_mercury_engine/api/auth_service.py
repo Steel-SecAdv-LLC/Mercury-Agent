@@ -632,6 +632,51 @@ class AuthService:
         resolved = self.resolve_session(raw_session)
         return resolved[0] if resolved else None
 
+    def get_account(self, account_id: str) -> Account | None:
+        """Return the account with ``account_id``, or ``None``.
+
+        A read-only accessor over the identity store for collaborators that
+        hold an account id but not a session — e.g. the quota middleware
+        resolving an API key's owning account to charge usage at that
+        account's tier. Never raises (unlike the internal
+        :meth:`_require_account`), so a best-effort caller can branch on
+        ``None`` without a try/except.
+        """
+        return self._store.get_account_by_id(account_id)
+
+    def record_event(
+        self,
+        action: str,
+        *,
+        outcome: str,
+        account_id: str | None = None,
+        client_ip: str | None = None,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        """Record a security-relevant account event on the shared audit trail.
+
+        Exposes the service's single :class:`AuthAuditor` to route-layer
+        collaborators that manage account-scoped credentials outside the core
+        flows — notably API-key issuance and revocation — so those events land
+        on the *same* tamper-evident trail as login/password/2FA events rather
+        than a second, independent sink. Never raises (the auditor swallows
+        sink failures by contract).
+
+        Args:
+            action: Stable event name (e.g. ``"api_key_created"``).
+            outcome: ``"success"`` or ``"failure"``.
+            account_id: The acted-on account.
+            client_ip: Trusted-proxy-resolved caller address, when known.
+            details: Small, non-PII extras (e.g. the affected ``key_id``).
+        """
+        self._auditor.record(
+            action,
+            outcome=outcome,
+            account_id=account_id,
+            client_ip=client_ip,
+            details=details,
+        )
+
     def verify_csrf(self, session: Session, csrf_token: str | None) -> bool:
         """Check a submitted CSRF token against the session's stored hash."""
         if not csrf_token or not session.csrf_hash:

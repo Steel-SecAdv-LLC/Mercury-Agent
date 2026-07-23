@@ -81,6 +81,10 @@ class KeyStore(Protocol):
         """Return the stored key with ``key_id``, or ``None``."""
         ...
 
+    def list_by_user(self, user_id: str) -> list[APIKey]:
+        """Return every key owned by ``user_id`` (newest first), sans raw key."""
+        ...
+
     def revoke(self, key_id: str) -> bool:
         """Deactivate ``key_id``; return whether a row was affected."""
         ...
@@ -259,6 +263,21 @@ class SqliteKeyStore:
                 "SELECT * FROM api_keys WHERE key_id = ?", (key_id,)
             ).fetchone()
         return self._row_to_key(row) if row is not None else None
+
+    def list_by_user(self, user_id: str) -> list[APIKey]:
+        """Return every key owned by ``user_id``, newest first.
+
+        Uses the ``idx_api_keys_user_id`` index; each row is reconstructed
+        through :meth:`_row_to_key`, so the caller sees the same metadata a
+        ``get_by_id`` would return (never the raw key, which is unrecoverable
+        by construction).
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            ).fetchall()
+        return [self._row_to_key(row) for row in rows]
 
     def revoke(self, key_id: str) -> bool:
         """Deactivate ``key_id``; return whether a row was affected."""
