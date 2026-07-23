@@ -361,8 +361,9 @@ What the overlay adds, and why:
   `X-Forwarded-For` hop Caddy appends.
 
 DNS, the Wix mailbox, and Hetzner host provisioning are the human-owned
-half; they are documented separately in `docs/DOMAIN_EMAIL_HOSTING_SETUP.md`
-(PR #343) — the code side only ever reads the environment variables above.
+half; they are documented separately in
+[`docs/DOMAIN_EMAIL_HOSTING_SETUP.md`](DOMAIN_EMAIL_HOSTING_SETUP.md) — the
+code side only ever reads the environment variables above.
 
 ## Agent runtime requirements
 

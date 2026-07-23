@@ -4,18 +4,23 @@
 Google Workspace email, and a Hetzner server so Mercury Agent has a public
 website, working business email, and a place to actually run the application.
 
-Last updated: 2026-07-17.
+Last updated: 2026-07-23 (DKIM/DMARC verified live; deployment half handed
+off to the platform runbook).
 
-> This is an **infrastructure / operations** guide (domains, DNS, email, VPS).
-> For deploying the application itself, this guide hands off to
-> [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) and [`docs/INSTALLATION.md`](INSTALLATION.md).
+> This is an **infrastructure / operations** guide for the Wix/Google/DNS half
+> (domains, DNS, email, VPS provisioning). For deploying the application
+> itself, the canonical runbook is
+> [`docs/PLATFORM_HARDENING.md`](PLATFORM_HARDENING.md) → **Deployment**
+> (the `docker-compose.platform.yml` overlay + `deploy/Caddyfile`); general
+> background lives in [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) and
+> [`docs/INSTALLATION.md`](INSTALLATION.md).
 
 ---
 
 ## 1. The big picture — what each vendor is for
 
 Mercury Agent is a large **neuro-symbolic AI anomaly-detection engine**
-(~391k LOC of Python, a REST API on port `8000`, Docker/Kubernetes
+(~406k LOC of Python, a REST API on port `8000`, Docker/Kubernetes
 deployment, PyTorch-based ML in the optional `[ml]` extra, and a
 post-quantum crypto substrate). It is **software that has to run on a real
 computer with real CPU/RAM** — and it needs a public identity (a domain, a
@@ -69,14 +74,14 @@ Most of the plumbing is **already done**. As of this writing:
 | Google Workspace MX (receive mail) | ✅ Done | Legacy 5-record `aspmx.l.google.com` set (valid & supported) |
 | SPF (send authentication) | ✅ Done | `v=spf1 include:_spf.google.com ~all` |
 | Google domain verification | ✅ Done | `google-site-verification=…` TXT present |
-| **DKIM** (signs outgoing mail) | ❌ **To do** | No `google._domainkey` record |
-| **DMARC** (anti-spoofing policy) | ❌ **To do** | No `_dmarc` record |
-| **Hetzner** app/API endpoint | ❌ **To do** | No `app.`/`api.` subdomain; server not connected |
+| **DKIM** (signs outgoing mail) | ✅ Done | `google._domainkey` live (2048-bit); Admin console shows "Authenticating email with DKIM" |
+| **DMARC** (anti-spoofing policy) | ✅ Done | `_dmarc` TXT: `v=DMARC1; p=quarantine; rua=mailto:steel.sa.llc@mercuryagent.global` |
+| **Hetzner** app/API endpoint | ❌ **To do** | No `app.`/`api.` subdomain; server not provisioned |
 
-**Translation:** the domain and inbound email work. The three things left are
-(1) publish the Wix site, (2) finish email authentication (DKIM + DMARC), and
-(3) stand up Hetzner and point a subdomain at it. Sections 3–5 cover exactly
-those.
+**Translation:** the domain and email — inbound *and* outbound authentication —
+are fully done and verified end-to-end (Section 4.4). The two things left are
+(1) publish the Wix site and (2) stand up Hetzner and point a subdomain at it.
+Sections 3 and 5 cover exactly those.
 
 > The legacy 5-record MX set works fine — do **not** rip it out. Google's newer
 > setup uses a single record (`smtp.google.com`, priority `1`); it is an
@@ -126,11 +131,16 @@ The domain was expensive — treat it like the asset it is:
 
 ## 4. Google Workspace — business email
 
-Inbound mail already works (MX + SPF + verification are live). To make
-outbound mail trusted and hard to spoof, finish **DKIM** and **DMARC**. Both
-are just TXT records you add in the Wix DNS panel (Section 3.1).
+Email is **fully done**: inbound (MX + SPF + verification) and outbound
+authentication (DKIM + DMARC) are live and verified end-to-end (Section 4.4).
+The subsections below record what is deployed and how to repeat the setup
+(e.g. for a DKIM key rotation).
 
-### 4.1 DKIM (signs your outgoing mail) — **to do**
+### 4.1 DKIM (signs your outgoing mail) — ✅ **done**
+
+**Deployed:** `google._domainkey` is live with a **2048-bit** key; the Google
+Admin console shows the domain's status as **"Authenticating email with
+DKIM."** For reference (or a future key rotation), the setup path was:
 
 1. In the **Google Admin console** (`admin.google.com`), go to
    **Apps → Google Workspace → Gmail → Authenticate email**.
@@ -145,17 +155,19 @@ are just TXT records you add in the Wix DNS panel (Section 3.1).
 5. Wait for propagation (minutes to a few hours), then return to the Google
    **Authenticate email** page and click **Start authentication**.
 
-### 4.2 DMARC (tells the world what to do with fakes) — **to do**
+### 4.2 DMARC (tells the world what to do with fakes) — ✅ **done**
 
-Add one more TXT record in Wix:
+**Deployed** as a TXT record on `_dmarc` (via Wix → Manage DNS Records):
 
-- **Host Name:** `_dmarc`
-- **Value (start in monitor-only mode):**
-  `v=DMARC1; p=none; rua=mailto:postmaster@mercuryagent.global; fo=1`
+```
+v=DMARC1; p=quarantine; rua=mailto:steel.sa.llc@mercuryagent.global
+```
 
-Leave it at `p=none` for a few weeks and read the aggregate (`rua`) reports,
-then tighten to `p=quarantine` and eventually `p=reject` once you confirm all
-legitimate mail is passing DKIM/SPF. This is the standard, safe rollout.
+The policy went straight to `p=quarantine` because DKIM/SPF were verified
+passing first (Section 4.4). (`p=none` is the softer monitor-only rollout
+alternative if you ever need to re-stage a change.) Aggregate reports go to
+the `rua` mailbox; once a few weeks of reports confirm all legitimate mail
+authenticates, the policy can be tightened further to `p=reject`.
 
 ### 4.3 SPF — already correct
 
@@ -165,7 +177,12 @@ newsletter tool) — then add that provider's `include:` to the **same single**
 SPF record. Never create a second SPF (`v=spf1`) TXT record; a domain may have
 only one.
 
-### 4.4 Verify email end-to-end
+### 4.4 Verify email end-to-end — ✅ **done**
+
+**Verified 2026-07-23:** a real message from the domain to a `gmail.com`
+address showed, under **Show original**: **SPF: PASS**, **DKIM: PASS**
+(`d=mercuryagent.global`), **DMARC: PASS**. To re-verify after any DNS or
+mailbox change:
 
 1. Sign in to `mail.google.com` as `you@mercuryagent.global`.
 2. Send a message to an outside address (e.g. a personal Gmail) and reply back.
@@ -182,16 +199,20 @@ Docker, and point a subdomain at it from Wix.
 ### 5.1 Pick a server size
 
 Hetzner Cloud is **CPU-only** (no GPU on Cloud plans). Mercury Agent's default
-detection path and REST API run fine on CPU; the optional `[ml]` extra
-(PyTorch, 170+ neural modules) also runs on CPU, just slower, and wants more RAM.
+detection path and REST API run fine on CPU; the full agent/`[ml]` path
+(PyTorch, the agentic orchestration stack, the σ_Immutable gate) also runs on
+CPU, just slower — and it needs the RAM. Note that the shipped **Docker image
+installs `.[all]` — torch included** — so the container you deploy from the
+platform runbook carries the complete agent stack regardless of plan size.
 
 | Use case | Suggested plan | Why |
 |---|---|---|
-| API + default (non-ML) detection, evaluation | **CX22** (2 vCPU, 4 GB, ~€4/mo) | Comfortably runs the API + reverse proxy |
-| Full neuro-symbolic `[ml]` path, heavier load | **CX32 / CPX41** (4 vCPU, 8–16 GB) | PyTorch + fusion training need the RAM |
+| API-only trial (no agentic/`[ml]` workloads) | **CX22** (2 vCPU, 4 GB, ~€4/mo) | Runs the API + reverse proxy; not enough RAM for the agent path |
+| **Full agent / `[ml]` path (the real deployment)** | **CX32 / CX42 class** (4–8 vCPU, **≥ 8 GB RAM**) | PyTorch + orchestration + fusion need ≥ 8 GB |
 | Serious model training | Hetzner **dedicated GPU** server (not Cloud) | Cloud has no GPU; training on CPU is slow |
 
-Start with **CX22**; you can resize up later without rebuilding.
+For the actual launch, start at **CX32-class or larger (≥ 8 GB)**; treat CX22
+as API-only trial territory. You can resize up later without rebuilding.
 
 ### 5.2 Provision the server
 
@@ -223,26 +244,38 @@ docker --version && docker compose version   # sanity check
 > sudo user, disable password SSH (`PasswordAuthentication no`), and enable
 > `ufw`/the Hetzner firewall. See Hetzner's "Initial Server Setup" tutorial.
 
-### 5.4 Deploy Mercury Agent
+### 5.4 Deploy Mercury Agent — follow the platform runbook
 
-Mercury Agent ships a `docker-compose.yml` and a `.env.example`. On the server:
+The application-deployment half is deliberately **not duplicated here**. The
+canonical, maintained runbook is
+[`docs/PLATFORM_HARDENING.md`](PLATFORM_HARDENING.md) → **Deployment**
+("Compose runbook"): it uses the shipped `docker-compose.platform.yml`
+overlay, which adds the durable state volume, wires every documented
+`MERCURY_*` variable, and includes the Caddy TLS edge (`deploy/Caddyfile`)
+pre-configured for `app.mercuryagent.global`. In short, on the server:
 
 ```bash
 git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git
 cd Mercury-Agent
 cp .env.example .env
-# Edit .env — at minimum set a strong JWT_SECRET_KEY:
-#   JWT_SECRET_KEY=$(openssl rand -hex 32)
-# and set MERCURY_AGENT_ENV=production
-docker compose up -d
-curl http://localhost:8000/health            # expect a healthy response
-docker compose logs -f mercury-agent
+python scripts/generate_secret_key.py --all >> .env   # secrets, no OpenSSL needed
+docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+curl -fsS http://localhost:8000/health
 ```
 
-This starts the API on `8000`, plus Prometheus (`9090`) and Grafana (`3000`).
-Full detail — required/optional env vars, health checks, upgrades, rollback —
-is in [`docs/DEPLOYMENT.md`](DEPLOYMENT.md). For the `[ml]` / `[pqc]` extras and
-Python-native install, see [`docs/INSTALLATION.md`](INSTALLATION.md).
+Server-env checklist for the platform profile (details and defaults in the
+runbook's configuration reference):
+
+- Secrets from `generate_secret_key.py --all` reviewed into `.env`
+- `MERCURY_FRONTEND_ENABLED=true` — serves the account UI (registration,
+  login/2FA, dashboard) from the API process; the overlay defaults it on
+- `MERCURY_SMTP_*` pointed at the Google mailbox from Section 4
+- `MERCURY_PUBLIC_BASE_URL=https://app.mercuryagent.global` so email links
+  resolve to the pages the frontend serves
+
+For the `[ml]` / `[pqc]` extras and Python-native install, see
+[`docs/INSTALLATION.md`](INSTALLATION.md); general Docker/K8s background is
+in [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ### 5.5 Point a subdomain at the server (in Wix)
 
@@ -257,26 +290,19 @@ Back in **Wix → Manage DNS Records** (Section 3.1), add an **A record** so
 DNS can take up to ~48 hours to propagate (usually far less). The apex and
 `www` stay pointed at Wix — only `app.` goes to Hetzner.
 
-### 5.6 HTTPS with a reverse proxy (Caddy — easiest)
+### 5.6 HTTPS — already handled by the platform overlay
 
-Don't expose port `8000` raw. Put a reverse proxy in front that terminates
-TLS and auto-provisions a free Let's Encrypt certificate. **Caddy** does this
-in ~4 lines. On the server, create `/etc/caddy/Caddyfile`:
+Don't expose port `8000` raw. You don't need to install or configure a
+reverse proxy by hand: the platform overlay from Section 5.4 **ships a Caddy
+service** using the repo's [`deploy/Caddyfile`](../deploy/Caddyfile), which
+terminates 80/443, auto-provisions and renews the Let's Encrypt certificate
+for `app.mercuryagent.global`, and actively health-checks the app on
+`/health`. The app runs with `MERCURY_TRUSTED_PROXY_HOPS=1` to match this
+exactly-one-proxy topology.
 
-```
-app.mercuryagent.global {
-    reverse_proxy localhost:8000
-}
-```
-
-Run Caddy (as a container or `apt install caddy`); it will automatically fetch
-and renew the certificate for `app.mercuryagent.global`. Once the `app.` A
-record (5.5) has propagated, `https://app.mercuryagent.global/health` should
-return the Mercury Agent health check over HTTPS.
-
-> Nginx + Certbot is the traditional alternative if you prefer it; Caddy is
-> recommended here purely because automatic HTTPS means one less thing to
-> misconfigure. Either is fine.
+Once the `app.` A record (5.5) has propagated,
+`https://app.mercuryagent.global/health` should return the Mercury Agent
+health check over HTTPS — nothing further to configure on the TLS side.
 
 ---
 
@@ -285,16 +311,24 @@ return the Mercury Agent health check over HTTPS.
 - [ ] **Wix:** website designed and **Published**; `https://mercuryagent.global/`
       no longer 404s
 - [ ] **Wix:** domain auto-renew ON, registrar lock ON, account 2FA ON
-- [ ] **Google:** DKIM generated in Admin console and `google._domainkey` TXT
-      added in Wix, then "Start authentication" clicked
-- [ ] **Google:** `_dmarc` TXT added (`p=none` to start)
-- [ ] **Google:** test mail shows SPF / DKIM / DMARC = PASS
-- [ ] **Hetzner:** server provisioned (CX22+), firewall 22/80/443, SSH key auth
-- [ ] **Hetzner:** Docker installed, `docker compose up -d`, `/health` OK locally
+- [x] **Google:** DKIM generated (2048-bit) and `google._domainkey` TXT live;
+      Admin console shows "Authenticating email with DKIM"
+- [x] **Google:** `_dmarc` TXT live
+      (`v=DMARC1; p=quarantine; rua=mailto:steel.sa.llc@mercuryagent.global`)
+- [x] **Google:** test mail to gmail.com shows SPF / DKIM
+      (`d=mercuryagent.global`) / DMARC = PASS (verified 2026-07-23)
+- [ ] **Hetzner:** server provisioned (**≥ 8 GB / CX32-class** for the full
+      agent path; CX22 only for an API-only trial), firewall 22/80/443,
+      SSH key auth
+- [ ] **Hetzner:** Docker installed; platform runbook followed
+      (`docker compose -f docker-compose.yml -f docker-compose.platform.yml
+      up -d`); `/health` OK locally
+- [ ] **Hetzner:** secrets from `scripts/generate_secret_key.py --all` in
+      `.env`; `MERCURY_FRONTEND_ENABLED=true`; `MERCURY_SMTP_*` +
+      `MERCURY_PUBLIC_BASE_URL` set; 2FA on the Hetzner account
 - [ ] **Wix:** `app` A record → Hetzner IPv4
-- [ ] **Hetzner:** Caddy reverse proxy serving `https://app.mercuryagent.global`
-- [ ] **Hetzner:** `JWT_SECRET_KEY` and other secrets set in `.env`, 2FA on the
-      Hetzner account
+- [ ] **Hetzner:** overlay's Caddy service serving
+      `https://app.mercuryagent.global`
 
 ---
 
@@ -323,6 +357,9 @@ they disagree.
 - Video — Hetzner for beginners: https://www.youtube.com/watch?v=Y1Lu8NUBtrM
 
 **Mercury Agent itself**
-- [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) — Docker/K8s deployment, env vars, health checks
+- [`docs/PLATFORM_HARDENING.md`](PLATFORM_HARDENING.md) — **the canonical
+  deployment runbook** (compose overlay, Caddy TLS edge, every `MERCURY_*`
+  variable), threat model, migration, acceptance checklist
+- [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) — Docker/K8s background, health checks
 - [`docs/INSTALLATION.md`](INSTALLATION.md) — Python install, `[ml]`/`[pqc]` extras
 - [`README.md`](../README.md) — what the system is and does
