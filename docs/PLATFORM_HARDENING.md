@@ -321,6 +321,49 @@ All variables are optional; unset values keep the pre-platform behaviour.
    changes. The pages use the same public API the docs describe — enabling
    the UI adds no new API surface to protect.
 
+### Compose runbook (single-host platform deployment)
+
+The repo ships the deployment as a compose overlay —
+`docker-compose.platform.yml` layered over the base `docker-compose.yml` —
+so plain `docker compose up` keeps its unchanged local-dev behaviour and the
+platform profile of the deployment is one extra `-f`:
+
+```bash
+# One-time on the host: provision secrets into .env (stdlib CSPRNG, no
+# OpenSSL needed). Review the file afterwards; it now holds key material.
+cp .env.example .env
+python scripts/generate_secret_key.py --all >> .env
+
+# Bring up the platform: API + durable state volume + Caddy TLS edge
+# (+ the base Prometheus/Grafana monitoring stack).
+docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+
+# Verify from the host:
+curl -fsS http://localhost:8000/health
+docker compose -f docker-compose.yml -f docker-compose.platform.yml ps
+```
+
+What the overlay adds, and why:
+
+* **Durable state** — a named volume (`mercury-platform-data`) mounted at
+  `/var/lib/mercury`; `MERCURY_KEYSTORE_PATH` and `MERCURY_AUDIT_LOG_DIR`
+  point into it, so accounts, sessions, quotas, rate-limit state, and the
+  audit chain survive container replacement.
+* **Configuration pass-through** — every documented `MERCURY_*` variable is
+  wired host-env → container with the safe default from the reference table
+  above (quotas and the frontend default *on* for this profile). The
+  parameterised families (`MERCURY_AUTH_RATE_<ACTION>`,
+  `MERCURY_QUOTA_TIER_<NAME>`) go in `.env`, which the app service loads.
+* **TLS edge** — a Caddy service (`deploy/Caddyfile`) terminates 80/443 for
+  `app.mercuryagent.global` with automatic Let's Encrypt certificates and
+  actively health-checks the app on `/health`. The app runs with
+  `MERCURY_TRUSTED_PROXY_HOPS=1` to match the exactly-one
+  `X-Forwarded-For` hop Caddy appends.
+
+DNS, the Wix mailbox, and Hetzner host provisioning are the human-owned
+half; they are documented separately in `docs/DOMAIN_EMAIL_HOSTING_SETUP.md`
+(PR #343) — the code side only ever reads the environment variables above.
+
 ## Migration steps
 
 Enabling the platform on an **existing** deployment:

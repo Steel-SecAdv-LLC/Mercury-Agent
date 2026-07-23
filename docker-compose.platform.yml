@@ -1,0 +1,92 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Mercury-Agent Platform Overlay — the public account-platform deployment.
+#
+# Layers durable platform state, the documented MERCURY_* configuration, and
+# a Caddy TLS reverse proxy on top of the base docker-compose.yml. The base
+# file alone stays byte-identical for local development; this overlay is the
+# "platform" profile of the deployment:
+#
+#   python scripts/generate_secret_key.py --all >> .env   # once, on first boot
+#   docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+#
+# Full runbook: docs/PLATFORM_HARDENING.md → Deployment.
+#
+# Every MERCURY_* variable named here is documented in the Configuration
+# reference table of docs/PLATFORM_HARDENING.md (a test asserts exactly that:
+# tests/scripts/test_compose_platform.py). Parameterised families
+# (MERCURY_AUTH_RATE_<ACTION>, MERCURY_QUOTA_TIER_<NAME>) cannot be
+# enumerated as pass-throughs — set those in .env, which the base service
+# already loads via env_file.
+
+services:
+  mercury-agent:
+    environment:
+      # --- durable platform state (named volume below) --------------------
+      MERCURY_KEYSTORE_PATH: /var/lib/mercury/mercury.db
+      MERCURY_AUDIT_LOG_DIR: /var/lib/mercury/audit
+      # --- reverse proxy: exactly one trusted hop (the Caddy service) -----
+      MERCURY_TRUSTED_PROXY_HOPS: ${MERCURY_TRUSTED_PROXY_HOPS:-1}
+      # --- public identity -------------------------------------------------
+      MERCURY_PUBLIC_BASE_URL: ${MERCURY_PUBLIC_BASE_URL:-https://app.mercuryagent.global}
+      MERCURY_CONTACT_EMAIL: ${MERCURY_CONTACT_EMAIL:-contact@mercuryagent.global}
+      MERCURY_FRONTEND_ENABLED: ${MERCURY_FRONTEND_ENABLED:-true}
+      # --- secrets (generate with: python scripts/generate_secret_key.py --all)
+      MERCURY_DATA_ENC_KEY: ${MERCURY_DATA_ENC_KEY:-}
+      MERCURY_DATA_ENC_KEY_OLD: ${MERCURY_DATA_ENC_KEY_OLD:-}
+      # --- transactional mail (unset → console logging) -------------------
+      MERCURY_SMTP_HOST: ${MERCURY_SMTP_HOST:-}
+      MERCURY_SMTP_PORT: ${MERCURY_SMTP_PORT:-587}
+      MERCURY_SMTP_USERNAME: ${MERCURY_SMTP_USERNAME:-}
+      MERCURY_SMTP_PASSWORD: ${MERCURY_SMTP_PASSWORD:-}
+      MERCURY_SMTP_FROM: ${MERCURY_SMTP_FROM:-}
+      MERCURY_SMTP_STARTTLS: ${MERCURY_SMTP_STARTTLS:-true}
+      # --- sessions + CSRF -------------------------------------------------
+      MERCURY_SESSION_TTL_SECONDS: ${MERCURY_SESSION_TTL_SECONDS:-1209600}
+      MERCURY_SESSION_TTL_SHORT_SECONDS: ${MERCURY_SESSION_TTL_SHORT_SECONDS:-86400}
+      MERCURY_SESSION_IDLE_SECONDS: ${MERCURY_SESSION_IDLE_SECONDS:-86400}
+      MERCURY_SESSION_COOKIE_SECURE: ${MERCURY_SESSION_COOKIE_SECURE:-true}
+      MERCURY_CSRF_PROTECTION: ${MERCURY_CSRF_PROTECTION:-true}
+      # --- password KDF (calibrate with scripts/calibrate_password_kdf.py) -
+      MERCURY_SCRYPT_N: ${MERCURY_SCRYPT_N:-32768}
+      MERCURY_SCRYPT_R: ${MERCURY_SCRYPT_R:-8}
+      MERCURY_SCRYPT_P: ${MERCURY_SCRYPT_P:-3}
+      # --- abuse + quota ceilings ------------------------------------------
+      MERCURY_MAX_API_KEYS_PER_ACCOUNT: ${MERCURY_MAX_API_KEYS_PER_ACCOUNT:-10}
+      MERCURY_QUOTA_ENABLED: ${MERCURY_QUOTA_ENABLED:-true}
+      MERCURY_QUOTA_WINDOW_SECONDS: ${MERCURY_QUOTA_WINDOW_SECONDS:-3600}
+      MERCURY_QUOTA_MAX_REQUESTS: ${MERCURY_QUOTA_MAX_REQUESTS:-1000}
+      MERCURY_QUOTA_MAX_COMPUTE_MS: ${MERCURY_QUOTA_MAX_COMPUTE_MS:-600000}
+      MERCURY_QUOTA_METERED_PREFIXES: ${MERCURY_QUOTA_METERED_PREFIXES:-/api/v1/detect,/api/v1/batch}
+      MERCURY_QUOTA_FAIL_CLOSED: ${MERCURY_QUOTA_FAIL_CLOSED:-false}
+      # --- maintenance + retention ------------------------------------------
+      MERCURY_MAINTENANCE_INTERVAL_SECONDS: ${MERCURY_MAINTENANCE_INTERVAL_SECONDS:-3600}
+      MERCURY_USAGE_RETENTION_DAYS: ${MERCURY_USAGE_RETENTION_DAYS:-30}
+      MERCURY_AUDIT_ROTATE_SIZE_MB: ${MERCURY_AUDIT_ROTATE_SIZE_MB:-100}
+      MERCURY_AUDIT_MAX_FILES: ${MERCURY_AUDIT_MAX_FILES:-10}
+      MERCURY_AUDIT_RETENTION_DAYS: ${MERCURY_AUDIT_RETENTION_DAYS:-365}
+    volumes:
+      - mercury-platform-data:/var/lib/mercury
+
+  # -------------------------------------------------------------------------
+  # Caddy — TLS termination + reverse proxy (auto-TLS via Let's Encrypt)
+  # -------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.8.4
+    container_name: mercury-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - mercury-agent
+
+volumes:
+  mercury-platform-data:
+  caddy-data:
+  caddy-config:
