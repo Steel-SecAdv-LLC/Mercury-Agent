@@ -152,6 +152,11 @@ class QuotaMiddleware(BaseHTTPMiddleware):
         if not decision.allowed:
             from fastapi import Response as FastAPIResponse
 
+            from omni_mercury_engine.api import platform_metrics
+
+            platform_metrics.record_quota_denial(
+                "requests" if (decision.reason or "").startswith("request") else "compute"
+            )
             retry_after = decision.retry_after_seconds or 60
             return FastAPIResponse(
                 content=(

@@ -155,6 +155,9 @@ def run_maintenance_sweep(now: datetime | None = None) -> dict[str, int]:
         )
 
     logger.info("maintenance sweep completed: %s", results)
+    from omni_mercury_engine.api import platform_metrics
+
+    platform_metrics.record_maintenance_sweep(results)
     return results
 
 

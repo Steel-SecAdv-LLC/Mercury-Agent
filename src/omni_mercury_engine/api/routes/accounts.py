@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+from omni_mercury_engine.api import platform_metrics
 from omni_mercury_engine.api.auth import Permission, get_api_key_store
 from omni_mercury_engine.api.auth_service import (
     AccountDisabledError,
@@ -147,6 +148,7 @@ def _enforce_action_limits(request: Request, *checks: tuple[str, str]) -> None:
     for action, key in checks:
         allowed, retry_after = limiter.check(action, key)
         if not allowed:
+            platform_metrics.record_throttle_denial(action)
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={"message": "too many attempts; please retry later"},
@@ -527,6 +529,7 @@ def register(
         service.register(payload.email, payload.password, client_ip=ip)
     except AuthError as exc:
         raise _http_from_auth_error(exc) from exc
+    platform_metrics.record_registration()
     return MessageResponse(message="Check your email to verify your account.")
 
 
@@ -593,7 +596,11 @@ def login(
             client_ip=ip,
         )
     except AuthError as exc:
+        platform_metrics.record_login(
+            "2fa_challenged" if isinstance(exc, TwoFactorRequiredError) else "fail"
+        )
         raise _http_from_auth_error(exc) from exc
+    platform_metrics.record_login("ok")
     _set_session_cookies(response, result)
     return LoginResponse(account=_account_view(result.account), csrf_token=result.csrf_token)
 

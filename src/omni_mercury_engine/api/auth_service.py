@@ -39,7 +39,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from omni_mercury_engine.api import email_templates, passwords, totp
+from omni_mercury_engine.api import email_templates, passwords, platform_metrics, totp
 from omni_mercury_engine.api.auth_audit import AuthAuditor, build_auth_auditor
 from omni_mercury_engine.api.identity_store import (
     Account,
@@ -294,9 +294,12 @@ class AuthService:
                 )
             except Exception:
                 logger.exception("email delivery failed (subject=%r)", content.subject)
+                platform_metrics.record_email("failed")
                 self._auditor.record(
                     "email_delivery", outcome="failure", details={"subject": content.subject}
                 )
+            else:
+                platform_metrics.record_email("sent")
 
         if self._mail_executor is not None:
             self._mail_executor.submit(_deliver)
