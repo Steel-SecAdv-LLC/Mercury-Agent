@@ -16,7 +16,8 @@ failing authentication.
 per-process key would orphan every seed on restart, which is *worse* than
 plaintext. Resolution order:
 
-1. ``MERCURY_DATA_ENC_KEY`` — 64 hex chars (``openssl rand -hex 32``).
+1. ``MERCURY_DATA_ENC_KEY`` — 64 hex chars (generate with
+   ``python scripts/generate_secret_key.py`` — stdlib CSPRNG, no external tool).
    Explicit operator key; malformed values raise instead of degrading.
 2. ``AMA_MASTER_SEED`` — the fleet HD seed already used for JWT signing keys;
    the sealing key is derived from it via HKDF-SHA256 with a fixed,
@@ -174,7 +175,8 @@ def build_secret_sealer(*, store_is_durable: bool) -> SecretSealer:
             key = bytes.fromhex(raw)
         except ValueError as exc:
             raise ValueError(
-                f"{DATA_ENC_KEY_ENV} must be hex (generate with: openssl rand -hex 32)"
+                f"{DATA_ENC_KEY_ENV} must be hex "
+                "(generate with: python scripts/generate_secret_key.py)"
             ) from exc
         if len(key) != 32:
             raise ValueError(f"{DATA_ENC_KEY_ENV} must decode to exactly 32 bytes")
@@ -199,7 +201,8 @@ def build_secret_sealer(*, store_is_durable: bool) -> SecretSealer:
         logger.warning(
             "No stable at-rest key configured (%s or AMA_MASTER_SEED) with a durable "
             "identity store: NEW TOTP secrets will be stored unsealed. Set %s "
-            "(openssl rand -hex 32) and re-run the migration sweep to seal them.",
+            "(python scripts/generate_secret_key.py) and re-run the migration "
+            "sweep to seal them.",
             DATA_ENC_KEY_ENV,
             DATA_ENC_KEY_ENV,
         )

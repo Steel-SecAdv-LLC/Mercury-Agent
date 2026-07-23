@@ -129,6 +129,38 @@ class TestSecretSealer:
         sealer = SecretSealer(KEY, key_is_stable=True)
         assert sealer.unseal("JBSWY3DPEHPK3PXP", aad="acct-1") == "JBSWY3DPEHPK3PXP"
 
+    def test_random_nonce_per_seal(self) -> None:
+        """Each seal uses a fresh nonce, so the same secret never repeats a envelope.
+
+        Deterministic (counter) nonces would be a red flag; random per-call
+        nonces are what let at-rest sealing carry no persistent state.
+        """
+        from omni_mercury_engine.security.encryption import SecureDataHandler
+
+        handler = SecureDataHandler(enable_quantum_resistant=False, at_rest_key=KEY)
+        nonces = {handler.encrypt_at_rest("same-seed", aad=b"acct")[:12] for _ in range(64)}
+        assert len(nonces) == 64  # all distinct
+
+    def test_seal_writes_no_disk_state(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """At-rest sealing must not persist nonce-counter files under $HOME.
+
+        Regression for the earlier implementation, which routed through the
+        counter-nonce ``AESGCMProvider`` and wrote
+        ``~/.ama_cryptography/aes_gcm_counters.json`` on every call — critical
+        state that breaks a read-only container and aborts every decrypt if the
+        file is lost or corrupt. The random-nonce native path writes nothing.
+        """
+        from omni_mercury_engine.security.encryption import SecureDataHandler
+
+        monkeypatch.setenv("HOME", str(tmp_path))
+        handler = SecureDataHandler(enable_quantum_resistant=False, at_rest_key=KEY)
+        for i in range(20):
+            env = handler.encrypt_at_rest("s", aad=f"a{i}".encode())
+            assert handler.decrypt_at_rest(env, aad=f"a{i}".encode()) == b"s"
+        assert not (tmp_path / ".ama_cryptography" / "aes_gcm_counters.json").exists()
+
 
 class TestSealerKeyResolution:
     """Environment-driven key material rules."""

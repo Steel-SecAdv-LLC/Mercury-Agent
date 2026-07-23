@@ -113,10 +113,19 @@ mail server neither blocks nor time-fingerprints the request. `POST
 (enumeration-safe).
 
 **TOTP secrets encrypted at rest.** `SecretSealer` seals seeds with
-AES-256-GCM via the quantum-resistant `SecureDataHandler.encrypt_at_rest`, with
-the owning account id bound in as AAD (a swapped or tampered ciphertext fails
-closed). Key material is a **stable** key from `MERCURY_DATA_ENC_KEY` or derived
-from `AMA_MASTER_SEED` via HKDF-SHA256 with a purpose-scoped info string. For a
+AES-256-GCM via `SecureDataHandler.encrypt_at_rest`, with the owning account id
+bound in as AAD (a swapped or tampered ciphertext fails closed). The cipher is
+**AMA's own native AES-256-GCM** (`libama_cryptography.so` — no OpenSSL and no
+third-party `cryptography` package on this path) with a **fresh random 96-bit
+nonce per call and no persistent state**. It deliberately does *not* use AMA's
+counter-nonce `AESGCMProvider`, which persists a per-key counter to
+`~/.ama_cryptography/aes_gcm_counters.json` — the right model for a long-lived
+streaming context but wrong for at-rest sealing (it fails on a read-only
+filesystem and turns a hidden JSON file into decrypt-critical state). A 256-bit
+key keeps a ≥128-bit post-quantum (Grover) margin, and random nonces keep the
+collision probability negligible at at-rest volumes (NIST SP 800-38D §8.2.2).
+Key material is a **stable** key from `MERCURY_DATA_ENC_KEY` or derived from
+`AMA_MASTER_SEED` via HKDF-SHA256 with a purpose-scoped info string. For a
 durable store with no stable key, the sealer marks itself non-stable and the
 write path keeps seeds unsealed rather than bricking 2FA on the next restart.
 
@@ -221,7 +230,7 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_SMTP_HOST` etc. | *(unset → console)* | SMTP delivery (`_PORT/_USERNAME/_PASSWORD/_FROM/_STARTTLS`) |
 | `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
 | `MERCURY_CONTACT_EMAIL` | `steel.sa.llc@gmail.com` | `List-Unsubscribe` contact |
-| `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key for TOTP sealing (`openssl rand -hex 32`) |
+| `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key for TOTP sealing (`python scripts/generate_secret_key.py`) |
 | `AMA_MASTER_SEED` | *(unset)* | Fleet HD seed; TOTP sealing key derived via HKDF when set |
 | `MERCURY_AUTH_RATE_<ACTION>` | *(built-in)* | Per-action limit `"<max>/<seconds>"` (LOGIN_IP, LOGIN_ACCOUNT, REGISTER_IP, RESET_IP, RESET_ACCOUNT, RESEND_IP, RESEND_ACCOUNT) |
 | `MERCURY_SCRYPT_N/R/P` | `32768/8/3` | scrypt cost parameters |
@@ -253,6 +262,10 @@ All variables are optional; unset values keep the pre-platform behaviour.
    client-supplied entries — match it to reality.
 3. **Secrets.** Provide `MERCURY_DATA_ENC_KEY` (or `AMA_MASTER_SEED`) and
    `JWT_SECRET_KEY`/`AMA_MASTER_SEED` from your secret store, never the repo.
+   Generate them with the bundled, dependency-free
+   `python scripts/generate_secret_key.py` (stdlib CSPRNG — **no OpenSSL or any
+   external tool required**; `--all` prints an export line for every key var,
+   `--bytes 64` a master seed).
 4. **SMTP.** Set `MERCURY_SMTP_*` for real email; unset falls back to console
    logging (fine for dev). Set `MERCURY_PUBLIC_BASE_URL` so email links resolve.
 5. **Quotas.** Set `MERCURY_QUOTA_ENABLED=true` and tune the ceilings/tiers.

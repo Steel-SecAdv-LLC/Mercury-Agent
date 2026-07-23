@@ -269,20 +269,39 @@ class SecureDataHandler:
         return self.qr_encryption.decrypt_hybrid(encrypted_data, self.private_key)
 
     # -- stable-key at-rest protection ------------------------------------- #
-    def _require_at_rest_crypto(self) -> tuple[MercuryCrypto, bytes]:
-        """Return the AMA crypto facade + at-rest key, or fail loudly."""
+    #
+    # At-rest sealing uses AMA's native AES-256-GCM primitive
+    # (``native_aes256_gcm_encrypt`` in ``libama_cryptography.so`` — no OpenSSL,
+    # no third-party ``cryptography`` package) with a **fresh random 96-bit
+    # nonce per call**. This is deliberately NOT the ``AESGCMProvider`` /
+    # ``MercuryCrypto.encrypt`` path used by the ephemeral KEM-DEM mode above:
+    # that provider maintains a *persistent per-key nonce counter* on disk
+    # (``~/.ama_cryptography/aes_gcm_counters.json``), which is the right model
+    # for a long-lived streaming context but the wrong one for durable at-rest
+    # sealing — it would fail in a read-only container, turn a hidden JSON file
+    # into critical crypto state (a corrupt counter file aborts every decrypt),
+    # and couple sealing to a filesystem side-channel the operator never
+    # configured. A random 96-bit nonce needs no persistent state and, at
+    # at-rest volumes (< 2**32 seals per key), keeps GCM nonce-collision
+    # probability negligibly small (NIST SP 800-38D §8.2.2), so the envelope is
+    # self-contained and portable.
+    _NONCE_BYTES = 12
+    _GCM_TAG_BYTES = 16
+
+    def _at_rest_key_or_raise(self) -> bytes:
+        """Return the stable at-rest key, or fail loudly if none was set."""
         if self._at_rest_key is None:
             raise ValueError(
                 "at-rest encryption requires an at_rest_key (32 bytes) at construction"
             )
-        if self.qr_encryption is not None:
-            return self.qr_encryption._crypto, self._at_rest_key
-        from omni_mercury_engine.security.crypto_api import MercuryCrypto
-
-        return MercuryCrypto(), self._at_rest_key
+        return self._at_rest_key
 
     def encrypt_at_rest(self, data: str | bytes, *, aad: bytes = b"") -> bytes:
         """AES-256-GCM-encrypt ``data`` under the stable at-rest key.
+
+        Uses AMA's native AES-256-GCM with a fresh random nonce and **no**
+        persistent counter state (see the class note above), so sealing works
+        in read-only/ephemeral containers and writes nothing to disk.
 
         Args:
             data: Plaintext to protect.
@@ -296,13 +315,15 @@ class SecureDataHandler:
         Raises:
             ValueError: If no at-rest key was configured.
         """
-        crypto, key = self._require_at_rest_crypto()
+        from ama_cryptography.pqc_backends import native_aes256_gcm_encrypt
+
+        key = self._at_rest_key_or_raise()
         if isinstance(data, str):
             data = data.encode()
-        sealed = crypto.encrypt(data, key=key, aad=aad)
-        nonce: bytes = sealed["nonce"]
-        tag: bytes = sealed["tag"]
-        ciphertext: bytes = sealed["ciphertext"]
+        import secrets
+
+        nonce = secrets.token_bytes(self._NONCE_BYTES)
+        ciphertext, tag = native_aes256_gcm_encrypt(key, nonce, data, aad)
         return nonce + tag + ciphertext
 
     def decrypt_at_rest(self, envelope: bytes, *, aad: bytes = b"") -> bytes:
@@ -320,8 +341,13 @@ class SecureDataHandler:
                 AAD does not match, or any byte was tampered with (GCM
                 authentication failure).
         """
-        crypto, key = self._require_at_rest_crypto()
-        if len(envelope) < 12 + 16:
+        from ama_cryptography.pqc_backends import native_aes256_gcm_decrypt
+
+        key = self._at_rest_key_or_raise()
+        header = self._NONCE_BYTES + self._GCM_TAG_BYTES
+        if len(envelope) < header:
             raise ValueError("at-rest envelope too short")
-        nonce, tag, ciphertext = envelope[:12], envelope[12:28], envelope[28:]
-        return crypto.decrypt(ciphertext, key=key, nonce=nonce, tag=tag, aad=aad)
+        nonce = envelope[: self._NONCE_BYTES]
+        tag = envelope[self._NONCE_BYTES : header]
+        ciphertext = envelope[header:]
+        return native_aes256_gcm_decrypt(key, nonce, ciphertext, tag, aad)
