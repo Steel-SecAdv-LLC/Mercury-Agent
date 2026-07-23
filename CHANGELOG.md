@@ -27,6 +27,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Platform completion: account frontend, usage endpoint, operator CLI, platform metrics, deployment profile
+
+The launch-facing half of the platform work (PR #350, continued): everything a
+public deployment still lacked on top of the hardened backend below. The
+additive/opt-in contract is unchanged — with no env vars set, behaviour is
+byte-identical (the frontend is off by default and `/` keeps returning 404).
+
+**Added**
+
+- **`api/frontend.py` + `api/frontend_assets/`** — the opt-in browser account
+  UI (`MERCURY_FRONTEND_ENABLED=true`): landing, register, login with an
+  inline second step on the API's stable `two_factor_required` code, the three
+  pages the auth emails already link to (`/verify-email`, `/reset-password`,
+  `/confirm-email-change`), and the dashboard — profile, API keys with the
+  one-time raw-key reveal, usage vs. effective limits, password/email change,
+  the full 2FA lifecycle (client-side QR via the vendored MIT
+  `qrcode-generator`; one-time recovery-code display), JSON data export, and
+  typed-confirmation deletion. Vanilla HTML/CSS/JS with `fetch`; the
+  `mercury_csrf` cookie is echoed as `X-CSRF-Token` on every state-changing
+  call; no build toolchain, no CDN, no inline handlers (CSP-hygiene test).
+- **`GET /api/v1/auth/usage`** — the caller's in-window usage next to its
+  effective limits (override > tier > default) and tier name, for browser
+  sessions and `X-API-Key` callers alike (a key reads its owning account's
+  bucket). Backed by the new read-only `QuotaEnforcer.snapshot()` and a
+  process-wide shared enforcer, so the numbers shown are exactly the numbers
+  the quota middleware enforces.
+- **`mercury-agent platform …`** — the operator CLI over the shared SQLite
+  store and audit dir: `account show|list|set-tier|disable|enable` (disable
+  also revokes live sessions), `quota override set|clear|show`,
+  `usage report [--account|--top N]`, and `audit verify` (wraps
+  `SecureAuditLogger.verify_log_integrity`; exit 1 on a broken chain).
+  Refuses clearly when `MERCURY_KEYSTORE_PATH` / `MERCURY_AUDIT_LOG_DIR` are
+  unset; never prints secret material.
+- **`api/platform_metrics.py`** — lazily-registered Prometheus counters for
+  the platform paths, served by the existing `/metrics` target:
+  registrations, logins (`ok`/`fail`/`2fa_challenged`), throttle denials by
+  action, quota denials by ceiling, mailer sent/failed, maintenance sweep
+  results (per-step pruned counts, TOTP sealing migrations, audit segment
+  prunes, step errors). Import-guarded — the core lane needs no prometheus —
+  and label cardinality is bounded to code-defined sets.
+- **`docker-compose.platform.yml` + `deploy/Caddyfile`** — the single-host
+  deployment profile as a compose overlay: a named volume at
+  `/var/lib/mercury` for the SQLite/audit state, host-env pass-through with
+  safe defaults for every documented `MERCURY_*` variable,
+  `MERCURY_TRUSTED_PROXY_HOPS=1`, and a Caddy TLS edge (auto-TLS for
+  `app.mercuryagent.global`, active `/health` checks). Runbook in
+  `docs/PLATFORM_HARDENING.md` → Deployment; a structural test keeps the
+  overlay's env vars in lockstep with the configuration reference.
+
+**Changed**
+
+- **Throttle boot invariant shipped** — `routes/accounts.py` declares
+  `DISPATCHED_THROTTLE_ACTIONS`; a test locks it to `DEFAULT_ACTION_RULES`
+  in both directions and the first limiter build cross-checks it at runtime
+  (error log + `mercury_platform_throttle_rule_mismatch_total`, never a
+  crash). Request-time `check()` stays allow-on-unknown.
+- **`MERCURY_QUOTA_FAIL_CLOSED`** (default `false`) — a failure of the quota
+  infrastructure itself can now deny metered routes with 503 instead of
+  admitting unmetered, for operators who rate accounting above availability.
+- **Platform contact default** moved from the personal gmail address to
+  `contact@mercuryagent.global` (`MERCURY_CONTACT_EMAIL` still overrides).
+- **Agent runtime requirements documented** — `[ml]` is a hard requirement
+  for the agentic stack (torch imports at module load), and the σ_Immutable
+  gate refuses with `check="gosnn_unavailable"` when the trained network is
+  unavailable; a new orchestrator-boundary guard test pins that refusal.
+
+### Free-service platform hardening: auth abuse controls, at-rest 2FA, quotas, lifecycle, sessions
+
+Hardening pass over the account/persistence/auth/metering platform (PR #350) so
+Mercury Agent can run as a free, public, account-based service. **Additive and
+opt-in throughout** — a solo self-hoster who clones and runs the repo keeps
+byte-identical behaviour (in-memory, no accounts, no SMTP, no quotas); the
+machinery activates only when the documented env vars are set. Full design,
+threat model, configuration, deployment, migration, and acceptance checklist:
+`docs/PLATFORM_HARDENING.md`.
+
+**Added**
+
+- **`api/client_ip.py`** — trusted-proxy client-IP resolution: the client is
+  read from the right-most trusted `X-Forwarded-For` hop
+  (`MERCURY_TRUSTED_PROXY_HOPS`, default 0 = header untrusted), closing the
+  rate-limit bypass where a rotating header minted a fresh bucket per request.
+- **`api/rate_limit_store.py`** — shared, restart-persistent SQLite token-bucket
+  (atomic `consume_token`) + fixed-window counter stores, and an
+  `ActionRateLimiter` with per-IP and per-account limits on login, register,
+  password-reset request, and resend-verification
+  (`MERCURY_AUTH_RATE_<ACTION>`). Limits are now global across workers and
+  survive restarts.
+- **`api/secret_sealer.py`** — TOTP seeds sealed at rest with AES-256-GCM via
+  the quantum-resistant `SecureDataHandler.encrypt_at_rest`, AAD-bound to the
+  account. Stable key from `MERCURY_DATA_ENC_KEY` or HKDF-derived from
+  `AMA_MASTER_SEED`; refuses to seal under a process-lifetime key for a durable
+  store.
+- **2FA recovery codes** — ten single-use backup codes issued on enrollment
+  (hashes only), consumed atomically, with a security-notice email on use.
+- **TOTP replay rejection** — `verify_totp_with_step` + persisted
+  `totp_last_step` reject any code whose time step is not strictly greater.
+- **Account lifecycle endpoints** — authenticated change-password
+  (session-rotating), two-step change-email (re-verifies the new address),
+  account deletion, and data export; plus `POST /auth/resend-verification`.
+- **CSRF defense-in-depth** — SameSite=Lax cookies + double-submit
+  `X-CSRF-Token` on every state-changing authenticated POST
+  (`MERCURY_CSRF_PROTECTION`).
+- **`api/quota.py` / `api/quota_middleware.py`** — per-account/per-tier quotas
+  (`MERCURY_QUOTA_TIER_*`, `quota_overrides`), wired into the metered detection
+  and batch routes with an atomic reserve→run→commit path (hard request ceiling,
+  HTTP 429 + `Retry-After`), gated by `MERCURY_QUOTA_ENABLED`.
+- **`api/auth_audit.py`** — auth-event audit trail (login success/failure,
+  password/2FA/email/deletion) via `SecureAuditLogger` when
+  `MERCURY_AUDIT_LOG_DIR` is set, else structured logging; account id only, never
+  the email.
+- **`api/maintenance.py`** — startup + periodic pruning sweeps for expired
+  sessions, consumed/expired tokens, aged usage-ledger rows, and stale
+  rate-limit state, which also apply the plaintext-TOTP → sealed migration.
+- **`api/email_templates.py`** — matched plaintext + inline-styled HTML
+  transactional emails with a `List-Unsubscribe` header.
+- **`scripts/calibrate_password_kdf.py`** — measures the scrypt cost ladder on
+  the target hardware.
+
+**Changed**
+
+- **Password KDF upgraded to memory-hard scrypt** (`hashlib.scrypt`,
+  `n=2^15,r=8,p=3`, `MERCURY_SCRYPT_*`-tunable). Legacy PBKDF2 hashes still
+  verify and are transparently rehashed on the next successful login.
+- **Session hardening** — idle vs absolute timeouts, rotation on privilege
+  change, and a configurable remember-me (`MERCURY_SESSION_*`).
+- **Login is timing-uniform** — the unknown-email path burns the same KDF cost
+  as a wrong-password attempt (no enumeration by response time).
+- **Singleton lazy init is race-free** — `get_api_key_store`,
+  `get_auth_service`, `get_action_limiter`, `get_rate_limiter`, and
+  `get_audit_logger` use lock-guarded double-checked construction.
+- **CI gate watchdog** (`scripts/ci_gate_watchdog.py`) excuses superseded
+  `cancel-in-progress` cancellations (a newer clean verdict on the same branch)
+  while still alerting on a branch that never completes — cutting false-red
+  alarms on busy PRs. `gate-watchdog.yml` now feeds `headBranch`.
+
 ### Security + CI-integrity hardening pass: centralized torch checkpoint loader, gate-integrity fixes, root-cause bug fixes
 
 Continuation of the coverage/engineering round, focused on the load-bearing

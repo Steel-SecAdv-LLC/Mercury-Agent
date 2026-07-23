@@ -1,0 +1,216 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""HTTP wiring for per-account quotas on the metered routes.
+
+The quota engine (:mod:`~omni_mercury_engine.api.quota`) is framework-free;
+this middleware is the single place it meets HTTP. For every request under a
+metered path prefix (default ``/api/v1/detect`` and ``/api/v1/batch``) it:
+
+1. Resolves the **principal**: the session cookie's account, else the
+   ``X-API-Key``'s owning user, else an anonymous principal keyed by the
+   trusted-proxy-resolved client IP (so unauthenticated abuse is still
+   bounded rather than unmetered).
+2. **Reserves** a request slot atomically (hard request ceiling; HTTP 429
+   with ``Retry-After`` and the usage counters on denial).
+3. Runs the request, then **commits** the measured wall-clock compute cost
+   onto the reserved ledger row — so the compute ceiling reflects reality,
+   not estimates.
+
+Enforcement is opt-in via ``MERCURY_QUOTA_ENABLED=true`` (a solo self-hoster
+keeps byte-identical behaviour), and *fails open by policy*: an internal
+metering error is logged and the request proceeds — detection availability
+outranks accounting, and the global rate limiter still bounds volume.
+Operators who prefer the opposite trade-off set
+``MERCURY_QUOTA_FAIL_CLOSED=true`` to deny with 503 while the quota
+infrastructure is unavailable (see :func:`quota_fail_closed`).
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import threading
+import time
+from typing import TYPE_CHECKING
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from omni_mercury_engine.api.client_ip import resolve_client_ip
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from fastapi import Request, Response
+    from starlette.types import ASGIApp
+
+    from omni_mercury_engine.api.quota import QuotaEnforcer
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["QuotaMiddleware", "quota_enforcement_enabled", "quota_fail_closed"]
+
+_DEFAULT_METERED_PREFIXES = "/api/v1/detect,/api/v1/batch"
+
+
+def quota_enforcement_enabled() -> bool:
+    """Whether quota enforcement is switched on for this deployment."""
+    return os.getenv("MERCURY_QUOTA_ENABLED", "false").strip().lower() == "true"
+
+
+def quota_fail_closed() -> bool:
+    """Whether a quota-infrastructure failure denies (503) instead of admitting.
+
+    Default ``false`` keeps the availability-first posture: a metering error
+    admits the request unmetered (the global rate limiter still bounds
+    volume). Operators who rate accounting integrity above availability set
+    ``MERCURY_QUOTA_FAIL_CLOSED=true`` and take the 503s during a quota-store
+    outage instead. Trade-off documented in ``docs/PLATFORM_HARDENING.md``.
+    """
+    return os.getenv("MERCURY_QUOTA_FAIL_CLOSED", "false").strip().lower() == "true"
+
+
+class QuotaMiddleware(BaseHTTPMiddleware):
+    """Reserve-run-commit quota enforcement over the metered path prefixes."""
+
+    def __init__(self, app: ASGIApp, enforcer: QuotaEnforcer | None = None) -> None:
+        """Wire the middleware; the enforcer builds lazily from the env.
+
+        Args:
+            app: The wrapped ASGI app.
+            enforcer: Injected enforcer for tests; ``None`` builds one on
+                first use (after env/test fixtures are in place).
+        """
+        super().__init__(app)
+        self._enforcer = enforcer
+        self._enforcer_lock = threading.Lock()
+        prefixes = os.getenv("MERCURY_QUOTA_METERED_PREFIXES", _DEFAULT_METERED_PREFIXES)
+        self._prefixes = tuple(p.strip() for p in prefixes.split(",") if p.strip())
+
+    def _get_enforcer(self) -> QuotaEnforcer:
+        """Return the injected enforcer, else the process-wide shared one.
+
+        The shared singleton (rather than a private build) keeps the ledger
+        this middleware charges and the ledger ``GET /api/v1/auth/usage``
+        reports from being two different in-memory instances.
+        """
+        if self._enforcer is None:
+            with self._enforcer_lock:
+                if self._enforcer is None:
+                    from omni_mercury_engine.api.quota import get_shared_quota_enforcer
+
+                    self._enforcer = get_shared_quota_enforcer()
+        return self._enforcer
+
+    def _resolve_principal(self, request: Request) -> tuple[str, str]:
+        """Map the request to a ``(principal_id, tier)`` pair.
+
+        Session cookie wins (a browser user), then API key (a programmatic
+        caller, charged to the key's owning user), then the anonymous
+        per-IP principal with the ``anon`` tier.
+        """
+        from omni_mercury_engine.api.routes.accounts import SESSION_COOKIE, get_auth_service
+
+        raw_session = request.cookies.get(SESSION_COOKIE)
+        if raw_session:
+            try:
+                account = get_auth_service().authenticate_session(raw_session)
+            except Exception:  # pragma: no cover - principal resolution is best-effort
+                account = None
+            if account is not None:
+                return account.id, account.tier
+
+        api_key = request.headers.get("X-API-Key")
+        if api_key:
+            try:
+                from omni_mercury_engine.api.auth import get_api_key_store
+
+                key_obj = get_api_key_store().get_by_key(api_key)
+            except Exception:  # pragma: no cover - principal resolution is best-effort
+                key_obj = None
+            if key_obj is not None and key_obj.is_active and not key_obj.is_expired:
+                # Charge the key's usage to its owning account at that account's
+                # tier: a paid tier's programmatic traffic then gets the paid
+                # ceiling, and a user's session and API key share one per-account
+                # bucket rather than two independent ones. Fall back to the key's
+                # user_id under the free tier if the account can't be resolved
+                # (e.g. deleted between key lookup and this call).
+                try:
+                    account = get_auth_service().get_account(key_obj.user_id)
+                except Exception:  # pragma: no cover - best-effort resolution
+                    account = None
+                if account is not None:
+                    return account.id, account.tier
+                return key_obj.user_id, "free"
+
+        ip = resolve_client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("X-Forwarded-For"),
+        )
+        return f"anon:{ip}", "anon"
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Enforce the quota around a metered request."""
+        path = request.url.path
+        if not quota_enforcement_enabled() or not path.startswith(self._prefixes):
+            return await call_next(request)
+
+        try:
+            enforcer = self._get_enforcer()
+            principal, tier = self._resolve_principal(request)
+            decision = enforcer.reserve(principal, path, tier)
+        except Exception:
+            if quota_fail_closed():
+                from fastapi import Response as FastAPIResponse
+
+                logger.exception(
+                    "quota reservation failed; denying request (MERCURY_QUOTA_FAIL_CLOSED=true)"
+                )
+                return FastAPIResponse(
+                    content=(
+                        '{"error": "quota_unavailable", "message": '
+                        '"quota infrastructure unavailable; request denied by policy"}'
+                    ),
+                    status_code=503,
+                    media_type="application/json",
+                    headers={"Retry-After": "30"},
+                )
+            logger.exception("quota reservation failed; admitting request unmetered")
+            return await call_next(request)
+
+        if not decision.allowed:
+            from fastapi import Response as FastAPIResponse
+
+            from omni_mercury_engine.api import platform_metrics
+
+            platform_metrics.record_quota_denial(
+                "requests" if (decision.reason or "").startswith("request") else "compute"
+            )
+            retry_after = decision.retry_after_seconds or 60
+            return FastAPIResponse(
+                content=(
+                    '{"error": "quota_exceeded", "message": "'
+                    + (decision.reason or "quota exceeded")
+                    + '"}'
+                ),
+                status_code=429,
+                media_type="application/json",
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-Quota-Requests-Used": str(decision.request_count),
+                    "X-Quota-Compute-Ms-Used": str(int(decision.compute_ms)),
+                },
+            )
+
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        finally:
+            if decision.event_id is not None:
+                elapsed_ms = (time.perf_counter() - start) * 1000.0
+                try:
+                    enforcer.commit(decision.event_id, elapsed_ms)
+                except Exception:  # pragma: no cover - accounting must not break replies
+                    logger.exception("quota commit failed for event %s", decision.event_id)
+        return response

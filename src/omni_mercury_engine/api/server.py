@@ -226,9 +226,23 @@ async def _warmup(app_instance: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
-    """ASGI lifespan handler: warmup on startup, no-op on shutdown."""
+    """ASGI lifespan handler: warmup + maintenance on startup, cleanup on stop.
+
+    The maintenance task (see :mod:`omni_mercury_engine.api.maintenance`)
+    prunes expired sessions/tokens, aged usage-ledger rows, and stale
+    rate-limit state, and applies the TOTP sealing migration — once at
+    startup, then periodically. It is failure-isolated: a maintenance error
+    is logged and never blocks serving.
+    """
     await _warmup(app_instance)
-    yield
+    from omni_mercury_engine.api.maintenance import start_maintenance_task
+
+    maintenance_task = start_maintenance_task()
+    try:
+        yield
+    finally:
+        if maintenance_task is not None:
+            maintenance_task.cancel()
 
 
 # Initialize FastAPI application with comprehensive OpenAPI configuration
@@ -268,6 +282,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         - OMNI_RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: true)
         - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: Max requests per minute (default: 100)
         - OMNI_RATE_LIMIT_BURST: Burst size (default: 20)
+        - MERCURY_TRUSTED_PROXY_HOPS: How many trailing X-Forwarded-For hops
+          were appended by this deployment's own proxies (default 0 = the
+          header is untrusted and the TCP peer address identifies the client)
+        - MERCURY_KEYSTORE_PATH: When set, bucket state lives in the shared
+          SQLite file — limits are global across workers and survive restarts
     """
 
     def __init__(
@@ -278,6 +297,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ):
         """Initialize the instance."""
         super().__init__(app)
+        from omni_mercury_engine.api.rate_limit_store import build_shared_bucket_backend
         from omni_mercury_engine.security.rate_limiting import RateLimiter
 
         self.enabled = os.getenv("OMNI_RATE_LIMIT_ENABLED", "true").lower() == "true"
@@ -286,22 +306,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         )
         self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
 
-        # Use unified rate limiter
+        # Unified rate limiter over the shared SQLite backend when
+        # MERCURY_KEYSTORE_PATH is set (cross-worker, restart-persistent,
+        # atomic consume) — otherwise the unchanged in-memory default.
         self._limiter = RateLimiter(
             requests_per_minute=self.requests_per_minute,
             burst_size=self.burst_size,
+            backend=build_shared_bucket_backend(),
         )
 
     def _get_client_id(self, request: Request) -> str:
-        """Extract client identifier from request."""
-        # Prefer X-Forwarded-For for clients behind proxies
-        forwarded: str | None = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        # Fall back to direct client IP
-        if request.client:
-            return str(request.client.host)
-        return "unknown"
+        """Extract the client identifier from the request.
+
+        Resolution goes through :func:`~omni_mercury_engine.api.client_ip.
+        resolve_client_ip`: X-Forwarded-For is only consulted when
+        ``MERCURY_TRUSTED_PROXY_HOPS`` declares a proxy tier, and then only at
+        the right-most trusted position — the left-most entry is
+        client-writable and taking it (the previous behaviour) let any caller
+        mint a fresh rate-limit bucket per request.
+        """
+        from omni_mercury_engine.api.client_ip import resolve_client_ip
+
+        return resolve_client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("X-Forwarded-For"),
+        )
 
     def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
         """Check if request is within rate limit using unified rate limiter."""
@@ -314,8 +343,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting."""
-        # Skip rate limiting if disabled or for health checks
-        if not self.enabled or request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
+        # Skip rate limiting if disabled, for health checks, docs, and the
+        # Prometheus scrape target (scrapers poll on a fixed interval and
+        # must not drain the service budget of the scraper's IP).
+        if not self.enabled or request.url.path in [
+            "/health",
+            "/metrics",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+        ]:
             return await call_next(request)
 
         client_id = self._get_client_id(request)
@@ -343,6 +380,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return response
 
+
+# Register quota middleware FIRST so it runs INNERMOST (Starlette runs
+# middleware in reverse registration order): a request must pass the global
+# rate limiter before it can reserve account quota, and a 429 from either
+# layer never double-charges the other.
+from omni_mercury_engine.api.quota_middleware import QuotaMiddleware
+
+app.add_middleware(QuotaMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 # Register rate limiting middleware
 app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
@@ -1304,6 +1349,16 @@ try:
 except ImportError as e:
     logger.warning(f"Advanced detection routes not available: {e}")
 
+# Include Self-Service Account Routes (opt-in: inert unless the flows are used;
+# store/mailer default to in-memory/console without MERCURY_KEYSTORE_PATH/SMTP)
+try:
+    from omni_mercury_engine.api.routes.accounts import router as accounts_router
+
+    app.include_router(accounts_router)
+    logger.info("Account routes registered")
+except ImportError as e:
+    logger.warning(f"Account routes not available: {e}")
+
 # Include Hazard Visualization Routes
 try:
     from omni_mercury_engine.api.routes.hazard import router as hazard_router
@@ -1312,6 +1367,17 @@ try:
     logger.info("Hazard visualization routes registered")
 except ImportError as e:
     logger.warning(f"Hazard visualization routes not available: {e}")
+
+# Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
+# off, every existing route — including the 404 at / — stays byte-identical)
+try:
+    from omni_mercury_engine.api.frontend import frontend_enabled, register_frontend
+
+    if frontend_enabled():
+        register_frontend(app)
+        logger.info("Account frontend registered")
+except ImportError as e:
+    logger.warning(f"Account frontend not available: {e}")
 
 # Include Voice Interface Routes
 try:

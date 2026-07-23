@@ -513,6 +513,14 @@ omni_mercury_engine = [
     # ``_apply_measured_sw_eng_metrics``; a non-editable install without it
     # silently falls back to the static placeholders.
     "core/sw_eng_metrics.json",
+    # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
+    # page scripts, and the vendored MIT qrcode-generator. Served straight
+    # from the installed package when MERCURY_FRONTEND_ENABLED=true — a
+    # non-editable install without these would 500 on every page route.
+    "api/frontend_assets/pages/*.html",
+    "api/frontend_assets/static/*.css",
+    "api/frontend_assets/static/*.js",
+    "api/frontend_assets/static/vendor/*.js",
 ]
 
 # =============================================================================

@@ -870,13 +870,21 @@ class SecureAuditLogger:
 
 # Global instance
 _audit_logger: SecureAuditLogger | None = None
+_audit_logger_lock = threading.Lock()
 
 
 def get_audit_logger() -> SecureAuditLogger:
-    """Get or create global audit logger instance."""
+    """Get or create global audit logger instance (thread-safe).
+
+    Lock-guarded double-checked construction: two threads racing the first
+    call must not each build a logger — the loser's instance would keep an
+    orphan flush thread alive and split the hash chain across two files.
+    """
     global _audit_logger
     if _audit_logger is None:
-        _audit_logger = SecureAuditLogger()
+        with _audit_logger_lock:
+            if _audit_logger is None:
+                _audit_logger = SecureAuditLogger()
     return _audit_logger
 
 

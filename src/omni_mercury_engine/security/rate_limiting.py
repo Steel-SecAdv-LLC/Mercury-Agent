@@ -215,8 +215,40 @@ class RateLimiter:
             return self._check_sliding_window(identifier)
 
     def _check_token_bucket(self, identifier: str) -> RateLimitInfo:
-        """Token bucket algorithm with burst support."""
+        """Token bucket algorithm with burst support.
+
+        When the backend exposes an atomic ``consume_token`` (the shared
+        SQLite backend does), the whole refill-and-spend happens inside the
+        backend's own transaction — the only race-free option once buckets
+        are shared across worker processes. The plain ``get``/``set`` path
+        below is kept for simple in-memory backends, where the process-local
+        lock already serialises access.
+        """
         now = time.time()
+
+        consume = getattr(self.backend, "consume_token", None)
+        if callable(consume):
+            refill_rate = self.requests_per_minute / 60.0
+            allowed, remaining = consume(
+                identifier,
+                refill_rate=refill_rate,
+                burst=self.burst_size,
+                now=now,
+            )
+            if allowed:
+                return RateLimitInfo(
+                    allowed=True,
+                    limit=self.requests_per_minute,
+                    remaining=int(remaining),
+                    reset_at=int(now) + 60,
+                )
+            return RateLimitInfo(
+                allowed=False,
+                limit=self.requests_per_minute,
+                remaining=0,
+                reset_at=int(now) + 60,
+                retry_after=60.0 / self.requests_per_minute,
+            )
 
         # Get current bucket state
         bucket = self.backend.get(identifier)
@@ -349,15 +381,18 @@ class RateLimiter:
                 )
 
 
-# Global singleton for convenience
+# Global singleton for convenience. Construction is lock-guarded
+# (double-checked) so two threads racing the first call cannot each build a
+# limiter and leave callers split across two independent token pools.
 _default_limiter: RateLimiter | None = None
+_default_limiter_lock = threading.Lock()
 
 
 def get_rate_limiter(
     requests_per_minute: int = RateLimiter.DEFAULT_REQUESTS_PER_MINUTE,
     burst_size: int | None = None,
 ) -> RateLimiter:
-    """Get or create the default rate limiter singleton.
+    """Get or create the default rate limiter singleton (thread-safe).
 
     Args:
         requests_per_minute: Requests per minute (only used on first call)
@@ -368,10 +403,12 @@ def get_rate_limiter(
     """
     global _default_limiter
     if _default_limiter is None:
-        _default_limiter = RateLimiter(
-            requests_per_minute=requests_per_minute,
-            burst_size=burst_size,
-        )
+        with _default_limiter_lock:
+            if _default_limiter is None:
+                _default_limiter = RateLimiter(
+                    requests_per_minute=requests_per_minute,
+                    burst_size=burst_size,
+                )
     return _default_limiter
 
 

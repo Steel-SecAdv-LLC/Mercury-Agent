@@ -72,6 +72,8 @@ if TYPE_CHECKING:
 
     from fastapi import HTTPException, Request, status
     from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+
+    from omni_mercury_engine.api.key_store import KeyStore
 else:
     try:
         from fastapi import HTTPException, Request, status
@@ -353,6 +355,17 @@ class APIKeyStore:
         """Get API key by ID."""
         return self._keys.get(key_id)
 
+    def list_by_user(self, user_id: str) -> list[APIKey]:
+        """Return every key owned by ``user_id``, newest first.
+
+        Mirrors :meth:`SqliteKeyStore.list_by_user`: metadata only (the raw
+        key is never retained), ordered newest-first so the two backends are
+        interchangeable behind the :class:`KeyStore` contract.
+        """
+        owned = [key for key in self._keys.values() if key.user_id == user_id]
+        owned.sort(key=lambda k: k.created_at, reverse=True)
+        return owned
+
     def revoke(self, key_id: str) -> bool:
         """Revoke an API key."""
         if key_id in self._keys:
@@ -548,15 +561,37 @@ class AuthKeyManager:
         return result
 
 
-# Global API key store (in production, use dependency injection)
-_api_key_store = APIKeyStore()
+# Global API key store. The concrete backend is selected once, lazily, by
+# ``key_store.build_key_store()``: in-memory by default (unchanged dev/test
+# behaviour), durable SQLite when ``MERCURY_KEYSTORE_PATH`` is set. Lazy
+# construction keeps the same-instance contract callers rely on while letting
+# the environment pick the backend without importing ``key_store`` eagerly
+# (which would create an import cycle: key_store imports the models from here).
+_api_key_store: KeyStore | None = None
+_api_key_store_lock = threading.Lock()
 
 # Global AMA key manager instance
 _auth_key_manager: AuthKeyManager | None = None
+_auth_key_manager_lock = threading.Lock()
 
 
-def get_api_key_store() -> APIKeyStore:
-    """Get the API key store instance."""
+def get_api_key_store() -> KeyStore:
+    """Get the process-wide API key store, constructing it on first use.
+
+    The backend is chosen by ``key_store.build_key_store()`` from the
+    environment; the constructed instance is cached so every caller shares one
+    store for the process lifetime. Construction is lock-guarded
+    (double-checked): two request threads racing the first build must never
+    each construct a store — with the in-memory backend the loser's keys
+    would silently vanish when the winner's instance is later returned.
+    """
+    global _api_key_store
+    if _api_key_store is None:
+        with _api_key_store_lock:
+            if _api_key_store is None:
+                from omni_mercury_engine.api.key_store import build_key_store
+
+                _api_key_store = build_key_store()
     return _api_key_store
 
 
@@ -630,7 +665,9 @@ def get_auth_key_manager() -> AuthKeyManager:
     """
     global _auth_key_manager
     if _auth_key_manager is None:
-        _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
+        with _auth_key_manager_lock:
+            if _auth_key_manager is None:
+                _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
     return _auth_key_manager
 
 
@@ -1075,11 +1112,20 @@ class RequestRateLimiter:
         self.burst_size = burst_size
 
     def _get_key(self, request: Request, user: User | None = None) -> str:
-        """Get rate limit key for request."""
+        """Get rate limit key for request.
+
+        Anonymous callers are keyed by their trusted-proxy-resolved client IP
+        (see :mod:`omni_mercury_engine.api.client_ip`), never by a raw
+        client-writable header.
+        """
         if user:
             return f"user:{user.id}"
-        # Fall back to IP
-        client_ip = request.client.host if request.client else "unknown"
+        from omni_mercury_engine.api.client_ip import resolve_client_ip
+
+        client_ip = resolve_client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("X-Forwarded-For"),
+        )
         return f"ip:{client_ip}"
 
     def is_allowed(

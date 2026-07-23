@@ -2202,5 +2202,319 @@ class _FallbackVoice:
         return []
 
 
+# ---------------------------------------------------------------------------
+# platform operator commands (local admin plane over the shared SQLite store)
+# ---------------------------------------------------------------------------
+@main.group()
+def platform() -> None:
+    """Operate the account platform: accounts, quotas, usage, audit.
+
+    These commands are the operator surface for runtime platform state
+    (account tiers, per-account quota overrides, usage reports, audit-chain
+    verification). They run *on the box* against the shared SQLite store
+    (`MERCURY_KEYSTORE_PATH`) and the audit directory
+    (`MERCURY_AUDIT_LOG_DIR`) — deliberately not a privileged HTTP surface,
+    so there is nothing extra to protect on a solo deployment. Secrets
+    (password hashes, sealed TOTP material, key hashes) are never printed.
+    """
+
+
+def _require_env_path(name: str, purpose: str) -> str:
+    """Return the value of env var ``name`` or exit with a clear refusal."""
+    value = os.getenv(name, "").strip()
+    if not value:
+        click.echo(
+            f"Error: {name} is not set — {purpose}. Export it to point at the "
+            "deployment's state before using `mercury-agent platform`.",
+            err=True,
+        )
+        raise SystemExit(1)
+    return value
+
+
+def _resolve_account(identifier: str) -> Any:
+    """Resolve an account by email (preferred) or id, or exit 1."""
+    from omni_mercury_engine.api.identity_store import build_identity_store
+
+    store = build_identity_store()
+    account = store.get_account_by_email(identifier) or store.get_account_by_id(identifier)
+    if account is None:
+        click.echo(f"Error: no account matches {identifier!r} (by email or id).", err=True)
+        raise SystemExit(1)
+    return account
+
+
+def _account_view(account: Any) -> dict[str, Any]:
+    """Project an account to its operator-safe view (no secret material)."""
+    return {
+        "id": account.id,
+        "email": account.email,
+        "tier": account.tier,
+        "is_verified": account.is_verified,
+        "is_active": account.is_active,
+        "totp_enabled": account.totp_enabled,
+        "created_at": account.created_at.isoformat(),
+    }
+
+
+def _effective_quota(account: Any) -> dict[str, Any]:
+    """The account's resolved quota config (override > tier > default)."""
+    from omni_mercury_engine.api.quota import build_quota_enforcer
+
+    config = build_quota_enforcer().config_for(account.id, account.tier)
+    return {
+        "window_seconds": config.window_seconds,
+        "max_requests": config.max_requests,
+        "max_compute_ms": config.max_compute_ms,
+    }
+
+
+@platform.group("account")
+def platform_account() -> None:
+    """Inspect and administer accounts (tier, enable/disable)."""
+
+
+@platform_account.command("show")
+@click.argument("identifier")
+def platform_account_show(identifier: str) -> None:
+    """Show one account (by email or id) with its effective quota config."""
+    _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
+    account = _resolve_account(identifier)
+    payload = _account_view(account)
+    payload["effective_quota"] = _effective_quota(account)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@platform_account.command("list")
+def platform_account_list() -> None:
+    """List every account (operator-safe fields only)."""
+    _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
+    from omni_mercury_engine.api.identity_store import build_identity_store
+
+    accounts = [_account_view(account) for account in build_identity_store().iter_accounts()]
+    click.echo(json.dumps(accounts, indent=2))
+
+
+@platform_account.command("set-tier")
+@click.argument("identifier")
+@click.argument("tier")
+def platform_account_set_tier(identifier: str, tier: str) -> None:
+    """Move an account onto TIER and echo the resulting effective quota.
+
+    Tier ceilings come from `MERCURY_QUOTA_TIER_<NAME>`; a name with no
+    definition resolves to the default ceilings (the echoed config shows
+    exactly what enforcement will use, so a typo is immediately visible).
+    """
+    _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
+    from omni_mercury_engine.api.identity_store import build_identity_store
+
+    account = _resolve_account(identifier)
+    account.tier = tier.strip().lower()
+    build_identity_store().update_account(account)
+    payload = _account_view(account)
+    payload["effective_quota"] = _effective_quota(account)
+    click.echo(json.dumps(payload, indent=2))
+
+
+def _set_account_active(identifier: str, active: bool) -> None:
+    """Shared body of ``account disable`` / ``account enable``."""
+    _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
+    from omni_mercury_engine.api.identity_store import build_identity_store
+
+    store = build_identity_store()
+    account = _resolve_account(identifier)
+    account.is_active = active
+    store.update_account(account)
+    if not active:
+        # A disabled account must not keep riding an existing login.
+        store.delete_sessions_for_account(account.id)
+    click.echo(json.dumps(_account_view(account), indent=2))
+
+
+@platform_account.command("disable")
+@click.argument("identifier")
+def platform_account_disable(identifier: str) -> None:
+    """Deactivate an account (blocks login and drops its live sessions)."""
+    _set_account_active(identifier, active=False)
+
+
+@platform_account.command("enable")
+@click.argument("identifier")
+def platform_account_enable(identifier: str) -> None:
+    """Reactivate a previously disabled account."""
+    _set_account_active(identifier, active=True)
+
+
+@platform.group("quota")
+def platform_quota() -> None:
+    """Manage per-account quota overrides."""
+
+
+@platform_quota.group("override")
+def platform_quota_override() -> None:
+    """Set, clear, or show one account's quota override (top precedence)."""
+
+
+@platform_quota_override.command("set")
+@click.argument("identifier")
+@click.option("--max-requests", required=True, type=int, help="Request ceiling per window")
+@click.option("--max-compute-ms", required=True, type=float, help="Compute-ms ceiling per window")
+@click.option(
+    "--window-seconds",
+    default=None,
+    type=int,
+    help="Rolling window length (defaults to the deployment's default window)",
+)
+def platform_quota_override_set(
+    identifier: str, max_requests: int, max_compute_ms: float, window_seconds: int | None
+) -> None:
+    """Give an account its own ceilings, overriding tier and default."""
+    if (
+        max_requests < 1
+        or max_compute_ms <= 0
+        or (window_seconds is not None and window_seconds < 1)
+    ):
+        raise click.BadParameter("ceilings and window must be positive")
+    _require_env_path("MERCURY_KEYSTORE_PATH", "quota overrides live in the shared SQLite store")
+    from omni_mercury_engine.api.quota import QuotaConfig, build_quota_enforcer
+
+    account = _resolve_account(identifier)
+    enforcer = build_quota_enforcer()
+    config = QuotaConfig(
+        window_seconds=(
+            window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
+        ),
+        max_requests=max_requests,
+        max_compute_ms=max_compute_ms,
+    )
+    enforcer.override_store.set_override(account.id, config)
+    payload = _account_view(account)
+    payload["effective_quota"] = _effective_quota(account)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@platform_quota_override.command("clear")
+@click.argument("identifier")
+def platform_quota_override_clear(identifier: str) -> None:
+    """Remove an account's override; tier/default resolution applies again."""
+    _require_env_path("MERCURY_KEYSTORE_PATH", "quota overrides live in the shared SQLite store")
+    from omni_mercury_engine.api.quota import build_quota_enforcer
+
+    account = _resolve_account(identifier)
+    build_quota_enforcer().override_store.set_override(account.id, None)
+    payload = _account_view(account)
+    payload["effective_quota"] = _effective_quota(account)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@platform_quota_override.command("show")
+@click.argument("identifier")
+def platform_quota_override_show(identifier: str) -> None:
+    """Show an account's stored override (if any) and its effective config."""
+    _require_env_path("MERCURY_KEYSTORE_PATH", "quota overrides live in the shared SQLite store")
+    from omni_mercury_engine.api.quota import build_quota_enforcer
+
+    account = _resolve_account(identifier)
+    override = build_quota_enforcer().override_store.get_override(account.id)
+    payload = _account_view(account)
+    payload["override"] = (
+        {
+            "window_seconds": override.window_seconds,
+            "max_requests": override.max_requests,
+            "max_compute_ms": override.max_compute_ms,
+        }
+        if override is not None
+        else None
+    )
+    payload["effective_quota"] = _effective_quota(account)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@platform.group("usage")
+def platform_usage() -> None:
+    """Report metered usage from the ledger."""
+
+
+@platform_usage.command("report")
+@click.option("--account", "identifier", default=None, help="Report one account (email or id)")
+@click.option(
+    "--top", "top_n", default=10, type=int, help="How many accounts to list (by requests)"
+)
+@click.option(
+    "--window-seconds",
+    default=None,
+    type=int,
+    help="Look-back window (defaults to the deployment's default quota window)",
+)
+def platform_usage_report(identifier: str | None, top_n: int, window_seconds: int | None) -> None:
+    """Summarise in-window usage — one account, or the top consumers."""
+    if top_n < 1 or (window_seconds is not None and window_seconds < 1):
+        raise click.BadParameter("--top and --window-seconds must be positive")
+    _require_env_path("MERCURY_KEYSTORE_PATH", "the usage ledger lives in the shared SQLite store")
+    from datetime import UTC, datetime, timedelta
+
+    from omni_mercury_engine.api.identity_store import build_identity_store
+    from omni_mercury_engine.api.quota import QuotaConfig
+    from omni_mercury_engine.api.usage_ledger import build_usage_ledger
+
+    window = window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
+    since = datetime.now(UTC) - timedelta(seconds=window)
+    ledger = build_usage_ledger()
+
+    def _row(account: Any) -> dict[str, Any]:
+        summary = ledger.summary_since(account.id, since)
+        return {
+            "id": account.id,
+            "email": account.email,
+            "tier": account.tier,
+            "requests": summary.request_count,
+            "compute_ms": summary.compute_ms,
+        }
+
+    if identifier is not None:
+        rows = [_row(_resolve_account(identifier))]
+    else:
+        rows = sorted(
+            (_row(account) for account in build_identity_store().iter_accounts()),
+            key=lambda row: (-int(row["requests"]), str(row["email"])),
+        )[:top_n]
+    click.echo(json.dumps({"window_seconds": window, "accounts": rows}, indent=2))
+
+
+@platform.group("audit")
+def platform_audit() -> None:
+    """Verify the tamper-evident audit trail."""
+
+
+@platform_audit.command("verify")
+@click.option(
+    "--file",
+    "file_path",
+    default=None,
+    help="Verify a specific segment file (defaults to the active audit.jsonl)",
+)
+def platform_audit_verify(file_path: str | None) -> None:
+    """Verify the audit log's HMAC hash chain; exit 1 on any break.
+
+    Verification recomputes the chain with the key derived from
+    `AMA_MASTER_SEED` — run it with the same environment the server writes
+    with, or every line will (correctly) fail to verify.
+    """
+    audit_dir = _require_env_path(
+        "MERCURY_AUDIT_LOG_DIR", "audit verification reads the deployment's audit directory"
+    )
+    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+
+    logger = SecureAuditLogger(log_dir=audit_dir)
+    try:
+        target = Path(file_path) if file_path else None
+        ok, message = logger.verify_log_integrity(target)
+    finally:
+        logger.shutdown()
+    click.echo(json.dumps({"ok": ok, "message": message}, indent=2))
+    if not ok:
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()

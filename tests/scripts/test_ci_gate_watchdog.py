@@ -33,14 +33,22 @@ _spec.loader.exec_module(wd)
 NOW = datetime(2026, 7, 21, 12, 0, 0, tzinfo=UTC)
 
 
-def _run(conclusion: str | None, status: str = "completed", minutes_ago: int = 5) -> dict[str, Any]:
+def _run(
+    conclusion: str | None,
+    status: str = "completed",
+    minutes_ago: int = 5,
+    head_branch: str | None = None,
+) -> dict[str, Any]:
     started = NOW.timestamp() - minutes_ago * 60
-    return {
+    run: dict[str, Any] = {
         "status": status,
         "conclusion": conclusion,
         "createdAt": datetime.fromtimestamp(started, tz=UTC).isoformat().replace("+00:00", "Z"),
         "event": "pull_request",
     }
+    if head_branch is not None:
+        run["headBranch"] = head_branch
+    return run
 
 
 class TestAnalyze:
@@ -104,6 +112,50 @@ class TestAnalyze:
         v = wd.analyze("W", [], now=NOW, threshold=3)
         assert v.alert is False
         assert v.considered == 0
+
+    def test_superseded_cancellations_are_excused(self) -> None:
+        # Every cancellation is on a branch that ALSO reached a clean verdict
+        # in the window — the normal busy-PR cancel-in-progress shape. No alarm.
+        runs = [
+            _run("cancelled", head_branch="pr-1"),
+            _run("success", head_branch="pr-1"),
+            _run("cancelled", head_branch="pr-2"),
+            _run("failure", head_branch="pr-2"),
+            _run("cancelled", head_branch="pr-3"),
+            _run("success", head_branch="pr-3"),
+        ]
+        v = wd.analyze("W", runs, now=NOW, threshold=3)
+        assert v.alert is False
+        assert v.unhealthy_count == 0
+
+    def test_cancellation_without_later_verdict_still_alerts(self) -> None:
+        # A branch cancelled repeatedly that NEVER reached a verdict is the
+        # real #348 pathology — still an alarm even with headBranch present.
+        runs = [_run("cancelled", head_branch="stuck-pr") for _ in range(4)]
+        v = wd.analyze("W", runs, now=NOW, threshold=3)
+        assert v.alert is True
+        assert v.unhealthy_count == 4
+
+    def test_missing_head_branch_keeps_strict_behavior(self) -> None:
+        # Older feeds without headBranch fall back to counting every cancel.
+        runs = [_run("cancelled") for _ in range(4)]
+        v = wd.analyze("W", runs, now=NOW, threshold=3)
+        assert v.alert is True
+        assert v.unhealthy_count == 4
+
+    def test_mixed_superseded_and_real_only_counts_real(self) -> None:
+        # pr-1 cancels are superseded (benign); pr-2 never gets a verdict.
+        runs = [
+            _run("cancelled", head_branch="pr-1"),
+            _run("success", head_branch="pr-1"),
+            _run("cancelled", head_branch="pr-2"),
+            _run("cancelled", head_branch="pr-2"),
+            _run("cancelled", head_branch="pr-2"),
+        ]
+        v = wd.analyze("W", runs, now=NOW, threshold=3)
+        assert v.unhealthy_count == 3
+        assert v.alert is True
+        assert "superseded" in v.reasons[0]
 
 
 class TestMainCli:

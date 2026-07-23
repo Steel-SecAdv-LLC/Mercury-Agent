@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!-- Copyright (C) 2025 Steel Security Advisors LLC
+     SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — Mercury Agent</title>
+  <link rel="stylesheet" href="/static/mercury.css">
+  <script src="/static/common.js" defer></script>
+  <script src="/static/auth.js" defer></script>
+</head>
+<body data-page="login">
+  <header class="site-header">
+    <a class="brand" href="/">Mercury Agent</a>
+    <nav aria-label="Account">
+      <span data-nav-anon class="hidden"><a href="/register">Register</a></span>
+      <span data-nav-authed class="hidden"><a href="/dashboard">Dashboard</a></span>
+    </nav>
+  </header>
+  <main class="narrow">
+    <h1>Log in</h1>
+    <div class="card">
+      <form id="login-form">
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <div id="two-factor-step" class="hidden">
+          <label for="totp-code">Authenticator code</label>
+          <input id="totp-code" name="totp-code" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" maxlength="12"
+                 aria-describedby="two-factor-hint">
+          <p id="two-factor-hint" class="hint">
+            Lost the authenticator? Enter one of your recovery codes instead.
+          </p>
+          <label for="recovery-code">Recovery code</label>
+          <input id="recovery-code" name="recovery-code" type="text" maxlength="64">
+        </div>
+        <div>
+          <input id="remember-me" name="remember-me" type="checkbox" checked>
+          <label for="remember-me" class="label-inline">Remember me</label>
+        </div>
+        <button type="submit">Log in</button>
+      </form>
+      <p id="login-status" class="status" role="status" aria-live="polite"></p>
+      <p class="hint">
+        <a href="/reset-password">Forgot your password?</a> ·
+        <a href="/register">Create an account</a>
+      </p>
+    </div>
+  </main>
+  <footer class="site-footer">Mercury Agent — Steel Security Advisors LLC</footer>
+</body>
+</html>

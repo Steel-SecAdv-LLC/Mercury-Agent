@@ -1,0 +1,29 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Mercury Agent platform — TLS reverse proxy.
+#
+# Caddy provisions and renews the certificate automatically (Let's Encrypt)
+# as long as app.mercuryagent.global's DNS A/AAAA record points at this host
+# and ports 80/443 are reachable. DNS + mailbox provisioning live in
+# docs/DOMAIN_EMAIL_HOSTING_SETUP.md (PR #343).
+#
+# The single proxy hop below is why the app runs with
+# MERCURY_TRUSTED_PROXY_HOPS=1 (docker-compose.platform.yml): Caddy appends
+# exactly one X-Forwarded-For entry, which the app trusts for client-IP
+# resolution; the TLS edge also makes the Secure cookie default correct.
+
+{
+	email contact@mercuryagent.global
+}
+
+app.mercuryagent.global {
+	encode gzip
+
+	reverse_proxy mercury-agent:8000 {
+		# Active upstream health checking against the API's own probe.
+		health_uri /health
+		health_interval 30s
+		health_timeout 5s
+	}
+}
