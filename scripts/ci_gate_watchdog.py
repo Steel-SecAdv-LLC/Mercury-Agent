@@ -17,8 +17,10 @@ This module is the pure decision core: it takes the recent run history for one
 workflow (the JSON ``gh run list --json ...`` emits) and decides whether that
 workflow's gate is unhealthy, with a human-readable reason. It performs no
 network I/O so the policy is unit-testable; the surrounding
-``gate-watchdog.yml`` workflow feeds it live data and opens/updates a tracking
-issue when :func:`analyze` reports ``alert``.
+``gate-watchdog.yml`` workflow feeds it live data, opens/updates a tracking
+issue when :func:`analyze` reports ``alert``, and auto-closes that issue
+(posting the verdict's all-clear body) once the gate completes cleanly again —
+alerts self-clear instead of lingering as stale open issues.
 
 Run conclusions treated as *not a clean completion*:
 ``cancelled``, ``timed_out``, ``startup_failure``. A ``failure`` conclusion is
@@ -170,7 +172,10 @@ def analyze(
     if alert:
         body = _render_body(workflow, considered, reasons, now)
     else:
-        body = ""
+        # A healthy verdict also carries a body: the workflow posts it as the
+        # resolution comment when it auto-closes a previously filed alert, so
+        # the tracking issue records *why* it closed instead of going silent.
+        body = _render_all_clear(workflow, len(considered), now)
     return Verdict(
         workflow=workflow,
         alert=alert,
@@ -218,10 +223,29 @@ def _render_body(
         "- An infrastructure flake in setup (checkout / dependency install).",
         "",
         "_Filed automatically by `gate-watchdog.yml`. It will update this "
-        "issue while the condition persists and can be closed once the gate "
-        "completes cleanly again._",
+        "issue while the condition persists and will close it automatically "
+        "once the gate completes cleanly again._",
     ]
     return "\n".join(lines)
+
+
+def _render_all_clear(workflow: str, considered: int, now: datetime) -> str:
+    """The resolution comment posted when a previously alerting gate recovers.
+
+    Args:
+        workflow: Display name of the workflow.
+        considered: How many recent runs the healthy verdict looked at.
+        now: Current time (injected for deterministic tests).
+
+    Returns:
+        Markdown for the auto-close comment.
+    """
+    return (
+        f"✅ All clear: **{workflow}** is completing cleanly again across its "
+        f"{considered} most recent runs (as of {now.isoformat()}).\n\n"
+        "_Closed automatically by `gate-watchdog.yml`; a new issue will be "
+        "filed if the condition returns._"
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
