@@ -254,7 +254,7 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_TRUSTED_PROXY_HOPS` | `0` | Trailing `X-Forwarded-For` hops your proxy tier appends |
 | `MERCURY_SMTP_HOST` etc. | *(unset → console)* | SMTP delivery (`_PORT/_USERNAME/_PASSWORD/_FROM/_STARTTLS`) |
 | `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
-| `MERCURY_CONTACT_EMAIL` | `steel.sa.llc@gmail.com` | `List-Unsubscribe` contact |
+| `MERCURY_CONTACT_EMAIL` | `contact@mercuryagent.global` | `List-Unsubscribe` contact |
 | `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key for TOTP sealing (`python scripts/generate_secret_key.py`) |
 | `MERCURY_DATA_ENC_KEY_OLD` | *(unset)* | Retiring at-rest key, read by `scripts/reseal_totp_secrets.py` during key rotation |
 | `AMA_MASTER_SEED` | *(unset)* | Fleet HD seed; TOTP sealing key derived via HKDF when set |
@@ -270,6 +270,7 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_QUOTA_WINDOW_SECONDS` / `_MAX_REQUESTS` / `_MAX_COMPUTE_MS` | `3600/1000/600000` | Default quota ceilings |
 | `MERCURY_QUOTA_TIER_<NAME>` | *(unset)* | Tier `"<max_requests>,<max_compute_ms>[,<window_seconds>]"` |
 | `MERCURY_QUOTA_METERED_PREFIXES` | `/api/v1/detect,/api/v1/batch` | Path prefixes the quota middleware guards |
+| `MERCURY_QUOTA_FAIL_CLOSED` | `false` | Deny metered requests with 503 when the quota infrastructure itself fails (see the trade-off note under Deployment) |
 | `MERCURY_MAINTENANCE_INTERVAL_SECONDS` | `3600` | Sweep interval (`0` disables the periodic loop) |
 | `MERCURY_USAGE_RETENTION_DAYS` | `30` | Usage-ledger retention (must exceed the largest quota window) |
 | `MERCURY_AUDIT_LOG_DIR` | *(unset → logging)* | Tamper-evident audit trail directory |
@@ -299,6 +300,14 @@ All variables are optional; unset values keep the pre-platform behaviour.
 4. **SMTP.** Set `MERCURY_SMTP_*` for real email; unset falls back to console
    logging (fine for dev). Set `MERCURY_PUBLIC_BASE_URL` so email links resolve.
 5. **Quotas.** Set `MERCURY_QUOTA_ENABLED=true` and tune the ceilings/tiers.
+   By default a failure *of the quota infrastructure itself* (e.g. the SQLite
+   file becomes unreadable) admits the request unmetered — availability
+   outranks accounting, and the global rate limiter still bounds volume. Set
+   `MERCURY_QUOTA_FAIL_CLOSED=true` to invert that: metered routes then
+   return 503 until the quota store recovers. Choose fail-closed only when
+   unmetered compute is a bigger risk to you than an outage window — e.g.
+   expensive GPU-backed endpoints on a public deployment; keep the default
+   when the service being reachable matters more than exact accounting.
 6. **Audit.** Set `MERCURY_AUDIT_LOG_DIR` to a durable, append-only path.
 7. **Runtime image** must ship the native AMA-Cryptography backend (the
    import-time PQC gate); the at-rest sealer and JWT paths depend on it.

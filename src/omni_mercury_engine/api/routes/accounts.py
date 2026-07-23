@@ -30,6 +30,7 @@ set.
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from typing import TYPE_CHECKING
@@ -66,6 +67,8 @@ if TYPE_CHECKING:
     from omni_mercury_engine.api.auth import APIKey
     from omni_mercury_engine.api.identity_store import Account, Session
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/auth", tags=["Accounts"])
 
 #: Name of the browser session cookie.
@@ -87,6 +90,25 @@ _DEFAULT_KEY_PERMISSIONS: frozenset[Permission] = frozenset({Permission.READ, Pe
 #: Fallback per-account active-key cap (override with
 #: ``MERCURY_MAX_API_KEYS_PER_ACCOUNT``).
 _DEFAULT_MAX_API_KEYS_PER_ACCOUNT = 10
+
+#: Every throttle action name this module dispatches to the rate limiter.
+#: ``ActionRateLimiter.check`` allows unknown actions by design (a typo must
+#: not lock every user out), so this tuple is the shipped invariant that keeps
+#: that safety valve honest: a test cross-checks it against
+#: ``DEFAULT_ACTION_RULES``, and the limiter build cross-checks it at runtime
+#: (log + metric on mismatch, never a crash). Update it whenever a handler
+#: gains or loses an ``_enforce_action_limits`` check.
+DISPATCHED_THROTTLE_ACTIONS: tuple[str, ...] = (
+    "register_ip",
+    "resend_ip",
+    "resend_account",
+    "login_ip",
+    "login_account",
+    "reset_ip",
+    "reset_account",
+    "email_change_ip",
+    "email_change_account",
+)
 
 _service: AuthService | None = None
 _service_lock = threading.Lock()
@@ -114,13 +136,37 @@ def get_auth_service() -> AuthService:
     return _service
 
 
+def _verify_dispatched_actions(limiter: ActionRateLimiter) -> None:
+    """Cross-check every dispatched throttle action against the built rules.
+
+    ``check()`` stays allow-on-unknown at request time (availability first);
+    this boot-time pass turns the "caught by tests" promise into a shipped
+    invariant: a dispatched action with no rule is loudly logged and counted,
+    but never crashes the server.
+    """
+    for action in DISPATCHED_THROTTLE_ACTIONS:
+        if not limiter.has_rule(action):
+            logger.error(
+                "throttle action %r is dispatched by the account routes but has "
+                "no configured rule — requests using it are NOT rate limited",
+                action,
+            )
+            platform_metrics.record_throttle_config_mismatch(action)
+
+
 def get_action_limiter() -> ActionRateLimiter:
-    """Return the process-wide per-action rate limiter (lock-guarded build)."""
+    """Return the process-wide per-action rate limiter (lock-guarded build).
+
+    The first build also runs the dispatched-action invariant check (see
+    :func:`_verify_dispatched_actions`).
+    """
     global _action_limiter
     if _action_limiter is None:
         with _action_limiter_lock:
             if _action_limiter is None:
-                _action_limiter = build_action_rate_limiter()
+                limiter = build_action_rate_limiter()
+                _verify_dispatched_actions(limiter)
+                _action_limiter = limiter
     return _action_limiter
 
 

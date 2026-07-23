@@ -20,6 +20,9 @@ Enforcement is opt-in via ``MERCURY_QUOTA_ENABLED=true`` (a solo self-hoster
 keeps byte-identical behaviour), and *fails open by policy*: an internal
 metering error is logged and the request proceeds — detection availability
 outranks accounting, and the global rate limiter still bounds volume.
+Operators who prefer the opposite trade-off set
+``MERCURY_QUOTA_FAIL_CLOSED=true`` to deny with 503 while the quota
+infrastructure is unavailable (see :func:`quota_fail_closed`).
 """
 
 from __future__ import annotations
@@ -44,7 +47,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["QuotaMiddleware", "quota_enforcement_enabled"]
+__all__ = ["QuotaMiddleware", "quota_enforcement_enabled", "quota_fail_closed"]
 
 _DEFAULT_METERED_PREFIXES = "/api/v1/detect,/api/v1/batch"
 
@@ -52,6 +55,18 @@ _DEFAULT_METERED_PREFIXES = "/api/v1/detect,/api/v1/batch"
 def quota_enforcement_enabled() -> bool:
     """Whether quota enforcement is switched on for this deployment."""
     return os.getenv("MERCURY_QUOTA_ENABLED", "false").strip().lower() == "true"
+
+
+def quota_fail_closed() -> bool:
+    """Whether a quota-infrastructure failure denies (503) instead of admitting.
+
+    Default ``false`` keeps the availability-first posture: a metering error
+    admits the request unmetered (the global rate limiter still bounds
+    volume). Operators who rate accounting integrity above availability set
+    ``MERCURY_QUOTA_FAIL_CLOSED=true`` and take the 503s during a quota-store
+    outage instead. Trade-off documented in ``docs/PLATFORM_HARDENING.md``.
+    """
+    return os.getenv("MERCURY_QUOTA_FAIL_CLOSED", "false").strip().lower() == "true"
 
 
 class QuotaMiddleware(BaseHTTPMiddleware):
@@ -146,6 +161,21 @@ class QuotaMiddleware(BaseHTTPMiddleware):
             principal, tier = self._resolve_principal(request)
             decision = enforcer.reserve(principal, path, tier)
         except Exception:
+            if quota_fail_closed():
+                from fastapi import Response as FastAPIResponse
+
+                logger.exception(
+                    "quota reservation failed; denying request (MERCURY_QUOTA_FAIL_CLOSED=true)"
+                )
+                return FastAPIResponse(
+                    content=(
+                        '{"error": "quota_unavailable", "message": '
+                        '"quota infrastructure unavailable; request denied by policy"}'
+                    ),
+                    status_code=503,
+                    media_type="application/json",
+                    headers={"Retry-After": "30"},
+                )
             logger.exception("quota reservation failed; admitting request unmetered")
             return await call_next(request)
 

@@ -224,7 +224,7 @@ class AuthService:
         *,
         issuer: str = "Mercury Agent",
         base_url: str = "https://mercuryagent.global",
-        contact: str = "steel.sa.llc@gmail.com",
+        contact: str = "contact@mercuryagent.global",
         verify_ttl: timedelta = timedelta(hours=24),
         reset_ttl: timedelta = timedelta(hours=1),
         session_ttl: timedelta = timedelta(days=14),
@@ -1125,7 +1125,7 @@ def build_auth_service() -> AuthService:
     import os
 
     base_url = os.getenv("MERCURY_PUBLIC_BASE_URL", "https://mercuryagent.global")
-    contact = os.getenv("MERCURY_CONTACT_EMAIL", "steel.sa.llc@gmail.com")
+    contact = os.getenv("MERCURY_CONTACT_EMAIL", "contact@mercuryagent.global")
 
     mail_executor = None
     if os.getenv("MERCURY_SMTP_HOST", "").strip():

@@ -381,6 +381,21 @@ class ActionRateLimiter:
             for action, default in DEFAULT_ACTION_RULES.items()
         }
 
+    def has_rule(self, action: str) -> bool:
+        """Whether ``action`` has a configured ceiling.
+
+        :meth:`check` deliberately allows unknown actions (availability
+        first); this accessor lets boot-time invariant checks detect a
+        dispatched action name that would silently go unthrottled.
+
+        Args:
+            action: The rule name to look up.
+
+        Returns:
+            ``True`` when a rule exists for ``action``.
+        """
+        return action in self._rules
+
     def check(self, action: str, key: str) -> tuple[bool, int]:
         """Count one attempt of ``action`` by ``key``; report allow/deny.
 
