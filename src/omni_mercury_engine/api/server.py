@@ -1368,6 +1368,17 @@ try:
 except ImportError as e:
     logger.warning(f"Hazard visualization routes not available: {e}")
 
+# Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
+# off, every existing route — including the 404 at / — stays byte-identical)
+try:
+    from omni_mercury_engine.api.frontend import frontend_enabled, register_frontend
+
+    if frontend_enabled():
+        register_frontend(app)
+        logger.info("Account frontend registered")
+except ImportError as e:
+    logger.warning(f"Account frontend not available: {e}")
+
 # Include Voice Interface Routes
 try:
     from omni_mercury_engine.api.voice import router as voice_router

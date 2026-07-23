@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- Copyright (C) 2025 Steel Security Advisors LLC
+     SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mercury Agent</title>
+  <link rel="stylesheet" href="/static/mercury.css">
+  <script src="/static/common.js" defer></script>
+</head>
+<body data-page="index">
+  <header class="site-header">
+    <a class="brand" href="/">Mercury Agent</a>
+    <nav aria-label="Account">
+      <span data-nav-anon class="hidden">
+        <a href="/login">Log in</a>
+        <a href="/register">Register</a>
+      </span>
+      <span data-nav-authed class="hidden">
+        <a href="/dashboard">Dashboard</a>
+      </span>
+    </nav>
+  </header>
+  <main class="narrow">
+    <h1>Mercury Agent</h1>
+    <p>Multi-domain anomaly detection, served as an API.</p>
+    <div class="card">
+      <h2>Get started</h2>
+      <p><a href="/register">Create an account</a> or <a href="/login">log in</a> to manage
+        API keys and see your usage.</p>
+      <p class="hint">API reference: <a href="/docs">/docs</a></p>
+    </div>
+  </main>
+  <footer class="site-footer">Mercury Agent — Steel Security Advisors LLC</footer>
+</body>
+</html>

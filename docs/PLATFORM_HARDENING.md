@@ -277,6 +277,7 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_AUDIT_ROTATE_SIZE_MB` | `100` | Rotate the active audit log at this size |
 | `MERCURY_AUDIT_MAX_FILES` | `10` | Rotated audit segments to retain (count-based cap) |
 | `MERCURY_AUDIT_RETENTION_DAYS` | *(unset → count-based only)* | Also delete rotated segments older than this many days (sweep-driven) |
+| `MERCURY_FRONTEND_ENABLED` | `false` | Serve the browser account UI (`/`, `/login`, `/register`, `/dashboard`, the email-link pages, and the `/static` assets) from the API process |
 
 ## Deployment
 
@@ -311,6 +312,14 @@ All variables are optional; unset values keep the pre-platform behaviour.
 6. **Audit.** Set `MERCURY_AUDIT_LOG_DIR` to a durable, append-only path.
 7. **Runtime image** must ship the native AMA-Cryptography backend (the
    import-time PQC gate); the at-rest sealer and JWT paths depend on it.
+8. **Frontend.** Set `MERCURY_FRONTEND_ENABLED=true` to serve the account UI
+   (registration, login with 2FA, the email-link pages, and the dashboard —
+   API keys, usage, password/email change, 2FA lifecycle, export, deletion).
+   Pure static assets served from the installed package: vanilla HTML/CSS/JS,
+   no build toolchain, no CDN; the TOTP QR code renders client-side with the
+   vendored MIT `qrcode-generator`. Left unset, `/` stays a 404 and nothing
+   changes. The pages use the same public API the docs describe — enabling
+   the UI adds no new API surface to protect.
 
 ## Migration steps
 

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<!-- Copyright (C) 2025 Steel Security Advisors LLC
+     SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — Mercury Agent</title>
+  <link rel="stylesheet" href="/static/mercury.css">
+  <script src="/static/common.js" defer></script>
+  <script src="/static/vendor/qrcode.js" defer></script>
+  <script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="dashboard">
+  <header class="site-header">
+    <a class="brand" href="/">Mercury Agent</a>
+    <nav aria-label="Account">
+      <span data-nav-anon class="hidden"><a href="/login">Log in</a></span>
+      <span data-nav-authed class="hidden">
+        <a href="/dashboard" aria-current="page">Dashboard</a>
+        <button data-logout type="button" class="secondary">Log out</button>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>Your account</h1>
+
+    <div class="grid-2">
+      <section class="card" aria-labelledby="profile-heading">
+        <h2 id="profile-heading">Profile</h2>
+        <dl class="kv">
+          <dt>Email</dt><dd id="profile-email">…</dd>
+          <dt>Status</dt><dd id="profile-verified">…</dd>
+          <dt>Tier</dt><dd><span id="profile-tier" class="badge">…</span></dd>
+          <dt>Two-factor</dt><dd id="profile-2fa">…</dd>
+        </dl>
+        <p class="hint">Export a copy of your stored data, in JSON.</p>
+        <button id="export-button" type="button" class="secondary">Download data export</button>
+      </section>
+
+      <section class="card" aria-labelledby="usage-heading">
+        <h2 id="usage-heading">Usage</h2>
+        <p class="hint" id="usage-window"></p>
+        <p>Requests</p>
+        <div id="usage-requests-meter" class="meter" role="img" aria-label="Request quota usage">
+          <span></span>
+        </div>
+        <p id="usage-requests-text" class="hint"></p>
+        <p>Compute</p>
+        <div id="usage-compute-meter" class="meter" role="img" aria-label="Compute quota usage">
+          <span></span>
+        </div>
+        <p id="usage-compute-text" class="hint"></p>
+        <p id="usage-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="api-keys-heading">
+      <h2 id="api-keys-heading">API keys</h2>
+      <p class="hint">Send a key as the <code>X-API-Key</code> header. The raw key is shown
+        exactly once at creation and can never be retrieved again.</p>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Key id</th><th>State</th><th>Created</th><th></th></tr>
+        </thead>
+        <tbody id="api-keys-body"></tbody>
+      </table>
+      <p id="api-keys-empty" class="hint hidden">No API keys yet.</p>
+      <form id="api-key-form">
+        <div>
+          <label for="api-key-name">New key name</label>
+          <input id="api-key-name" name="api-key-name" type="text" maxlength="100" required>
+        </div>
+        <div>
+          <label for="api-key-days">Expires in days (optional)</label>
+          <input id="api-key-days" name="api-key-days" type="number" min="1" max="3650">
+        </div>
+        <button type="submit">Create API key</button>
+      </form>
+      <p id="api-key-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <div class="grid-2">
+      <section class="card" aria-labelledby="password-heading">
+        <h2 id="password-heading">Change password</h2>
+        <form id="password-form">
+          <div>
+            <label for="current-password">Current password</label>
+            <input id="current-password" name="current-password" type="password"
+                   autocomplete="current-password" required>
+          </div>
+          <div>
+            <label for="new-password">New password</label>
+            <input id="new-password" name="new-password" type="password"
+                   autocomplete="new-password" minlength="8" required>
+          </div>
+          <button type="submit">Change password</button>
+        </form>
+        <p id="password-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card" aria-labelledby="email-heading">
+        <h2 id="email-heading">Change email</h2>
+        <form id="email-form">
+          <div>
+            <label for="new-email">New email</label>
+            <input id="new-email" name="new-email" type="email" required>
+          </div>
+          <div>
+            <label for="email-current-password">Current password</label>
+            <input id="email-current-password" name="email-current-password" type="password"
+                   autocomplete="current-password" required>
+          </div>
+          <button type="submit">Send confirmation link</button>
+        </form>
+        <p id="email-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="twofa-heading">
+      <h2 id="twofa-heading">Two-factor authentication</h2>
+      <div id="twofa-disabled-actions" class="hidden">
+        <p class="hint">Protect your account with a TOTP authenticator app.</p>
+        <button id="twofa-enroll" type="button">Set up two-factor</button>
+      </div>
+      <div id="twofa-enroll-section" class="hidden">
+        <p>Scan this QR code with your authenticator app:</p>
+        <div id="qr-target"></div>
+        <p class="hint">Or add it manually — provisioning URI:</p>
+        <p><code id="twofa-uri"></code></p>
+        <p class="hint">Secret: <code id="twofa-secret"></code></p>
+        <form id="twofa-confirm-form">
+          <div>
+            <label for="twofa-code">Enter the 6-digit code to confirm</label>
+            <input id="twofa-code" name="twofa-code" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="12" required>
+          </div>
+          <button type="submit">Enable two-factor</button>
+        </form>
+      </div>
+      <div id="twofa-enabled-actions" class="hidden">
+        <div class="actions">
+          <button id="twofa-disable" type="button" class="danger">Disable two-factor</button>
+        </div>
+        <form id="twofa-regen-form">
+          <div>
+            <label for="regen-password">Current password (to issue new recovery codes)</label>
+            <input id="regen-password" name="regen-password" type="password"
+                   autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="secondary">Regenerate recovery codes</button>
+        </form>
+      </div>
+      <p id="twofa-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="delete-heading">
+      <h2 id="delete-heading">Delete account</h2>
+      <p class="hint">Deletion is permanent: your account, sessions, and API keys are removed.</p>
+      <form id="delete-form">
+        <div>
+          <label for="delete-confirm-email">Type your account email to confirm</label>
+          <input id="delete-confirm-email" name="delete-confirm-email" type="email" required>
+        </div>
+        <div>
+          <label for="delete-password">Current password</label>
+          <input id="delete-password" name="delete-password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="danger">Delete my account</button>
+      </form>
+      <p id="delete-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer class="site-footer">Mercury Agent — Steel Security Advisors LLC</footer>
+</body>
+</html>
