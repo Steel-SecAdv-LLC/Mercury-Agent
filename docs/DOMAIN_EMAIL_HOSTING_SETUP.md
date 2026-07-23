@@ -205,14 +205,44 @@ CPU, just slower — and it needs the RAM. Note that the shipped **Docker image
 installs `.[all]` — torch included** — so the container you deploy from the
 platform runbook carries the complete agent stack regardless of plan size.
 
-| Use case | Suggested plan | Why |
+**Launch spec: 4 vCPU / 8 GB RAM / 80 GB NVMe, x86 (currently CX33,
+Hetzner's Gen3 shared-x86 line; Germany or Finland region — the CX line is
+EU-only).** Plan names and prices churn (Hetzner retired the previous
+CX22/CX32/CX42 generation and repriced cloud plans effective 15 June 2026),
+so this doc states specs generation-neutrally and hardcodes no prices —
+**see the Hetzner console for current pricing**. (Of the June 2026 changes,
+the CX line took the smallest increase, roughly 1.3–1.4×.)
+
+**Why 8 GB is comfortably enough — measured on the actual stack, not
+estimated:** the API server runs as a single uvicorn process (the Dockerfile
+sets no `--workers`) peaking around **~400 MB** with torch resident, and the
+full agentic episode path also peaks around **~400 MB**; Prometheus + Grafana
++ Caddy add **~0.5–0.6 GB**, and the OS + Docker another **~0.5 GB** — a
+steady state of **~1.5–1.7 GB**, leaving **6+ GB of headroom** on 8 GB.
+Login hashing (scrypt `N=2^15, r=8`) costs ~32 MiB of working memory per
+concurrent hash and is bounded by the platform's own auth throttles, so it
+cannot stampede memory.
+
+| Use case | Spec (current plan name) | Why |
 |---|---|---|
-| API-only trial (no agentic/`[ml]` workloads) | **CX22** (2 vCPU, 4 GB, ~€4/mo) | Runs the API + reverse proxy; not enough RAM for the agent path |
-| **Full agent / `[ml]` path (the real deployment)** | **CX32 / CX42 class** (4–8 vCPU, **≥ 8 GB RAM**) | PyTorch + orchestration + fusion need ≥ 8 GB |
+| API-only trial (no agentic/`[ml]` workloads) | 2 vCPU / 4 GB (currently CX23) | Runs the API + reverse proxy; adequate **only** without the `[ml]` agent path |
+| **Full agent / `[ml]` path (the launch spec)** | **4 vCPU / ≥ 8 GB / 80 GB NVMe (currently CX33)** | Measured steady state ~1.5–1.7 GB with 6+ GB headroom |
+| Headroom upgrade | 8 vCPU / 16 GB (currently CX43) | Non-destructive rescale in minutes; doubles CPU **and** RAM |
 | Serious model training | Hetzner **dedicated GPU** server (not Cloud) | Cloud has no GPU; training on CPU is slow |
 
-For the actual launch, start at **CX32-class or larger (≥ 8 GB)**; treat CX22
-as API-only trial territory. You can resize up later without rebuilding.
+**Architecture:** choose **x86 (CX)**, not ARM (CAX) — the verified build
+path (the AMA native compile, torch wheels, and the full test suite) is
+x86_64.
+
+**Upgrade path:** rescale to 8 vCPU / 16 GB (currently CX43) when the
+Grafana dashboards — backed by the platform metrics added in #350 — show
+sustained memory above ~70%, or CPU saturation / rising latency. The
+expected *first* bottleneck is CPU, not RAM, and the step up doubles both.
+During a rescale, do **not** grow the disk: keeping it at 80 GB preserves
+the ability to scale back down later (Hetzner cannot shrink disks).
+
+**Ops riders:** add a **4 GB swapfile** as an OOM safety net, and enable
+**Hetzner automated backups** (priced at ~20% of the server price).
 
 ### 5.2 Provision the server
 
@@ -317,9 +347,10 @@ health check over HTTPS — nothing further to configure on the TLS side.
       (`v=DMARC1; p=quarantine; rua=mailto:steel.sa.llc@mercuryagent.global`)
 - [x] **Google:** test mail to gmail.com shows SPF / DKIM
       (`d=mercuryagent.global`) / DMARC = PASS (verified 2026-07-23)
-- [ ] **Hetzner:** server provisioned (**≥ 8 GB / CX32-class** for the full
-      agent path; CX22 only for an API-only trial), firewall 22/80/443,
-      SSH key auth
+- [ ] **Hetzner:** server provisioned — **x86, ≥ 8 GB (currently CX33)** for
+      the full agent path; 2 vCPU / 4 GB (currently CX23) only for an
+      API-only trial — firewall 22/80/443, SSH key auth, 4 GB swapfile,
+      automated backups ON
 - [ ] **Hetzner:** Docker installed; platform runbook followed
       (`docker compose -f docker-compose.yml -f docker-compose.platform.yml
       up -d`); `/health` OK locally
