@@ -134,7 +134,14 @@ jobs:
           # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
           # (1.19 vs 2.x); an unpinned pydocstyle could change the enforced
           # google-convention docstring codes out from under a green commit.
-          pip install "black==26.5.1" flake8 mypy==2.3.0 ruff pydocstyle==6.3.0
+          # ruff is PINNED for the same reason (mirrored in pyproject [dev]):
+          # the unpinned install picked up 0.16.0 the day it released and
+          # turned 237 pre-existing PLR0917 (too-many-positional-arguments)
+          # findings into a repo-wide Code Quality red on diffs that touched
+          # none of the flagged files; 0.15.22 passes the whole tree. Bump
+          # deliberately (with a tree-wide `ruff check` first), never by
+          # resolver drift.
+          pip install "black==26.5.1" flake8 mypy==2.3.0 ruff==0.15.22 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
