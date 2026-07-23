@@ -364,6 +364,38 @@ DNS, the Wix mailbox, and Hetzner host provisioning are the human-owned
 half; they are documented separately in `docs/DOMAIN_EMAIL_HOSTING_SETUP.md`
 (PR #343) — the code side only ever reads the environment variables above.
 
+## Agent runtime requirements
+
+The agentic stack — `MultiAgentOrchestrator` episodes, `MercuryAgent`'s
+sub-agent fleet (`enable_fleet()` / `delegate()`), and the fleet detection
+paths — **requires the `[ml]` extra** (PyTorch). This is enforced twice, at
+different depths:
+
+1. **Import time.** `omni_mercury_engine.agentic` imports torch while
+   loading (via `cognitive.orchestrator` → `utils`); on a core-lane install
+   (`pip install "mercury-agent[api]"`, no `[ml]`) the import itself raises
+   `ImportError`, so there is no partially-agentic mode to misconfigure.
+2. **Decision time (fail-closed σ gate).** Even with the package importable,
+   every orchestrated decision boundary runs the σ_Immutable hard gate. When
+   the trained GOSNN network cannot load (torch or the shipped weights
+   unavailable), the gate refuses with
+   `EthicalConstraintViolationError(check="gosnn_unavailable", score=0.0)`
+   against the 0.93 threshold — episodes are blocked, never silently
+   ungated. This is deliberate design, not a bug; guarded by
+   `tests/security/test_sigma_immutable_fail_closed.py` (gate level, runs in
+   the no-torch lane) and
+   `tests/cognitive/test_orchestrator_gosnn_unavailable.py` (orchestrator
+   boundary). The passing path — a fitted episode clearing both the
+   benevolence and σ gates — is pinned by
+   `tests/cognitive/test_orchestration_behavioral.py::TestEthicalGating`.
+
+Nothing extra to download at runtime: the σ_Immutable weights
+(`security/sigma_immutable_weights.pt`), the signed corpus, and the domain
+checkpoints ship in the repo and in the built wheel (package-data). The
+Docker image installs `.[all]` (which includes `[ml]`) and builds the native
+AMA backend, so the runtime image already carries the complete agent stack;
+only bare-metal `[api]`-only installs are API/detection-surface only.
+
 ## Migration steps
 
 Enabling the platform on an **existing** deployment:
