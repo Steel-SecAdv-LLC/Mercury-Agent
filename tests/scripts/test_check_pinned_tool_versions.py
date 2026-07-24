@@ -3,14 +3,15 @@
 """Tests for :mod:`scripts.check_pinned_tool_versions`.
 
 The script is the pinned dev-tool version parity gate: ``black`` / ``mypy`` /
-``types-requests`` / ``pydocstyle`` are pinned *exactly*, and the gate fails
-closed when a tool's pins diverge across the surfaces that pin it.  Each tool
-appears in a different subset of the four surfaces (``pyproject.toml``,
-``ci.yml``, ``format.yml``, ``.pre-commit-config.yaml``) -- ``black`` in all
-four, the others in fewer -- so the gate only cross-checks where a tool is
-actually pinned and enforces a >=2-surface floor.  These tests exercise the
-live repository (so the gate stays transparent as the pins evolve) plus synthetic
-fixtures covering each documented failure mode:
+``types-requests`` / ``pydocstyle`` / ``ruff`` / ``flake8`` are pinned
+*exactly*, and the gate fails closed when a tool's pins diverge across the
+surfaces that pin it.  Each tool appears in a different subset of the four
+surfaces (``pyproject.toml``, ``ci.yml``, ``format.yml``,
+``.pre-commit-config.yaml``) -- ``black`` in all four, the others in fewer --
+so the gate only cross-checks where a tool is actually pinned and enforces a
+>=2-surface floor.  These tests exercise the live repository (so the gate
+stays transparent as the pins evolve) plus synthetic fixtures covering each
+documented failure mode:
 
 1. the live repo's four surfaces agree;
 2. a clean synthetic fixture passes;
@@ -21,7 +22,11 @@ fixtures covering each documented failure mode:
 5. ``v``-prefixed pre-commit revs compare equal to bare requirement pins, so
    ``mypy`` does not false-positive;
 6. eroding a tool to a single surface trips the min-files floor;
-7. prose mentions without ``==`` are never captured as pins.
+7. prose mentions without ``==`` are never captured as pins;
+8. a lagging pre-commit ruff rev is caught -- the live drift (pre-commit on
+   v0.15.15 against CI/pyproject 0.16.0) that widened the registry;
+9. a flake8 pinned only in pre-commit (floating everywhere else) trips the
+   floor -- the state ci.yml was in before flake8 joined the registry.
 """
 
 from __future__ import annotations
@@ -48,15 +53,23 @@ def _write_repo(
     types_requests: str = "2.33.0.20260518",
     pydocstyle: str = "6.3.0",
     pydocstyle_in_precommit: bool = True,
+    ruff: str = "0.16.0",
+    ruff_precommit: str | None = None,
+    flake8: str = "7.3.0",
+    flake8_in_requirements: bool = True,
 ) -> None:
     """Write the four parity surfaces under ``root``.
 
     ``black`` is a per-surface 4-tuple (pyproject, ci.yml, format.yml,
     pre-commit) so a test can diverge exactly one surface; the other tools are
     written consistently unless a test opts out (e.g. dropping pydocstyle from
-    pre-commit to exercise the min-files floor).
+    pre-commit to exercise the min-files floor).  ``ruff_precommit`` overrides
+    the pre-commit ruff rev alone (defaults to ``ruff``) so a test can
+    reproduce the lagging-hook drift; ``flake8_in_requirements=False`` leaves
+    flake8 pinned only in pre-commit, the pre-registry ci.yml state.
     """
     b_py, b_ci, b_fmt, b_pc = black
+    ruff_pc = ruff_precommit if ruff_precommit is not None else ruff
     (root / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
 
     (root / "pyproject.toml").write_text(
@@ -65,13 +78,16 @@ def _write_repo(
         f'    "black=={b_py}",\n'
         f'    "mypy=={mypy}",\n'
         f'    "types-requests=={types_requests}",\n'
-        "]\n",
+        f'    "ruff=={ruff}",\n'
+        + (f'    "flake8=={flake8}",\n' if flake8_in_requirements else "")
+        + "]\n",
         encoding="utf-8",
     )
+    ci_flake8 = f"flake8=={flake8} " if flake8_in_requirements else ""
     (root / ".github" / "workflows" / "ci.yml").write_text(
         "      - name: quality\n"
-        f'        run: pip install "black=={b_ci}" mypy=={mypy} '
-        f"pydocstyle=={pydocstyle} types-requests=={types_requests}\n",
+        f'        run: pip install "black=={b_ci}" {ci_flake8}mypy=={mypy} '
+        f"ruff=={ruff} pydocstyle=={pydocstyle} types-requests=={types_requests}\n",
         encoding="utf-8",
     )
     (root / ".github" / "workflows" / "format.yml").write_text(
@@ -89,6 +105,14 @@ def _write_repo(
         f"    rev: v{mypy}\n"
         "    hooks:\n"
         "      - id: mypy\n"
+        "  - repo: https://github.com/astral-sh/ruff-pre-commit\n"
+        f"    rev: v{ruff_pc}\n"
+        "    hooks:\n"
+        "      - id: ruff\n"
+        "  - repo: https://github.com/PyCQA/flake8\n"
+        f"    rev: {flake8}\n"
+        "    hooks:\n"
+        "      - id: flake8\n"
     )
     if pydocstyle_in_precommit:
         precommit += (
@@ -147,6 +171,33 @@ def test_single_surface_pin_fails_floor(tmp_path: Path) -> None:
     _write_repo(tmp_path, pydocstyle_in_precommit=False)  # pydocstyle now only in ci.yml
     violations = cptv.find_violations(cptv.collect_occurrences(tmp_path))
     assert any("pydocstyle" in v and "surface" in v for v in violations), violations
+
+
+def test_lagging_precommit_ruff_rev_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reproduce the live drift that widened the registry: hook rev lags the pins.
+
+    pre-commit ran ruff v0.15.15 while ci.yml and pyproject pinned 0.16.0 —
+    a developer's local lint disagreed with CI's ruleset and nothing noticed.
+    """
+    _write_repo(tmp_path, ruff="0.16.0", ruff_precommit="0.15.15")
+    assert cptv.main(["--root", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert "ruff" in err
+    assert "0.15.15" in err and "0.16.0" in err
+
+
+def test_flake8_only_in_precommit_fails_floor(tmp_path: Path) -> None:
+    """flake8 pinned in pre-commit alone (floating in CI) trips the floor.
+
+    This is the exact pre-registry state of ci.yml: ``pip install ... flake8``
+    unpinned while the hook pinned 7.0.0, so CI's rule surface tracked the
+    latest release and local runs did not.
+    """
+    _write_repo(tmp_path, flake8_in_requirements=False)
+    violations = cptv.find_violations(cptv.collect_occurrences(tmp_path))
+    assert any("flake8" in v and "surface" in v for v in violations), violations
 
 
 def test_prose_mentions_without_operator_are_not_pins(tmp_path: Path) -> None:

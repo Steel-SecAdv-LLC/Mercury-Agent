@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import builtins
 import importlib
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -30,7 +31,8 @@ from omni_mercury_engine.api.routes import accounts
 from omni_mercury_engine.api.usage_ledger import InMemoryUsageLedger
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping, Sequence
+    from types import ModuleType
 
 prometheus_client = pytest.importorskip(
     "prometheus_client", reason="scrape assertions need the real registry"
@@ -294,6 +296,31 @@ def test_metrics_surface_in_exposition(client_setup: ClientSetup) -> None:
     assert "mercury_platform_registrations_total" in scrape.text
 
 
+def test_metric_failure_never_breaks_the_caller(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An exploding metrics backend is logged and swallowed, never raised.
+
+    This is the load-bearing availability promise of the module: a broken
+    registry (or any instrumentation bug) must degrade observability, not
+    serving. Force the counter factory itself to blow up and drive every
+    recorder through it.
+    """
+
+    def _explode(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("registry down")
+
+    monkeypatch.setattr(platform_metrics, "_counter", _explode)
+    with caplog.at_level(logging.ERROR, logger="omni_mercury_engine.api.platform_metrics"):
+        platform_metrics.record_registration()
+        platform_metrics.record_login("ok")
+        platform_metrics.record_throttle_denial("login_ip")
+        platform_metrics.record_quota_denial("requests")
+        platform_metrics.record_email("failed")
+        platform_metrics.record_maintenance_sweep({"usage_events": 2, "broken": -1})
+    assert any("failed to record" in record.message for record in caplog.records)
+
+
 def test_module_is_inert_without_prometheus(monkeypatch: pytest.MonkeyPatch) -> None:
     """With prometheus_client absent the module imports and no-ops (core lane)."""
     real_import = builtins.__import__
@@ -303,10 +330,16 @@ def test_module_is_inert_without_prometheus(monkeypatch: pytest.MonkeyPatch) -> 
     # rejects duplicates.
     saved_state = dict(platform_metrics.__dict__)
 
-    def _blocked(name: str, *args: object, **kwargs: object) -> object:
+    def _blocked(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> ModuleType:
         if name == "prometheus_client":
             raise ImportError("blocked for the core-lane simulation")
-        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+        return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", _blocked)
     try:

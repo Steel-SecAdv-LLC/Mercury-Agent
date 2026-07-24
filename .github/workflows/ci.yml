@@ -134,7 +134,20 @@ jobs:
           # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
           # (1.19 vs 2.x); an unpinned pydocstyle could change the enforced
           # google-convention docstring codes out from under a green commit.
-          pip install "black==26.5.1" flake8 mypy==2.3.0 ruff pydocstyle==6.3.0
+          # ruff is PINNED for the same reason (mirrored in pyproject [dev]):
+          # the unpinned install picked up 0.16.0 the day it released and
+          # turned 237 pre-existing PLR0917 (too-many-positional-arguments)
+          # findings into a repo-wide Code Quality red on diffs that touched
+          # none of the flagged files. 0.16.0 is now adopted deliberately —
+          # PLR0917 joined the curated ignore list next to PLR0913 (the
+          # arg-count-ceiling policy) — and future bumps stay deliberate
+          # (tree-wide `ruff check` first), never resolver drift.
+          # flake8 is PINNED for the same reason again: it was the last
+          # floating linter here (pre-commit had 7.0.0, CI resolved latest),
+          # the exact drift class the ruff incident demonstrated.  All six
+          # lint/format/type pins are cross-checked by
+          # scripts/check_pinned_tool_versions.py in Workflow Hardening.
+          pip install "black==26.5.1" flake8==7.3.0 mypy==2.3.0 ruff==0.16.0 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -399,16 +412,19 @@ jobs:
         run: python scripts/check_torch_load_safety.py
 
       - name: Run pinned dev-tool version parity gate
-        # Dependency-free structural gate: black/mypy/types-requests/pydocstyle
-        # are pinned *exactly* for byte-identical behaviour local<->CI.  Each
-        # tool is pinned in a subset of pyproject.toml, this file, format.yml
-        # and .pre-commit-config.yaml (black in all four; the others fewer), and
-        # the gate cross-checks each wherever it is pinned.  Dependabot's pip
-        # ecosystem only rewrites pyproject.toml and cannot reach the inline
+        # Dependency-free structural gate: black/mypy/types-requests/
+        # pydocstyle/ruff/flake8 are pinned *exactly* for byte-identical
+        # behaviour local<->CI.  Each tool is pinned in a subset of
+        # pyproject.toml, this file, format.yml and .pre-commit-config.yaml
+        # (black in all four; the others fewer), and the gate cross-checks
+        # each wherever it is pinned.  Dependabot's pip ecosystem only
+        # rewrites pyproject.toml and cannot reach the inline
         # ``pip install black==X`` strings here, so without this gate a bump
-        # silently diverges the surfaces.  Co-located with the other hygiene
-        # gates so a pin-drift regression is caught at the same stage as a
-        # workflow-permissions one.
+        # silently diverges the surfaces (ruff and flake8 joined the registry
+        # after exactly that: pre-commit ran ruff 0.15.15 against CI's
+        # 0.16.0, and flake8 floated in CI against pre-commit's 7.0.0).
+        # Co-located with the other hygiene gates so a pin-drift regression
+        # is caught at the same stage as a workflow-permissions one.
         run: python scripts/check_pinned_tool_versions.py
 
       - name: Run Lyapunov λ documentation drift gate

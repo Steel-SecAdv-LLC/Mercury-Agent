@@ -57,7 +57,9 @@ class TestAnalyze:
         v = wd.analyze("W", runs, now=NOW, threshold=3)
         assert v.alert is False
         assert v.unhealthy_count == 0
-        assert v.body == ""
+        # A healthy verdict carries the all-clear body (the auto-close
+        # comment), not the alert body.
+        assert "completing cleanly again" in v.body
 
     def test_failures_are_not_watchdog_concerns(self) -> None:
         # A red gate is the gate WORKING — never a watchdog alert.
@@ -178,3 +180,54 @@ class TestMainCli:
         p.write_text("not json", encoding="utf-8")
         rc = wd.main(["--workflow", "W", "--runs", str(p)])
         assert rc == 0  # analyzer never hard-fails the watchdog workflow
+
+
+class TestAllClear:
+    """The self-clearing contract: a healthy verdict ships its close comment.
+
+    ``gate-watchdog.yml`` closes an open alert when ``alert`` is false by
+    posting the verdict's body — so the body must exist, name the workflow,
+    say the gate recovered, and be clearly distinct from the alert body.
+    """
+
+    def test_healthy_verdict_renders_all_clear_body(self) -> None:
+        runs = [_run("success") for _ in range(7)]
+        v = wd.analyze("ISO Hardening", runs, now=NOW, threshold=3)
+        assert v.alert is False
+        assert "ISO Hardening" in v.body
+        assert "completing cleanly again" in v.body
+        assert "7 most recent runs" in v.body
+        assert "Closed automatically" in v.body
+        # Never the alert wording — the close comment must not read as a new alarm.
+        assert "Likely causes" not in v.body
+        assert "did not reach a clean verdict" not in v.body
+
+    def test_alerting_verdict_keeps_the_alert_body(self) -> None:
+        runs = [_run("cancelled") for _ in range(5)]
+        v = wd.analyze("CI/CD Pipeline", runs, now=NOW, threshold=3)
+        assert v.alert is True
+        assert "Likely causes" in v.body
+        assert "Closed automatically" not in v.body
+        # The alert now promises the auto-close instead of manual cleanup.
+        assert "will close it automatically" in v.body
+
+    def test_empty_history_still_renders_all_clear(self) -> None:
+        # A gate with no runs is not alerting; the body must still be safe to
+        # post if a stale issue somehow exists for it.
+        v = wd.analyze("W", [], now=NOW, threshold=3)
+        assert v.alert is False
+        assert "completing cleanly again" in v.body
+
+    def test_main_cli_emits_all_clear_body(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import json
+
+        runs = [_run("success") for _ in range(4)]
+        p = tmp_path / "runs.json"
+        p.write_text(json.dumps(runs), encoding="utf-8")
+        rc = wd.main(["--workflow", "W", "--runs", str(p), "--now", NOW.isoformat()])
+        assert rc == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["alert"] is False
+        assert "completing cleanly again" in out["body"]

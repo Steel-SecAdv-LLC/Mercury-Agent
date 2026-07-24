@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img width="959" height="223" alt="image" src="https://github.com/user-attachments/assets/0f654715-42fb-4a29-9554-19011e23dc6a" />
+  <img width="959" height="223" alt="Mercury Agent banner" src="https://github.com/user-attachments/assets/0f654715-42fb-4a29-9554-19011e23dc6a" />
 
 </div>
 
@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-8%2C789%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-13%2C950%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -51,7 +51,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 **Version:** v2.1.0
-**Date:** 2026-07-11
+**Date:** 2026-07-24
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -61,6 +61,8 @@
 Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must clear a mandatory benevolence enforcement gate — **0.99 by default**, configurable no lower than a hard **0.70** floor — keeping the system in service of human flourishing and civilizational progress.
+
+Beyond the library and CLI, the repository ships an **opt-in self-service platform** for operating the detection API as a hosted service — account registration with email verification, TOTP two-factor, API keys with per-account quotas, a dependency-free browser dashboard, an operator CLI, and a TLS compose overlay — all off by default and documented under [Self-Service Account Platform](#quick-start) and [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md).
 
 > **Project Philosophy:** Mercury Agent represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
@@ -78,8 +80,40 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-07-11
+> **Last Updated:** 2026-07-24
 >
+
+---
+
+## Table of Contents
+
+<details>
+<summary><strong>Click to expand navigation</strong></summary>
+
+- [Executive Summary](#executive-summary)
+- [Latest Benchmark Results](#latest-benchmark-results)
+- [Codebase Scale (measured, not estimated)](#codebase-scale-measured-not-estimated)
+- [Current Benchmarks and Visual Proof](#current-benchmarks-and-visual-proof)
+- [3R: Recursion-Resonance-Refactoring](#3r-recursion-resonance-refactoring)
+- [Key Capabilities](#key-capabilities)
+- [Use Cases by Sector](#use-cases-by-sector)
+- [Performance Metrics](#performance-metrics)
+- [Quick Start](#quick-start) (installation, usage, Docker, self-service platform, Kubernetes)
+- [Reproducible Verification](#reproducible-verification)
+- [Testing and Quality Assurance](#testing-and-quality-assurance)
+- [Documentation](#documentation)
+- [Cross-Platform Support](#cross-platform-support)
+- [Build System](#build-system)
+- [Mathematical Foundations](#mathematical-foundations)
+- [Contributing](#contributing)
+- [Unique Features](#unique-features)
+- [License](#license)
+- [Contact and Support](#contact-and-support)
+- [Acknowledgments](#acknowledgments)
+- [Dataset Attributions](#dataset-attributions)
+- [Legal Disclaimer & Attribution](#legal-disclaimer--attribution)
+
+</details>
 
 ---
 
@@ -494,33 +528,6 @@ The 3R mechanism is integrated throughout Mercury Agent:
 
 ---
 
-## Table of Contents
-
-<details>
-<summary><strong>Click to expand navigation</strong></summary>
-
-- [Executive Summary](#executive-summary)
-- [Key Capabilities](#key-capabilities)
-- [Use Cases by Sector](#use-cases-by-sector)
-- [Performance Metrics](#performance-metrics)
-- [Quick Start](#quick-start)
-- [Reproducible Verification](#reproducible-verification)
-- [Testing and Quality Assurance](#testing-and-quality-assurance)
-- [Documentation](#documentation)
-- [Cross-Platform Support](#cross-platform-support)
-- [Build System](#build-system)
-- [Mathematical Foundations](#mathematical-foundations)
-- [Contributing](#contributing)
-- [Unique Features](#unique-features)
-- [License](#license)
-- [Contact and Support](#contact-and-support)
-- [Acknowledgments](#acknowledgments)
-- [Legal Disclaimer & Attribution](#legal-disclaimer--attribution)
-
-</details>
-
----
-
 ## Key Capabilities
 
 <details>
@@ -629,7 +636,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 30 detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 8,789 tests collected (2026-06-10, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
+| Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
 | Benchmark Coverage | 66 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8251** / Median **0.8747** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8251** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable hard gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), Benevolence ≥ 0.99 |
@@ -1056,6 +1063,12 @@ docker run -it \
 | `OMNI_DETECTOR_MAX_MAGNITUDE` | Unified safe magnitude cap for detector scores/inputs/metadata | `1e100` |
 | `OMNI_DETECTOR_RIDGE_FACTOR` | Digital-twin scale-relative Tikhonov ridge factor | `1e-6` |
 | `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON file supplying the `OMNI_DETECTOR_*` / `OMNI_ENSEMBLE_*` knobs (env overrides file) | unset |
+| `MERCURY_FRONTEND_ENABLED` | Serve the browser account UI from the API process (see [Self-Service Account Platform](#quick-start)) | `false` |
+| `MERCURY_KEYSTORE_PATH` | SQLite file backing all account/quota platform state | unset (in-memory) |
+| `MERCURY_QUOTA_ENABLED` | Per-account quota enforcement on metered routes | `false` |
+| `MERCURY_QUOTA_FAIL_CLOSED` | Deny metered requests with 503 when the quota infrastructure itself fails | `false` |
+
+The account/auth/quota platform adds ~30 more optional `MERCURY_*` variables (sessions, CSRF, SMTP, throttles, tiers, audit trail, at-rest sealing); the authoritative reference table is in [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md#configuration-reference). Unset, every one of them keeps the pre-platform behaviour.
 
 ### Volume Mounts
 
@@ -1067,6 +1080,60 @@ docker run -it \
 | `/app/output` | Output files from batch processing |
 
 This architecture supports scalable deployments via Kubernetes/Helm where the API server handles inference requests while training jobs can be run as separate batch workloads.
+
+</details>
+
+<details>
+<summary><strong>Self-Service Account Platform (opt-in)</strong></summary>
+
+The repository ships an account/auth/quota platform for operating the detection
+API as a hosted service. It is **additive and opt-in**: the account routes are
+inert unless used (state defaults to in-memory, mail to console), quota
+enforcement and the browser UI are off until explicitly enabled, and with the
+frontend left off every pre-existing route — including the 404 at `/` — stays
+byte-identical (pinned by `tests/api/test_frontend.py`).
+
+### What it adds
+
+- **Account API** under `/api/v1/auth` — registration with email verification,
+  login with optional TOTP two-factor (QR provisioning + one-time recovery
+  codes), password reset, email change, API-key lifecycle with a **one-time
+  raw-key reveal**, and `GET /api/v1/auth/usage` reporting current quota
+  consumption (authenticated by browser session or `X-API-Key`).
+- **Browser UI** (`MERCURY_FRONTEND_ENABLED=true`) — dependency-free static
+  pages served by the API process (`/register`, `/login`, `/verify-email`,
+  `/reset-password`, `/dashboard` for API keys, 2FA enrolment, and usage).
+  No build toolchain, no CDN assets, no inline scripts (CSP-compatible);
+  state-changing requests carry a CSRF double-submit token.
+- **Quotas and throttles** — per-account request/compute quotas with named
+  tiers and per-account overrides (`MERCURY_QUOTA_*`), per-action auth
+  throttles, and an optional fail-closed mode
+  (`MERCURY_QUOTA_FAIL_CLOSED=true`) that answers 503 instead of allowing
+  traffic when the quota infrastructure itself fails.
+- **Operator CLI** — `mercury-agent platform account show|list|set-tier|disable|enable`,
+  `platform quota override set|clear|show`, `platform usage report`, and the
+  read-only `platform audit verify` for the tamper-evident audit chain. The
+  CLI never prints secrets.
+- **Platform metrics** — Prometheus counters for registrations, login
+  outcomes, throttle/quota denials, email delivery, and maintenance sweeps on
+  the existing `/metrics` endpoint (`api/platform_metrics.py`; import-guarded,
+  a silent no-op without `prometheus_client`).
+
+### Single-host deployment (compose overlay + automatic TLS)
+
+```bash
+# API + Caddy auto-TLS reverse proxy (app.mercuryagent.global by default),
+# persistent platform state in the mercury-platform-data volume:
+docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+```
+
+The security posture (raw keys, passwords, session tokens, and TOTP secrets
+are never stored or logged — hashes/sealed values only; enumeration-safe
+register/reset/resend; parameterized SQL only), the threat model, the full
+configuration reference, and the deployment runbook are in
+[docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md). DNS, mailbox,
+DKIM/DMARC, and hosting sizing for the public deployment are in
+[docs/DOMAIN_EMAIL_HOSTING_SETUP.md](docs/DOMAIN_EMAIL_HOSTING_SETUP.md).
 
 </details>
 
@@ -1273,9 +1340,10 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **8,789 tests collected** (`pytest --collect-only -q`, 2026-06-10, with the
-  optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies
-  installed) across the test modules counted in the CI-gated
+- **13,950 tests collected** (`pytest --collect-only -q`, 2026-07-24, with the
+  optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` / `h5py` /
+  `plotly` dependencies installed — zero modules skipped at collection) across
+  the test modules counted in the CI-gated
   [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
   module count is measured from disk, never hand-typed). A minimal install
   collects fewer tests because modules gated behind those optional imports
@@ -1360,6 +1428,12 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `docker.yml` | Docker Release | tag-driven | Push runtime image with provenance attestation |
 | `format.yml` | Formatting check | yes | Drift guard for `black` / `ruff format` output |
 | `release.yml` | Tagged Release | tag-driven | sdist + wheel + signed artifacts |
+| `gate-watchdog.yml` | Gate Watchdog | scheduled | Detects required-gate runs that hang or get cancelled without superseding pushes; files an alert issue and auto-closes it once the gates run clean |
+
+The table above is the curated gate surface; the repository's full workflow
+count (including the scheduled benchmark/regression/mutation/reachability
+lanes) is measured in the CI-gated
+[Codebase Scale](#codebase-scale-measured-not-estimated) block.
 
 ### CI Matrix
 
@@ -1441,8 +1515,12 @@ mypy src/
 | [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
+| [docs/NEUROSYMBOLIC.md](docs/NEUROSYMBOLIC.md) | Neuro-symbolic co-training accounting, ablation, and keep/quarantine verdicts |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
+| [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) | Governed self-improvement rollout gated on label-provenance-clean loaders |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment reference for the served API |
 | [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md) | Free-service account/auth/quota platform: threat model, security controls, configuration, deployment, migration, and acceptance checklist |
+| [docs/DOMAIN_EMAIL_HOSTING_SETUP.md](docs/DOMAIN_EMAIL_HOSTING_SETUP.md) | Public-deployment ground truth: DNS, mailbox, DKIM/DMARC, and measured hosting sizing |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
 
 </details>
@@ -1501,6 +1579,7 @@ pip install -e ".[dev]"
 - `OMNI_MAX_DATA_POINTS` / `OMNI_MAX_FEATURES` / `OMNI_MAX_STRING_LENGTH` / `OMNI_MAX_NAN_RATIO` / `OMNI_MAX_INF_RATIO` / `OMNI_STRICT_VALIDATION` - Input-validation limits
 - `MERCURY_ENV` - Environment mode (`development` default, `production`)
 - `MERCURY_CORS_ORIGINS` - Explicit CORS origin allow-list
+- `MERCURY_FRONTEND_ENABLED` / `MERCURY_KEYSTORE_PATH` / `MERCURY_QUOTA_*` - Self-service account platform (full reference: [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md#configuration-reference))
 
 </details>
 
@@ -2224,6 +2303,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 | Type | Contact |
 |------|---------|
 | General Inquiries | steel.sa.llc@gmail.com |
+| Hosted Service (mercuryagent.global) | contact@mercuryagent.global |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
 | GitHub Repository | [Mercury Agent](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
@@ -2300,7 +2380,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
 - **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** 8,789 tests collected with the full optional-dependency surface (`pytest --collect-only -q`, 2026-06-10) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Comprehensive testing:** 13,950 tests collected with the full optional-dependency surface (`pytest --collect-only -q`, 2026-07-24) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
@@ -2338,12 +2418,8 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
-<div align="center">
+<img width="91" height="96" alt="Mercury Agent icon" src="https://github.com/user-attachments/assets/4c1d5a43-a547-4c76-8db8-7b045113c906" />
 
-<img width="91" height="96" alt="image" src="https://github.com/user-attachments/assets/4c1d5a43-a547-4c76-8db8-7b045113c906" />
-
-</div>
-
-*Last updated: 2026-07-11*
+*Last updated: 2026-07-24*
 
 </div>
