@@ -1004,7 +1004,7 @@ logger.info(f"Detected anomaly: score={score}, components={components}")
 
 ### Overview
 
-The Mercury Agent implements **Lyapunov stability theory** to guarantee convergence and prevent divergence in the state evolution of the OmniMercuryEngine. This provides mathematical rigor ensuring the system remains stable during iterative updates.
+The Mercury Agent applies **Lyapunov stability theory** to the state evolution of the OmniMercuryEngine as a *design-time* stability argument, backed at runtime by a *best-effort* monitor. It is **monitored, not guaranteed**: the runtime coherence monitor (`core/system_coherence.py`) evaluates the Lyapunov condition per update, but `halt_on_violation` defaults to `False`, so violations are logged and recorded rather than halting the pipeline. Construct the monitor with `halt_on_violation=True` to turn the observation into an enforced stop.
 
 ### Theoretical Foundation
 
@@ -1099,17 +1099,20 @@ if delta_V > 0 and t > 5:  # Stability violation
 
    where 0.13 ≈ -ln(0.87).
 
-### Stability Guarantees
+### Stability Monitoring and Optional Rollback
 
-#### Rollback Mechanism
+#### Rollback Mechanism (opt-in)
 
-If at any iteration t > 5, the Lyapunov function increases (ΔV > 0), the system immediately:
+When the coherence monitor is constructed with `halt_on_violation=True`, then at
+any iteration t > 5 where the Lyapunov function increases (ΔV > 0) the system:
 
 1. **Reverts to Previous State**: 𝔄_t ← 𝔄_{t-1}
-2. **Terminates Iteration**: Prevents further divergence
-3. **Returns Stable State**: Guarantees V(𝔄_output) < V(𝔄_input)
+2. **Terminates Iteration**: stops further divergence for that run
+3. **Returns Stable State**: V(𝔄_output) < V(𝔄_input) holds by construction of the revert
 
-This ensures **no degradation** under any input conditions.
+By default (`halt_on_violation=False`) the same condition is evaluated and the
+violation is logged and recorded, but the iteration is **not** halted — the
+no-degradation property above holds only in the opt-in halting mode.
 
 #### Convergence Criteria
 
@@ -1163,9 +1166,9 @@ Empirical convergence validation (from quick_validation.py):
 
 ### Key Insights
 
-1. **Mathematical Rigor**: Lyapunov theory provides formal convergence guarantees
-2. **Ethical Alignment**: Purity invariant ensures convergence within ethical constraints
-3. **Safety Mechanism**: Rollback prevents divergence under all conditions
+1. **Mathematical Rigor**: Lyapunov theory provides a *design-time* convergence proof; at runtime it is *monitored*, not enforced by default (`halt_on_violation=False`)
+2. **Ethical Alignment**: the purity invariant is checked within ethical constraints
+3. **Safety Mechanism**: when halting is enabled, a detected violation triggers rollback rather than allowing continued divergence
 4. **Verified Performance**: Exponential O(e^{-0.13t}) convergence rate empirically confirmed
 
 This combination of **classical control theory**, **ethical AI principles**, and **modern deep learning** ensures both mathematical soundness and ethical alignment in adaptive anomaly detection systems.
