@@ -1037,17 +1037,47 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
         data = validation_result.sanitized_data["data"]
         sensitivity = validation_result.sanitized_data["sensitivity"]
 
-        # Calculate threshold based on sensitivity
-        threshold = 2.0 + (1.0 - sensitivity) * 3.0
-
-        # Compute z-scores
-        mean = np.mean(data)
-        std = np.std(data)
-        z_scores = np.abs((data - mean) / (std + 1e-8))
+        # Dispatch on the requested algorithm. Previously the ``method`` field
+        # was accepted and enum-validated but ignored -- every request ran
+        # z-score regardless -- so ``method: iqr`` silently returned z-score
+        # results. The response ``method`` stays "univariate" (the endpoint
+        # identity that clients and the e2e contract depend on); the algorithm
+        # actually run is recorded in ``summary["algorithm"]``.
+        algorithm = request.method or DetectionMethod.ZSCORE
+        data_arr = np.asarray(data, dtype=float)
+        method_stats: dict[str, float]
+        if algorithm == DetectionMethod.ZSCORE:
+            threshold = 2.0 + (1.0 - sensitivity) * 3.0
+            mean = float(np.mean(data_arr))
+            std = float(np.std(data_arr))
+            score_arr = np.abs((data_arr - mean) / (std + 1e-8))
+            method_stats = {"mean": mean, "std": std}
+        elif algorithm == DetectionMethod.IQR:
+            # Score = distance outside the [Q1, Q3] box in IQR units; the
+            # sensitivity-scaled threshold plays the role of the classic 1.5*IQR
+            # fence (more sensitive -> lower fence).
+            threshold = 1.5 + (1.0 - sensitivity) * 3.0
+            q1 = float(np.percentile(data_arr, 25))
+            q3 = float(np.percentile(data_arr, 75))
+            iqr = q3 - q1
+            outside = np.maximum.reduce([q1 - data_arr, data_arr - q3, np.zeros_like(data_arr)])
+            score_arr = outside / (iqr + 1e-8)
+            method_stats = {"q1": q1, "q3": q3, "iqr": iqr}
+        else:  # ISOLATION_FOREST -- model-based, not served by this endpoint
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "method 'isolation_forest' is not available on the univariate "
+                    "endpoint; use 'zscore' or 'iqr', or POST "
+                    "/api/v1/detect/multivariate for model-based detection."
+                ),
+            )
 
         # Determine anomalies
-        anomalies = (z_scores > threshold).tolist()
-        scores = z_scores.tolist()
+        anomalies = (score_arr > threshold).tolist()
+        scores = score_arr.tolist()
+        mean = method_stats.get("mean", float(np.mean(data_arr)))
+        std = method_stats.get("std", float(np.std(data_arr)))
 
         # Build detailed anomaly points
         anomaly_points = []
@@ -1068,9 +1098,11 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             "total_points": len(data),
             "anomaly_count": anomaly_count,
             "anomaly_rate": anomaly_count / len(data) if len(data) > 0 else 0,
+            "algorithm": algorithm.value,
             "mean": float(mean),
             "std": float(std),
             "max_score": float(max(scores)) if scores else 0,
+            **method_stats,
         }
 
         return UnivariateResponse(

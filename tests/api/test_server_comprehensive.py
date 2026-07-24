@@ -121,6 +121,36 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 200
 
+    def test_method_field_is_dispatched_not_ignored(self, client: Any) -> None:
+        """The request ``method`` selects the algorithm and is echoed in summary.
+
+        Previously the field was accepted/enum-validated but ignored -- every
+        request ran z-score. The response ``method`` stays "univariate" (endpoint
+        identity), and ``summary.algorithm`` reports which algorithm ran.
+        """
+        data = [1.0, 1.1, 1.0, 1.1, 1.0, 50.0, 1.0, 1.1, 1.0]
+
+        zscore = client.post("/api/v1/detect/univariate", json={"data": data, "method": "zscore"})
+        assert zscore.status_code == 200
+        assert zscore.json()["summary"]["algorithm"] == "zscore"
+
+        iqr = client.post("/api/v1/detect/univariate", json={"data": data, "method": "iqr"})
+        assert iqr.status_code == 200
+        body = iqr.json()
+        assert body["method"] == "univariate"  # endpoint identity unchanged
+        assert body["summary"]["algorithm"] == "iqr"
+        assert "iqr" in body["summary"]
+        assert body["anomalies"][5] is True  # the outlier is still flagged
+
+    def test_isolation_forest_method_rejected_with_400(self, client: Any) -> None:
+        """The lightweight endpoint rejects the model-based method clearly."""
+        response = client.post(
+            "/api/v1/detect/univariate",
+            json={"data": [1.0, 2.0, 3.0, 4.0, 5.0], "method": "isolation_forest"},
+        )
+        assert response.status_code == 400
+        assert "isolation_forest" in str(response.json()["detail"])
+
     def test_validation_failure_returns_400_not_500(self, client: Any) -> None:
         """A validator rejection must surface as a structured 400, not a 500.
 
