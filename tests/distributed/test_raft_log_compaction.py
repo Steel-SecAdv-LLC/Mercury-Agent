@@ -11,6 +11,14 @@ now never advances the snapshot past the highest applied index.
 
 from __future__ import annotations
 
+import asyncio
+
+from hypothesis import (
+    given,
+    settings,
+    strategies as st,
+)
+
 from omni_mercury_engine.distributed.raft_consensus import LogEntry, RaftLog
 
 
@@ -51,3 +59,33 @@ async def test_compaction_caps_at_midpoint_when_more_is_applied() -> None:
 
     assert log._snapshot_index == 6
     assert [e.index for e in log._entries] == [7, 8, 9, 10, 11, 12]
+
+
+# =============================================================================
+# Property-based safety invariant: never snapshot past the applied index
+# =============================================================================
+@settings(max_examples=80, deadline=None)
+@given(
+    n=st.integers(min_value=1, max_value=150),
+    applied=st.integers(min_value=0, max_value=150),
+    threshold=st.integers(min_value=2, max_value=40),
+)
+def test_compaction_snapshot_never_exceeds_applied_index(
+    n: int, applied: int, threshold: int
+) -> None:
+    """For any log length, applied index, and threshold, the snapshot index must
+    never advance past what has actually been applied (the Raft-safety
+    invariant), and it must never exceed the midpoint retention cap."""
+
+    async def scenario() -> tuple[int, int]:
+        log = RaftLog(snapshot_threshold=threshold)
+        for i in range(1, n + 1):
+            await log.append(_entry(i))
+        applied_bound = min(applied, n)
+        log.note_applied_index(applied_bound)
+        await log._compact()
+        return log._snapshot_index, applied_bound
+
+    snapshot_index, applied_bound = asyncio.run(scenario())
+    assert snapshot_index <= applied_bound
+    assert snapshot_index <= n // 2  # midpoint retention cap is respected

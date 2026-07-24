@@ -14,6 +14,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from hypothesis import (
+    given,
+    settings,
+    strategies as st,
+)
 
 from omni_mercury_engine.federated_learning.privacy import (
     PrivacyAccountant,
@@ -81,3 +86,25 @@ def test_basic_composition_is_linear_not_superlinear() -> None:
     for k, (eps, delta) in enumerate(zip(eps_seq, delta_seq), start=1):
         assert eps == pytest.approx(k * single_eps)
         assert delta == pytest.approx(k * 1e-5)
+
+
+# =============================================================================
+# Property-based invariants for privacy composition (the accounting fixes)
+# =============================================================================
+_noise = st.floats(min_value=0.25, max_value=10.0, allow_nan=False, allow_infinity=False)
+
+
+@settings(max_examples=100, deadline=None)
+@given(scales=st.lists(_noise, min_size=1, max_size=12))
+def test_basic_composition_is_monotonic_and_finite(scales: list[float]) -> None:
+    """Cumulative epsilon under basic composition must be finite and never
+    decrease as queries accumulate (linear composition adds non-negative cost)."""
+    accountant = PrivacyAccountant(total_epsilon=1e9, total_delta=1e-5, composition="basic")
+    prev_eps = 0.0
+    prev_delta = 0.0
+    for noise_scale in scales:
+        eps, delta = accountant.add_query(sensitivity=1.0, noise_scale=noise_scale)
+        assert np.isfinite(eps) and np.isfinite(delta)
+        assert eps >= prev_eps - 1e-9
+        assert delta >= prev_delta - 1e-12
+        prev_eps, prev_delta = eps, delta

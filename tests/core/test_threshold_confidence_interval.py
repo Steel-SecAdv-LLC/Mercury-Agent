@@ -18,6 +18,14 @@ calculator directly rather than through the engine.
 from __future__ import annotations
 
 import numpy as np
+from hypothesis import (
+    HealthCheck,
+    assume,
+    given,
+    settings,
+    strategies as st,
+)
+from hypothesis.extra import numpy as hnp
 
 from omni_mercury_engine.core.score_calibration import (
     ThresholdConfidenceInterval,
@@ -118,3 +126,29 @@ class TestComputeBca:
 
         assert abs(bca.lower - percentile.lower) < 0.15
         assert abs(bca.upper - percentile.upper) < 0.15
+
+
+# =============================================================================
+# Property-based numerical invariants for the BCa interval (the erfinv fix)
+# =============================================================================
+@settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    data=hnp.arrays(
+        dtype=np.float64,
+        shape=st.integers(min_value=20, max_value=60),
+        elements=st.floats(min_value=-1e4, max_value=1e4, allow_nan=False, allow_infinity=False),
+    )
+)
+def test_compute_bca_is_always_finite_and_ordered(data: np.ndarray) -> None:
+    """For any non-degenerate finite score array, the BCa interval is finite and
+    correctly ordered (lower <= threshold <= upper). This is the invariant the
+    non-existent ``np.erfinv`` used to break unconditionally."""
+    assume(float(np.std(data)) > 1e-6)  # a spread must exist for a meaningful CI
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=80, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(data)
+
+    assert np.isfinite([ci.lower, ci.threshold, ci.upper]).all()
+    assert ci.lower <= ci.threshold <= ci.upper
