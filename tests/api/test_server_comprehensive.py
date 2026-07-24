@@ -121,6 +121,23 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 200
 
+    def test_validation_failure_returns_400_not_500(self, client: Any) -> None:
+        """A validator rejection must surface as a structured 400, not a 500.
+
+        ``1e16`` is finite (so it passes Pydantic's field validators and the
+        3-point minimum) but exceeds the API validator's magnitude bound. The
+        handler raises ``HTTPException(400)`` internally; a prior ordering let the
+        broad ``except Exception`` re-wrap it as an opaque 500.
+        """
+        response = client.post(
+            "/api/v1/detect/univariate",
+            json={"data": [1e16, 1.0, 2.0], "sensitivity": 0.5},
+        )
+        assert response.status_code == 400
+        detail = response.json()["detail"]
+        assert isinstance(detail, dict)
+        assert detail.get("error") == "ValidationError"
+
     def test_anomaly_points_detail(self, client: Any) -> None:
         """Test anomaly_points contain index, value, score, severity."""
         data = [1.0, 1.1, 1.0, 100.0, 1.1, 1.0, 1.1, 1.0, 1.1]

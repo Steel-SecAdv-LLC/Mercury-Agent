@@ -1086,6 +1086,13 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+    except HTTPException:
+        # Intentional HTTP errors -- notably the 400 raised above on validation
+        # failure -- must propagate unchanged. Without this passthrough the broad
+        # ``except Exception`` below re-wraps them as opaque 500s, hiding the
+        # structured validation detail from the client (matches the ordering
+        # already used by ``detect_multivariate``).
+        raise
     except Exception as e:
         logger.error("Univariate detection failed: %s", e)
         raise HTTPException(
