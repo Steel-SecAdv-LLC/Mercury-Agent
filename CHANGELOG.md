@@ -27,6 +27,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Repository refinement audit: 19 defects fixed across correctness, security, safety, DP and consensus
+
+A full-repository engineering audit (branch `steel/repository-refinement23`).
+Every automated gate was already green and no sensitive/internal content
+required removal, so the value is concentrated in **defects on code paths the
+13,802-test suite did not cover** — surfaced by running the real runtime (AMA
+v3.3.0 PQC backend built from source) and an adversarial, reproduce-first hunt.
+Full itemised record in [`docs/REPOSITORY_REFINEMENT_AUDIT.md`](docs/REPOSITORY_REFINEMENT_AUDIT.md);
+each fix ships with a regression test that fails against the pre-fix code.
+
+**Fixed — correctness & reliability**
+
+- **`compute_bca` crashed on every call** (`core/score_calibration.py`):
+  `np.erfinv` does not exist in NumPy. Replaced with exact
+  `scipy.special.ndtri`/`ndtr`, also correcting a `tanh` approximation of the
+  normal CDF that made the BCa endpoints inconsistent.
+- **Resonance score computed from the wrong array** (`core/three_r_mechanism.py`):
+  `compute_dominance_score` passed the whole `(frequencies, magnitudes)` tuple to
+  `np.abs(...).sort()`; now uses the magnitude spectrum.
+- **Geological trainers crashed on real data** (`detectors/geological/disaster_detectors.py`):
+  batched with the `n_samples` fallback instead of the loaded count
+  (out-of-bounds `randperm`), and `train_seismic_analyzer` unpacked a 4-tuple
+  `forward()` into two values. Both fixed.
+- **Flagship detector crashed on missing data** (`detectors/statistical.py`):
+  a single NaN cell aborted the adaptive operating-point path with an opaque
+  histogram range error. The valley-depth step now excludes non-finite scores
+  (matching the Otsu step), preserving the documented NaN-propagation contract.
+- **Dict feature-cache collision** (`engine.py`): dict inputs were keyed by a
+  constant placeholder, so distinct payloads returned the first payload's stale
+  features. Dict inputs now compute fresh; array/tensor inputs still cache.
+- **`RefactoringEngine` cache collision** (`core/three_r_mechanism.py`): analysis
+  keyed by `f"{module}.{name}"` collided for same-named callables; now keyed by
+  qualname + code location.
+- **`float(None)` on explicit JSON null** (`loaders/energy_loader.py`): the EIA
+  parser now coerces a missing/`None` value to `0.0`.
+- **FEMA year filters** (`loaders/fema_loader.py`): `hurricane_2024` and
+  `fire_2023` filtered by incident type only, returning every year's
+  declarations; they now constrain to their fiscal year.
+- **Marine grid assignment** (`loaders/marine_loader.py`): a non-empty frame
+  missing coordinate columns raised a length-mismatch `ValueError`; the missing
+  column now yields a length-aligned NaN series.
+- **STFT hop division-by-zero** (`detectors/spectral_vibration.py`): `hop` is
+  clamped to at least 1, so `overlap_ratio >= 1.0` no longer raises.
+
+**Fixed — safety-relevant**
+
+- **Tsunami false-alarm on corrupt data** (`detectors/geological/disaster_detectors.py`):
+  a single NaN drove `wave_height` to NaN and `_determine_severity(NaN)` through
+  to MAJOR ("EVACUATE coastal areas immediately"); non-finite waveforms are now
+  rejected.
+- **Raft could snapshot uncommitted state** (`distributed/raft_consensus.py`):
+  `_compact` snapshotted at `len // 2` ignoring the commit index. Compaction is
+  now clamped to the applied prefix (the node reports the applied index), so it
+  never folds uncommitted entries into a snapshot.
+
+**Fixed — security**
+
+- **Authorization decorators failed open** (`api/auth.py`): `require_role` /
+  `require_permission` only enforced when a `request` kwarg was present. Now
+  fail-closed (HTTP 401) and resolve the principal from request state or an
+  injected `User`.
+- **Path-containment prefix bypass** (`security/input_validation.py`):
+  `validate_path` used `str.startswith`; now uses `Path.is_relative_to`.
+
+**Fixed — API contract**
+
+- **Validation errors surfaced as HTTP 500** (`api/server.py`): `detect_univariate`
+  let its broad `except Exception` re-wrap an intentional `HTTPException(400)`;
+  added the `except HTTPException: raise` passthrough.
+- **Univariate `method` ignored** (`api/server.py`): the enum-validated `method`
+  field was never dispatched. Now runs z-score or IQR (isolation_forest → 400),
+  recording the algorithm in `summary.algorithm`; the endpoint identity
+  (`method: "univariate"`) is unchanged.
+
+**Fixed — differential privacy** (`federated_learning/privacy.py`) — both bugs
+erred conservatively (over-noise / over-report spend), so the fixes correct the
+accounting without weakening any guarantee:
+
+- **Accountant/noise disconnect**: `privatize_gradients` fed the accountant a
+  `noise_multiplier`-derived scale the mechanism never applied; it now accounts
+  for the mechanism's own noise scale (the noise actually added).
+- **Basic composition was super-linear**: `_basic_composition_query` summed every
+  stored cumulative value (double-counting) and divided delta by the query
+  count; it now composes linearly (`prior_cumulative + this_query_cost`).
+
+**Reviewed, no change**
+
+- Rejected one reported "epoch ÷ 1e9 is 1000× too small" defect in
+  `loaders/fema_loader.py` as a false positive (`datetime64[ns] → seconds` is
+  correct). Documented the `energy_loader` synthetic-Kp fallback for grid events
+  as a data-modelling product decision (no defined "correct" value to patch).
+
+
 ### Platform completion: account frontend, usage endpoint, operator CLI, platform metrics, deployment profile
 
 The launch-facing half of the platform work (PR #350, continued): everything a
