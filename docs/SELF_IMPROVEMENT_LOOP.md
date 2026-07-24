@@ -1,6 +1,6 @@
 # Governed Recursive Self-Improvement — Phases 1–3
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 > Status of this document: **Phases 1–3 implemented.** Phase 1 closed the
 > measurement-provenance problem. Phase 2 added the governed promotion gate.

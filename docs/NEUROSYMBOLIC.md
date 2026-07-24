@@ -1,6 +1,6 @@
 # Neuro-Symbolic Fusion, Ablation, and Conformal Uncertainty
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 This document is the **accounting** for Mercury Agent's neuro-symbolic fusion
 work: what was built, how it was measured on real labels, and the explicit

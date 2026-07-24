@@ -1,6 +1,6 @@
 # WS-B — Differentiable domain encoders (Target 2)
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 ## What landed (machinery, opt-in, off by default)
 

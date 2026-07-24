@@ -1,6 +1,6 @@
 # API Reference
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 > **Ethical-gate contract on every public surface.** Every `detect` /
 > `analyze` / `predict` entry point on `OmniMercuryEngine`,

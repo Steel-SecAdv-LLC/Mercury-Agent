@@ -1,6 +1,6 @@
 # Mercury General-Purpose Capabilities
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 Mercury's specialty is calibrated, multi-domain **anomaly detection**. But a free
 and potentially life-saving agent should also be *generally useful* — able to
