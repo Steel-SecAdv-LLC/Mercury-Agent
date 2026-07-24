@@ -601,12 +601,20 @@ class EnergyLoader(BaseDomainLoader):
 
         records: list[dict[str, Any]] = []
         for row in data_rows:
+            # ``row.get("value", 0)`` returns the default only when the key is
+            # absent; the EIA API can send an explicit ``null`` for a reporting
+            # gap, which would reach ``float(None)`` and raise TypeError. Coerce
+            # a missing/None value to 0.0 explicitly.
+            raw_value = row.get("value")
+            demand = float(raw_value) if raw_value is not None else 0.0
+            raw_kp = event.get("peak_kp")
+            peak_kp = float(raw_kp) if raw_kp is not None else 0.0
             records.append(
                 {
                     "timestamp": row.get("period", ""),
-                    "grid_demand": float(row.get("value", 0)),
-                    "grid_supply": float(row.get("value", 0)) * 0.95,
-                    "kp": float(event.get("peak_kp", 0)),
+                    "grid_demand": demand,
+                    "grid_supply": demand * 0.95,
+                    "kp": peak_kp,
                     "solar_wind_speed": 400.0,
                     "solar_wind_density": 5.0,
                     "xray_class": 0.0,
