@@ -45,13 +45,13 @@ repos:
   # Linting
   # ==========================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.15
+    rev: v0.16.0  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+    rev: 7.3.0  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
     hooks:
       - id: flake8
         args: ['--config', '.flake8']

@@ -378,6 +378,7 @@ dev = [
     "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
     "ruff==0.16.0",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
+    "flake8==7.3.0",  # PINNED with the CI Code Quality job and the pre-commit hook (parity gate: scripts/check_pinned_tool_versions.py)
     "pre-commit>=3.5.0",
 ]
 

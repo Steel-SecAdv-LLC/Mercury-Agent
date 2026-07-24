@@ -11,6 +11,13 @@ developer running them locally and for CI running them on a pull request:
 * ``mypy``           -- identical ``# type: ignore`` set
 * ``types-requests`` -- bumped in lockstep with ``mypy``
 * ``pydocstyle``     -- identical google-convention docstring codes
+* ``ruff``           -- identical lint ruleset (an unpinned CI install picked
+  up 0.16.0 the day it released and turned 237 newly-stabilised PLR0917
+  findings into a repo-wide Code Quality red -- the incident that widened
+  this gate's registry)
+* ``flake8``         -- identical pycodestyle/pyflakes rule surface (it
+  floated in ``ci.yml`` while pre-commit pinned 7.0.0 -- the same drift
+  class as the ruff incident, closed by the same registry widening)
 
 Those exact pins live across four independent surfaces -- though each tool
 appears only in the subset that actually installs or runs it, not in all four:
@@ -25,10 +32,12 @@ Concretely: ``black`` is pinned in all four; ``mypy`` in three (not
 (``pyproject.toml`` + ``ci.yml`` -- in pre-commit it is an *un*pinned
 ``additional_dependencies`` entry, not a ``rev`` pin); ``pydocstyle`` in
 ``ci.yml`` + ``.pre-commit-config.yaml`` (it has no ``pyproject`` dependency
-pin, only a ``[tool.pydocstyle]`` config block).  The gate therefore compares
-each tool's pins *wherever they are pinned* and requires every tracked tool to
-stay pinned in at least two surfaces (see ``TRACKED_TOOLS``) so a lone,
-drift-prone pin cannot slip through.
+pin, only a ``[tool.pydocstyle]`` config block); ``ruff`` in
+``pyproject.toml`` + ``ci.yml`` + ``.pre-commit-config.yaml``; ``flake8`` in
+the same three.  The gate therefore compares each tool's pins *wherever they
+are pinned* and requires every tracked tool to stay pinned in at least two
+surfaces (see ``TRACKED_TOOLS``) so a lone, drift-prone pin cannot slip
+through.
 
 Dependabot's ``pip`` ecosystem only rewrites ``pyproject.toml``; it cannot
 reach the inline ``pip install black==X`` strings in the workflow ``run:``
@@ -62,13 +71,15 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 # single-surface pin (which can drift unnoticed) into a failure rather than a
 # silently-accepted state, and stops a "delete every pin" edit from passing
 # vacuously.  Current reality: black=4 surfaces, mypy=3, types-requests=2,
-# pydocstyle=2 -- the floor of 2 leaves intentional slack while still catching
-# any collapse to a lone, drift-prone surface.
+# pydocstyle=2, ruff=3, flake8=3 -- the floor of 2 leaves intentional slack
+# while still catching any collapse to a lone, drift-prone surface.
 TRACKED_TOOLS: dict[str, int] = {
     "black": 2,
     "mypy": 2,
     "types-requests": 2,
     "pydocstyle": 2,
+    "ruff": 2,
+    "flake8": 2,
 }
 
 # Requirement-style pin, e.g. ``black==26.5.1`` / ``"mypy==2.1.0"`` /
@@ -77,7 +88,8 @@ TRACKED_TOOLS: dict[str, int] = {
 # stops ``some-black==`` matching ``black``; a prose mention without ``==``
 # (``mypy 1.19 and mypy 2.1``) is never matched.
 _REQ_PIN_RE = re.compile(
-    r"(?<![\w.-])(?P<name>black|mypy|types-requests|pydocstyle)==(?P<ver>[0-9][0-9A-Za-z._-]*)"
+    r"(?<![\w.-])(?P<name>black|mypy|types-requests|pydocstyle|ruff|flake8)"
+    r"==(?P<ver>[0-9][0-9A-Za-z._-]*)"
 )
 
 # pre-commit ``rev:`` pins are mapped to a tool by the hook repo URL substring.
@@ -85,6 +97,8 @@ _PRECOMMIT_REPO_TOOL: dict[str, str] = {
     "psf/black": "black",
     "mirrors-mypy": "mypy",
     "pydocstyle": "pydocstyle",
+    "ruff-pre-commit": "ruff",
+    "pycqa/flake8": "flake8",
 }
 _PRECOMMIT_REPO_RE = re.compile(r"^\s*-\s*repo:\s*(?P<url>\S+)")
 _PRECOMMIT_REV_RE = re.compile(r"^\s*rev:\s*['\"]?(?P<ver>\S+?)['\"]?\s*$")
@@ -185,8 +199,8 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="check_pinned_tool_versions.py",
         description=(
             "Assert that exactly-pinned dev tools (black, mypy, types-requests, "
-            "pydocstyle) carry identical versions across pyproject.toml, the CI/format "
-            "workflows, and .pre-commit-config.yaml."
+            "pydocstyle, ruff, flake8) carry identical versions across pyproject.toml, "
+            "the CI/format workflows, and .pre-commit-config.yaml."
         ),
     )
     parser.add_argument(
