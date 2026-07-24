@@ -377,7 +377,7 @@ dev = [
     "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
-    "ruff==0.15.22",  # PINNED with the CI Code Quality job: ruff 0.16.0 enabled PLR0917 tree-wide (237 findings) the day it shipped
+    "ruff==0.16.0",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
     "pre-commit>=3.5.0",
 ]
 
@@ -1154,6 +1154,11 @@ ignore = [
     "PLR0911", # Too many return statements
     "PLR0912", # Too many branches (complex logic is sometimes necessary)
     "PLR0913", # Too many arguments
+    "PLR0917", # Too many positional arguments — same deliberate policy as
+               # PLR0913: arg-count ceilings are not enforced here. Left
+               # preview-only until ruff 0.16.0 stabilised it, which instantly
+               # flagged 237 existing signatures; making them keyword-only
+               # would be an API-breaking churn with no behavioural gain.
     "PLR0915", # Too many statements
     "PLR1714", # Repeated equality comparison (readability)
     "PLR2004", # Magic value comparison
