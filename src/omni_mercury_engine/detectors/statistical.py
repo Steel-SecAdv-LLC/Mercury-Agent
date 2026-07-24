@@ -2316,22 +2316,6 @@ class MercuryAnomalyDetector(BaseDetector):
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
-        # Reject non-finite input up front with an actionable error. detect()
-        # returns one score per input row, so (unlike fit(), which drops
-        # non-finite rows) it cannot silently discard rows without breaking the
-        # caller's row alignment, and silently imputing could mask a missing
-        # reading that is itself the anomaly worth surfacing. Without this guard
-        # a single NaN/Inf cell surfaced only as an opaque
-        # "autodetected range of [nan, nan] is not finite" ValueError from a
-        # downstream histogram call.
-        if not np.isfinite(data).all():
-            raise DetectorException(
-                "MercuryAnomalyDetector.detect received non-finite (NaN/Inf) "
-                "input. Clean or impute non-finite values before detection "
-                "(e.g. drop or fill missing sensor readings); detect() must "
-                "return one score per input row and cannot impute them for you."
-            )
-
         # --- Individual scores ---
         z_scores = self._compute_z_scores(data)
         z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)
@@ -2739,8 +2723,15 @@ class MercuryAnomalyDetector(BaseDetector):
         ~1.0 => the split sits in a deep valley between two modes (bimodal);
         ~0.0 => the split sits inside a single dense mode (unimodal).
         """
-        n_bins = int(np.clip(np.sqrt(s.size), 10, 40))
-        hist, edges = np.histogram(s, bins=n_bins)
+        # Exclude non-finite scores, matching ``_otsu_threshold``: a single NaN
+        # score otherwise makes ``np.histogram`` raise "autodetected range of
+        # [nan, nan] is not finite" and aborts the whole adaptive operating-point
+        # path (the detector's nan_policy handles the non-finite points).
+        finite = s[np.isfinite(s)]
+        if finite.size == 0:
+            return 0.0
+        n_bins = int(np.clip(np.sqrt(finite.size), 10, 40))
+        hist, edges = np.histogram(finite, bins=n_bins)
         peak = hist.max()
         if peak == 0:
             return 0.0

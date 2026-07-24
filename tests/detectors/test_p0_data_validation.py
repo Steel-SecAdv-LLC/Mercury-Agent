@@ -261,22 +261,23 @@ class TestNaNInfHandling:
 
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
 
-    def test_statistical_detect_rejects_non_finite_input(
+    def test_statistical_detect_does_not_crash_on_non_finite(
         self, normal_data: Any, data_with_nan: Any
     ) -> None:
-        """detect() rejects non-finite input with a clear DetectorException.
+        """detect() tolerates non-finite input on the default operating point.
 
-        fit() drops non-finite rows, but detect() returns one score per input
-        row and cannot silently impute a missing reading (that would mask an
-        anomaly), so it fails loud with an actionable message instead of the
-        opaque "autodetected range of [nan, nan]" histogram error it raised
-        before.
+        With no explicit threshold, detect() runs the adaptive operating-point
+        path, whose histogram valley-depth step previously aborted with an opaque
+        "autodetected range of [nan, nan] is not finite" error on a single NaN
+        cell. It now excludes non-finite scores from the histogram (matching the
+        Otsu step) and still returns one score per input row.
         """
         detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
 
-        with pytest.raises(DetectorException, match="non-finite"):
-            detector.detect(data_with_nan)
+        result = detector.detect(data_with_nan)
+
+        assert result["scores"].shape[0] == data_with_nan.shape[0]
 
 
 # =============================================================================
