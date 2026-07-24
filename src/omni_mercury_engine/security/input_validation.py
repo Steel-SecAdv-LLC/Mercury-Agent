@@ -450,10 +450,17 @@ class InputValidator:
             try:
                 from pathlib import Path
 
-                normalized = str(Path(value).resolve())
-                allowed_normalized = str(Path(allowed_prefix).resolve())
+                normalized = Path(value).resolve()
+                allowed_normalized = Path(allowed_prefix).resolve()
 
-                if not normalized.startswith(allowed_normalized):
+                # Boundary-correct containment: ``is_relative_to`` compares whole
+                # path components, so a sibling directory that merely shares the
+                # prefix string (e.g. ``/srv/app/data_backup`` under
+                # ``/srv/app/data``) is correctly rejected. A plain
+                # ``str.startswith`` would accept it.
+                if normalized != allowed_normalized and not normalized.is_relative_to(
+                    allowed_normalized
+                ):
                     errors.append(f"{field_name}: Path outside allowed directory")
                     # Return early - path is outside allowed directory
                     return ValidationResult(False, value, errors, [])

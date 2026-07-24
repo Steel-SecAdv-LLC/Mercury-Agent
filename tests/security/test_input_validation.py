@@ -334,6 +334,33 @@ class TestInputValidatorPathTraversal:
         assert result.is_valid is False
         assert "outside allowed" in result.errors[0].lower()
 
+    def test_allowed_prefix_rejects_sibling_prefix(self) -> None:
+        """A sibling directory that merely shares the prefix string is rejected.
+
+        ``/srv/app/data_backup`` is *not* inside ``/srv/app/data``; a plain
+        ``str.startswith`` containment check would wrongly accept it.
+        """
+        result = self.validator.validate_path(
+            "/srv/app/data_backup/creds",
+            allowed_prefix="/srv/app/data",
+        )
+        assert result.is_valid is False
+        assert "outside allowed" in result.errors[0].lower()
+
+    def test_allowed_prefix_accepts_contained_and_exact(self) -> None:
+        """Paths inside the prefix (and the prefix itself) are accepted."""
+        inside = self.validator.validate_path(
+            "/srv/app/data/reports/x.txt",
+            allowed_prefix="/srv/app/data",
+        )
+        assert inside.is_valid is True
+
+        exact = self.validator.validate_path(
+            "/srv/app/data",
+            allowed_prefix="/srv/app/data",
+        )
+        assert exact.is_valid is True
+
     def test_safe_path_allowed(self) -> None:
         """Test safe path is allowed."""
         result = self.validator.validate_path("uploads/myfile.txt")

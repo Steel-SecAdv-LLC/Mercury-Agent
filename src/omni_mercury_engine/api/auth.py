@@ -1164,8 +1164,41 @@ def get_rate_limiter() -> RequestRateLimiter:
     return _rate_limiter
 
 
+def _resolve_authenticated_user(args: tuple[Any, ...], kwargs: dict[str, Any]) -> User | None:
+    """Best-effort extraction of the authenticated :class:`User` from a call.
+
+    Supports both documented authorization patterns:
+
+    * middleware that stores the principal on ``request.state.user``; and
+    * direct dependency injection, ``user: User = Depends(JWTAuth())``.
+
+    FastAPI passes resolved dependencies to the handler by name, and
+    :func:`functools.wraps` preserves the wrapped handler's signature, so the
+    ``request`` and/or ``user`` values arrive in ``args``/``kwargs`` of the
+    wrapper. Returns ``None`` when no authenticated user can be located, which
+    the guard decorators treat as *fail closed*.
+    """
+    candidates: list[Any] = [*kwargs.values(), *args]
+    # 1) request.state.user populated by the auth middleware.
+    for candidate in candidates:
+        state = getattr(candidate, "state", None)
+        user = getattr(state, "user", None) if state is not None else None
+        if isinstance(user, User):
+            return user
+    # 2) a User injected directly as a Depends(...) parameter.
+    for candidate in candidates:
+        if isinstance(candidate, User):
+            return candidate
+    return None
+
+
 def require_permission(permission: Permission) -> Callable[..., Any]:
-    """Decorator to require specific permission.
+    """Decorator to require a specific permission.
+
+    Fail closed: if no authenticated :class:`User` can be resolved from the
+    request state or an injected dependency, the call is rejected with HTTP 401
+    rather than allowed through. This prevents a silent authorization bypass on
+    handlers that do not thread a ``request`` object.
 
     Args:
         permission: Required permission.
@@ -1177,14 +1210,17 @@ def require_permission(permission: Permission) -> Callable[..., Any]:
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            request = kwargs.get("request")
-            if request and hasattr(request.state, "user"):
-                user = request.state.user
-                if not user.has_permission(permission):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Permission required: {permission.value}",
-                    )
+            user = _resolve_authenticated_user(args, kwargs)
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
+                )
+            if not user.has_permission(permission):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission required: {permission.value}",
+                )
             return await func(*args, **kwargs)
 
         return wrapper
@@ -1193,7 +1229,12 @@ def require_permission(permission: Permission) -> Callable[..., Any]:
 
 
 def require_role(role: str) -> Callable[..., Any]:
-    """Decorator to require specific role.
+    """Decorator to require a specific role.
+
+    Fail closed: if no authenticated :class:`User` can be resolved from the
+    request state or an injected dependency, the call is rejected with HTTP 401
+    rather than allowed through. This prevents a silent authorization bypass on
+    handlers that do not thread a ``request`` object.
 
     Args:
         role: Required role.
@@ -1205,14 +1246,17 @@ def require_role(role: str) -> Callable[..., Any]:
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            request = kwargs.get("request")
-            if request and hasattr(request.state, "user"):
-                user = request.state.user
-                if not user.has_role(role):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Role required: {role}",
-                    )
+            user = _resolve_authenticated_user(args, kwargs)
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
+                )
+            if not user.has_role(role):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Role required: {role}",
+                )
             return await func(*args, **kwargs)
 
         return wrapper
