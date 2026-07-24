@@ -89,7 +89,9 @@ def _inc(name: str, description: str, labels: dict[str, str] | None = None) -> N
             counter.labels(**labels).inc()
         else:
             counter.inc()
-    except Exception:  # pragma: no cover - metrics must never break a request
+    except Exception:
+        # Metrics must never break a request; exercised by
+        # test_platform_metrics.test_metric_failure_never_breaks_the_caller.
         logger.exception("platform metric %s failed to record", name)
 
 
@@ -201,5 +203,7 @@ def record_maintenance_sweep(results: dict[str, int]) -> None:
             )
             if counter is not None:
                 counter.labels(step=step).inc(count)
-        except Exception:  # pragma: no cover - metrics must never break a sweep
+        except Exception:
+            # Metrics must never break a sweep; exercised by
+            # test_platform_metrics.test_metric_failure_never_breaks_the_caller.
             logger.exception("platform metric for sweep step %s failed to record", step)

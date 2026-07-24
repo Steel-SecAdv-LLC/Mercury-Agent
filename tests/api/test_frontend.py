@@ -151,6 +151,49 @@ def test_login_page_wires_csrf_and_2fa_handling(site: Site) -> None:
     assert "two_factor_required" in auth_js
 
 
+def test_login_page_offers_resend_verification(site: Site) -> None:
+    """A user who lost the verification email can resend it from /login."""
+    client, mailer = site
+    assert 'id="resend-button"' in client.get("/login").text
+    assert "/resend-verification" in client.get("/static/auth.js").text
+    # The endpoint the button drives works end-to-end: an unverified account
+    # gets a fresh token, enumeration-safely (202 either way).
+    client.post("/api/v1/auth/register", json={"email": "lost@b.com", "password": "a-strong-pw"})
+    sent_before = len(mailer.sent)
+    resp = client.post("/api/v1/auth/resend-verification", json={"email": "lost@b.com"})
+    assert resp.status_code == 202
+    assert len(mailer.sent) == sent_before + 1
+    assert (
+        client.post("/api/v1/auth/resend-verification", json={"email": "ghost@b.com"}).status_code
+        == 202
+    )  # unknown address: same answer, no email
+    assert len(mailer.sent) == sent_before + 1
+
+
+def test_frontend_js_covers_every_account_route() -> None:
+    """Every account API route is reachable from the shipped UI scripts.
+
+    Guards against the gap this test was born from (the UI shipping without
+    a resend-verification path): if a new route lands in accounts.py without
+    a frontend affordance, this fails until the UI (or an explicit exemption
+    here) catches up.
+    """
+    router_paths = {
+        route.path.removeprefix("/api/v1/auth")
+        for route in accounts.router.routes
+        if hasattr(route, "path")
+    }
+    js_dir = frontend._STATIC_DIR
+    js_text = "".join(p.read_text(encoding="utf-8") for p in js_dir.glob("*.js"))
+    missing = {
+        path
+        for path in router_paths
+        # The JS calls DELETE /api-keys/{id} by string concatenation.
+        if path.replace("/{key_id}", "/") not in js_text
+    }
+    assert not missing, f"account routes with no frontend affordance: {sorted(missing)}"
+
+
 # --------------------------------------------------------------------------- #
 # browserless end-to-end journey
 # --------------------------------------------------------------------------- #

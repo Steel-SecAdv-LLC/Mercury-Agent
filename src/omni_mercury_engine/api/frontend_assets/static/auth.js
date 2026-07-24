@@ -32,6 +32,25 @@ function initLoginPage() {
   const twoFactor = document.getElementById("two-factor-step");
   const totpInput = document.getElementById("totp-code");
   const recoveryInput = document.getElementById("recovery-code");
+  const resendButton = document.getElementById("resend-button");
+  const resendStatus = document.getElementById("resend-status");
+
+  resendButton.addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) {
+      setStatus(resendStatus, "Enter your email above first.", "error");
+      document.getElementById("email").focus();
+      return;
+    }
+    setStatus(resendStatus, "Sending…");
+    const result = await api("POST", "/resend-verification", { email: email });
+    if (result.ok) {
+      setStatus(resendStatus,
+        "If that account exists and is unverified, a new link is on its way.", "ok");
+    } else {
+      setStatus(resendStatus, apiErrorMessage(result.body), "error");
+    }
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
