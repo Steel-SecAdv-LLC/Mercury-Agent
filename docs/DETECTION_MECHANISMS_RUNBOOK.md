@@ -1,6 +1,6 @@
 # Detection Mechanisms Runbook
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 Operational runbook for the streaming / statistical / state-space detector tier
 (package `omni_mercury_engine.detectors`, integration seam
@@ -26,7 +26,7 @@ require the `[ml]` (PyTorch) extra.
 | Variable | Purpose | Default / fail mode |
 |---|---|---|
 | `AMA_CRYPTO_VERSION` | Declares the AMA-Cryptography release; must match the pinned `3.3.0`. | Unset is allowed; a mismatch is a loud, fail-closed startup error. |
-| `MERCURY_REQUIRES_ML` | When `1`, aborts the session if PyTorch is missing (needed for `srcnn` / `diffusion_ad`). | Unset ⇒ torch detectors skip gracefully. |
+| `MERCURY_REQUIRES_ML` | **Test/CI-harness gate** (read by `tests/conftest.py::pytest_sessionstart`, not the runtime): when `1`, aborts the *pytest* session if PyTorch is missing. | Unset ⇒ torch detectors skip gracefully at runtime. |
 | `contamination` (ensemble arg) | Expected anomaly fraction for threshold calibration. | `0.05` |
 | `calibration_quantile` (detector arg) | Training-residual quantile placed at the 0.5 boundary; `1 − q` ≈ normal-regime FPR. | `0.98` |
 | `alpha` (`conformal_threshold` arg) | Target distribution-free false-positive rate. | `0.05` |

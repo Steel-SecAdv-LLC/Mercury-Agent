@@ -1,6 +1,6 @@
 # Compliance Modules
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 `omni_mercury_engine.compliance` is the consumer-facing surface for
 governance and policy frameworks. It hosts three first-party modules

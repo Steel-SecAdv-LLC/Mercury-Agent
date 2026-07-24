@@ -847,8 +847,18 @@ def _assign_grid_cells(
     """
     df = df.copy()
 
-    lat = pd.to_numeric(df.get("decimalLatitude", pd.Series(dtype=float)), errors="coerce")
-    lon = pd.to_numeric(df.get("decimalLongitude", pd.Series(dtype=float)), errors="coerce")
+    # Coerce coordinate columns to numeric, but keep the result aligned to the
+    # frame's length. ``df.get(col, pd.Series(dtype=float))`` returns a *length-0*
+    # default when the column is absent, so the ``grid_cell`` list comprehension
+    # below would then have length 0 and raise ``ValueError: Length of values
+    # does not match length of index`` on a non-empty frame missing the column.
+    def _numeric_column(name: str) -> pd.Series:
+        if name in df.columns:
+            return pd.to_numeric(df[name], errors="coerce")
+        return pd.Series(np.nan, index=df.index, dtype=float)
+
+    lat = _numeric_column("decimalLatitude")
+    lon = _numeric_column("decimalLongitude")
 
     grid_lat = np.floor(lat / resolution) * resolution
     grid_lon = np.floor(lon / resolution) * resolution

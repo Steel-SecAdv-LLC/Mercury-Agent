@@ -1039,6 +1039,24 @@ class CognitiveComplexityVisitor(ast.NodeVisitor):
         self._increment_structural(additional_nesting=False)
 
 
+def _stable_func_id(func: Callable[..., Any]) -> str:
+    """Collision-resistant cache identity for a callable.
+
+    ``f"{module}.{name}"`` collides for distinct callables that share a module
+    and bare name -- e.g. same-named methods on different classes (``A.run`` vs
+    ``B.run``) or a redefined top-level function -- returning another callable's
+    cached analysis. ``__qualname__`` separates the class-method case, and the
+    code object's file + first line number separates redefinitions that share a
+    qualified name. Falls back gracefully for callables without a code object.
+    """
+    qualname = getattr(func, "__qualname__", None) or getattr(func, "__name__", repr(func))
+    base = f"{getattr(func, '__module__', '?')}.{qualname}"
+    code = getattr(func, "__code__", None)
+    if code is not None:
+        return f"{base}:{code.co_filename}:{code.co_firstlineno}"
+    return base
+
+
 class RefactoringEngine:
     """Implements dynamic code optimization through AST manipulation for continuous performance.
 
@@ -1502,7 +1520,7 @@ class RefactoringEngine:
         Inspired by Harmonic Analysis Engine document. Applies FFT to code metrics to identify
         periodic patterns and anomalies.
         """
-        func_id = f"{func.__module__}.{func.__name__}"
+        func_id = _stable_func_id(func)
 
         if self.config.enable_caching:
             with self._cache_lock:
@@ -1560,7 +1578,7 @@ class RefactoringEngine:
         if num_paths is None:
             num_paths = self.config.quantum_num_paths
 
-        func_id = f"{func.__module__}.{func.__name__}"
+        func_id = _stable_func_id(func)
 
         if self.config.enable_caching:
             with self._cache_lock:
@@ -2846,10 +2864,18 @@ class ThreeRMechanism:
 
         # Compute H(omega): Resonance score from frequency analysis
         if len(data) > 10:
-            spectrum = self.resonance_engine.compute_resonance_spectrum(data)
+            # ``compute_resonance_spectrum`` returns (frequencies, magnitudes);
+            # the energy-concentration score is a property of the magnitude
+            # spectrum only. Passing the whole tuple made ``np.abs`` build a
+            # (2, N) array and mixed the frequency axis into the ratio, so the
+            # score was systematically wrong (and ``len(spectrum)`` was always 2,
+            # making the guard a no-op).
+            _resonance_freqs, resonance_mags = self.resonance_engine.compute_resonance_spectrum(
+                data
+            )
             # Normalize resonance score based on spectral energy concentration
-            if len(spectrum) > 0:
-                sorted_spectrum = np.sort(np.abs(spectrum))[::-1]
+            if resonance_mags.size > 0:
+                sorted_spectrum = np.sort(np.abs(resonance_mags))[::-1]
                 top_energy = np.sum(sorted_spectrum[: max(1, len(sorted_spectrum) // 4)])
                 total_energy = np.sum(sorted_spectrum) + 1e-10
                 resonance_score = float(np.clip(top_energy / total_energy, 0, 1))

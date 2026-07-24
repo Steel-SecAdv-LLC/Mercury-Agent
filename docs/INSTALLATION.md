@@ -1,6 +1,6 @@
 # Installation
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 ## Requirements
 
@@ -89,7 +89,12 @@ cd Mercury-Agent
 # Install core (anomaly detection, no PyTorch required)
 pip install -e .
 
-# Or install with full ML stack
+# REQUIRED: build the AMA-Cryptography native PQC backend. The package
+# fail-closes at import without it (no dev/CI escape hatch), so `pip install`
+# alone leaves it non-importable. See "Post-Quantum Cryptography backend" below.
+bash scripts/build_ama_native.sh
+
+# Or install with the full ML stack (still requires the AMA build above)
 pip install -e ".[all]"
 ```
 

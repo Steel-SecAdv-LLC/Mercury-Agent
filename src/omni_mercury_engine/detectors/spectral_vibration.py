@@ -1123,8 +1123,10 @@ class SpectralVibrationDetector(BaseDetector):
         if len(signal) < cfg.fft_size:
             signal = np.pad(signal, (0, cfg.fft_size - len(signal)))
         elif len(signal) > cfg.fft_size:
-            # Use windowed average for long signals
-            hop = int(cfg.fft_size * (1 - cfg.overlap_ratio))
+            # Use windowed average for long signals. Clamp the hop to at least 1
+            # sample: an ``overlap_ratio`` of 1.0 (or greater) would otherwise
+            # make ``hop == 0`` and raise ZeroDivisionError on the frame count.
+            hop = max(1, int(cfg.fft_size * (1 - cfg.overlap_ratio)))
             num_frames = (len(signal) - cfg.fft_size) // hop + 1
 
             spectra = []

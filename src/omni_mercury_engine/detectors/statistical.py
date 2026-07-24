@@ -2723,8 +2723,15 @@ class MercuryAnomalyDetector(BaseDetector):
         ~1.0 => the split sits in a deep valley between two modes (bimodal);
         ~0.0 => the split sits inside a single dense mode (unimodal).
         """
-        n_bins = int(np.clip(np.sqrt(s.size), 10, 40))
-        hist, edges = np.histogram(s, bins=n_bins)
+        # Exclude non-finite scores, matching ``_otsu_threshold``: a single NaN
+        # score otherwise makes ``np.histogram`` raise "autodetected range of
+        # [nan, nan] is not finite" and aborts the whole adaptive operating-point
+        # path (the detector's nan_policy handles the non-finite points).
+        finite = s[np.isfinite(s)]
+        if finite.size == 0:
+            return 0.0
+        n_bins = int(np.clip(np.sqrt(finite.size), 10, 40))
+        hist, edges = np.histogram(finite, bins=n_bins)
         peak = hist.max()
         if peak == 0:
             return 0.0

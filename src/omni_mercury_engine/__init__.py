@@ -16,10 +16,14 @@ environmental, humanitarian and infrastructure domains.
 
 The framework ships:
 
-* A 7-phase cognitive evolution stack (neural memory → symbolic logic →
-  hybrid fusion → enhanced anomaly detection → autonomous OODA agent →
-  ethical bounding → curiosity-driven exploration), integrated with the
-  wider 30-module cognitive layer by ``cognitive.orchestrator.CognitiveOrchestrator``.
+* A cognitive layer wired at runtime by
+  ``cognitive.orchestrator.CognitiveOrchestrator`` over ten components
+  (knowledge graph, multi-hop reasoner and uncertainty quantifier always on,
+  plus plasticity, causal discovery, IPB, case-based reasoning, indicator
+  development, curiosity and enhanced anomaly detection optional). Its historical build spine is a
+  7-phase evolution (neural memory → symbolic logic → hybrid fusion →
+  enhanced anomaly detection → autonomous OODA agent → ethical bounding →
+  curiosity-driven exploration), not a runtime pipeline.
 * 30 specialised detection engines, 16 live data-loader classes under
   ``loaders/`` (CI-gated count), and the ``datasets/`` benchmark corpus
   (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …).

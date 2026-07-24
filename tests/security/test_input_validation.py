@@ -4,6 +4,13 @@
 
 from __future__ import annotations
 
+from hypothesis import (
+    assume,
+    given,
+    settings,
+    strategies as st,
+)
+
 from omni_mercury_engine.security.input_validation import (
     InputValidator,
     SanitizationLevel,
@@ -333,6 +340,33 @@ class TestInputValidatorPathTraversal:
         )
         assert result.is_valid is False
         assert "outside allowed" in result.errors[0].lower()
+
+    def test_allowed_prefix_rejects_sibling_prefix(self) -> None:
+        """A sibling directory that merely shares the prefix string is rejected.
+
+        ``/srv/app/data_backup`` is *not* inside ``/srv/app/data``; a plain
+        ``str.startswith`` containment check would wrongly accept it.
+        """
+        result = self.validator.validate_path(
+            "/srv/app/data_backup/creds",
+            allowed_prefix="/srv/app/data",
+        )
+        assert result.is_valid is False
+        assert "outside allowed" in result.errors[0].lower()
+
+    def test_allowed_prefix_accepts_contained_and_exact(self) -> None:
+        """Paths inside the prefix (and the prefix itself) are accepted."""
+        inside = self.validator.validate_path(
+            "/srv/app/data/reports/x.txt",
+            allowed_prefix="/srv/app/data",
+        )
+        assert inside.is_valid is True
+
+        exact = self.validator.validate_path(
+            "/srv/app/data",
+            allowed_prefix="/srv/app/data",
+        )
+        assert exact.is_valid is True
 
     def test_safe_path_allowed(self) -> None:
         """Test safe path is allowed."""
@@ -672,3 +706,44 @@ class TestValidatorInitialization:
         """Test custom default sanitization level."""
         validator = InputValidator(level=SanitizationLevel.STRICT)
         assert validator.default_level == SanitizationLevel.STRICT
+
+
+# =============================================================================
+# Property-based invariants for validate_path containment (the sibling-prefix fix)
+# =============================================================================
+# Path components restricted to lowercase alnum so nothing trips the separate
+# path-traversal / dangerous-character checks; we are isolating the containment
+# boundary logic here.
+_seg = st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=8)
+
+
+class TestValidatePathContainmentProperties:
+    """The prefix-containment boundary must hold across arbitrary path shapes."""
+
+    @settings(max_examples=200)
+    @given(
+        prefix_parts=st.lists(_seg, min_size=1, max_size=4),
+        inside=st.lists(_seg, min_size=1, max_size=4),
+    )
+    def test_paths_inside_prefix_are_always_accepted(
+        self, prefix_parts: list[str], inside: list[str]
+    ) -> None:
+        prefix = "/" + "/".join(prefix_parts)
+        candidate = prefix + "/" + "/".join(inside)
+        result = InputValidator().validate_path(candidate, allowed_prefix=prefix)
+        assert result.is_valid is True
+
+    @settings(max_examples=200)
+    @given(prefix_parts=st.lists(_seg, min_size=1, max_size=4), suffix=_seg, tail=_seg)
+    def test_sibling_sharing_the_prefix_string_is_always_rejected(
+        self, prefix_parts: list[str], suffix: str, tail: str
+    ) -> None:
+        # ``suffix`` appended to the last component makes a *different* directory
+        # that still shares the prefix STRING (e.g. /a/data vs /a/database) -- the
+        # exact case a naive str.startswith would wrongly accept.
+        prefix = "/" + "/".join(prefix_parts)
+        sibling = prefix + suffix + "/" + tail
+        # Only assert on genuine siblings (not actually inside the prefix dir).
+        assume(sibling != prefix and not sibling.startswith(prefix + "/"))
+        result = InputValidator().validate_path(sibling, allowed_prefix=prefix)
+        assert result.is_valid is False

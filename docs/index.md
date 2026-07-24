@@ -1,11 +1,12 @@
 # Mercury Agent Documentation
 
-Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-07-11.
+Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-07-24.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an
-explicit symbolic reasoning layer, a 7-phase cognitive evolution
-architecture and hard ethical bounding.  It is paired with
+explicit symbolic reasoning layer, a `CognitiveOrchestrator` over ten
+cognitive components (the "7-phase evolution" being its historical build
+spine, not a runtime pipeline) and hard ethical bounding.  It is paired with
 [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 for the post-quantum cryptographic substrate.  (FIND**Ω**YOU™ is a
 separate, near-future sibling platform; several Mercury subsystems carry

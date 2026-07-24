@@ -582,6 +582,45 @@ class TestRequirePermission:
             await admin_endpoint(request=request)
         assert exc_info.value.status_code == 403
 
+    @pytest.mark.asyncio
+    async def test_permission_fails_closed_without_user(self) -> None:
+        """No resolvable user must be rejected with 401, not allowed through.
+
+        A handler that threads no ``request`` and no injected ``User`` (the
+        pattern the module docstring showed) must not silently bypass the guard.
+        """
+        from fastapi import HTTPException
+
+        ran = False
+
+        @require_permission(Permission.READ)
+        async def endpoint() -> Any:
+            nonlocal ran
+            ran = True
+            return {"ok": True}
+
+        with pytest.raises(HTTPException) as exc_info:
+            await endpoint()
+        assert exc_info.value.status_code == 401
+        assert ran is False
+
+    @pytest.mark.asyncio
+    async def test_permission_enforced_via_injected_user(self) -> None:
+        """The ``Depends(JWTAuth())`` pattern (injected User) is enforced."""
+        from fastapi import HTTPException
+
+        @require_permission(Permission.ADMIN)
+        async def admin_endpoint(user: Any = None) -> Any:
+            return {"ok": True}
+
+        reader = User(id="u1", username="alice", permissions={Permission.READ})
+        with pytest.raises(HTTPException) as exc_info:
+            await admin_endpoint(user=reader)
+        assert exc_info.value.status_code == 403
+
+        admin = User(id="u2", username="root", permissions={Permission.ADMIN})
+        assert await admin_endpoint(user=admin) == {"ok": True}
+
 
 class TestRequireRole:
     """Tests for require_role decorator."""
@@ -617,6 +656,41 @@ class TestRequireRole:
         with pytest.raises(HTTPException) as exc_info:
             await admin_endpoint(request=request)
         assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_role_fails_closed_without_user(self) -> None:
+        """No resolvable user must be rejected with 401, not allowed through."""
+        from fastapi import HTTPException
+
+        ran = False
+
+        @require_role("admin")
+        async def endpoint() -> Any:
+            nonlocal ran
+            ran = True
+            return {"ok": True}
+
+        with pytest.raises(HTTPException) as exc_info:
+            await endpoint()
+        assert exc_info.value.status_code == 401
+        assert ran is False
+
+    @pytest.mark.asyncio
+    async def test_role_enforced_via_injected_user(self) -> None:
+        """The ``Depends(JWTAuth())`` pattern (injected User) is enforced."""
+        from fastapi import HTTPException
+
+        @require_role("admin")
+        async def admin_endpoint(user: Any = None) -> Any:
+            return {"ok": True}
+
+        analyst = User(id="u1", username="alice", roles=["analyst"])
+        with pytest.raises(HTTPException) as exc_info:
+            await admin_endpoint(user=analyst)
+        assert exc_info.value.status_code == 403
+
+        admin = User(id="u2", username="root", roles=["admin"])
+        assert await admin_endpoint(user=admin) == {"ok": True}
 
 
 # =============================================================================

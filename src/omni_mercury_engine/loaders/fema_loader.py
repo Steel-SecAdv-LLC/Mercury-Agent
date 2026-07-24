@@ -156,7 +156,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "All hurricane disaster declarations for 2024. "
             "Includes major Atlantic and Gulf hurricane seasons."
         ),
-        "filter": "incidentType eq 'Hurricane'",
+        "filter": "incidentType eq 'Hurricane' and fyDeclared eq 2024",
     },
     "fire_2023": {
         "name": "2023 Fire Declarations",
@@ -165,7 +165,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "All fire-related disaster declarations for 2023. "
             "Covers wildfire and fire management assistance."
         ),
-        "filter": "incidentType eq 'Fire'",
+        "filter": "incidentType eq 'Fire' and fyDeclared eq 2023",
     },
     "all_2023": {
         "name": "All 2023 Disaster Declarations",

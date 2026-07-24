@@ -200,12 +200,21 @@ class PrivacyAccountant:
         sensitivity: float,
         noise_scale: float,
     ) -> tuple[float, float]:
-        """Basic composition theorem."""
+        """Basic (linear) composition theorem: privacy costs add up over queries."""
         sigma = noise_scale / (sensitivity + 1e-10)
         single_eps = sensitivity / (sigma * math.sqrt(2 * math.log(1.25 / self.total_delta)))
 
-        total_eps = sum(e for e, _ in self._queries) + single_eps
-        total_delta = sum(d for _, d in self._queries) + self.total_delta / len(self._queries)
+        # ``self._queries`` stores the running *cumulative* (epsilon, delta) that
+        # each call returned -- ``get_current_epsilon`` reads it as ``max``. Basic
+        # composition is linear, so the new cumulative is the previous cumulative
+        # plus this query's own cost. The prior code summed *every* stored
+        # cumulative (double-counting every earlier query, growing super-linearly)
+        # and set delta to ``sum(prior) + total_delta / len(queries)`` instead of
+        # adding this query's delta -- neither matched linear composition.
+        prior_eps = self._queries[-1][0] if self._queries else 0.0
+        prior_delta = self._queries[-1][1] if self._queries else 0.0
+        total_eps = prior_eps + single_eps
+        total_delta = prior_delta + self.total_delta
 
         return total_eps, total_delta
 
@@ -658,17 +667,24 @@ class PrivacyEngine:
         else:
             aggregated = clipped
 
-        noise_scale = self._noise_multiplier * self._max_grad_norm
-        if batch_size is not None and batch_size > 0:
-            noise_scale /= batch_size
+        # Per-query epsilon (decaying sequential split of the total budget).
+        query_epsilon = self._epsilon / (self._n_queries + 1)
 
         private_grads = self._mechanism.add_noise(
             aggregated,
             sensitivity=self._max_grad_norm,
-            epsilon=self._epsilon / (self._n_queries + 1),
+            epsilon=query_epsilon,
         )
 
-        self._accountant.add_query(self._max_grad_norm, noise_scale)
+        # Account for the noise that was ACTUALLY added. The mechanism calibrates
+        # its noise from ``query_epsilon`` (via ``compute_noise_scale``), but the
+        # accountant was previously handed an unrelated ``noise_multiplier *
+        # max_grad_norm / batch_size`` scale that the mechanism never applied --
+        # so the reported (epsilon, delta) was disconnected from the real noise.
+        # Feed the accountant the mechanism's own scale so the privacy report
+        # reflects the noise on the gradients.
+        actual_noise_scale = self._mechanism.compute_noise_scale(self._max_grad_norm, query_epsilon)
+        self._accountant.add_query(self._max_grad_norm, actual_noise_scale)
         self._n_queries += 1
 
         return private_grads

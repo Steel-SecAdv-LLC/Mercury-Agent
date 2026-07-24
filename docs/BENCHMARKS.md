@@ -1,6 +1,6 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **66 successful /

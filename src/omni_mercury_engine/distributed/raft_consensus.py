@@ -139,7 +139,16 @@ class RaftLog:
         self._snapshot_term: int = 0
         self._snapshot_data: dict[str, Any] | None = None
         self._snapshot_threshold = snapshot_threshold
+        # Highest applied log index — the safe upper bound for compaction. Raft
+        # may only snapshot state that has been applied, so compaction must never
+        # fold entries beyond this point into the snapshot. Updated by the node
+        # as it applies committed entries (see RaftNode._apply_committed_entries).
+        self._safe_compact_index: int = 0
         self._lock = asyncio.Lock()
+
+    def note_applied_index(self, applied_index: int) -> None:
+        """Record the highest applied index (monotonic), bounding compaction."""
+        self._safe_compact_index = max(self._safe_compact_index, applied_index)
 
     @property
     def last_index(self) -> int:
@@ -210,16 +219,33 @@ class RaftLog:
         self._entries = [e for e in self._entries if e.index < index]
 
     async def _compact(self) -> None:
-        """Compact log by creating snapshot."""
+        """Compact the log by snapshotting the applied prefix.
+
+        Raft requires snapshotted state to be applied, so compaction never folds
+        entries beyond ``_safe_compact_index`` (the highest applied index) into
+        the snapshot. The previous cut at the midpoint (``len // 2``) ignored the
+        commit/apply position entirely and could snapshot uncommitted entries
+        when fewer than half the log was committed -- a safety violation, since a
+        new leader may still overwrite an uncommitted suffix.
+        """
         if len(self._entries) < self._snapshot_threshold:
             return
 
-        compact_index = len(self._entries) // 2
-        compact_entry = self._entries[compact_index - 1]
+        # Number of leading entries that are safe (applied) to fold away.
+        safe_count = sum(1 for e in self._entries if e.index <= self._safe_compact_index)
+        # Cap at the midpoint so recent history stays available for follower
+        # catch-up, but never exceed the applied prefix.
+        compact_count = min(len(self._entries) // 2, safe_count)
+        if compact_count <= 0:
+            # Nothing applied is safe to compact yet; retry after more entries
+            # are applied rather than snapshot uncommitted state.
+            return
+
+        compact_entry = self._entries[compact_count - 1]
 
         self._snapshot_index = compact_entry.index
         self._snapshot_term = compact_entry.term
-        self._entries = self._entries[compact_index:]
+        self._entries = self._entries[compact_count:]
 
         logger.info(
             "Log compacted: snapshot_index=%d, remaining_entries=%d",
@@ -812,6 +838,10 @@ class RaftNode:
                 future = self._pending_commands.pop(entry.index, None)
                 if future and not future.done():
                     future.set_result(result)
+
+        # Tell the log how far it is safe to compact: only applied entries may be
+        # folded into a snapshot.
+        self._log.note_applied_index(self._state_machine.last_applied)
 
 
 class RaftCluster:

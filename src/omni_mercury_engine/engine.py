@@ -4505,11 +4505,6 @@ class OmniMercuryEngine(LoggerMixin):
                 if isinstance(data, dict) and not detector.is_fitted():
                     continue
 
-                # Try to use cached features
-                cache_key = self.feature_cache._make_key(
-                    data if not isinstance(data, dict) else np.array([0]), prefix=f"detector_{name}"
-                )
-
                 def compute_features(det: Any = detector, d: Any = data) -> tuple[Any, ...]:
                     # Purity: start from clean transient state so the
                     # features depend only on (fitted state, d) — see
@@ -4524,8 +4519,18 @@ class OmniMercuryEngine(LoggerMixin):
                     result = det.detect(d)
                     return features, result
 
-                cached = self.feature_cache.get_or_compute(cache_key, compute_features)
-                features, result = cached
+                # The feature cache keys on array/tensor bytes. Dict inputs were
+                # keyed by a constant placeholder (np.array([0])), collapsing every
+                # distinct dict payload onto one cache entry so the second and later
+                # dicts received the first payload's stale features. Compute dict
+                # inputs fresh; array/tensor inputs still use the cache.
+                if isinstance(data, dict):
+                    features, result = compute_features()
+                else:
+                    cache_key = self.feature_cache._make_key(data, prefix=f"detector_{name}")
+                    features, result = self.feature_cache.get_or_compute(
+                        cache_key, compute_features
+                    )
 
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
@@ -4580,10 +4585,6 @@ class OmniMercuryEngine(LoggerMixin):
 
         for name, model in self.models.items():
             try:
-                # Try to use cached features
-                cache_key = self.feature_cache._make_key(
-                    data if not isinstance(data, dict) else np.array([0]), prefix=f"model_{name}"
-                )
 
                 def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
                     # Purity: reset transient streaming state so features
@@ -4596,8 +4597,17 @@ class OmniMercuryEngine(LoggerMixin):
                     prediction = mdl.predict(d)
                     return features, prediction
 
-                cached = self.feature_cache.get_or_compute(cache_key, compute_features)
-                features, prediction = cached
+                # Dict inputs were keyed by a constant placeholder, so distinct
+                # dict payloads collided on one cache entry and returned the first
+                # payload's stale features. Compute dict inputs fresh; array/tensor
+                # inputs still use the cache (mirrors _extract_detector_features).
+                if isinstance(data, dict):
+                    features, prediction = compute_features()
+                else:
+                    cache_key = self.feature_cache._make_key(data, prefix=f"model_{name}")
+                    features, prediction = self.feature_cache.get_or_compute(
+                        cache_key, compute_features
+                    )
 
                 model_features[name] = features
                 scores = prediction.get("anomaly_scores", 0)

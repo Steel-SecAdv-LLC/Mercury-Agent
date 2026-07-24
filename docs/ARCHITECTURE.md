@@ -1,6 +1,6 @@
 # Mercury Agent - System Activation Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 Supplement to the top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md). Covers the loader
 registry, Oracle pipeline, cognitive wiring, backend configuration,

@@ -24,6 +24,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from scipy.special import ndtr, ndtri
 
 # P2: Import from centralized constants
 
@@ -1490,9 +1491,11 @@ class ThresholdConfidenceIntervalCalculator:
         prop_less = np.mean(bootstrap_thresholds < point_threshold)
         # Handle edge cases
         prop_less = np.clip(prop_less, 0.001, 0.999)
-        z0 = float(
-            np.sqrt(2) * np.erfinv(2 * prop_less - 1)  # type: ignore[attr-defined, unused-ignore]
-        )  # Inverse normal CDF
+        # Bias-correction factor z0 = Phi^{-1}(prop_less), the inverse standard
+        # normal CDF (probit). ``scipy.special.ndtri`` is the exact, numerically
+        # stable probit; the previous ``np.erfinv`` form raised AttributeError at
+        # runtime because NumPy exposes no ``erfinv`` (it lives in scipy.special).
+        z0 = float(ndtri(prop_less))
 
         # Acceleration factor (a) using jackknife
         jackknife_thresholds = np.zeros(n)
@@ -1510,15 +1513,18 @@ class ThresholdConfidenceIntervalCalculator:
 
         # Compute BCa percentiles
         alpha = 1 - self.confidence_level
-        z_alpha_low = float(np.sqrt(2) * np.erfinv(2 * (alpha / 2) - 1))  # type: ignore[attr-defined, unused-ignore]
-        z_alpha_high = float(np.sqrt(2) * np.erfinv(2 * (1 - alpha / 2) - 1))  # type: ignore[attr-defined, unused-ignore]
+        z_alpha_low = float(ndtri(alpha / 2))
+        z_alpha_high = float(ndtri(1 - alpha / 2))
 
         # BCa adjusted percentiles
         def bca_percentile(z_alpha: float) -> float:
             numerator = z0 + z_alpha
             adjusted = z0 + numerator / (1 - a * numerator)
-            # Convert back to percentile using normal CDF
-            return float((1 + np.tanh(adjusted / np.sqrt(2))) / 2 * 100)
+            # Convert back to a percentile with the exact standard normal CDF
+            # (Phi). The prior ``tanh`` form was only a logistic approximation of
+            # Phi and, paired with the exact probit above, made the BCa endpoints
+            # mutually inconsistent; ``scipy.special.ndtr`` is the exact CDF.
+            return float(ndtr(adjusted) * 100)
 
         pct_low = bca_percentile(z_alpha_low)
         pct_high = bca_percentile(z_alpha_high)
