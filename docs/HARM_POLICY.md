@@ -1,6 +1,6 @@
 # Mercury Harm Policy — Weapons & Mass-Casualty Uplift Gate
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 Mercury is an autonomous, open-web-capable agent built to serve a wide range of
 scientific, clinical, engineering, humanitarian, and public-safety work. Many of
@@ -273,9 +273,11 @@ limits plainly:
   is not the lever for generalization; meaning-level coverage is.**
 
 - **Routing-level false negatives and the classifier's reach (measured, then
-  fixed).** A held-out adversarial slice (2026-07-02) surfaced that the *default,
-  no-model* posture misses ~52% of paraphrased / out-of-lexicon offensive
-  requests (production verbs off the lexicon — "brew … in quantity", "putting
+  fixed).** A held-out adversarial slice (2026-07-02, 41 rows) surfaced that the
+  *default, no-model* posture misses ~52% of paraphrased / out-of-lexicon
+  offensive requests (the current expanded 163-row slice measures ~74%, see
+  `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`; CI ceiling `MAX_DEFAULT_FN_RATE = 0.80`)
+  (production verbs off the lexicon — "brew … in quantity", "putting
   together …", "rig a … release" — and agents not in the Axis-A lexicon).
   Crucially, the reasoning classifier as originally wired did **not** rescue
   these: it was consulted only *after* lexical evidence had already routed an
@@ -304,8 +306,9 @@ limits plainly:
      ethical lane (`tests/ethical/test_weapons_gate_adversarial_eval.py`): 0 FP
      on the professional slice + an FN *ceiling* in the default posture (lexical
      coverage may not regress), the routing-rescue mechanism asserted directly,
-     and — when a real model is configured — an FN *budget* (< 30%) with a real
-     classifier. Absent a real model the FN-budget lane skips **loudly** (or
+     and — when a real model is configured — an FN *budget*
+     (`MAX_REAL_CLASSIFIER_FN_RATE` < 35%, re-pinned from 30% on 2026-07-20 for
+     the expanded adversarial slice) with a real classifier. Absent a real model the FN-budget lane skips **loudly** (or
      fails under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`), so "meaning-level
      coverage met" is marked by the CI FN budget with a real model, **not** by
      lexicon size.

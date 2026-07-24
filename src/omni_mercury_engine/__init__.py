@@ -17,10 +17,10 @@ environmental, humanitarian and infrastructure domains.
 The framework ships:
 
 * A cognitive layer wired at runtime by
-  ``cognitive.orchestrator.CognitiveOrchestrator`` over nine components
+  ``cognitive.orchestrator.CognitiveOrchestrator`` over ten components
   (knowledge graph, multi-hop reasoner and uncertainty quantifier always on,
   plus plasticity, causal discovery, IPB, case-based reasoning, indicator
-  development and curiosity optional). Its historical build spine is a
+  development, curiosity and enhanced anomaly detection optional). Its historical build spine is a
   7-phase evolution (neural memory → symbolic logic → hybrid fusion →
   enhanced anomaly detection → autonomous OODA agent → ethical bounding →
   curiosity-driven exploration), not a runtime pipeline.

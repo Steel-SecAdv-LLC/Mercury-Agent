@@ -110,7 +110,7 @@ $$
 For $\eta \in [0.90, 0.99]$:
 
 $$
-0.90^{1.618} \approx 0.837 \leq \eta^{\,\Phi} \leq 0.99^{1.618} \approx 0.984
+0.90^{1.618} \approx 0.843 \leq \eta^{\,\Phi} \leq 0.99^{1.618} \approx 0.984
 $$
 
 The exponent always attenuates the fusion score (since $\eta < 1$ and $p > 0$),
@@ -677,9 +677,11 @@ floor — `BenevolenceScorer` clamps any lower assignment via its property sette
 
 ### 2.8 Hierarchical Omni-Scalar Aggregation (GOSNN)
 
-The Global Omni-Scalar Neural Network (GOSNN) aggregates approximately 180
+The Global Omni-Scalar Neural Network (GOSNN) aggregates its operational
 scalars across 8 categories into a single intelligence score through a
-three-level hierarchy.
+three-level hierarchy (`core/global_omni_scalar_network.py` registers ~209
+scalars, of which 127 are operational; the 180 figure elsewhere refers to the
+σ-vector used-band size `SIGMA_USED_BAND_END`, not a scalar count).
 
 #### 2.8.1 Level 1: Category Grouping
 

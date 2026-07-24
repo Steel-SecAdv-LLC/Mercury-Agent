@@ -26,8 +26,8 @@
 # bookworm, and the perl-base elimination below; re-checked 2026-07-02 after
 # the vulnerability DB published 4 new unfixed CRITICAL/HIGH findings against
 # the 2026-06-30 posture (gzip, libglib2.0-0t64 — both ELIMINATED below, not
-# accepted). The built runtime image carries 3 distinct unfixed CRITICAL/HIGH
-# OS CVEs (0 CRITICAL, 3 HIGH), each cross-checked against the Debian
+# accepted). The built runtime image carries 4 distinct unfixed CRITICAL/HIGH
+# OS CVEs (0 CRITICAL, 4 HIGH), each cross-checked against the Debian
 # Security Tracker (trixie status "open", no fixed version published) and
 # each linked by either CPython or the base image's own coreutils/tar
 # toolchain.

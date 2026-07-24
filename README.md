@@ -58,7 +58,7 @@
 
 ## Executive Summary
 
-Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over nine components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development and curiosity (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must clear a mandatory benevolence enforcement gate — **0.99 by default**, configurable no lower than a hard **0.70** floor — keeping the system in service of human flourishing and civilizational progress.
 

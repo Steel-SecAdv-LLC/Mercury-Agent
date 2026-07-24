@@ -1,6 +1,6 @@
 # Detection Mechanisms
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 This document describes the streaming / statistical / state-space detector tier
 added to Mercury Agent, how each detector is calibrated to emit probabilistic
@@ -179,11 +179,13 @@ downstream. The **Digital twin** node is `digital_twin.py` wired as a
 simulation-residual detector (observed-vs-simulated divergence of an identified
 AR forward model), feeding the ensemble like any other member.
 
-The tier wires into **existing** Mercury infrastructure rather than duplicating
-it: the registry, the logistic meta-learner and Bayesian Model Averaging in
-`core/stacking_fusion.py`, the calibration layer in `core/score_calibration.py`,
-the conformal machinery in `core/conformal_prediction.py`, and the CAP alerting
-path via `decision/bridge.py`. The integration seam is
+The tier wires into **existing** Mercury infrastructure where it can — the
+registry, the calibration layer in `core/score_calibration.py`, the conformal
+machinery in `core/conformal_prediction.py`, and the CAP alerting path via
+`decision/bridge.py` — and implements its logistic meta-learner
+(`ml/mercury_ml.LogisticRegression`) and Bayesian Model Averaging inline in
+`detectors/detection_tier.py` (the older `core/stacking_fusion.py` is
+**deprecated** and is not used on this path). The integration seam is
 `detectors/detection_tier.py`.
 
 ## Ensemble & uncertainty

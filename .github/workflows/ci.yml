@@ -47,7 +47,7 @@ env:
   #
   # Floors graduated 2026-07-21 (steel/maint1/2-coverage) after
   # re-measurement on the round's head:
-  #   COVERAGE_THRESHOLD_CORE: 30  (core subset; was 25, before that 15)
+  #   COVERAGE_THRESHOLD_CORE: 33  (core subset; was 30, 25, before that 15)
   #   COVERAGE_THRESHOLD_FULL: 62  (full suite; was 55, before that 50)
   # Measured combined stmt+branch FULL baseline (CI-identical
   # invocation, [all,dev] + native AMA, 12,818 passing tests):

@@ -937,14 +937,19 @@ Detect anomalies in univariate (single-variable) time-series data.
 
 ## Algorithm
 
-Uses z-score based detection with configurable sensitivity:
-1. Calculate mean (μ) and standard deviation (σ) of the data
-2. Compute z-score for each point: z = |x - μ| / σ
-3. Flag points where z > threshold as anomalies
+The `method` field selects the statistical algorithm (the algorithm actually
+run is echoed in `summary.algorithm`; the response `method` field is the fixed
+endpoint identity `"univariate"`):
 
-The threshold is calculated as: `threshold = 2.0 + (1.0 - sensitivity) * 3.0`
-- sensitivity=1.0 → threshold=2.0 (most sensitive)
-- sensitivity=0.0 → threshold=5.0 (least sensitive)
+- **`zscore`** (default): z = |x - μ| / σ; flag points where z > threshold, with
+  `threshold = 2.0 + (1.0 - sensitivity) * 3.0` (sensitivity=1.0 → 2.0, most
+  sensitive; sensitivity=0.0 → 5.0, least sensitive).
+- **`iqr`**: score = distance outside the [Q1, Q3] box in IQR units; flag points
+  above `threshold = 1.5 + (1.0 - sensitivity) * 3.0`.
+- **`isolation_forest`**: model-based and **not** served by this lightweight
+  endpoint — returns HTTP 400; use `POST /api/v1/detect/multivariate` instead.
+
+A validation failure (bad input) returns HTTP 400 with structured detail.
 
 ## Use Cases
 

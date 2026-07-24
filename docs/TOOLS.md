@@ -1,6 +1,6 @@
 # Mercury Agent — Operator Tools
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 This document is the operator reference for the
 ``omni_mercury_engine.tools`` subpackage.  Every tool listed here is
@@ -39,7 +39,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | Tool | What it proves |
 | --- | --- |
 | ``lyapunov_validator`` | The fusion linearisation $\dot V = -x^T Q x$ is negative-definite for the documented λ. |
-| ``benevolence_certifier`` | Loads a checkpoint, runs the curated benevolence probe set, verifies score ≥ 0.99 on every known-good input. |
+| ``benevolence_certifier`` | Loads a checkpoint, runs the curated benevolence probe set, verifies score ≥ the gate's default threshold (``SIGMA_IMMUTABLE_DEFAULT_THRESHOLD`` = 0.93; pass ``--threshold 0.99`` for the benevolence-immutable band) on every known-good input. |
 | ``oae_weight_certifier`` | Verifies the (w_R, w_H, w_O) ≈ (0.4472, 0.2764, 0.2764) fusion-weight tuple sums to 1.0 and matches the golden-ratio derivation. |
 | ``convergence_proof_emitter`` | Derives the Lyapunov LaTeX proof from (A, P, λ) and splices it into ``docs/MATH_SPEC.md`` between sentinels so the proof and the certificate cannot diverge. |
 | ``benevolence_calibration_report`` | 10-bin reliability diagram + Expected Calibration Error (ECE) over the curated probe set — the *how-well-calibrated* extension to the binary ≥0.99 floor. |
@@ -102,7 +102,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``run_hardware_benchmark`` | Records CPU/GPU/memory capability + deterministic matmul/FFT timings so benchmark numbers are reproducibility-anchored. |
 | ``benchmark_diff`` | Per-dataset / per-detector diff of two benchmark JSON files with regression detection. |
 | ``detector_profiler`` | Per-detector latency + RSS + cache-hit-rate profile.  Reproduces the README's ``<100ms`` and ``>50%`` claims off-CI. |
-| ``gosnn_latency_sla_gate`` | Drives ``GOSNNDetector.detect`` for N iterations; asserts the README's <100 ms p50 / <250 ms p95 / ≥50 % cache-hit-rate SLA on every PR. |
+| ``gosnn_latency_sla_gate`` | Drives ``GOSNNDetector.detect`` for N iterations to assert the README's <100 ms p50 / <250 ms p95 / ≥50 % cache-hit-rate SLA. **Inert until ``omni_mercury_engine.ml.gosnn_detector:GOSNNDetector`` is provided** — that module/class is not shipped, so the gate reports ``unavailable`` rather than running (the shipped GOSNN classes are ``GOSNNIntegration`` / ``LearnableGOSNN`` / ``GOSNNOptimizer``). |
 | ``memory_leak_sentinel`` | ``tracemalloc`` sustained-load RSS-plateau check; computes bytes-per-iteration slope (second-half vs first-half) and fails on positive drift. |
 | ``gpu_capability_probe`` | Sibling to ``pqc_capability_probe``: enumerates CUDA/ROCm/MPS, driver version, FP16/BF16/INT8 support; diffs against the release manifest. |
 | ``thermal_throttle_probe`` | Samples ``psutil.sensors_temperatures`` (handwritten ``/sys/class/hwmon`` fallback) during a benchmark window; flags throttled intervals. |

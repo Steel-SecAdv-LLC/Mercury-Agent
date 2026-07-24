@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 ## Overview
 
@@ -1101,18 +1101,30 @@ if delta_V > 0 and t > 5:  # Stability violation
 
 ### Stability Monitoring and Optional Rollback
 
-#### Rollback Mechanism (opt-in)
+These are **two distinct mechanisms** — do not conflate them.
 
-When the coherence monitor is constructed with `halt_on_violation=True`, then at
-any iteration t > 5 where the Lyapunov function increases (ΔV > 0) the system:
+#### 1. Convergence rollback (unconditional)
+
+Inside the fusion convergence loop `DoubleHelixEvolutionEngine.converge()`
+(`core/fusion.py`), at any iteration t > 5 where the Lyapunov function increases
+(ΔV > 0) the loop reverts to the previous state and breaks:
 
 1. **Reverts to Previous State**: 𝔄_t ← 𝔄_{t-1}
 2. **Terminates Iteration**: stops further divergence for that run
 3. **Returns Stable State**: V(𝔄_output) < V(𝔄_input) holds by construction of the revert
 
-By default (`halt_on_violation=False`) the same condition is evaluated and the
-violation is logged and recorded, but the iteration is **not** halted — the
-no-degradation property above holds only in the opt-in halting mode.
+This rollback is **always active** — there is no flag guarding it; it is part of
+the convergence contract.
+
+#### 2. Runtime monitor (opt-in halt, no rollback)
+
+Separately, `LyapunovRuntimeEnforcer` (`core/system_coherence.py`) *monitors* the
+Lyapunov condition on the running pipeline. `halt_on_violation` defaults to
+`False`, so a detected violation is logged and recorded but the pipeline is not
+stopped (monitoring, not a hard guarantee). Constructed with
+`halt_on_violation=True`, a violation instead **raises** `RuntimeError` — a hard
+halt. This enforcer does **not** revert state; it only observes and, optionally,
+stops.
 
 #### Convergence Criteria
 
