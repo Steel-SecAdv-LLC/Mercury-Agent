@@ -2316,6 +2316,22 @@ class MercuryAnomalyDetector(BaseDetector):
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
+        # Reject non-finite input up front with an actionable error. detect()
+        # returns one score per input row, so (unlike fit(), which drops
+        # non-finite rows) it cannot silently discard rows without breaking the
+        # caller's row alignment, and silently imputing could mask a missing
+        # reading that is itself the anomaly worth surfacing. Without this guard
+        # a single NaN/Inf cell surfaced only as an opaque
+        # "autodetected range of [nan, nan] is not finite" ValueError from a
+        # downstream histogram call.
+        if not np.isfinite(data).all():
+            raise DetectorException(
+                "MercuryAnomalyDetector.detect received non-finite (NaN/Inf) "
+                "input. Clean or impute non-finite values before detection "
+                "(e.g. drop or fill missing sensor readings); detect() must "
+                "return one score per input row and cannot impute them for you."
+            )
+
         # --- Individual scores ---
         z_scores = self._compute_z_scores(data)
         z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)

@@ -261,6 +261,23 @@ class TestNaNInfHandling:
 
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
 
+    def test_statistical_detect_rejects_non_finite_input(
+        self, normal_data: Any, data_with_nan: Any
+    ) -> None:
+        """detect() rejects non-finite input with a clear DetectorException.
+
+        fit() drops non-finite rows, but detect() returns one score per input
+        row and cannot silently impute a missing reading (that would mask an
+        anomaly), so it fails loud with an actionable message instead of the
+        opaque "autodetected range of [nan, nan]" histogram error it raised
+        before.
+        """
+        detector = MercuryAnomalyDetector()
+        detector.fit(normal_data)
+
+        with pytest.raises(DetectorException, match="non-finite"):
+            detector.detect(data_with_nan)
+
 
 # =============================================================================
 # Test 4: Empty Data Validation

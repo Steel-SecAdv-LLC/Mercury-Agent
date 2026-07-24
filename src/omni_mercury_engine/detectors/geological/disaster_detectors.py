@@ -747,6 +747,20 @@ class TsunamiDetector:
 
         waveform_data = waveform_data.to(self.device)
 
+        # Reject non-finite samples up front. A single NaN/Inf makes
+        # ``np.median``/``np.max`` return NaN, and ``_determine_severity(NaN)``
+        # falls through every ``<`` comparison to the most-severe MAJOR bucket --
+        # i.e. corrupt or missing sensor data would fabricate a maximum-severity
+        # tsunami warning ("EVACUATE coastal areas immediately"). Fail loud so the
+        # caller cleans/interpolates the record instead of acting on a phantom
+        # alert.
+        if not np.isfinite(waveform_data.detach().cpu().numpy()).all():
+            raise ValueError(
+                "predict_tsunami received non-finite (NaN/Inf) waveform samples; "
+                "a severity computed from corrupt/missing sensor readings is "
+                "meaningless. Clean or interpolate the record before detection."
+            )
+
         fft_result = fft(waveform_data.cpu().numpy()[0])
         freqs = fftfreq(len(fft_result), 1.0 / self.sampling_rate)
         power_spectrum = np.abs(fft_result) ** 2
@@ -2646,7 +2660,13 @@ def train_waveform_analyzer(
 
     history: dict[str, list[float]] = {"loss": [], "accuracy": [], "height_mse": []}
 
-    n_batches = (n_samples + batch_size - 1) // batch_size
+    # Batch/shuffle over the ACTUAL number of loaded samples, not the
+    # ``n_samples`` synthetic-fallback parameter: on the real-data path
+    # ``load_dart_buoy_data`` returns a different count, so using ``n_samples``
+    # (default 1000) would make ``torch.randperm`` index the shorter real
+    # tensors out of bounds and divide the accuracy by the wrong denominator.
+    n_train = waveforms_tensor.shape[0]
+    n_batches = (n_train + batch_size - 1) // batch_size
 
     for epoch in range(n_epochs):
         epoch_loss = 0.0
@@ -2654,11 +2674,11 @@ def train_waveform_analyzer(
         epoch_height_mse = 0.0
 
         # Shuffle data
-        indices = torch.randperm(n_samples)
+        indices = torch.randperm(n_train)
 
         for batch_idx in range(n_batches):
             start_idx = batch_idx * batch_size
-            end_idx = min(start_idx + batch_size, n_samples)
+            end_idx = min(start_idx + batch_size, n_train)
             batch_indices = indices[start_idx:end_idx]
 
             batch_waveforms = waveforms_tensor[batch_indices]
@@ -2684,7 +2704,7 @@ def train_waveform_analyzer(
             epoch_height_mse += height_loss.item()
 
         avg_loss = epoch_loss / n_batches
-        accuracy = epoch_correct / n_samples
+        accuracy = epoch_correct / n_train
         avg_height_mse = epoch_height_mse / n_batches
 
         history["loss"].append(avg_loss)
@@ -2790,7 +2810,14 @@ def train_seismic_analyzer(
 
     history: dict[str, list[float]] = {"loss": [], "accuracy": [], "magnitude_mse": []}
 
-    n_batches = (n_samples + batch_size - 1) // batch_size
+    # Batch/shuffle over the ACTUAL number of loaded samples, not the
+    # ``n_samples`` synthetic-fallback parameter: on the real-data path
+    # ``load_usgs_earthquake_catalog`` returns a different count, so using
+    # ``n_samples`` (default 1000) would make ``torch.randperm`` index the
+    # shorter real tensors out of bounds and divide accuracy by the wrong
+    # denominator.
+    n_train = spectrograms_tensor.shape[0]
+    n_batches = (n_train + batch_size - 1) // batch_size
 
     for epoch in range(n_epochs):
         epoch_loss = 0.0
@@ -2798,11 +2825,11 @@ def train_seismic_analyzer(
         epoch_mag_mse = 0.0
 
         # Shuffle data
-        indices = torch.randperm(n_samples)
+        indices = torch.randperm(n_train)
 
         for batch_idx in range(n_batches):
             start_idx = batch_idx * batch_size
-            end_idx = min(start_idx + batch_size, n_samples)
+            end_idx = min(start_idx + batch_size, n_train)
             batch_indices = indices[start_idx:end_idx]
 
             batch_spectrograms = spectrograms_tensor[batch_indices]
@@ -2811,8 +2838,12 @@ def train_seismic_analyzer(
 
             optimizer.zero_grad()
 
-            # Forward pass
-            pred_prob, pred_magnitude = model(batch_spectrograms)
+            # Forward pass. SeismicWaveAnalyzer.forward returns a 4-tuple
+            # (earthquake_prob, magnitude, p_wave_prob, s_wave_prob); this
+            # trainer only supervises detection + magnitude, so the phase-pick
+            # heads are unpacked and left unsupervised (unpacking only two values
+            # raised ValueError and made this function crash on every batch).
+            pred_prob, pred_magnitude, _p_wave_prob, _s_wave_prob = model(batch_spectrograms)
 
             # Compute losses
             classification_loss = bce_loss(pred_prob, batch_labels)
@@ -2828,7 +2859,7 @@ def train_seismic_analyzer(
             epoch_mag_mse += magnitude_loss.item()
 
         avg_loss = epoch_loss / n_batches
-        accuracy = epoch_correct / n_samples
+        accuracy = epoch_correct / n_train
         avg_mag_mse = epoch_mag_mse / n_batches
 
         history["loss"].append(avg_loss)

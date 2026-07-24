@@ -83,6 +83,22 @@ class TestTsunamiHonesty:
         record = _tsunami_record(np.random.default_rng(3))
         assert det.predict_tsunami(record).confidence == det.predict_tsunami(record).confidence
 
+    def test_non_finite_record_is_rejected_not_reported_major(self) -> None:
+        """A single NaN must not fabricate a maximum-severity tsunami warning.
+
+        ``_determine_severity(NaN)`` falls through every ``<`` test to MAJOR, so
+        corrupt/missing sensor data would otherwise emit an evacuation-grade
+        alert. The detector now rejects non-finite input instead.
+        """
+        import pytest
+
+        det = TsunamiDetector(sampling_rate=1.0)
+        record = _tsunami_record(np.random.default_rng(4))
+        record[100] = np.nan
+
+        with pytest.raises(ValueError, match="non-finite"):
+            det.predict_tsunami(record)
+
 
 class TestEarthquakeHonesty:
     def test_default_detector_serves_the_shipped_winner(self) -> None:
