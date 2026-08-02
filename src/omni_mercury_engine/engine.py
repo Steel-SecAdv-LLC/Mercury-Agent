@@ -94,6 +94,8 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     TORCH_AVAILABLE = False
 
+from omni_mercury_engine.agentic.capabilities.contract import Invariant, capability_contract
+from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
 from omni_mercury_engine.cognitive.ethical_bounding import (
     EthicalConstraintViolationError,
     sanitize_domain,
@@ -215,6 +217,116 @@ logger = logging.getLogger(__name__)
 # Matches the validated harness (``benchmarks/explanation_fidelity.py``). Module-level
 # so the (expensive, opt-in) serve-path explainer can be turned down in tests.
 _EXPLAIN_IG_STEPS = 32
+
+
+# ---------------------------------------------------------------------------
+# Boundary-subject hooks for the ``GATED_BOUNDARY`` capability contract.
+#
+# Each hook turns one public decision surface's actual call into a
+# ``DecisionSubject`` — the real decision, never a synthesised keyword string.
+# The contract decorator runs the resulting subject through the single
+# fail-closed harm-uplift choke point *before* the method body executes.
+#
+# ``operation`` is fixed per surface on purpose: it states what the code path
+# does, so it cannot be tuned per call to move a verdict. Everything that
+# varies — domain, request text, payload — comes from the caller.
+# ---------------------------------------------------------------------------
+
+
+def _bound_arg(
+    args: tuple[Any, ...], kwargs: dict[str, Any], index: int, name: str, default: Any = None
+) -> Any:
+    """Read a positional-or-keyword argument from a contract hook's ``(args, kwargs)``.
+
+    ``args[0]`` is the bound instance, so ``index`` counts from the first real
+    parameter (``index=1`` is the method's first argument).
+    """
+    if name in kwargs:
+        return kwargs[name]
+    return args[index] if len(args) > index else default
+
+
+def _detect_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect`."""
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect",
+        operation=(
+            "run the requested fitted detectors over the caller's input and "
+            "aggregate their anomaly scores"
+        ),
+        payload=_bound_arg(args, kwargs, 1, "data"),
+    )
+
+
+def _detect_batch_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect_batch`."""
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect_batch",
+        operation=(
+            "run anomaly detection over the caller's input in memory-bounded "
+            "batches and emit one verdict per sample"
+        ),
+        payload=_bound_arg(args, kwargs, 1, "data"),
+    )
+
+
+def _fusion_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect_with_fusion`."""
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect_with_fusion",
+        operation=(
+            "fuse every fitted detector and model over the caller's input and "
+            "emit a calibrated anomaly verdict"
+        ),
+        domain=sanitize_domain(_bound_arg(args, kwargs, 2, "domain")),
+        payload=_bound_arg(args, kwargs, 1, "data"),
+    )
+
+
+def _fusion_calibrated_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect_with_fusion_calibrated`."""
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect_with_fusion_calibrated",
+        operation=(
+            "fuse every fitted detector and model over the caller's input and "
+            "emit a calibrated anomaly verdict"
+        ),
+        domain=sanitize_domain(_bound_arg(args, kwargs, 5, "domain")),
+        payload=_bound_arg(args, kwargs, 1, "data"),
+    )
+
+
+def _biometric_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect_biometric`."""
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect_biometric",
+        operation=(
+            "compare a reference and a test face image and emit a match score and "
+            "biometric anomaly attributes"
+        ),
+        domain="biometric",
+        payload={
+            "reference": _bound_arg(args, kwargs, 1, "reference_image"),
+            "test": _bound_arg(args, kwargs, 2, "test_image"),
+        },
+    )
+
+
+def _security_subject(args: tuple[Any, ...], kwargs: dict[str, Any]) -> DecisionSubject:
+    """Build the gated subject for :meth:`OmniMercuryEngine.detect_security_threat`."""
+    payload = _bound_arg(args, kwargs, 1, "payload")
+    return DecisionSubject(
+        surface="OmniMercuryEngine.detect_security_threat",
+        operation=(
+            "analyse an untrusted request payload for injection, XSS and other malicious patterns"
+        ),
+        domain="cyber",
+        request=payload if isinstance(payload, str) else "",
+        payload={
+            "headers": _bound_arg(args, kwargs, 2, "headers"),
+            "source_ip": _bound_arg(args, kwargs, 3, "source_ip"),
+        },
+    )
 
 
 def default_fusion_checkpoint_path() -> Path:
@@ -3751,6 +3863,7 @@ class OmniMercuryEngine(LoggerMixin):
             self._executor = ThreadPoolExecutor(max_workers=self.MAX_WORKERS)
         return self._executor
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
@@ -3782,6 +3895,10 @@ class OmniMercuryEngine(LoggerMixin):
             >>> result = engine.detect(data, detector_types=["statistical"])
             >>> print(result["is_anomaly"])
             False
+
+        Raises:
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the shared fail-closed decision gate refuses this decision.
 
         Note:
             Detectors are automatically fitted if not already fitted.
@@ -3817,6 +3934,7 @@ class OmniMercuryEngine(LoggerMixin):
             ),
         }
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_batch_subject)
     def detect_batch(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor,
@@ -3842,6 +3960,8 @@ class OmniMercuryEngine(LoggerMixin):
 
         Raises:
             ValueError: If data has invalid shape.
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the shared fail-closed decision gate refuses this decision.
 
         Example:
             >>> engine = OmniMercuryEngine(mode="fusion")
@@ -4333,58 +4453,36 @@ class OmniMercuryEngine(LoggerMixin):
         domain: str | None,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> None:
-        """Dual hard ethical gate at the engine decision boundary.
+        """Run the fusion boundary's σ_Immutable gate (the second of two).
 
-        Both gates fail closed:
+        The **first** gate is the shared fail-closed harm-uplift choke point,
+        applied to ``detect_with_fusion`` by its ``GATED_BOUNDARY`` capability
+        contract before this method is reached — see
+        :mod:`omni_mercury_engine.cognitive.decision_gate`. A blocking
+        disposition raises ``check="harm_uplift"`` and this method never runs.
 
-        * :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`
-          — keyword/context primitive raised as
-          ``EthicalConstraintViolationError(check="benevolence")``.
-        * :class:`~omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate`
-          — trained 256-D σ_Immutable network raised as
-          ``EthicalConstraintViolationError(check="sigma_immutable")``;
-          a missing trained network or signed corpus raises
-          ``check="gosnn_unavailable"``.
+        This method adds the **second**, independent gate:
+        :class:`~omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate`
+        — the trained 256-D network over the operational governance scalars,
+        raised as ``EthicalConstraintViolationError(check="sigma_immutable")``;
+        a missing trained network or signed corpus raises
+        ``check="gosnn_unavailable"``. It is a *configuration*-integrity check,
+        not a per-input classifier.
 
-        The action description is intentionally self-contained and
-        positive-keyword-rich (``audit``, ``verify``, ``protect``,
-        ``research``, ``evidence``) — it represents the *engine's
-        purpose* (anomaly detection for safety auditing), not the
-        anomalous payload itself.  This mirrors the orchestrator's
-        contract so that both top-level boundaries enforce the same
-        primitives with the same threshold semantics.
+        The benevolence number fed to the σ_Immutable vector builder is scored
+        on the **real decision text** — the same ``DecisionSubject`` the harm
+        gate saw. It used to be scored on a fixed keyword string the engine
+        wrote for itself, which is exactly the theatre the harm-uplift gate
+        replaced; feeding that string to a second gate would have preserved it.
 
         Args:
-            domain: Caller-supplied domain hint, used as context only.
-            data: The input being detected (used for shape/size context).
+            domain: Caller-supplied domain hint. ``sanitize_domain`` collapses
+                every input to the whitelisted ``EnvironmentDomain`` ∪
+                ``{"general"}`` alphabet, so a hostile hint such as
+                ``"damage destroy harm"`` cannot inject either harm evidence or
+                allow-signal into the scored text.
+            data: The input being detected.
         """
-        # σ_Immutable Wave B Vector 2 closure: caller-supplied domain
-        # hints can ride into both the scorer's action description and
-        # the σ_Immutable details payload, so a hostile value like
-        # ``"damage destroy harm track expose"`` would either inject
-        # harm-keywords (false negative) or positive keywords (false
-        # positive).  ``sanitize_domain`` collapses every input to the
-        # whitelisted ``EnvironmentDomain`` ∪ {"general"} alphabet.
-        safe_domain = sanitize_domain(domain)
-        # Action keywords intentionally evidence the engine's defensive
-        # purpose — audit, verify, protect, research — so the scorer
-        # produces a deterministic, above-floor score for legitimate
-        # detection requests.
-        action = (
-            f"anomaly_detection:{safe_domain}:audit verify protect research "
-            "evidence fair oversight monitor data care help support"
-        )
-        context = {
-            "purpose": "anomaly detection for safety auditing",
-            "safety": "protect verify monitor evidence",
-            "domain": safe_domain,
-            "data_shape": getattr(data, "shape", None),
-        }
-        # ``enforce`` raises EthicalConstraintViolationError on violation;
-        # legitimate calls return an EthicalScore that the σ_Immutable
-        # projection helper consumes below.
-        ethical_score = self._boundary_scorer.enforce(action, context)
-
         # ------------------------------------------------------------
         # σ_Immutable second hard ethical gate.  Fails closed unless the
         # process-wide test-only ``_GOSNN_TESTING_BYPASS`` flag is set.
@@ -4392,23 +4490,43 @@ class OmniMercuryEngine(LoggerMixin):
         if _GOSNN_TESTING_BYPASS:
             return
         from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
             build_sigma_immutable_vector,
         )
 
-        # Shared single-verdict builder (σ_Immutable Wave C): the engine
-        # boundary scores benevolence only, so severity / anomaly_prob stay
-        # at their defaults — this reproduces the prior inline vector
-        # byte-for-byte while sourcing the layout from the one calibrated
-        # helper the orchestrator, hub, and Wave C surfaces all share.
-        sigma_vector = build_sigma_immutable_vector(float(ethical_score.benevolence_score))
+        safe_domain = sanitize_domain(domain)
+        subject = DecisionSubject(
+            surface="OmniMercuryEngine.detect_with_fusion",
+            operation=(
+                "fuse every fitted detector and model over the caller's input and "
+                "emit a calibrated anomaly verdict"
+            ),
+            domain=safe_domain,
+            payload=data,
+        )
+        # Advisory only — logged and audited, never an input to either gate.
+        try:
+            advisory_benevolence = float(
+                self._boundary_scorer.score_action(subject.describe(), {}).benevolence_score
+            )
+        except Exception as exc:  # pragma: no cover - advisory path
+            logger.warning("advisory benevolence unavailable at the fusion boundary: %s", exc)
+            advisory_benevolence = float("nan")
+
+        # Shared single-verdict builder (σ_Immutable Wave C): severity /
+        # anomaly_prob stay at their defaults, and the ethical band carries the
+        # system's configured posture rather than a per-call content score —
+        # see ``PERMITTED_ETHICAL_POSTURE`` for why the per-call float was never
+        # the signal here.
+        sigma_vector = build_sigma_immutable_vector(PERMITTED_ETHICAL_POSTURE)
 
         self._sigma_immutable_gate.enforce(
-            action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:" f"domain={safe_domain}"),
+            action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:domain={safe_domain}"),
             scalar_vector=sigma_vector,
             details={
                 "boundary": "OmniMercuryEngine._enforce_ethics_at_boundary",
                 "domain": safe_domain,
-                "benevolence_score": float(ethical_score.benevolence_score),
+                "benevolence_advisory": advisory_benevolence,
                 "data_shape": getattr(data, "shape", None),
             },
         )
@@ -4660,6 +4778,7 @@ class OmniMercuryEngine(LoggerMixin):
             {**det_scores, **mod_scores},
         )
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_subject)
     def detect_with_fusion(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
@@ -4760,14 +4879,17 @@ class OmniMercuryEngine(LoggerMixin):
                       consumed by the decision layer's disagreement overlay
 
         Raises:
-            EthicalConstraintViolationError: With ``check="benevolence"``
-                when BenevolenceScorer fails;
+            EthicalConstraintViolationError: With ``check="harm_uplift"`` when
+                the shared fail-closed decision gate refuses this decision;
                 ``check="sigma_immutable"`` when σ_Immutable scores below
                 threshold; ``check="gosnn_unavailable"`` when GOSNN cannot
                 be evaluated and the testing bypass is off.
 
         Note:
-            Falls back to basic detection if not in fusion mode.
+            Falls back to basic detection if not in fusion mode. That fallback
+            is gated: it delegates to :meth:`detect`, which runs the same
+            fail-closed choke point. It used to be the one way to reach the
+            engine's detectors with no ethical boundary at all.
         """
         if self.mode != "fusion":
             return self.detect(data)
@@ -4848,9 +4970,7 @@ class OmniMercuryEngine(LoggerMixin):
             # closed with ``check="gosnn_unavailable"``.
             if not _GOSNN_TESTING_BYPASS:
                 raise EthicalConstraintViolationError(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     score=0.0,
                     threshold=self._sigma_immutable_gate.threshold,
                     check="gosnn_unavailable",
@@ -4938,9 +5058,7 @@ class OmniMercuryEngine(LoggerMixin):
                 # GOSNN (single source of truth) and exclude the narrative
                 # tuning scalars that merely live in the ETHICAL group.
                 self._sigma_immutable_gate.enforce_ethical_floor(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     anchors=gosnn.critical_ethical_anchors(),
                     details={
                         "boundary": "OmniMercuryEngine.detect_with_fusion",
@@ -4948,9 +5066,7 @@ class OmniMercuryEngine(LoggerMixin):
                     },
                 )
                 evaluation = self._sigma_immutable_gate.enforce(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     scalar_vector=scalar_vector,
                     details={
                         "boundary": "OmniMercuryEngine.detect_with_fusion",
@@ -5019,7 +5135,7 @@ class OmniMercuryEngine(LoggerMixin):
                 # into the gate's scalar vector.
 
                 logger.debug(
-                    "GOSNN integration: σ_Immutable=%s (score=%.3f, " "threshold=%.3f)",
+                    "GOSNN integration: σ_Immutable=%s (score=%.3f, threshold=%.3f)",
                     evaluation.passes,
                     evaluation.score,
                     evaluation.threshold,
@@ -5040,9 +5156,7 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
                 raise _EthicalErr(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     score=0.0,
                     threshold=self._sigma_immutable_gate.threshold,
                     check="gosnn_unavailable",
@@ -5385,6 +5499,7 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return report.to_dict()
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_calibrated_subject)
     def detect_with_fusion_calibrated(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
@@ -5530,6 +5645,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         return result
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_biometric_subject)
     def detect_biometric(
         self,
         reference_image: str | np.ndarray[Any, Any],
@@ -5559,6 +5675,10 @@ class OmniMercuryEngine(LoggerMixin):
             ...     "test.jpg"
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
+
+        Raises:
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the shared fail-closed decision gate refuses this decision.
         """
         biometric_model = cast("BiometricAnomalyModel", self.models["biometric"])
 
@@ -5575,6 +5695,7 @@ class OmniMercuryEngine(LoggerMixin):
                 return biometric_model.predict({"reference": reference_image})
             return biometric_model.predict(reference_image)
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_security_subject)
     def detect_security_threat(
         self,
         payload: str,
@@ -5605,6 +5726,17 @@ class OmniMercuryEngine(LoggerMixin):
             ... )
             >>> if result["is_anomaly"]:
             ...     print(f"Threats: {result['threats']}")
+
+        Raises:
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the shared fail-closed decision gate refuses this decision.
+
+        Note:
+            Analysing a hostile payload is *defensive* work (Axis-B detection),
+            so ordinary attack strings — SQL injection, XSS, traversal — pass
+            the gate. What does not pass is a payload that carries a genuine
+            weapons/mass-casualty uplift request; the gate reads the real
+            payload, so such a request cannot be laundered through this surface.
         """
         threat_result = self.security.detect_all(payload)
 

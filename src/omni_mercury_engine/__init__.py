@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent: Neuro-Symbolic AI Framework.
 
-Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a
-deep-learning core (170 ``torch.nn.Module`` subclasses spanning visual,
-behavioural, physics-based, fusion and differentiable-logic theorem-proving
-subsystems, imported across 130 source files; both counts measured by
-``scripts/measure_codebase_scale.py`` and CI-gated in the README Codebase
-Scale block) with an explicit symbolic layer (knowledge graphs, rule bases,
-formal verification, AST-based code analysis and case-based reasoning),
+Mercury Agent is a neuro-symbolic AI platform built for a **civilization-first**
+mission: detecting and reasoning about hazards across security, medical,
+environmental, infrastructure and humanitarian domains, and refusing to act when
+it cannot ground a decision. FINDΩYOU — locating the lost, missing and abducted
+— is **one deployment** of that mission, not its ceiling.
+
+It hybridises a deep-learning core (173 ``torch.nn.Module`` subclasses spanning
+visual, behavioural, physics-based, fusion and differentiable-logic
+theorem-proving subsystems, imported across 175 source files; both counts
+measured by ``scripts/measure_codebase_scale.py`` and CI-gated in the README
+Codebase Scale block) with an explicit symbolic layer (knowledge graphs, rule
+bases, formal verification, AST-based code analysis and case-based reasoning),
 wired together through ``core.neurosymbolic_hub.NeuroSymbolicHub`` and
 ``cognitive.neurosymbolic_fusion.NeurosymbolicFusionEngine`` to produce
-explainable, ethically-bounded decisions across security, medical,
-environmental, humanitarian and infrastructure domains.
+explainable, ethically-bounded decisions.
 
 The framework ships:
 
@@ -20,16 +24,21 @@ The framework ships:
   ``cognitive.orchestrator.CognitiveOrchestrator`` over ten components
   (knowledge graph, multi-hop reasoner and uncertainty quantifier always on,
   plus plasticity, causal discovery, IPB, case-based reasoning, indicator
-  development, curiosity and enhanced anomaly detection optional). Its historical build spine is a
-  7-phase evolution (neural memory → symbolic logic → hybrid fusion →
-  enhanced anomaly detection → autonomous OODA agent → ethical bounding →
-  curiosity-driven exploration), not a runtime pipeline.
-* 30 specialised detection engines, 16 live data-loader classes under
-  ``loaders/`` (CI-gated count), and the ``datasets/`` benchmark corpus
-  (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …).
-* Dual mandatory hard ethical gates at every public decision boundary:
-  Benevolence (threshold 0.99, configurable no lower than the 0.70
-  floor) followed by σ_Immutable.
+  development, curiosity and enhanced anomaly detection optional). Its
+  historical build spine is a 7-phase evolution (neural memory → symbolic
+  logic → hybrid fusion → enhanced anomaly detection → autonomous OODA agent →
+  ethical bounding → curiosity-driven exploration); that is history, not a
+  runtime pipeline.
+* 30 specialised detection engines, 21 live data-loader classes under
+  ``loaders/`` (CI-gated count; 20 are concrete loaders and one is the shared
+  base class the count's regex also matches), and the ``datasets/`` benchmark
+  corpus (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …).
+* One fail-closed harm control at every public decision boundary: the two-axis
+  (hazard-domain × operational-intent) **harm-uplift gate**
+  (``cognitive.decision_gate``, ``docs/HARM_POLICY.md``), scored on the real
+  request, followed by the σ_Immutable configuration-integrity gate. Benevolence
+  is an advisory score, not a pass-bar — see ``cognitive.decision_gate`` for why
+  the previous ``0.99`` bar was removed.
 * Post-quantum cryptography (Kyber-1024 / ML-DSA-65 / SPHINCS+),
   federated learning, conformal prediction, FastAPI server and CLI.
 

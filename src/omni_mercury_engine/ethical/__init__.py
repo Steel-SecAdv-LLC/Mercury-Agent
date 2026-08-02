@@ -15,11 +15,16 @@ enforcement.  Each one MUST raise
 when its check fails — there is no advisory or observe-only mode at the
 boundary, and there is no flag the caller can set to disable it.
 
-Two **independent** hard ethical gates run at every boundary, in order:
+Two **independent** hard gates run at every boundary, in order:
 
-1. :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`
-   — keyword/context primitive raised as
-   :class:`EthicalViolation` with ``check="benevolence"``.
+1. The **harm-uplift gate** — the single fail-closed choke point in
+   :mod:`omni_mercury_engine.cognitive.decision_gate`, which scores the two-axis
+   (hazard-domain × operational-intent) assessment of
+   :func:`~omni_mercury_engine.cognitive.ethical_bounding.assess_weapons_uplift`
+   over the **real decision** (surface, domain, request, payload). Raised as
+   :class:`EthicalViolation` with ``check="harm_uplift"``. See
+   ``docs/HARM_POLICY.md`` for the policy and
+   ``tests/pillars/test_non_maleficence.py`` for the enforcement tests.
 2. :class:`~omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate`
    — trained 256-D scalar network (process-wide singleton, weights at
    ``src/omni_mercury_engine/security/sigma_immutable_weights.pt``)
@@ -27,30 +32,42 @@ Two **independent** hard ethical gates run at every boundary, in order:
    When GOSNN itself cannot be evaluated (corpus signature failure,
    missing torch, …) the boundary raises ``check="gosnn_unavailable"``.
 
+What changed, and why
+---------------------
+
+The first gate used to be a **benevolence pass-bar**: every action had to score
+``>= 0.99`` on a keyword/context heuristic. Two things were wrong with it.
+
+* Each boundary handed the scorer a **fixed string it wrote about itself**
+  (``"anomaly_detection:{domain}:audit verify protect research evidence fair
+  oversight monitor data care help support"``). The caller's request never
+  reached the scorer, so the check could not discriminate anything.
+* A high bar on a positivity lexicon is not a harm control. It refused benign
+  work whose vocabulary was plain, and admitted anything phrased warmly.
+
+Benevolence is retained as an **advisory** score: computed, logged and attached
+to the :class:`EthicalScore`, deciding nothing. ``check="benevolence"`` is
+retired; the enforced code is ``check="harm_uplift"``.
+
 Boundary surfaces:
 
+- :meth:`omni_mercury_engine.engine.OmniMercuryEngine.detect`,
+  :meth:`~omni_mercury_engine.engine.OmniMercuryEngine.detect_batch`,
+  :meth:`~omni_mercury_engine.engine.OmniMercuryEngine.detect_biometric`,
+  :meth:`~omni_mercury_engine.engine.OmniMercuryEngine.detect_security_threat`,
+  :meth:`~omni_mercury_engine.engine.OmniMercuryEngine.detect_with_fusion` and
+  its calibrated variant each carry the ``GATED_BOUNDARY`` capability contract
+  (:mod:`omni_mercury_engine.agentic.capabilities.contract`), which runs the
+  choke point before the method body. The annotation is registered, so deleting
+  it fails ``tests/pillars/test_non_maleficence.py`` in CI.
 - :meth:`omni_mercury_engine.cognitive.orchestrator.CognitiveOrchestrator.analyze`
-  raises ``check="benevolence"`` when the per-analysis benevolence
-  score falls below the scorer's threshold, then projects the score
-  through ``security.sigma_immutable_gate.project_benevolence_to_sigma_band``
-  and calls :meth:`SigmaImmutableGate.enforce` (Wave A).
-- :meth:`omni_mercury_engine.core.neurosymbolic_hub.NeuroSymbolicHub.predict`
-  raises ``check="benevolence"`` for any sample whose computed
-  benevolence is below ``benevolence_threshold``, then runs the
-  per-sample σ_Immutable check via :meth:`SigmaImmutableGate.enforce`
-  (Wave A).
-- :meth:`omni_mercury_engine.engine.OmniMercuryEngine.detect_with_fusion`
-  (and ``detect_with_fusion_calibrated``) runs the dual gate inside
-  ``_enforce_ethics_at_boundary`` (Wave B): BenevolenceScorer raises
-  ``check="benevolence"`` first, the σ_Immutable gate raises
-  ``check="sigma_immutable"`` for sub-threshold scalar vectors, and a
-  ``check="gosnn_unavailable"`` is raised when GOSNN cannot run.  The
-  previous ``gosnn_metadata.fallback_mode=True`` path is gone — the
-  σ_Immutable gate is no longer optional.
-- :meth:`omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer.enforce`
-  is the primitive enforcement hook used by the boundary methods above.
-- :meth:`omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate.enforce`
-  is the σ_Immutable primitive enforcement hook.
+  and :meth:`omni_mercury_engine.core.neurosymbolic_hub.NeuroSymbolicHub.predict`
+  call the choke point directly, then run σ_Immutable.
+- :meth:`omni_mercury_engine.agentic.orchestration.MultiAgentOrchestrator.detect`,
+  ``SubAgentFleet.commit``, ``MercuryAgent._execute_task``, the narrative voice,
+  the federation aggregator, the FL server and the reasoning backend all route
+  through the same function — the last four via
+  :func:`~omni_mercury_engine.security.sigma_immutable_gate.enforce_dual_ethical_gate`.
 
 Production callers MUST NOT toggle the private ``_enable_gosnn``
 parameter on the engine's detect_with_fusion variants.  Unit tests
@@ -63,11 +80,10 @@ helpers, narrative engines) still expose the underlying scores for
 inspection and may log warnings, but they are *not* the gate.  All
 production inference paths funnel through the dual-gate boundary above.
 
-A regression-style test in ``tests/ethical/test_hard_enforcement.py``
-exercises every boundary surface — both BenevolenceScorer and
-σ_Immutable — and is included in the ``Neuro-Symbolic Tests`` CI job,
-so a benevolence- or σ_Immutable-threshold regression cannot merge
-silently.
+``tests/ethical/test_hard_enforcement.py`` exercises every boundary surface and
+``tests/pillars/test_non_maleficence.py`` pins the routing, the fail-closed
+behaviour and the surface-independence of the verdict.  Both run in the
+``Neuro-Symbolic Tests`` CI job, so a gate regression cannot merge silently.
 """
 
 from __future__ import annotations

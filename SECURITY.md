@@ -86,6 +86,22 @@ as `AMA_REF`):
 | SLH-DSA (SPHINCS+) | SLH-DSA-SHA2-256f (NIST L5) | FIPS 205 | `SlhDsaKeyPair(param_set="SHA2-256f")` |
 | Legacy SPHINCS+ | SPHINCS+-SHA2-256f-simple | (pre-FIPS-205 NIST round-3 name) | `SphincsKeyPair` |
 
+> **What the AMA dependency is, and is not.** AMA Cryptography is Mercury's
+> **trust substrate** — the thing Mercury's own guarantees rest on — not a
+> mission or a marketing claim. Stated exactly:
+>
+> * It **implements** NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA) and FIPS 205
+>   (SLH-DSA), and **passes the ACVP-Server known-answer-test vectors
+>   bit-for-bit in CI** (`tests/security/test_nist_fips_kat.py`).
+> * It has been **internally reviewed (AI-assisted)**. It is **not** CAVP- or
+>   CMVP-validated, and it has **not** been independently audited.
+> * Constant-time behaviour is **asserted** by the implementation; it has
+>   **not** been independently verified.
+>
+> Passing the published test vectors is evidence the algorithms are implemented
+> correctly. It is not certification, and the two are not interchangeable:
+> "FIPS-certified" and "NIST-validated" are claims about a formal validation programme Mercury has not entered, and neither phrase may appear anywhere else in this repository (`scripts/doc_lint.py` fails CI on them). <!-- doc-lint: allow -->
+
 The legacy `SphincsKeyPair` surface (Mercury's pre-v1.6.x SPHINCS+ entry
 point) and the FIPS 205 `SlhDsaKeyPair` surface coexist: callers can
 continue using the legacy `sphincs_sign`/`sphincs_verify` functions, or

@@ -56,7 +56,16 @@ logger = logging.getLogger(__name__)
 
 # Constants - now referencing centralized constants
 PHI = MATH.GOLDEN_RATIO
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+#: Advisory benevolence reporting level for :class:`NeuroSymbolicHub`.
+#:
+#: This used to be the hub's hard gate: every sample whose computed benevolence
+#: fell below ``0.99`` raised ``check="benevolence"``. The score it tested is a
+#: transform of the *fused anomaly score* (see ``_compute_benevolence``), so the
+#: gate rejected ordinary benign data for looking ordinary — a fail-arbitrary
+#: control, not a harm control. It is gone. The hub now routes every sample
+#: through the same fail-closed harm-uplift choke point as every other public
+#: decision surface, and reports benevolence as an advisory number.
+BENEVOLENCE_ADVISORY_LEVEL = ETHICAL.OMNIBENEVOLENCE_SCALAR
 SIGMA_IMMUTABLE_DEFAULT = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
 
 try:
@@ -629,7 +638,7 @@ class NeuroSymbolicHub:
         input_dim: int = 64,
         fusion_mode: FusionMode = FusionMode.CONJUNCTIVE,
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
-        benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
+        benevolence_threshold: float = BENEVOLENCE_ADVISORY_LEVEL,
         use_calibration: bool = True,
         seed: int = 42,
         thresholds: ThresholdConfig | None = None,
@@ -646,7 +655,8 @@ class NeuroSymbolicHub:
             input_dim: Input feature dimension
             fusion_mode: Mode for combining neural and symbolic
             sigma_immutable: Ethical threshold (0.93-0.96)
-            benevolence_threshold: Required benevolence (default 0.99)
+            benevolence_threshold: Advisory benevolence reporting level. It is
+                recorded on the result and logged; it refuses nothing.
             use_calibration: Apply probability calibration
             seed: Random seed for reproducibility
             thresholds: Threshold configuration (frozen at construction time)
@@ -676,7 +686,7 @@ class NeuroSymbolicHub:
 
         if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
-                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                "benevolence_threshold=%.4f below absolute minimum %.4f; clamping to floor",
                 benevolence_threshold,
                 MINIMUM_BENEVOLENCE_FLOOR,
             )
@@ -801,7 +811,7 @@ class NeuroSymbolicHub:
 
         if value < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
-                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                "benevolence_threshold=%.4f below absolute minimum %.4f; clamping to floor",
                 value,
                 MINIMUM_BENEVOLENCE_FLOOR,
             )
@@ -1401,33 +1411,47 @@ class NeuroSymbolicHub:
                 except Exception as e:
                     logger.warning(f"GOSNN-3R integration failed: {e}")
 
-            # Check ethical compliance — hard gate at the decision boundary.
-            # The previous behavior was to record the violation in
-            # ``ethical_violations`` and continue silently; per the May 2026
-            # ethics-enforcement contract (see
-            # ``src/omni_mercury_engine/ethical/__init__.py``), every
-            # impermissible sample must raise.
+            # Hard gate at the decision boundary — the shared, fail-closed
+            # harm-uplift choke point every public decision surface uses.
+            #
+            # What was here before: a raise whenever
+            # ``_compute_benevolence(...) < 0.99``. That number is a monotone
+            # transform of the fused anomaly score and the neural confidence,
+            # so the "gate" refused ordinary benign samples for being ordinary
+            # while carrying no information about harm at all. Deleting it is
+            # not a loosening: the harm gate below blocks a genuine
+            # weapons/mass-casualty uplift decision that the benevolence float
+            # never could, and it fails closed on its own errors.
             benevolence_score = self._compute_benevolence(sample_context, fused_score)
-            ethical_compliant = benevolence_score >= self.benevolence_threshold
             ethical_violations: list[str] = []
 
-            if not ethical_compliant:
-                from omni_mercury_engine.cognitive.ethical_bounding import (
-                    EthicalConstraintViolationError,
-                )
+            from omni_mercury_engine.cognitive.decision_gate import (
+                DecisionSubject,
+                enforce_decision_boundary,
+            )
 
-                raise EthicalConstraintViolationError(
-                    action=f"NeuroSymbolicHub.predict[sample={i}]",
-                    score=benevolence_score,
-                    threshold=self.benevolence_threshold,
-                    check="benevolence",
-                    details={
+            enforce_decision_boundary(
+                DecisionSubject(
+                    surface="NeuroSymbolicHub.predict",
+                    operation=(
+                        "fuse neural and symbolic anomaly evidence for one sample "
+                        "and emit a detection verdict"
+                    ),
+                    domain=self.domain or "general",
+                    payload={
                         "sample_index": i,
-                        "fused_score": float(fused_score),
-                        "neural_score": float(neural_score),
-                        "symbolic_score": float(symbolic_score),
                         "fusion_mode": self.fusion_mode.value,
+                        "features": X_enhanced[i],
                     },
+                )
+            )
+            if benevolence_score < self.benevolence_threshold:
+                logger.info(
+                    "advisory: NeuroSymbolicHub.predict[sample=%d] benevolence %.4f "
+                    "below the reporting level %.4f (informational only)",
+                    i,
+                    benevolence_score,
+                    self.benevolence_threshold,
                 )
 
             # σ_Immutable second hard ethical gate (Wave B item 1).
@@ -1551,7 +1575,12 @@ class NeuroSymbolicHub:
                     reasoning_chain=reasoning_chain if return_explanations else [],
                     calibrated_score=calibrated_score,
                     benevolence_score=benevolence_score,
-                    ethical_compliant=ethical_compliant,
+                    # The sample reached this line, so the harm-uplift gate
+                    # permitted it — a blocking disposition raises out of
+                    # ``enforce_decision_boundary`` above and never produces an
+                    # output row. The flag records the gate's verdict, not the
+                    # advisory benevolence float.
+                    ethical_compliant=True,
                     ethical_violations=ethical_violations,
                     fusion_mode=self.fusion_mode.value,
                     processing_time_ms=sample_time,
@@ -1582,24 +1611,32 @@ class NeuroSymbolicHub:
 
         Mirrors the GOSNN layout the trained network was fitted on:
 
-        * Critical ethical columns (first 27) carry the per-sample
-          benevolence score projected into the ``[0, 2]`` band the
-          training corpus uses.
+        * Critical ethical columns (first 27) carry the system's configured
+          ethical posture projected into the ``[0, 2]`` band the training
+          corpus uses. σ_Immutable is a *configuration*-integrity check, so
+          this band is not per-sample — see
+          ``security.sigma_immutable_gate.PERMITTED_ETHICAL_POSTURE``. It
+          previously carried the per-sample benevolence float, which only
+          landed in the trained band because a ``>= 0.99`` benevolence
+          pass-bar ran first and pinned it there.
         * Non-ethical columns (next 153) carry per-sample features:
           neural / symbolic / fused scores plus the row's first feature
-          values, scaled into the same ``[0, 2]`` band.
+          values, scaled into the same ``[0, 2]`` band. This is where the
+          hub's genuine per-sample signal lives.
 
         Args:
             row: Per-sample feature row from ``X``.
             neural_score: Neural-encoder output for this sample.
             symbolic_score: Symbolic-reasoner output for this sample.
             fused_score: Fusion result for this sample.
-            benevolence_score: In-line benevolence verdict.
+            benevolence_score: Advisory per-sample benevolence. Recorded by the
+                caller; not an input to the vector.
 
         Returns:
             ``(256,)`` float64 vector for :class:`SigmaImmutableGate`.
         """
         from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
             SIGMA_IMMUTABLE_ETHICAL_DIMS,
             build_sigma_immutable_vector,
         )
@@ -1613,7 +1650,7 @@ class NeuroSymbolicHub:
         # overlays its richer *per-sample* neural / symbolic / fused / row
         # signal on the signal window below — its one load-bearing
         # difference from the single-verdict boundaries.
-        vector = build_sigma_immutable_vector(benevolence_score)
+        vector = build_sigma_immutable_vector(PERMITTED_ETHICAL_POSTURE)
         scaled_neural = float(np.clip(neural_score, 0.0, 1.0))
         scaled_symbolic = float(np.clip(symbolic_score, 0.0, 1.0))
         scaled_fused = float(np.clip(fused_score, 0.0, 1.0))

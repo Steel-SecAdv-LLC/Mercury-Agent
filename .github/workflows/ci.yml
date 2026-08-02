@@ -171,6 +171,14 @@ jobs:
       - name: Run canonical header/content check
         run: python scripts/normalize_headers.py --check
 
+      - name: Run documentation lint (banned claims, mission line, claims registry)
+        # Blocking. Prose is part of the interface: this fails the build on a
+        # claim the code cannot back (a certification Mercury does not hold, a
+        # retired framing, or a CAPABILITY_MATRIX.md row marked "enforced" that
+        # cites no code). Offline, no heavy imports -- it runs in the fast lane
+        # so a wording regression is caught before any test lane starts.
+        run: python scripts/doc_lint.py
+
       - name: Verify changed-file docstring retention
         shell: bash
         run: |
@@ -1232,6 +1240,13 @@ jobs:
         # hatches here.  If the AI's reasoning, alignment, or Mercury/AMA
         # Disconnect logic fails, the PR fails.
         #
+        # ``tests/pillars/`` is the one-module-per-pillar suite: each module
+        # asserts the property its pillar names, so a pillar claimed in the
+        # README always has a passing test behind it. It runs here because the
+        # non-maleficence and control modules exercise the real engine, the real
+        # harm-uplift choke point and the real σ_Immutable gate -- all of which
+        # need the full neural fusion stack and the native AMA backend.
+        #
         # ``tests/ethical/`` is the regression suite for the hard
         # ethics-enforcement decision boundary contract documented in
         # ``src/omni_mercury_engine/ethical/__init__.py`` — Phase 2 of the
@@ -1246,6 +1261,7 @@ jobs:
             tests/cognitive/ \
             tests/safeguards/ \
             tests/ethical/ \
+            tests/pillars/ \
             tests/test_neurosymbolic_integration.py \
             tests/test_neurosymbolic_enhanced.py \
             tests/test_neurosymbolic_extended.py \
@@ -1261,6 +1277,15 @@ jobs:
             --cov=src/omni_mercury_engine/models \
             --cov-report=xml \
             --cov-report=term-missing
+        # COVERAGE REPORT-ONLY (no --cov-fail-under, deliberately).
+        # This lane measures a hand-picked subpackage slice for Codecov flags,
+        # not a merge gate: a floor over a subset is not comparable to the
+        # CORE/FULL floors and would be a second, differently-scoped number
+        # claiming the same authority. The blocking coverage gates are
+        # core-tests (COVERAGE_THRESHOLD_CORE) and ml-tests
+        # (COVERAGE_THRESHOLD_FULL), and ml-tests covers every file this lane
+        # touches. The *tests* here are still blocking -- only the coverage
+        # number is informational.
 
       - name: Upload neuro-symbolic coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7

@@ -5,10 +5,15 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 > **Ethical-gate contract on every public surface.** Every `detect` /
 > `analyze` / `predict` entry point on `OmniMercuryEngine`,
 > `CognitiveOrchestrator`, and `NeuroSymbolicHub` runs two mandatory
-> hard ethical gates (Benevolence ≥ 0.99, σ_Immutable) and raises
-> `EthicalConstraintViolationError(check=…)` on failure. The reserved
-> `check=` codes are `"benevolence"`, `"sigma_immutable"`, and
-> `"gosnn_unavailable"`. There is no advisory mode. See
+> hard gates and raises `EthicalConstraintViolationError(check=…)` on
+> failure: the fail-closed **harm-uplift gate** over the real decision
+> (`cognitive/decision_gate.py`, [`HARM_POLICY.md`](HARM_POLICY.md)),
+> then the σ_Immutable configuration-integrity gate. The reserved
+> `check=` codes are `"harm_uplift"`, `"sigma_immutable"`, and
+> `"gosnn_unavailable"`. There is no advisory mode and no flag that
+> disables either gate. Benevolence is scored alongside them as an
+> **advisory** number that decides nothing (the former `≥ 0.99`
+> pass-bar is removed — see [`../CAPABILITY_MATRIX.md`](../CAPABILITY_MATRIX.md)). See
 > [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5 and
 > [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §2.
 

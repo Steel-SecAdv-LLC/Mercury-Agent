@@ -585,7 +585,9 @@ class TestTraceFidelity:
 class TestEthicalGating:
     """The dual hard gates bind the orchestrator's decision boundary."""
 
-    def test_benevolence_violation_blocks_decisions(self) -> None:
+    def test_gate_failure_blocks_decisions_fail_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import EthicalScore
 
         orch, X_test, _ = _fitted_orchestrator(0)
@@ -607,7 +609,17 @@ class TestEthicalGating:
                 recommendations=[],
             )
 
-        orch._benevolence_scorer.score_action = _veto  # type: ignore[method-assign]
+        del _veto  # the advisory scorer can no longer veto; see below.
+
+        # Permission is the harm-uplift gate's verdict, so the gate is what has
+        # to be exercised. Breaking it is the general property: an unevaluable
+        # control refuses.
+        import omni_mercury_engine.cognitive.decision_gate as gate_module
+
+        def _boom(*_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("simulated harm-gate failure")
+
+        monkeypatch.setattr(gate_module, "assess_weapons_uplift", _boom)
         with pytest.raises(EthicalConstraintViolationError):
             orch.detect(X_test)
 

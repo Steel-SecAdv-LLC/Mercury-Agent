@@ -17,7 +17,8 @@ signal compared to traditional reconstruction-based methods.
 Ethical Integration:
     - All computations respect omni_harm_prevention scalar (1.50)
     - Bias detection integrated via Fairlearn hooks
-    - Survivor-first: Optimized for high recall on critical anomalies
+    - Recall-weighted: optimised for high recall on critical anomalies, so the
+      people a missed detection would harm are not the ones who pay for it
 
 Reference:
     Xu, J., Wu, H., Wang, J., & Long, M. (2022). Anomaly Transformer: Time Series

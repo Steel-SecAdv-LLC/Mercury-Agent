@@ -1170,7 +1170,7 @@ class GlobalOmniScalarNetwork:
         omni- prefix) are maintained for backward compatibility and will be deprecated in v2.0.
         """
         # Core ethical scalars with omni- prefix
-        # omnibenevolence uses ETHICAL.BENEVOLENCE_IMMUTABLE (0.99)
+        # omnibenevolence uses ETHICAL.OMNIBENEVOLENCE_SCALAR (0.99)
         self.scalar_groups[ScalarGroup.ETHICAL] = {
             # Primary omni-scalars
             "omnimorality": self.MIN_MORALITY,
@@ -1189,7 +1189,7 @@ class GlobalOmniScalarNetwork:
             "omniaccountability": 1.30,
             "omnitransparency": 0.18,
             "omniexplainability": 0.9,
-            "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,  # Core benevolence threshold
+            "omnibenevolence": ETHICAL.OMNIBENEVOLENCE_SCALAR,  # Core benevolence threshold
             "omniequity": 1.30,
             "omnigrace": 1.25,
             "omnipatience": 1.20,
@@ -1933,7 +1933,7 @@ class GlobalOmniScalarNetwork:
         ethical_snapshot = self.get_group_scalars(ScalarGroup.ETHICAL)
         omniempathy = ethical_snapshot.get("omniempathy", self.MIN_EMPATHY)
         omnimorality = ethical_snapshot.get("omnimorality", self.MIN_MORALITY)
-        benevolence_threshold = ETHICAL.BENEVOLENCE_IMMUTABLE
+        benevolence_threshold = ETHICAL.OMNIBENEVOLENCE_SCALAR
         omnibenevolence = ethical_snapshot.get("omnibenevolence", benevolence_threshold)
 
         if omniempathy < self.MIN_EMPATHY:
@@ -2048,7 +2048,7 @@ class GlobalOmniScalarNetwork:
         benevolence = float(
             all_scalars.get(
                 "omnibenevolence",
-                self.get_scalar("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
+                self.get_scalar("omnibenevolence", ETHICAL.OMNIBENEVOLENCE_SCALAR),
             )
         )
         return {"sigma_alignment": float(ethical_score), "benevolence_score": benevolence}

@@ -191,8 +191,7 @@ class CachedBenevolenceScorer:
         purged = before - len(self._cache)
         if purged:
             logger.info(
-                "Benevolence cache: purged %d stale entries on ruleset version "
-                "transition %d → %d",
+                "Benevolence cache: purged %d stale entries on ruleset version transition %d → %d",
                 purged,
                 self._last_seen_ruleset_version,
                 current_version,
@@ -253,16 +252,55 @@ class CachedBenevolenceScorer:
         return result
 
     def score_action(self, action: str, context: dict[str, Any]) -> EthicalScore:
-        """Pass-through to the underlying scorer (advisory, not cached).
+        """Cache-aware ``score_action``: hit returns stored score; miss runs scorer.
 
-        ``score_action`` is the advisory variant that returns
-        ``is_permissible=False`` rather than raising. Caching it would
-        require a second key dimension (permissible vs not) and offers
-        little payoff because callers that want enforcement use
-        :meth:`enforce`. Pass-through keeps the wrapper a strict superset
-        of the BenevolenceScorer surface without surprise semantics.
+        ``score_action`` is the non-raising variant — it returns
+        ``is_permissible=False`` instead of raising. It used to be an uncached
+        pass-through, on the reasoning that caching it would need a second key
+        dimension (permissible vs not) because permissibility depended on the
+        mutable benevolence threshold.
+
+        That is no longer true. Permissibility is now decided solely by the
+        harm-uplift gate, which is a pure function of ``(action, context,
+        ruleset_version)`` — the same triple the cache already keys on — and the
+        benevolence threshold is advisory, affecting only the reported
+        :attr:`EthicalScore.benevolence_advisory_low` flag. The generation guard
+        below still invalidates on a threshold change, so even that advisory
+        field cannot be served stale.
+
+        Caching it matters: with enforcement moved to the choke point, the
+        boundaries call ``score_action`` for the advisory number, so a
+        pass-through here would take the cache off the runtime path entirely.
         """
-        return self._scorer.score_action(action, context)
+        current_version = centralized_constants.ETHICAL.RULESET_VERSION
+        key = self._make_key(action, context, current_version)
+
+        with self._lock:
+            self._purge_stale_version_entries_locked(current_version)
+            cached = self._cache.get(key)
+            if cached is not None:
+                self._cache.move_to_end(key)
+                self._hits += 1
+                return cached
+            generation_at_miss = self._generation
+
+        result = self._scorer.score_action(action, context)
+
+        with self._lock:
+            # An impermissible verdict is never cached, matching ``enforce``:
+            # a ruleset or lexicon fix that flips an action back to permissible
+            # must be observed immediately, not masked by a stored refusal.
+            if not result.is_permissible:
+                self._violations_uncached += 1
+                self._misses += 1
+                return result
+            if self._generation == generation_at_miss and key not in self._cache:
+                self._cache[key] = result
+                self._cache.move_to_end(key)
+                if len(self._cache) > self._capacity:
+                    self._cache.popitem(last=False)
+            self._misses += 1
+        return result
 
 
 __all__ = [

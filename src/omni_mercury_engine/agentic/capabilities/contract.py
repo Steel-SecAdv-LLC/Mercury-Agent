@@ -14,7 +14,7 @@ future refactor could silently drop one and no test would notice.
 postcondition attached to the capability method. It does **not** invent new
 behaviour -- it reuses the capability's own transparent-negative shapes -- and it never
 weakens a result: enforcement can only *downgrade* an output toward refusal /
-redaction, never upgrade one toward permit. The three invariants:
+redaction, never upgrade one toward permit. The four invariants:
 
 * :attr:`Invariant.FAIL_CLOSED` -- an unexpected exception must not escape as an
   unguarded error; it becomes the capability's typed transparent-negative (a
@@ -31,6 +31,16 @@ redaction, never upgrade one toward permit. The three invariants:
   the redaction notice. A regression that let gate-unsafe content through is
   caught and redacted, so adding harmful input can only *increase* redaction,
   never decrease it.
+* :attr:`Invariant.GATED_BOUNDARY` -- the *only* precondition invariant. The real
+  decision (surface, domain, request, payload) is run through the single
+  fail-closed harm-uplift choke point in
+  :mod:`~omni_mercury_engine.cognitive.decision_gate` **before** the body
+  executes; a blocking disposition raises ``EthicalConstraintViolationError``
+  out of the surface. Unlike the postcondition invariants this one deliberately
+  *raises* rather than repairing: there is no safe partial result for a decision
+  the harm policy refuses to make, and a repaired-to-empty return would be a
+  fail-open path dressed as a transparent negative. It is enforced ahead of the
+  ``FAIL_CLOSED`` guard so the refusal can never be swallowed into a sentinel.
 
 Enforcement is itself fail-closed and fail-safe: a violation is logged and
 durably audited via :func:`~omni_mercury_engine.cognitive.gate_audit.record_gate_decision`,
@@ -70,6 +80,7 @@ class Invariant(Enum):
     FAIL_CLOSED = "fail_closed"
     CITE_OR_REFUSE = "cite_or_refuse"
     MONOTONE_HARM = "monotone_harm"
+    GATED_BOUNDARY = "gated_boundary"
 
 
 class ContractViolation(RuntimeError):
@@ -122,9 +133,14 @@ def capability_contract(
     refuse: Callable[[Any, Any], Any] | None = None,
     harm_residue: Callable[[Any, Any], Sequence[str]] | None = None,
     redact: Callable[[Any, Any], Any] | None = None,
+    boundary_subject: Callable[[tuple[Any, ...], dict[str, Any]], Any] | None = None,
     label: str | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Contract a capability method to uphold ``invariants`` as runtime postconditions.
+    """Contract a capability method to uphold ``invariants`` at runtime.
+
+    Three of the four are postconditions checked on the return value;
+    :attr:`Invariant.GATED_BOUNDARY` is a precondition checked before the body
+    runs.
 
     The hooks let the decorator stay type-agnostic: each is supplied at the
     annotation site (which knows the concrete result type) and operates on the
@@ -149,6 +165,12 @@ def capability_contract(
             output (empty when the output is fully bounded by the gate).
         redact: Required for :attr:`Invariant.MONOTONE_HARM`. ``(result, instance)
             -> result``: redact the residue.
+        boundary_subject: Required for :attr:`Invariant.GATED_BOUNDARY`.
+            ``(args, kwargs) -> DecisionSubject`` (``args[0]`` is the bound
+            instance): build the *real* decision -- surface, domain, request,
+            payload -- from the actual call. It must never fabricate a synthetic
+            keyword string; that is the failure mode this invariant exists to
+            prevent.
         label: Audit/registry label (defaults to the method's ``__qualname__``).
 
     Returns:
@@ -172,6 +194,8 @@ def capability_contract(
         )
     if Invariant.MONOTONE_HARM in inv_set and not all((harm_residue, redact)):
         raise ContractViolation("MONOTONE_HARM requires harm_residue and redact hooks")
+    if Invariant.GATED_BOUNDARY in inv_set and boundary_subject is None:
+        raise ContractViolation("GATED_BOUNDARY requires a boundary_subject hook")
 
     def decorate(func: Callable[P, R]) -> Callable[P, R]:
         contract_label: str = label or str(getattr(func, "__qualname__", "?"))
@@ -179,6 +203,12 @@ def capability_contract(
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             instance = args[0] if args else None
+            if Invariant.GATED_BOUNDARY in inv_set:
+                # Precondition, and deliberately OUTSIDE the FAIL_CLOSED guard:
+                # a refused decision boundary must propagate as a refusal, not
+                # be converted into a transparent-negative sentinel that reads
+                # to a caller like "nothing found".
+                _enforce_boundary(args, kwargs, contract_label)
             if Invariant.FAIL_CLOSED in inv_set:
                 # Postcondition enforcement runs INSIDE the guard, so a raising
                 # hook fails closed to the transparent-negative too -- the whole path
@@ -211,6 +241,50 @@ def capability_contract(
         setattr(wrapper, CONTRACT_MARKER, inv_set)
         _REGISTRY.append((contract_label, inv_set))
         return wrapper
+
+    def _enforce_boundary(
+        args: tuple[Any, ...], kwargs: dict[str, Any], contract_label: str
+    ) -> None:
+        """Run the real decision through the single fail-closed harm-uplift gate.
+
+        Imported lazily so ``contract`` stays importable without pulling the
+        ethics stack (which imports this module's sibling audit sink).
+
+        Raises:
+            EthicalConstraintViolationError: when the gate blocks, or -- fail
+                closed -- when building the subject itself raises. A hook that
+                cannot describe the decision is not evidence that the decision
+                is safe.
+        """
+        from omni_mercury_engine.cognitive.decision_gate import enforce_decision_boundary
+
+        assert boundary_subject is not None  # guaranteed by decoration-time check
+        try:
+            subject = boundary_subject(args, kwargs)
+        except Exception as exc:
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
+
+            logger.exception(
+                "capability_contract[%s]: could not build the decision subject; failing closed",
+                contract_label,
+            )
+            record_gate_decision(
+                decision="refused",
+                source=contract_label,
+                disposition="hard_refuse",
+                signals=("capability_contract", "gated_boundary"),
+                reason=f"subject construction failed: {type(exc).__name__}: {exc}",
+            )
+            raise EthicalConstraintViolationError(
+                action=contract_label,
+                score=0.0,
+                threshold=1.0,
+                check="harm_uplift",
+                details={"surface": contract_label, "fail_closed": True},
+            ) from exc
+        enforce_decision_boundary(subject)
 
     def _enforce_postconditions(
         result: R, instance: Any, active: frozenset[Invariant], contract_label: str

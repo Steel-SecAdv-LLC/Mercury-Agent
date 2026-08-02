@@ -118,7 +118,10 @@ class InfrastructureCoordinator:
                 "class_": EssentialWorkersMonitor,
                 "category": "humanitarian",
                 "priority": "high",
-                "description": "8 essential worker categories with survivor-first ethics",
+                "description": (
+                    "8 essential worker categories, prioritised by who is most "
+                    "exposed — one deployment of Mercury's civilization-first mission"
+                ),
             },
             "government_facilities": {
                 "class_": GovernmentFacilitiesMonitor,

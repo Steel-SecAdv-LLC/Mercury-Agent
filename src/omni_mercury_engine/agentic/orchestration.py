@@ -56,7 +56,6 @@ from omni_mercury_engine.cognitive.chain_of_thought import (
 from omni_mercury_engine.cognitive.ethical_bounding import (
     MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
-    EthicalConstraintViolationError,
     sanitize_domain,
 )
 from omni_mercury_engine.cognitive.hierarchical_planning import (
@@ -834,44 +833,58 @@ class MultiAgentOrchestrator:
     def _enforce_ethics(self, batch: CoordinationBatch, domain: str) -> float:
         """Run the dual hard ethical gates before decisions are issued.
 
-        Mirrors ``CognitiveOrchestrator.analyze``: benevolence is scored on a
-        controlled action description (caller text never reaches the scorer),
-        then the sigma_Immutable gate scores the calibrated 256-d scalar
-        vector. Both raise :class:`EthicalConstraintViolationError` on
-        failure; nothing downstream of a failed gate executes.
+        Two independent gates run in order, both fail-closed: the shared
+        harm-uplift choke point
+        (:func:`~omni_mercury_engine.cognitive.decision_gate.enforce_decision_boundary`)
+        over the **real** orchestration decision, then the sigma_Immutable gate
+        over the calibrated 256-d scalar vector. Both raise
+        :class:`EthicalConstraintViolationError`; nothing downstream of a failed
+        gate executes.
+
+        The first gate used to be a benevolence pass-bar scored on a canned
+        keyword string with caller text deliberately withheld. Under a
+        pass-on-positive-vocabulary control that withholding was protective;
+        under a block-on-harm control it only hides evidence, so the real
+        decision is gated now.
 
         Returns:
-            The measured benevolence score (for the episode record).
+            The advisory benevolence score (for the episode record).
         """
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
+            build_sigma_immutable_vector,
+        )
+
         safe_domain = sanitize_domain(domain or _DEFAULT_DOMAIN)
         severity = float(np.max(batch.consensus_scores)) if len(batch.consensus_scores) else 0.0
         anomaly_prob = (
             float(np.mean(batch.consensus_scores)) if len(batch.consensus_scores) else 0.0
         )
 
-        action_desc = (
-            f"multi_agent_orchestration:{safe_domain}:severity={severity:.2f}:"
-            "audit monitor verify data research evidence fair oversight"
+        verdict = enforce_decision_boundary(
+            DecisionSubject(
+                surface="MultiAgentOrchestrator.detect",
+                operation=(
+                    "coordinate planner, critic and executor agents over the caller's "
+                    "input and issue a consensus anomaly verdict"
+                ),
+                domain=safe_domain,
+                payload={"severity": round(severity, 4), "anomaly_prob": round(anomaly_prob, 4)},
+            ),
+            advisory_scorer=self._benevolence_scorer,
         )
-        ethical_context = {
-            "purpose": "coordinated anomaly detection with audit oversight",
-            "safety": "care help support review protect",
-            "domain": safe_domain,
-        }
-        ethical_result = self._benevolence_scorer.score_action(action_desc, ethical_context)
-        if not ethical_result.is_permissible:
-            raise EthicalConstraintViolationError(
-                action=action_desc,
-                score=ethical_result.benevolence_score,
-                threshold=self._benevolence_scorer.benevolence_threshold,
-            )
-
-        from omni_mercury_engine.security.sigma_immutable_gate import (
-            build_sigma_immutable_vector,
+        advisory_benevolence = float(
+            verdict.benevolence if verdict.benevolence is not None else float("nan")
         )
 
+        # The ethical band carries the configured posture, not a per-call
+        # content score — see ``PERMITTED_ETHICAL_POSTURE``.
         sigma_vector = build_sigma_immutable_vector(
-            benevolence_score=ethical_result.benevolence_score,
+            benevolence_score=PERMITTED_ETHICAL_POSTURE,
             severity=severity,
             anomaly_prob=anomaly_prob,
         )
@@ -885,7 +898,7 @@ class MultiAgentOrchestrator:
                 "anomaly_prob": anomaly_prob,
             },
         )
-        return float(ethical_result.benevolence_score)
+        return advisory_benevolence
 
     # ------------------------------------------------------------------
     # Planner-driven episode

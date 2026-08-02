@@ -274,7 +274,7 @@ class TestCrisisMonitorSurvivorPriorities:
         assert isinstance(alert.survivor_priorities, list)
 
     def test_survivor_first_prioritization(self) -> None:
-        """Test survivor-first prioritization principle."""
+        """Test that the most-exposed survivors are prioritised first."""
         geoint_data = {
             "mass_casualty_event": True,
             "severity": 0.95,

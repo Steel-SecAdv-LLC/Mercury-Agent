@@ -20,6 +20,25 @@ The :func:`generate_corpus` and :func:`sign_and_persist_corpus`
 helpers are exposed so ``scripts/train_sigma_immutable.py`` can
 regenerate the corpus + signatures end-to-end deterministically from a
 fixed seed.
+
+Signature semantics — tamper-evident, not authenticated
+-------------------------------------------------------
+
+The corpus carries Ed25519 and ML-DSA-65 signatures, and
+:func:`verify_corpus_signature` refuses to proceed unless both verify. What that
+buys is **tamper evidence**: accidental corruption, truncation and silent drift
+are caught, and every boundary that consults the gate is poisoned uniformly when
+they are.
+
+It is **not** authentication of origin. The verifying public key travels inside
+the same signature payload it verifies (``signatures[alg]["public_key_hex"]``),
+so an attacker who can rewrite ``sigma_immutable_corpus.json`` can also replace
+the key and re-sign. Authenticating origin would require pinning the public key
+out of band — in the package, in a release manifest checked against a trust
+anchor, or via a transparency log.
+
+Do not describe this corpus as "signed for authenticity". The honest statement
+is in ``CAPABILITY_MATRIX.md``: tamper-evident, not authenticated.
 """
 
 from __future__ import annotations
@@ -517,7 +536,7 @@ def load_signature_payload(
     signatures = payload.get("signatures")
     if not isinstance(signatures, dict) or ED25519_ALG not in signatures:
         raise CorpusVerificationError(
-            "σ_Immutable signature payload is missing the mandatory " f"{ED25519_ALG!r} entry."
+            f"σ_Immutable signature payload is missing the mandatory {ED25519_ALG!r} entry."
         )
 
     return payload

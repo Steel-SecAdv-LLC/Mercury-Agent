@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 
 # Constants from centralized source of truth
 PHI = MATH.GOLDEN_RATIO
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+# Advisory reporting level for the benevolence metric — a target this module
+# reports against, never a decision gate (Mercury has no benevolence pass-bar;
+# the enforced control is cognitive.decision_gate.enforce_decision_boundary).
+BENEVOLENCE_THRESHOLD = ETHICAL.OMNIBENEVOLENCE_SCALAR
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 
 

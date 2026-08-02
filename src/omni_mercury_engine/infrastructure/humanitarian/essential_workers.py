@@ -3,7 +3,8 @@
 """Essential Critical Infrastructure Workers monitoring.
 
 Monitors workforce continuity for 8 essential worker categories
-with emphasis on survivor-first ethical principles.
+prioritising the workers most exposed in a crisis. Humanitarian continuity is
+one deployment of Mercury's civilization-first mission, not its scope.
 
 Reference: CISA Essential Workers Advisory List
 """
@@ -16,7 +17,7 @@ from typing import Any
 class EssentialWorkersMonitor:
     """Essential critical infrastructure workers anomaly detector.
 
-    Monitors workforce continuity for 8 essential worker categories with emphasis on survivor-first
+    Monitors workforce continuity for 8 essential worker categories, weighting the
     ethical principles.
     """
 
@@ -212,7 +213,7 @@ class EssentialWorkersMonitor:
         }
 
     def _calculate_ethical_priority(self, category: str, current_capacity: float) -> float:
-        """Calculate ethical priority score based on survivor-first principles."""
+        """Score triage priority, weighting the people most exposed in a crisis."""
         category_priorities = {
             "health_social_care": 0.95,
             "safety_security": 0.92,

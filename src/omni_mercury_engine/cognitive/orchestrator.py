@@ -640,43 +640,55 @@ class CognitiveOrchestrator(LoggerMixin):
         # typo'd value like ``"damage_control"`` is collapsed to
         # ``"general"`` before reaching the scorer.
         safe_domain = sanitize_domain(context.get("domain", _DEFAULT_DOMAIN))
-        action_desc = (
-            f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
-            "audit monitor verify data research evidence fair oversight"
+        # Hard gate 1 of 2: the shared fail-closed harm-uplift choke point over
+        # the *real* analysis decision. The superseded control was a benevolence
+        # pass-bar over a canned keyword string with caller data withheld — see
+        # ``cognitive.decision_gate`` for why that could not discriminate.
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
         )
-        ethical_context = {
-            "purpose": "anomaly detection analysis with audit oversight",
-            "safety": "care help support review protect",
-            "domain": safe_domain,
-        }
-        ethical_result = self._benevolence_scorer.score_action(
-            action_desc,
-            ethical_context,
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
         )
-        result.benevolence_score = ethical_result.benevolence_score
-        result.ethical_permissible = ethical_result.is_permissible
 
-        if not ethical_result.is_permissible:
-            # Record timing on the local result before raising so the
+        try:
+            verdict = enforce_decision_boundary(
+                DecisionSubject(
+                    surface="CognitiveOrchestrator.analyze",
+                    operation=(
+                        "run the enabled cognitive components over the caller's input "
+                        "and emit an explainable analysis verdict"
+                    ),
+                    domain=safe_domain,
+                    payload={"severity": round(severity, 4), "context": context},
+                ),
+                advisory_scorer=self._benevolence_scorer,
+            )
+        except EthicalConstraintViolationError as exc:
+            # Record timing on the local result before re-raising so the
             # measurement is captured in any logging path that handles
             # the partial result; the timing is also surfaced on the
             # exception via ``analysis_time_ms`` for caller inspection.
             result.analysis_time_ms = (time.time() - start_time) * 1000
-            raise EthicalConstraintViolationError(
-                action=action_desc,
-                score=ethical_result.benevolence_score,
-                threshold=self._benevolence_scorer.benevolence_threshold,
-                analysis_time_ms=result.analysis_time_ms,
-            )
+            result.ethical_permissible = False
+            exc.analysis_time_ms = result.analysis_time_ms
+            raise
+
+        result.benevolence_score = (
+            verdict.benevolence if verdict.benevolence is not None else float("nan")
+        )
+        result.ethical_permissible = True
 
         # σ_Immutable second hard ethical gate (Wave B item 1).  Build a
         # synthetic 256-dim scalar vector from the analysis context so
         # the gate can score the cognitive verdict on the same surface
-        # as the engine boundary.  The first 27 columns mirror the
-        # ethical scalars (benevolence + safety axes), the remaining
-        # 153 used columns carry severity/anomaly_prob signal.
+        # as the engine boundary.  The first 27 columns carry the system's
+        # configured ethical posture (σ_Immutable is a configuration-integrity
+        # check — see ``PERMITTED_ETHICAL_POSTURE``), the remaining 153 used
+        # columns carry severity/anomaly_prob signal.
         sigma_vector = self._build_sigma_immutable_vector(
-            benevolence_score=ethical_result.benevolence_score,
+            benevolence_score=PERMITTED_ETHICAL_POSTURE,
             severity=severity,
             anomaly_prob=anomaly_prob,
         )

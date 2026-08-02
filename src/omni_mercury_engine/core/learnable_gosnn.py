@@ -456,7 +456,7 @@ class LearnableGOSNN:
         self._initialize_default_scalars()
 
         logger.info(
-            f"LearnableGOSNN initialized " f"(n_scalars={n_scalars}, attention={attention_type})"
+            f"LearnableGOSNN initialized (n_scalars={n_scalars}, attention={attention_type})"
         )
 
     def _initialize_default_scalars(self) -> None:
@@ -465,7 +465,7 @@ class LearnableGOSNN:
             ScalarCategory.ETHICAL: [
                 ("omnimorality", 1.20),
                 ("omniempathy", 1.22),
-                ("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
+                ("omnibenevolence", ETHICAL.OMNIBENEVOLENCE_SCALAR),
                 ("omnijustice", 1.30),
                 ("omniintegrity", 1.30),
             ],

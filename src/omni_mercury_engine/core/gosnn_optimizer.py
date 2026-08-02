@@ -29,7 +29,10 @@ from omni_mercury_engine.core.centralized_constants import ETHICAL, LYAPUNOV, MA
 PHI = MATH.GOLDEN_RATIO
 SIGMA_IMMUTABLE_HARD = 0.93  # Hard minimum
 SIGMA_IMMUTABLE_TARGET = 0.96  # Target threshold
-BENEVOLENCE_MIN = ETHICAL.BENEVOLENCE_IMMUTABLE
+# Optimisation target for the omnibenevolence scalar — what the optimiser
+# steers toward, never a decision gate (the enforced control is
+# cognitive.decision_gate.enforce_decision_boundary).
+BENEVOLENCE_MIN = ETHICAL.OMNIBENEVOLENCE_SCALAR
 LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
 
@@ -629,8 +632,7 @@ class GOSNNOptimizer:
         if benevolence < BENEVOLENCE_MIN:
             gap = BENEVOLENCE_MIN - benevolence
             recommendations.append(
-                f"Benevolence gap: {gap:.3f} below threshold. "
-                "Consider RLHF-style loss adjustment."
+                f"Benevolence gap: {gap:.3f} below threshold. Consider RLHF-style loss adjustment."
             )
 
         # Optimize attention — only when an AttentionProvider is wired and
@@ -663,7 +665,7 @@ class GOSNNOptimizer:
                 "model-derived tensors for production accuracy."
             )
             recommendations.append(
-                "Attention overhead metric skipped: no AttentionProvider " "configured."
+                "Attention overhead metric skipped: no AttentionProvider configured."
             )
 
         if attention_overhead is not None and attention_overhead > self.target_overhead:

@@ -19,13 +19,12 @@ from typing import Any
 import numpy as np
 from scipy import linalg
 
-from omni_mercury_engine.core.centralized_constants import ETHICAL, MATH
+from omni_mercury_engine.core.centralized_constants import MATH
 
 logger = logging.getLogger(__name__)
 
 # Constants from centralized source of truth
 PHI = MATH.GOLDEN_RATIO
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
 
 
 @dataclass

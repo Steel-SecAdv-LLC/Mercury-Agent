@@ -32,7 +32,7 @@
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
               |   -------------------    |   -------------------   |   -------------------    |
-              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
+              |   Harm-Uplift Gate       |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
               |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication     |
               |   Civilization-First     |   Property Testing      |   Rate Limiting          |
               |                                                                               |
@@ -41,10 +41,24 @@
 ```
 
 > **On the Layer-3 entries:** these are runtime-enforced gates, **not static
-> guarantees**. The benevolence gate defaults to ≥ 0.99 and is configurable no
-> lower than a hard 0.70 floor (enforced in `src/omni_mercury_engine/cognitive/ethical_bounding.py`);
-> Lyapunov stability is *monitored and reported* (`is_stable`), not proven a
-> priori. See [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3.
+> guarantees**.
+>
+> The enforced harm control is the two-axis (hazard-domain × operational-intent)
+> **harm-uplift gate** (`src/omni_mercury_engine/cognitive/decision_gate.py`,
+> policy in [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)). It gates on
+> *operational uplift toward a weapon or mass-casualty outcome*, not on the
+> presence of a hazardous subject, and it fails closed. It replaced a
+> benevolence pass-bar (`≥ 0.99`) that scored a **fixed string the engine wrote
+> for itself** rather than the caller's request — so it rejected benign work for
+> having plain vocabulary and could not discriminate anything. Benevolence
+> remains as an **advisory** score that decides nothing.
+>
+> Lyapunov stability is a *design-time* convergence proof plus *runtime
+> monitoring* (`is_stable`), not a runtime guarantee:
+> `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so it
+> observes and records unless an operator constructs it to halt. See
+> [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3, and
+> [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md).
 
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
@@ -60,7 +74,7 @@
 
 Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
-The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must clear a mandatory benevolence enforcement gate — **0.99 by default**, configurable no lower than a hard **0.70** floor — keeping the system in service of human flourishing and civilizational progress.
+The framework embodies a **Civilization-First** mission: serving the broad range of scientific, clinical, engineering, humanitarian and public-safety work that hazard detection touches. FINDΩYOU™ — locating the lost, missing and abducted — is one deployment of that mission, not its ceiling. Every public decision surface clears one mandatory, fail-closed **harm-uplift gate** (`cognitive/decision_gate.py`, [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)), which refuses operational uplift toward a weapon or mass-casualty outcome and permits the diagnostic, defensive, clinical and responsive half of every hazard domain. Benevolence is scored and logged as an **advisory** signal; it is not a pass-bar.
 
 Beyond the library and CLI, the repository ships an **opt-in self-service platform** for operating the detection API as a hosted service — account registration with email verification, TOTP two-factor, API keys with per-account quotas, a dependency-free browser dashboard, an operator CLI, and a TLS compose overlay — all off by default and documented under [Self-Service Account Platform](#quick-start) and [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md).
 
@@ -196,7 +210,7 @@ Mercury Agent implements a 7-phase cognitive architecture that progressively bui
 | **Phase 3** | Neuro-Symbolic Fusion | Hybrid anomaly scoring | Attention-based fusion, confidence weighting, neural-symbolic integration |
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
 | **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, Mercury/AMA Disconnect |
-| **Phase 6** | Ethical Bounding | Benevolence scoring (>=0.99) | Harm reduction, equity calculation (Gini), empathy module |
+| **Phase 6** | Ethical Bounding | Harm-uplift gate (enforced); benevolence scoring (advisory) | Harm reduction, equity calculation (Gini), empathy module |
 | **Phase 7** | Cognitive Evolution Engine | Curiosity-driven exploration | `CuriosityEngine`: measured novelty scoring (online diagonal-Mahalanobis distance) of detected anomalies, wired into the `CognitiveOrchestrator`. The earlier self-play / genetic-mutation / theory-of-mind internals were measured decorative and removed. |
 
 The seven phases are the historical evolution spine, not the whole cognitive
@@ -639,7 +653,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
 | Benchmark Coverage | 66 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8251** / Median **0.8747** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8251** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
-| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable hard gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), Benevolence ≥ 0.99 |
+| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
 </details>
@@ -921,7 +935,7 @@ python examples/live_anomaly_demo.py --all --samples 20
 ```
 
 **Demo features:** real-time streaming with configurable sample rates,
-multi-domain detection, ethical-governance benevolence scoring (target 0.99+),
+multi-domain detection, advisory benevolence scoring,
 threat classification (LOW/MEDIUM/HIGH/CRITICAL), and JSON output for monitoring
 integration. A recorded session is at
 [`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
@@ -1842,6 +1856,23 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Rate limiting (token bucket algorithm)
 
 **Post-Quantum Cryptography (AMA Cryptography v3.3.0):**
+
+> **What the AMA dependency is, and is not.** AMA Cryptography is Mercury's
+> **trust substrate** — the thing Mercury's own guarantees rest on — not a
+> mission or a marketing claim. Stated exactly:
+>
+> * It **implements** NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA) and FIPS 205
+>   (SLH-DSA), and **passes the ACVP-Server known-answer-test vectors
+>   bit-for-bit in CI** (`tests/security/test_nist_fips_kat.py`).
+> * It has been **internally reviewed (AI-assisted)**. It is **not** CAVP- or
+>   CMVP-validated, and it has **not** been independently audited.
+> * Constant-time behaviour is **asserted** by the implementation; it has
+>   **not** been independently verified.
+>
+> Passing the published test vectors is evidence the algorithms are implemented
+> correctly. It is not certification, and the two are not interchangeable:
+> "FIPS-certified" and "NIST-validated" are claims about a formal validation programme Mercury has not entered, and neither phrase may appear anywhere else in this repository (`scripts/doc_lint.py` fails CI on them). <!-- doc-lint: allow -->
+
 - **Kyber-1024 / ML-KEM-1024** key encapsulation (NIST Level 5, exposed as `KyberKeyPair(algorithm="Kyber1024")` in `src/omni_mercury_engine/security/pqc_backends.py`).
 - **ML-DSA-65** lattice signatures (FIPS 204 name for the Dilithium-3 parameter set; supports the §5.2 context-aware sign API from AMA v3.1.0+).
 - **SPHINCS+-SHA2-256f-simple** hash-based signatures plus the FIPS 205 SLH-DSA parameter family.

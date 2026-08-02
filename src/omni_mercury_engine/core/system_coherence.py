@@ -99,7 +99,7 @@ class SignalFlowGraph:
                     output_range=(0.0, 1.0),
                     normalization="min-max",
                     description=(
-                        "Domain feature extractors produce [0,1] " "normalized feature vectors."
+                        "Domain feature extractors produce [0,1] normalized feature vectors."
                     ),
                 ),
                 PipelineStage(
@@ -129,7 +129,7 @@ class SignalFlowGraph:
                     normalization="sigmoid-gate",
                     description=(
                         "Sigmoid benevolence gate scales fusion score "
-                        f"(immutable threshold = {ETHICAL.BENEVOLENCE_IMMUTABLE})."
+                        f"(omnibenevolence scalar = {ETHICAL.OMNIBENEVOLENCE_SCALAR}; weighting, not a gate)."
                     ),
                 ),
                 PipelineStage(
@@ -346,7 +346,7 @@ class LyapunovRuntimeEnforcer:
                 if self.halt_on_violation:
                     self._prev_v = v_current
                     raise RuntimeError(
-                        f"Lyapunov stability violated at step {self._step}: " f"{violation.message}"
+                        f"Lyapunov stability violated at step {self._step}: {violation.message}"
                     )
 
                 self._prev_v = v_current

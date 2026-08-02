@@ -63,8 +63,11 @@ class TestMultivariateTSDetector:
 
         assert "anomaly_scores" in results
         assert "predictions" in results
-        assert "roc_auc_estimate" in results
-        assert results["method"] == "LTG_Multivariate_TS"
+        # No ``roc_auc_estimate``: the detector never sees a label, so it
+        # cannot report a ranking metric.
+        assert "roc_auc_estimate" not in results
+        assert results["method"] == "statistical_multivariate_ts"
+        assert results["is_learned"] is False
         assert np.any(results["predictions"])
 
     def test_predict_without_fit_raises_error(self) -> None:
@@ -116,39 +119,25 @@ class TestMultivariateTSDetector:
         assert errors.shape == (20,)
         assert np.all(errors >= 0)
 
-    def test_roc_auc_estimation(self) -> None:
-        """Test ROC-AUC estimation."""
+    def test_no_fabricated_ranking_metric_is_reported(self) -> None:
+        """The removed ``_estimate_roc_auc`` must not come back.
+
+        It computed ``0.5 + 0.4 * tanh(separation)`` from the detector's own
+        scores and its own thresholded predictions. No ground-truth label was
+        ever involved, so the value could not be an AUC of anything: it rose
+        whenever the detector was merely self-consistent, which is exactly when
+        a real AUC would be uninformative. A number that looks like a benchmark
+        result and is not one is worse than no number.
+        """
         detector = MultivariateTSDetector()
+        assert not hasattr(detector, "_estimate_roc_auc")
 
-        scores = np.concatenate([np.random.randn(50), np.random.randn(50) + 5])
-        predictions = np.concatenate([np.zeros(50, dtype=bool), np.ones(50, dtype=bool)])
-
-        roc_auc = detector._estimate_roc_auc(scores, predictions)
-
-        assert 0.0 <= roc_auc <= 1.0
-        assert roc_auc > 0.5
-
-    def test_roc_auc_with_all_normal(self) -> None:
-        """Test ROC-AUC when all predictions are normal."""
-        detector = MultivariateTSDetector()
-
-        scores = np.random.randn(100)
-        predictions = np.zeros(100, dtype=bool)
-
-        roc_auc = detector._estimate_roc_auc(scores, predictions)
-
-        assert roc_auc == 0.5
-
-    def test_roc_auc_with_all_anomalies(self) -> None:
-        """Test ROC-AUC when all predictions are anomalies."""
-        detector = MultivariateTSDetector()
-
-        scores = np.random.randn(100)
-        predictions = np.ones(100, dtype=bool)
-
-        roc_auc = detector._estimate_roc_auc(scores, predictions)
-
-        assert roc_auc == 0.5
+        data = np.random.randn(60, 100, 10)
+        detector.fit(data)
+        results = detector.predict(data)
+        for key in results:
+            assert "auc" not in key.lower(), key
+        assert results["is_learned"] is False
 
     def test_detector_handles_small_dataset(self) -> None:
         """Test detector works with small dataset."""
@@ -215,8 +204,9 @@ class TestChaosMultivariateFusion:
         assert "predictions" in results
         assert "threshold" in results
         assert "original_threshold" in results
-        assert "roc_auc_estimate" in results
-        assert results["method"] == "Chaos_LTG_Fusion"
+        assert "roc_auc_estimate" not in results
+        assert results["method"] == "chaos_refined_statistical_multivariate_ts"
+        assert results["is_learned"] is False
 
     def test_fusion_predict_without_fit_raises_error(self) -> None:
         """Test prediction without fitting raises error."""
@@ -252,7 +242,10 @@ class TestChaosMultivariateFusion:
         )
         results = fusion.predict_with_chaos_refinement(mixed_data)
 
-        assert results["roc_auc_estimate"] >= 0.5
+        # Separation is observable in the scores themselves; no fabricated
+        # ranking metric is (or may be) reported.
+        assert "roc_auc_estimate" not in results
+        assert np.ptp(results["anomaly_scores"]) > 0.0
 
     def test_fusion_custom_configs(self) -> None:
         """Test fusion with custom configurations."""

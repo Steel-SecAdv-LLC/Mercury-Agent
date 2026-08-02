@@ -35,7 +35,10 @@ logger = logging.getLogger(__name__)
 
 # Constants from centralized source of truth
 PHI = MATH.GOLDEN_RATIO
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+# Advisory level the reported ``ethical_compliance`` flag is measured against.
+# Reporting only: this module returns the flag in its result and never refuses
+# on it. Enforcement is cognitive.decision_gate.enforce_decision_boundary.
+BENEVOLENCE_THRESHOLD = ETHICAL.OMNIBENEVOLENCE_SCALAR
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
@@ -584,7 +587,7 @@ class GOSNNIntegration:
 
         self._fitted = True
         logger.info(
-            f"GOSNNIntegration fitted: {len(self.domains)} domains, " f"fusion={self.fusion_method}"
+            f"GOSNNIntegration fitted: {len(self.domains)} domains, fusion={self.fusion_method}"
         )
 
         return self

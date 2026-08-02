@@ -242,33 +242,34 @@ class MercuryVoice:
         severity: float = 0.0,
         anomaly_prob: float = 0.0,
         extra_details: dict[str, Any] | None = None,
+        request: str | None = None,
     ) -> None:
-        """Run the benevolence + σ_Immutable dual hard gate for the voice path.
+        """Run the harm-uplift + σ_Immutable dual hard gate for the voice path.
 
-        The action text evidences the voice's defensive, truth-dense
-        purpose (audit / verify / inform / protect) so a legitimate query,
-        detection narration, or alert clears the first gate; a harm-laden
-        domain hint is collapsed by ``sanitize_domain`` before it can ride
-        into the scorer or the audit surface.  Both gates fail closed — a
+        The **caller's own request** is what gets gated. The superseded
+        implementation scored a canned description of the voice's good
+        intentions (``"audit verify inform protect explain ..."``) and never
+        showed the gate what the user actually asked for, so an uplift request
+        arriving through ``speak`` was invisible to it. A harm-laden domain
+        hint is still collapsed by ``sanitize_domain`` before it can ride into
+        the scored text or the audit surface. Both gates fail closed — a
         violation raises :class:`EthicalConstraintViolationError` and the
         voice operation halts (it is *not* wrapped in a swallowing
         ``try/except``).
         """
+        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+
         safe_domain = sanitize_domain(domain if domain is not None else self.default_domain)
-        action = (
-            f"narrative_voice:{safe_domain}:audit verify inform protect explain "
-            "evidence fair oversight transparency care help support honesty"
-        )
-        context = {
-            "purpose": "truth-dense communication of detections and guidance",
-            "safety": "inform protect verify transparency evidence",
-            "domain": safe_domain,
-        }
         enforce_dual_ethical_gate(
-            benevolence_scorer=self._benevolence_scorer,
+            subject=DecisionSubject(
+                surface=boundary,
+                operation="communicate a detection, alert or answer in natural language",
+                domain=safe_domain,
+                request=request or "",
+                payload=extra_details,
+            ),
             sigma_gate=self._sigma_immutable_gate,
-            action=action,
-            context=context,
+            advisory_scorer=self._benevolence_scorer,
             boundary=boundary,
             domain=safe_domain,
             severity=severity,
@@ -462,7 +463,7 @@ class MercuryVoice:
         """
         # σ_Immutable Wave C dual hard ethical gate (benevolence + σ_Immutable)
         # before any conversational work.  Fails closed.
-        self._enforce_voice_ethics("MercuryVoice.speak", domain)
+        self._enforce_voice_ethics("MercuryVoice.speak", domain, request=user_input)
 
         # Response timing available via time.time() for future performance tracking
         self._queries_handled += 1
@@ -532,6 +533,7 @@ class MercuryVoice:
             severity=det_severity,
             anomaly_prob=det_anomaly,
             extra_details={"is_anomaly": bool(detection_result.get("is_anomaly", False))},
+            request=str(detection_result.get("summary", "") or ""),
         )
 
         start_time = time.time()
@@ -602,6 +604,7 @@ class MercuryVoice:
             severity=float(severity or 0.0),
             anomaly_prob=float(confidence or 0.0),
             extra_details={"alert_type": alert_type},
+            request=str(alert_content.get("summary", "") or ""),
         )
 
         start_time = time.time()

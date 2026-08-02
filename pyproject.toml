@@ -428,7 +428,11 @@ explainability = [
 # authoritative CSF 2.0 XLSX) — observed as ModuleNotFoundError in the
 # network-marked tests/test_nist_csf_integrator.py live lane.
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance]",
+    # ``performance`` (numba) is in this list on purpose: without it the numba
+# fast-path parity tests in tests/test_native_acceleration.py skip in every
+# CI lane, so the JIT paths were shipped with a test suite that never ran
+# them and still reported green.
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
 ]
 
 # Test environment: all runtime features + dev tooling
@@ -980,7 +984,18 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
-fail_under = 85
+# The ENFORCED floor, matching ``COVERAGE_THRESHOLD_CORE`` in
+# .github/workflows/ci.yml. It was 85 for a long time and nothing ever ran at
+# 85: CI passes ``--cov-fail-under=${COVERAGE_THRESHOLD_CORE/FULL}`` on the
+# command line, which overrides this key, so the 85 declared a bar the project
+# did not hold itself to. A number in a config file that no lane enforces reads
+# as a guarantee and is not one.
+#
+# 85 remains the project's stated *aspiration*, in prose, labelled as an
+# aspiration -- see README "Coverage" and docs/MAINT1_2_COVERAGE_REMEDIATION.md.
+# ``tests/pillars/test_competence.py`` fails if this value and the CI CORE floor
+# ever drift apart.
+fail_under = 33
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

@@ -18,6 +18,30 @@ Research foundations:
 - Schumann resonance: ELF spectrum analysis (7.83 Hz fundamental)
 - Discrete Fourier Transform for frequency-domain analysis
 - Graph Laplacian spectral methods for relational data
+
+Trained status — read this before quoting a number from this module
+-------------------------------------------------------------------
+
+The ``nn.Module`` subclasses here (``SpectralGNN``, ``SpectralCNN``,
+``PhononInteractionNetwork``, ``MLIPVibrationEncoder``) are **untrained**. No
+training script fits them, no checkpoint is loaded, and none exists in this
+repository. They run in ``eval()`` under ``no_grad`` at their initialisation
+weights, which makes them a deterministic **random projection** of the spectrum
+— a real, reproducible feature transform, but not a learned model.
+
+That is not fatal to the detector, because ``fit()`` computes its reference
+statistics through the *same* projection, so the anomaly score compares like
+with like. It does mean two things must never be claimed:
+
+* these are not "trained GNN/CNN/MLIP models", and no accuracy figure from the
+  MLIP/GNN literature transfers to them;
+* the detector's discriminative power comes from the statistical reference in
+  ``fit()``, not from the networks.
+
+``detect()`` reports ``neural_backbone="untrained_random_projection"`` so a
+downstream consumer can see this without reading the source, and the detector
+fails closed (``DetectorException``) until ``fit()`` has run. The row in
+``CAPABILITY_MATRIX.md`` carries status ``untrained`` for the same reason.
 """
 
 from __future__ import annotations
@@ -1033,6 +1057,10 @@ class SpectralVibrationDetector(BaseDetector):
             "confidence": primary_diagnostic.confidence,
             "severity": primary_diagnostic.severity_score,
             "detector_type": "spectral_vibration",
+            # Provenance, not decoration: the GNN/CNN/MLIP stages run at
+            # initialisation weights (see the module docstring), so a
+            # consumer can see this without reading the source.
+            "neural_backbone": "untrained_random_projection",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
         }

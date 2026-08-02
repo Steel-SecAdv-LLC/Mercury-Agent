@@ -7,7 +7,8 @@ This module integrates cutting-edge architectures from academic research:
 - TranAD (VLDB 2022)
 - MAAT (Mamba Adaptive Anomaly Transformer, 2025)
 
-All implementations respect Mercury-Agent's ethical scalars and survivor-first philosophy.
+All implementations respect Mercury-Agent's ethical scalars and its
+civilization-first mission.
 
 References:
     - Xu et al., "Anomaly Transformer: Time Series Anomaly Detection with

@@ -342,37 +342,49 @@ class SubAgent(MercuryAgent):
         )
 
     def _score_task_benevolence(self, task: SubAgentTask) -> float:
-        """Fail-closed benevolence authorization for running this subagent.
+        """Fail-closed harm-uplift authorization for running this subagent.
 
-        Mirrors the boundary-gate pattern of
-        :meth:`MultiAgentOrchestrator._enforce_ethics` rather than feeding raw
-        caller text to the scorer: it authorizes the *controlled action* of
-        running this defensive subagent in the sanitized task domain. Caller
-        text never reaches the heuristic scorer, so the gate neither over-blocks
-        on a task's own defensive vocabulary nor is steered by adversarial
-        phrasing; untrusted task *content* is screened separately by the
-        ``Ares_XIV`` guardrail member. Returns the measured score and raises
-        below the hard floor.
+        The task's **real** description and payload are what get gated.
+
+        The previous implementation deliberately withheld caller text and
+        scored a canned string
+        (``"...audit monitor verify data research evidence fair oversight..."``)
+        on the theory that adversarial phrasing could steer the gate. That
+        reasoning was sound for a *benevolence* gate, whose polarity is
+        pass-on-positive-vocabulary: injected positive words would have bought
+        an attacker a permit. It does not hold for the harm-uplift gate, whose
+        polarity is **block-on-harm**. Injected harm vocabulary can only push
+        the disposition toward a refusal, and injected allow-signal can at best
+        move a B6 gray-zone verdict from ``REFUSE_REDACT`` to ``ESCALATE`` —
+        both of which block. So feeding the real task closes a genuine
+        false-negative (a subagent dispatched to do uplift work) without
+        opening any way in. The ``Ares_XIV`` guardrail member still screens
+        task content independently.
+
+        Returns:
+            The advisory benevolence score for the authorized action.
+
+        Raises:
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the shared fail-closed gate refuses the dispatch.
         """
-        safe_domain = sanitize_domain(getattr(task.domain, "value", str(task.domain)))
-        action = (
-            f"subagent_task:{self.specialty}:{safe_domain}:"
-            "audit monitor verify data research evidence fair oversight "
-            "care help support protect review"
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
         )
-        context = {
-            "purpose": "delegated defensive subagent task execution under fleet governance",
-            "safety": "protect verify monitor evidence",
-            "domain": safe_domain,
-        }
-        result = self._benevolence_scorer.score_action(action, context)
-        if not result.is_permissible:
-            raise EthicalConstraintViolationError(
-                action=action,
-                score=result.benevolence_score,
-                threshold=self._benevolence_scorer.benevolence_threshold,
-            )
-        return float(result.benevolence_score)
+
+        safe_domain = sanitize_domain(getattr(task.domain, "value", str(task.domain)))
+        verdict = enforce_decision_boundary(
+            DecisionSubject(
+                surface=f"SubAgent[{self.specialty}].handle",
+                operation="execute a delegated subagent task under fleet governance",
+                domain=safe_domain,
+                request=task.description,
+                payload=task.payload,
+            ),
+            advisory_scorer=self._benevolence_scorer,
+        )
+        return float(verdict.benevolence if verdict.benevolence is not None else 1.0)
 
     def _perform(self, task: SubAgentTask) -> tuple[Any, float, str]:
         """Do the real work. Generalist base runs the full main-agent pipeline.

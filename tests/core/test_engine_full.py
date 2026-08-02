@@ -160,22 +160,32 @@ def test_engine_explain_detection_is_governed_and_offline() -> None:
     assert totals["total_tokens"] == 0  # template records no usage -> zero, never fabricated
 
 
-def test_engine_reasoning_respects_ethics_gate_fail_closed() -> None:
-    """A benevolence violation blocks explanation at the engine boundary (fail-closed)."""
+def test_engine_reasoning_respects_ethics_gate_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unevaluable harm gate blocks explanation at the engine boundary.
+
+    The reasoning boundary runs the shared fail-closed choke point before any
+    generated content is surfaced. Breaking the gate itself is the general
+    property worth pinning: an error inside the control must read as
+    "refused", never as "allowed".
+    """
+    import omni_mercury_engine.cognitive.decision_gate as gate_module
     from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
     from omni_mercury_engine.reasoning.backends import LocalReasoningBackend
 
-    class _DenyScorer:
-        def enforce(self, action: str, context: object) -> object:
-            raise EthicalConstraintViolationError(action, 0.10, 0.70, check="benevolence")
-
     engine = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=True)
-    engine.enable_reasoning(backend=LocalReasoningBackend(benevolence_scorer=_DenyScorer()))
+    engine.enable_reasoning(backend=LocalReasoningBackend())
     data = np.random.RandomState(1).randn(48, 16).astype(np.float64)
     result = engine.detect_with_fusion(data, domain="security")
 
-    with pytest.raises(EthicalConstraintViolationError):
+    def _boom(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("simulated harm-gate failure")
+
+    monkeypatch.setattr(gate_module, "assess_weapons_uplift", _boom)
+    with pytest.raises(EthicalConstraintViolationError) as exc:
         engine.explain_detection(result, domain="security")
+    assert exc.value.check == "harm_uplift"
 
 
 def test_engine_reasoning_registry_drives_local_model() -> None:

@@ -218,8 +218,10 @@ class ThresholdConfig:
     ethical_minimum: float = 0.6
     """Minimum ethical alignment score required for operations."""
 
-    benevolence_required: float = ETHICAL.BENEVOLENCE_IMMUTABLE
-    """Required benevolence score for civilization-first decisions."""
+    benevolence_advisory: float = ETHICAL.OMNIBENEVOLENCE_SCALAR
+    """Advisory benevolence reporting level. Not a pass-bar: no decision is
+    refused on it. The enforced decision-boundary control is the harm-uplift
+    gate (``cognitive.decision_gate.enforce_decision_boundary``)."""
 
     # Statistical thresholds
     outlier_percentile: float = 95.0
@@ -265,8 +267,8 @@ class ThresholdDefaults:
     # From neurosymbolic_hub.py:810 - Default anomaly classification threshold
     ANOMALY_CLASSIFICATION_DEFAULT: float = 0.5
 
-    # From various ethical modules - Immutable benevolence requirement
-    BENEVOLENCE_IMMUTABLE: float = ETHICAL.BENEVOLENCE_IMMUTABLE
+    # Configured magnitude of the GOSNN omnibenevolence scalar (advisory).
+    OMNIBENEVOLENCE_SCALAR: float = ETHICAL.OMNIBENEVOLENCE_SCALAR
 
     # From ethical alignment modules - Minimum ethical score
     ETHICAL_MINIMUM: float = 0.6

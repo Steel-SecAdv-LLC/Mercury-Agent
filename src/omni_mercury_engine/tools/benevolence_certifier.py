@@ -76,7 +76,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Score threshold; defaults to the gate's configured threshold "
             "(SIGMA_IMMUTABLE_DEFAULT 0.93).  Use --threshold 0.99 for the "
-            "BENEVOLENCE_IMMUTABLE band."
+            "0.99 omnibenevolence-scalar band."
         ),
     )
     parser.add_argument(

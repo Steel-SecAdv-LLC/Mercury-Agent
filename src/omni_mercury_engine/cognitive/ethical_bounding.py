@@ -46,18 +46,23 @@ from omni_mercury_engine.cognitive.harm_normalization import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Hard ethical floor — callers cannot configure the benevolence threshold
-# below this value, regardless of domain or operational mode.
+# Advisory benevolence reporting floor.
 #
-# HARD vs SOFT benevolence gates (disambiguation):
-# * This module implements the HARD gate: ``BenevolenceScorer.enforce``
-#   (threshold 0.99, floored here at 0.70) is the mandatory decision-boundary
-#   gate and raises ``EthicalConstraintViolationError``.
-# * ``core.centralized_constants.sigmoid_benevolence_gate`` is the SOFT
-#   weighting η(b): a smooth multiplier used inside score fusion
-#   (``core/three_r/fusion.py``) so the fused score has no threshold
-#   discontinuity.  It is advisory weighting only and never substitutes for
-#   the hard gate.  Enforcement semantics are unchanged by this note.
+# Benevolence is NOT a gate. There is no benevolence pass-bar anywhere in
+# Mercury: the enforced decision-boundary control is the harm-uplift gate
+# (``assess_weapons_uplift`` -> ``BenevolenceScorer.enforce`` ->
+# ``cognitive.decision_gate.enforce_decision_boundary``), whose polarity is
+# block-on-harm and which fails closed.
+#
+# This constant is the lowest value a deployment may configure for the
+# *advisory* reporting threshold, so a benevolence number logged by one
+# deployment means the same thing as one logged by another. Clamping it has no
+# effect on what is permitted.
+#
+# ``core.centralized_constants.sigmoid_benevolence_gate`` remains a SOFT
+# weighting η(b): a smooth multiplier used inside score fusion
+# (``core/three_r/fusion.py``) so the fused score has no threshold
+# discontinuity. It is fusion weighting, not a control.
 # ---------------------------------------------------------------------------
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
@@ -1417,6 +1422,11 @@ class EthicalScore:
     hazard_domain: str = "none"
     operational_intent: str = "mechanism"
     weapons_disposition: str = "allow"
+    #: True when :attr:`benevolence_score` fell below the scorer's *advisory*
+    #: reporting threshold. Purely informational — it never affects
+    #: :attr:`is_permissible`, which is decided by
+    #: :attr:`weapons_disposition` alone.
+    benevolence_advisory_low: bool = False
 
 
 @dataclass
@@ -2034,29 +2044,50 @@ class ValuePreserver:
 
 
 class BenevolenceScorer:
-    """Main benevolence scoring engine — the HARD decision-boundary gate.
+    """Benevolence scoring engine — an **advisory** score plus the enforced harm gate.
 
-    Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
-    unified score.  :meth:`enforce` is the mandatory hard gate (threshold
-    0.99, floored at ``MINIMUM_BENEVOLENCE_FLOOR``); the smooth
-    ``sigmoid_benevolence_gate`` in ``core.centralized_constants`` is a
-    separate SOFT fusion-weighting term and never replaces this gate.
+    Combines harm reduction, benefit maximization, equity, empathy, and value
+    preservation into a unified benevolence float.
+
+    **The benevolence float is not a pass-bar.**  It used to be: every action
+    had to score ``>= 0.99`` to be permitted.  That control was deleted because
+    it did not measure harm.  It measured how *positively worded* an action
+    description was, which meant (a) benign work was rejected for having plain
+    vocabulary, and (b) the engine's own boundary passed itself by handing the
+    scorer a fixed keyword salad instead of the caller's request.  A high bar on
+    an uninformative number is not a safety control.
+
+    The enforced control is the two-axis (hazard-domain × operational-intent)
+    **harm-uplift gate** of :func:`assess_weapons_uplift` (see
+    ``docs/HARM_POLICY.md``), computed here on the *action text the caller
+    actually supplied*.  Its polarity is block-on-harm: an action is permitted
+    because no operational-uplift evidence was found, not because it scored
+    highly on a positivity lexicon.  :meth:`enforce` raises on exactly that
+    signal and on nothing else.
+
+    :attr:`benevolence_threshold` survives as an **advisory reporting
+    threshold**: crossing it is logged and surfaced on the
+    :class:`EthicalScore`, and it decides nothing.  The smooth
+    ``sigmoid_benevolence_gate`` in ``core.centralized_constants`` remains a
+    separate SOFT fusion-weighting term.
     """
 
-    BENEVOLENCE_THRESHOLD = 0.99
-
     def __init__(
-        self, benevolence_threshold: float = 0.99, *, harm_classifier: Any | None = None
+        self,
+        benevolence_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
+        *,
+        harm_classifier: Any | None = None,
     ) -> None:
         """Initialize benevolence scorer.
 
         Args:
-            benevolence_threshold: Minimum score for action approval.  Must be
-                at or above ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70).  Values below
-                this absolute floor are clamped with a warning, and any later
-                assignment to :attr:`benevolence_threshold` is also clamped
-                via the property setter — the floor cannot be lowered after
-                construction.
+            benevolence_threshold: **Advisory** reporting threshold — the score
+                below which the computed benevolence is flagged on the
+                :class:`EthicalScore` and logged.  It is not a pass-bar: it
+                cannot block an action and cannot permit one.  Kept at or above
+                ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) so the advisory signal stays
+                comparable across deployments; values below the floor are
+                clamped with a warning.
             harm_classifier: Optional ``Callable[[str], float]`` forwarded to the
                 :class:`HarmReducer` -- a meaning-level harm classifier (e.g. one
                 backed by Mercury's local Ollama reasoning backend) that can only
@@ -2081,23 +2112,32 @@ class BenevolenceScorer:
         # Log the clamped value (self.benevolence_threshold via the property
         # getter), not the raw constructor argument — otherwise an operator
         # debugging a below-floor request would see the value they tried to
-        # set instead of the value the gate is actually using.
-        logger.info("BenevolenceScorer initialized with threshold %s", self.benevolence_threshold)
+        # set instead of the value actually in use.
+        logger.info(
+            "BenevolenceScorer initialized with advisory reporting threshold %s "
+            "(enforcement is the harm-uplift gate, not this number)",
+            self.benevolence_threshold,
+        )
 
     @property
     def benevolence_threshold(self) -> float:
-        """Approval threshold, always at or above ``MINIMUM_BENEVOLENCE_FLOOR``."""
+        """Advisory reporting threshold, at or above ``MINIMUM_BENEVOLENCE_FLOOR``.
+
+        Crossing it sets :attr:`EthicalScore.benevolence_advisory_low` and logs.
+        It approves nothing and blocks nothing — permission comes from the
+        harm-uplift gate.
+        """
         return self._benevolence_threshold
 
     @benevolence_threshold.setter
     def benevolence_threshold(self, value: float) -> None:
-        """Clamp every assignment to the absolute floor.
+        """Clamp every assignment to the advisory floor.
 
-        Storing the threshold as a property instead of a plain attribute
-        ensures the ``MINIMUM_BENEVOLENCE_FLOOR`` guarantee survives later
-        mutation (``scorer.benevolence_threshold = 0.0`` no longer bypasses
-        the gate — the assignment is silently raised to the floor with a
-        warning).
+        Storing the threshold as a property instead of a plain attribute keeps
+        the advisory signal comparable across deployments: an operator cannot
+        quietly set it to ``0.0`` and make every logged benevolence look
+        acceptable. Because the value is advisory, clamping it changes what is
+        *reported*, never what is permitted.
         """
         if value < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
@@ -2147,18 +2187,26 @@ class BenevolenceScorer:
             reversibility=reversibility_score,
         )
 
-        is_permissible = benevolence_score >= self.benevolence_threshold
-
-        # Weapons/mass-casualty uplift hard veto: a blocking Axis-B
-        # disposition (ESCALATE/REFUSE_REDACT/HARD_REFUSE) forces
-        # is_permissible False regardless of the benevolence float --
-        # monotone, can only revoke permission, never grant it. This is what
-        # makes the general-capability layer inherit the SAME hard gate as
-        # detect/analyze/predict instead of a separate, weaker check: one
-        # harm policy, computed once, consulted everywhere.
+        # Permission is decided by the weapons/mass-casualty uplift gate and by
+        # nothing else. The benevolence float above is advisory: it is reported,
+        # logged and attached to the score, but a low benevolence never blocks
+        # and a high one never permits. One harm policy, computed once,
+        # consulted everywhere -- the general-capability layer, the engine
+        # boundary and the hub all inherit this same verdict.
         weapons = self.harm_reducer.last_weapons_assessment
-        if weapons.blocks:
-            is_permissible = False
+        is_permissible = not weapons.blocks
+
+        benevolence_advisory_low = benevolence_score < self.benevolence_threshold
+        if benevolence_advisory_low:
+            logger.info(
+                "advisory: benevolence %.4f below the reporting threshold %.4f for "
+                "action %r (informational — the enforced control is the harm-uplift "
+                "gate, which returned %s)",
+                benevolence_score,
+                self.benevolence_threshold,
+                action[:200],
+                weapons.disposition.value,
+            )
 
         explanation = self._generate_explanation(
             action, benevolence_score, harm_score, benefit_score, is_permissible
@@ -2192,6 +2240,7 @@ class BenevolenceScorer:
             hazard_domain=weapons.hazard_domain.value,
             operational_intent=weapons.intent_tier.value,
             weapons_disposition=weapons.disposition.value,
+            benevolence_advisory_low=benevolence_advisory_low,
         )
 
     def enforce(
@@ -2199,30 +2248,45 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """Score an action and raise on violation — the *mandatory* gate.
+        """Score an action and raise when the harm-uplift gate blocks it.
 
         Unlike :meth:`score_action`, which returns the result regardless of
         permissibility, ``enforce`` raises
-        :class:`EthicalConstraintViolationError` when the benevolence score
-        falls below the configured threshold so that impermissible actions
+        :class:`EthicalConstraintViolationError` so an impermissible action
         **cannot** be silently ignored upstream.
 
+        The raise condition is the harm-uplift gate's disposition
+        (ESCALATE / REFUSE_REDACT / HARD_REFUSE) and nothing else. It is *not*
+        the benevolence float: a benign action with plain vocabulary scores low
+        and is permitted, exactly as it should be.
+
         Args:
-            action: Action to evaluate.
+            action: The real action text to evaluate. Callers must pass the
+                decision they are actually making — never a synthesised
+                keyword string, which is what made the superseded benevolence
+                pass-bar unfalsifiable.
             context: Contextual metadata for the action.
 
         Returns:
             EthicalScore when the action is permissible.
 
         Raises:
-            EthicalConstraintViolationError: When ``benevolence_score < threshold``.
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the two-axis gate blocks.
         """
         result = self.score_action(action, context)
         if not result.is_permissible:
             raise EthicalConstraintViolationError(
                 action=action,
-                score=result.benevolence_score,
-                threshold=self.benevolence_threshold,
+                score=float(self.harm_reducer.last_weapons_assessment.confidence),
+                threshold=1.0,
+                check="harm_uplift",
+                details={
+                    "hazard_domain": result.hazard_domain,
+                    "operational_intent": result.operational_intent,
+                    "disposition": result.weapons_disposition,
+                    "benevolence_advisory": result.benevolence_score,
+                },
             )
         return result
 
@@ -2433,9 +2497,15 @@ class BenevolenceScorer:
 
         failure_reasons = []
 
+        # Only a real refusal is a failure reason. The benevolence float is
+        # advisory and is deliberately NOT listed here: a benign action with
+        # plain vocabulary scores low, and failing an audit on that would be
+        # the same false-positive the deleted pass-bar produced.
         if not ethical_score.is_permissible:
             failure_reasons.append(
-                f"Benevolence score {ethical_score.benevolence_score:.2%} below threshold"
+                f"harm-uplift gate: {ethical_score.weapons_disposition} "
+                f"(hazard={ethical_score.hazard_domain}, "
+                f"intent={ethical_score.operational_intent})"
             )
 
         if empathy_assessment.overall_empathy_score < 0.7:

@@ -174,20 +174,63 @@ accretion signal) is written to a **durable, append-only audit log**
 (`cognitive.gate_audit`; JSONL + optional hash-chained sink), not just an
 in-process log line.
 
-## 5. Unified with the existing hard gate
+## 5. This is *the* decision-boundary control
 
-The two-axis logic is folded into `BenevolenceScorer` / `HarmReducer`, so there is
-**one harm policy**. `HarmReducer.evaluate_harm` runs the assessment and raises the
-`PHYSICAL` / `SOCIETAL` harm categories on a blocking disposition (max-only —
-fail-closed, never lowering), and `BenevolenceScorer.score_action` hard-vetoes
-`is_permissible` on any blocking disposition (monotone — it can only *revoke*
-permission, never grant it). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is bumped to
-**4**, invalidating cached verdicts.
+The two-axis assessment is not one gate among several — it is **the** harm
+control at every public decision boundary, and the only thing that decides
+permission.
+
+`BenevolenceScorer.score_action` sets `is_permissible` from the disposition and
+from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
+`SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
+never lowering). The `EthicalScore` surfaces `hazard_domain`,
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **4**,
+invalidating cached verdicts.
+
+### What this replaced, and why
+
+Until 2026-08 the decision boundaries ran a **benevolence pass-bar**: an action
+had to score `>= 0.99` on a keyword/context heuristic to be permitted. Two
+things were wrong with it, and both are the reason the two-axis gate exists.
+
+* **The boundaries scored a fixed string they wrote about themselves.** The
+  engine handed the scorer
+  `"anomaly_detection:{domain}:audit verify protect research evidence fair
+  oversight monitor data care help support"` — a keyword salad chosen so the
+  gate would pass — and the caller's actual request never reached it. The
+  orchestrators, the subagent fleet, the narrative voice, the federation
+  aggregator and the FL server each did the same with their own variant. A
+  control that never sees the decision cannot discriminate.
+* **A high bar on a positivity lexicon is not a harm control.** It refused
+  benign work whose vocabulary was plain (`"run anomaly detection over sensor
+  telemetry"` scores ≈ 0.63) and admitted anything phrased warmly. Its polarity
+  was *pass-on-positive*; this gate's is **block-on-harm**.
+
+The polarity change also removes an injection concern that shaped the old
+design. Several boundaries deliberately *withheld* caller text and subagent
+output from the scorer, because injected positive vocabulary could buy a permit.
+Under block-on-harm that reasoning inverts: injected harm vocabulary can only
+push toward a refusal, and injected allow-signal can at best move a gray-zone
+B6 verdict from `REFUSE_REDACT` to `ESCALATE` — both of which block. So the real
+request, payload and output now reach the gate, closing a genuine false-negative
+class without opening any way in.
+
+Benevolence is retained as an **advisory** score: computed, logged, attached to
+the `EthicalScore`, deciding nothing.
+
+### The single choke point
+
+`cognitive/decision_gate.py` is the one function every surface calls
+(`enforce_decision_boundary`), over a `DecisionSubject` built from the real call.
+It fails closed on its own errors, and no keyword argument, environment variable
+or configuration key disables it. The engine's public surfaces carry the
+`GATED_BOUNDARY` capability contract
+(`agentic/capabilities/contract.py`), which is registered — so deleting the
+annotation fails `tests/pillars/test_non_maleficence.py` in CI.
 
 The general-capability layer (`GeneralAssistant`, the MCP tools
 `mercury_research` / `mercury_answer` / `mercury_write_document`) routes through
-this single gate rather than a bespoke check.
+this same gate rather than a bespoke check.
 
 ## 6. Defense in depth — four enforcement points
 

@@ -5,7 +5,8 @@
 Comprehensive pandemic detection for public health early warning:
 - Outbreak detection (case surge identification)
 - Pathogen mutation tracking (antigenic drift/shift)
-- R0/Re estimation (reproduction number)
+- Effective reproduction number (R_e) estimated from observed growth
+  (Wallinga-Lipsitch, delta serial interval -- an upper bound, and not R0)
 - Epidemic curve modeling
 - Variant classification (WHO nomenclature)
 - Transmission pattern analysis
@@ -108,7 +109,13 @@ class CaseSurgeDetector:
         case_counts = np.array(case_data.get("daily_cases", []))
 
         if len(case_counts) < 7:
-            return {"surge_detected": False, "doubling_time_days": None, "r0_estimate": 1.0}
+            return {
+                "surge_detected": False,
+                "doubling_time_days": None,
+                "re_estimate": 1.0,
+                "re_method": "insufficient_history",
+                "r0_estimate": 1.0,
+            }
 
         recent_cases = case_counts[-7:]
         baseline_cases = case_counts[-14:-7] if len(case_counts) >= 14 else recent_cases
@@ -124,16 +131,34 @@ class CaseSurgeDetector:
         else:
             doubling_time_days = None
 
+        # Wallinga-Lipsitch under a *delta-distributed* serial interval:
+        #   R = exp(r * T_s),  with the exponential growth rate r = ln2 / T_d.
+        # This estimates the EFFECTIVE reproduction number R_e from observed
+        # growth. It is NOT R0: the basic reproduction number is defined in a
+        # fully susceptible population, and nothing here observes susceptibility,
+        # immunity or intervention state. Reporting an R_e as R0 overstates it
+        # whenever the population is partly immune -- which, during a surge, it
+        # always is.
+        #
+        # The delta-serial-interval assumption also makes this an upper bound:
+        # a dispersed serial interval yields a smaller R for the same growth
+        # rate. Treat the value as "growth-implied R_e, delta-SI upper bound",
+        # not a calibrated epidemiological estimate.
         serial_interval_days = case_data.get("serial_interval_days", 5.0)
         if doubling_time_days and doubling_time_days > 0:
-            r0_estimate = np.exp(serial_interval_days * np.log(2) / doubling_time_days)
+            re_estimate = float(np.exp(serial_interval_days * np.log(2) / doubling_time_days))
         else:
-            r0_estimate = 1.0
+            re_estimate = 1.0
 
         return {
             "surge_detected": surge_detected,
             "doubling_time_days": doubling_time_days,
-            "r0_estimate": float(r0_estimate),
+            "re_estimate": re_estimate,
+            "re_method": "wallinga_lipsitch_delta_serial_interval",
+            # Back-compatible alias for existing consumers. Same number, honest
+            # name above; the alias is retained so a caller is not broken, not
+            # because the quantity is an R0.
+            "r0_estimate": re_estimate,
         }
 
 

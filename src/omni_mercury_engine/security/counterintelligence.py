@@ -62,7 +62,7 @@ class OverwatchNexus(LoggerMixin):
     - Medical Interdiction and Intervention (bio-threats, pandemic forecasting)
     - Ethical overwatch with σ_Immutable invariant enforcement
     - Integration with existing intelligence fusion (13 INT disciplines)
-    - Survivor-first humanitarian prioritization
+    - Humanitarian prioritisation weighted toward the people most exposed
 
     **Ethical Safeguards:**
     - ci_ethical_threshold (0.85): Non-discriminatory operations gate
@@ -298,7 +298,7 @@ class OverwatchNexus(LoggerMixin):
             return "general_anomaly"
 
     def _identify_survivor_priorities(self, fusion_result: IntelligenceFusionResult) -> list[str]:
-        """Identify survivor-first priorities for humanitarian CI.
+        """Identify who to protect first in humanitarian counter-intelligence.
 
         Prioritizes vulnerable populations: civilians, healthcare workers,
         essential workers, disaster victims.
