@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,806
-- **Capability-bearing classes:** 1,843 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,808
+- **Capability-bearing classes:** 1,845 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,055 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,057 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1055 |
+| Other capability classes | 1057 |
 | Support types (config / result / enum / error) | 963 |
 | Detection | 171 |
 | Neural models & layers | 157 |
@@ -112,7 +112,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `GovernorTripped` (`agentic.subagents.governor`) — Raised when the governor refuses a dispatch (fail-closed).
 - `MemoryEntry` (`agentic.mercury_a_agent`) — Entry in agent memory system.
 - `MercuryPlanner` (`agentic.mercury_a_agent`) — Goal decomposition and task orchestration with domain-specific planning.
-- `MercuryReasoner` (`agentic.mercury_a_agent`) — Chain-of-thought reasoning engine with correlation graph building.
+- `MercuryReasoner` (`agentic.mercury_a_agent`) — Templated Thought→Action→Observation loop with correlation-graph building.
 - `PlanTrace` (`agentic.orchestration`) — Record of the planner-driven episode execution.
 - `PolicyMetrics` (`agentic.agentic_autonomy`) — Metrics tracking policy performance over time.
 - `ReasoningStep` (`agentic.mercury_a_agent`) — A step in the reasoning chain.
@@ -323,7 +323,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `cognitive/` — 276 classes (181 capability)
+### `cognitive/` — 278 classes (183 capability)
 
 **Analysis & scoring**
 
@@ -394,6 +394,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `BattlefieldAssessment` (`cognitive.ipb_engine`) — Complete IPB assessment result.
 - `BenefitMaximizer` (`cognitive.ethical_bounding`) — Evaluates and maximizes potential benefits from actions.
 - `BenevolenceCalibration` (`cognitive.ethical_bounding`) — Calibration knobs for the benevolence scorer.
+- `BoundaryVerdict` (`cognitive.decision_gate`) — The permitted outcome of a boundary check.
 - `Case` (`cognitive.case_based_reasoning`) — A case in the case base.
 - `CaseBasedReasoner` (`cognitive.case_based_reasoning`) — Case-Based Reasoning Engine.
 - `CausalEdge` (`cognitive.causal_discovery`) — An edge in the causal graph.
@@ -407,6 +408,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CreditAssignment` (`cognitive.chain_of_hindsight`) — Temporal credit assignment for sequential decisions.
 - `Decision` (`cognitive.autonomous_agent`) — Decision made by the agent.
 - `Decision` (`cognitive.reflexion`) — A decision made by the agent.
+- `DecisionSubject` (`cognitive.decision_gate`) — The real decision a public surface is about to make.
 - `DetectedPattern` (`cognitive.neural_memory_layer`) — A detected pattern from memory analysis.
 - `DifferentiableRule` (`cognitive.differentiable_logic`) — Differentiable logic rule with learnable parameters.
 - `DifferentiableTNorm` (`cognitive.differentiable_logic`) — Abstract base for differentiable t-norms (fuzzy logic operators).
@@ -528,7 +530,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Solvers & scorers**
 
 - `AnomalyVerifier` (`cognitive.formal_verification`) — Formal verifier specialized for anomaly detection.
-- `BenevolenceScorer` (`cognitive.ethical_bounding`) — Main benevolence scoring engine — the HARD decision-boundary gate.
+- `BenevolenceScorer` (`cognitive.ethical_bounding`) — Benevolence scoring engine — an **advisory** score plus the enforced harm gate.
 - `CachedBenevolenceScorer` (`cognitive.benevolence_cache`) — Thread-safe LRU wrapper around :meth:`BenevolenceScorer.enforce`.
 - `ConstraintSolver` (`cognitive.formal_verification`) — Solver for constraint satisfaction problems.
 - `SafetyVerifier` (`cognitive.formal_verification`) — Verifier for safety properties.
@@ -1575,7 +1577,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Monitoring**
 
-- `CrisisMonitor` (`infrastructure.humanitarian.crisis_monitoring.crisis_monitor`) — Humanitarian Crisis Monitor (Survivor-First CI).
+- `CrisisMonitor` (`infrastructure.humanitarian.crisis_monitoring.crisis_monitor`) — Humanitarian Crisis Monitor (most-exposed-first counter-intelligence).
 - `EmergingTechMonitor` (`infrastructure.scientific.emerging_tech_monitor`) — Emerging technology monitoring and anomaly detection.
 - `EssentialWorkersMonitor` (`infrastructure.humanitarian.essential_workers`) — Essential critical infrastructure workers anomaly detector.
 - `GovernmentFacilitiesMonitor` (`infrastructure.humanitarian.government_facilities`) — Government facilities and public administration anomaly detector.

@@ -36,11 +36,11 @@ AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
 echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 
 # PEP 517 build-system floors AMA's setup.py enforces when installing with
-# --no-build-isolation: setuptools>=78.1.1 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5),
-# wheel>=0.47.0 (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.3.2 shim whose
+# --no-build-isolation: setuptools>=83.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5; AMA v4.0.0 floor),
+# wheel>=0.47.0 (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.4.0 shim whose
 # __version__ AMA's _check_cmake_version reads. AMA_NO_CYTHON short-circuits the
 # Cython/numpy floor, so those are intentionally absent.
-python -m pip install --upgrade "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
+python -m pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
 
 rm -rf "${AMA_BUILD_DIR}"
 git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"
