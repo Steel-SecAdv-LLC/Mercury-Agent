@@ -257,8 +257,12 @@ _EUPHEMISM_OBJECT: tuple[str, ...] = (
     # person-directed cases stay covered by the standalone idioms and the
     # unambiguous person objects (him/her/the witness/the hostages).
     "the journalist",
+    "the prisoner",
     "the prisoners",
+    "the hostage",
     "the hostages",
+    "the detainee",
+    "the detainees",
     "everyone",
     "these people",
     "those people",
@@ -279,6 +283,91 @@ _EUPHEMISM_PATTERN = re.compile(
     r"|(?:" + _PARTICLES + r")\s+(?:" + _OBJ + r"))"
     r"|(?:" + _PREP_VERBS + r")\s+(?:" + _OBJ + r"))\b"
 )
+
+
+# ---------------------------------------------------------------------------
+# Direct grave-harm lexicon (the plain-language sibling of the euphemism layer).
+#
+# The euphemism layer above catches *indirection* ("put him down"). It does not
+# catch plain, explicit violence ("torture the prisoner"), and the per-category
+# keyword scan in ``HarmReducer._assess_category_harm`` does not either -- its
+# PHYSICAL list is five generic nouns (injury/damage/hurt/harm/violence), so
+# "beat and torture the prisoner until he talks" measured harm 0.000 before this
+# layer existed.
+#
+# Design constraint, inherited verbatim from the euphemism lexicon: this must
+# not fire on Mercury's own mission vocabulary. Mercury does human-rights and
+# conflict monitoring, so *topic* words are unusable as evidence -- "assess
+# torture survivors' trauma", "document torture of civilians" and "monitor
+# conflict violence for early warning" are the work, not the harm. Evidence is
+# therefore only ever taken from an act pinned to a specific person
+# (:data:`_EUPHEMISM_OBJECT`), never from a bare topic term.
+# ---------------------------------------------------------------------------
+
+#: Acts that are unambiguously grave harm *when done to a named person*. Bare
+#: topic use ("torture survivors", "assault rifle", "poison control centre")
+#: cannot match, because a person object is mandatory below.
+#:
+#: Polysemous verbs are deliberately EXCLUDED even though they are violent in
+#: the person-directed reading, because their technical reading is ordinary
+#: Mercury vocabulary and the object test alone does not disambiguate them:
+#: "choke" (*choke point* — used in this very module), "execute" ("execute them
+#: in parallel"), "shoot" ("shoot them a message"), "beat" ("beat them on the
+#: benchmark"), "butcher"/"assault" (metaphorical and materiel senses). The
+#: grave cases they would have carried are covered by the unambiguous verbs
+#: below — "beat and torture the prisoner" matches on *torture*.
+_DIRECT_HARM_VERBS = (
+    "torture|strangle|stab|mutilate|maim|behead|decapitate"
+    "|rape|molest|bludgeon|suffocate|lynch"
+    # Coercive / degrading harm. Same person-object requirement, so the
+    # analytic uses Mercury depends on ("assess humiliation and degradation of
+    # detainees", "stalking-behaviour detection") cannot match.
+    # "degrade" is excluded for the same polysemy reason: "these detectors
+    # degrade when we feed them noisy data" pins it to a person object by
+    # accident. Measured as a false positive; "humiliate"/"demean" carry the
+    # degrading-treatment cases without it.
+    "|humiliate|demean|terrorize|terrorise|harass|stalk|blackmail|extort|intimidate"
+)
+
+#: ``<verb> ... <person>`` within a short same-clause window, so "torture the
+#: prisoner" and "beat and torture the prisoner" both match while a sentence
+#: that merely mentions both far apart does not. The window deliberately
+#: excludes sentence-final punctuation.
+_DIRECT_HARM_PATTERN = re.compile(
+    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+)
+
+#: Lethal verb whose *manner* is stated as interpersonal violence. This is what
+#: separates "destroy and kill with permanent irreversible violence" from "kill
+#: the process and repair the damage": a technical kill has no manner of
+#: violence, and a violence-monitoring sentence has no lethal verb acting on
+#: anything. Both terms are required, in either order, in the same clause.
+_LETHAL_VERBS = "kill|murder|slaughter|butcher|exterminate|liquidate"
+_VIOLENCE_MANNER = "violence|violently|brutality|brutally|bloodshed|savagery|cruelty"
+_LETHAL_MANNER_PATTERN = re.compile(
+    r"\b(?:(?:" + _LETHAL_VERBS + r")\w*\b[^.!?;]{0,60}?\b(?:" + _VIOLENCE_MANNER + r")"
+    r"|(?:" + _VIOLENCE_MANNER + r")\b[^.!?;]{0,60}?\b(?:" + _LETHAL_VERBS + r")\w*)\b"
+)
+
+
+def _direct_harm_present(text: str) -> bool:
+    """True when ``text`` states plain, person-directed grave harm.
+
+    The deterministic, model-free complement to
+    :func:`_euphemism_harm_present`: that function covers indirection, this one
+    covers explicit statements. Both are meaning-level (an act bound to a
+    person), both are tuned so Mercury's defensive, clinical and human-rights
+    vocabulary cannot trip them, and both only ever ADD harm evidence.
+
+    Args:
+        text: Lower-cased action text (plus rendered context).
+
+    Returns:
+        ``True`` when a grave-harm act is pinned to a specific person, or a
+        lethal verb is qualified by an explicit manner of violence.
+    """
+    t = text.lower()
+    return bool(_DIRECT_HARM_PATTERN.search(t) or _LETHAL_MANNER_PATTERN.search(t))
 
 
 def _euphemism_harm_present(text: str) -> bool:
@@ -1424,9 +1513,17 @@ class EthicalScore:
     weapons_disposition: str = "allow"
     #: True when :attr:`benevolence_score` fell below the scorer's *advisory*
     #: reporting threshold. Purely informational — it never affects
-    #: :attr:`is_permissible`, which is decided by
-    #: :attr:`weapons_disposition` alone.
+    #: :attr:`is_permissible`, which is decided by :attr:`weapons_disposition`
+    #: and :attr:`grave_harm`.
     benevolence_advisory_low: bool = False
+    #: True when the meaning-level lexicons found grave harm pinned to a
+    #: specific person ("put him down", "torture the prisoner", "kill ... with
+    #: violence"). Enforced — together with :attr:`weapons_disposition` it
+    #: decides :attr:`is_permissible`. Unlike :attr:`harm_score`/
+    #: :attr:`severity_score`, which count topic keywords and therefore score
+    #: Mercury's own humanitarian and security vocabulary as harmful, this
+    #: signal requires an act bound to a person, so it discriminates intent.
+    grave_harm: bool = False
 
 
 @dataclass
@@ -1507,6 +1604,12 @@ class HarmReducer:
         # instead of being assessed twice. Single-caller-per-instance-at-a-time
         # assumption, consistent with the counters above.
         self.last_weapons_assessment: WeaponsRiskAssessment = WeaponsRiskAssessment()
+        #: Set by :meth:`evaluate_harm`; read back by
+        #: ``BenevolenceScorer.score_action``. True when the meaning-level
+        #: lexicons found grave harm pinned to a person -- evidence the scalar
+        #: ``harm_score`` cannot carry, because averaging one floored category
+        #: across eight dilutes it below any usable bar.
+        self.last_grave_harm: bool = False
 
     def evaluate_harm(
         self,
@@ -1537,10 +1640,20 @@ class HarmReducer:
 
         combined = action.lower() + " " + str(context).lower()
 
-        # Euphemism/paraphrase evidence is unambiguous harm-to-person intent ->
-        # raise the gravest (PHYSICAL) category to near-max. Meaning-level, not
-        # spelling-level; fail-closed (max, never lowers).
-        if _euphemism_harm_present(combined):
+        # Euphemism/paraphrase evidence ("put him down") and plain person-directed
+        # violence ("torture the prisoner", "kill ... with violence") are both
+        # unambiguous harm-to-person intent -> raise the gravest (PHYSICAL)
+        # category to near-max. Meaning-level, not spelling-level; fail-closed
+        # (max, never lowers).
+        #
+        # Recorded on the instance as well as folded into the breakdown: the
+        # weighted average across eight categories dilutes a single floored
+        # category to ~0.13, so the *scalar* harm cannot carry this verdict to a
+        # caller. ``BenevolenceScorer.score_action`` reads the flag directly.
+        # This is the same pattern as ``last_weapons_assessment`` below, and for
+        # the same reason.
+        self.last_grave_harm = _euphemism_harm_present(combined) or _direct_harm_present(combined)
+        if self.last_grave_harm:
             breakdown[HarmCategory.PHYSICAL.value] = max(
                 breakdown[HarmCategory.PHYSICAL.value], 0.9
             )
@@ -2187,14 +2300,40 @@ class BenevolenceScorer:
             reversibility=reversibility_score,
         )
 
-        # Permission is decided by the weapons/mass-casualty uplift gate and by
-        # nothing else. The benevolence float above is advisory: it is reported,
-        # logged and attached to the score, but a low benevolence never blocks
-        # and a high one never permits. One harm policy, computed once,
-        # consulted everywhere -- the general-capability layer, the engine
-        # boundary and the hub all inherit this same verdict.
+        # Permission is decided by harm evidence and by nothing else. The
+        # benevolence float above is advisory: it is reported, logged and
+        # attached to the score, but a low benevolence never blocks and a high
+        # one never permits. One harm policy, computed once, consulted
+        # everywhere -- the general-capability layer, the engine boundary and
+        # the hub all inherit this same verdict.
+        #
+        # TWO blocking signals, both block-on-harm, both fail-closed:
+        #
+        # 1. ``weapons.blocks`` -- the two-axis (hazard x operational-intent)
+        #    weapons/mass-casualty uplift gate.
+        # 2. ``last_grave_harm`` -- the meaning-level lexicons for grave harm
+        #    pinned to a person ("put him down", "torture the prisoner",
+        #    "kill ... with violence").
+        #
+        # (2) is not redundant with (1): the uplift gate is scoped to CBRNE and
+        # mass-harm actionability, so on its own it permitted plain
+        # interpersonal violence -- ``mercury_score_ethics`` answered
+        # "is_permissible": true for "destroy and kill with permanent
+        # irreversible violence". The evidence to refuse that was already being
+        # computed here and simply never reached the verdict.
+        #
+        # What deliberately does NOT decide permission is the scalar
+        # ``harm_score``/``severity_score``. Those come from a per-category
+        # keyword count, which measures *topic* rather than *intent*: on
+        # Mercury's own mission text "assess trauma and psychological distress
+        # among displaced families" scores severity 0.75 and "estimate
+        # earthquake damage and injury counts for triage" scores 0.50. Gating on
+        # them refuses humanitarian and security work for naming the hazard it
+        # exists to detect -- the same false-positive failure as the deleted
+        # benevolence pass-bar, wearing a different number.
         weapons = self.harm_reducer.last_weapons_assessment
-        is_permissible = not weapons.blocks
+        grave_harm = bool(self.harm_reducer.last_grave_harm)
+        is_permissible = not (weapons.blocks or grave_harm)
 
         benevolence_advisory_low = benevolence_score < self.benevolence_threshold
         if benevolence_advisory_low:
@@ -2220,6 +2359,12 @@ class BenevolenceScorer:
                 f"weapons-uplift gate: {weapons.disposition.value} "
                 f"(hazard={weapons.hazard_domain.value}, intent={weapons.intent_tier.value})",
             )
+        if grave_harm:
+            recommendations.insert(
+                0,
+                "grave-harm gate: refused — the request states harm directed at a "
+                "specific person",
+            )
 
         return EthicalScore(
             score_id=score_id,
@@ -2241,6 +2386,7 @@ class BenevolenceScorer:
             operational_intent=weapons.intent_tier.value,
             weapons_disposition=weapons.disposition.value,
             benevolence_advisory_low=benevolence_advisory_low,
+            grave_harm=grave_harm,
         )
 
     def enforce(

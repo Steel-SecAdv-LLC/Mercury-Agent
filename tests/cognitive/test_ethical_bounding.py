@@ -345,13 +345,18 @@ class TestBenevolenceScorer:
         assert score.benefit_score > 0
 
     def test_score_action_negative(self) -> None:
-        """Harm-laden wording raises the harm score and the advisory flag.
+        """Harm-laden *wording* raises the harm score and the advisory flag.
 
-        It does not, by itself, make the action impermissible: permissibility is
-        the harm-uplift gate's verdict, and a string with no hazard domain and
-        no operational-uplift intent is not weapons uplift. Scoring a mood is
-        not a harm control -- that conflation is what the deleted 0.99 pass-bar
-        institutionalised.
+        It does not, by itself, make the action impermissible. Permissibility is
+        decided by harm *evidence* -- the weapons-uplift gate, or grave harm
+        pinned to a specific person -- and a bare topic token carries neither.
+        Scoring a mood is not a harm control; that conflation is what the
+        deleted 0.99 pass-bar institutionalised.
+
+        The paired assertion below is what stops this from merely ratifying
+        permissiveness: the same scorer refuses the moment the harm acquires a
+        human object. The test therefore pins the *discrimination*, not the
+        permit.
         """
         scorer = BenevolenceScorer()
         score = scorer.score_action(
@@ -362,6 +367,12 @@ class TestBenevolenceScorer:
         assert score.harm_score > 0
         assert score.benevolence_advisory_low is True
         assert score.is_permissible is True
+        assert score.grave_harm is False
+
+        # Same scorer, harm now directed at a person -> refused.
+        pinned = scorer.score_action(action="torture the prisoner until he talks", context={})
+        assert pinned.grave_harm is True
+        assert pinned.is_permissible is False
 
     def test_score_action_refuses_real_uplift(self) -> None:
         """The enforced control: operational uplift toward a weapon."""

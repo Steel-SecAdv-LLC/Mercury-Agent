@@ -26,6 +26,7 @@ import importlib.util
 import re
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -46,7 +47,7 @@ def _ci_floors() -> tuple[int, int]:
     return int(core.group(1)), int(full.group(1))
 
 
-def _pyproject() -> dict:
+def _pyproject() -> dict[str, Any]:
     return tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 

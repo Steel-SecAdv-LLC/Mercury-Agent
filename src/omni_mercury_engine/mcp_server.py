@@ -932,6 +932,11 @@ class MercuryMCPServer:
                 "hazard_domain": getattr(score, "hazard_domain", "none"),
                 "operational_intent": getattr(score, "operational_intent", "mechanism"),
                 "weapons_disposition": getattr(score, "weapons_disposition", "allow"),
+                # The second enforced signal. Surfaced alongside the weapons
+                # verdict so a caller can tell the two refusal reasons apart:
+                # ``weapons_disposition`` covers CBRNE/mass-casualty uplift,
+                # ``grave_harm`` covers harm directed at a specific person.
+                "grave_harm": bool(getattr(score, "grave_harm", False)),
                 "explanation": score.explanation,
             }
         )

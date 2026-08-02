@@ -34,6 +34,7 @@ import pytest
 from omni_mercury_engine.decision.decider import DecisionAbstentionResponder
 from omni_mercury_engine.decision.ledger import DecisionLedger
 from omni_mercury_engine.decision.record import DecisionRecord
+from omni_mercury_engine.decision.states import Disposition
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -114,7 +115,11 @@ class TestLedgerIsAppendOnly:
         ledger.record(_record())
         stored = ledger.entries[0]
         with pytest.raises(dataclasses.FrozenInstanceError):
-            stored.disposition = None  # type: ignore[misc]
+            # Rebind to a *valid* Disposition rather than None: the property
+            # under test is that a recorded decision cannot be edited at all,
+            # and a well-typed assignment proves that without needing a
+            # ``type: ignore`` to launder an argument the field never accepts.
+            stored.disposition = Disposition.CLEAR  # type: ignore[misc]
         with pytest.raises(TypeError):
             stored.signals["forged"] = True  # type: ignore[index]
 

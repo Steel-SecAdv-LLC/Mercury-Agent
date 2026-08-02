@@ -176,16 +176,97 @@ in-process log line.
 
 ## 5. This is *the* decision-boundary control
 
-The two-axis assessment is not one gate among several — it is **the** harm
-control at every public decision boundary, and the only thing that decides
-permission.
+The two-axis assessment is the harm control at every public decision boundary
+for **weapons and mass-casualty uplift**, which is the scope it was built for.
 
-`BenevolenceScorer.score_action` sets `is_permissible` from the disposition and
+`BenevolenceScorer.score_action` sets `is_permissible` from harm evidence and
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
 `operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **4**,
 invalidating cached verdicts.
+
+### 5a. The second enforced signal — grave harm directed at a person
+
+The two-axis gate is scoped to CBRNE / mass-harm actionability. That scope is
+deliberate and correct, but it is **not** the whole harm surface, and treating
+it as the whole harm surface left a hole that was live in production:
+
+```
+mercury_score_ethics("destroy and kill with permanent irreversible violence")
+  -> {"is_permissible": true}          # no hazard domain, so the gate allowed it
+HarmReducer.evaluate_harm("beat and torture the prisoner until he talks")
+  -> harm_score 0.000                  # no PHYSICAL keyword matched
+```
+
+So `EthicalScore.grave_harm` is enforced alongside `weapons_disposition`. It is
+set by the two meaning-level lexicons in `cognitive/ethical_bounding.py`:
+
+* `_euphemism_harm_present` — indirection ("put him down", "get rid of the
+  witness");
+* `_direct_harm_present` — plain statements: an unambiguous grave-harm act
+  pinned to a specific person ("torture the prisoner"), or a lethal verb
+  qualified by an explicit manner of violence ("kill … with violence").
+
+Permission is therefore `not (weapons.blocks or grave_harm)`. Both signals are
+block-on-harm and fail-closed; neither can be disabled by a flag.
+
+**Where each signal is enforced, and why they differ.** This is a deliberate
+split, not an inconsistency:
+
+| Surface | `weapons.blocks` | `grave_harm` |
+|---|---|---|
+| `detect`, `detect_batch`, `detect_biometric`, `detect_security_threat`, fusion surfaces | **enforced** | *not* enforced |
+| `mercury_score_ethics`, `BenevolenceScorer.enforce`, `GeneralAssistant` (research / authoring / open web) | **enforced** | **enforced** |
+
+The detection surfaces receive a **payload to analyse**; the request surfaces
+receive a **request to act on**. Screening a payload for injection or
+threat-intel is precisely a SOC's job, and text under analysis routinely
+contains violent language — refusing `detect_security_threat("torture the
+prisoner…")` would break the defensive work Mercury exists to support, and hand
+an attacker a denial-of-service by wording. Operational *weapons* content is
+gated even on those surfaces because passing a synthesis route through a
+detector is real uplift regardless of who pasted it.
+
+So: `grave_harm` refuses Mercury being **asked to help cause** harm. It does not
+refuse Mercury being **asked to examine** harm. `enforce_decision_boundary`
+consequently calls `assess_weapons_uplift` directly and treats the benevolence
+scorer as advisory, which is why the detection boundary does not inherit
+`grave_harm`.
+
+### 5b. What deliberately does *not* decide permission
+
+`harm_score` and `severity_score` are **advisory**, and this is a safety
+decision rather than an oversight. They come from a per-category keyword count,
+which measures the **topic** a request is about, not the **intent** behind it.
+Measured on Mercury's own operating vocabulary:
+
+| Text Mercury exists to handle | `severity_score` |
+|---|---|
+| "assess trauma and psychological distress among displaced families" | **0.75** |
+| "estimate earthquake damage and injury counts for triage" | **0.50** |
+| "track the failed login attempts and expose the credential-stuffing pattern" | **0.50** |
+| "restrict the search space and force early stopping" | **0.50** |
+
+Gating on those numbers refuses humanitarian response, disaster triage, security
+operations and ordinary ML engineering — the same false-positive failure as the
+deleted `0.99` pass-bar, wearing a different number. `GeneralAssistant` did gate
+on them and did refuse all four; it now reads the scorer's verdict instead.
+
+The lexicons behind `grave_harm` are held to the matching standard in the other
+direction: they require an act bound to a person, so *naming* a harm cannot trip
+them. "document torture allegations for the human-rights tribunal" and
+"monitoring flags stalking behaviour for victim-protection services" are
+permitted; "torture the prisoner" and "stalk and harass her" are refused. Both
+halves are pinned by `tests/pillars/test_non_maleficence.py`
+(`GRAVE_HARM_REQUESTS` 12/12 refused, `MISSION_VOCABULARY` 19/19 permitted),
+including an anti-vacuity test that fails if either corpus stops discriminating.
+
+Polysemous verbs are excluded by measurement, not by taste: `degrade` was
+dropped after it false-positived on "these detectors degrade when we feed them
+noisy data", and `choke` / `execute` / `shoot` / `beat` / `assault` are absent
+because *choke point*, "execute them in parallel" and "shoot them a message" are
+ordinary Mercury vocabulary.
 
 ### What this replaced, and why
 
