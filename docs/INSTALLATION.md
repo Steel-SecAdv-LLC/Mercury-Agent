@@ -19,7 +19,7 @@ importing `omni_mercury_engine`:
 ```bash
 export MERCURY_ENV=production
 export AMA_REQUIRE_REAL_PQC=true
-# AMA_REQUIRE_CONSTANT_TIME is superseded by the pinned AMA v3.3.0
+# AMA_REQUIRE_CONSTANT_TIME is superseded by the pinned AMA v4.0.0
 # (native-only constant-time operation is unconditional; AMA warns if it is
 # set, and Mercury reads it only for diagnostics); leave it unset.
 ```
@@ -51,7 +51,7 @@ downgrades.
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | `3.3.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.3.0`, `3.3.0.post1`, `3.3` are accepted; `3.1.0` is not. |
+| `AMA_CRYPTO_VERSION` | `4.0.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v4.0.0`, `4.0.0.post1`, `4.0` are accepted; `3.3.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
 | `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v3.3.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the crypto_api module - cryptographic operations.
 
-AMA Cryptography v3.3.0 is a mandatory Mercury capability.  There is no
+AMA Cryptography v4.0.0 is a mandatory Mercury capability.  There is no
 simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 """
 
@@ -153,13 +153,51 @@ class TestSixLayerVerify:
 
         return json.dumps(data, sort_keys=True, default=str).encode()
 
-    def test_verify_roundtrip_all_valid(self) -> None:
+    @staticmethod
+    def _signing_key(pkg: Any) -> bytes:
+        """The package's embedded signing public key (the anchor, when trusted)."""
+        return bytes(pkg.ama_package.keypairs["HYBRID_SIG"].public_key)
+
+    def test_verify_roundtrip_is_internally_consistent(self) -> None:
+        """Unanchored: every integrity layer passes, but nothing is authenticated.
+
+        AMA 4.0 stopped reporting ``all_valid`` True for a package verified
+        against its own embedded key material. ``core_valid`` is the honest
+        result for that mode and is what this asserts.
+        """
         crypto = MercuryCrypto()
         data = {"detector": "fusion", "score": 0.91, "is_anomaly": True}
         pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
 
         verdict = crypto.verify_crypto_package(self._content(data), pkg)
+        assert verdict["core_valid"] is True
+        # No trust anchor was supplied, so no origin claim is made.
+        assert verdict["key_pinned"] is False
+        assert verdict["all_valid"] is False
+
+    def test_verify_roundtrip_all_valid_when_key_is_pinned(self) -> None:
+        """Anchored with an out-of-band signing key: the package is authenticated."""
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91, "is_anomaly": True}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+
+        verdict = crypto.verify_crypto_package(
+            self._content(data), pkg, expected_public_key=self._signing_key(pkg)
+        )
+        assert verdict["key_pinned"] is True
         assert verdict["all_valid"] is True
+
+    def test_verify_rejects_a_wrong_pinned_key(self) -> None:
+        """A key that is not the signer's refuses the package rather than passing it."""
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+
+        wrong = bytes(len(self._signing_key(pkg)))
+        verdict = crypto.verify_crypto_package(self._content(data), pkg, expected_public_key=wrong)
+        assert verdict["key_pinned"] is False
+        assert verdict["primary_signature"] is False
+        assert verdict["all_valid"] is False
 
     def test_verify_detects_tamper(self) -> None:
         crypto = MercuryCrypto()
@@ -167,7 +205,23 @@ class TestSixLayerVerify:
         pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
 
         # Verify against different content — integrity/signature layers must fail.
+        # Asserted on ``core_valid``: post-AMA-4.0 an unanchored ``all_valid`` is
+        # False for an *intact* package too, so asserting it here would pass
+        # without the tamper having been detected at all.
         verdict = crypto.verify_crypto_package(self._content(data) + b"tamper", pkg)
+        assert verdict["core_valid"] is False
+        assert verdict["all_valid"] is False
+
+    def test_tamper_is_detected_even_with_the_correct_key_pinned(self) -> None:
+        """Pinning the right key must not paper over corrupted content."""
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+
+        verdict = crypto.verify_crypto_package(
+            self._content(data) + b"tamper", pkg, expected_public_key=self._signing_key(pkg)
+        )
+        assert verdict["core_valid"] is False
         assert verdict["all_valid"] is False
 
     def test_verify_requires_six_layer_package(self) -> None:

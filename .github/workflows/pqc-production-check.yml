@@ -81,7 +81,7 @@ jobs:
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # FIPS 204/205 KAT pinning: the byte-exact NIST ACVP reproduction in
-        # ``tests/security/test_nist_fips_kat.py`` requires the AMA v3.3.0
+        # ``tests/security/test_nist_fips_kat.py`` requires the AMA v4.0.0
         # surface (``dilithium_sign_ctx`` for FIPS 204 §5.2 ctx-aware ML-DSA-65
         # sign + ``slhdsa_sign_deterministic`` / ``slhdsa_verify`` for FIPS 205
         # SLH-DSA-SHAKE-128s NIST L1) plus the FIPS 204 §6.2 Algorithm 7 line 3
@@ -94,7 +94,7 @@ jobs:
         # this build is identical across every lane that runs it.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Verify backend hierarchy
         run: |
@@ -136,7 +136,7 @@ jobs:
         # Blocking — the previous ``|| echo "Some tests may fail without
         # AMA native C library"`` was a silent escape hatch.  By the time
         # this step runs, the workflow has already:
-        #   - cloned and built AMA Cryptography (``v3.3.0`` tag),
+        #   - cloned and built AMA Cryptography (``v4.0.0`` tag),
         #   - exported ``LD_LIBRARY_PATH`` to the AMA build/lib,
         #   - sanity-checked that ``DILITHIUM_AVAILABLE``, ``SPHINCS_AVAILABLE``
         #     and ``KYBER_AVAILABLE`` are all ``True`` against the real

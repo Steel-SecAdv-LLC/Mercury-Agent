@@ -5,7 +5,7 @@
 Scope
 -----
 This file now pins the universal fail-closed contract: the gate always
-requires a real AMA Cryptography v3.3.0 native build.  The env vars
+requires a real AMA Cryptography v4.0.0 native build.  The env vars
 ``AMA_REQUIRE_REAL_PQC`` / ``AVA_REQUIRE_REAL_PQC`` are compatibility
 diagnostics only; unset or false values must not disable the gate.
 """
@@ -131,10 +131,10 @@ class TestFipsPostEnforcement:
 
 
 class TestAmaVersionEnforcement:
-    """The gate pins AMA Cryptography to exactly ``_AMA_REQUIRED_VERSION`` (3.3.0)."""
+    """The gate pins AMA Cryptography to exactly ``_AMA_REQUIRED_VERSION`` (4.0.0)."""
 
-    def test_pinned_version_is_3_3_0(self) -> None:
-        assert _AMA_REQUIRED_VERSION == "3.3.0"
+    def test_pinned_version_is_4_0_0(self) -> None:
+        assert _AMA_REQUIRED_VERSION == "4.0.0"
 
     def test_real_installed_version_passes(self) -> None:
         # The build under test installs the pinned version; the check is silent.
@@ -146,7 +146,7 @@ class TestAmaVersionEnforcement:
             _enforce_ama_version()
 
     def test_declared_env_match_passes_with_v_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv(AMA_CRYPTO_VERSION_ENV, "v3.3.0")
+        monkeypatch.setenv(AMA_CRYPTO_VERSION_ENV, "v4.0.0")
         _enforce_ama_version()
 
     def test_installed_version_mismatch_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -157,17 +157,30 @@ class TestAmaVersionEnforcement:
     @pytest.mark.parametrize(
         "version",
         # Trailing-zero equivalents of the pin are the same release and accepted.
-        ["3.3.0", "v3.3.0", "3.3.0.post1", "3.3.0rc1", "3.3.0+cpu", "3.3", "3.3.0.0", "  3.3.0 "],
+        # ``"4"`` is included: zero-padding makes it the same release as the pin.
+        [
+            "4.0.0",
+            "v4.0.0",
+            "4.0.0.post1",
+            "4.0.0rc1",
+            "4.0.0+cpu",
+            "4.0",
+            "4.0.0.0",
+            "  4.0.0 ",
+            "4",
+        ],
     )
     def test_release_matches_accepts_pinned_release_variants(self, version: str) -> None:
         assert _release_matches(version) is True
 
     @pytest.mark.parametrize(
         "version",
-        # A *longer* release that merely shares the pinned prefix (3.3.0.1) is a
+        # A *longer* release that merely shares the pinned prefix (4.0.0.1) is a
         # DIFFERENT release and must be refused, not truncated to the pin -- else
         # the Tier-0 version gate would silently accept an unpinned build.
-        ["3.1.0", "3.2.0", "9.9.9", "2.0.0", "3", "3.3.0.1", "3.3.0.0.1", "3.3.1", "", "garbage"],
+        # ``"4"`` is NOT here: it zero-pads to the pinned release and is accepted
+        # above, unlike the old pin where ``"3"`` padded to (3, 0, 0) != (3, 3, 0).
+        ["3.1.0", "3.3.0", "9.9.9", "2.0.0", "4.0.0.1", "4.0.0.0.1", "4.0.1", "", "garbage"],
     )
     def test_release_matches_rejects_other_releases(self, version: str) -> None:
         assert _release_matches(version) is False
@@ -176,5 +189,5 @@ class TestAmaVersionEnforcement:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # A post/local build of the pinned release must NOT be refused.
-        monkeypatch.setattr(ama_cryptography, "__version__", "3.3.0.post1", raising=False)
+        monkeypatch.setattr(ama_cryptography, "__version__", "4.0.0.post1", raising=False)
         _enforce_ama_version()  # must not raise

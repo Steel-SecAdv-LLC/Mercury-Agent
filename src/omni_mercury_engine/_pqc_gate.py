@@ -19,10 +19,10 @@ surfaces and a Dilithium-only install would let the process start
 in a cryptographically incomplete state.
 
 On top of algorithm availability the gate also enforces the pinned
-**version** (:data:`_AMA_REQUIRED_VERSION`, ``3.3.0``): the installed
+**version** (:data:`_AMA_REQUIRED_VERSION`, ``4.0.0``): the installed
 ``ama_cryptography.__version__`` and, when set, the operator's
 ``AMA_CRYPTO_VERSION`` env var must match the pinned *release*
-PEP 440-tolerantly (``v3.3.0`` / ``3.3.0.post1`` / ``3.3`` are accepted;
+PEP 440-tolerantly (``v4.0.0`` / ``4.0.0.post1`` / ``4.0`` are accepted;
 a different release such as ``3.1.0`` is refused), so a build of the
 wrong AMA release (that happens to expose the three flags) is refused
 rather than started.  See :func:`_enforce_ama_version` /
@@ -59,18 +59,18 @@ import re
 #: The single AMA-Cryptography version Mercury is pinned to. Kept in lockstep
 #: with the pyproject ``ama-cryptography`` git pin, ``.github/actions/build-ama-
 #: cryptography`` (``AMA_REF``), and ``scripts/build_ama_native.sh``.
-_AMA_REQUIRED_VERSION = "3.3.0"
+_AMA_REQUIRED_VERSION = "4.0.0"
 
 #: The numeric release the pin resolves to, matched PEP 440-tolerantly: a build
-#: reporting ``3.3.0``, ``v3.3.0``, ``3.3.0.post1``, ``3.3.0rc1`` or ``3.3.0+cpu``
+#: reporting ``4.0.0``, ``v4.0.0``, ``4.0.0.post1``, ``4.0.0rc1`` or ``4.0.0+cpu``
 #: all satisfy it (same release); ``3.2.0`` / ``3.4.0`` / ``9.9.9`` do not, and
-#: neither does a *longer* release sharing the prefix (``3.3.0.1``) -- see
+#: neither does a *longer* release sharing the prefix (``4.0.0.1``) -- see
 #: :func:`_release_matches`, which compares the full tuple rather than truncating.
-_AMA_REQUIRED_RELEASE = (3, 3, 0)
+_AMA_REQUIRED_RELEASE = (4, 0, 0)
 
 #: Operator-facing env var to *declare* the AMA version. When set it must match
 #: the pinned *release* (:data:`_AMA_REQUIRED_RELEASE`) PEP 440-tolerantly via
-#: :func:`_release_matches` -- ``v3.3.0`` / ``3.3.0.post1`` / ``3.3`` are accepted,
+#: :func:`_release_matches` -- ``v4.0.0`` / ``4.0.0.post1`` / ``4.0`` are accepted,
 #: a different release is refused. A mismatch is a loud, fail-closed configuration
 #: error rather than a silent downgrade.
 AMA_CRYPTO_VERSION_ENV = "AMA_CRYPTO_VERSION"
@@ -78,7 +78,7 @@ AMA_CRYPTO_VERSION_ENV = "AMA_CRYPTO_VERSION"
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
     "repo (Mercury-Agent has no CMakeLists.txt of its own):\n"
-    "  git clone --depth 1 --branch v3.3.0 \\\n"
+    "  git clone --depth 1 --branch v4.0.0 \\\n"
     "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
     "  cd /tmp/ama-cryptography\n"
     "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
@@ -107,7 +107,7 @@ def _enforce_pqc_production_gate() -> None:
     gate read the flags from per-algorithm submodules
     (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``) and from the
     top-level package (``ama_cryptography.DILITHIUM_AVAILABLE``).
-    Neither location is reliably populated by the real AMA v3.3.0
+    Neither location is reliably populated by the real AMA v4.0.0
     install — the canonical location is the ``pqc_backends`` submodule,
     which is where Mercury's own ``security/pqc_backends.py`` reads
     them.  Aligning the gate with that reader keeps both views of AMA
@@ -184,7 +184,7 @@ def _enforce_fips_post() -> None:
 def _release_tuple(value: str) -> tuple[int, ...]:
     """Leading numeric release of a version string, PEP 440-tolerantly.
 
-    ``' v3.3.0.post1 '`` / ``'3.3.0rc1'`` / ``'3.3.0+cpu'`` all yield ``(3, 3, 0)``;
+    ``' v4.0.0.post1 '`` / ``'4.0.0rc1'`` / ``'4.0.0+cpu'`` all yield ``(4, 0, 0)``;
     a non-numeric or empty value yields ``()``. Only the dotted numeric prefix is
     read, so pre/post/dev/local suffixes never change the matched release.
     """
@@ -199,13 +199,13 @@ def _release_matches(value: str) -> bool:
 
     Both sides are zero-padded to their common length and compared in *full* --
     the longer release is **never truncated**. Zero-padding accepts trailing-zero
-    equivalents of the pin (``'3.3'`` / ``'3.3.0'`` / ``'3.3.0.0'`` all match
-    ``(3, 3, 0)``), while comparing the full tuple means a *longer, different*
-    release that merely shares the pinned prefix (``'3.3.0.1'``) is **refused**,
+    equivalents of the pin (``'4.0'`` / ``'4.0.0'`` / ``'4.0.0.0'`` all match
+    ``(4, 0, 0)``), while comparing the full tuple means a *longer, different*
+    release that merely shares the pinned prefix (``'4.0.0.1'``) is **refused**,
     not silently accepted. A different minor/major (``3.2.0`` / ``3.4.0``) is
     refused as before. Truncating longer releases would weaken the Tier-0 pin by
     treating a distinct release as the pinned one, so it is deliberately avoided.
-    A pre/post/dev/local *suffix* (``3.3.0.post1`` / ``3.3.0+cpu``) is not part of
+    A pre/post/dev/local *suffix* (``4.0.0.post1`` / ``4.0.0+cpu``) is not part of
     the numeric release and is already dropped by :func:`_release_tuple`.
     """
     release = _release_tuple(value)
@@ -232,9 +232,9 @@ def _enforce_ama_version() -> None:
       algorithm-availability check; this closes that gap.
 
     Matching is PEP 440-tolerant (see :func:`_release_matches`): a post/local/dev
-    build of the pinned release (``3.3.0.post1``, ``3.3.0+cpu``) is accepted, a
+    build of the pinned release (``4.0.0.post1``, ``4.0.0+cpu``) is accepted, a
     different release (``3.2.0``, ``3.4.0``) is refused. Absent version metadata
-    is not, on its own, fatal: the v3.3.0-only symbol imports in
+    is not, on its own, fatal: the v4.0.0-only symbol imports in
     ``security/pqc_backends.py`` already floor the surface. This adds an explicit,
     operator-visible version gate on top of that structural floor.
     """

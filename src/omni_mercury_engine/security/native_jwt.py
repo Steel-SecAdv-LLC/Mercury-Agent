@@ -258,7 +258,7 @@ def _sign_ama(header_segment: bytes, payload_segment: bytes, key: bytes, alg: st
             # backend rather than silently downgrading to stdlib.
             return ama_hmac.ama_hmac_sha384(key, _signing_input(header_segment, payload_segment))
         case "HS512":
-            # The pinned AMA v3.3.0 does not ship a two-segment HMAC-SHA-512
+            # The pinned AMA v4.0.0 does not ship a two-segment HMAC-SHA-512
             # variant; use the one-segment binding with a single concat.
             return ama_hmac.ama_hmac_sha512(key, _signing_input(header_segment, payload_segment))
     raise InvalidAlgorithmError(f"Algorithm {alg!r} is not AMA-routable")
@@ -291,7 +291,7 @@ def _sign(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -
     """Compute the HMAC tag for ``b64(header).b64(payload)`` under ``alg``.
 
     Routes HS256/HS384/HS512 through AMA Cryptography's native C HMAC (all three
-    HMAC variants are bound by the pinned AMA v3.3.0).
+    HMAC variants are bound by the pinned AMA v4.0.0).
     """
     if _alg_uses_ama(alg):
         return _sign_ama(header_segment, payload_segment, key, alg)
