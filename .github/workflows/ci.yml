@@ -380,7 +380,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run actionlint
         run: |
@@ -555,7 +555,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run MyPy
         # MyPy reads strict config from pyproject.toml automatically.
@@ -795,7 +795,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Install bandit / safety / pip-audit (audit-tool layer)
         # Audit tools live in the *runner's* default Python and are
@@ -1047,7 +1047,7 @@ jobs:
         # real native AMA backend; non-native PQC execution is not a CI mode.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run core tests with coverage
         env:
@@ -1215,7 +1215,7 @@ jobs:
         # against the native backend, never the soft stubs.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run neuro-symbolic test suite
         env:
@@ -1349,12 +1349,12 @@ jobs:
         # ``tests/security/test_pqc_gate_real_ama.py`` which imports
         # ``ama_cryptography.pqc_backends`` at module scope and would fail
         # collection if the native library were absent. The composite action
-        # builds AMA v3.3.0 identically to every other lane (toolchain,
+        # builds AMA v4.0.0 identically to every other lane (toolchain,
         # supply-chain floors, cmake build, LD_LIBRARY_PATH export) — no mock,
         # no skip, no silent stub.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run full test suite with parallelization
         env:
@@ -1480,7 +1480,7 @@ jobs:
         # the native backend, never the soft stubs.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run integration tests
         # Integration tests are a blocking gate.  For an anomaly detection
@@ -1556,7 +1556,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run ethics audit
         # Ethics audit enforces AI alignment — failures block the pipeline.
@@ -1628,7 +1628,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run performance benchmarks
         # Performance gate: Detect regressions in key operations

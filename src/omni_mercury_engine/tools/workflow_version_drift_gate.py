@@ -10,7 +10,7 @@ workflow that builds the AMA native library:
 * ``.github/workflows/pqc-production-check.yml``
 * any other workflow that defines ``AMA_REF:``
 
-We just hit this manually (AMA v3.3.0 vs v2.0).  A pre-commit / CI
+We just hit this manually (AMA v4.0.0 vs v2.0).  A pre-commit / CI
 gate turns the manual check into a structural one.
 """
 
@@ -44,13 +44,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 # Regex for the pyproject.toml dependency line:
-#   "ama-cryptography @ git+https://github.com/.../AMA-Cryptography.git@v3.3.0",
+#   "ama-cryptography @ git+https://github.com/.../AMA-Cryptography.git@v4.0.0",
 _PYPROJECT_PATTERN = re.compile(
     r"ama-cryptography\s*@\s*git\+https?://[^@]+@(?P<ref>[^\s\",]+)",
     re.IGNORECASE,
 )
 # Regex for the workflow env-var:
-#   AMA_REF: v3.3.0
+#   AMA_REF: v4.0.0
 _WORKFLOW_PATTERN = re.compile(r"^\s*AMA_REF:\s*['\"]?(?P<ref>\S+?)['\"]?\s*$", re.MULTILINE)
 
 

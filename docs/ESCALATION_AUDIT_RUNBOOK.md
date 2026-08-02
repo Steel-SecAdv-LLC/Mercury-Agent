@@ -158,4 +158,4 @@ Artifacts: `benchmarks/weapons_gate_corpus_manifest.json` (version + hash),
 | No audit entries | `MERCURY_GATE_AUDIT_DISABLED=1` set, or `MERCURY_GATE_AUDIT_LOG` points at an unwritable path (write failure is logged, not raised). |
 | `verify_log_integrity` returns False | Secure log mutated out of band — treat as an incident; the named indices locate the break. |
 | Meaning-level lane skips instead of measuring | No real served model detected; set `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1` and serve a local model at `MERCURY_MODEL_ENDPOINT`. |
-| `import omni_mercury_engine` raises at startup | PQC gate: AMA missing/partial or version ≠ `3.3.0` — rebuild with `scripts/build_ama_native.sh`. |
+| `import omni_mercury_engine` raises at startup | PQC gate: AMA missing/partial or version ≠ `4.0.0` — rebuild with `scripts/build_ama_native.sh`. |

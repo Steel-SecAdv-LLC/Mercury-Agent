@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the crypto_api module - cryptographic operations.
 
-AMA Cryptography v3.3.0 is a mandatory Mercury capability.  There is no
+AMA Cryptography v4.0.0 is a mandatory Mercury capability.  There is no
 simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 """
 
@@ -153,13 +153,33 @@ class TestSixLayerVerify:
 
         return json.dumps(data, sort_keys=True, default=str).encode()
 
-    def test_verify_roundtrip_all_valid(self) -> None:
+    def test_verify_roundtrip_core_valid(self) -> None:
+        # AMA v4.0: an unanchored verify proves integrity / internal consistency
+        # (``core_valid``), which is the pre-4.0 meaning of ``all_valid``. Without
+        # an out-of-band anchor no authenticity is claimed, so ``all_valid`` is
+        # False by design.
         crypto = MercuryCrypto()
         data = {"detector": "fusion", "score": 0.91, "is_anomaly": True}
         pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
 
         verdict = crypto.verify_crypto_package(self._content(data), pkg)
+        assert verdict["core_valid"] is True
+        assert verdict["all_valid"] is False
+        assert verdict["key_pinned"] is False
+
+    def test_verify_roundtrip_all_valid_when_pinned(self) -> None:
+        # Supplying the signing public key out of band pins the package and
+        # restores the full ``all_valid`` assertion under AMA v4.0.
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91, "is_anomaly": True}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+        anchor = pkg.ama_package.keypairs["HYBRID_SIG"].public_key
+
+        verdict = crypto.verify_crypto_package(
+            self._content(data), pkg, expected_public_key=anchor
+        )
         assert verdict["all_valid"] is True
+        assert verdict["key_pinned"] is True
 
     def test_verify_detects_tamper(self) -> None:
         crypto = MercuryCrypto()
@@ -167,7 +187,11 @@ class TestSixLayerVerify:
         pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
 
         # Verify against different content — integrity/signature layers must fail.
+        # Assert on ``core_valid`` specifically: under AMA v4.0 an unanchored
+        # ``all_valid`` is False regardless of tampering, so only ``core_valid``
+        # actually proves the integrity layers caught the modification.
         verdict = crypto.verify_crypto_package(self._content(data) + b"tamper", pkg)
+        assert verdict["core_valid"] is False
         assert verdict["all_valid"] is False
 
     def test_verify_requires_six_layer_package(self) -> None:

@@ -37,7 +37,7 @@ if [ "${MERCURY_SETUP_FORCE:-}" != "1" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true
   exit 0
 fi
 
-AMA_REF="v3.3.0"                 # keep in lockstep with pyproject.toml [pqc] pin
+AMA_REF="v4.0.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
 AMA_LIB="${AMA_SRC}/build/lib"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"

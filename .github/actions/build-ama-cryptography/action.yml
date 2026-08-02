@@ -13,7 +13,7 @@ inputs:
       AMA Cryptography git tag/ref to build. Pin to an immutable tag (not a
       moving branch) so KAT reproducibility has a stable anchor.
     required: false
-    default: v3.3.0
+    default: v4.0.0
 
 runs:
   using: composite

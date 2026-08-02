@@ -4,7 +4,7 @@
 
 These tests pin that Mercury's :mod:`native_jwt` signing primitive
 produces byte-identical output whether routed through AMA
-Cryptography v3.3.0's native HMAC C backend and match stdlib
+Cryptography v4.0.0's native HMAC C backend and match stdlib
 ``hmac`` over ``hashlib`` for the same FIPS 198-1 / RFC 2104 wire format.
 AMA absence is not a test skip or fallback path; module import fails closed.
 """
@@ -58,7 +58,7 @@ class TestSigningBackendSurface:
             assert backend in ("ama", "stdlib")
 
     def test_hs384_routes_ama(self) -> None:
-        # AMA v3.3.0 binds a native HMAC-SHA-384 in its C backend, so HS384
+        # AMA v4.0.0 binds a native HMAC-SHA-384 in its C backend, so HS384
         # routes through AMA (ACVP-validated, fail-closed) like HS256/HS512 --
         # never a silent stdlib downgrade.
         assert native_jwt.get_signing_backend("HS384") == "ama"

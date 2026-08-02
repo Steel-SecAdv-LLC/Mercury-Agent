@@ -65,7 +65,7 @@ RUN pip install --no-cache-dir ".[all]"
 # The shared object is co-located inside the installed ama_cryptography package
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
-ARG AMA_REF=v3.3.0
+ARG AMA_REF=v4.0.0
 COPY scripts/build_ama_native.sh /app/scripts/build_ama_native.sh
 RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
 

@@ -661,6 +661,7 @@ class MercuryCrypto:
         self,
         content: bytes,
         package: CryptoPackageResult,
+        expected_public_key: bytes | None = None,
     ) -> dict[str, bool]:
         """Verify a 6-layer AMA crypto package produced by :meth:`create_crypto_package`.
 
@@ -674,9 +675,23 @@ class MercuryCrypto:
             content: The original signed content.
             package: A :class:`CryptoPackageResult` from
                 :meth:`create_crypto_package` with ``use_six_layer=True``.
+            expected_public_key: Optional out-of-band signing public key to pin
+                the package against for *authenticity*. As of AMA Cryptography
+                v4.0 the aggregate ``all_valid`` is True only when this anchor is
+                supplied and matches the package's embedded signing key; an
+                unanchored call proves integrity / internal consistency only,
+                reported by ``core_valid`` (the pre-4.0 meaning of ``all_valid``).
+                For a self-check the anchor can be read from the package itself
+                (``package.ama_package.keypairs["HYBRID_SIG"].public_key``); for a
+                real origin check, pass a key obtained out of band (pinned in
+                config, or established at enrollment).
 
         Returns:
-            Per-layer booleans plus ``all_valid`` (True iff every layer passed).
+            Per-layer booleans. ``core_valid`` is True iff Layers 1-4 (content
+            hash, HMAC, primary signature, key independence) passed — integrity
+            and internal consistency. ``all_valid`` additionally requires that
+            ``expected_public_key`` was supplied and matched (``key_pinned``),
+            per AMA v4.0's fail-closed authenticity semantics.
 
         Raises:
             ValueError: If ``package`` carries no AMA six-layer payload to verify
@@ -689,7 +704,9 @@ class MercuryCrypto:
                 "(create with CryptoPackageConfig(use_six_layer=True)); "
                 "this result carries no AMA package to verify."
             )
-        result: dict[str, bool] = _ama_verify_crypto_package(content, ama_package)
+        result: dict[str, bool] = _ama_verify_crypto_package(
+            content, ama_package, expected_public_key=expected_public_key
+        )
         return result
 
     def get_capabilities(self) -> dict[str, Any]:

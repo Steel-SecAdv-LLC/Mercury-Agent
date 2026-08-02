@@ -54,7 +54,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Phase 3 governance routing + live-wiring tests
         # The routing-logic tests are deterministic and network-free; the
@@ -88,7 +88,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Measure dormant-module revival on external labels
         run: python -m benchmarks.dormant_module_revival --out artifacts/dormant_module_revival.json

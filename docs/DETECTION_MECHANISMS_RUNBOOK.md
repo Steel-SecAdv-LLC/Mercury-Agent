@@ -25,7 +25,7 @@ require the `[ml]` (PyTorch) extra.
 
 | Variable | Purpose | Default / fail mode |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | Declares the AMA-Cryptography release; must match the pinned `3.3.0`. | Unset is allowed; a mismatch is a loud, fail-closed startup error. |
+| `AMA_CRYPTO_VERSION` | Declares the AMA-Cryptography release; must match the pinned `4.0.0`. | Unset is allowed; a mismatch is a loud, fail-closed startup error. |
 | `MERCURY_REQUIRES_ML` | **Test/CI-harness gate** (read by `tests/conftest.py::pytest_sessionstart`, not the runtime): when `1`, aborts the *pytest* session if PyTorch is missing. | Unset ⇒ torch detectors skip gracefully at runtime. |
 | `contamination` (ensemble arg) | Expected anomaly fraction for threshold calibration. | `0.05` |
 | `calibration_quantile` (detector arg) | Training-residual quantile placed at the 0.5 boundary; `1 − q` ≈ normal-regime FPR. | `0.98` |
@@ -107,7 +107,7 @@ flags = conformal_flags(scores, calibration_scores=normal_scores, alpha=0.05)
   real-data (NAB) summary — prints, does not commit:
 
 ```bash
-AMA_CRYPTO_VERSION=3.3.0 python -m benchmarks.detection_tier_benchmark
+AMA_CRYPTO_VERSION=4.0.0 python -m benchmarks.detection_tier_benchmark
 ```
 
   The committed numbers live in the `detection_tier` section of
@@ -115,7 +115,7 @@ AMA_CRYPTO_VERSION=3.3.0 python -m benchmarks.detection_tier_benchmark
   harness (also refreshes the main headline):
 
 ```bash
-AMA_CRYPTO_VERSION=3.3.0 python benchmarks/mercury_benchmark.py
+AMA_CRYPTO_VERSION=4.0.0 python benchmarks/mercury_benchmark.py
 ```
 
 ## 5. Monitor
@@ -155,7 +155,7 @@ in the CAP alert metadata for on-call triage.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Startup `RuntimeError: AMA/PQC version mismatch` | `AMA_CRYPTO_VERSION` ≠ pinned `3.3.0`, or wrong AMA build. | Unset the var or set it to `3.3.0`; rebuild AMA via `scripts/build_ama_native.sh`. |
+| Startup `RuntimeError: AMA/PQC version mismatch` | `AMA_CRYPTO_VERSION` ≠ pinned `4.0.0`, or wrong AMA build. | Unset the var or set it to `4.0.0`; rebuild AMA via `scripts/build_ama_native.sh`. |
 | `srcnn` / `diffusion_ad` not discovered | PyTorch not installed. | `pip install -e ".[ml]"`; they load lazily. |
 | A detector's circuit breaker is OPEN | Repeated detector errors on malformed input. | Inspect `registry.health_check()`; the registry skips it and continues — no cascade. |
 | Elevated false positives | Baseline drift moved the normal tail. | Re-fit on a current normal window; lower `alpha` / raise `calibration_quantile`. |

@@ -8,7 +8,7 @@ to Mercury's JWT signing path so that ``HS256``, ``HS384``, and
 ``HS512`` JOSE algorithms run on the same C backend that already serves AMA's PQC
 and HKDF stack in this deployment.
 
-Routed primitives (AMA Cryptography, pinned v3.3.0)
+Routed primitives (AMA Cryptography, pinned v4.0.0)
 --------------------------------------------
 * ``ama_cryptography.pqc_backends.native_hmac_sha256(key, msg)``
   HMAC-SHA-256 (FIPS 198-1 / RFC 2104), ACVP-validated 150/150 vectors.
@@ -18,7 +18,7 @@ Routed primitives (AMA Cryptography, pinned v3.3.0)
   the concat in Python.  This is the JWT signing fast path
   (``b64(header) + "."`` and ``b64(payload)`` go in as two segments).
 * ``ama_cryptography.pqc_backends.native_hmac_sha384(key, msg)``
-  HMAC-SHA-384 (FIPS 198-1 / RFC 2104) — added in AMA v3.3.0.
+  HMAC-SHA-384 (FIPS 198-1 / RFC 2104) — added in AMA v4.0.0.
 * ``ama_cryptography.pqc_backends.native_hmac_sha512(key, msg)``
   HMAC-SHA-512 (FIPS 198-1 / RFC 2104).
 
@@ -31,7 +31,7 @@ AMA/PQC security posture.
 
 References
 ----------
-* AMA Cryptography ``ama_cryptography/pqc_backends.py`` (pinned v3.3.0) —
+* AMA Cryptography ``ama_cryptography/pqc_backends.py`` (pinned v4.0.0) —
   upstream HMAC bindings.
 * FIPS 198-1 — Keyed-Hash Message Authentication Code.
 * RFC 2104 — HMAC.
@@ -63,7 +63,7 @@ HAS_AMA_HMAC_SHA512: bool = bool(_HMAC_SHA512_NATIVE_AVAILABLE)
 if not (HAS_AMA_HMAC_SHA256 and HAS_AMA_HMAC_SHA384 and HAS_AMA_HMAC_SHA512):
     raise ImportError(
         "AMA Cryptography native HMAC backend is mandatory for Mercury; "
-        "build AMA v3.3.0 with native HMAC/PQC enabled."
+        "build AMA v4.0.0 with native HMAC/PQC enabled."
     )
 
 # Cached references to the AMA primitives.
@@ -110,7 +110,7 @@ def ama_hmac_sha256_2(key: bytes, msg1: bytes, msg2: bytes) -> bytes:
 
 
 def ama_hmac_sha384(key: bytes, msg: bytes) -> bytes:
-    """Compute HMAC-SHA-384 via AMA's native C backend (AMA v3.3.0+).
+    """Compute HMAC-SHA-384 via AMA's native C backend (AMA v4.0.0+).
 
     Raises:
         RuntimeError: AMA Cryptography's native HMAC-SHA-384 binding was

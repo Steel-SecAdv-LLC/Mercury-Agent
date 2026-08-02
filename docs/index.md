@@ -23,10 +23,10 @@ attribution to code transferred from its former agent layer.)
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
 - **Sole PQC backend, hard-gated at import.**
-  AMA Cryptography (pinned to **v3.3.0** in
+  AMA Cryptography (pinned to **v4.0.0** in
   `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
   of `pyproject.toml`) is the only
-  supported post-quantum backend (PR #144). v3.3.0 also exposes the
+  supported post-quantum backend (PR #144). v4.0.0 also exposes the
   native HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings consumed by
   Mercury's `native_jwt` HS256 / HS384 / HS512 signing path (see CHANGELOG
   `[Unreleased]` § "AMA-routed JWT HMAC signatures"). Package import is

@@ -72,7 +72,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       # Metric primitives: every skill-score formula verified against a
       # worked literature example (Finley 1884 contingency table, NOAA
