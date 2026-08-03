@@ -320,9 +320,11 @@ class GeneralAssistant:
             # which is exactly how this layer came to refuse "assess trauma ...
             # among displaced families" while the engine boundary permitted it.
             # Fail-closed: any of the three signals refuses, and a scorer that
-            # omits a field is read as its safe default.
+            # omits the decision field is refused rather than waved through --
+            # ``EthicalScore`` always carries ``is_permissible``, so absence
+            # means an injected scorer that never issued a verdict.
             grave_harm = bool(getattr(score, "grave_harm", False))
-            harmful = grave_harm or not bool(getattr(score, "is_permissible", True))
+            harmful = grave_harm or not bool(getattr(score, "is_permissible", False))
             if weapons_blocks:
                 reason = (
                     f"weapons/mass-casualty uplift gate: {disposition} "
