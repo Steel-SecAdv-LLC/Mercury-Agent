@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from omni_mercury_engine.core.base_domains import BaseDomainDetector
 from omni_mercury_engine.core.domain_metrics import MetricsCalculator
 from omni_mercury_engine.core.gosnn_integration import GOSNNIntegration
 
@@ -105,3 +106,43 @@ class TestGosnnClassifiesOnTheScoresItReports:
 
         flagged_below = scores[is_anomaly & (scores <= threshold)]
         assert flagged_below.size == 0, f"flagged despite being below {threshold}: {flagged_below}"
+
+
+class _EchoDetector:
+    """Minimal base detector: the scores are whatever was passed in."""
+
+    def detect(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
+        return {"scores": np.asarray(X, dtype=float).ravel()}
+
+
+class TestBaseDomainDetectorReportsTheThresholdItUsed:
+    """A caller must be able to reconstruct the decision from what is returned."""
+
+    def test_the_benevolence_weight_knob_is_gone(self) -> None:
+        import inspect
+
+        params = set(inspect.signature(BaseDomainDetector.__init__).parameters)
+        assert "benevolence_weight" not in params, (
+            "benevolence_weight is back: at its 0.1 default it multiplied the "
+            "decision threshold by 1.1618 -- a 16.18% higher bar -- while "
+            "result['threshold'] reported the unadjusted value"
+        )
+
+    def test_is_anomaly_matches_the_reported_threshold(self) -> None:
+        """The property the hidden multiplier broke, stated directly.
+
+        Before the fix, with the shipped default, scores at 0.61 and 0.65
+        against a reported threshold of 0.60 came back ``is_anomaly=False``
+        because the decision silently used 0.697.
+        """
+        detector = BaseDomainDetector(_EchoDetector(), use_calibration=False)
+        detector._threshold = 0.60
+        scores = np.array([0.55, 0.59, 0.61, 0.65, 0.70, 0.75])
+
+        result = detector.detect(scores)
+
+        assert np.array_equal(
+            result["is_anomaly"], result["scores"] > result["threshold"]
+        ), "is_anomaly cannot be reconstructed from the returned scores and threshold"
+        # The two that the old 16.18% bar suppressed are detections again.
+        assert bool(result["is_anomaly"][2]) and bool(result["is_anomaly"][3])

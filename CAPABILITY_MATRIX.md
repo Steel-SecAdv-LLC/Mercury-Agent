@@ -67,6 +67,36 @@ path that exists in this repository.
 | Tripwire halt is irreversible; capability ceiling cannot be self-raised | governor fault injection | escapes found | **0** | `pytest tests/pillars/test_corrigibility.py` | **enforced** — `src/omni_mercury_engine/agentic/subagents/governor.py` |
 | No autonomous change to a live boundary | threshold-move + recalibration proposals | authorised autonomously | **0** | `pytest tests/pillars/test_corrigibility.py` | **enforced** — `src/omni_mercury_engine/governance/self_improvement.py` |
 
+### Live-data reachability, verified 2026-08-03
+
+Mercury's loaders were exercised against their **real upstreams** in this
+environment, not against fixtures. `is_real_data=True` is the loader's own
+assertion that upstream bytes arrived and the synthetic fallback did not run.
+
+| Source | Result | Shape / positives |
+|---|---|---|
+| USGS earthquake feed | **live** | 200 × 11, 41 positive |
+| Open-Meteo weather | **live** | 200 × 8, 2 positive |
+| NOAA SWPC solar | **live** | 200 × 2, 40 positive |
+| NASA Exoplanet Archive (TAP) | **live** | 200 × 8, 23 positive |
+| USGS geochemistry | **live** | 200 × 11, 0 positive |
+| ADBench (`cardio`) | **live** | 1831 × 21, 176 positive |
+
+End-to-end on live data: 400 real USGS seismicity records → `OmniMercuryEngine`
+(decision layer on by default, AMA-Cryptography 4.0.0 with real PQC required) →
+`detect()` returns a verdict; the **same live-configured engine** then refuses a
+weapons-uplift request with `check="harm_uplift"` and still analyses a SQL
+injection payload. Repro:
+`python -m pytest tests/test_loaders_live.py -m network` for the loaders.
+
+**Keyed sources are unavailable here and nothing pretends otherwise.**
+`NASA_API_KEY`, `NASA_FIRMS_MAP_KEY`, `ALPHA_VANTAGE_API_KEY`, `EIA_API_KEY`,
+`OPENWEATHERMAP_API_KEY`, `BRAVE_API_KEY`, `HUGGINGFACE_API_KEY`,
+`NIXTLA_API_KEY`, `FHIR_BEARER_TOKEN` and `DEXCOM_REFRESH_TOKEN` are all unset,
+so those paths were not exercised and no figure here rests on them. FIRMS being
+keyless-unreachable is also why `test_wildfire_loader` must pin the synthetic
+path rather than reach the network (see §6).
+
 ## 3. Cryptography
 
 | Claim | Dataset / task | Metric | Number | Repro command | Status |

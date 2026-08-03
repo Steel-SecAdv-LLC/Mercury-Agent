@@ -603,7 +603,6 @@ class BaseDomainDetector:
         domain: str = "statistical",
         threshold_method: str = "otsu",
         use_calibration: bool = True,
-        benevolence_weight: float = 0.1,
     ):
         """Initialize enhanced detector.
 
@@ -612,13 +611,17 @@ class BaseDomainDetector:
             domain: Domain type for domain-specific metrics
             threshold_method: Adaptive threshold method
             use_calibration: Whether to apply calibration
-            benevolence_weight: Weight for benevolence in scoring
+
+        Note:
+            The former ``benevolence_weight`` parameter is gone. It configured
+            no benevolence signal -- it multiplied the decision threshold by
+            ``1 + weight * PHI`` while the result reported the unadjusted
+            threshold. See :meth:`detect`.
         """
         self.base_detector = base_detector
         self.domain = domain
         self.threshold_optimizer = AdaptiveThresholdOptimizer(method=threshold_method)
         self.use_calibration = use_calibration
-        self.benevolence_weight = benevolence_weight
 
         # Domain-specific metric calculators
         self.event_metrics = EventBasedMetrics() if domain == "temporal" else None
@@ -698,13 +701,38 @@ class BaseDomainDetector:
         # Apply calibration if available
         if self._calibrator is not None:
             scores = self._calibrator.calibrate(scores)
+            # Re-decide on the calibrated scores. Before, ``is_anomaly`` was
+            # computed above from the *raw* scores and then only revisited
+            # inside the benevolence branch below, so a detector with
+            # calibration on and the benevolence weight at zero returned
+            # decisions taken on pre-calibration scores while reporting the
+            # calibrated ones.
+            is_anomaly = scores > (self._threshold if self._threshold is not None else 0.5)
 
-        # Apply benevolence weighting (reduce false positives)
-        # Higher benevolence = more conservative threshold
-        if self.benevolence_weight > 0:
-            benevolence_factor = 1 + self.benevolence_weight * PHI
-            is_anomaly = scores > (self._threshold * benevolence_factor if self._threshold else 0.5)
-
+        # No benevolence re-thresholding. It used to read:
+        #
+        #     if self.benevolence_weight > 0:
+        #         benevolence_factor = 1 + self.benevolence_weight * PHI
+        #         is_anomaly = scores > (self._threshold * benevolence_factor ...)
+        #
+        # At the shipped default (0.1) that is ``1 + 0.1 * 1.618 = 1.1618`` --
+        # a **16.18 % higher bar**, silently suppressing every detection whose
+        # score sat within that band above the calibrated threshold. Two things
+        # were wrong with it beyond the magnitude:
+        #
+        # 1. ``result["threshold"]`` reports ``self._threshold``, the
+        #    *unadjusted* value, so a caller reconstructing the decision from
+        #    the returned scores and threshold got a different answer than the
+        #    ``is_anomaly`` shipped beside them.
+        # 2. Its comment claimed it "reduces false positives". Raising a
+        #    threshold trades false positives for false negatives; in a hazard
+        #    detector the missed detection is the more costly error, and no
+        #    benevolence signal entered the expression -- it read a
+        #    configuration constant.
+        #
+        # A sensitivity control is legitimate, but it belongs in the threshold
+        # calculation, named for what it does, with the value it produces
+        # reported to the caller.
         result = {
             **base_result,
             "scores": scores,
