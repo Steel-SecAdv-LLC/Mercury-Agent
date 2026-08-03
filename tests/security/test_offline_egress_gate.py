@@ -369,6 +369,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
     """The ad-hoc httpx enrichment sources refuse loudly, pre-socket."""
 
     def test_usgs_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pytest.importorskip("httpx")
         from omni_mercury_engine.cognitive.anomaly_detection import (
             USGSEarthquakeSource,
         )
@@ -383,6 +384,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
             source.fetch()
 
     def test_noaa_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pytest.importorskip("httpx")
         from omni_mercury_engine.cognitive.anomaly_detection import (
             NOAAWeatherSource,
         )
@@ -405,6 +407,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         per-source "Error fetching..." line -- and return empty so local
         detection continues.
         """
+        pytest.importorskip("httpx")
         from omni_mercury_engine.cognitive.anomaly_detection import (
             ExternalDataIntegrator,
             USGSEarthquakeSource,
@@ -420,6 +423,24 @@ class TestCognitiveHTTPXSourcesOfflineGate:
             assert integrator.fetch_all() == []
         assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)
         assert not any(r.message.startswith("Error fetching") for r in caplog.records)
+
+    def test_sources_refuse_construction_without_httpx(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without httpx the sources raise a clear ImportError, not a NameError.
+
+        The module guards ``import httpx`` behind ``HTTPX_AVAILABLE`` but the
+        constructors used to reference ``httpx`` unconditionally, crashing
+        with ``NameError`` on any install without the ``[api]`` extra. The
+        guard must stay wired to the constructors.
+        """
+        from omni_mercury_engine.cognitive import anomaly_detection
+
+        monkeypatch.setattr(anomaly_detection, "HTTPX_AVAILABLE", False)
+        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+            anomaly_detection.USGSEarthquakeSource()
+        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+            anomaly_detection.NOAAWeatherSource(state="CA")
 
 
 class TestNISTCSFFetcherOfflineGate:

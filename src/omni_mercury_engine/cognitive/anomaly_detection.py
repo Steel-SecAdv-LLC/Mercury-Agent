@@ -652,6 +652,11 @@ class USGSEarthquakeSource(ExternalDataSource):
             days_back: Number of days to look back for earthquakes (default 7)
             timeout_seconds: HTTP request timeout in seconds (default 30)
         """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "httpx is required for USGSEarthquakeSource. "
+                "Install with: pip install 'mercury-agent[api]'"
+            )
         self.source_name = "usgs_earthquake"
         self.min_magnitude = min_magnitude
         self.max_results = max_results
@@ -780,6 +785,11 @@ class NOAAWeatherSource(ExternalDataSource):
             zone: Specific NWS zone ID (e.g., "CAZ006")
             timeout_seconds: HTTP request timeout in seconds (default 30)
         """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "httpx is required for NOAAWeatherSource. "
+                "Install with: pip install 'mercury-agent[api]'"
+            )
         self.source_name = "noaa_weather"
         self.state = state
         self.zone = zone
