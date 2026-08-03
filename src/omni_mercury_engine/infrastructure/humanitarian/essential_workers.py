@@ -17,8 +17,9 @@ from typing import Any
 class EssentialWorkersMonitor:
     """Essential critical infrastructure workers anomaly detector.
 
-    Monitors workforce continuity for 8 essential worker categories, weighting the
-    ethical principles.
+    Monitors workforce continuity for 8 essential worker categories, prioritising
+    the workers most exposed in a crisis. Triage weights come from the ethical
+    scalars in ``ethical_config``.
     """
 
     def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
