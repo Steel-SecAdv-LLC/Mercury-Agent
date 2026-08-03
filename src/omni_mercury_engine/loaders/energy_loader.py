@@ -13,6 +13,7 @@ Ground truth events cover major geomagnetic storms and grid disruptions where se
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 from typing import Any
@@ -541,7 +542,12 @@ class EnergyLoader(BaseDomainLoader):
         """
         try:
             raw = self._fetch_json(url)
-        except (ConnectionError, OSError, ValueError) as exc:
+        except (OSError, json.JSONDecodeError) as exc:
+            # Transport failure or a garbled body: the other feed still covers
+            # part of the window, so degrade rather than abort. Configuration
+            # faults (``UnsafeURLError`` and other ``ValueError``s from the
+            # allowlist gate) deliberately propagate -- swallowing those would
+            # turn an off-allowlist host into a silent coverage gap.
             logger.warning("Solar wind feed %s unavailable: %s", url, exc)
             return []
 
