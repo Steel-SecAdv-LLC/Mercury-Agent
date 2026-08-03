@@ -33,11 +33,63 @@ if TYPE_CHECKING:
 Results = list[tuple[str, str, str]]
 _RESULTS: Results = []
 
+#: Every env var that can hold live-data credentials in this job. Used solely
+#: to redact those values out of anything this script prints.
+_KEY_ENV_VARS: tuple[str, ...] = (
+    "NASA_FIRMS_MAP_KEY",
+    "FIRMS_MAP_KEY",
+    "NASA_API_KEY",
+    "FRED_API_KEY",
+    "EIA_API_KEY",
+    "ALPHA_VANTAGE_API_KEY",
+    "OPENWEATHERMAP_API_KEY",
+    "USGS_KEY",
+    "EROSERS_USERNAME",
+    "EROSERS_PASSWORD",
+)
+
+
+def _redact(text: str) -> str:
+    """Strip any configured key material out of *text*.
+
+    Several upstreams embed the credential in the request itself -- NASA FIRMS
+    puts the MAP_KEY in the URL *path* -- so an exception message can carry the
+    secret verbatim. Every non-empty value among the known key env vars is
+    replaced before anything is printed, which keeps the diagnostic detail
+    (status code, host, reason) without ever emitting the credential.
+    """
+    for var in _KEY_ENV_VARS:
+        value = os.environ.get(var, "").strip()
+        # Guard against a short/degenerate value matching everywhere.
+        if len(value) >= 8:
+            text = text.replace(value, f"<{var}:redacted>")
+    return text
+
 
 def _record(name: str, status: str, detail: str) -> None:
     """Record and print one loader's smoke result (no key material)."""
+    detail = _redact(detail)
     _RESULTS.append((name, status, detail))
     print(f"[{status:4s}] {name}: {detail}", flush=True)
+
+
+def _describe(exc: BaseException) -> str:
+    """Render an exception with its chained causes.
+
+    The loaders wrap transport failures as ``ConnectionError: ... after N
+    attempts``, which says nothing about *why*. Without the chain a throttling
+    response (HTTP 429) is indistinguishable from a DNS outage, and the two
+    call for opposite responses. Walk ``__cause__``/``__context__`` so the
+    reported failure names the actual upstream condition.
+    """
+    parts: list[str] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        parts.append(f"{type(cur).__name__}: {cur}")
+        cur = cur.__cause__ or cur.__context__
+    return " <- ".join(parts)
 
 
 def _key_present(*env_vars: str) -> bool:
@@ -55,7 +107,7 @@ def _smoke(
     try:
         n = fetch()
     except Exception as exc:
-        _record(name, "FAIL", f"{type(exc).__name__}: {exc}")
+        _record(name, "FAIL", _describe(exc))
         return
     if n < min_rows:
         _record(name, "FAIL", f"returned {n} rows (< {min_rows}); endpoint reachable but empty")
