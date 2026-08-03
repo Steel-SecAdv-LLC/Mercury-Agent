@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,808
+- **Total top-level classes:** 2,809
 - **Capability-bearing classes:** 1,845 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1057 |
-| Support types (config / result / enum / error) | 963 |
+| Support types (config / result / enum / error) | 964 |
 | Detection | 171 |
 | Neural models & layers | 157 |
 | Engines & orchestration | 103 |
@@ -1709,7 +1709,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 22 classes (22 capability)
+### `loaders/` — 23 classes (22 capability)
 
 **Data sources & loaders**
 
@@ -1738,6 +1738,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Other capability classes**
 
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
+
+<details><summary>Support types (1)</summary>
+
+`FetchHTTPError`
+
+</details>
 
 ### `medical/` — 83 classes (52 capability)
 
