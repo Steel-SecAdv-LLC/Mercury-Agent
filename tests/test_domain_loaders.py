@@ -655,7 +655,7 @@ def _make_financial_df(n_rows: int = 252) -> pd.DataFrame:
 
     The FinancialLoader's engineer_features() expects lowercase column names
     matching the standardised FRED series mapping: vix, yield_curve_10y2y,
-    high_yield_spread, fed_funds_rate, ted_spread.
+    high_yield_spread, fed_funds_rate, funding_rate.
     """
     rng = np.random.default_rng(42)
     dates = pd.date_range("2008-01-02", periods=n_rows, freq="B")
@@ -666,7 +666,7 @@ def _make_financial_df(n_rows: int = 252) -> pd.DataFrame:
             "yield_curve_10y2y": rng.uniform(-1, 3, n_rows),
             "high_yield_spread": rng.uniform(3, 20, n_rows),
             "fed_funds_rate": rng.uniform(0, 5, n_rows),
-            "ted_spread": rng.uniform(0, 4, n_rows),
+            "funding_rate": rng.uniform(0, 6, n_rows),
         }
     )
 

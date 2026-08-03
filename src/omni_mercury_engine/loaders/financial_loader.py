@@ -32,7 +32,7 @@ _SERIES_IDS: dict[str, str] = {
     "T10Y2Y": "yield_curve_10y2y",
     "BAMLH0A0HYM2": "high_yield_spread",
     "DFF": "fed_funds_rate",
-    "TEDRATE": "ted_spread",
+    "SOFR": "funding_rate",
 }
 
 # ---------------------------------------------------------------------------
@@ -127,12 +127,12 @@ class FinancialLoader(BaseDomainLoader):
         "yield_curve_inverted",
         "credit_spread",
         "credit_spread_roc",
-        "ted_spread",
+        "funding_rate",
         "vix_yc_corr",
         "vix_zscore",
         "yc_zscore",
         "cs_zscore",
-        "ted_zscore",
+        "funding_rate_zscore",
     ]
 
     def _require_api_key(self) -> None:
@@ -157,7 +157,7 @@ class FinancialLoader(BaseDomainLoader):
         Returns:
             DataFrame indexed by date with columns for each financial
             indicator: ``vix``, ``yield_curve_10y2y``, ``high_yield_spread``,
-            ``fed_funds_rate``, ``ted_spread``.
+            ``fed_funds_rate``, ``funding_rate``.
 
         Raises:
             EnvironmentError: If FRED_API_KEY is not set.
@@ -310,13 +310,14 @@ class FinancialLoader(BaseDomainLoader):
         4.  **yield_curve_inverted** -- Binary flag: 1 if T10Y2Y < 0.
         5.  **credit_spread** -- High-yield spread (BAMLH0A0HYM2) level.
         6.  **credit_spread_roc** -- Credit spread rate of widening.
-        7.  **ted_spread** -- TED spread level.
+        7.  **funding_rate** -- Overnight secured funding rate (SOFR).
         8.  **vix_yc_corr** -- Rolling 20-day correlation between VIX
             and yield curve.
         9.  **vix_zscore** -- Z-score of VIX vs. 252-day lookback.
         10. **yc_zscore** -- Z-score of yield curve vs. 252-day lookback.
         11. **cs_zscore** -- Z-score of credit spread vs. 252-day lookback.
-        12. **ted_zscore** -- Z-score of TED spread vs. 252-day lookback.
+        12. **funding_rate_zscore** -- Z-score of the funding rate vs. a
+            252-day lookback.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
@@ -338,7 +339,7 @@ class FinancialLoader(BaseDomainLoader):
         vix = df["vix"].values.astype(np.float64)
         yield_curve = df["yield_curve_10y2y"].values.astype(np.float64)
         credit_spread = df["high_yield_spread"].values.astype(np.float64)
-        ted_spread = df["ted_spread"].values.astype(np.float64)
+        funding_rate = df["funding_rate"].values.astype(np.float64)
 
         # ---- Rate of change (first difference) ----
         vix_roc = self._compute_rate_of_change(vix)
@@ -356,7 +357,7 @@ class FinancialLoader(BaseDomainLoader):
         vix_zscore = self._compute_rolling_zscore(vix, window=252)
         yc_zscore = self._compute_rolling_zscore(yield_curve, window=252)
         cs_zscore = self._compute_rolling_zscore(credit_spread, window=252)
-        ted_zscore = self._compute_rolling_zscore(ted_spread, window=252)
+        funding_rate_zscore = self._compute_rolling_zscore(funding_rate, window=252)
 
         # Stack into feature matrix
         features = np.column_stack(
@@ -367,12 +368,12 @@ class FinancialLoader(BaseDomainLoader):
                 yield_curve_inverted,
                 credit_spread,
                 credit_spread_roc,
-                ted_spread,
+                funding_rate,
                 vix_yc_corr,
                 vix_zscore,
                 yc_zscore,
                 cs_zscore,
-                ted_zscore,
+                funding_rate_zscore,
             ]
         )
 
