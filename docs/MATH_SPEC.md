@@ -652,26 +652,47 @@ All components $\in [0, 1]$. Weights $w_J, w_A, w_C, w_T$ are sourced from
 
 **Implementation:** `core/centralized_constants.py`, class `EthicalConstants`, lines 95--137.
 
-#### 2.7.3 Benevolence Immutable
+#### 2.7.3 Benevolence — advisory (the $\beta \geq 0.99$ gate is REMOVED)
 
-Hard benevolence enforcement gate — **active** at every public decision boundary
-(`cognitive/ethical_bounding.py`, `BenevolenceScorer.enforce()`). The continuous
-sigmoid gate of Section 2.1.3 shapes the fusion score upstream but does **not**
-replace this gate:
+**This section previously specified a hard enforcement gate. There is no such
+gate.** It was deleted, and the specification is corrected here rather than left
+describing a control the code does not implement.
+
+What the gate was, and why it went:
 
 $$
 \text{pass} = \begin{cases} \text{true} & \text{if } \beta \geq 0.99 \\ \text{false} & \text{otherwise} \end{cases}
 $$
 
-The threshold defaults to $0.99$ and is configurable no lower than the $0.70$
-floor — `BenevolenceScorer` clamps any lower assignment via its property setter.
+$\beta$ was computed over a **fixed string the engine synthesised for itself**
+(`"anomaly_detection:{domain}:audit verify protect research evidence fair
+oversight monitor data care help support"`), so the caller's actual request
+never reached the scorer and the comparison could not discriminate anything. As
+a bar on real text it fails in both directions: Mercury's own mission sentence
+"assess trauma and psychological distress among displaced families" scores
+$\beta \approx 0.597$ and would be refused, while any request padded with
+positive vocabulary clears it.
 
-> **DESIGN NOTE:** The discontinuity at the threshold is intentional — this is an
-> enforcement gate, not a score. The continuous sigmoid of Section 2.1.3 supplies
-> the differentiable, domain-adaptive *score-shaping* upstream; the two are
-> complementary, and the sigmoid does not replace this enforcement boundary.
+**What is enforced instead.** The two-axis (hazard-domain × operational-intent)
+harm-uplift gate, fail-closed, at every public decision surface —
+`cognitive/decision_gate.py` (`enforce_decision_boundary`), routed by the
+`GATED_BOUNDARY` capability contract. Its polarity is *block on harm*: a benign
+decision is permitted because no harm evidence was found, not because it scored
+highly on a positivity lexicon. A second enforced axis, `grave_harm`, covers
+harm directed at a person (`cognitive/ethical_bounding.py`).
 
-**Implementation:** enforced in `cognitive/ethical_bounding.py` (`BenevolenceScorer.enforce()`, `BENEVOLENCE_THRESHOLD = 0.99`); constant `BENEVOLENCE_IMMUTABLE = 0.99` in `core/centralized_constants.py`.
+**What $\beta$ still is.** An advisory float in $[0, 1]$, computed, logged and
+attached to the verdict. It decides nothing. The
+$\text{MINIMUM\_BENEVOLENCE\_FLOOR} = 0.70$ is an advisory *reporting*
+threshold, not a pass-bar: below it, surfaces may flag for review, and none may
+refuse. `BenevolenceScorer` clamps lower assignments to that floor so the
+advisory signal keeps a defined meaning.
+
+**Implementation:** `cognitive/decision_gate.py` (enforced);
+`cognitive/ethical_bounding.py` (advisory scorer, `grave_harm` axis);
+`OMNIBENEVOLENCE_SCALAR` in `core/centralized_constants.py` — renamed from
+`BENEVOLENCE_IMMUTABLE` so the scalar and the deleted threshold can never be
+conflated again. Observed by `tests/pillars/test_non_maleficence.py`.
 
 ---
 

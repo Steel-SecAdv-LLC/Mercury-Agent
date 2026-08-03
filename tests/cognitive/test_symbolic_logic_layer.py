@@ -6,6 +6,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+)
 from omni_mercury_engine.cognitive.symbolic_logic_layer import (
     DecisionType,
     ExplainableDecision,
@@ -372,10 +376,17 @@ class TestSymbolicLogicLayer:
         """Test layer initialization."""
         layer = SymbolicLogicLayer(
             confidence_threshold=0.75,
-            benevolence_threshold=0.98,
+            benevolence_review_threshold=0.98,
         )
         assert layer.confidence_threshold == 0.75
-        assert layer.benevolence_threshold == 0.98
+        assert layer.benevolence_review_threshold == 0.98
+
+    def test_default_review_threshold_is_the_advisory_floor_not_the_deleted_bar(self) -> None:
+        """Anti-regression: 0.99 was a pass-bar, and it is not coming back."""
+        layer = SymbolicLogicLayer()
+        assert layer.benevolence_review_threshold == MINIMUM_BENEVOLENCE_FLOOR
+        assert layer.benevolence_review_threshold < 0.99
+        assert not hasattr(layer, "benevolence_threshold")
 
     def test_process_neural_output_normal(self) -> None:
         """Test processing normal neural output."""
@@ -398,7 +409,7 @@ class TestSymbolicLogicLayer:
 
     def test_evaluate_action_allowed(self) -> None:
         """Test evaluating allowed action."""
-        layer = SymbolicLogicLayer(benevolence_threshold=0.9)
+        layer = SymbolicLogicLayer(benevolence_review_threshold=0.9)
         allowed, decision = layer.evaluate_action(
             action="test_action",
             context={"humanitarian": True},
@@ -406,15 +417,37 @@ class TestSymbolicLogicLayer:
         )
         assert allowed is True
 
-    def test_evaluate_action_blocked_benevolence(self) -> None:
-        """Test action blocked due to low benevolence."""
-        layer = SymbolicLogicLayer(benevolence_threshold=0.99)
+    def test_low_benevolence_flags_review_but_does_not_block(self) -> None:
+        """Replaces ``test_evaluate_action_blocked_benevolence``.
+
+        That test pinned the pass-bar this codebase deleted: it asserted
+        ``allowed is False`` for a benign action whose only fault was a
+        benevolence score of 0.8. Mercury's own mission text scores ~0.6 on that
+        scalar, so the behaviour it protected refused the mission. The score now
+        derives ``ethical_review_required`` — a flag, deliberately not a block.
+        """
+        layer = SymbolicLogicLayer(benevolence_review_threshold=0.99)
         allowed, decision = layer.evaluate_action(
             action="test_action",
             context={},
             benevolence_score=0.8,
         )
-        assert allowed is False
+        assert allowed is True
+        assert decision.decision_type is not DecisionType.BLOCK
+        assert "thresh_benevolence_block" in decision.rules_fired
+
+    def test_mission_vocabulary_is_not_refused_by_the_symbolic_layer(self) -> None:
+        """The false-positive budget, scored by the real scorer, end to end."""
+        layer = SymbolicLogicLayer()
+        scorer = BenevolenceScorer()
+        for text in (
+            "assess trauma and psychological distress among displaced families",
+            "estimate earthquake damage and injury counts for triage",
+            "run anomaly detection over sensor telemetry",
+        ):
+            score = scorer.score_action(text, {}).benevolence_score
+            allowed, _ = layer.evaluate_action(text, {}, score)
+            assert allowed is True, f"symbolic layer refused mission work: {text!r} ({score:.3f})"
 
     def test_evaluate_action_blocked_harm(self) -> None:
         """Test action blocked due to potential harm."""
@@ -426,6 +459,50 @@ class TestSymbolicLogicLayer:
         )
         assert allowed is False
         assert decision.decision_type == DecisionType.BLOCK
+
+    def test_withheld_consent_blocks(self) -> None:
+        """Regression pin: ``ethical_consent`` was a rule that could never fire.
+
+        Its premise was the string ``"requires_consent AND NOT consent_given"``,
+        but :meth:`SymbolicReasoner.forward_chain` matches premises by set
+        membership and parses no connectives, so no derived fact ever equalled
+        it. An action needing consent, with consent explicitly withheld, was
+        ALLOWED.
+        """
+        layer = SymbolicLogicLayer()
+        allowed, decision = layer.evaluate_action(
+            action="share_the_record",
+            context={"requires_consent": True, "consent_given": False},
+            benevolence_score=0.99,
+        )
+        assert allowed is False
+        assert decision.decision_type == DecisionType.BLOCK
+        assert "ethical_consent" in decision.rules_fired
+
+    def test_granted_consent_does_not_block(self) -> None:
+        """The other half: the consent rule must not refuse consented work."""
+        layer = SymbolicLogicLayer()
+        allowed, _ = layer.evaluate_action(
+            action="share_the_record",
+            context={"requires_consent": True, "consent_given": True},
+            benevolence_score=0.99,
+        )
+        assert allowed is True
+
+    def test_every_default_rule_premise_is_derivable(self) -> None:
+        """Anti-vacuity for the whole graph, not just the rule that broke.
+
+        ``forward_chain`` compares ``rule.premise in derived``. Facts are atomic
+        tokens, so any premise containing whitespace is unreachable by
+        construction — a rule that ships, reads as a control, and never fires.
+        """
+        layer = SymbolicLogicLayer()
+        unreachable = [
+            (rule.rule_id, rule.premise)
+            for rule in layer.reasoner.logic_graph.rules.values()
+            if " " in rule.premise
+        ]
+        assert not unreachable, f"rules whose premise can never match a fact: {unreachable}"
 
     def test_add_custom_rule(self) -> None:
         """Test adding custom rules."""

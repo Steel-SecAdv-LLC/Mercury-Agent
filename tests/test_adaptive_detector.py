@@ -273,18 +273,54 @@ class TestAdaptiveAnomalyDetector:
         assert result.profile_used == DatasetProfile.TEMPORAL
         assert "n_temporal_features" in result.metadata
 
-    def test_ethics_evaluation(self) -> None:
-        """Test ethics evaluation checks pass."""
+    def test_detection_quality_reports_only_what_it_measures(self) -> None:
+        """Replaces ``test_ethics_evaluation``.
+
+        That test asserted the presence of ``benevolence``, ``sigma_immutable``
+        and ``passes`` — three keys whose values were fabricated from the
+        detector's own output (a rescaled anomaly rate, a rescaled confidence,
+        and a pass-bar that failed whenever more than 0.5 % of samples were
+        flagged, i.e. whenever detection worked). Asserting they exist pinned
+        the fabrication in place. The honest surface reports detection
+        statistics under names that claim only that.
+        """
         detector = AdaptiveAnomalyDetector()
 
         X = np.random.randn(100, 10)
         result = detector.detect(X)
-        ethics = detector.evaluate_ethics(result)
+        quality = detector.evaluate_detection_quality(result)
 
-        assert "benevolence" in ethics
-        assert "sigma_immutable" in ethics
-        assert "passes" in ethics
-        assert ethics["sigma_immutable"] >= 0.0
+        assert set(quality) == {
+            "anomaly_ratio",
+            "mean_confidence",
+            "score_dispersion",
+            "score_concentration",
+        }
+        assert 0.0 <= quality["anomaly_ratio"] <= 1.0
+        assert quality["score_dispersion"] >= 0.0
+        assert 0.0 < quality["score_concentration"] <= 1.0
+
+    def test_evaluate_ethics_is_deprecated_and_claims_no_ethics_verdict(self) -> None:
+        """The old name survives only to warn; it must not resurrect the claim."""
+        detector = AdaptiveAnomalyDetector()
+        result = detector.detect(np.random.randn(100, 10))
+
+        with pytest.warns(DeprecationWarning, match="never evaluated ethics"):
+            legacy = detector.evaluate_ethics(result)
+
+        for fabricated in ("passes", "benevolence", "sigma_immutable", "violations"):
+            assert fabricated not in legacy, (
+                f"{fabricated!r} is back: a caller reading it would be reading a "
+                "number derived from detector output, not a control"
+            )
+
+    def test_no_ethical_control_is_advertised_in_the_constructor(self) -> None:
+        """``benevolence_threshold``/``sigma_immutable`` configured nothing."""
+        import inspect
+
+        params = set(inspect.signature(AdaptiveAnomalyDetector.__init__).parameters)
+        assert "benevolence_threshold" not in params
+        assert "sigma_immutable" not in params
 
 
 class TestDatasetSpecificEnsemble:

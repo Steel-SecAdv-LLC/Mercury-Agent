@@ -58,6 +58,39 @@ class BlockingGateResult:
         return f"BlockingGateResult({status}: {self.reason})"
 
 
+def _requested_flags(params: Any, *, _depth: int = 0) -> set[str]:
+    """Collect the option names ``params`` actually *asks for*.
+
+    A dangerous option is requested when a mapping key names it and carries a
+    truthy value, or when a string value names it exactly. Merely mentioning the
+    name — in prose, or as a key explicitly set to ``False`` — is not a request,
+    and treating it as one refuses the safe configuration.
+
+    Args:
+        params: Action parameters. Mappings and sequences are walked to a
+            bounded depth so a nested ``{"opts": {"skip_validation": True}}`` is
+            seen.
+        _depth: Internal recursion guard.
+
+    Returns:
+        Lower-cased option names that were requested.
+    """
+    if _depth > 4:
+        return set()
+    found: set[str] = set()
+    if isinstance(params, dict):
+        for key, value in params.items():
+            if isinstance(key, str) and value:
+                found.add(key.strip().lower())
+            found |= _requested_flags(value, _depth=_depth + 1)
+    elif isinstance(params, (list, tuple, set, frozenset)):
+        for item in params:
+            found |= _requested_flags(item, _depth=_depth + 1)
+    elif isinstance(params, str):
+        found.add(params.strip().lower())
+    return found
+
+
 class PreExecutionBlockingGate:
     """Pre-execution blocking gate for safety-critical operations.
 
@@ -177,10 +210,24 @@ class PreExecutionBlockingGate:
                 logging.warning(f"BLOCKED ACTION: {action_type} - {result.reason}")
                 return result
 
-        # Check action params against blocked param patterns
-        params_str = str(action_params).lower()
+        # Check action params against blocked param patterns.
+        #
+        # Matched structurally, not by ``pattern in str(action_params).lower()``.
+        # That substring test blocked on any *mention* of a dangerous flag,
+        # including its own negation, and its worst case was backwards: it
+        # refused ``{"skip_validation": False}`` -- a caller explicitly turning
+        # the dangerous option OFF -- and ``{"note": "never bypass_checks"}``.
+        # A safety gate that refuses the safe configuration is an availability
+        # bug that teaches operators to route around it.
+        #
+        # A flag is *requested* when a key matches with a truthy value, or when
+        # a string value names the pattern exactly (``{"mode": "skip_validation"}``).
+        # Nested mappings and sequences are walked, so this also catches
+        # ``{"opts": {"skip_validation": True}}`` -- which the flat ``.get()``
+        # arm below the substring test never did.
+        requested = _requested_flags(action_params)
         for pattern, category in self.BLOCKED_PARAM_PATTERNS.items():
-            if pattern in params_str or action_params.get(pattern, False):
+            if pattern in requested:
                 result = BlockingGateResult(
                     blocked=True,
                     category=category,

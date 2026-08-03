@@ -45,14 +45,39 @@ def _three_way(X: np.ndarray, y: np.ndarray) -> tuple[Any, ...]:
 
 
 class TestDecisionLayerWiring:
-    def test_no_op_until_enabled(self) -> None:
+    def test_attached_by_default(self) -> None:
+        """The decision layer is on by default; opting out is explicit.
+
+        This replaces ``test_no_op_until_enabled``, which asserted the opposite
+        and pinned the opt-in default in place. Opt-in meant the three
+        first-party entry points (CLI, MCP, HTTP) closed the decision loop while
+        every library embedder silently did not — the gap
+        ``CAPABILITY_MATRIX.md`` now records as closed. A test asserting
+        ``"decision" not in result`` would make reopening that gap the passing
+        state, so it is inverted rather than deleted: the property still has a
+        guard, pointing the other way.
+        """
         torch.manual_seed(0)
         np.random.seed(0)
         X, y = _separable_fixture()
         X_tr, y_tr, _, _, X_te, _ = _three_way(X, y)
         engine = _engine()
         engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32)
-        # Default serve path: no decision section.
+
+        assert "decision" in engine.detect_with_fusion(X_te[:1])
+
+    def test_opt_out_is_explicit_and_honoured(self) -> None:
+        """``decision_layer=False`` is the only way off the default path."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, _, _, X_te, _ = _three_way(X, y)
+        engine = OmniMercuryEngine(mode="fusion", device="cpu", decision_layer=False)
+        engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32)
+
+        assert engine.decision_layer is None
         assert "decision" not in engine.detect_with_fusion(X_te[:1])
 
     def test_enable_attaches_decision_section(self) -> None:

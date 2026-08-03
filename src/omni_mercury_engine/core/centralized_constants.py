@@ -262,11 +262,16 @@ def sigmoid_benevolence_gate(
 ) -> float:
     """Compute the SOFT sigmoid benevolence weighting value.
 
-    Smooth fusion-weighting term (see the disambiguation note above): within
-    score fusion it substitutes a smooth sigmoid curve for the hard
-    threshold (≥ 0.99), which stays enforced at every decision boundary by
-    ``BenevolenceScorer.enforce``:
+    Smooth fusion-weighting term (see the disambiguation note above):
         η(b) = 1 / (1 + exp(-k · (b - b₀)))
+
+    There is **no hard ``≥ 0.99`` benevolence threshold** for this to be the
+    smooth counterpart of. That pass-bar was deleted: it scored a fixed string
+    the engine wrote for itself, so it refused benign work for having plain
+    vocabulary and admitted anything phrased positively.
+    ``BenevolenceScorer.enforce`` no longer applies it. The enforced control at
+    every decision boundary is the fail-closed harm-uplift gate in
+    ``cognitive/decision_gate.py``; benevolence is advisory.
 
     Args:
         benevolence_score: Raw benevolence score in [0, 1].

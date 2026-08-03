@@ -11,6 +11,7 @@ from omni_mercury_engine.core.ai_ethics import (
     EthicalPrinciple,
     EthicsConfig,
     EthicsResult,
+    PreExecutionBlockingGate,
     evaluate_refactoring_ethics,
 )
 
@@ -348,6 +349,57 @@ class TestEdgeCases:
 
         if result.overall_score < 0.9:
             assert result.passed is False
+
+
+class TestPreExecutionBlockingGateMatchesStructurally:
+    """The param gate must block a *requested* dangerous flag, and only that.
+
+    It used to test ``pattern in str(action_params).lower()``, which blocked on
+    any mention of a flag name. Its worst case was inverted: a caller who
+    explicitly set ``skip_validation=False`` -- turning the dangerous option
+    OFF -- was refused, as was prose that named the flag in order to forbid it.
+    A safety gate that refuses the safe configuration is an availability bug,
+    and it teaches operators to route around the gate.
+    """
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"note": "do not skip_validation, we validate everything"},
+            {"summary": "the operator must never bypass_checks"},
+            {"skip_validation": False},
+            {"ignore_errors": False},
+            {"log": "suppress_warnings=off"},
+            {"target": "production", "rows": 100},
+        ],
+    )
+    def test_mentioning_a_flag_is_not_requesting_it(self, params: dict[str, object]) -> None:
+        gate = PreExecutionBlockingGate()
+        result = gate.check_action("analyze_telemetry", params)
+        assert result.blocked is False, f"safe params refused: {params}"
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"skip_validation": True},
+            {"force_no_backup": True},
+            {"bypass_checks": 1},
+            {"mode": "bypass_checks"},
+            {"opts": {"skip_validation": True}},
+            {"flags": [{"ignore_errors": True}]},
+        ],
+    )
+    def test_a_requested_flag_is_blocked(self, params: dict[str, object]) -> None:
+        """Including nested ones, which the flat ``.get()`` arm never caught."""
+        gate = PreExecutionBlockingGate()
+        result = gate.check_action("analyze_telemetry", params)
+        assert result.blocked is True, f"dangerous params allowed: {params}"
+
+    def test_action_type_blocking_is_unchanged(self) -> None:
+        """The other arm of the gate must not have been weakened."""
+        gate = PreExecutionBlockingGate()
+        assert gate.check_action("delete_all_data", {}).blocked is True
+        assert gate.check_action("analyze_telemetry", {}).blocked is False
 
 
 if __name__ == "__main__":

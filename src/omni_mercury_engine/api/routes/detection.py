@@ -220,7 +220,8 @@ Perform hybrid neural-symbolic anomaly detection using the NeurosymbolicFusionEn
 - Neural pattern detection via memory embeddings
 - Symbolic logic reasoning with rule-based inference
 - Attention-based fusion of neural and symbolic outputs
-- Ethical gating with benevolence threshold enforcement
+- Fail-closed harm-uplift decision gate (`cognitive.decision_gate`); the
+  benevolence score is reported, not enforced
 - Full audit trail for explainability
 
 ## Fusion Strategies

@@ -18,6 +18,7 @@ from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
     SimulatedGeologicalSource,
     ValueExtractor,
 )
+from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 
 
 class TestMemoryKnowledgeGraph:
@@ -272,12 +273,18 @@ class TestValueExtractor:
 
     def test_init(self) -> None:
         """Test extractor initialization."""
-        extractor = ValueExtractor(benevolence_threshold=0.95)
-        assert extractor.benevolence_threshold == 0.95
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.95)
+        assert extractor.benevolence_advisory_threshold == 0.95
+
+    def test_default_threshold_is_advisory_not_the_deleted_pass_bar(self) -> None:
+        """Anti-regression: the default was ``0.99`` and it filtered."""
+        extractor = ValueExtractor()
+        assert extractor.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
+        assert not hasattr(extractor, "benevolence_threshold")
 
     def test_extract_benevolent(self) -> None:
         """Test extraction with benevolent score."""
-        extractor = ValueExtractor(benevolence_threshold=0.99)
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = extractor.extract(anomaly, ethical_score=0.995)
@@ -286,18 +293,28 @@ class TestValueExtractor:
         assert extraction.is_benevolent is True
         assert extraction.value_type == "early_warning"
 
-    def test_extract_not_benevolent(self) -> None:
-        """Test extraction with low ethical score."""
-        extractor = ValueExtractor(benevolence_threshold=0.99)
+    def test_low_score_annotates_the_opportunity_instead_of_dropping_it(self) -> None:
+        """Replaces ``test_extract_not_benevolent``.
+
+        That test asserted ``extraction is None`` for a benign anomaly whose
+        advisory score was 0.5 — i.e. it pinned a silent drop. Mercury's own
+        humanitarian text scores ~0.6 on this scalar, so the behaviour it
+        protected discarded exactly the early warnings this class exists to
+        surface. The score is now an annotation on the emitted record.
+        """
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = extractor.extract(anomaly, ethical_score=0.5)
 
-        assert extraction is None
+        assert extraction is not None, "a low advisory score must not suppress the opportunity"
+        assert extraction.is_benevolent is False
+        assert extraction.ethical_score == 0.5
+        assert extraction.value_type == "early_warning"
 
     def test_extract_different_types(self) -> None:
         """Test extraction for different anomaly types."""
-        extractor = ValueExtractor(benevolence_threshold=0.9)
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.9)
 
         types_and_expected = [
             ("escalation", "early_warning"),
@@ -321,7 +338,7 @@ class TestEnhancedAnomalyDetector:
     def test_init(self) -> None:
         """Test detector initialization."""
         detector = EnhancedAnomalyDetector()
-        assert detector.benevolence_threshold == 0.99
+        assert detector.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
         assert detector.memory_graph is not None
         assert detector.bayesian_predictor is not None
 
@@ -388,7 +405,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_extract_value(self) -> None:
         """Test value extraction."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.9)
+        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.9)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = detector.extract_value(anomaly, ethical_score=0.95)
@@ -453,7 +470,7 @@ class TestIntegration:
 
     def test_full_pipeline(self) -> None:
         """Test complete enhanced detection pipeline."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.95)
+        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.95)
 
         for i in range(10):
             detector.add_memory(
@@ -485,14 +502,21 @@ class TestIntegration:
         analysis = detector.analyze_memory_patterns("m5")
         assert len(analysis["related_memories"]) >= 0
 
-    def test_ethical_filtering(self) -> None:
-        """Test that unethical extractions are blocked."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.99)
+    def test_the_advisory_score_annotates_and_does_not_filter(self) -> None:
+        """Replaces ``test_ethical_filtering``, which asserted the opposite.
+
+        Nothing was ever "ethically filtered" here: the score is a topic-keyword
+        scalar, and dropping the record on it discarded benign opportunities
+        while passing anything phrased positively. Enforcement lives at the
+        decision boundary (``cognitive/decision_gate.py``); this surface reports.
+        """
+        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.99)
 
         anomaly = {"id": "risky", "type": "opportunity", "confidence": 0.9}
 
         extraction_low = detector.extract_value(anomaly, ethical_score=0.5)
-        assert extraction_low is None
+        assert extraction_low is not None
+        assert extraction_low.is_benevolent is False
 
         extraction_high = detector.extract_value(anomaly, ethical_score=0.995)
         assert extraction_high is not None

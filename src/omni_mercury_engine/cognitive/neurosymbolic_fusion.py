@@ -54,6 +54,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 from omni_mercury_engine.cognitive.neural_memory_layer import (
     MemoryType,
     NeuralMemoryLayer,
@@ -296,7 +297,7 @@ class NeurosymbolicFusionEngine:
         embedding_dim: int = 64,
         n_clusters: int = 8,
         confidence_threshold: float = 0.7,
-        benevolence_threshold: float = 0.99,
+        benevolence_review_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
         fusion_strategy: FusionStrategy = FusionStrategy.CONFIDENCE_WEIGHTED,
         neural_weight: float = 0.6,
         symbolic_weight: float = 0.4,
@@ -307,7 +308,10 @@ class NeurosymbolicFusionEngine:
             embedding_dim: Dimension for memory embeddings
             n_clusters: Number of clusters for pattern detection
             confidence_threshold: Minimum confidence for decisions
-            benevolence_threshold: Minimum benevolence score for actions
+            benevolence_review_threshold: Advisory. Forwarded to
+                :class:`SymbolicLogicLayer`, where a benevolence score below it
+                flags ``ethical_review_required``. It blocks nothing — see that
+                class for why the ``0.99`` pass-bar was deleted.
             fusion_strategy: Strategy for combining neural and symbolic
             neural_weight: Default weight for neural component
             symbolic_weight: Default weight for symbolic component
@@ -315,7 +319,7 @@ class NeurosymbolicFusionEngine:
         self.embedding_dim = embedding_dim
         self.n_clusters = n_clusters
         self.confidence_threshold = confidence_threshold
-        self.benevolence_threshold = benevolence_threshold
+        self.benevolence_review_threshold = benevolence_review_threshold
         self.fusion_strategy = fusion_strategy
         self.neural_weight = neural_weight
         self.symbolic_weight = symbolic_weight
@@ -327,7 +331,7 @@ class NeurosymbolicFusionEngine:
 
         self.symbolic_layer = SymbolicLogicLayer(
             confidence_threshold=confidence_threshold,
-            benevolence_threshold=benevolence_threshold,
+            benevolence_review_threshold=benevolence_review_threshold,
         )
 
         self.attention = AttentionMechanism(hidden_dim=32)
@@ -871,7 +875,7 @@ class NeurosymbolicFusionEngine:
             "neural_weight": self.neural_weight,
             "symbolic_weight": self.symbolic_weight,
             "confidence_threshold": self.confidence_threshold,
-            "benevolence_threshold": self.benevolence_threshold,
+            "benevolence_review_threshold": self.benevolence_review_threshold,
             "results_generated": self._result_counter,
             "scores_generated": self._score_counter,
             "neural_stats": self.neural_layer.get_statistics(),

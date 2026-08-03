@@ -4,7 +4,10 @@
 
 Implements Phase 6 of the neuro-symbolic evolution:
 - Hardcoded utility function for scoring actions on good/evil metrics
-- Benevolence threshold enforcement (>=0.99 required)
+- Benevolence scoring, **advisory** — the former ``>= 0.99`` pass-bar is gone
+  (it scored a fixed string, so it refused plain vocabulary and admitted
+  anything positive). The enforced controls are the fail-closed harm-uplift
+  gate in ``cognitive/decision_gate.py`` and the grave-harm axis below.
 - Empathy modules for human-centric choices
 - Value preservation for positive outcomes
 - Audit mechanisms for alignment verification

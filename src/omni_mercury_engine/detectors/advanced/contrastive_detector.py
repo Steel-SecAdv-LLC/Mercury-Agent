@@ -65,8 +65,13 @@ class ContrastiveConfig:
     n_neighbors: int = 10
     threshold_percentile: float = 95.0
 
-    # Ethical constraints
-    benevolence_threshold: float = 0.99
+    # No ``benevolence_threshold`` / ``sigma_immutable`` here. Both were declared
+    # as config fields and never read by any code path, which advertised two
+    # controls this detector does not implement. Enforcement is the fail-closed
+    # harm-uplift gate at the public decision surfaces
+    # (``cognitive/decision_gate.py``); configuration integrity is
+    # ``security/sigma_immutable_gate.py``. A detector config is not where
+    # either lives, and a knob that silently does nothing is worse than none.
 
 
 class TimeSeriesAugmenter:

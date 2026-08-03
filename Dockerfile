@@ -38,7 +38,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel, fixed in 26.1)
 # Python 3.13+ implements PEP 706, so the vulnerable tar fallback is never used,
 # but we pin to >=26.1 as defense-in-depth and to fully resolve all three CVEs.
-RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=78.1.1" wheel
+# setuptools floor is 83.0.0, not 78.1.1: 78.1.1 fixes only CVE-2025-47273, and
+# CVE-2026-59890 has a published fix in 83.0.0. This repo's policy is that a
+# fixable CVE is remediated, never accepted into .trivyignore. 83.0.0 is also
+# what AMA v4.0.0's own preflight demands — the same floor
+# scripts/build_ama_native.sh and .github/actions/build-ama-cryptography already
+# declare — so all three build paths now state one number instead of three.
+RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=83.0.0" "wheel>=0.47.0"
 
 # Set working directory for build
 WORKDIR /app
@@ -65,21 +71,32 @@ RUN pip install --no-cache-dir ".[all]"
 # ``pip install ".[all]"``, so any transitive requirement that resolves an older
 # pin silently wins and the image ships the vulnerable version -- which is what
 # the Container Security Scan was reporting: setuptools 70.3.0 present in the
-# venv even though line 41 had already installed >= 78.1.1, alongside a clean
-# 83.0.0 in the runtime prefix.
+# venv even though the earlier floor had already installed a newer one,
+# alongside a clean build in the runtime prefix.
 #
-#   setuptools >= 78.1.1  CVE-2025-47273 (PackageIndex path traversal)
+#   setuptools >= 83.0.0  CVE-2025-47273 (PackageIndex path traversal, fixed in
+#                         78.1.1) AND CVE-2026-59890 (fixed in 83.0.0). The
+#                         floor is the HIGHER of the two: ``only-if-needed``
+#                         below will not move a package that already satisfies
+#                         the constraint, so a floor of 78.1.1 would leave a
+#                         resolved 78.1.1-82.x in place with CVE-2026-59890
+#                         unfixed. A fixable CVE is remediated here, never
+#                         accepted into .trivyignore.
 #   msgpack    >= 1.2.1   GHSA-6v7p-g79w-8964 (out-of-bounds read on Unpacker
 #                         reuse); pulled in transitively, so it has no direct
 #                         declaration in pyproject to carry the floor.
 #
+# 83.0.0 is also exactly what AMA v4.0.0's preflight requires, so this floor and
+# the one scripts/build_ama_native.sh applies a few lines below are now the same
+# number rather than two that happen to converge.
+#
 # --upgrade-strategy only-if-needed keeps this from disturbing the resolved set
 # beyond these two packages.
 RUN pip install --no-cache-dir --upgrade --upgrade-strategy only-if-needed \
-        "setuptools>=78.1.1" "msgpack>=1.2.1" && \
+        "setuptools>=83.0.0" "msgpack>=1.2.1" && \
     python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
-assert Version(setuptools.__version__) >= Version('78.1.1'), setuptools.__version__; \
+assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
 assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
 print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 
@@ -232,7 +249,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # the image.  Deriving the path keeps this hardening correct across base-image
 # Python bumps, and the version assertions below verify *both* the system and
 # venv interpreters resolve a patched pip rather than trusting a filename glob.
-RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
+RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=83.0.0" && \
     SYS_STDLIB="$(/usr/local/bin/python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')" && \
     rm -rf "${SYS_STDLIB}/ensurepip/_bundled" && \
     test ! -d "${SYS_STDLIB}/ensurepip/_bundled" && \
