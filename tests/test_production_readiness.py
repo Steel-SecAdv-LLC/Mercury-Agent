@@ -198,7 +198,13 @@ class TestCognitiveOrchestratorEthicalGate:
                 },
             )
         assert exc_info.value.check == "harm_uplift"
-        assert exc_info.value.score < 1.01
+        # Pin the invariants the harm gate actually establishes. The former
+        # ``score < 1.01`` passed for essentially any float and so proved
+        # nothing once the benevolence threshold was removed: ``score`` is the
+        # gate's confidence, bounded to [0, 1], and ``threshold`` is the fixed
+        # 1.0 the refusal path always reports.
+        assert 0.0 <= exc_info.value.score <= 1.0
+        assert exc_info.value.threshold == 1.0
 
 
 class TestCognitiveInitExports:

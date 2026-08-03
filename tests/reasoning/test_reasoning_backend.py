@@ -170,7 +170,12 @@ class TestGovernedSurface:
 
 
 class TestEthicsFailClosed:
-    """A benevolence violation halts the operation; no content is surfaced."""
+    """An unevaluable harm gate halts the operation; no content is surfaced.
+
+    Not a benevolence check — that number is advisory and blocks nothing. These
+    tests inject a failure into ``assess_weapons_uplift`` and assert the
+    boundary refuses rather than returning a verdict it could not gate.
+    """
 
     def test_explain_blocked_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """An unevaluable harm gate halts the operation; no content is surfaced."""

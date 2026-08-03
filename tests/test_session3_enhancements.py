@@ -116,11 +116,13 @@ class TestNeuroSymbolicHub:
     def test_harm_gate_enforcement(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Hard ethical decision boundary: predict() fails closed on gate failure.
 
-        With ``benevolence_threshold=0.99`` and untrained-encoder inputs
-        the per-sample benevolence will fall below the threshold, and
-        ``predict()`` must raise ``EthicalConstraintViolationError`` —
-        the previous advisory ``ethical_violations`` list is no longer
-        the contract at this boundary.
+        The benevolence threshold is gone and is not what is being tested. This
+        pins the fail-closed direction of the *harm* gate: when
+        ``assess_weapons_uplift`` cannot be evaluated at all, ``predict()``
+        must raise ``EthicalConstraintViolationError`` with
+        ``check="harm_uplift"`` rather than fall through to a verdict. The
+        previous advisory ``ethical_violations`` list is no longer the contract
+        at this boundary.
         """
         import omni_mercury_engine.cognitive.decision_gate as gate_module
         from omni_mercury_engine.cognitive.ethical_bounding import (

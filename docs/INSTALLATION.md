@@ -7,7 +7,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 - Python >= 3.11 (3.12 recommended; 3.13 and 3.14 supported)
 - pip >= 26.1 (the CVE-2026-6357 floor enforced across every install
   path in CI by `tests/security/test_cve_2026_6357_regression.py`)
-- GCC >= 12 and CMake >= 4.3.2 for the AMA Cryptography native PQC
+- GCC >= 12 and CMake >= 4.4.0 for the AMA Cryptography native PQC
   build (see "Post-Quantum Cryptography backend" below). Mercury does
   not import without real AMA/PQC.
 
@@ -54,7 +54,7 @@ downgrades.
 | `AMA_CRYPTO_VERSION` | `4.0.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v4.0.0`, `4.0.0.post1`, `4.0` are accepted; `3.3.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
-| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v3.3.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v4.0.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
 | `MERCURY_GATE_AUDIT_LOG` | durable path | Persistent JSONL sink for every harm-gate decision. |
 | `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
 | `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
@@ -65,8 +65,8 @@ downgrades.
 ```bash
 # Tier 0 minimal production env
 export MERCURY_ENV=production
-export AMA_CRYPTO_VERSION=3.3.0
-# AMA_REQUIRE_CONSTANT_TIME omitted: superseded by AMA v3.3.0 (constant-time is unconditional).
+export AMA_CRYPTO_VERSION=4.0.0
+# AMA_REQUIRE_CONSTANT_TIME omitted: superseded by AMA v4.0.0 (constant-time is unconditional).
 export MERCURY_GATE_AUDIT_LOG=/var/lib/mercury/audit/gate_decisions.jsonl
 export MERCURY_GATE_AUDIT_SECURELOG=1
 export MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1
@@ -109,7 +109,7 @@ pip install -e ".[all]"
 | **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |
 | **Explainability** | `pip install -e ".[explainability]"` | `shap`. The default explainer (IntegratedGradients + faithfulness evaluator) is self-contained and needs no extra. `lime` is deliberately not declared — its only release cannot build on modern setuptools; the LIME adapter uses the library if manually installed and otherwise falls back to its in-repo linear surrogate. |
 | **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |
-| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.3.0`) |
+| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v4.0.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
 | **All** | `pip install -e ".[all]"` | Every runtime feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability, compliance). `[pqc]` and `[dev]` install separately. |
 | **Dev** | `pip install -e ".[dev]"` | Tooling only: pytest (+ asyncio/cov/timeout/mock/xdist), hypothesis, black, mypy, ruff, pre-commit. Combine with `[all]` for the full stack. |
@@ -146,23 +146,24 @@ For local and production installs, build and install the native library with the
 canonical helper Mercury ships, **`scripts/build_ama_native.sh`** (the `cmake`
 step operates on the AMA-Cryptography checkout the script clones, **not** on the
 Mercury-Agent repo, which has no `CMakeLists.txt` of its own). It clones the
-pinned `AMA_REF` (`v3.3.0`, matching pyproject's `ama-cryptography` git pin and
+pinned `AMA_REF` (`v4.0.0`, matching pyproject's `ama-cryptography` git pin and
 `.github/actions/build-ama-cryptography`), builds the native PQC library,
 installs the Python package, **co-locates the shared object inside the installed
 `ama_cryptography` package** so it loads with no `LD_LIBRARY_PATH`, and fails
 loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 
 ```bash
-# Requires git, gcc/g++ >= 12, and cmake >= 4.3.2 on PATH.
+# Requires git, gcc/g++ >= 12, and cmake >= 4.4.0 on PATH.
 bash scripts/build_ama_native.sh
-# AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v3.3.0 (native-only
+# AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v4.0.0 (native-only
 # constant-time is unconditional; AMA warns if it is set); no need to export it.
 ```
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
 The script performs, in order: install the PEP 517 build floors
-(`setuptools>=78.1.1`, `wheel>=0.47.0`, `cmake>=4.3.2`); `git clone --branch
-v3.3.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+(`setuptools>=83.0.0`, `wheel>=0.47.0`, `cmake>=4.4.0` — AMA v4.0.0 raised the
+setuptools and cmake floors; older toolchains fail its preflight); `git clone
+--branch v4.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
 
@@ -171,21 +172,24 @@ build AMA yourself and leave the shared object in the build tree, export its
 directory on `LD_LIBRARY_PATH` before importing Mercury:
 
 ```bash
-git clone --depth 1 --branch v3.3.0 \
+git clone --depth 1 --branch v4.0.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
+pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
 cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
 AMA_NO_CYTHON=1 pip install --no-build-isolation .
 export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}
-export AMA_CRYPTO_VERSION=3.3.0
+export AMA_CRYPTO_VERSION=4.0.0
 ```
 
 The import-time gate additionally enforces the pinned **version**: it refuses
-unless the installed `ama_cryptography.__version__` resolves to release `3.3.0`
+unless the installed `ama_cryptography.__version__` resolves to release `4.0.0`
 and, when set, `AMA_CRYPTO_VERSION` agrees. Both are matched PEP 440-tolerantly
-(`v3.3.0`, `3.3.0.post1`, `3.3.0+cpu`, and even `3.3` are accepted; a different
-release such as `3.1.0` is refused), so a valid post/local build is not
-misdiagnosed as a failure — see
+(`v4.0.0`, `4.0.0.post1`, `4.0.0+cpu`, and even `4.0` / `4` are accepted — a
+shorter string is zero-padded to the pinned width, so `4` becomes `(4, 0, 0)`
+and matches, whereas under the old `3.3.0` pin `3` padded to `(3, 0, 0)` and was
+refused; a different release such as `3.3.0` is refused), so a valid post/local
+build is not misdiagnosed as a failure — see
 `omni_mercury_engine/_pqc_gate.py::_enforce_ama_version` / `_release_matches`.
 
 **Docker / Kubernetes:** the production image builds this automatically — the
