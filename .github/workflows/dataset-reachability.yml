@@ -163,8 +163,11 @@ jobs:
         run: |
           # Opt-in network probes for the 11 unreachable loaders.
           # ``--no-cov`` keeps the run time bounded — coverage is
-          # not the goal of this job.
-          pytest -m network tests/datasets/test_unreachable_loaders_network.py -v --tb=short --no-cov
+          # not the goal of this job. ``-s`` surfaces the per-loader
+          # REACHABILITY VERDICT lines: a green job otherwise cannot
+          # distinguish "reachable" from "loudly unreachable", so a
+          # loader quietly becoming downloadable again was invisible.
+          pytest -m network tests/datasets/test_unreachable_loaders_network.py -v -s --tb=short --no-cov
 
       - name: Upload reachability report
         if: always()

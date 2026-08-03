@@ -126,8 +126,16 @@ def _exercise(loader: Any, *, dataset_label: str) -> None:
     try:
         ok = loader.download()
     except _ACCEPTABLE_UPSTREAM_FAILURES as exc:
-        # Loud upstream-unavailable signal — exactly the contract.
+        # Loud upstream-unavailable signal — exactly the contract. The
+        # verdict line makes the run log answer "which branch did each
+        # loader take?" — without it a green job cannot distinguish
+        # "reachable" from "loudly unreachable", so a loader quietly
+        # becoming downloadable again was invisible in CI output.
         assert str(exc), f"{dataset_label}: empty exception message"
+        print(
+            f"REACHABILITY VERDICT: {dataset_label}: UNREACHABLE (loud) — "
+            f"{type(exc).__name__}: {str(exc)[:160]}"
+        )
         return
 
     assert ok, (
@@ -141,6 +149,10 @@ def _exercise(loader: Any, *, dataset_label: str) -> None:
     assert isinstance(labels, np.ndarray)
     assert features.shape[0] > 0, f"{dataset_label}: zero records returned"
     assert features.shape[0] == labels.shape[0]
+    print(
+        f"REACHABILITY VERDICT: {dataset_label}: REACHABLE — "
+        f"{features.shape[0]} records"
+    )
 
 
 def _config(tmp_path: Any, name: str, **preprocessing: Any) -> DatasetConfig:
