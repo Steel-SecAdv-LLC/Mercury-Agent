@@ -714,7 +714,9 @@ class NOAASWPCSource(DataSourceBase):
         if product in (SWPCProduct.XRAY_FLUX, SWPCProduct.INTEGRAL_PROTONS):
             endpoint = f"json/goes/{product.value}"
         elif product == SWPCProduct.REALTIME_SOLAR_WIND:
-            endpoint = f"products/{product.value}"
+            # RTSW is served under json/, not products/ — the old
+            # ``products/rtsw/...`` path 404s (verified 2026-08-03).
+            endpoint = f"json/{product.value}"
 
         try:
             response = await self._http_get(endpoint)
@@ -746,6 +748,8 @@ class NOAASWPCSource(DataSourceBase):
             data_points = self._parse_xray_flux(data, source_type)
         elif product == SWPCProduct.INTEGRAL_PROTONS:
             data_points = self._parse_integral_protons(data, source_type)
+        elif product == SWPCProduct.REALTIME_SOLAR_WIND:
+            data_points = self._parse_rtsw_mag(data, source_type)
 
         return data_points
 
@@ -997,6 +1001,93 @@ class NOAASWPCSource(DataSourceBase):
 
             except (ValueError, IndexError, TypeError) as e:
                 logger.debug(f"Failed to parse propagated solar wind row: {e}")
+                continue
+
+        return data_points
+
+    def _parse_rtsw_mag(
+        self,
+        data: Any,
+        source_type: DataSourceType,
+    ) -> list[DataPoint]:
+        """Parse the RTSW 1-minute interplanetary magnetic field product.
+
+        Format (verified live 2026-08-03 at ``json/rtsw/rtsw_mag_1m.json``):
+        array-of-objects rows carrying ``time_tag``, GSM/GSE field components,
+        ``bt``, plus per-row ``source`` and ``active`` — the RTSW
+        constellation is multi-spacecraft (SOLAR1/SWFO-L1 active, ACE and
+        IMAP non-active as of 2026), so rows from the active spacecraft are
+        preferred and non-active rows are used only when no active row
+        exists in the payload.
+
+        Args:
+            data: Decoded JSON body of the feed.
+            source_type: Mapped :class:`DataSourceType` for the product.
+
+        Returns:
+            DataPoints for the trailing hour of preferred rows. Southward
+            IMF drives the alert level: ``bz_gsm < -20`` nT is STRONG,
+            ``< -10`` nT MODERATE — the geoeffective threshold range used
+            across the SWPC parsers.
+        """
+        data_points: list[DataPoint] = []
+        if not isinstance(data, list) or not data:
+            return data_points
+
+        rows = [row for row in data if isinstance(row, dict) and row.get("time_tag")]
+        active_rows = [row for row in rows if row.get("active")]
+        preferred = active_rows or rows
+
+        def _mag(record: dict[str, Any], key: str) -> float | None:
+            # Field components are signed, so only the instrument fill
+            # sentinel (-9999.x) is invalid — not negatives in general.
+            value = record.get(key)
+            if value is None:
+                return None
+            try:
+                parsed = float(value)
+            except (TypeError, ValueError):
+                return None
+            return None if parsed <= -9999.0 else parsed
+
+        for record in preferred[-60:]:
+            try:
+                time_str = str(record["time_tag"])
+                timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=UTC)
+
+                point_data = {
+                    "bt": _mag(record, "bt"),
+                    "bx_gsm": _mag(record, "bx_gsm"),
+                    "by_gsm": _mag(record, "by_gsm"),
+                    "bz_gsm": _mag(record, "bz_gsm"),
+                    "source": record.get("source"),
+                    "active": bool(record.get("active")),
+                }
+
+                bz = point_data.get("bz_gsm")
+                if isinstance(bz, float) and bz < -20:
+                    alert_level = AlertLevel.STRONG
+                elif isinstance(bz, float) and bz < -10:
+                    alert_level = AlertLevel.MODERATE
+                else:
+                    alert_level = AlertLevel.NONE
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"rtsw_mag_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data=point_data,
+                        alert_level=alert_level,
+                        confidence=0.9 if point_data["active"] else 0.7,
+                        metadata={"product": SWPCProduct.REALTIME_SOLAR_WIND.value},
+                    )
+                )
+            except (KeyError, ValueError, TypeError) as e:
+                logger.debug(f"Failed to parse RTSW mag row: {e}")
                 continue
 
         return data_points
