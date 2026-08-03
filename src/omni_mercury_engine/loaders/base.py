@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
@@ -45,6 +46,12 @@ class FetchHTTPError(ConnectionError):
     consumer working unchanged while ``status_code`` lets callers branch on
     the actual upstream verdict (mirrors
     :class:`omni_mercury_engine.datasets.exceptions.DataSourceUnavailableError`).
+
+    The underlying transport exception is never chained (``__cause__`` is
+    ``None`` and the implicit context is suppressed): requests/urllib3
+    error messages embed the fully-composed request URL, and for keyed
+    loaders that URL carries the credential, so ``status_code`` — not the
+    chain — is the supported way to inspect the upstream verdict.
 
     Attributes:
         status_code: HTTP status of the last failed attempt, or ``None``
@@ -300,10 +307,17 @@ class BaseDomainLoader(ABC):
                 network / HTTP errors (a ``ConnectionError`` subclass,
                 so existing handlers keep working). Carries the last
                 observed HTTP status in ``status_code`` — ``None`` for
-                pre-HTTP failures — and chains via ``__cause__`` to
-                the last underlying exception so the operator-facing
-                traceback names the real failure (timeout, refused
-                connection, 5xx response) rather than burying it.
+                pre-HTTP failures. The underlying exception is
+                deliberately NOT chained (``__cause__ is None``,
+                implicit context suppressed): requests/urllib3 error
+                messages embed the fully-composed request URL, and for
+                keyed loaders that URL carries the credential (the
+                FIRMS MAP key as a path segment; EIA / OpenWeatherMap
+                / Alpha Vantage / NASA keys as query parameters), so
+                chaining would leak the secret into every rendered
+                traceback and log. The safe diagnostics live in the
+                message instead: target host, attempt count, exception
+                class name, and HTTP status.
                 HTTP 429 fails fast without further attempts: a
                 windowed quota cannot recover inside a 2-8 s backoff,
                 and retrying only multiplies the burn against the
@@ -313,7 +327,6 @@ class BaseDomainLoader(ABC):
         if headers:
             default_headers.update(headers)
 
-        last_exc: Exception | None = None
         last_error_kind = "unknown"
         last_status: int | None = None
         attempts_made = 0
@@ -340,7 +353,6 @@ class BaseDomainLoader(ABC):
                 # transient-retry path below.
                 raise
             except Exception as exc:
-                last_exc = exc
                 last_error_kind = type(exc).__name__
                 attempts_made = attempt + 1
                 # Duck-typed so ``requests`` stays a deferred import:
@@ -366,18 +378,28 @@ class BaseDomainLoader(ABC):
                     )
                     time.sleep(wait)
 
-        # Chain to the last underlying exception so the operator-facing
-        # traceback names the real failure (the original socket / HTTP
-        # error) rather than just the wrapper. ``raise X from None``
-        # would suppress the cause; the explicit ``from last_exc`` is
-        # the operator-actionable choice.
+        # SECURITY: never chain ``last_exc``. requests.HTTPError messages
+        # embed the fully-composed request URL ("404 Client Error: Not
+        # Found for url: https://host/path?query") and urllib3 connection
+        # errors embed the path+query ("Max retries exceeded with url:
+        # /path?query"). For keyed loaders that URL carries the
+        # credential — the FIRMS MAP key is a path segment; EIA /
+        # OpenWeatherMap / Alpha Vantage / NASA keys ride in query
+        # params — so an explicit cause (or the implicit context) leaks
+        # the secret into every traceback and log that renders the
+        # chain. ``from None`` severs both (PEP 409: ``__cause__ =
+        # None``, ``__suppress_context__ = True``); the message keeps
+        # every diagnostic that is safe to keep: host, attempt count,
+        # exception class name, HTTP status. Pinned by
+        # ``tests/loaders/test_base_loader.py::TestFetchCredentialRedaction``.
+        host = urlparse(url).hostname or "unknown-host"
         status_detail = f", HTTP {last_status}" if last_status is not None else ""
         raise FetchHTTPError(
-            f"{self.DOMAIN}: Failed to fetch data after "
+            f"{self.DOMAIN}: Failed to fetch data from {host} after "
             f"{attempts_made} attempt{'s' if attempts_made != 1 else ''} "
             f"({last_error_kind}{status_detail})",
             status_code=last_status,
-        ) from last_exc
+        ) from None
 
     def _fetch_json(
         self,

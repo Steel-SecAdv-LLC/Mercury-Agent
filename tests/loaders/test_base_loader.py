@@ -15,6 +15,7 @@ Covers:
 from __future__ import annotations
 
 import ipaddress
+import traceback
 from typing import Any
 from unittest.mock import patch
 
@@ -239,14 +240,18 @@ class TestFetchUrlExceptionRouting:
         # accidentally re-routed by the new ValueError branch.
         assert call_count["n"] == 3
 
-    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path: Any) -> None:
-        """``ConnectionError`` after retry-exhaustion chains via ``__cause__``.
+    def test_retry_exhaustion_severs_underlying_exception(self, tmp_path: Any) -> None:
+        """Retry exhaustion severs the exception chain (``from None``).
 
-        Wrapping the failure in ``ConnectionError`` is the operator-
-        facing API contract, but losing the underlying exception in
-        the traceback makes diagnosis harder than it has to be.
-        PR #210 wires ``raise ConnectionError(...) from last_exc`` so
-        the original socket / HTTP failure is one frame away.
+        PR #210 chained ``from last_exc`` for operator diagnostics, but
+        requests/urllib3 error messages embed the fully-composed request
+        URL, and for keyed loaders that URL carries the credential (the
+        FIRMS MAP key as a path segment; EIA / OpenWeatherMap /
+        Alpha Vantage / NASA keys in query params) — so the chain is a
+        credential leak. The safe diagnostics (host, attempt count,
+        exception class name, HTTP status) now live in the
+        ``FetchHTTPError`` message itself; the full leak contract is
+        pinned in :class:`TestFetchCredentialRedaction`.
         """
         loader = StubLoader(cache_dir=tmp_path / "cache")
         loader.max_retries = 1
@@ -263,10 +268,17 @@ class TestFetchUrlExceptionRouting:
         ):
             loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
-        assert exc_info.value.__cause__ is original, (
-            "ConnectionError did not chain to the underlying exception; "
-            "operators lose the real cause in the traceback."
+        raised = exc_info.value
+        assert raised.__cause__ is None, (
+            "the exception chain must be severed: the chained transport "
+            "error embeds the request URL, which carries the credential "
+            "for keyed loaders"
         )
+        assert raised.__suppress_context__ is True
+        # The diagnostics the chain used to carry now live in the message.
+        message = str(raised)
+        assert "OSError" in message
+        assert "earthquake.usgs.gov" in message
 
 
 class TestAllowUntrustedRemovedFromLoader:
@@ -538,7 +550,11 @@ class TestFetchHTTPErrorStatus:
         assert isinstance(raised, FetchHTTPError)
         assert raised.status_code == 503
         assert "HTTP 503" in str(raised)
-        assert raised.__cause__ is original
+        # The chain is severed (credential redaction — see
+        # TestFetchCredentialRedaction); ``status_code`` IS the
+        # supported way to read the upstream verdict.
+        assert raised.__cause__ is None
+        assert raised.__suppress_context__ is True
 
     def test_rate_limit_fails_fast_without_retry(self, tmp_path: Any) -> None:
         """HTTP 429 is a quota verdict: one attempt, no backoff burn."""
@@ -591,6 +607,102 @@ class TestFetchHTTPErrorStatus:
         """Every ``except ConnectionError`` / ``except OSError`` still catches."""
         assert issubclass(FetchHTTPError, ConnectionError)
         assert issubclass(FetchHTTPError, OSError)
+
+
+class TestFetchCredentialRedaction:
+    """``_fetch_url`` must never let a credentialed URL escape via its exception.
+
+    ``requests.HTTPError`` messages embed the fully-composed request URL
+    ("404 Client Error: Not Found for url: https://host/<key>/...") and
+    urllib3 connection errors embed the path+query ("Max retries exceeded
+    with url: /path?api_key=..."). FIRMS carries its MAP key as a URL
+    *path* segment; EIA / OpenWeatherMap / Alpha Vantage / NASA carry
+    keys in *query* parameters. The contract pinned here, for both
+    placements and for pre-HTTP transport failures: the escaping
+    ``FetchHTTPError`` has ``__cause__ is None``, suppresses its implicit
+    context, and the secret appears nowhere in ``str(exc)``,
+    ``repr(exc)``, or the fully-rendered traceback (which walks cause
+    AND context chains — the strongest observable a log sink sees).
+    """
+
+    SECRET = "hunter2-secret-key-000042"
+
+    @staticmethod
+    def _http_error(status: int, message: str) -> OSError:
+        """Stand-in for ``requests.HTTPError``: message + ``.response``."""
+        exc = OSError(message)
+        exc.response = type("_Resp", (), {"status_code": status})()  # type: ignore[attr-defined]
+        return exc
+
+    def _exhaust(self, tmp_path: Any, original: Exception) -> FetchHTTPError:
+        """Drive ``_fetch_url`` to exhaustion against ``original``."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 0
+        loader.retry_backoff = 0.0
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=original,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        return exc_info.value
+
+    def _assert_secret_free(self, exc: FetchHTTPError) -> None:
+        """The tight leak contract: cause, context, str, repr, traceback."""
+        assert exc.__cause__ is None, "explicit cause must be severed (raise ... from None)"
+        assert exc.__suppress_context__ is True, (
+            "implicit context must be suppressed, or the leak survives "
+            "as 'During handling of the above exception' in tracebacks"
+        )
+        assert self.SECRET not in str(exc)
+        assert self.SECRET not in repr(exc)
+        rendered = "".join(traceback.format_exception(exc))
+        assert self.SECRET not in rendered, (
+            "the fully-rendered traceback (cause and context chains "
+            "included) must not contain the credential"
+        )
+
+    def test_path_embedded_secret_firms_style(self, tmp_path: Any) -> None:
+        """FIRMS-style: the MAP key is a URL *path* segment."""
+        original = self._http_error(
+            404,
+            "404 Client Error: Not Found for url: "
+            f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{self.SECRET}"
+            "/VIIRS_SNPP_NRT/world/1",
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        # Safe diagnostics are preserved in the message.
+        assert exc.status_code == 404
+        assert "HTTP 404" in str(exc)
+        assert "earthquake.usgs.gov" in str(exc)
+
+    def test_query_embedded_secret_api_key_style(self, tmp_path: Any) -> None:
+        """EIA/OpenWeatherMap/Alpha Vantage-style: key in the query string."""
+        original = self._http_error(
+            403,
+            "403 Client Error: Forbidden for url: "
+            f"https://api.eia.gov/v2/electricity/rto/region-data/data/"
+            f"?api_key={self.SECRET}&frequency=hourly",
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        assert exc.status_code == 403
+        assert "HTTP 403" in str(exc)
+
+    def test_pre_http_transport_failure_with_secret_in_message(self, tmp_path: Any) -> None:
+        """urllib3-style connection errors embed path+query pre-HTTP too."""
+        original = OSError(
+            "HTTPSConnectionPool(host='api.openweathermap.org', port=443): "
+            "Max retries exceeded with url: "
+            f"/data/3.0/onecall?appid={self.SECRET}&lat=0&lon=0 "
+            "(Caused by NewConnectionError)"
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        assert exc.status_code is None
 
 
 class TestIterFeedRows:

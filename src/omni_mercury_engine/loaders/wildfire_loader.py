@@ -432,14 +432,17 @@ class WildfireLoader(BaseDomainLoader):
             DataFrame parsed from the CSV response.
 
         Raises:
-            ConnectionError: FIRMS rate limit hit (HTTP 429). Raised without
-                the underlying cause: the ``requests.HTTPError`` message
-                embeds the full URL, whose path segment IS the MAP key
-                (``_build_area_url``), so chaining it would leak the key into
-                any traceback -- the same leak ``scripts/live_data_smoke.py``
-                redacts at its layer. Suppressing the cause here is the
-                loader-layer redaction; the message carries everything
-                actionable instead.
+            ConnectionError: FIRMS rate limit hit (HTTP 429), rewritten as a
+                purpose-built quota message. Key redaction for EVERY status
+                is anchored one layer down: ``_fetch_url`` raises
+                ``FetchHTTPError`` with ``from None`` and a URL-free message,
+                because the underlying ``requests.HTTPError`` message embeds
+                the full URL, whose path segment IS the MAP key
+                (``_build_area_url``). Both this 429 rewrite and the non-429
+                re-raise therefore propagate exceptions that carry no URL,
+                no cause, and no suppressed-context leak;
+                ``scripts/live_data_smoke.py``'s redaction remains as
+                defence in depth.
             ValueError: FIRMS returned a non-CSV body. FIRMS signals key and
                 quota problems as HTTP-200 text bodies ("Invalid MAP_KEY.",
                 transaction-limit messages) that would otherwise parse into a
@@ -456,6 +459,11 @@ class WildfireLoader(BaseDomainLoader):
                     "https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey/) "
                     "instead of retrying."
                 ) from None
+            # Non-429: propagate unchanged. Key-safe because _fetch_url
+            # severs the exception chain and its message never contains
+            # the URL — pinned end-to-end (real _fetch_url, key in path)
+            # by test_wildfire_firms_guards.py and at the base layer by
+            # TestFetchCredentialRedaction.
             raise
         text = raw_bytes.decode("utf-8", errors="replace")
 

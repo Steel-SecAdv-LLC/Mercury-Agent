@@ -74,13 +74,15 @@ def _record(name: str, status: str, detail: str) -> None:
 
 
 def _describe(exc: BaseException) -> str:
-    """Render an exception with its chained causes.
+    """Render an exception with any chained causes.
 
-    The loaders wrap transport failures as ``ConnectionError: ... after N
-    attempts``, which says nothing about *why*. Without the chain a throttling
-    response (HTTP 429) is indistinguishable from a DNS outage, and the two
-    call for opposite responses. Walk ``__cause__``/``__context__`` so the
-    reported failure names the actual upstream condition.
+    ``FetchHTTPError`` deliberately severs its chain (``raise ... from
+    None``): the chained transport error embeds the credentialed request
+    URL, so the safe diagnostics — host, attempt count, exception kind,
+    HTTP status — ride in its own message and the walk stops after one
+    segment by design. Other exception families still chain normally, so
+    the ``__cause__``/``__context__`` walk is kept for them; ``_record``
+    redacts the rendered text either way as defence in depth.
     """
     parts: list[str] = []
     seen: set[int] = set()
