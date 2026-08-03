@@ -216,8 +216,30 @@ def test_bca_interval_always_contains_its_own_point_estimate() -> None:
     ``CI [0.96975, 0.97299]``.
     """
     data = np.array(
-        [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
-         1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+        [
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0,
+        ]
     )
     calc = ThresholdConfidenceIntervalCalculator(
         n_bootstrap=80, confidence_level=0.95, random_state=0
@@ -240,4 +262,3 @@ def test_a_clean_fit_is_not_labelled_as_widened() -> None:
 
     assert ci.method == "bootstrap_bca"
     assert ci.lower <= ci.threshold <= ci.upper
-

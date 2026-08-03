@@ -1,7 +1,7 @@
 {
   "metadata": {
     "partial": true,
-    "n_done": 8
+    "n_done": 9
   },
   "per_dataset": [
     {
@@ -571,6 +571,73 @@
         }
       },
       "best_method": "isolation_forest"
+    },
+    {
+      "name": "cv:MVTec-AD_bottle",
+      "family": "adbench_cv_embedding",
+      "n_samples": 292,
+      "n_features": 512,
+      "anomaly_ratio": 0.21575342465753425,
+      "npz_sha256": "9eb7a78f1f6ecfcd00391ea01fe06f998e3fb7b8e89a34c06d69786ee38a8059",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/MVTec-AD_bottle.npz",
+      "n_train": 114,
+      "n_test": 178,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.9642512077294685,
+          "average_precision": 0.9536339050256524,
+          "fit_seconds": 6.965209355000297,
+          "score_seconds": 0.09936299299988605,
+          "wall_seconds": 7.1
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.9641131815044859,
+          "average_precision": 0.9584940817368262,
+          "fit_seconds": 0.24317692600016017,
+          "score_seconds": 0.018894847000410664,
+          "wall_seconds": 0.3
+        },
+        "ecod": {
+          "roc_auc": 0.9298826777087646,
+          "average_precision": 0.9082042134428016,
+          "fit_seconds": 1.0378007700001035,
+          "score_seconds": 0.036863319000076444,
+          "wall_seconds": 1.1
+        },
+        "copod": {
+          "roc_auc": 0.9572118702553485,
+          "average_precision": 0.948697823967624,
+          "fit_seconds": 0.9130422869993708,
+          "score_seconds": 0.029001787999732187,
+          "wall_seconds": 1.0
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.9508626639061422,
+          "average_precision": 0.9289903023572226,
+          "fit_seconds": 0.2520959720004612,
+          "score_seconds": 0.14193983700079116,
+          "wall_seconds": 0.4
+        },
+        "knn": {
+          "roc_auc": 0.9496204278812974,
+          "average_precision": 0.9289270266521136,
+          "fit_seconds": 0.2520364160000099,
+          "score_seconds": 0.15043082899956062,
+          "wall_seconds": 0.4
+        },
+        "hbos": {
+          "roc_auc": 0.9570738440303658,
+          "average_precision": 0.9493691779050871,
+          "fit_seconds": 4.002620129999741,
+          "score_seconds": 0.00727771899983054,
+          "wall_seconds": 4.1
+        }
+      },
+      "best_method": "mercury_tier"
     }
   ]
 }
