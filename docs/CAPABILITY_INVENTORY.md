@@ -603,9 +603,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `AnomalyDetector` (`core.rigorous_benchmark`) — Protocol for anomaly detectors to benchmark.
 - `BaseDetector` (`core.base`) — Abstract base class for all anomaly detectors.
 - `BaseDetector` (`core.stacking_fusion`) — Protocol for base detectors in ensemble.
+- `BaseDomainDetector` (`core.base_domains`) — Enhanced base detector with adaptive thresholds and domain metrics.
 - `ConformalAnomalyDetector` (`core.conformal_prediction`) — Wrapper for anomaly detectors with conformal prediction.
 - `CovarianceAwareDetector` (`core.adaptive_detector`) — Solves the batadal problem.
-- `BaseDomainDetector` (`core.base_domains`) — Enhanced base detector with adaptive thresholds and domain metrics.
 - `InformationGeometryDetector` (`core.info_geometry`) — Information geometry-based OOD detector.
 - `MultivariateTSDetector` (`core.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
 - `TemporalPatternDetector` (`core.adaptive_detector`) — Solves the smd problem.
@@ -652,13 +652,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Neural models & layers**
 
-- `BaseModel` (`core.base`) — Abstract base class for all models.
 - `AffectiveStateModel` (`core.model_domains`) — Enhanced affective computing model with entropy-based analysis.
-- `MultimodalBiometricModel` (`core.model_domains`) — Enhanced biometric model with fairness-aware scoring.
-- `QuantumFeatureModel` (`core.model_domains`) — Enhanced quantum-inspired anomaly detection with rigorous calculations.
+- `BaseModel` (`core.base`) — Abstract base class for all models.
 - `FusionDetectionHead` (`core.attention_fusion_stack`) — Detection head over the fused state: standardise -> MLP -> logit.
 - `GlobalOmniScalarNetwork` (`core.global_omni_scalar_network`) — Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
+- `MultimodalBiometricModel` (`core.model_domains`) — Enhanced biometric model with fairness-aware scoring.
 - `NeuralEncoder` (`core.neurosymbolic_hub`) — Neural encoder for neuro-symbolic fusion.
+- `QuantumFeatureModel` (`core.model_domains`) — Enhanced quantum-inspired anomaly detection with rigorous calculations.
 - `RefactoringTransformer` (`core.three_r_mechanism`) — AST transformer that applies real refactoring transformations.
 - `TrainableFusionStack` (`core.attention_fusion_stack`) — The production fusion stack plus detection head, trainable end-to-end.
 
@@ -714,7 +714,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `EthicalDecision` (`core.ethical_governor`) — Record of ethical decision with validation.
 - `EthicalRiskMatrix` (`core.ethical_risk_matrix`) — Comprehensive ethical risk matrix with compliance and forecasting.
 - `EthicalScalars` (`core.ethical_config`) — Weighted ethical-priority configuration for engine decision-making.
-- `ReliabilityWeightedFusion` (`core.stacking_fusion`) — Stacking fusion weighted by a caller-supplied per-detector reliability score. Renamed from `EthicallyConstrainedFusion`: it computes and enforces no ethics signal, so the old name advertised a safety control that does not exist there.
 - `EventBasedMetrics` (`core.base_domains`) — Event-based metrics for time-series anomaly detection.
 - `ExplainableOutput` (`core.neurosymbolic_hub`) — Explainable output from neuro-symbolic hub.
 - `FairnessMetrics` (`core.model_domains`) — Fairness metrics for bias detection.
@@ -778,6 +777,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `RecursionConvergenceConstants` (`core.centralized_constants`) — Convergence bounds for recursive computations.
 - `RedisCache` (`core.feature_pipeline`) — Redis cache backend implementation.
 - `RegenerativeArchitecture` (`core.regenerative`) — Implements regenerative design principles for net-positive AI systems.
+- `ReliabilityWeightedFusion` (`core.stacking_fusion`) — Stacking fusion that weights each detector by a per-detector reliability score.
 - `RiemannianAdam` (`core.riemannian_optimization`) — Adam optimiser adapted for Riemannian manifolds.
 - `RiemannianGradientDescent` (`core.riemannian_optimization`) — Riemannian gradient descent with Armijo backtracking line search.
 - `RigorousBenchmarkHarness` (`core.rigorous_benchmark`) — Rigorous benchmark harness for anomaly detection evaluation.
@@ -1013,7 +1013,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Detection**
 
 - `AccelerationDynamicsDetector` (`detectors.acceleration_dynamics`) — Physics-based acceleration dynamics anomaly detector.
-- `PhysicsIntegratedDetector` (`detectors.physics_integration`) — Unified detector integrating all advanced physics-based modules.
 - `AdversarialAutoencoderDetector` (`detectors.advanced.adversarial_ae`) — Adversarial Autoencoder Detector for Industrial Control Systems.
 - `AnyAnomalyDetector` (`detectors.vlm.anyanomaly`) — AnyAnomaly zero-shot customizable anomaly detector.
 - `AtmosphericRiverDetector` (`detectors.meteorological.atmospheric_river_detector`) — Atmospheric-river detector: IVT physics core + Ralph et al. AR scale.
@@ -1043,8 +1042,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `EarthquakeDetector` (`detectors.geological.disaster_detectors`) — Earthquake detector using P/S-wave spectrogram analysis.
 - `EchoStateDetector` (`detectors.echo_state`) — Echo-State-Network one-step-ahead predictive residual detector.
 - `EnergyBasedDetector` (`detectors.energy_based`) — Gaussian-family quadratic energy-based-model detector.
-- `ExtendedStatisticalDetector` (`detectors.statistical_extended`) — Unified enhanced statistical anomaly detector.
 - `EqTsunamiCascadeDetector` (`detectors.geological.eq_tsunami_cascade`) — Earthquake → tsunami cascade with PTWC-style staged escalation.
+- `ExtendedStatisticalDetector` (`detectors.statistical_extended`) — Unified enhanced statistical anomaly detector.
 - `FinancialCrisisDetector` (`detectors.economic.financial_crisis_detector`) — Comprehensive financial crisis detection system.
 - `FireDebrisFlowCascadeDetector` (`detectors.geological.fire_debris_flow_cascade`) — Staged wildfire → debris-flow cascade on the published USGS models.
 - `FireIgnitionDetector` (`detectors.geological.wildfire`) — CNN scoring fire activity from satellite-derived thermal rasters.
@@ -1077,6 +1076,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `PaDiMDetector` (`detectors.visual.padim`) — PaDiM anomaly detector.
 - `ParticleFilterDetector` (`detectors.particle_filter`) — Bootstrap particle-filter detector scoring predictive innovations.
 - `PatchCoreDetector` (`detectors.visual.patchcore`) — PatchCore anomaly detector.
+- `PhysicsIntegratedDetector` (`detectors.physics_integration`) — Unified detector integrating all advanced physics-based modules.
 - `ReverseDistillationDetector` (`detectors.visual.reverse_distillation`) — Reverse Distillation anomaly detector.
 - `RockfallDetector` (`detectors.geological.rockfall_detector`) — Rockfall trigger and precursor detector.
 - `RootCauseGraphDetector` (`detectors.rca`) — Random-walk root-cause localiser over a causal / service graph.
@@ -1176,6 +1176,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CatalanOptimizedProbe` (`detectors.math_arrest.probes.catalan`) — Detect autocorrelation breaks using a Catalan-constant AR(1) model.
 - `ClickAnalysis` (`detectors.uiux_anomaly`) — Analysis results for click patterns.
 - `CombinedContextProvider` (`detectors.vlm.context_providers`) — Combines multiple context providers for rich context.
+- `CombinedContextProvider` (`detectors.vlm.context_providers_extended`) — Enhanced combined context provider with all context types.
 - `CorrelationAwareDecorrelator` (`detectors.math_arrest.fusion`) — Detect redundant probe clusters and reduce their weight contributions.
 - `CrossDomainCorrelation` (`detectors.cross_domain_frequency`) — Result of cross-domain frequency correlation analysis.
 - `CrossDomainFrequencyCorrelator` (`detectors.cross_domain_frequency`) — Detect overlapping significant frequency bands across domains.
@@ -1185,7 +1186,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `DustEventClass` (`detectors.meteorological.dust_storm_detector`) — Canonical WMO SDS visibility-class labels.
 - `EmissionPotential` (`detectors.meteorological.dust_storm_detector`) — Friction-velocity emission-potential result.
 - `EnergyMinimizationProbe` (`detectors.math_arrest.probes.energy_minimization`) — Detect energy well escapes via quadratic energy landscape.
-- `CombinedContextProvider` (`detectors.vlm.context_providers_extended`) — Enhanced combined context provider with all context types.
 - `EthicalConstrainedProbe` (`detectors.math_arrest.probes.ethical`) — Detect boundary violations using percentile-based envelopes.
 - `ExponentialDecayProbe` (`detectors.math_arrest.probes.exponential`) — Detect signal degradation using optimal-lambda EWMA residuals.
 - `FractalSelfSimilarityProbe` (`detectors.math_arrest.probes.fractal_similarity`) — Detect scale-invariance loss via cross-scale correlation at phi ratio.
@@ -1271,7 +1271,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 <details><summary>Support types (118)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `PhysicsIntegrationConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DerechoResult`, `DetectionConfig`, `DetectorProtocol`, `DomainBandInfo`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DerechoResult`, `DetectionConfig`, `DetectorProtocol`, `DomainBandInfo`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 
@@ -2165,13 +2165,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Engines & orchestration**
 
-- `MultimodalBiometricEngine` (`models.biometric_multimodal`) — Advanced biometric processing engine with neural-symbolic fusion.
 - `AgeProgressionEngine` (`models.biometric_multimodal`) — Age progression engine with quantum variant amplification.
-- `TemporalNeurosymbolicEngine` (`models.neurosymbolic_temporal`) — Unified Enhanced Neurosymbolic Engine.
 - `FallbackLLMChain` (`models.foundation.ollama_adapter`) — Graceful fallback chain for LLM operations.
+- `MultimodalBiometricEngine` (`models.biometric_multimodal`) — Advanced biometric processing engine with neural-symbolic fusion.
 - `MultiverseOmniEngine` (`models.multiverse`) — Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
 - `NeurosymbolicEngine` (`models.neurosymbolic`) — Unified Neurosymbolic reasoning engine combining LTN with symbolic logic.
 - `QuantumEngine` (`models.quantum_engine`) — Quantum computing engine with practical applications.
+- `TemporalNeurosymbolicEngine` (`models.neurosymbolic_temporal`) — Unified Enhanced Neurosymbolic Engine.
 
 **Ethics & governance**
 
@@ -2189,7 +2189,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `BiometricAnomalyModel` (`models.biometric`) — Biometric anomaly detection for facial recognition and analysis.
 - `ConsciousnessPreservationModel` (`models.consciousness`) — Model for consciousness state preservation and anomaly detection.
 - `Discriminator` (`models.sota.tranad`) — Discriminator for TranAD adversarial training.
-- `TemporalLogicTensorNetwork` (`models.neurosymbolic_temporal`) — Enhanced Logic Tensor Network with multiple fuzzy semantics.
 - `FocusScoreConditioning` (`models.sota.tranad`) — Focus Score-Based Self-Conditioning Module.
 - `GatedFeatureFusion` (`models.sota.maat`) — Gated Feature Fusion for combining attention and SSM pathways.
 - `LSTMAutoencoder` (`models.lstm_ae`) — LSTM-based Autoencoder for time-series anomaly detection.
@@ -2212,6 +2211,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SeriesAssociation` (`models.sota.association_discrepancy`) — Series-Association via learned multi-head self-attention.
 - `SparseAttention` (`models.sota.maat`) — Sparse Attention Module for efficient long-sequence processing.
 - `SymbolicReasoningLayer` (`models.neurosymbolic`) — Symbolic reasoning layer for explainable AI.
+- `TemporalLogicTensorNetwork` (`models.neurosymbolic_temporal`) — Enhanced Logic Tensor Network with multiple fuzzy semantics.
 - `TranADLoss` (`models.sota.tranad`) — Combined loss function for TranAD training.
 - `TranADModel` (`models.sota.tranad`) — TranAD: Deep Transformer Networks for Anomaly Detection.
 - `TransformerDecoder` (`models.sota.tranad`) — Transformer Decoder for TranAD reconstruction.
@@ -2239,7 +2239,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `PsiPhenomenon` (`models.parapsychology`) — Types of psi phenomena.
 - `QuantumAgeVariant` (`models.biometric_multimodal`) — Quantum variant for age progression uncertainty modeling.
 - `QuantumCircuit` (`models.quantum_engine`) — Quantum circuit simulator with state vector representation.
-- `SOTARegistry` (`models.sota.registry`) — Registry for state-of-the-art anomaly detection models.
+- `SOTARegistry` (`models.sota.registry`) — Registry for published third-party anomaly detection models.
 - `SimulationModule` (`models.simulation`) — Mathematical simulation for paradoxes, conjectures, and theoretical problems.
 - `SymbolicRule` (`models.neurosymbolic`) — Represents a symbolic logical rule with explainability support.
 - `TemporalGraphReasoner` (`models.neurosymbolic_temporal`) — PyReason-inspired temporal graph reasoner.
