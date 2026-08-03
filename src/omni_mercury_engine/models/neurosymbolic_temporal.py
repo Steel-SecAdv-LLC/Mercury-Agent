@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI.
+"""Temporal neuro-symbolic engine: logic tensor networks over time-windowed facts.
 
-This module implements cutting-edge neuro-symbolic capabilities based on:
+This module implements neuro-symbolic capabilities based on:
 - Logic Tensor Networks (LTNtorch) - Differentiable fuzzy logic
 - PyReason - Temporal first-order logic with graph reasoning
 - Knowledge Graph Integration - ConceptNet, ATOMIC commonsense
@@ -17,13 +17,13 @@ Research References:
 - AlphaProof/AlphaGeometry: Mathematical reasoning (Google 2024)
 
 Architecture:
-    1. EnhancedLogicTensorNetwork - Improved LTN with multiple fuzzy semantics
+    1. TemporalLogicTensorNetwork - Improved LTN with multiple fuzzy semantics
     2. TemporalGraphReasoner - PyReason-style temporal reasoning over graphs
     3. KnowledgeGraphBridge - ConceptNet/ATOMIC integration
     4. MetaCognitionLayer - Self-monitoring and reasoning adjustment
     5. CausalReasoningModule - Causal inference and intervention
     6. ProbabilisticLogicLayer - Credal networks for uncertainty
-    7. EnhancedNeurosymbolicEngine - Unified interface
+    7. TemporalNeurosymbolicEngine - Unified interface
 """
 
 from __future__ import annotations
@@ -146,7 +146,7 @@ class FuzzyOperators:
 # ==============================================================================
 
 
-class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # type: ignore[misc]
+class TemporalLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # type: ignore[misc]
     """Enhanced Logic Tensor Network with multiple fuzzy semantics.
 
     Improvements over basic LTN:
@@ -1118,7 +1118,7 @@ class ProbabilisticLogicLayer:
 # ==============================================================================
 
 
-class EnhancedNeurosymbolicEngine:
+class TemporalNeurosymbolicEngine:
     """Unified Enhanced Neurosymbolic Engine.
 
     Integrates all advanced neuro-symbolic capabilities:
@@ -1149,9 +1149,9 @@ class EnhancedNeurosymbolicEngine:
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Logic Tensor Network
-        self.ltn: EnhancedLogicTensorNetwork | None = None
+        self.ltn: TemporalLogicTensorNetwork | None = None
         if TORCH_AVAILABLE:
-            self.ltn = EnhancedLogicTensorNetwork(
+            self.ltn = TemporalLogicTensorNetwork(
                 input_dim=input_dim,
                 hidden_dim=hidden_dim,
                 num_predicates=num_predicates,
@@ -1186,7 +1186,7 @@ class EnhancedNeurosymbolicEngine:
         # Initialize temporal rules
         self._init_temporal_rules()
 
-        logger.info("EnhancedNeurosymbolicEngine initialized with all components")
+        logger.info("TemporalNeurosymbolicEngine initialized with all components")
 
     def _init_temporal_rules(self) -> None:
         """Initialize domain-specific temporal rules."""

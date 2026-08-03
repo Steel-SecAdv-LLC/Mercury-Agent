@@ -198,7 +198,7 @@ window contents at time `t-1`; the new pair is appended only after
 composition.
 
 The ensemble-level factory `create_fusion_ensemble(method="fibring")`
-returns the existing `EthicallyConstrainedFusion` with `use_golden_ratio=True`,
+returns the existing `ReliabilityWeightedFusion` with `use_golden_ratio=True`,
 which is the natural ensemble-level dual of the FIBRING mode.
 
 Tests: `tests/core/test_fibring_default.py` pins the CONJUNCTIVE default at both
@@ -220,7 +220,7 @@ TruthDecipherFramework
         ├─ Step 7: IndicatorDevelopmentSystem (optional, default ON)
         ├─ Step 8: IPBEngine                (optional, default ON)
         ├─ Step 9: CuriosityEngine          (optional, DEFAULT-OFF)
-        └─ Step 10: EnhancedAnomalyDetector (optional, DEFAULT-OFF)
+        └─ Step 10: IntegratedAnomalyDetector (optional, DEFAULT-OFF)
 ```
 
 Steps 9 and 10 were added in PR #329 and are opt-in: `enable_curiosity`
@@ -229,7 +229,7 @@ Steps 9 and 10 were added in PR #329 and are opt-in: `enable_curiosity`
 which default ON. Step 9 scores how novel a detected anomaly is relative to the
 distribution the `CuriosityEngine` has observed, setting `result.novelty_score`
 and `result.is_novel` (`cognitive/orchestrator.py:566-568`). Step 10 folds each
-observation into the `EnhancedAnomalyDetector` Bayesian/HMM predictive memory and
+observation into the `IntegratedAnomalyDetector` Bayesian/HMM predictive memory and
 surfaces a forecast for detected anomalies; it is constructed with
 `use_simulated_sources=False`, so it performs no network I/O on the runtime path.
 

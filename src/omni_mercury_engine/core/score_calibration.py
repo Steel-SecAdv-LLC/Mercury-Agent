@@ -1568,12 +1568,41 @@ class ThresholdConfidenceIntervalCalculator:
         ci_upper = float(np.percentile(bootstrap_thresholds, pct_high))
         std_error = float(np.std(bootstrap_thresholds))
 
+        # An interval that does not contain its own point estimate is not a
+        # confidence interval, and this one could fail to.
+        #
+        # The percentile bounds are order statistics of the bootstrap
+        # distribution, while ``point_threshold`` is computed on the full sample.
+        # ``AutoThresholdOptimizer`` is a discontinuous estimator, so on
+        # low-cardinality input the full sample can land on an optimum that no
+        # resample reproduces. Measured on 22 binary scores: the estimate is
+        # 1.0 while every replicate sits at or below 0.973, giving the
+        # nonsensical report "threshold 1.0, 95 % CI [0.970, 0.973]".
+        #
+        # Widen to cover the estimate. Widening is the conservative direction --
+        # it can only raise coverage, never lower it -- and the ``method`` string
+        # records that the bounds are no longer pure BCa order statistics, so a
+        # reader is not told this was a clean fit.
+        widened = ci_lower > point_threshold or ci_upper < point_threshold
+        if widened:
+            logger.warning(
+                "BCa bounds [%.6g, %.6g] excluded the point estimate %.6g; widening to "
+                "cover it. The bootstrap distribution did not reproduce the full-sample "
+                "optimum, which happens when the threshold estimator is discontinuous "
+                "over low-cardinality scores. Treat this interval as indicative.",
+                ci_lower,
+                ci_upper,
+                point_threshold,
+            )
+            ci_lower = min(ci_lower, point_threshold)
+            ci_upper = max(ci_upper, point_threshold)
+
         return ThresholdConfidenceInterval(
             threshold=point_threshold,
             lower=ci_lower,
             upper=ci_upper,
             confidence_level=self.confidence_level,
-            method="bootstrap_bca",
+            method="bootstrap_bca_widened" if widened else "bootstrap_bca",
             n_bootstrap=self.n_bootstrap,
             std_error=std_error,
         )

@@ -156,7 +156,16 @@ class ThreeRRequest(BaseModel):
         default=0.96,
         ge=0.90,
         le=0.99,
-        description="Ethical compliance threshold",
+        description=(
+            "Score-scaling base for the 3R fusion equation, NOT an ethics control. "
+            "The fused score is multiplied by this value raised to the golden "
+            "ratio (eta**1.618), so it scales every score monotonically: 0.90 "
+            "scales by 0.845, 0.99 by 0.984. Raising it therefore RAISES scores "
+            "(more detections) -- the opposite of what 'stricter ethical "
+            "threshold' suggests. It refuses nothing. Ethics enforcement is the "
+            "fail-closed harm-uplift gate in cognitive.decision_gate, which no "
+            "request field can tune."
+        ),
     )
 
 

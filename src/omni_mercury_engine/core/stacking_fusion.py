@@ -30,10 +30,10 @@ from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
 
-# Golden ratio for ethical scaling
+# Golden ratio for the reliability-weight exponent
 PHI = 1.618033988749895
 
-# Default ethical threshold
+# Default weighted-average reliability floor
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 
 
@@ -58,8 +58,8 @@ class FusionResult:
     probabilities: np.ndarray[Any, Any]
     detector_weights: dict[str, float]
     fusion_method: str
-    ethical_gate_passed: bool
-    ethical_score: float
+    reliability_floor_met: bool
+    reliability_score: float
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -123,20 +123,20 @@ class StackingFusion:
         self._fitted = False
 
     def add_detector(
-        self, name: str, detector: Any, ethical_score: float | None = None
+        self, name: str, detector: Any, reliability_score: float | None = None
     ) -> StackingFusion:
         """Add a base detector to the ensemble.
 
         Args:
             name: Unique name for detector
             detector: Fitted or unfitted detector
-            ethical_score: Optional ethical score (ignored for StackingFusion, included for API compatibility)
+            reliability_score: Optional reliability weight (ignored here; present for API parity)
 
         Returns:
             Self for method chaining
         """
-        # ethical_score is accepted but not used in StackingFusion (for API compatibility)
-        _ = ethical_score
+        # reliability_score is accepted but not used in StackingFusion (for API compatibility)
+        _ = reliability_score
         self.detectors[name] = detector
         self.detector_names.append(name)
         return self
@@ -352,20 +352,20 @@ class BayesianModelAveraging:
         self._fitted = False
 
     def add_detector(
-        self, name: str, detector: Any, ethical_score: float | None = None
+        self, name: str, detector: Any, reliability_score: float | None = None
     ) -> BayesianModelAveraging:
         """Add a detector to the ensemble.
 
         Args:
             name: Unique name for detector
             detector: Detector instance
-            ethical_score: Optional ethical score (ignored for BMA, included for API compatibility)
+            reliability_score: Optional reliability weight (ignored here; present for API parity)
 
         Returns:
             Self for method chaining
         """
-        # ethical_score is accepted but not used in BMA (for API compatibility)
-        _ = ethical_score
+        # reliability_score is accepted but not used in BMA (for API compatibility)
+        _ = reliability_score
         self.detectors[name] = detector
         return self
 
@@ -529,54 +529,67 @@ class BayesianModelAveraging:
         }
 
 
-class EthicallyConstrainedFusion:
-    """Fusion with ethical constraints integrated from GOSNN.
+class ReliabilityWeightedFusion:
+    """Stacking fusion that weights each detector by a per-detector reliability score.
 
-    Learns optimal detector weights while ensuring ethical compliance through sigma_Immutable
-    threshold gating and benevolence weighting.
+    Renamed from ``EthicallyConstrainedFusion``. Nothing about it was ethical: the
+    per-detector float it weights by is supplied by the caller
+    (:meth:`add_detector`, default ``1.0``), and no ethics signal is computed,
+    consulted or enforced anywhere in the class. Weighting an ensemble by
+    per-member trust is an ordinary and useful technique; calling that trust
+    "ethical compliance" implied a safety control that does not exist here, and
+    left the real control harder to find.
+
+    Ethics enforcement is the fail-closed harm-uplift gate at the public decision
+    surfaces (``cognitive/decision_gate.py``). This class cannot refuse anything.
     """
 
     def __init__(
         self,
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
-        benevolence_weight: float = 0.1,
+        reliability_penalty_weight: float = 0.1,
         use_golden_ratio: bool = True,
     ):
-        """Initialize ethically constrained fusion.
+        """Initialize reliability-weighted fusion.
 
         Args:
-            sigma_immutable: Ethical threshold (0.93-0.96)
-            benevolence_weight: Weight for benevolence term in loss
+            sigma_immutable: Minimum weighted-average reliability the optimiser is
+                pushed toward. A soft penalty in the objective, not a gate, and
+                unrelated to the σ_Immutable configuration-integrity gate in
+                ``security/sigma_immutable_gate.py``.
+            reliability_penalty_weight: Coefficient on the low-reliability penalty
+                term in the weight-optimisation loss.
             use_golden_ratio: Apply phi-based harmonic weighting
         """
         self.sigma_immutable = sigma_immutable
-        self.benevolence_weight = benevolence_weight
+        self.reliability_penalty_weight = reliability_penalty_weight
         self.use_golden_ratio = use_golden_ratio
 
         self.detectors: dict[str, Any] = {}
         self.weights: np.ndarray[Any, Any] | None = None
-        self.ethical_scores: dict[str, float] = {}
+        self.reliability_scores: dict[str, float] = {}
         self._fitted = False
 
     def add_detector(
         self,
         name: str,
         detector: Any,
-        ethical_score: float = 1.0,
-    ) -> EthicallyConstrainedFusion:
-        """Add detector with ethical score.
+        reliability_score: float = 1.0,
+    ) -> ReliabilityWeightedFusion:
+        """Add a detector with a caller-supplied reliability weight.
 
         Args:
             name: Detector name
             detector: Detector instance
-            ethical_score: Ethical compliance score (0-1)
+            reliability_score: Per-detector trust weight in [0, 1]. Defaults to
+                ``1.0``, which makes the weighting a no-op.
         """
         self.detectors[name] = detector
-        self.ethical_scores[name] = ethical_score
+        self.reliability_scores[name] = reliability_score
         return self
 
-    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> EthicallyConstrainedFusion:
-        """Fit fusion with ethical constraints.
+    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> ReliabilityWeightedFusion:
+        """Fit fusion under the reliability penalty.
 
         Args:
             X: Training features
@@ -615,9 +628,9 @@ class EthicallyConstrainedFusion:
         detector_preds = np.array(  # type: ignore[assignment, unused-ignore]
             detector_preds
         ).T  # (n_samples, n_detectors)
-        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
+        reliability_vec = np.array([self.reliability_scores[name] for name in self.detectors])
 
-        # Optimize weights with ethical constraints
+        # Optimise weights under the reliability penalty
         def objective(w: np.ndarray[Any, Any]) -> float:
             # Normalize weights
             w = np.abs(w)
@@ -630,14 +643,16 @@ class EthicallyConstrainedFusion:
             pred = np.clip(pred, 1e-10, 1 - 1e-10)
             bce = -np.mean(y * np.log(pred) + (1 - y) * np.log(1 - pred))
 
-            # Ethical penalty: penalize low-ethical detectors
-            ethical_penalty = self.benevolence_weight * np.sum(w * (1 - ethical_vec))
+            # Penalise weight placed on low-reliability detectors
+            reliability_penalty = self.reliability_penalty_weight * np.sum(
+                w * (1 - reliability_vec)
+            )
 
-            # Sigma_immutable constraint: average ethical score must exceed threshold
-            avg_ethical = np.sum(w * ethical_vec)
-            constraint_penalty = 10.0 * max(0, self.sigma_immutable - avg_ethical)
+            # Soft floor on the weighted-average reliability (a penalty, not a gate)
+            avg_reliability = np.sum(w * reliability_vec)
+            constraint_penalty = 10.0 * max(0, self.sigma_immutable - avg_reliability)
 
-            return float(bce + ethical_penalty + constraint_penalty)
+            return float(bce + reliability_penalty + constraint_penalty)
 
         # Initial weights (optionally phi-weighted)
         if self.use_golden_ratio and n_detectors >= 3:
@@ -662,17 +677,17 @@ class EthicallyConstrainedFusion:
         self._fitted = True
 
         # Log results
-        avg_ethical = np.sum(self.weights * ethical_vec)
+        avg_reliability = np.sum(self.weights * reliability_vec)
         logger.info(
-            f"EthicallyConstrainedFusion fitted: "
+            f"ReliabilityWeightedFusion fitted: "
             f"weights={dict(zip(self.detectors.keys(), self.weights))}, "
-            f"avg_ethical={avg_ethical:.3f}, threshold={self.sigma_immutable}"
+            f"avg_reliability={avg_reliability:.3f}, threshold={self.sigma_immutable}"
         )
 
         return self
 
     def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Predict with ethically-weighted fusion."""
+        """Predict with reliability-weighted fusion."""
         if not self._fitted or self.weights is None:
             raise RuntimeError("Must call fit() before predict_proba()")
 
@@ -688,9 +703,9 @@ class EthicallyConstrainedFusion:
             except (AttributeError, ValueError, TypeError):
                 proba = detector.predict(X).astype(float)
 
-            # Apply ethical gating: scale by detector's ethical score
-            ethical_factor = self.ethical_scores[name] ** (1 / PHI)
-            weighted_sum += weight * proba * ethical_factor
+            # Scale each detector's probability by its reliability weight
+            reliability_factor = self.reliability_scores[name] ** (1 / PHI)
+            weighted_sum += weight * proba * reliability_factor
 
         return weighted_sum
 
@@ -698,29 +713,37 @@ class EthicallyConstrainedFusion:
         """Predict binary labels."""
         return (self.predict_proba(X) > 0.5).astype(int)
 
-    def get_ethical_compliance(self) -> dict[str, Any]:
-        """Get ethical compliance metrics."""
+    def get_reliability_report(self) -> dict[str, Any]:
+        """Report the weighted-average reliability and per-detector weights.
+
+        Renamed from ``get_ethical_compliance``: it reports caller-supplied trust
+        weights, not ethical compliance, and ``floor_met`` is descriptive -- no
+        code path refuses anything when it is False.
+        """
         if not self._fitted or self.weights is None:
             return {}
 
-        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
-        avg_ethical = np.sum(self.weights * ethical_vec)
+        reliability_vec = np.array([self.reliability_scores[name] for name in self.detectors])
+        avg_reliability = np.sum(self.weights * reliability_vec)
 
         return {
-            "average_ethical_score": avg_ethical,
-            "sigma_immutable_threshold": self.sigma_immutable,
-            "passes_threshold": avg_ethical >= self.sigma_immutable,
+            # Cast out of ``np.float64`` / ``np.bool_`` so the report is plain
+            # JSON-serialisable Python, and so ``floor_met is True`` holds for
+            # callers that identity-check it.
+            "average_reliability": float(avg_reliability),
+            "reliability_floor": float(self.sigma_immutable),
+            "floor_met": bool(avg_reliability >= self.sigma_immutable),
             "detector_weights": dict(zip(self.detectors.keys(), self.weights)),
-            "detector_ethical_scores": self.ethical_scores.copy(),
+            "detector_reliability_scores": self.reliability_scores.copy(),
         }
 
 
 def create_fusion_ensemble(
     detectors: dict[str, Any],
     method: str = "fibring",
-    ethical_scores: dict[str, float] | None = None,
+    reliability_scores: dict[str, float] | None = None,
     **kwargs: Any,
-) -> StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion:
+) -> StackingFusion | BayesianModelAveraging | ReliabilityWeightedFusion:
     """Factory function to create fusion ensemble.
 
     Args:
@@ -728,46 +751,48 @@ def create_fusion_ensemble(
         method: Fusion method. Recognised values:
 
             - ``"fibring"`` *(default)*: Returns an
-              :class:`EthicallyConstrainedFusion` constructed with
+              :class:`ReliabilityWeightedFusion` constructed with
               ``use_golden_ratio=True``.  This is the named composition
               that pairs with the hub-level :data:`FusionMode.FIBRING`:
               golden-ratio-aware base + correlation-aware decorrelation
-              + per-detector ethical weighting.  Phi-weighted base
-              initialisation is applied by ``EthicallyConstrainedFusion.fit``
+              + per-detector reliability weighting.  Phi-weighted base
+              initialisation is applied by ``ReliabilityWeightedFusion.fit``
               when there are at least three detectors; for ensembles with
               fewer than three detectors the base falls back to uniform
-              weights, with the ethical-weighting and decorrelation
+              weights, with the reliability-weighting and decorrelation
               layers still active.
-            - ``"ethical"``: Alias for the fibring path retained for
-              backwards compatibility with existing callers.
+            - ``"ethical"``: Legacy alias for the fibring path. The name is
+              inaccurate -- the path applies reliability weights, not an ethics
+              control -- and is retained only so existing callers keep working.
             - ``"stacking"``: Stacked-generalisation meta-learner.
             - ``"bma"``: Bayesian model averaging.
 
-        ethical_scores: Ethical scores for each detector (used by ``"ethical"``
-            and ``"fibring"`` methods). Defaults to 1.0 when absent.
+        reliability_scores: Per-detector trust weight in [0, 1], used by the
+            ``"fibring"``/``"ethical"`` paths. Defaults to 1.0 when absent, which
+            makes the weighting a no-op.
         **kwargs: Additional arguments for specific methods. For ``"fibring"``,
             ``use_golden_ratio`` defaults to True.
 
     Returns:
         Configured fusion ensemble.
     """
-    ensemble: StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion
+    ensemble: StackingFusion | BayesianModelAveraging | ReliabilityWeightedFusion
     if method == "stacking":
         ensemble = StackingFusion(**kwargs)
     elif method == "bma":
         ensemble = BayesianModelAveraging(**kwargs)
     elif method in ("ethical", "fibring"):
-        # Fibring at the ensemble level is the EthicallyConstrainedFusion with
+        # Fibring at the ensemble level is the ReliabilityWeightedFusion with
         # phi-weighted base. The hub-level FibringComposer (core/fibring_fusion.py)
         # provides the streaming decorrelator + domain-affinity bias on top.
         kwargs.setdefault("use_golden_ratio", True)
-        ensemble = EthicallyConstrainedFusion(**kwargs)
+        ensemble = ReliabilityWeightedFusion(**kwargs)
     else:
         raise ValueError(f"Unknown fusion method: {method}")
 
     for name, detector in detectors.items():
-        if method in ("ethical", "fibring") and ethical_scores:
-            ensemble.add_detector(name, detector, ethical_scores.get(name, 1.0))
+        if method in ("ethical", "fibring") and reliability_scores:
+            ensemble.add_detector(name, detector, reliability_scores.get(name, 1.0))
         else:
             ensemble.add_detector(name, detector)
 

@@ -68,7 +68,7 @@ class StabilityMetrics:
     convergence_rate: float
 
 
-class EnhancedQuantumModel:
+class QuantumFeatureModel:
     """Enhanced quantum-inspired anomaly detection with rigorous calculations.
 
     Improvements:
@@ -329,7 +329,7 @@ class EnhancedQuantumModel:
         )
 
 
-class EnhancedBiometricModel:
+class MultimodalBiometricModel:
     """Enhanced biometric model with fairness-aware scoring.
 
     Includes:
@@ -668,7 +668,7 @@ class LyapunovStabilityAnalyzer:
         )
 
 
-class EnhancedAffectiveModel:
+class AffectiveStateModel:
     """Enhanced affective computing model with entropy-based analysis.
 
     Features:
@@ -853,7 +853,7 @@ def create_enhanced_model(
     model_type: str,
     config: dict[str, Any] | None = None,
     **kwargs: Any,
-) -> EnhancedQuantumModel | EnhancedBiometricModel | EnhancedAffectiveModel:
+) -> QuantumFeatureModel | MultimodalBiometricModel | AffectiveStateModel:
     """Factory function to create enhanced model instances.
 
     Args:
@@ -867,19 +867,19 @@ def create_enhanced_model(
     config = config or {}
 
     if model_type == "quantum":
-        return EnhancedQuantumModel(
+        return QuantumFeatureModel(
             num_qubits=config.get("num_qubits", 8),
             decoherence_rate=config.get("decoherence_rate", 0.01),
             **kwargs,
         )
     elif model_type == "biometric":
-        return EnhancedBiometricModel(
+        return MultimodalBiometricModel(
             enforce_fairness=config.get("enforce_fairness", True),
             fairness_threshold=config.get("fairness_threshold", 0.8),
             **kwargs,
         )
     elif model_type == "affective":
-        return EnhancedAffectiveModel(
+        return AffectiveStateModel(
             n_emotions=config.get("n_emotions", 6),
             temporal_window=config.get("temporal_window", 10),
             **kwargs,

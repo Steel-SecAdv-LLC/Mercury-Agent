@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Differentiable Logic Programming.
 
-State-of-the-art differentiable logic programming for neuro-symbolic AI.
+Differentiable logic programming for neuro-symbolic AI.
 Enables end-to-end gradient-based learning of symbolic rules.
 
 Features:

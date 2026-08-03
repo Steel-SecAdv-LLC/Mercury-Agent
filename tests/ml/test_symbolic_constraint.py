@@ -292,7 +292,7 @@ class TestImplicationSemantics:
     """The revived crisp implication operators are correct and differentiable."""
 
     def test_lukasiewicz_known_values(self) -> None:
-        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+        from omni_mercury_engine.models.neurosymbolic_temporal import FuzzyOperators
 
         x = torch.tensor([1.0, 0.0, 0.5, 0.8])
         y = torch.tensor([0.0, 0.3, 0.5, 0.2])
@@ -304,7 +304,7 @@ class TestImplicationSemantics:
     def test_lukasiewicz_gradient_non_saturating(self) -> None:
         # Where the implication is < 1 the slope in x is a constant -1 (bounded),
         # unlike the product residuum whose slope vanishes as x -> 0.
-        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+        from omni_mercury_engine.models.neurosymbolic_temporal import FuzzyOperators
 
         x = torch.tensor([0.9], requires_grad=True)
         y = torch.tensor([0.1])

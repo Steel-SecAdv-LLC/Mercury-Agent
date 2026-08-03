@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Foundation Model Adapters for Time-Series Anomaly Detection.
 
-Integrates state-of-the-art foundation models for time-series:
+Integrates published foundation models for time-series:
 - TimeGPT: Nixtla's 100B+ parameter pre-trained model
 - Chronos: Amazon's local inference model
 - MOMENT: CMU's multi-task foundation model

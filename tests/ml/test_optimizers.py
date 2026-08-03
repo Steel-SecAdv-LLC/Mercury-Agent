@@ -6,7 +6,7 @@ Covers:
 - SyntheticGradientPredictor for decoupled layer training
 - DifferenceTargetPropagation for biologically plausible learning
 - AuxiliaryMaxVariance for multi-task optimization
-- train_with_advanced_optimizers() integration
+- train_with_optimizers() integration
 - Lyapunov stability tracking
 - Convergence rate estimation
 """
@@ -38,7 +38,7 @@ class TestSyntheticGradientPredictor:
         """Create SyntheticGradientPredictor instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             SyntheticGradientPredictor,
         )
 
@@ -91,7 +91,7 @@ class TestSyntheticGradientPredictor:
         """Test predictor with different dimensions."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             SyntheticGradientPredictor,
         )
 
@@ -113,7 +113,7 @@ class TestDifferenceTargetPropagation:
         """Create DifferenceTargetPropagation instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             DifferenceTargetPropagation,
         )
 
@@ -162,7 +162,7 @@ class TestAuxiliaryMaxVariance:
         """Create AuxiliaryMaxVariance instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import AuxiliaryMaxVariance
+        from omni_mercury_engine.ml.optimizers import AuxiliaryMaxVariance
 
         return AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
 
@@ -216,7 +216,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate estimation."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.optimizers import estimate_convergence_rate
 
         loss_history = np.exp(-0.1 * np.arange(100))
         stats = estimate_convergence_rate(loss_history)
@@ -228,7 +228,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with decreasing loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.optimizers import estimate_convergence_rate
 
         loss_history = np.exp(-0.2 * np.arange(50))
         stats = estimate_convergence_rate(loss_history)
@@ -238,7 +238,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with flat loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.optimizers import estimate_convergence_rate
 
         loss_history = np.ones(50) * 0.5
         stats = estimate_convergence_rate(loss_history)
@@ -249,7 +249,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with oscillating loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.optimizers import estimate_convergence_rate
 
         loss_history = 0.5 + 0.1 * np.sin(np.arange(50))
         stats = estimate_convergence_rate(loss_history)
@@ -262,7 +262,7 @@ class TestConvergenceRateEstimation:
 
 
 class TestOmniFusionModelAdvancedTraining:
-    """Tests for OmniFusionModel.train_with_advanced_optimizers()."""
+    """Tests for OmniFusionModel.train_with_optimizers()."""
 
     @pytest.fixture
     def fusion_model(self):
@@ -315,13 +315,13 @@ class TestOmniFusionModelAdvancedTraining:
         dataset = DictDataset(features, labels)
         return DataLoader(dataset, batch_size=16, shuffle=True)
 
-    def test_train_with_advanced_optimizers_exists(self, fusion_model: Any) -> None:
-        """Test train_with_advanced_optimizers method exists."""
-        assert hasattr(fusion_model, "train_with_advanced_optimizers")
+    def test_train_with_optimizers_exists(self, fusion_model: Any) -> None:
+        """Test train_with_optimizers method exists."""
+        assert hasattr(fusion_model, "train_with_optimizers")
 
     def test_train_basic(self, fusion_model: Any, train_loader: Any) -> None:
         """Test basic training with advanced optimizers."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=5,
             learning_rate=0.001,
@@ -336,7 +336,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_train_without_synthetic_gradients(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without synthetic gradients."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
@@ -347,7 +347,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_train_without_dtp(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without DTP."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=True,
@@ -358,7 +358,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_train_without_amav(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without AMAV."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=True,
@@ -369,7 +369,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_train_vanilla(self, fusion_model: Any, train_loader: Any) -> None:
         """Test vanilla training without any advanced optimizers."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
@@ -380,7 +380,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_lyapunov_stability_tracking(self, fusion_model: Any, train_loader: Any) -> None:
         """Test Lyapunov stability is tracked."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=5,
             lambda_lyapunov=0.25,
@@ -391,7 +391,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_speedup_factor(self, fusion_model: Any, train_loader: Any) -> None:
         """Test speedup factor is computed."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=5,
         )
@@ -400,7 +400,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_epochs_trained(self, fusion_model: Any, train_loader: Any) -> None:
         """Test epochs trained is recorded."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=10,
         )
@@ -409,7 +409,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_loss_decreases(self, fusion_model: Any, train_loader: Any) -> None:
         """Test loss is tracked during training."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=20,
         )
@@ -420,7 +420,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_convergence_detection(self, fusion_model: Any, train_loader: Any) -> None:
         """Test convergence is detected."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=30,
         )
@@ -428,7 +428,7 @@ class TestOmniFusionModelAdvancedTraining:
 
     def test_half_life_computation(self, fusion_model: Any, train_loader: Any) -> None:
         """Test half-life is computed."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=20,
         )
@@ -496,7 +496,7 @@ class TestLyapunovStability:
 
     def test_lambda_025_stability(self, fusion_model: Any, train_loader: Any) -> None:
         """Test stability with lambda=0.25."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=10,
             lambda_lyapunov=0.25,
@@ -505,7 +505,7 @@ class TestLyapunovStability:
 
     def test_lambda_018_stability(self, fusion_model: Any, train_loader: Any) -> None:
         """Test stability with lambda=0.18 (baseline)."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=10,
             lambda_lyapunov=0.18,
@@ -514,7 +514,7 @@ class TestLyapunovStability:
 
     def test_phi_weighting_applied(self, fusion_model: Any, train_loader: Any) -> None:
         """Test phi weighting is applied in Lyapunov computation."""
-        result = fusion_model.train_with_advanced_optimizers(
+        result = fusion_model.train_with_optimizers(
             train_loader=train_loader,
             epochs=10,
         )
@@ -533,7 +533,7 @@ class TestOptimizerIntegration:
         """Test all optimizers can be imported."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             AuxiliaryMaxVariance,
             DifferenceTargetPropagation,
             SyntheticGradientPredictor,
@@ -549,7 +549,7 @@ class TestOptimizerIntegration:
         """Test all optimizers work together."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             AuxiliaryMaxVariance,
             SyntheticGradientPredictor,
         )

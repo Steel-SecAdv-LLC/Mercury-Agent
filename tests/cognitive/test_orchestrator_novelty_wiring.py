@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""CuriosityEngine and EnhancedAnomalyDetector are invoked on the analyze() path.
+"""CuriosityEngine and IntegratedAnomalyDetector are invoked on the analyze() path.
 
 Both were runtime-orphaned. They are now optional CognitiveOrchestrator
 components (opt-in) that run inside ``analyze()`` when an anomaly is detected.

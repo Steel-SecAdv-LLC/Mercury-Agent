@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import time
 
-from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+from omni_mercury_engine.cognitive.anomaly_detection import (
     BayesianPredictor,
-    EnhancedAnomalyDetector,
     ExternalDataIntegrator,
     ExternalSourceCategory,
     HiddenMarkovPredictor,
+    IntegratedAnomalyDetector,
     MemoryKnowledgeGraph,
     PredictionType,
     SimulatedEnvironmentalSource,
@@ -333,18 +333,18 @@ class TestValueExtractor:
 
 
 class TestEnhancedAnomalyDetector:
-    """Tests for EnhancedAnomalyDetector main interface."""
+    """Tests for IntegratedAnomalyDetector main interface."""
 
     def test_init(self) -> None:
         """Test detector initialization."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         assert detector.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
         assert detector.memory_graph is not None
         assert detector.bayesian_predictor is not None
 
     def test_add_memory(self) -> None:
         """Test adding memory to graph."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         node_id = detector.add_memory(
             memory_id="m1",
             memory_type="episodic",
@@ -356,7 +356,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_add_memory_with_relations(self) -> None:
         """Test adding memory with relations."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         node_id = detector.add_memory(
             memory_id="m2",
@@ -371,21 +371,21 @@ class TestEnhancedAnomalyDetector:
 
     def test_update_predictor(self) -> None:
         """Test updating Bayesian predictor."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.update_predictor("context_1", success=True)
 
         assert "context_1" in detector.bayesian_predictor.contexts
 
     def test_observe_sequence(self) -> None:
         """Test HMM observation."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         state = detector.observe_sequence("event_a")
 
         assert 0 <= state < 3
 
     def test_predict(self) -> None:
         """Test prediction generation."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
 
         for _ in range(5):
             detector.update_predictor("test_context", success=True)
@@ -398,14 +398,14 @@ class TestEnhancedAnomalyDetector:
 
     def test_predict_with_external(self) -> None:
         """Test prediction with external data."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         result = detector.predict("test_context", include_external=True)
 
         assert "External data points" in str(result.contributing_factors)
 
     def test_extract_value(self) -> None:
         """Test value extraction."""
-        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.9)
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.9)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = detector.extract_value(anomaly, ethical_score=0.95)
@@ -415,7 +415,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_analyze_memory_patterns(self) -> None:
         """Test memory pattern analysis."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.add_memory("m2", "episodic", {"event": "e2"}, related_to=["m1"])
 
@@ -427,7 +427,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.predict("test", include_external=False)
 
@@ -470,7 +470,7 @@ class TestIntegration:
 
     def test_full_pipeline(self) -> None:
         """Test complete enhanced detection pipeline."""
-        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.95)
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.95)
 
         for i in range(10):
             detector.add_memory(
@@ -510,7 +510,7 @@ class TestIntegration:
         while passing anything phrased positively. Enforcement lives at the
         decision boundary (``cognitive/decision_gate.py``); this surface reports.
         """
-        detector = EnhancedAnomalyDetector(benevolence_advisory_threshold=0.99)
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.99)
 
         anomaly = {"id": "risky", "type": "opportunity", "confidence": 0.9}
 
@@ -527,7 +527,7 @@ class TestMemoryGraphEviction:
     """The memory graph must be bounded so it cannot leak in a long-running run."""
 
     def test_evicts_oldest_past_cap(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 
@@ -545,7 +545,7 @@ class TestMemoryGraphEviction:
             assert "mem_m24" in graph.nodes
 
     def test_default_cap_is_bounded(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 
@@ -557,7 +557,7 @@ class TestHMMHistoryBounded:
     """HMM histories must be bounded — STEP 10 calls observe() every analyze()."""
 
     def test_observe_history_is_capped(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             HiddenMarkovPredictor,
         )
 
@@ -575,7 +575,7 @@ class TestRelationshipEndpointsAreCapped:
     """Edges to unknown endpoints must not mint nodes that escape the cap."""
 
     def test_auto_created_endpoints_are_tracked_and_evictable(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 

@@ -202,3 +202,42 @@ def test_compute_bca_survives_a_near_constant_sample() -> None:
 
     assert np.isfinite([ci.lower, ci.threshold, ci.upper]).all()
     assert ci.lower <= ci.threshold <= ci.upper
+
+
+def test_bca_interval_always_contains_its_own_point_estimate() -> None:
+    """A CI that excludes its point estimate is not a confidence interval.
+
+    Found by the property test above once the degenerate-sample crash stopped
+    masking it. The percentile bounds are order statistics of the bootstrap
+    distribution while the estimate is computed on the full sample, and
+    ``AutoThresholdOptimizer`` is discontinuous -- so on low-cardinality scores
+    the full sample can land on an optimum no resample reproduces. Measured on
+    this exact input before the fix: ``threshold=1.0`` with
+    ``CI [0.96975, 0.97299]``.
+    """
+    data = np.array(
+        [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+         1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+    )
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=80, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(data)
+
+    assert ci.lower <= ci.threshold <= ci.upper
+    # The widening is disclosed rather than silently applied.
+    assert ci.method == "bootstrap_bca_widened"
+
+
+def test_a_clean_fit_is_not_labelled_as_widened() -> None:
+    """The disclosure must be specific, or it means nothing."""
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=200, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(_skewed_scores(400, seed=3))
+
+    assert ci.method == "bootstrap_bca"
+    assert ci.lower <= ci.threshold <= ci.upper
+

@@ -55,7 +55,7 @@ from typing import TYPE_CHECKING
 # can trigger the deepface -> retinaface -> tensorflow import chain (TF reads
 # these only at import time). Set here, at the earliest package entry point, so
 # every TF importer is covered regardless of import order (e.g. both
-# ``models.biometric`` and ``models.biometric_advanced``). ``setdefault`` keeps
+# ``models.biometric`` and ``models.biometric_multimodal``). ``setdefault`` keeps
 # an operator's explicit choice.
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")

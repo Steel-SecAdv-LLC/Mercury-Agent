@@ -581,12 +581,12 @@ Higher-order spherical harmonic analysis (l_max > 20) for detailed 3D surface an
 ### Interface Design
 
 ```python
-class AdvancedHarmonicAnalyzer:
+class HarmonicAnalyzer:
     """
     High-order spherical harmonic analysis for 3D anomaly detection.
 
     Example:
-        analyzer = AdvancedHarmonicAnalyzer(
+        analyzer = HarmonicAnalyzer(
             l_max=64,
             backend="cuda",
             precision="float64",

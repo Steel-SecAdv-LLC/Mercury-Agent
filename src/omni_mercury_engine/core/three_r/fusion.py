@@ -33,17 +33,22 @@ class OmniAvaEquation:
     """Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 
     Implements the mathematical framework:
-    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
+    A = w_R * R(x) + w_H * H(omega) + w_O * O(theta)
 
-    This equation provides:
-    1. Mathematical superiority over baselines
+    What this equation is:
+    1. An attention-weighted combination of the three 3R component scores.
     2. A Lyapunov-style decay *schedule* (reference envelope)
        epsilon * e^(-0.25t) — a design target the system *monitors*, NOT a
        proven guarantee on the fusion-score trajectory V(S_t).
        ``verify_lyapunov_stability`` measures whether recent scores actually
        contract.
-    3. Ethical gating via η_Ethical^Φ scaling
-    4. Harmonic synergy through golden ratio (Φ) weighting
+    3. Golden-ratio (Φ) weight proportions across the three components.
+
+    What it is NOT: an ethical gate. The historical ``* η_Ethical^Φ`` factor is
+    removed — see :meth:`compute`. No claim of "superiority over baselines" is
+    made here either; measured head-to-head figures live in
+    ``CAPABILITY_MATRIX.md``, which currently records fusion *below* the PyOD
+    baselines on the ADBench quick subset.
 
     The weights w_R, w_H, w_O are learned via attention fusion and sum to 1.0.
     Default initialization uses golden ratio proportions for optimal harmony.
@@ -64,16 +69,16 @@ class OmniAvaEquation:
         lambda_lyapunov: float | None = None,
         domain: str = "default",
         ethical_exponent: float | None = None,
-        decouple_ethical_scaling: bool = False,
     ):
         """Initialize Omni-Ava Equation.
 
         The OAE computes:
-            A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η(b)^p
+            A = w_R·R(x) + w_H·H(ω) + w_O·O(θ)
 
-        Where η(b) is the sigmoid benevolence gate (replacing hard threshold)
-        and p is the ethical exponent (default: Φ = 1.618, configurable for
-        empirical optimization).
+        The historical ``· η(b)^p`` factor is removed. See :meth:`compute` for
+        why: η is the configured threshold on every production path, so the
+        factor was a constant rescale carrying an ethics name while enforcing
+        nothing. η is still computed and reported as provenance.
 
         Args:
             ethical_compliance_threshold: Ethical threshold η_Ethical (0.93-0.96).
@@ -82,12 +87,8 @@ class OmniAvaEquation:
             sigma_immutable: Deprecated alias for ethical_compliance_threshold.
             lambda_lyapunov: Deprecated alias for convergence_rate.
             domain: Domain name for sigmoid benevolence profile selection.
-            ethical_exponent: Exponent for ethical scaling. Defaults to Φ (1.618).
-                Set to None to use golden ratio. Override for empirical optimization.
-            decouple_ethical_scaling: Opt-in (default False). When True, remove the
-                soft η^Φ multiplier from the fused-score path (R6) so a proper-scored
-                monotone calibrator can own the probability; the two fail-closed hard
-                ethics gates remain the enforcement.
+            ethical_exponent: Retained for the reported ``eta ** exponent``
+                provenance value. It no longer scales the fused score.
         """
         if sigma_immutable is not None:
             ethical_compliance_threshold = sigma_immutable
@@ -128,14 +129,6 @@ class OmniAvaEquation:
         self.ethical_exponent = (
             ethical_exponent if ethical_exponent is not None else self.golden_ratio
         )
-
-        # R6 (opt-in, DEFAULT-OFF): decouple the soft eta^Phi multiplier from the
-        # score path so a proper-scored monotone calibrator (MCA) can own the
-        # probability. Ethics enforcement is UNCHANGED -- the two fail-closed hard
-        # gates (BenevolenceScorer floor 0.70, sigma_Immutable) remain dominant;
-        # only the soft in-score multiplier is removed when this is True. Default
-        # False -> fused score byte-identical.
-        self.decouple_ethical_scaling = bool(decouple_ethical_scaling)
 
         # Backward-compatible aliases
         self.sigma_immutable = self.ethical_compliance_threshold
@@ -185,7 +178,7 @@ class OmniAvaEquation:
     ) -> AnomalyFusionResult:
         """Compute Omni-Ava Equation score.
 
-        A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η^p
+        A = w_R·R(x) + w_H·H(ω) + w_O·O(θ)
 
         Where η is either:
           - The sigmoid benevolence gate η(b) if benevolence_score is provided
@@ -244,12 +237,23 @@ class OmniAvaEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio.
-        # R6: when decoupled (opt-in), the soft eta^Phi multiplier is removed from
-        # the score path (scaling = 1.0) so MCA can own the probability; eta is
-        # still reported for the hard gates, which remain the enforcement (I1).
-        ethical_scaling = 1.0 if self.decouple_ethical_scaling else eta**self.ethical_exponent
-        fusion_score = weighted_sum * ethical_scaling
+        # The fused score is the weighted sum. The soft ``eta ** Phi`` multiplier
+        # that used to scale it is gone, not flag-disabled.
+        #
+        # It was an ethics-labelled number that enforced nothing. ``eta`` is the
+        # configured ``ethical_compliance_threshold`` on every production path --
+        # ``benevolence_score`` is passed only from tests -- so the multiplier was
+        # a per-instance CONSTANT: 0.96 ** 1.618 = 0.9359, shaving 6.4 % off every
+        # score. Being constant it could not change rank order or AUC, which is
+        # exactly the problem: it moved absolute scores against fixed thresholds
+        # while adding no discrimination, and it did so under a name that implied
+        # an ethics control was acting.
+        #
+        # Ethics enforcement is unchanged and lives elsewhere: the fail-closed
+        # harm-uplift gate (``cognitive/decision_gate.py``) and the ``grave_harm``
+        # axis. Neither reads eta. eta is still computed and reported on the
+        # result as provenance.
+        fusion_score = weighted_sum
 
         self.time_step += 1
         epsilon = 1.0

@@ -369,7 +369,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
     """The ad-hoc httpx enrichment sources refuse loudly, pre-socket."""
 
     def test_usgs_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             USGSEarthquakeSource,
         )
 
@@ -383,7 +383,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
             source.fetch()
 
     def test_noaa_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             NOAAWeatherSource,
         )
 
@@ -400,12 +400,12 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         """The production path never disguises the air-gap as a fetch error.
 
         ``ExternalDataIntegrator.fetch_all`` is the sole in-repo consumer of
-        these sources (via ``EnhancedAnomalyDetector.predict``); under
+        these sources (via ``IntegratedAnomalyDetector.predict``); under
         ``MERCURY_OFFLINE`` it must emit one explicit offline log -- not a
         per-source "Error fetching..." line -- and return empty so local
         detection continues.
         """
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             ExternalDataIntegrator,
             USGSEarthquakeSource,
         )
@@ -415,7 +415,7 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
         _forbid_dns(monkeypatch)
         _forbid_sockets(monkeypatch)
-        logger_name = "omni_mercury_engine.cognitive.anomaly_detection_enhanced"
+        logger_name = "omni_mercury_engine.cognitive.anomaly_detection"
         with caplog.at_level("WARNING", logger=logger_name):
             assert integrator.fetch_all() == []
         assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)

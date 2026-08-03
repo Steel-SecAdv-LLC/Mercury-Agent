@@ -15,7 +15,7 @@ Why this is a *genuine* neuro-symbolic component (anti-theater):
 * It is a compact, proper Logic Tensor Network (LTN).  Predicates are
   grounded as fuzzy truth values in ``[0, 1]``; logical connectives are
   the differentiable product/Reichenbach fuzzy operators reused from
-  :class:`omni_mercury_engine.models.neurosymbolic_enhanced.FuzzyOperators`;
+  :class:`omni_mercury_engine.models.neurosymbolic_temporal.FuzzyOperators`;
   universal quantification over the batch uses the smooth ``pmean``
   aggregator.  Everything is ``torch`` autograd-traceable.
 * The constraint encodes *inductive bias the labels do not* -- the
@@ -49,7 +49,7 @@ from typing import Any, TypedDict
 import torch
 from torch import nn
 
-from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+from omni_mercury_engine.models.neurosymbolic_temporal import FuzzyOperators
 
 __all__ = [
     "Rule",

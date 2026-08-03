@@ -61,7 +61,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_mad_detector_fit(self, normal_data: np.ndarray) -> None:
         """Test MAD detector fitting."""
-        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.detectors.statistical_extended import MADDetector
 
         detector = MADDetector(threshold_multiplier=3.5)
         detector.fit(normal_data)
@@ -72,7 +72,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_mad_detector_detect(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test MAD detector anomaly detection."""
-        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.detectors.statistical_extended import MADDetector
 
         data, labels = data_with_anomalies
 
@@ -90,7 +90,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_lof_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test LOF detector."""
-        from omni_mercury_engine.detectors.enhanced_statistical import LOFDetector
+        from omni_mercury_engine.detectors.statistical_extended import LOFDetector
 
         data, labels = data_with_anomalies
 
@@ -104,7 +104,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_dbscan_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test DBSCAN detector."""
-        from omni_mercury_engine.detectors.enhanced_statistical import DBSCANDetector
+        from omni_mercury_engine.detectors.statistical_extended import DBSCANDetector
 
         data, labels = data_with_anomalies
 
@@ -118,7 +118,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_mcd_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test MCD detector."""
-        from omni_mercury_engine.detectors.enhanced_statistical import MCDDetector
+        from omni_mercury_engine.detectors.statistical_extended import MCDDetector
 
         data, labels = data_with_anomalies
 
@@ -132,7 +132,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_cusum_detector(self, normal_data: np.ndarray) -> None:
         """Test CUSUM detector for sequential data."""
-        from omni_mercury_engine.detectors.enhanced_statistical import CUSUMDetector
+        from omni_mercury_engine.detectors.statistical_extended import CUSUMDetector
 
         # Create time series with shift
         ts_data = normal_data[:, 0].copy()
@@ -151,7 +151,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_gesd_test(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test GESD outlier detection."""
-        from omni_mercury_engine.detectors.enhanced_statistical import GESDTest
+        from omni_mercury_engine.detectors.statistical_extended import GESDTest
 
         data, labels = data_with_anomalies
 
@@ -164,7 +164,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_grubbs_test(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test Grubbs outlier test."""
-        from omni_mercury_engine.detectors.enhanced_statistical import GrubbsTest
+        from omni_mercury_engine.detectors.statistical_extended import GrubbsTest
 
         data, labels = data_with_anomalies
 
@@ -176,7 +176,7 @@ class TestEnhancedStatisticalDetectors:
 
     def test_dynamic_threshold_adapter(self) -> None:
         """Test dynamic threshold adaptation."""
-        from omni_mercury_engine.detectors.enhanced_statistical import DynamicThresholdAdapter
+        from omni_mercury_engine.detectors.statistical_extended import DynamicThresholdAdapter
 
         adapter = DynamicThresholdAdapter(
             initial_threshold=0.5,
@@ -196,18 +196,18 @@ class TestEnhancedStatisticalDetectors:
         assert "ema_score" in stats
         assert stats["history_size"] == 500
 
-    def test_enhanced_statistical_detector_ensemble(
+    def test_statistical_extended_detector_ensemble(
         self, data_with_anomalies: tuple[np.ndarray, np.ndarray]
     ) -> None:
         """Test unified enhanced statistical detector."""
-        from omni_mercury_engine.detectors.enhanced_statistical import (
-            EnhancedStatisticalDetector,
+        from omni_mercury_engine.detectors.statistical_extended import (
+            ExtendedStatisticalDetector,
             StatisticalMethod,
         )
 
         data, labels = data_with_anomalies
 
-        detector = EnhancedStatisticalDetector(
+        detector = ExtendedStatisticalDetector(
             methods=[
                 StatisticalMethod.MAD,
                 StatisticalMethod.LOF,
@@ -784,8 +784,8 @@ class TestIntegration:
 
     def test_full_pipeline(self) -> None:
         """Test complete detection pipeline."""
-        from omni_mercury_engine.detectors.enhanced_statistical import (
-            EnhancedStatisticalDetector,
+        from omni_mercury_engine.detectors.statistical_extended import (
+            ExtendedStatisticalDetector,
             StatisticalMethod,
         )
         from omni_mercury_engine.ml.ensemble_coordinator import (
@@ -799,7 +799,7 @@ class TestIntegration:
         data[100:110] *= 5  # Inject anomalies
 
         # Create detector
-        detector = EnhancedStatisticalDetector(
+        detector = ExtendedStatisticalDetector(
             methods=[StatisticalMethod.MAD, StatisticalMethod.LOF],
             ensemble_strategy="weighted_average",
         )

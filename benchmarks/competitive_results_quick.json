@@ -1,707 +1,7 @@
 {
   "metadata": {
-    "benchmark": "competitive_benchmark (Mercury vs PyOD, ADBench 47 Classical + 10 CV/NLP)",
-    "protocol": "per dataset: stratified cap to 2*MAX_SAMPLES (seed 42); normal-only train half; test = remaining normals + all anomalies capped to MAX_SAMPLES; fixed-seed de-leak shuffle of test rows (batch-order leakage guard, applied to every method identically); StandardScaler fit on train only; library defaults for every method; no per-dataset tuning; unsupervised-fair (no method sees labels)",
-    "mercury_fusion_protocol": "fit_fusion(X_train, y=None): label-free detector-consensus path; semi-supervised mode NOT used because PyOD baselines get no labels",
-    "deep_baselines_note": "PyOD deep baselines (AutoEncoder) excluded: under the defaults-only, CPU-only, no-tuning budget they measure the budget cap rather than the method; see pyod_integration.DEFAULT_BASELINES",
-    "embedding_variant_note": "CV/NLP corpora use one representative ADBench variant per source: _0 where per-class variants exist; MNIST-C_brightness / MVTec-AD_bottle (no _0 variant exists upstream); amazon/imdb/yelp ship a single file",
-    "mode": "quick",
-    "seed": 42,
-    "max_samples": 10000,
-    "fusion_epochs": 50,
-    "git_commit": "7bc2612edf1928d55b4f4aae4b539aa55cc21113",
-    "command_line": "benchmarks/competitive_benchmark.py --quick",
-    "timestamp": "2026-08-03T02:04:27.085809+00:00",
-    "runtime_seconds": 632.0,
-    "versions": {
-      "python": "3.11.15",
-      "numpy": "2.4.6",
-      "torch": "2.13.0+cu130",
-      "pyod": "3.6.4",
-      "scikit_learn": "1.9.0"
-    },
-    "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
-    "methods": [
-      "mercury_tier",
-      "mercury_fusion",
-      "isolation_forest",
-      "ecod",
-      "copod",
-      "local_outlier_factor",
-      "knn",
-      "hbos"
-    ]
-  },
-  "summary": {
-    "n_datasets_attempted": 10,
-    "n_datasets_measured": 10,
-    "n_datasets_complete_for_ranks": 9,
-    "per_method": {
-      "mercury_tier": {
-        "n_datasets": 10,
-        "mean_auc": 0.8935642916354765,
-        "median_auc": 0.9464031920715982,
-        "std_auc": 0.10287999770374173,
-        "mean_ap": 0.6870419619131218,
-        "median_ap": 0.8332838295942768,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 4.0
-      },
-      "mercury_fusion": {
-        "n_datasets": 9,
-        "mean_auc": 0.8337673154990655,
-        "median_auc": 0.9176023311412052,
-        "std_auc": 0.14577929969509884,
-        "mean_ap": 0.5520189095237358,
-        "median_ap": 0.6075448981024975,
-        "errors": [],
-        "deferred": [
-          {
-            "dataset": "nlp:20news_0",
-            "wall_seconds": 300.1
-          }
-        ],
-        "mean_rank": 7.0
-      },
-      "isolation_forest": {
-        "n_datasets": 10,
-        "mean_auc": 0.8926248607581542,
-        "median_auc": 0.9608183935629588,
-        "std_auc": 0.1292775755777973,
-        "mean_ap": 0.714943030460532,
-        "median_ap": 0.8849602308195463,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 2.388888888888889
-      },
-      "ecod": {
-        "n_datasets": 10,
-        "mean_auc": 0.8381606472271115,
-        "median_auc": 0.9293288032418467,
-        "std_auc": 0.1611994047898737,
-        "mean_ap": 0.6566783517759573,
-        "median_ap": 0.745504782277572,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 5.611111111111111
-      },
-      "copod": {
-        "n_datasets": 10,
-        "mean_auc": 0.8563247377122529,
-        "median_auc": 0.9149898053743927,
-        "std_auc": 0.1433392499505562,
-        "mean_ap": 0.6567498324932903,
-        "median_ap": 0.7622367099307169,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 4.555555555555555
-      },
-      "local_outlier_factor": {
-        "n_datasets": 10,
-        "mean_auc": 0.8994285566036501,
-        "median_auc": 0.9413937732676251,
-        "std_auc": 0.09629642622472813,
-        "mean_ap": 0.6690534689400632,
-        "median_ap": 0.7411978926900165,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 5.0
-      },
-      "knn": {
-        "n_datasets": 10,
-        "mean_auc": 0.9098342844129623,
-        "median_auc": 0.9431200730955782,
-        "std_auc": 0.10085397481288305,
-        "mean_ap": 0.7160972848553645,
-        "median_ap": 0.8387190899460184,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 3.1666666666666665
-      },
-      "hbos": {
-        "n_datasets": 10,
-        "mean_auc": 0.8622801672386833,
-        "median_auc": 0.8940225693562329,
-        "std_auc": 0.12814642627293088,
-        "mean_ap": 0.6532170885724111,
-        "median_ap": 0.735598000115496,
-        "errors": [],
-        "deferred": [],
-        "mean_rank": 4.277777777777778
-      }
-    },
-    "head_to_head": {
-      "mercury_tier": {
-        "isolation_forest": {
-          "n_compared": 10,
-          "wins": 4,
-          "losses": 6,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.09369820428801656
-            },
-            {
-              "dataset": "glass",
-              "auc_margin": 0.03991370010787487
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.011737089201877993
-            },
-            {
-              "dataset": "cardio",
-              "auc_margin": 0.006141578831796224
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.0037383177570092796
-            }
-          ]
-        },
-        "ecod": {
-          "n_compared": 10,
-          "wins": 7,
-          "losses": 3,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.05464853387105384
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.007042253521126751
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.002803738317756932
-            }
-          ]
-        },
-        "copod": {
-          "n_compared": 10,
-          "wins": 6,
-          "losses": 4,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.03195389656515646
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.009389671361502483
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.002803738317757043
-            },
-            {
-              "dataset": "breastw",
-              "auc_margin": 0.001206227147649619
-            }
-          ]
-        },
-        "local_outlier_factor": {
-          "n_compared": 10,
-          "wins": 6,
-          "losses": 4,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.11826989910099817
-            },
-            {
-              "dataset": "nlp:20news_0",
-              "auc_margin": 0.025168972716656635
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.023809523809523947
-            },
-            {
-              "dataset": "glass",
-              "auc_margin": 0.02265372168284785
-            }
-          ]
-        },
-        "knn": {
-          "n_compared": 10,
-          "wins": 4,
-          "losses": 6,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.12440327520756467
-            },
-            {
-              "dataset": "glass",
-              "auc_margin": 0.11003236245954684
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.042070515521843266
-            },
-            {
-              "dataset": "Pima",
-              "auc_margin": 0.022940298507462598
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.002803738317756932
-            }
-          ]
-        },
-        "hbos": {
-          "n_compared": 10,
-          "wins": 6,
-          "losses": 4,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.06307333318057173
-            },
-            {
-              "dataset": "glass",
-              "auc_margin": 0.043689320388349495
-            },
-            {
-              "dataset": "Pima",
-              "auc_margin": 0.028604477611940182
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.011737089201877993
-            }
-          ]
-        }
-      },
-      "mercury_fusion": {
-        "isolation_forest": {
-          "n_compared": 9,
-          "wins": 0,
-          "losses": 9,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "glass",
-              "auc_margin": 0.25458468176914784
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.2327574097485604
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.07246376811594224
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.06572769953051649
-            },
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.0502222680506863
-            }
-          ]
-        },
-        "ecod": {
-          "n_compared": 9,
-          "wins": 2,
-          "losses": 7,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "glass",
-              "auc_margin": 0.1607335490830637
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.06103286384976525
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.05113077679449385
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.04485981308411213
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.038233264320221005
-            }
-          ]
-        },
-        "copod": {
-          "n_compared": 9,
-          "wins": 3,
-          "losses": 6,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "glass",
-              "auc_margin": 0.20280474649406688
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.12192723697148511
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.06556245686680484
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.06338028169014098
-            },
-            {
-              "dataset": "WBC",
-              "auc_margin": 0.04485981308411224
-            }
-          ]
-        },
-        "local_outlier_factor": {
-          "n_compared": 9,
-          "wins": 1,
-          "losses": 8,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.26885798567214525
-            },
-            {
-              "dataset": "glass",
-              "auc_margin": 0.2373247033441208
-            },
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.0747939628636679
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.059213250517598515
-            },
-            {
-              "dataset": "Pima",
-              "auc_margin": 0.042238805970149174
-            }
-          ]
-        },
-        "knn": {
-          "n_compared": 9,
-          "wins": 1,
-          "losses": 8,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "glass",
-              "auc_margin": 0.3247033441208198
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.28711897738446457
-            },
-            {
-              "dataset": "pendigits",
-              "auc_margin": 0.08092733897023441
-            },
-            {
-              "dataset": "Pima",
-              "auc_margin": 0.07056716417910447
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.05797101449275377
-            }
-          ]
-        },
-        "hbos": {
-          "n_compared": 9,
-          "wins": 1,
-          "losses": 8,
-          "ties": 0,
-          "worst_losses": [
-            {
-              "dataset": "glass",
-              "auc_margin": 0.25836030204962246
-            },
-            {
-              "dataset": "Ionosphere",
-              "auc_margin": 0.07627475769068714
-            },
-            {
-              "dataset": "Pima",
-              "auc_margin": 0.07623134328358205
-            },
-            {
-              "dataset": "Lymphography",
-              "auc_margin": 0.06572769953051649
-            },
-            {
-              "dataset": "cv:MVTec-AD_bottle",
-              "auc_margin": 0.06542443064182213
-            }
-          ]
-        }
-      }
-    },
-    "datasets_where_mercury_loses": {
-      "mercury_tier": [
-        {
-          "dataset": "pendigits",
-          "mercury_auc": 0.8741263949038749,
-          "n_baselines_beating": 6,
-          "worst_baseline": "knn",
-          "worst_margin": 0.12440327520756467,
-          "beaten_by": {
-            "isolation_forest": 0.09369820428801656,
-            "ecod": 0.05464853387105384,
-            "copod": 0.03195389656515646,
-            "local_outlier_factor": 0.11826989910099817,
-            "knn": 0.12440327520756467,
-            "hbos": 0.06307333318057173
-          }
-        },
-        {
-          "dataset": "glass",
-          "mercury_auc": 0.7680690399137001,
-          "n_baselines_beating": 4,
-          "worst_baseline": "knn",
-          "worst_margin": 0.11003236245954684,
-          "beaten_by": {
-            "isolation_forest": 0.03991370010787487,
-            "local_outlier_factor": 0.02265372168284785,
-            "knn": 0.11003236245954684,
-            "hbos": 0.043689320388349495
-          }
-        },
-        {
-          "dataset": "Ionosphere",
-          "mercury_auc": 0.9414243573535608,
-          "n_baselines_beating": 2,
-          "worst_baseline": "knn",
-          "worst_margin": 0.042070515521843266,
-          "beaten_by": {
-            "local_outlier_factor": 0.023809523809523947,
-            "knn": 0.042070515521843266
-          }
-        },
-        {
-          "dataset": "Pima",
-          "mercury_auc": 0.7047014925373135,
-          "n_baselines_beating": 2,
-          "worst_baseline": "hbos",
-          "worst_margin": 0.028604477611940182,
-          "beaten_by": {
-            "knn": 0.022940298507462598,
-            "hbos": 0.028604477611940182
-          }
-        },
-        {
-          "dataset": "nlp:20news_0",
-          "mercury_auc": 0.7659285537350933,
-          "n_baselines_beating": 1,
-          "worst_baseline": "local_outlier_factor",
-          "worst_margin": 0.025168972716656635,
-          "beaten_by": {
-            "local_outlier_factor": 0.025168972716656635
-          }
-        },
-        {
-          "dataset": "Lymphography",
-          "mercury_auc": 0.9835680751173709,
-          "n_baselines_beating": 4,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.011737089201877993,
-          "beaten_by": {
-            "isolation_forest": 0.011737089201877993,
-            "ecod": 0.007042253521126751,
-            "copod": 0.009389671361502483,
-            "hbos": 0.011737089201877993
-          }
-        },
-        {
-          "dataset": "cardio",
-          "mercury_auc": 0.9513820267896356,
-          "n_baselines_beating": 1,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.006141578831796224,
-          "beaten_by": {
-            "isolation_forest": 0.006141578831796224
-          }
-        },
-        {
-          "dataset": "WBC",
-          "mercury_auc": 0.9906542056074766,
-          "n_baselines_beating": 4,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.0037383177570092796,
-          "beaten_by": {
-            "isolation_forest": 0.0037383177570092796,
-            "ecod": 0.002803738317756932,
-            "copod": 0.002803738317757043,
-            "knn": 0.002803738317756932
-          }
-        },
-        {
-          "dataset": "breastw",
-          "mercury_auc": 0.9915375626672698,
-          "n_baselines_beating": 3,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.0016962569263825333,
-          "beaten_by": {
-            "isolation_forest": 0.0016962569263825333,
-            "copod": 0.001206227147649619,
-            "knn": 0.0016020204304724173
-          }
-        }
-      ],
-      "mercury_fusion": [
-        {
-          "dataset": "glass",
-          "mercury_auc": 0.5533980582524272,
-          "n_baselines_beating": 6,
-          "worst_baseline": "knn",
-          "worst_margin": 0.3247033441208198,
-          "beaten_by": {
-            "isolation_forest": 0.25458468176914784,
-            "ecod": 0.1607335490830637,
-            "copod": 0.20280474649406688,
-            "local_outlier_factor": 0.2373247033441208,
-            "knn": 0.3247033441208198,
-            "hbos": 0.25836030204962246
-          }
-        },
-        {
-          "dataset": "Ionosphere",
-          "mercury_auc": 0.6963758954909395,
-          "n_baselines_beating": 6,
-          "worst_baseline": "knn",
-          "worst_margin": 0.28711897738446457,
-          "beaten_by": {
-            "isolation_forest": 0.2327574097485604,
-            "ecod": 0.05113077679449385,
-            "copod": 0.12192723697148511,
-            "local_outlier_factor": 0.26885798567214525,
-            "knn": 0.28711897738446457,
-            "hbos": 0.07627475769068714
-          }
-        },
-        {
-          "dataset": "pendigits",
-          "mercury_auc": 0.9176023311412052,
-          "n_baselines_beating": 5,
-          "worst_baseline": "knn",
-          "worst_margin": 0.08092733897023441,
-          "beaten_by": {
-            "isolation_forest": 0.0502222680506863,
-            "ecod": 0.01117259763372358,
-            "local_outlier_factor": 0.0747939628636679,
-            "knn": 0.08092733897023441,
-            "hbos": 0.019597396943241474
-          }
-        },
-        {
-          "dataset": "Pima",
-          "mercury_auc": 0.6570746268656716,
-          "n_baselines_beating": 4,
-          "worst_baseline": "hbos",
-          "worst_margin": 0.07623134328358205,
-          "beaten_by": {
-            "isolation_forest": 0.03923880597014928,
-            "local_outlier_factor": 0.042238805970149174,
-            "knn": 0.07056716417910447,
-            "hbos": 0.07623134328358205
-          }
-        },
-        {
-          "dataset": "cv:MVTec-AD_bottle",
-          "mercury_auc": 0.8916494133885436,
-          "n_baselines_beating": 6,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.07246376811594224,
-          "beaten_by": {
-            "isolation_forest": 0.07246376811594224,
-            "ecod": 0.038233264320221005,
-            "copod": 0.06556245686680484,
-            "local_outlier_factor": 0.059213250517598515,
-            "knn": 0.05797101449275377,
-            "hbos": 0.06542443064182213
-          }
-        },
-        {
-          "dataset": "Lymphography",
-          "mercury_auc": 0.9295774647887324,
-          "n_baselines_beating": 6,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.06572769953051649,
-          "beaten_by": {
-            "isolation_forest": 0.06572769953051649,
-            "ecod": 0.06103286384976525,
-            "copod": 0.06338028169014098,
-            "local_outlier_factor": 0.0023474178403756207,
-            "knn": 0.007042253521126751,
-            "hbos": 0.06572769953051649
-          }
-        },
-        {
-          "dataset": "WBC",
-          "mercury_auc": 0.9485981308411214,
-          "n_baselines_beating": 6,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.04579439252336448,
-          "beaten_by": {
-            "isolation_forest": 0.04579439252336448,
-            "ecod": 0.04485981308411213,
-            "copod": 0.04485981308411224,
-            "local_outlier_factor": 0.032710280373831835,
-            "knn": 0.04485981308411213,
-            "hbos": 0.03738317757009357
-          }
-        },
-        {
-          "dataset": "breastw",
-          "mercury_auc": 0.9708055335670398,
-          "n_baselines_beating": 6,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.02242828602661251,
-          "beaten_by": {
-            "isolation_forest": 0.02242828602661251,
-            "ecod": 0.020260846620679285,
-            "copod": 0.021938256247879595,
-            "local_outlier_factor": 0.0019978137132947715,
-            "knn": 0.022334049530702393,
-            "hbos": 0.016811790870368326
-          }
-        },
-        {
-          "dataset": "cardio",
-          "mercury_auc": 0.9388243851559068,
-          "n_baselines_beating": 1,
-          "worst_baseline": "isolation_forest",
-          "worst_margin": 0.01869922046552497,
-          "beaten_by": {
-            "isolation_forest": 0.01869922046552497
-          }
-        }
-      ]
-    },
-    "deferred_cells": [
-      {
-        "dataset": "nlp:20news_0",
-        "method": "mercury_fusion",
-        "wall_seconds": 300.1
-      }
-    ],
-    "skipped": []
+    "partial": true,
+    "n_done": 5
   },
   "per_dataset": [
     {
@@ -718,59 +18,59 @@
         "mercury_tier": {
           "roc_auc": 0.9915375626672698,
           "average_precision": 0.9910951005761413,
-          "fit_seconds": 0.13478211099936743,
-          "score_seconds": 0.022978132999924128,
-          "wall_seconds": 0.2
+          "fit_seconds": 0.06317280800067238,
+          "score_seconds": 0.008698741999978665,
+          "wall_seconds": 0.1
         },
         "mercury_fusion": {
           "roc_auc": 0.9708055335670398,
           "average_precision": 0.9499926905655116,
-          "fit_seconds": 3.7319679629999882,
-          "score_seconds": 0.911554922000505,
+          "fit_seconds": 3.065153313999872,
+          "score_seconds": 0.7804800109997814,
           "epochs_trained": 14,
-          "wall_seconds": 6.9
+          "wall_seconds": 4.8
         },
         "isolation_forest": {
           "roc_auc": 0.9932338195936523,
           "average_precision": 0.9928024273250248,
-          "fit_seconds": 0.20035791099962807,
-          "score_seconds": 0.014414444999601983,
+          "fit_seconds": 0.20608991700009938,
+          "score_seconds": 0.015201485000034154,
           "wall_seconds": 0.3
         },
         "ecod": {
           "roc_auc": 0.9910663801877191,
           "average_precision": 0.9910601559601754,
-          "fit_seconds": 0.8041222049996577,
-          "score_seconds": 0.0024110050007948303,
+          "fit_seconds": 0.8503615280005761,
+          "score_seconds": 0.0023498470000049565,
           "wall_seconds": 0.9
         },
         "copod": {
           "roc_auc": 0.9927437898149194,
           "average_precision": 0.9922469816497831,
-          "fit_seconds": 0.8400247839999793,
-          "score_seconds": 0.0034301690002394025,
-          "wall_seconds": 0.9
+          "fit_seconds": 1.0384220500000083,
+          "score_seconds": 0.002521808999517816,
+          "wall_seconds": 1.1
         },
         "local_outlier_factor": {
           "roc_auc": 0.9728033472803346,
           "average_precision": 0.9535289305538655,
-          "fit_seconds": 0.047052661000634544,
-          "score_seconds": 0.007531956999628164,
+          "fit_seconds": 0.02421749200038903,
+          "score_seconds": 0.004421173999617167,
           "wall_seconds": 0.1
         },
         "knn": {
           "roc_auc": 0.9931395830977422,
           "average_precision": 0.9932552737087191,
-          "fit_seconds": 0.023064297000018996,
-          "score_seconds": 0.002835528000105114,
+          "fit_seconds": 0.02324026199949003,
+          "score_seconds": 0.002920380999967165,
           "wall_seconds": 0.1
         },
         "hbos": {
           "roc_auc": 0.9876173244374081,
           "average_precision": 0.9827091113857592,
-          "fit_seconds": 3.6143338159999985,
-          "score_seconds": 0.0008176569999704952,
-          "wall_seconds": 3.7
+          "fit_seconds": 3.710582955999598,
+          "score_seconds": 0.0014487019998341566,
+          "wall_seconds": 3.8
         }
       },
       "best_method": "isolation_forest"
@@ -789,59 +89,59 @@
         "mercury_tier": {
           "roc_auc": 0.9513820267896356,
           "average_precision": 0.8179565480774426,
-          "fit_seconds": 0.16647267099961027,
-          "score_seconds": 0.016952312999819696,
+          "fit_seconds": 0.1027261629997156,
+          "score_seconds": 0.011911941999642295,
           "wall_seconds": 0.2
         },
         "mercury_fusion": {
           "roc_auc": 0.9388243851559068,
           "average_precision": 0.7451325575901049,
-          "fit_seconds": 10.767147071999716,
-          "score_seconds": 1.8943234010002925,
+          "fit_seconds": 9.971272917000533,
+          "score_seconds": 1.772972402999585,
           "epochs_trained": 11,
-          "wall_seconds": 13.7
+          "wall_seconds": 12.7
         },
         "isolation_forest": {
           "roc_auc": 0.9575236056214318,
           "average_precision": 0.831124894402261,
-          "fit_seconds": 0.37912532500013185,
-          "score_seconds": 0.021903672000007646,
+          "fit_seconds": 0.2870274019996941,
+          "score_seconds": 0.020561563999763166,
           "wall_seconds": 0.4
         },
         "ecod": {
           "roc_auc": 0.9364157883179622,
           "average_precision": 0.7143187709110762,
-          "fit_seconds": 1.6678857610004343,
-          "score_seconds": 0.02400615100032155,
-          "wall_seconds": 1.7
+          "fit_seconds": 0.8070622289997118,
+          "score_seconds": 0.008347159000550164,
+          "wall_seconds": 0.9
         },
         "copod": {
           "roc_auc": 0.923899319279754,
           "average_precision": 0.7105955979605488,
-          "fit_seconds": 1.0372503640001014,
-          "score_seconds": 0.028660492000199156,
-          "wall_seconds": 1.1
+          "fit_seconds": 0.7441411019999578,
+          "score_seconds": 0.008406261999880371,
+          "wall_seconds": 0.8
         },
         "local_outlier_factor": {
           "roc_auc": 0.9186223649538866,
           "average_precision": 0.6680332080828927,
-          "fit_seconds": 0.29363855900010094,
-          "score_seconds": 0.061445375999937824,
-          "wall_seconds": 0.4
+          "fit_seconds": 0.4801252580000437,
+          "score_seconds": 0.12327249999998457,
+          "wall_seconds": 0.7
         },
         "knn": {
           "roc_auc": 0.9224033816425121,
           "average_precision": 0.7485111532399231,
-          "fit_seconds": 0.28479670399974566,
-          "score_seconds": 0.0651951169993481,
-          "wall_seconds": 0.4
+          "fit_seconds": 0.3995140460001494,
+          "score_seconds": 0.12999659799970686,
+          "wall_seconds": 0.6
         },
         "hbos": {
           "roc_auc": 0.8508454106280193,
           "average_precision": 0.612496834614698,
-          "fit_seconds": 4.304326842000592,
-          "score_seconds": 0.0032057950002126745,
-          "wall_seconds": 4.4
+          "fit_seconds": 3.3749040639995656,
+          "score_seconds": 0.0018629109999892535,
+          "wall_seconds": 3.4
         }
       },
       "best_method": "isolation_forest"
@@ -860,59 +160,59 @@
         "mercury_tier": {
           "roc_auc": 0.7680690399137001,
           "average_precision": 0.27177826248145487,
-          "fit_seconds": 0.09047559000009642,
-          "score_seconds": 0.015153680999901553,
+          "fit_seconds": 0.050955720000274596,
+          "score_seconds": 0.006981822999478027,
           "wall_seconds": 0.1
         },
         "mercury_fusion": {
           "roc_auc": 0.5533980582524272,
           "average_precision": 0.14936562454574898,
-          "fit_seconds": 4.700692340999922,
-          "score_seconds": 0.1830011670008389,
+          "fit_seconds": 4.59595679099948,
+          "score_seconds": 0.17602818999966985,
           "epochs_trained": 50,
-          "wall_seconds": 5.7
+          "wall_seconds": 5.6
         },
         "isolation_forest": {
           "roc_auc": 0.807982740021575,
           "average_precision": 0.21899078863431234,
-          "fit_seconds": 0.20660558300005505,
-          "score_seconds": 0.01377589599997009,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.19964657800028363,
+          "score_seconds": 0.012136963000557444,
+          "wall_seconds": 0.2
         },
         "ecod": {
           "roc_auc": 0.7141316073354909,
           "average_precision": 0.25345558871008056,
-          "fit_seconds": 0.8864425379997556,
-          "score_seconds": 0.001975197000319895,
-          "wall_seconds": 0.9
+          "fit_seconds": 0.7642842569994173,
+          "score_seconds": 0.0018465509992893203,
+          "wall_seconds": 0.8
         },
         "copod": {
           "roc_auc": 0.756202804746494,
           "average_precision": 0.19205975240209763,
-          "fit_seconds": 0.8602978439994331,
-          "score_seconds": 0.0019097629992756993,
-          "wall_seconds": 0.9
+          "fit_seconds": 0.7570299039998645,
+          "score_seconds": 0.002024702999733563,
+          "wall_seconds": 0.8
         },
         "local_outlier_factor": {
           "roc_auc": 0.790722761596548,
           "average_precision": 0.21027571196781658,
-          "fit_seconds": 0.02391389700005675,
-          "score_seconds": 0.0019939909998356597,
+          "fit_seconds": 0.02593498200076283,
+          "score_seconds": 0.002052138000181003,
           "wall_seconds": 0.1
         },
         "knn": {
           "roc_auc": 0.878101402373247,
           "average_precision": 0.3012175670221647,
-          "fit_seconds": 0.022267977999945288,
-          "score_seconds": 0.0012740780002786778,
+          "fit_seconds": 0.023569277999740734,
+          "score_seconds": 0.0013161079996280023,
           "wall_seconds": 0.1
         },
         "hbos": {
           "roc_auc": 0.8117583603020496,
           "average_precision": 0.21812671405314663,
-          "fit_seconds": 4.148841387000175,
-          "score_seconds": 0.0007134200004657032,
-          "wall_seconds": 4.2
+          "fit_seconds": 3.5152282429999104,
+          "score_seconds": 0.0007668200005355175,
+          "wall_seconds": 3.6
         }
       },
       "best_method": "knn"
@@ -931,59 +231,59 @@
         "mercury_tier": {
           "roc_auc": 0.9414243573535608,
           "average_precision": 0.9465180841382956,
-          "fit_seconds": 0.24758935699992435,
-          "score_seconds": 0.03703082300035021,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.32047197799965943,
+          "score_seconds": 0.06248220199995558,
+          "wall_seconds": 0.4
         },
         "mercury_fusion": {
           "roc_auc": 0.6963758954909395,
           "average_precision": 0.6075448981024975,
-          "fit_seconds": 2.42744860699986,
-          "score_seconds": 0.45787560699955066,
+          "fit_seconds": 2.5511560609993467,
+          "score_seconds": 0.39624277700022503,
           "epochs_trained": 15,
-          "wall_seconds": 3.7
+          "wall_seconds": 3.8
         },
         "isolation_forest": {
           "roc_auc": 0.9291333052394999,
           "average_precision": 0.9387955672368318,
-          "fit_seconds": 0.22143076400061545,
-          "score_seconds": 0.016278391999549058,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.19562633099940285,
+          "score_seconds": 0.013576305000242428,
+          "wall_seconds": 0.2
         },
         "ecod": {
           "roc_auc": 0.7475066722854333,
           "average_precision": 0.7766907936440679,
-          "fit_seconds": 0.7910562659999414,
-          "score_seconds": 0.002906812999754038,
+          "fit_seconds": 0.7668594400001894,
+          "score_seconds": 0.002863126000193006,
           "wall_seconds": 0.8
         },
         "copod": {
           "roc_auc": 0.8183031324624246,
           "average_precision": 0.813877821900885,
-          "fit_seconds": 0.7663139810001667,
-          "score_seconds": 0.0029040839999652235,
-          "wall_seconds": 0.9
+          "fit_seconds": 0.7685969040003329,
+          "score_seconds": 0.003903507999893918,
+          "wall_seconds": 0.8
         },
         "local_outlier_factor": {
           "roc_auc": 0.9652338811630847,
           "average_precision": 0.9688656746938482,
-          "fit_seconds": 0.17240509199928056,
-          "score_seconds": 0.0422344320004413,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.23300347799977317,
+          "score_seconds": 0.09046724400013773,
+          "wall_seconds": 0.4
         },
         "knn": {
           "roc_auc": 0.983494872875404,
           "average_precision": 0.9866149596339504,
-          "fit_seconds": 0.1641757930001404,
-          "score_seconds": 0.04503362500054209,
-          "wall_seconds": 0.2
+          "fit_seconds": 0.21466952099945047,
+          "score_seconds": 0.1183579179996741,
+          "wall_seconds": 0.4
         },
         "hbos": {
           "roc_auc": 0.7726506531816266,
           "average_precision": 0.7273235554419967,
-          "fit_seconds": 3.5222610399996483,
-          "score_seconds": 0.0009662140000727959,
-          "wall_seconds": 3.6
+          "fit_seconds": 3.8721502509997663,
+          "score_seconds": 0.0009231120002368698,
+          "wall_seconds": 3.9
         }
       },
       "best_method": "knn"
@@ -1002,413 +302,62 @@
         "mercury_tier": {
           "roc_auc": 0.9835680751173709,
           "average_precision": 0.8486111111111112,
-          "fit_seconds": 0.057401607999963744,
-          "score_seconds": 0.00807077500030573,
+          "fit_seconds": 0.0528013130006002,
+          "score_seconds": 0.007278234999830602,
           "wall_seconds": 0.1
         },
         "mercury_fusion": {
           "roc_auc": 0.9295774647887324,
           "average_precision": 0.4297619047619047,
-          "fit_seconds": 3.503464251999503,
-          "score_seconds": 0.11807332700027473,
+          "fit_seconds": 3.1617750460000025,
+          "score_seconds": 0.10730619700007082,
           "epochs_trained": 50,
-          "wall_seconds": 4.4
+          "wall_seconds": 4.1
         },
         "isolation_forest": {
           "roc_auc": 0.9953051643192489,
           "average_precision": 0.9484126984126984,
-          "fit_seconds": 0.20912260099976265,
-          "score_seconds": 0.012165057999482087,
+          "fit_seconds": 0.1977109740000742,
+          "score_seconds": 0.012758589999975811,
           "wall_seconds": 0.3
         },
         "ecod": {
           "roc_auc": 0.9906103286384976,
           "average_precision": 0.8972222222222223,
-          "fit_seconds": 0.8662891160001891,
-          "score_seconds": 0.0020697689997177804,
+          "fit_seconds": 0.8490908940002555,
+          "score_seconds": 0.0019988730000477517,
           "wall_seconds": 0.9
         },
         "copod": {
           "roc_auc": 0.9929577464788734,
           "average_precision": 0.915079365079365,
-          "fit_seconds": 0.8685854389996166,
-          "score_seconds": 0.0022423729997171904,
-          "wall_seconds": 0.9
+          "fit_seconds": 0.9471368490003442,
+          "score_seconds": 0.0034499160001359996,
+          "wall_seconds": 1.0
         },
         "local_outlier_factor": {
           "roc_auc": 0.931924882629108,
           "average_precision": 0.37059884559884554,
-          "fit_seconds": 0.180132696000328,
-          "score_seconds": 0.049122622000140836,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.22152782699959062,
+          "score_seconds": 0.14243539900053293,
+          "wall_seconds": 0.4
         },
         "knn": {
           "roc_auc": 0.9366197183098591,
           "average_precision": 0.38495069745069743,
-          "fit_seconds": 0.18238916900008917,
-          "score_seconds": 0.04766064300019934,
-          "wall_seconds": 0.3
+          "fit_seconds": 0.2456813000007969,
+          "score_seconds": 0.11457133299973066,
+          "wall_seconds": 0.4
         },
         "hbos": {
           "roc_auc": 0.9953051643192489,
           "average_precision": 0.9484126984126984,
-          "fit_seconds": 3.5428170519999185,
-          "score_seconds": 0.0006595360000574146,
-          "wall_seconds": 3.6
-        }
-      },
-      "best_method": "isolation_forest"
-    },
-    {
-      "name": "pendigits",
-      "family": "adbench_classical",
-      "n_samples": 6870,
-      "n_features": 16,
-      "anomaly_ratio": 0.022707423580786028,
-      "npz_sha256": "c4936b89dcdad59d303020e492f763a0f54170080d787c77497609acbb9c2d79",
-      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/28_pendigits.npz",
-      "n_train": 3357,
-      "n_test": 3513,
-      "methods": {
-        "mercury_tier": {
-          "roc_auc": 0.8741263949038749,
-          "average_precision": 0.18580748125322177,
-          "fit_seconds": 0.12731077699936577,
-          "score_seconds": 0.02018301599946426,
-          "wall_seconds": 0.2
-        },
-        "mercury_fusion": {
-          "roc_auc": 0.9176023311412052,
-          "average_precision": 0.23665065149541462,
-          "fit_seconds": 46.58820766000008,
-          "score_seconds": 6.951923387000534,
-          "epochs_trained": 18,
-          "wall_seconds": 54.3
-        },
-        "isolation_forest": {
-          "roc_auc": 0.9678245991918915,
-          "average_precision": 0.4963563288751437,
-          "fit_seconds": 0.26960805100043217,
-          "score_seconds": 0.03924580300008529,
-          "wall_seconds": 0.3
-        },
-        "ecod": {
-          "roc_auc": 0.9287749287749287,
-          "average_precision": 0.38029767602787257,
-          "fit_seconds": 0.7562420329995803,
-          "score_seconds": 0.02159076499992807,
-          "wall_seconds": 0.8
-        },
-        "copod": {
-          "roc_auc": 0.9060802914690314,
-          "average_precision": 0.2861982903140003,
-          "fit_seconds": 0.8336145220000617,
-          "score_seconds": 0.02397774000019126,
-          "wall_seconds": 0.9
-        },
-        "local_outlier_factor": {
-          "roc_auc": 0.9923962940048731,
-          "average_precision": 0.803225853276226,
-          "fit_seconds": 0.674333115999616,
-          "score_seconds": 0.1582229619998543,
-          "wall_seconds": 0.9
-        },
-        "knn": {
-          "roc_auc": 0.9985296701114396,
-          "average_precision": 0.9702704737335033,
-          "fit_seconds": 0.5595730499999263,
-          "score_seconds": 0.0838124890005929,
-          "wall_seconds": 0.7
-        },
-        "hbos": {
-          "roc_auc": 0.9371997280844466,
-          "average_precision": 0.403988387978288,
-          "fit_seconds": 3.6882748870002615,
-          "score_seconds": 0.003759619000447856,
-          "wall_seconds": 3.7
-        }
-      },
-      "best_method": "knn"
-    },
-    {
-      "name": "Pima",
-      "family": "adbench_classical",
-      "n_samples": 768,
-      "n_features": 8,
-      "anomaly_ratio": 0.3489583333333333,
-      "npz_sha256": "215454bb263a2f040945c9ea7bd7f06f1e89a61a3143bdb6f196e3887e801a7d",
-      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/29_Pima.npz",
-      "n_train": 250,
-      "n_test": 518,
-      "methods": {
-        "mercury_tier": {
-          "roc_auc": 0.7047014925373135,
-          "average_precision": 0.6963489412553951,
-          "fit_seconds": 0.0656821200000195,
-          "score_seconds": 0.00960677199964266,
-          "wall_seconds": 0.1
-        },
-        "mercury_fusion": {
-          "roc_auc": 0.6570746268656716,
-          "average_precision": 0.6486024803849404,
-          "fit_seconds": 6.444107104999603,
-          "score_seconds": 0.8818313890005811,
-          "epochs_trained": 34,
-          "wall_seconds": 8.1
-        },
-        "isolation_forest": {
-          "roc_auc": 0.6963134328358209,
-          "average_precision": 0.6877182818236478,
-          "fit_seconds": 0.21533114500016381,
-          "score_seconds": 0.01693867899939505,
-          "wall_seconds": 0.3
-        },
-        "ecod": {
-          "roc_auc": 0.5575373134328359,
-          "average_precision": 0.5963866826041726,
-          "fit_seconds": 0.8942309659996681,
-          "score_seconds": 0.0024540750000596745,
-          "wall_seconds": 0.9
-        },
-        "copod": {
-          "roc_auc": 0.6271641791044776,
-          "average_precision": 0.6619244238593461,
-          "fit_seconds": 0.8727297719997296,
-          "score_seconds": 0.002831341999808501,
-          "wall_seconds": 0.9
-        },
-        "local_outlier_factor": {
-          "roc_auc": 0.6993134328358208,
-          "average_precision": 0.679169932103807,
-          "fit_seconds": 0.025550387999828672,
-          "score_seconds": 0.005225128999882145,
-          "wall_seconds": 0.1
-        },
-        "knn": {
-          "roc_auc": 0.7276417910447761,
-          "average_precision": 0.7097082002900298,
-          "fit_seconds": 0.02520073399955436,
-          "score_seconds": 0.003204153000297083,
-          "wall_seconds": 0.1
-        },
-        "hbos": {
-          "roc_auc": 0.7333059701492537,
-          "average_precision": 0.7438724447889954,
-          "fit_seconds": 3.550566244000038,
-          "score_seconds": 0.0008206350003092666,
-          "wall_seconds": 3.6
-        }
-      },
-      "best_method": "hbos"
-    },
-    {
-      "name": "WBC",
-      "family": "adbench_classical",
-      "n_samples": 223,
-      "n_features": 9,
-      "anomaly_ratio": 0.04484304932735426,
-      "npz_sha256": "650f9dcb129248f67a291be0974f533ef259fcbde50fce5c8ad2a1cb2652d03b",
-      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/42_WBC.npz",
-      "n_train": 106,
-      "n_test": 117,
-      "methods": {
-        "mercury_tier": {
-          "roc_auc": 0.9906542056074766,
-          "average_precision": 0.9426315789473685,
-          "fit_seconds": 0.0554545760005567,
-          "score_seconds": 0.007749595999484882,
-          "wall_seconds": 0.1
-        },
-        "mercury_fusion": {
-          "roc_auc": 0.9485981308411214,
-          "average_precision": 0.46393772893772894,
-          "fit_seconds": 4.097972464999657,
-          "score_seconds": 0.2059757900005934,
-          "epochs_trained": 43,
-          "wall_seconds": 5.3
-        },
-        "isolation_forest": {
-          "roc_auc": 0.9943925233644859,
-          "average_precision": 0.9503174603174603,
-          "fit_seconds": 0.23366983199957758,
-          "score_seconds": 0.01853169500009244,
-          "wall_seconds": 0.3
-        },
-        "ecod": {
-          "roc_auc": 0.9934579439252336,
-          "average_precision": 0.9290262515262515,
-          "fit_seconds": 0.8712827590006782,
-          "score_seconds": 0.0019357820001459913,
-          "wall_seconds": 0.9
-        },
-        "copod": {
-          "roc_auc": 0.9934579439252337,
-          "average_precision": 0.9290262515262515,
-          "fit_seconds": 0.8846072950000234,
-          "score_seconds": 0.0021856840003238176,
-          "wall_seconds": 0.9
-        },
-        "local_outlier_factor": {
-          "roc_auc": 0.9813084112149533,
-          "average_precision": 0.8411111111111111,
-          "fit_seconds": 0.0260197990000961,
-          "score_seconds": 0.002538364000429283,
-          "wall_seconds": 0.1
-        },
-        "knn": {
-          "roc_auc": 0.9934579439252336,
-          "average_precision": 0.9525000000000001,
-          "fit_seconds": 0.023214449000079185,
-          "score_seconds": 0.0014167500003168243,
-          "wall_seconds": 0.1
-        },
-        "hbos": {
-          "roc_auc": 0.985981308411215,
-          "average_precision": 0.8303102453102453,
-          "fit_seconds": 3.757052509999994,
-          "score_seconds": 0.0006985899999563117,
+          "fit_seconds": 3.7458572359992104,
+          "score_seconds": 0.0005961079996268381,
           "wall_seconds": 3.8
         }
       },
       "best_method": "isolation_forest"
-    },
-    {
-      "name": "cv:MVTec-AD_bottle",
-      "family": "adbench_cv_embedding",
-      "n_samples": 292,
-      "n_features": 512,
-      "anomaly_ratio": 0.21575342465753425,
-      "npz_sha256": "9eb7a78f1f6ecfcd00391ea01fe06f998e3fb7b8e89a34c06d69786ee38a8059",
-      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/CV_by_ResNet18/MVTec-AD_bottle.npz",
-      "n_train": 114,
-      "n_test": 178,
-      "methods": {
-        "mercury_tier": {
-          "roc_auc": 0.9642512077294685,
-          "average_precision": 0.9536339050256524,
-          "fit_seconds": 4.697317404000387,
-          "score_seconds": 0.10874787699958688,
-          "wall_seconds": 4.9
-        },
-        "mercury_fusion": {
-          "roc_auc": 0.8916494133885436,
-          "average_precision": 0.7371816493297711,
-          "fit_seconds": 128.3371444459999,
-          "score_seconds": 9.801713708000534,
-          "epochs_trained": 15,
-          "wall_seconds": 139.1
-        },
-        "isolation_forest": {
-          "roc_auc": 0.9641131815044859,
-          "average_precision": 0.9584940817368262,
-          "fit_seconds": 0.24713410000003933,
-          "score_seconds": 0.024817790999804856,
-          "wall_seconds": 0.3
-        },
-        "ecod": {
-          "roc_auc": 0.9298826777087646,
-          "average_precision": 0.9082042134428016,
-          "fit_seconds": 0.8434950199998639,
-          "score_seconds": 0.028212406000420742,
-          "wall_seconds": 0.9
-        },
-        "copod": {
-          "roc_auc": 0.9572118702553485,
-          "average_precision": 0.948697823967624,
-          "fit_seconds": 0.7794479069998488,
-          "score_seconds": 0.02486522600065655,
-          "wall_seconds": 0.9
-        },
-        "local_outlier_factor": {
-          "roc_auc": 0.9508626639061422,
-          "average_precision": 0.9289903023572226,
-          "fit_seconds": 0.1391041420001784,
-          "score_seconds": 0.01747349800007214,
-          "wall_seconds": 0.2
-        },
-        "knn": {
-          "roc_auc": 0.9496204278812974,
-          "average_precision": 0.9289270266521136,
-          "fit_seconds": 0.14635509500021726,
-          "score_seconds": 0.004784033000760246,
-          "wall_seconds": 0.2
-        },
-        "hbos": {
-          "roc_auc": 0.9570738440303658,
-          "average_precision": 0.9493691779050871,
-          "fit_seconds": 3.6494749529992987,
-          "score_seconds": 0.008782283999607898,
-          "wall_seconds": 3.7
-        }
-      },
-      "best_method": "mercury_tier"
-    },
-    {
-      "name": "nlp:20news_0",
-      "family": "adbench_nlp_embedding",
-      "n_samples": 3090,
-      "n_features": 768,
-      "anomaly_ratio": 0.04983818770226537,
-      "npz_sha256": "eb804cf85f3dc18a726ffc9df333aed7324f6838408c5bdb1d86fbe21d7ca5d9",
-      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/20news_0.npz",
-      "n_train": 1468,
-      "n_test": 1622,
-      "methods": {
-        "mercury_tier": {
-          "roc_auc": 0.7659285537350933,
-          "average_precision": 0.21603860626513466,
-          "fit_seconds": 7.912566607000372,
-          "score_seconds": 2.0086596439996356,
-          "wall_seconds": 10.0
-        },
-        "mercury_fusion": {
-          "deferred": "exceeded 300s wall budget",
-          "wall_seconds": 300.1
-        },
-        "isolation_forest": {
-          "roc_auc": 0.6204262358894511,
-          "average_precision": 0.12641777584111336,
-          "fit_seconds": 0.33485142800054746,
-          "score_seconds": 0.06718441500015615,
-          "wall_seconds": 0.5
-        },
-        "ecod": {
-          "roc_auc": 0.5922228316642485,
-          "average_precision": 0.12012116271085352,
-          "fit_seconds": 1.6888832690001436,
-          "score_seconds": 2.2807690280005772,
-          "wall_seconds": 4.0
-        },
-        "copod": {
-          "roc_auc": 0.5952262995859727,
-          "average_precision": 0.11779201627300094,
-          "fit_seconds": 1.2882626299997355,
-          "score_seconds": 1.7069306340008552,
-          "wall_seconds": 3.1
-        },
-        "local_outlier_factor": {
-          "roc_auc": 0.7910975264517499,
-          "average_precision": 0.26673511965499674,
-          "fit_seconds": 0.68782295300025,
-          "score_seconds": 0.1791801969993685,
-          "wall_seconds": 0.9
-        },
-        "knn": {
-          "roc_auc": 0.7153340528681128,
-          "average_precision": 0.18501749682254295,
-          "fit_seconds": 0.4838975650000066,
-          "score_seconds": 0.14688196499992046,
-          "wall_seconds": 0.7
-        },
-        "hbos": {
-          "roc_auc": 0.5910639088432004,
-          "average_precision": 0.1155617158331967,
-          "fit_seconds": 4.690841946000546,
-          "score_seconds": 0.12032425500001409,
-          "wall_seconds": 4.9
-        }
-      },
-      "best_method": "local_outlier_factor"
     }
   ]
 }

@@ -112,7 +112,7 @@ keep it regression-checked. Since v2.1.x the model additionally has a real
 **declared-modality** predict path: a dict carrying an emotion-probability
 time series under the `"emotions"` key is analysed deterministically
 (temporal aggregation + the documented entropy/negative-affect distress
-heuristic from `core/enhanced_model_domains.py`), with malformed declared
+heuristic from `core/model_domains.py`), with malformed declared
 input failing loud (`tests/models/test_affective_model.py`). The fusion
 feature group stays constant zeros for every input — the shipped
 `default_fusion.pt` was trained against exactly that group; a learned

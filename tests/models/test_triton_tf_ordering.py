@@ -32,7 +32,7 @@ _HAS_COLLIDING_STACK = all(
 _BIOMETRIC_THEN_TORCHVISION = """
 import logging
 logging.disable(logging.CRITICAL)
-import omni_mercury_engine.models.biometric_advanced  # pulls TensorFlow via deepface
+import omni_mercury_engine.models.biometric_multimodal  # pulls TensorFlow via deepface
 import torchvision.ops  # imports torch._dynamo -> triton probe
 print("ordering-ok")
 """

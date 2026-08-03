@@ -33,7 +33,7 @@ from typing import Any
 
 import numpy as np
 
-from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
+from omni_mercury_engine.cognitive.anomaly_detection import IntegratedAnomalyDetector
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 from omni_mercury_engine.cognitive.cognitive_evolution_engine import CuriosityEngine
@@ -106,7 +106,7 @@ class CognitiveAnalysisResult:
     is_novel: bool | None = None
 
     # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
-    # EnhancedAnomalyDetector for this domain. Empty until a forecast is
+    # IntegratedAnomalyDetector for this domain. Empty until a forecast is
     # produced; to_dict() omits the key while empty (same schema guarantee).
     predictive_forecast: dict[str, Any] = field(default_factory=dict)
 
@@ -222,7 +222,7 @@ class CognitiveOrchestrator(LoggerMixin):
                 anomalies (measured distance from the observed distribution).
                 Off by default; opt-in so existing analyze() output is unchanged.
             enable_enhanced_detection: Enable the Bayesian/HMM predictive-memory
-                augmentation (:class:`EnhancedAnomalyDetector`) over detected
+                augmentation (:class:`IntegratedAnomalyDetector`) over detected
                 anomalies. Off by default; constructed with no simulated/external
                 sources so it performs no network I/O on the runtime path.
             strict_ethics: **Deprecated and ignored.**  Ethics enforcement
@@ -291,7 +291,7 @@ class CognitiveOrchestrator(LoggerMixin):
         self.curiosity = CuriosityEngine() if enable_curiosity else None
         # No simulated/external sources on the runtime path -> no network I/O.
         self.enhanced_detector = (
-            EnhancedAnomalyDetector(use_simulated_sources=False)
+            IntegratedAnomalyDetector(use_simulated_sources=False)
             if enable_enhanced_detection
             else None
         )

@@ -44,8 +44,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "PointAdjustmentEvaluator",
         "create_detector",
     ),
-    "omni_mercury_engine.detectors.advanced_physics_integration": (
-        "AdvancedPhysicsIntegratedDetector",
+    "omni_mercury_engine.detectors.physics_integration": (
+        "PhysicsIntegratedDetector",
         "PhysicsDetectorType",
         "PhysicsGOSNNScalars",
         "create_dynamics_detector",
@@ -152,7 +152,6 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "AccelerationDynamicsDetector",
-    "AdvancedPhysicsIntegratedDetector",
     "AdversarialAutoencoderDetector",
     "AnomalyCategory",
     "AnomalyMathArrest",
@@ -198,6 +197,7 @@ __all__ = [
     "PatchCoreDetector",
     "PhysicsDetectorType",
     "PhysicsGOSNNScalars",
+    "PhysicsIntegratedDetector",
     "PointAdjustmentEvaluator",
     "ReverseDistillationDetector",
     "RootCauseGraphDetector",

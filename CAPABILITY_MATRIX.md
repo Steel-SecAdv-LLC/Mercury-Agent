@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Mercury Agent — Capability Matrix
 
-Applies to Mercury Agent **v2.1.x**. Last reviewed: 2026-08-02.
+Applies to Mercury Agent **v2.1.x**. Last reviewed: 2026-08-03.
 
 One row per claim: **claim · dataset/task · metric · number · repro command ·
 status**. If a capability is not in this table, Mercury does not claim it.
@@ -41,7 +41,7 @@ path that exists in this repository.
 | `torch.nn.Module` subclasses | this source tree | AST count | **173** | `python scripts/measure_codebase_scale.py` | **measured** (CI-gated in README "Codebase Scale") |
 | Data-loader classes in `loaders/` | this source tree | regex `class *Loader` | **21** | `python scripts/measure_codebase_scale.py` | **measured** — 20 concrete loaders + `BaseDomainLoader`, which the CI regex also matches. The previously published "16" was stale. |
 | Detector classes under `detectors/` | this source tree | AST count | **88** | `python scripts/measure_codebase_scale.py` | **measured** |
-| Source files / LOC | this source tree | file + line count | **775 / 406,960** | `python scripts/measure_codebase_scale.py` | **measured** |
+| Source files / LOC | this source tree | file + line count | **775 / 407,560** | `python scripts/measure_codebase_scale.py` | **measured** |
 | Cognitive components wired at runtime | `CognitiveOrchestrator` | count | **ten** | `python -c "from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator"` | **measured** — the "nine components" figure was stale; the "7-phase" spine is *historical build order*, not a runtime pipeline |
 
 ## 2. Safety controls

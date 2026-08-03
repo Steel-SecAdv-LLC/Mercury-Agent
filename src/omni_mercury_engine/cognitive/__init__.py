@@ -41,7 +41,7 @@ Components:
 
 from __future__ import annotations
 
-from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
+from omni_mercury_engine.cognitive.anomaly_detection import IntegratedAnomalyDetector
 from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine, CausalGraph
@@ -163,7 +163,6 @@ __all__ = [
     "DetectionAgent",
     "DifferentiableLogicEngine",
     "DifferentiableTNorm",
-    "EnhancedAnomalyDetector",
     # Differentiable Logic
     "EthicalConstraintViolationError",
     "ExperienceMemory",
@@ -186,6 +185,7 @@ __all__ = [
     "IPBEngine",
     "Indicator",
     "IndicatorDevelopmentSystem",
+    "IntegratedAnomalyDetector",
     "IntervalBoundPropagator",
     "KnowledgeGraph",
     "KnowledgeNode",

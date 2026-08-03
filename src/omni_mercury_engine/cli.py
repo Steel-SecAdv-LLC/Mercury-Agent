@@ -1192,9 +1192,9 @@ def physics_integrated(
         raise SystemExit(1)
 
     try:
-        from omni_mercury_engine.detectors.advanced_physics_integration import (
-            AdvancedPhysicsIntegratedDetector,
+        from omni_mercury_engine.detectors.physics_integration import (
             PhysicsDetectorType,
+            PhysicsIntegratedDetector,
         )
         from omni_mercury_engine.detectors.uiux_anomaly import (
             InteractionType,
@@ -1225,7 +1225,7 @@ def physics_integrated(
             },
         }
 
-        detector = AdvancedPhysicsIntegratedDetector(config)
+        detector = PhysicsIntegratedDetector(config)
 
         # Load data for each input type
         spectral_data = None
@@ -1284,7 +1284,7 @@ def physics_integrated(
 
         # Format output
         output_data = {
-            "detector": "AdvancedPhysicsIntegratedDetector",
+            "detector": "PhysicsIntegratedDetector",
             "is_anomaly": result.get("is_anomaly", False),
             "fused_anomaly_score": float(result.get("fused_anomaly_score", 0.0)),
             "enabled_detectors": [d.value for d in enabled_detectors],
@@ -1380,7 +1380,7 @@ def physics_list() -> None:
     click.echo()
     click.echo("     Command: mercury physics uiux -i <file.json>")
 
-    click.echo("\n  4. AdvancedPhysicsIntegratedDetector")
+    click.echo("\n  4. PhysicsIntegratedDetector")
     click.echo("     ─────────────────────────────────────────────────────")
     click.echo("     Unified detector combining all physics modules with")
     click.echo("     3R mechanism and GOSNN ethical governance.")

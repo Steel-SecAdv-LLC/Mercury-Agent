@@ -8,7 +8,7 @@ Provides high-order spherical harmonic analysis (l_max > 20) for detailed
 Key Components:
 - SphericalHarmonicTransform: Fast SH transform with GPU acceleration
 - HarmonicFeatureExtractor: Rotation-invariant feature extraction
-- AdvancedHarmonicAnalyzer: High-level interface for 3D analysis
+- HarmonicAnalyzer: High-level interface for 3D analysis
 - HarmonicAnomalyDetector: Anomaly detection using harmonic signatures
 
 References:
@@ -17,7 +17,7 @@ References:
 """
 
 from omni_mercury_engine.harmonics.analyzer import (
-    AdvancedHarmonicAnalyzer,
+    HarmonicAnalyzer,
     HarmonicAnomalyResult,
     HarmonicDatabase,
 )
@@ -35,10 +35,10 @@ from omni_mercury_engine.harmonics.transform import (
 )
 
 __all__ = [
-    # Analyzer
-    "AdvancedHarmonicAnalyzer",
     "AssociatedLegendre",
     "Bispectrum",
+    # Analyzer
+    "HarmonicAnalyzer",
     "HarmonicAnomalyResult",
     "HarmonicCoefficients",
     "HarmonicDatabase",

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Advanced Anomaly Detection Module.
 
-State-of-the-art detectors addressing identified performance gaps:
+Detectors addressing identified performance gaps:
 - Time-Series: Multi-scale transformer with point-adjustment evaluation
 - Industrial Control: Adversarial autoencoder with covariance modeling
 - Contrastive Learning: SimCLR-style representation learning

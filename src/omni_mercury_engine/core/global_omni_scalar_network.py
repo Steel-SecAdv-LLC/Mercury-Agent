@@ -2229,12 +2229,16 @@ class GlobalOmniScalarNetwork:
         enhanced = {}
 
         fusion_factor = 1.0 + 0.1 * np.mean(fused_state)
-        ethical_factor = ethical_score
 
+        # ``ethical_score`` is deliberately NOT a factor here. It used to appear
+        # as ``value * fusion_factor * ethical_factor + enhancement``, silently
+        # scaling every returned scalar by a governance number that carries no
+        # information about the scalar being scaled. The score is reported by the
+        # caller as provenance; it does not edit the values it accompanies.
         for i, (name, value) in enumerate(base_scalars.items()):
             enhancement = fused_state[i] * 0.1 if i < len(fused_state) else 0.0
 
-            enhanced_value = value * fusion_factor * ethical_factor + enhancement
+            enhanced_value = value * fusion_factor + enhancement
             enhanced[name] = float(enhanced_value)
 
         return enhanced

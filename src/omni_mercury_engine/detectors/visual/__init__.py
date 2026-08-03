@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Visual Anomaly Detection Module.
 
-State-of-the-art visual anomaly detection algorithms for industrial,
-medical, and surveillance applications. Implements cutting-edge methods
+Visual anomaly detection algorithms for industrial,
+medical, and surveillance applications. Implements published methods
 from recent literature (2023-2025).
 
 Algorithms:

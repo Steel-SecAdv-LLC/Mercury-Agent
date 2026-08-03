@@ -216,7 +216,7 @@ class GWOEnsembleDetector:
 
     Example:
         >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
-        >>> from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        >>> from omni_mercury_engine.detectors.statistical_extended import MADDetector
         >>>
         >>> detectors = [
         ...     MercuryAnomalyDetector(),

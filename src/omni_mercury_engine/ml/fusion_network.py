@@ -907,7 +907,7 @@ class OmniFusionModel(nn.Module):
 
         return importance
 
-    def train_with_advanced_optimizers(
+    def train_with_optimizers(
         self,
         train_loader: Any,
         epochs: int = 300,
@@ -959,7 +959,7 @@ class OmniFusionModel(nn.Module):
                 - lyapunov_stable: Whether Lyapunov stability maintained
                 - loss_type: Type of loss used (focal or weighted_bce)
         """
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             AuxiliaryMaxVariance,
             SyntheticGradientPredictor,
             estimate_convergence_rate,

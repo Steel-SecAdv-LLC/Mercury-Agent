@@ -413,8 +413,8 @@ class GOSNNIntegration:
         Includes: Statistical, Temporal, Spatial, Dimensional, Graph-based
         """
         try:
-            from omni_mercury_engine.core.enhanced_base_domains import (
-                EnhancedBaseDetector,
+            from omni_mercury_engine.core.base_domains import (
+                BaseDomainDetector,
             )
             from omni_mercury_engine.detectors.dimensional import (
                 DimensionalAnalyzer,
@@ -446,7 +446,7 @@ class GOSNNIntegration:
             for name, detector_class, weight, ethical_score in domain_configs:
                 try:
                     base = detector_class({})
-                    enhanced = EnhancedBaseDetector(
+                    enhanced = BaseDomainDetector(
                         base_detector=base,
                         domain=name,
                         threshold_method="otsu",
@@ -472,16 +472,16 @@ class GOSNNIntegration:
         Includes: Quantum, Biometric, Affective, Consciousness
         """
         try:
-            from omni_mercury_engine.core.enhanced_model_domains import (
-                EnhancedAffectiveModel,
-                EnhancedBiometricModel,
-                EnhancedQuantumModel,
+            from omni_mercury_engine.core.model_domains import (
+                AffectiveStateModel,
+                MultimodalBiometricModel,
+                QuantumFeatureModel,
             )
 
             # Quantum model
             self.add_domain(
                 "quantum",
-                detector=EnhancedQuantumModel(seed=self.seed),
+                detector=QuantumFeatureModel(seed=self.seed),
                 weight=PHI,
                 ethical_score=0.99,
             )
@@ -489,7 +489,7 @@ class GOSNNIntegration:
             # Biometric model (with fairness)
             self.add_domain(
                 "biometric",
-                detector=EnhancedBiometricModel(
+                detector=MultimodalBiometricModel(
                     enforce_fairness=True,
                     fairness_threshold=0.8,
                 ),
@@ -500,7 +500,7 @@ class GOSNNIntegration:
             # Affective model
             self.add_domain(
                 "affective",
-                detector=EnhancedAffectiveModel(seed=self.seed),
+                detector=AffectiveStateModel(seed=self.seed),
                 weight=1.0 / PHI,
                 ethical_score=0.97,
             )

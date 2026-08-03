@@ -361,7 +361,7 @@ class TestGradientCache:
 
     def test_gradient_cache_hit(self) -> None:
         """Test gradient cache returns stored value."""
-        from omni_mercury_engine.ml.advanced_optimizers import GradientCache
+        from omni_mercury_engine.ml.optimizers import GradientCache
 
         cache = GradientCache(max_size=100)
         activations = np.array([[1.0, 2.0, 3.0]])
@@ -376,7 +376,7 @@ class TestGradientCache:
 
     def test_gradient_cache_miss(self) -> None:
         """Test gradient cache miss for unknown activations."""
-        from omni_mercury_engine.ml.advanced_optimizers import GradientCache
+        from omni_mercury_engine.ml.optimizers import GradientCache
 
         cache = GradientCache(max_size=100)
         activations = np.array([[1.0, 2.0, 3.0]])
@@ -388,7 +388,7 @@ class TestGradientCache:
 
     def test_synthetic_gradient_caching(self) -> None:
         """Test synthetic gradient predictor uses caching."""
-        from omni_mercury_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.optimizers import (
             SyntheticGradientPredictor,
             get_gradient_cache,
         )

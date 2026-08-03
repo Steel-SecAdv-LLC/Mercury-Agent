@@ -1263,7 +1263,7 @@ jobs:
             tests/ethical/ \
             tests/pillars/ \
             tests/test_neurosymbolic_integration.py \
-            tests/test_neurosymbolic_enhanced.py \
+            tests/test_neurosymbolic_temporal.py \
             tests/test_neurosymbolic_extended.py \
             tests/test_three_r.py \
             tests/test_ai_ethics.py \
@@ -1667,7 +1667,7 @@ jobs:
           from omni_mercury_engine.core.gosnn_integration import (
               TTLCache, GOSNNPerformanceMonitor, get_detection_cache
           )
-          from omni_mercury_engine.ml.advanced_optimizers import (
+          from omni_mercury_engine.ml.optimizers import (
               SyntheticGradientPredictor, get_gradient_cache
           )
 

@@ -113,7 +113,7 @@ updates:
       - dependency-name: "pydantic"
         update-types: ["version-update:semver-major"]
       # OpenCV 5.0 removed long-standing top-level ``cv2`` symbols (including
-      # ``cv2.CascadeClassifier``, used by ``models/biometric_advanced.py``)
+      # ``cv2.CascadeClassifier``, used by ``models/biometric_multimodal.py``)
       # and the corresponding type stubs, breaking both the runtime path and
       # the blocking mypy gate. See the ``opencv-python-headless`` pin comment
       # in pyproject.toml. Bump manually once the codebase migrates.

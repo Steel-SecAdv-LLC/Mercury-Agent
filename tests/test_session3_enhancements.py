@@ -394,7 +394,7 @@ class TestRealWorldBenchmark:
     def test_benchmark_runner_sklearn_detector(self) -> None:
         """Test benchmark with sklearn detector - verifies fail-closed behavior without real data."""
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
-        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.detectors.statistical_extended import MADDetector
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 

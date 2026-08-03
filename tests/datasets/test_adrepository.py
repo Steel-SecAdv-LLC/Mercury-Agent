@@ -248,7 +248,7 @@ class TestIntegrationWithEngine:
             X, y = loader.load_data()
 
             # Simple detector test using MADDetector's actual API
-            from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+            from omni_mercury_engine.detectors.statistical_extended import MADDetector
 
             clf = MADDetector()
             clf.fit(X)

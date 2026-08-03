@@ -54,7 +54,7 @@ before a socket is opened, so no single layer can leak past it:
   - `datasets/mitbih.py::MITBIHLoader.download` — wfdb fetches PhysioNet with
     its own `requests` transport; an uncached download refuses, a primed
     segment cache serves (without even importing wfdb).
-  - `cognitive/anomaly_detection_enhanced.py::USGSEarthquakeSource.fetch` /
+  - `cognitive/anomaly_detection.py::USGSEarthquakeSource.fetch` /
     `NOAAWeatherSource.fetch` — ad-hoc httpx enrichment sources; `fetch()`
     raises `OfflineModeError` before any socket (its handlers swallow
     transport errors only), and the production consumer

@@ -200,14 +200,14 @@ class BiometricFusion:
         return fused.cpu().numpy()
 
 
-class AdvancedBiometricEngine:
+class MultimodalBiometricEngine:
     """Advanced biometric processing engine with neural-symbolic fusion.
 
     Provides face detection, feature extraction, attribute analysis,
     and multi-zone similarity scoring for missing persons applications.
 
     Example:
-        engine = AdvancedBiometricEngine()
+        engine = MultimodalBiometricEngine()
         result = engine.analyze_image("photo.jpg")
         print(f"Age: {result.attributes.get('age')}")
     """
@@ -234,7 +234,7 @@ class AdvancedBiometricEngine:
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         logger.info(
-            f"AdvancedBiometricEngine initialized (device={device}, "
+            f"MultimodalBiometricEngine initialized (device={device}, "
             f"deepface={DEEPFACE_AVAILABLE}, facenet={FACENET_AVAILABLE})"
         )
 
@@ -769,11 +769,11 @@ __all__ = [
     "DEEPFACE_AVAILABLE",
     "FACENET_AVAILABLE",
     "FACE_RECOGNITION_AVAILABLE",
-    "AdvancedBiometricEngine",
     "AgeProgressionEngine",
     "AgeProgressionResult",
     "BiometricFusion",
     "BiometricResult",
     "MatchCategory",
+    "MultimodalBiometricEngine",
     "QuantumAgeVariant",
 ]

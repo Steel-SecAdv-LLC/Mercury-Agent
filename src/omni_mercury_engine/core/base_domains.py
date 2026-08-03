@@ -586,7 +586,7 @@ class ParallelDetectorExecutor:
         return results
 
 
-class EnhancedBaseDetector:
+class BaseDomainDetector:
     """Enhanced base detector with adaptive thresholds and domain metrics.
 
     Wraps existing detectors with:
@@ -635,7 +635,7 @@ class EnhancedBaseDetector:
         self,
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any] | None = None,
-    ) -> EnhancedBaseDetector:
+    ) -> BaseDomainDetector:
         """Fit enhanced detector.
 
         Args:
@@ -790,17 +790,17 @@ def create_enhanced_detector(
     domain: str,
     config: dict[str, Any] | None = None,
     **enhancement_kwargs: Any,
-) -> EnhancedBaseDetector:
+) -> BaseDomainDetector:
     """Factory function to create enhanced detector.
 
     Args:
         detector_class: Base detector class
         domain: Domain type
         config: Configuration for base detector
-        **enhancement_kwargs: Additional args for EnhancedBaseDetector
+        **enhancement_kwargs: Additional args for BaseDomainDetector
 
     Returns:
         Enhanced detector instance
     """
     base_detector = detector_class(config)
-    return EnhancedBaseDetector(base_detector, domain=domain, **enhancement_kwargs)
+    return BaseDomainDetector(base_detector, domain=domain, **enhancement_kwargs)

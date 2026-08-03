@@ -89,7 +89,7 @@ class PhysicsDetectorType(Enum):
 
 
 @dataclass
-class AdvancedPhysicsConfig:
+class PhysicsIntegrationConfig:
     """Configuration for advanced physics integration.
 
     Attributes:
@@ -246,7 +246,7 @@ class PhysicsGOSNNScalars:
 # =============================================================================
 
 
-class AdvancedPhysicsIntegratedDetector(BaseDetector):
+class PhysicsIntegratedDetector(BaseDetector):
     """Unified detector integrating all advanced physics-based modules.
 
     Provides a single interface for:
@@ -260,7 +260,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
     - OAE for anomaly fusion
 
     Example:
-        >>> detector = AdvancedPhysicsIntegratedDetector(config={
+        >>> detector = PhysicsIntegratedDetector(config={
         ...     "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
         ...     "use_3r_enhancement": True,
         ...     "threshold": 0.6,
@@ -274,7 +274,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         """Initialize integrated physics detector.
 
         Args:
-            config: Configuration dictionary. See AdvancedPhysicsConfig.
+            config: Configuration dictionary. See PhysicsIntegrationConfig.
         """
         super().__init__(config)
 
@@ -303,14 +303,14 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         # Set device
         self.device = torch.device(self.config.get("device", "cpu"))
 
-    def _parse_config(self, config: dict[str, Any]) -> AdvancedPhysicsConfig:
+    def _parse_config(self, config: dict[str, Any]) -> PhysicsIntegrationConfig:
         """Parse configuration dictionary.
 
         Args:
             config: Raw configuration dictionary
 
         Returns:
-            AdvancedPhysicsConfig object
+            PhysicsIntegrationConfig object
         """
         enabled = config.get("enabled_detectors", ["all"])
         if isinstance(enabled, list):
@@ -323,7 +323,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         else:
             enabled_types = [PhysicsDetectorType.ALL]
 
-        return AdvancedPhysicsConfig(
+        return PhysicsIntegrationConfig(
             enabled_detectors=enabled_types,
             spectral_config=config.get("spectral_config", {}),
             dynamics_config=config.get("dynamics_config", {}),
@@ -417,7 +417,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
-    ) -> AdvancedPhysicsIntegratedDetector:
+    ) -> PhysicsIntegratedDetector:
         """Fit all component detectors on training data.
 
         Args:
@@ -485,7 +485,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             )
 
         self._is_fitted = True
-        logger.info("AdvancedPhysicsIntegratedDetector fitted successfully")
+        logger.info("PhysicsIntegratedDetector fitted successfully")
 
         return self
 
@@ -816,12 +816,26 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         else:
             enhanced_score = base_score
 
-        # Apply ethical scaling
-        if self._physics_config.use_gosnn_scaling:
-            # Ethical scaling reduces false positives by requiring higher confidence
-            final_score = enhanced_score * (ethical_scaling**PHI)
-        else:
-            final_score = enhanced_score
+        # No ethical scaling on the score. It used to read:
+        #
+        #     if self._physics_config.use_gosnn_scaling:
+        #         final_score = enhanced_score * (ethical_scaling**PHI)
+        #
+        # ``ethical_scaling`` comes from ``compute_ethical_scaling``, which
+        # averages hard-coded governance constants (privacy, explainability,
+        # transparency, humanitarian impact) and blends them by context flags.
+        # None of that is evidence about the sample being scored, so the factor
+        # could not add discrimination -- it only moved detection scores against
+        # a fixed threshold, under a name that implied an ethics control was
+        # acting. Its own comment claimed it "reduces false positives by
+        # requiring higher confidence"; scaling a score down while leaving the
+        # threshold fixed trades false positives for false negatives, and in a
+        # hazard detector that is the more costly error.
+        #
+        # ``ethical_scaling`` is still computed and reported on the result, so
+        # the governance posture remains visible; it no longer edits the number
+        # it is reported beside.
+        final_score = enhanced_score
 
         # Apply Oracle frequency influence modulation
         if frequency_influence is not None:
@@ -1042,13 +1056,13 @@ def create_uiux_detector(config: dict[str, Any] | None = None) -> UIUXAnomalyDet
 
 def create_integrated_detector(
     config: dict[str, Any] | None = None,
-) -> AdvancedPhysicsIntegratedDetector:
+) -> PhysicsIntegratedDetector:
     """Factory function to create integrated physics detector.
 
     Args:
         config: Optional configuration dictionary
 
     Returns:
-        Configured AdvancedPhysicsIntegratedDetector
+        Configured PhysicsIntegratedDetector
     """
-    return AdvancedPhysicsIntegratedDetector(config)
+    return PhysicsIntegratedDetector(config)

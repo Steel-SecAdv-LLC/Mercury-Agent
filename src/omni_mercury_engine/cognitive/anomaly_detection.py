@@ -1123,7 +1123,7 @@ class ValueExtractor:
         )
 
 
-class EnhancedAnomalyDetector:
+class IntegratedAnomalyDetector:
     """Enhanced Anomaly Detector with memory graph and external integration.
 
     Main interface for Phase 4 capabilities combining internal memory-driven patterns with external
@@ -1168,7 +1168,7 @@ class EnhancedAnomalyDetector:
         self._prediction_counter = 0
 
         mode = "simulated" if use_simulated_sources else "production"
-        logger.info(f"EnhancedAnomalyDetector initialized in {mode} mode")
+        logger.info(f"IntegratedAnomalyDetector initialized in {mode} mode")
 
     def _register_simulated_sources(self) -> None:
         """Register simulated data sources for development/testing.

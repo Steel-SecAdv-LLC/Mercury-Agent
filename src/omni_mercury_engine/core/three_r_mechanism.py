@@ -88,13 +88,22 @@ class _LegacyOmniAvaEquation:
     Implements the mathematical framework:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
 
-    This equation provides:
-    1. Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
+    What this equation is:
+    1. An attention-weighted combination of the three 3R component scores.
+       No superiority over baselines is claimed: the measured head-to-head
+       figures are in ``CAPABILITY_MATRIX.md``, which currently records Mercury
+       fusion *below* every PyOD baseline on the ADBench quick subset. The
+       "NSL-KDD F1=0.797 -> target 0.92+" line that stood here was a target, not
+       a result, and read as one.
     2. A Lyapunov-style decay *schedule* (reference envelope)
        V(S_t) <= epsilon * e^(-0.25t) — a design target the system *monitors*,
        NOT a proven guarantee (see verify_lyapunov_stability).
-    3. Ethical gating via η_Ethical^Φ scaling
-    4. Harmonic synergy through golden ratio (Φ) weighting
+    3. Golden-ratio (Φ) weight proportions across the three components.
+
+    What it is NOT: an ethical gate. The ``η_Ethical^Φ`` factor is removed from
+    the live equation (``core/three_r/fusion.py``) — η is a configured constant
+    on every production path, so it rescaled scores without adding
+    discrimination. Enforcement is ``cognitive/decision_gate.py``.
 
     The weights w_R, w_H, w_O are learned via attention fusion and sum to 1.0.
     Default initialization uses golden ratio proportions for optimal harmony.
