@@ -1,7 +1,701 @@
 {
   "metadata": {
-    "partial": true,
-    "n_done": 9
+    "benchmark": "competitive_benchmark (Mercury vs PyOD, ADBench 47 Classical + 10 CV/NLP)",
+    "protocol": "per dataset: stratified cap to 2*MAX_SAMPLES (seed 42); normal-only train half; test = remaining normals + all anomalies capped to MAX_SAMPLES; fixed-seed de-leak shuffle of test rows (batch-order leakage guard, applied to every method identically); StandardScaler fit on train only; library defaults for every method; no per-dataset tuning; unsupervised-fair (no method sees labels)",
+    "mercury_fusion_protocol": "fit_fusion(X_train, y=None): label-free detector-consensus path; semi-supervised mode NOT used because PyOD baselines get no labels",
+    "deep_baselines_note": "PyOD deep baselines (AutoEncoder) excluded: under the defaults-only, CPU-only, no-tuning budget they measure the budget cap rather than the method; see pyod_integration.DEFAULT_BASELINES",
+    "embedding_variant_note": "CV/NLP corpora use one representative ADBench variant per source: _0 where per-class variants exist; MNIST-C_brightness / MVTec-AD_bottle (no _0 variant exists upstream); amazon/imdb/yelp ship a single file",
+    "mode": "quick",
+    "seed": 42,
+    "max_samples": 10000,
+    "fusion_epochs": 50,
+    "git_commit": "4ffd8742a991e26a9ff9ef3acf539a90b54963d7",
+    "command_line": "benchmarks/competitive_benchmark.py --quick",
+    "timestamp": "2026-08-03T02:57:55.188952+00:00",
+    "runtime_seconds": 803.2,
+    "versions": {
+      "python": "3.11.15",
+      "numpy": "2.4.6",
+      "torch": "2.13.0+cu130",
+      "pyod": "3.6.4",
+      "scikit_learn": "1.9.0"
+    },
+    "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
+    "methods": [
+      "mercury_tier",
+      "mercury_fusion",
+      "isolation_forest",
+      "ecod",
+      "copod",
+      "local_outlier_factor",
+      "knn",
+      "hbos"
+    ]
+  },
+  "summary": {
+    "n_datasets_attempted": 10,
+    "n_datasets_measured": 10,
+    "n_datasets_complete_for_ranks": 8,
+    "per_method": {
+      "mercury_tier": {
+        "n_datasets": 10,
+        "mean_auc": 0.8935642916354765,
+        "median_auc": 0.9464031920715982,
+        "std_auc": 0.10287999770374173,
+        "mean_ap": 0.6870419619131218,
+        "median_ap": 0.8332838295942768,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 4.375
+      },
+      "mercury_fusion": {
+        "n_datasets": 8,
+        "mean_auc": 0.8265320532628806,
+        "median_auc": 0.9235898979649688,
+        "std_auc": 0.15309119364093213,
+        "mean_ap": 0.5288735670479814,
+        "median_ap": 0.5357413135201132,
+        "errors": [],
+        "deferred": [
+          {
+            "dataset": "cv:MVTec-AD_bottle",
+            "wall_seconds": 300.1
+          },
+          {
+            "dataset": "nlp:20news_0",
+            "wall_seconds": 300.1
+          }
+        ],
+        "mean_rank": 6.875
+      },
+      "isolation_forest": {
+        "n_datasets": 10,
+        "mean_auc": 0.8926248607581542,
+        "median_auc": 0.9608183935629588,
+        "std_auc": 0.1292775755777973,
+        "mean_ap": 0.714943030460532,
+        "median_ap": 0.8849602308195463,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 2.4375
+      },
+      "ecod": {
+        "n_datasets": 10,
+        "mean_auc": 0.8381606472271115,
+        "median_auc": 0.9293288032418467,
+        "std_auc": 0.1611994047898737,
+        "mean_ap": 0.6566783517759573,
+        "median_ap": 0.745504782277572,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 5.4375
+      },
+      "copod": {
+        "n_datasets": 10,
+        "mean_auc": 0.8563247377122529,
+        "median_auc": 0.9149898053743927,
+        "std_auc": 0.1433392499505562,
+        "mean_ap": 0.6567498324932903,
+        "median_ap": 0.7622367099307169,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 4.75
+      },
+      "local_outlier_factor": {
+        "n_datasets": 10,
+        "mean_auc": 0.8994285566036501,
+        "median_auc": 0.9413937732676251,
+        "std_auc": 0.09629642622472813,
+        "mean_ap": 0.6690534689400632,
+        "median_ap": 0.7411978926900165,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 5.0
+      },
+      "knn": {
+        "n_datasets": 10,
+        "mean_auc": 0.9098342844129623,
+        "median_auc": 0.9431200730955782,
+        "std_auc": 0.10085397481288305,
+        "mean_ap": 0.7160972848553645,
+        "median_ap": 0.8387190899460184,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 2.8125
+      },
+      "hbos": {
+        "n_datasets": 10,
+        "mean_auc": 0.8622801672386833,
+        "median_auc": 0.8940225693562329,
+        "std_auc": 0.12814642627293088,
+        "mean_ap": 0.6532170885724111,
+        "median_ap": 0.735598000115496,
+        "errors": [],
+        "deferred": [],
+        "mean_rank": 4.3125
+      }
+    },
+    "head_to_head": {
+      "mercury_tier": {
+        "isolation_forest": {
+          "n_compared": 10,
+          "wins": 4,
+          "losses": 6,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.09369820428801656
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.03991370010787487
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.011737089201877993
+            },
+            {
+              "dataset": "cardio",
+              "auc_margin": 0.006141578831796224
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.0037383177570092796
+            }
+          ]
+        },
+        "ecod": {
+          "n_compared": 10,
+          "wins": 7,
+          "losses": 3,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.05464853387105384
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.007042253521126751
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.002803738317756932
+            }
+          ]
+        },
+        "copod": {
+          "n_compared": 10,
+          "wins": 6,
+          "losses": 4,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.03195389656515646
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.009389671361502483
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.002803738317757043
+            },
+            {
+              "dataset": "breastw",
+              "auc_margin": 0.001206227147649619
+            }
+          ]
+        },
+        "local_outlier_factor": {
+          "n_compared": 10,
+          "wins": 6,
+          "losses": 4,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.11826989910099817
+            },
+            {
+              "dataset": "nlp:20news_0",
+              "auc_margin": 0.025168972716656635
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.023809523809523947
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.02265372168284785
+            }
+          ]
+        },
+        "knn": {
+          "n_compared": 10,
+          "wins": 4,
+          "losses": 6,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.12440327520756467
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.11003236245954684
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.042070515521843266
+            },
+            {
+              "dataset": "Pima",
+              "auc_margin": 0.022940298507462598
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.002803738317756932
+            }
+          ]
+        },
+        "hbos": {
+          "n_compared": 10,
+          "wins": 6,
+          "losses": 4,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.06307333318057173
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.043689320388349495
+            },
+            {
+              "dataset": "Pima",
+              "auc_margin": 0.028604477611940182
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.011737089201877993
+            }
+          ]
+        }
+      },
+      "mercury_fusion": {
+        "isolation_forest": {
+          "n_compared": 8,
+          "wins": 0,
+          "losses": 8,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "glass",
+              "auc_margin": 0.25458468176914784
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.2327574097485604
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.06572769953051649
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.0502222680506863
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.04579439252336448
+            }
+          ]
+        },
+        "ecod": {
+          "n_compared": 8,
+          "wins": 2,
+          "losses": 6,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "glass",
+              "auc_margin": 0.1607335490830637
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.06103286384976525
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.05113077679449385
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.04485981308411213
+            },
+            {
+              "dataset": "breastw",
+              "auc_margin": 0.020260846620679285
+            }
+          ]
+        },
+        "copod": {
+          "n_compared": 8,
+          "wins": 3,
+          "losses": 5,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "glass",
+              "auc_margin": 0.20280474649406688
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.12192723697148511
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.06338028169014098
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.04485981308411224
+            },
+            {
+              "dataset": "breastw",
+              "auc_margin": 0.021938256247879595
+            }
+          ]
+        },
+        "local_outlier_factor": {
+          "n_compared": 8,
+          "wins": 1,
+          "losses": 7,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.26885798567214525
+            },
+            {
+              "dataset": "glass",
+              "auc_margin": 0.2373247033441208
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.0747939628636679
+            },
+            {
+              "dataset": "Pima",
+              "auc_margin": 0.042238805970149174
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.032710280373831835
+            }
+          ]
+        },
+        "knn": {
+          "n_compared": 8,
+          "wins": 1,
+          "losses": 7,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "glass",
+              "auc_margin": 0.3247033441208198
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.28711897738446457
+            },
+            {
+              "dataset": "pendigits",
+              "auc_margin": 0.08092733897023441
+            },
+            {
+              "dataset": "Pima",
+              "auc_margin": 0.07056716417910447
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.04485981308411213
+            }
+          ]
+        },
+        "hbos": {
+          "n_compared": 8,
+          "wins": 1,
+          "losses": 7,
+          "ties": 0,
+          "worst_losses": [
+            {
+              "dataset": "glass",
+              "auc_margin": 0.25836030204962246
+            },
+            {
+              "dataset": "Ionosphere",
+              "auc_margin": 0.07627475769068714
+            },
+            {
+              "dataset": "Pima",
+              "auc_margin": 0.07623134328358205
+            },
+            {
+              "dataset": "Lymphography",
+              "auc_margin": 0.06572769953051649
+            },
+            {
+              "dataset": "WBC",
+              "auc_margin": 0.03738317757009357
+            }
+          ]
+        }
+      }
+    },
+    "datasets_where_mercury_loses": {
+      "mercury_tier": [
+        {
+          "dataset": "pendigits",
+          "mercury_auc": 0.8741263949038749,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.12440327520756467,
+          "beaten_by": {
+            "isolation_forest": 0.09369820428801656,
+            "ecod": 0.05464853387105384,
+            "copod": 0.03195389656515646,
+            "local_outlier_factor": 0.11826989910099817,
+            "knn": 0.12440327520756467,
+            "hbos": 0.06307333318057173
+          }
+        },
+        {
+          "dataset": "glass",
+          "mercury_auc": 0.7680690399137001,
+          "n_baselines_beating": 4,
+          "worst_baseline": "knn",
+          "worst_margin": 0.11003236245954684,
+          "beaten_by": {
+            "isolation_forest": 0.03991370010787487,
+            "local_outlier_factor": 0.02265372168284785,
+            "knn": 0.11003236245954684,
+            "hbos": 0.043689320388349495
+          }
+        },
+        {
+          "dataset": "Ionosphere",
+          "mercury_auc": 0.9414243573535608,
+          "n_baselines_beating": 2,
+          "worst_baseline": "knn",
+          "worst_margin": 0.042070515521843266,
+          "beaten_by": {
+            "local_outlier_factor": 0.023809523809523947,
+            "knn": 0.042070515521843266
+          }
+        },
+        {
+          "dataset": "Pima",
+          "mercury_auc": 0.7047014925373135,
+          "n_baselines_beating": 2,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.028604477611940182,
+          "beaten_by": {
+            "knn": 0.022940298507462598,
+            "hbos": 0.028604477611940182
+          }
+        },
+        {
+          "dataset": "nlp:20news_0",
+          "mercury_auc": 0.7659285537350933,
+          "n_baselines_beating": 1,
+          "worst_baseline": "local_outlier_factor",
+          "worst_margin": 0.025168972716656635,
+          "beaten_by": {
+            "local_outlier_factor": 0.025168972716656635
+          }
+        },
+        {
+          "dataset": "Lymphography",
+          "mercury_auc": 0.9835680751173709,
+          "n_baselines_beating": 4,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.011737089201877993,
+          "beaten_by": {
+            "isolation_forest": 0.011737089201877993,
+            "ecod": 0.007042253521126751,
+            "copod": 0.009389671361502483,
+            "hbos": 0.011737089201877993
+          }
+        },
+        {
+          "dataset": "cardio",
+          "mercury_auc": 0.9513820267896356,
+          "n_baselines_beating": 1,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.006141578831796224,
+          "beaten_by": {
+            "isolation_forest": 0.006141578831796224
+          }
+        },
+        {
+          "dataset": "WBC",
+          "mercury_auc": 0.9906542056074766,
+          "n_baselines_beating": 4,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0037383177570092796,
+          "beaten_by": {
+            "isolation_forest": 0.0037383177570092796,
+            "ecod": 0.002803738317756932,
+            "copod": 0.002803738317757043,
+            "knn": 0.002803738317756932
+          }
+        },
+        {
+          "dataset": "breastw",
+          "mercury_auc": 0.9915375626672698,
+          "n_baselines_beating": 3,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.0016962569263825333,
+          "beaten_by": {
+            "isolation_forest": 0.0016962569263825333,
+            "copod": 0.001206227147649619,
+            "knn": 0.0016020204304724173
+          }
+        }
+      ],
+      "mercury_fusion": [
+        {
+          "dataset": "glass",
+          "mercury_auc": 0.5533980582524272,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.3247033441208198,
+          "beaten_by": {
+            "isolation_forest": 0.25458468176914784,
+            "ecod": 0.1607335490830637,
+            "copod": 0.20280474649406688,
+            "local_outlier_factor": 0.2373247033441208,
+            "knn": 0.3247033441208198,
+            "hbos": 0.25836030204962246
+          }
+        },
+        {
+          "dataset": "Ionosphere",
+          "mercury_auc": 0.6963758954909395,
+          "n_baselines_beating": 6,
+          "worst_baseline": "knn",
+          "worst_margin": 0.28711897738446457,
+          "beaten_by": {
+            "isolation_forest": 0.2327574097485604,
+            "ecod": 0.05113077679449385,
+            "copod": 0.12192723697148511,
+            "local_outlier_factor": 0.26885798567214525,
+            "knn": 0.28711897738446457,
+            "hbos": 0.07627475769068714
+          }
+        },
+        {
+          "dataset": "pendigits",
+          "mercury_auc": 0.9176023311412052,
+          "n_baselines_beating": 5,
+          "worst_baseline": "knn",
+          "worst_margin": 0.08092733897023441,
+          "beaten_by": {
+            "isolation_forest": 0.0502222680506863,
+            "ecod": 0.01117259763372358,
+            "local_outlier_factor": 0.0747939628636679,
+            "knn": 0.08092733897023441,
+            "hbos": 0.019597396943241474
+          }
+        },
+        {
+          "dataset": "Pima",
+          "mercury_auc": 0.6570746268656716,
+          "n_baselines_beating": 4,
+          "worst_baseline": "hbos",
+          "worst_margin": 0.07623134328358205,
+          "beaten_by": {
+            "isolation_forest": 0.03923880597014928,
+            "local_outlier_factor": 0.042238805970149174,
+            "knn": 0.07056716417910447,
+            "hbos": 0.07623134328358205
+          }
+        },
+        {
+          "dataset": "Lymphography",
+          "mercury_auc": 0.9295774647887324,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.06572769953051649,
+          "beaten_by": {
+            "isolation_forest": 0.06572769953051649,
+            "ecod": 0.06103286384976525,
+            "copod": 0.06338028169014098,
+            "local_outlier_factor": 0.0023474178403756207,
+            "knn": 0.007042253521126751,
+            "hbos": 0.06572769953051649
+          }
+        },
+        {
+          "dataset": "WBC",
+          "mercury_auc": 0.9485981308411214,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.04579439252336448,
+          "beaten_by": {
+            "isolation_forest": 0.04579439252336448,
+            "ecod": 0.04485981308411213,
+            "copod": 0.04485981308411224,
+            "local_outlier_factor": 0.032710280373831835,
+            "knn": 0.04485981308411213,
+            "hbos": 0.03738317757009357
+          }
+        },
+        {
+          "dataset": "breastw",
+          "mercury_auc": 0.9708055335670398,
+          "n_baselines_beating": 6,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.02242828602661251,
+          "beaten_by": {
+            "isolation_forest": 0.02242828602661251,
+            "ecod": 0.020260846620679285,
+            "copod": 0.021938256247879595,
+            "local_outlier_factor": 0.0019978137132947715,
+            "knn": 0.022334049530702393,
+            "hbos": 0.016811790870368326
+          }
+        },
+        {
+          "dataset": "cardio",
+          "mercury_auc": 0.9388243851559068,
+          "n_baselines_beating": 1,
+          "worst_baseline": "isolation_forest",
+          "worst_margin": 0.01869922046552497,
+          "beaten_by": {
+            "isolation_forest": 0.01869922046552497
+          }
+        }
+      ]
+    },
+    "deferred_cells": [
+      {
+        "dataset": "cv:MVTec-AD_bottle",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      },
+      {
+        "dataset": "nlp:20news_0",
+        "method": "mercury_fusion",
+        "wall_seconds": 300.1
+      }
+    ],
+    "skipped": []
   },
   "per_dataset": [
     {
@@ -638,6 +1332,73 @@
         }
       },
       "best_method": "mercury_tier"
+    },
+    {
+      "name": "nlp:20news_0",
+      "family": "adbench_nlp_embedding",
+      "n_samples": 3090,
+      "n_features": 768,
+      "anomaly_ratio": 0.04983818770226537,
+      "npz_sha256": "eb804cf85f3dc18a726ffc9df333aed7324f6838408c5bdb1d86fbe21d7ca5d9",
+      "source_url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/NLP_by_BERT/20news_0.npz",
+      "n_train": 1468,
+      "n_test": 1622,
+      "methods": {
+        "mercury_tier": {
+          "roc_auc": 0.7659285537350933,
+          "average_precision": 0.21603860626513466,
+          "fit_seconds": 17.658631736000643,
+          "score_seconds": 2.175723141999697,
+          "wall_seconds": 19.9
+        },
+        "mercury_fusion": {
+          "deferred": "exceeded 300s wall budget",
+          "wall_seconds": 300.1
+        },
+        "isolation_forest": {
+          "roc_auc": 0.6204262358894511,
+          "average_precision": 0.12641777584111336,
+          "fit_seconds": 0.3271534490004342,
+          "score_seconds": 0.05749441599982674,
+          "wall_seconds": 0.4
+        },
+        "ecod": {
+          "roc_auc": 0.5922228316642485,
+          "average_precision": 0.12012116271085352,
+          "fit_seconds": 1.689197814000181,
+          "score_seconds": 1.216325090999817,
+          "wall_seconds": 3.0
+        },
+        "copod": {
+          "roc_auc": 0.5952262995859727,
+          "average_precision": 0.11779201627300094,
+          "fit_seconds": 1.2294788700000936,
+          "score_seconds": 1.023747442000058,
+          "wall_seconds": 2.3
+        },
+        "local_outlier_factor": {
+          "roc_auc": 0.7910975264517499,
+          "average_precision": 0.26673511965499674,
+          "fit_seconds": 0.3845450440003333,
+          "score_seconds": 0.11675466100041376,
+          "wall_seconds": 0.6
+        },
+        "knn": {
+          "roc_auc": 0.7153340528681128,
+          "average_precision": 0.18501749682254295,
+          "fit_seconds": 0.42720631700012746,
+          "score_seconds": 0.12329490899992379,
+          "wall_seconds": 0.6
+        },
+        "hbos": {
+          "roc_auc": 0.5910639088432004,
+          "average_precision": 0.1155617158331967,
+          "fit_seconds": 4.401948865000122,
+          "score_seconds": 0.09601331399971968,
+          "wall_seconds": 4.6
+        }
+      },
+      "best_method": "local_outlier_factor"
     }
   ]
 }

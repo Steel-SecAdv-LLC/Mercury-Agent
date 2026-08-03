@@ -57,6 +57,7 @@ path that exists in this repository.
 | σ_Immutable configuration-integrity gate | 256-D governance scalar vector | decision threshold | 0.93 | `pytest tests/security/test_sigma_immutable_gate_semantics.py` | **enforced** — `src/omni_mercury_engine/security/sigma_immutable_gate.py` |
 | Grave harm directed at a person is refused | `GRAVE_HARM_REQUESTS` in `tests/pillars/test_non_maleficence.py` | refusal rate | **12/12** | `pytest tests/pillars/test_non_maleficence.py -k GraveHarm` | **enforced** — `cognitive/ethical_bounding.py` (`_direct_harm_present` / `_euphemism_harm_present` → `EthicalScore.grave_harm`). The weapons gate is scoped to CBRNE/mass-casualty uplift and on its own permitted plain interpersonal violence. |
 | Mercury's own mission vocabulary is **not** refused | `MISSION_VOCABULARY` in `tests/pillars/test_non_maleficence.py` — humanitarian, security, clinical, ML | permit rate | **19/19** | `pytest tests/pillars/test_non_maleficence.py -k MissionVocabulary` | **enforced** — this is the false-positive budget that makes the row above falsifiable. A gate that refuses "assess trauma among displaced families" is measuring topic, not intent. |
+| The pillar suite is not vacuous — disabling a control makes it fail | 7 mutations, each disabling or inverting one enforced control (harm gate → always ALLOW, boundary swallows its refusal, grave-harm axis off, GATED_BOUNDARY contract → no-op, decision records mutable, governor tripwire reversible, response policy emits a destructive verb) | mutation kill rate | **7 / 7** | `python scripts/mutate_pillar_controls.py` | **enforced** — a suite written alongside the controls it guards can pass because the control works or because the test never looked; reading cannot tell those apart, so each control is killed and the suite is required to go red. A survivor would mean that pillar is not actually observed. |
 | Analysing real attacker traffic is **not** refused | 30 real-shaped hostile payloads (injection, traversal, RCE, deserialisation, incident narrative incl. violent wording) through `detect_security_threat` | refusal rate | **0 / 30 (0.0 %)** | `pytest tests/pillars/test_non_maleficence.py -k DefensiveAnalysis` | **enforced** — this is the availability budget for the surface a SOC feeds attacker traffic. A gate that refused attack strings would be a denial-of-service by wording against the defenders it serves. Anti-vacuity: genuine uplift still refuses 4/4 on the *same* surface, so the 0 % is precision, not an inert control. |
 | Benevolence score | any action text | float in [0,1] | n/a | `pytest tests/cognitive/test_ethical_bounding.py` | **advisory** — reported and logged; it approves nothing and refuses nothing. The former `≥ 0.99` pass-bar is **removed** (see §6). |
 | Scalar `harm_score` / `severity_score` | any action text | float in [0,1] | n/a | `pytest tests/pillars/test_non_maleficence.py -k ScalarHarm` | **advisory** — a per-category *topic keyword count*, not an intent measure. Measured on Mercury's own text: "assess trauma and psychological distress among displaced families" → severity **0.75**; "estimate earthquake damage and injury counts for triage" → **0.50**. Gating on these refuses the mission, so they decide nothing. |
@@ -110,6 +111,34 @@ that is stated as the result rather than smoothed over.
 | `OmniFusionModel` fusion quality — the circulated figure was **≈ 0.96** | ADBench `--quick` subset: 8 Classical + 1 CV + 1 NLP embedding | mean ROC-AUC (unsupervised, label-free consensus path) | **0.8338** (median 0.9176; mean AP 0.5520; n = 9 of 10 — `nlp:20news_0` deferred at the 300 s wall budget) | `python benchmarks/competitive_benchmark.py --quick` | **measured 2026-08-03** — the **≈ 0.96 claim does not reproduce** and is withdrawn. Fusion also ranks **last of eight methods** (mean rank 7.00) on this subset, losing to every PyOD baseline on 6–9 of 9 datasets. |
 | Mercury tier detector (the same run's other Mercury method) | same 10 datasets | mean ROC-AUC | **0.8936** (median 0.9464; mean AP 0.6870; mean rank 4.00 of 8) | same command | **measured 2026-08-03** — mid-field: beats ECOD/COPOD/LOF/HBOS on 6–7 of 10, loses to IsolationForest and KNN 6–4. Best method on `cv:MVTec-AD_bottle` (0.9643). |
 | Multi-agent consensus ≈ 0.88 / member ≈ 0.84 | ADBench, 5 datasets (cardio, thyroid, breastw, WBC, Pima) × 3 seeds | consensus AUC / mean member AUC | **0.8562 / 0.8370** (mean best member 0.9069) | `python -m benchmarks.orchestration_validation` | **measured 2026-08-03** — reproduces the historical 0.841 / 0.833 within noise and clears the pre-registered bar (consensus ≥ mean member − 0.005). All four pre-registered questions pass: coordination, reflexion (paired Δ balanced-accuracy +0.059 over 15 runs), planning (executability 1.0), trace fidelity (1.0). |
+
+#### Removing the ethics-labelled score multipliers did not move any of this
+
+The `eta ** Φ` factor in `OmniAvaEquation`, the `ethical_scaling ** Φ` factor in
+`detectors/physics_integration.py`, the GOSNN benevolence adjustment and the
+`MetricsCalculator` 0.5× penalty were all removed in this change (§6). Each was a
+constant monotone rescale, so the prediction was that detection AUC would be
+unchanged. That prediction was checked rather than assumed — the whole `--quick`
+suite was re-run after the removals and compared per dataset:
+
+| Dataset | tier before → after | fusion before → after |
+|---|---|---|
+| breastw | 0.992 → 0.992 | 0.971 → 0.971 |
+| cardio | 0.951 → 0.951 | 0.939 → 0.939 |
+| glass | 0.768 → 0.768 | 0.553 → 0.553 |
+| Ionosphere | 0.941 → 0.941 | 0.696 → 0.696 |
+| Lymphography | 0.984 → 0.984 | 0.930 → 0.930 |
+| pendigits | 0.874 → 0.874 | 0.918 → 0.918 |
+| Pima | 0.705 → 0.705 | 0.657 → 0.657 |
+| WBC | 0.991 → 0.991 | 0.949 → 0.949 |
+| cv:MVTec-AD_bottle | 0.964 → 0.964 | 0.892 → *deferred* |
+
+Every dataset that completed in both runs is identical. `mercury_tier`'s summary
+figures are unchanged to four decimal places. The only difference is that
+`cv:MVTec-AD_bottle` fusion exceeded the 300 s per-cell wall budget on the second
+run — machine timing, not behaviour — which is why the fusion mean over the cells
+that completed reads 0.8265 (n = 8) there against 0.8338 (n = 9) above. The
+published figure is the one from the run with more cells completed.
 
 The fusion result is the reason this table exists. A figure that had circulated
 as "≈ 0.96" measures **0.83** on a fair, defaults-only, unsupervised protocol,
