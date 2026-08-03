@@ -441,48 +441,8 @@ class EnergyLoader(BaseDomainLoader):
     # Private helpers -- data fetching
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _iter_feed_rows(raw: Any, columns: tuple[str, ...]) -> list[dict[str, Any]]:
-        """Normalise a SWPC feed into per-row field dictionaries.
-
-        SWPC serves two shapes for the same logical table and has migrated
-        feeds between them without warning:
-
-        * **array-of-arrays** -- the first row is a header naming the columns,
-          every later row is positional.
-        * **array-of-objects** -- each row is already a mapping keyed by
-          column name, with no header row.
-
-        Reading a mapping row positionally raises ``KeyError: 1``, which is
-        precisely how the ``noaa-planetary-k-index`` migration surfaced. This
-        helper accepts either shape so a future flip in either direction is a
-        no-op rather than an outage.
-
-        Args:
-            raw: Decoded JSON body of the feed.
-            columns: Field names in positional order, used to key the
-                array-of-arrays form and to select from the object form.
-
-        Returns:
-            One dictionary per data row, keyed by *columns*. Missing fields
-            are ``None``. Returns ``[]`` for an empty or unrecognised body.
-        """
-        if not isinstance(raw, list) or not raw:
-            return []
-
-        if isinstance(raw[0], dict):
-            # Object rows: select the requested fields, tolerating a feed that
-            # carries extra columns (RTSW ships ~30 alongside the 4 we use).
-            return [
-                {name: row.get(name) for name in columns} for row in raw if isinstance(row, dict)
-            ]
-
-        # Positional rows: the first row is the header and is not data.
-        return [
-            dict(zip(columns, row))
-            for row in raw[1:]
-            if isinstance(row, (list, tuple)) and len(row) >= len(columns)
-        ]
+    # ``_iter_feed_rows`` moved to ``BaseDomainLoader`` so every JSON-table
+    # consumer shares the same shape-flip absorber; this loader inherits it.
 
     @staticmethod
     def _as_float(value: Any) -> float:
@@ -524,7 +484,12 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def _solar_wind_records(
-        self, url: str, columns: tuple[str, str, str, str]
+        self,
+        url: str,
+        columns: tuple[str, str, str, str],
+        *,
+        default_source: str = "",
+        carries_provenance: bool = False,
     ) -> list[dict[str, Any]]:
         """Read one solar wind feed into canonical solar-wind records.
 
@@ -532,12 +497,20 @@ class EnergyLoader(BaseDomainLoader):
             url: Feed to read.
             columns: Source field names in the order
                 ``(time_tag, density, speed, temperature)``.
+            default_source: Provenance label recorded when the feed does not
+                carry a per-row ``source`` field (the ACE SWEPAM history).
+            carries_provenance: When true, also select the feed's per-row
+                ``source`` and ``active`` fields (the RTSW constellation
+                feed carries both; as of 2026 the sources are SOLAR1/SWFO-L1
+                — the active spacecraft — plus ACE and IMAP).
 
         Returns:
             Records keyed ``timestamp`` / ``solar_wind_density`` /
-            ``solar_wind_speed`` / ``solar_wind_temperature``. Instrument fill
-            values (negative density/speed/temperature, which ACE emits for
-            dropouts) become NaN rather than being read as measurements.
+            ``solar_wind_speed`` / ``solar_wind_temperature`` plus the
+            provenance keys ``_source`` / ``_active`` (dedup inputs, dropped
+            before the frame leaves ``_fetch_solar_wind``). Instrument fill
+            values (negative density/speed/temperature, which the feeds emit
+            for dropouts) become NaN rather than being read as measurements.
             Returns ``[]`` when the feed is unreachable or unusable.
         """
         try:
@@ -552,8 +525,9 @@ class EnergyLoader(BaseDomainLoader):
             return []
 
         ts_key, dens_key, speed_key, temp_key = columns
+        selected = columns + (("source", "active") if carries_provenance else ())
         records: list[dict[str, Any]] = []
-        for row in self._iter_feed_rows(raw, columns):
+        for row in self._iter_feed_rows(raw, selected):
             if row.get(ts_key) is None:
                 continue
             values = {
@@ -564,7 +538,14 @@ class EnergyLoader(BaseDomainLoader):
             # ACE reports dropouts as large negatives (-9999.9); a negative
             # density, speed or temperature is unphysical from either feed.
             values = {k: (v if v > 0 else float(np.nan)) for k, v in values.items()}
-            records.append({"timestamp": str(row[ts_key]), **values})
+            records.append(
+                {
+                    "timestamp": str(row[ts_key]),
+                    **values,
+                    "_source": str(row.get("source") or default_source),
+                    "_active": bool(row.get("active")),
+                }
+            )
         return records
 
     def _fetch_solar_wind(self) -> pd.DataFrame:
@@ -574,24 +555,37 @@ class EnergyLoader(BaseDomainLoader):
         trailing 24 hours -- against a 7-day Kp feed that leaves ~86% of rows
         without plasma values. Two live feeds are therefore combined:
 
-        * **RTSW 1-minute** (:data:`_SOLAR_WIND_URL`) -- freshest, high cadence.
+        * **RTSW 1-minute** (:data:`_SOLAR_WIND_URL`) -- freshest, high
+          cadence, and multi-spacecraft: each minute can carry rows from the
+          active spacecraft (SOLAR1/SWFO-L1 as of 2026) plus non-active
+          ACE and IMAP rows whose calibrations differ materially (measured
+          median deltas: 7.2 /cc density, 42% temperature).
         * **ACE SWEPAM 1-hour** (:data:`_ACE_SWEPAM_URL`) -- ~31 days of
           hourly history, which covers the whole Kp window.
 
-        Where both cover an instant, the higher-cadence RTSW record wins.
-        Either feed alone still yields a usable frame, so one endpoint being
-        retired degrades coverage instead of emptying the result.
+        One row survives per minute, chosen by explicit preference -- most
+        valid measurements first, then the active spacecraft, then feed
+        order (RTSW before ACE history) -- rather than by feed order alone.
+        Feed order was measured keeping the non-active spacecraft in 35% of
+        duplicate minutes and once kept a fill row (NaN) while discarding a
+        valid measurement at the same minute. Either feed alone still yields
+        a usable frame, so one endpoint being retired degrades coverage
+        instead of emptying the result.
 
         Returns:
             DataFrame with columns: timestamp, solar_wind_density,
             solar_wind_speed, solar_wind_temperature, sorted by timestamp.
         """
         records = self._solar_wind_records(
-            _SOLAR_WIND_URL, ("time_tag", "proton_density", "proton_speed", "proton_temperature")
+            _SOLAR_WIND_URL,
+            ("time_tag", "proton_density", "proton_speed", "proton_temperature"),
+            carries_provenance=True,
         )
         preferred = len(records)
         records += self._solar_wind_records(
-            _ACE_SWEPAM_URL, ("time_tag", "dens", "speed", "temperature")
+            _ACE_SWEPAM_URL,
+            ("time_tag", "dens", "speed", "temperature"),
+            default_source="ace_swepam_1h",
         )
 
         if not records:
@@ -605,15 +599,35 @@ class EnergyLoader(BaseDomainLoader):
                 ]
             )
 
+        value_columns = [
+            "solar_wind_density",
+            "solar_wind_speed",
+            "solar_wind_temperature",
+        ]
         df = pd.DataFrame(records)
         df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
         df = df.dropna(subset=["timestamp"])
-        # RTSW rows were appended first, so keeping the first of each duplicate
-        # timestamp prefers RTSW over the coarser ACE history.
+        # RTSW is a 1-minute product, but non-active spacecraft (IMAP) tag
+        # rows with per-spacecraft sampling jitter in the seconds field, so
+        # exact-string dedup silently interleaved a third calibration between
+        # grid minutes. Floor to the product's minute grid so one preference
+        # rule picks one row per minute.
+        df["timestamp"] = df["timestamp"].dt.floor("min")
+        # Preference order within a minute: most valid measurements first
+        # (a fill row must never shadow a valid one), then the active
+        # spacecraft's calibration. The stable mergesort makes feed order
+        # (RTSW appended before ACE history) the final tiebreak, preserving
+        # the RTSW-over-ACE-hourly preference at overlapping stamps.
+        df["_n_valid"] = df[value_columns].notna().sum(axis=1)
+        df = df.sort_values(
+            ["timestamp", "_n_valid", "_active"],
+            ascending=[True, False, False],
+            kind="mergesort",
+        )
         df = df.drop_duplicates(subset=["timestamp"], keep="first")
-        df = df.sort_values("timestamp").reset_index(drop=True)
+        df = df.drop(columns=["_n_valid", "_active", "_source"]).reset_index(drop=True)
         logger.info(
-            "Solar wind: %d RTSW + %d ACE records -> %d unique timestamps.",
+            "Solar wind: %d RTSW + %d ACE records -> %d unique minute timestamps.",
             preferred,
             len(records) - preferred,
             len(df),

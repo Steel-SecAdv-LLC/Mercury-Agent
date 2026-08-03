@@ -377,9 +377,17 @@ class SpaceWeatherLoader(BaseDomainLoader):
             gst_records = self._fetch_json(_DONKI_GST_URL, params=params)
             self._write_cache(cache_key, gst_records)
 
+        # Route both nesting levels through the shared shape-flip absorber:
+        # DONKI has served array-of-objects to date, but a positional flip at
+        # either level would otherwise raise AttributeError — the same outage
+        # class as the SWPC ``KeyError: 1`` incident.
         windows: list[tuple[float, float]] = []
-        for record in gst_records or []:
-            for entry in record.get("allKpIndex", []):
+        for record in self._iter_feed_rows(
+            gst_records or [], ("gstID", "startTime", "allKpIndex", "link")
+        ):
+            for entry in self._iter_feed_rows(
+                record.get("allKpIndex") or [], ("observedTime", "kpIndex", "source")
+            ):
                 kp = entry.get("kpIndex")
                 observed = entry.get("observedTime")
                 if kp is None or observed is None:
