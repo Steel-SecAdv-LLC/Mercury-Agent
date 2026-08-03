@@ -257,31 +257,39 @@ RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "s
     /opt/venv/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
     pip cache purge
 
-# Enforce the supply-chain floors in the VENV, in the runtime stage, last.
+# Enforce the supply-chain floors in the VENV, in the runtime stage, last —
+# against what the scanner reads, not against what Python imports.
 #
-# The builder already floors and asserts these — and the assert passes there —
-# yet the blocking container scan on the *shipped image* still reported
-# ``setuptools 70.3.0`` (CVE-2025-47273) and ``msgpack 1.1.2``
-# (GHSA-6v7p-g79w-8964), both HIGH and both with fixes available. Everything
-# between the builder's assert and the final image (the AMA native install, the
-# venv COPY, the system-pip step above) is an opportunity to reintroduce a
-# resolved-down version, and the step above only re-floored ``/usr/local`` —
-# which is why the scan found a clean 83.0.0 there and a vulnerable one in the
-# venv at the same time.
+# Both of these were true at the same time on the shipped image:
 #
-# Checking the invariant where it actually has to hold — the artifact that
-# ships — is the difference between believing the floors held and knowing it.
-# The assertions run against ``/opt/venv/bin/python`` explicitly rather than the
-# ``PATH``-resolved ``python``, so this cannot silently check the wrong
-# interpreter, and a floor that cannot be met fails the build instead of
-# shipping.
+#   * the import assert below passed (``setuptools.__version__`` >= 83.0.0);
+#   * the blocking container scan reported ``setuptools 70.3.0``
+#     (CVE-2025-47273) and ``msgpack 1.1.2`` (GHSA-6v7p-g79w-8964).
+#
+# They measure different things. The assert reports the version Python
+# *resolves* — the winner of the ``sys.path`` search. Trivy's ``python-pkg``
+# analyzer reads ``*.dist-info/METADATA`` **files on disk**; it imports nothing
+# and does not care which copy would win. A stale below-floor ``.dist-info``
+# left anywhere on the image is therefore invisible to the assert and fully
+# visible to the gate, and upgrading harder cannot clear it.
+#
+# So: upgrade, then sweep the metadata the scanner actually reads, then assert
+# both. ``enforce_wheel_floors.py`` removes a below-floor ``.dist-info`` only
+# when a compliant copy of the same package is also present; a below-floor
+# package with no compliant sibling is a real failure and fails the build rather
+# than being deleted, because deleting it would blind the scanner instead of
+# fixing the image.
+COPY scripts/enforce_wheel_floors.py /tmp/enforce_wheel_floors.py
 RUN /opt/venv/bin/python -m pip install --upgrade --no-cache-dir \
         "setuptools>=83.0.0" "msgpack>=1.2.1" && \
     /opt/venv/bin/python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
 assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
 assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
-print('runtime venv floors held:', setuptools.__version__, msgpack.version)" && \
+print('runtime venv floors held (import):', setuptools.__version__, msgpack.version)" && \
+    /opt/venv/bin/python /tmp/enforce_wheel_floors.py /opt/venv /usr/local /usr/lib && \
+    /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv /usr/local /usr/lib && \
+    rm -f /tmp/enforce_wheel_floors.py && \
     /opt/venv/bin/python -m pip cache purge
 
 # Mercury never calls SciPy/scikit-image sample datasets in production.  Drop
