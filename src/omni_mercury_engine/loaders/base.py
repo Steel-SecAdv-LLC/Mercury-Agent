@@ -468,10 +468,7 @@ class BaseDomainLoader(ABC):
         ):
             positions = {name: header.index(name) for name in columns}
             return [
-                {
-                    name: (row[pos] if pos < len(row) else None)
-                    for name, pos in positions.items()
-                }
+                {name: (row[pos] if pos < len(row) else None) for name, pos in positions.items()}
                 for row in raw[1:]
                 if isinstance(row, (list, tuple))
             ]

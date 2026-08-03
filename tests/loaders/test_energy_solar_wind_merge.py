@@ -140,9 +140,9 @@ class TestSolarWindMergePreference:
         assert len(df) == 2
         older = df[df["timestamp"] == df["timestamp"].min()]
         assert older["solar_wind_speed"].iloc[0] == pytest.approx(388.0)
-        assert np.isnan(older["solar_wind_density"].iloc[0]), (
-            "the -9999.9 fill must become NaN, never a measurement"
-        )
+        assert np.isnan(
+            older["solar_wind_density"].iloc[0]
+        ), "the -9999.9 fill must become NaN, never a measurement"
 
     def test_provenance_columns_do_not_leak_into_output(self, tmp_path: Path) -> None:
         rtsw = [_rtsw_row("2026-08-03T18:00:00", 420.0, "SOLAR1", active=True)]

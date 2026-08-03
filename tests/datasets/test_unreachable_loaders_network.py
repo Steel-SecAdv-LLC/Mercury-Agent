@@ -149,10 +149,7 @@ def _exercise(loader: Any, *, dataset_label: str) -> None:
     assert isinstance(labels, np.ndarray)
     assert features.shape[0] > 0, f"{dataset_label}: zero records returned"
     assert features.shape[0] == labels.shape[0]
-    print(
-        f"REACHABILITY VERDICT: {dataset_label}: REACHABLE — "
-        f"{features.shape[0]} records"
-    )
+    print(f"REACHABILITY VERDICT: {dataset_label}: REACHABLE — " f"{features.shape[0]} records")
 
 
 def _config(tmp_path: Any, name: str, **preprocessing: Any) -> DatasetConfig:
