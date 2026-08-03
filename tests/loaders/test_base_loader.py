@@ -22,7 +22,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader, _get_mercury_version
+from omni_mercury_engine.loaders.base import (
+    BaseDomainLoader,
+    FetchHTTPError,
+    _get_mercury_version,
+)
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 # =============================================================================
@@ -497,3 +501,167 @@ class TestLoaderInitialization:
         assert loader.max_retries == 5
         assert loader.retry_backoff == 3.0
         assert loader.timeout == 120
+
+
+class _HTTPStatusError(OSError):
+    """Stand-in for ``requests.HTTPError``: an OSError with a ``.response``."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"simulated HTTP {status_code}")
+        self.response = type("_Resp", (), {"status_code": status_code})()
+
+
+class TestFetchHTTPErrorStatus:
+    """``_fetch_url`` preserves the HTTP status instead of flattening it.
+
+    The old behaviour raised a bare ``ConnectionError`` carrying only the
+    exception class name, so a throttling response (HTTP 429) was
+    indistinguishable from a DNS outage without walking ``__cause__``.
+    """
+
+    def test_http_status_preserved_on_exhaustion(self, tmp_path: Any) -> None:
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 1
+        loader.retry_backoff = 0.0
+        original = _HTTPStatusError(503)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=original,
+            ),
+            pytest.raises(ConnectionError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        raised = exc_info.value
+        assert isinstance(raised, FetchHTTPError)
+        assert raised.status_code == 503
+        assert "HTTP 503" in str(raised)
+        assert raised.__cause__ is original
+
+    def test_rate_limit_fails_fast_without_retry(self, tmp_path: Any) -> None:
+        """HTTP 429 is a quota verdict: one attempt, no backoff burn."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 3
+        loader.retry_backoff = 0.0
+        call_count = {"n": 0}
+
+        def rate_limited(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise _HTTPStatusError(429)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=rate_limited,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert call_count["n"] == 1, "429 must not be retried: the quota window resets upstream"
+        assert exc_info.value.status_code == 429
+        assert "1 attempt" in str(exc_info.value)
+
+    def test_status_none_for_pre_http_failures(self, tmp_path: Any) -> None:
+        """DNS/socket failures carry no status and still retry fully."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 2
+        loader.retry_backoff = 0.0
+        call_count = {"n": 0}
+
+        def socket_failure(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise OSError("simulated DNS failure")
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=socket_failure,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert call_count["n"] == 3
+        assert exc_info.value.status_code is None
+
+    def test_subclasses_connection_error_for_existing_handlers(self, tmp_path: Any) -> None:
+        """Every ``except ConnectionError`` / ``except OSError`` still catches."""
+        assert issubclass(FetchHTTPError, ConnectionError)
+        assert issubclass(FetchHTTPError, OSError)
+
+
+class TestIterFeedRows:
+    """Both feed shapes normalise identically through ``_iter_feed_rows``."""
+
+    COLUMNS = ("time_tag", "Kp", "a_running", "station_count")
+
+    def test_object_rows_with_extra_columns(self) -> None:
+        raw = [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8, "extra": 1},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8, "extra": 2},
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8},
+        ]
+
+    def test_positional_rows_with_matching_header(self) -> None:
+        raw = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3, 10, 8],
+            ["t2", 4, 12, 8],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8},
+        ]
+
+    def test_positional_rows_mapped_by_header_when_reordered(self) -> None:
+        """A feed that reorders or widens its columns still parses by name."""
+        raw = [
+            ["station_count", "time_tag", "extra", "Kp", "a_running"],
+            [8, "t1", "x", 3, 10],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8}]
+
+    def test_positional_fallback_when_header_unrecognised(self) -> None:
+        """A header that does not name the columns falls back to position."""
+        raw = [
+            ["c0", "c1", "c2", "c3"],
+            ["t1", 3, 10, 8],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8}]
+
+    def test_object_and_positional_shapes_parse_identically(self) -> None:
+        """The exact guarantee behind the ``KeyError: 1`` incident fix."""
+        obj_shape = [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+        ]
+        pos_shape = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3, 10, 8],
+        ]
+        assert BaseDomainLoader._iter_feed_rows(
+            obj_shape, self.COLUMNS
+        ) == BaseDomainLoader._iter_feed_rows(pos_shape, self.COLUMNS)
+
+    def test_empty_and_unrecognised_bodies(self) -> None:
+        assert BaseDomainLoader._iter_feed_rows([], self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows(None, self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows({"not": "a list"}, self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows("text", self.COLUMNS) == []
+
+    def test_short_positional_rows_fill_none_under_named_header(self) -> None:
+        raw = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": None, "station_count": None}]

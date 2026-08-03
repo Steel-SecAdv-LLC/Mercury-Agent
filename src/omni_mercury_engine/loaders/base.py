@@ -34,6 +34,35 @@ _DEFAULT_CACHE_DIR = Path(
 )
 
 
+class FetchHTTPError(ConnectionError):
+    """Retry-exhausted fetch failure that preserves the HTTP status.
+
+    ``_fetch_url`` used to flatten every transport failure into a bare
+    ``ConnectionError`` whose message carried only the exception class name,
+    so a throttling response (HTTP 429) was indistinguishable from a DNS
+    outage without walking ``__cause__``. Subclassing ``ConnectionError``
+    keeps every existing ``except ConnectionError`` / ``except OSError``
+    consumer working unchanged while ``status_code`` lets callers branch on
+    the actual upstream verdict (mirrors
+    :class:`omni_mercury_engine.datasets.exceptions.DataSourceUnavailableError`).
+
+    Attributes:
+        status_code: HTTP status of the last failed attempt, or ``None``
+            when the failure never reached the HTTP layer (DNS, timeout,
+            refused connection).
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        """Initialize with a message and the last observed HTTP status.
+
+        Args:
+            message: Operator-facing failure description.
+            status_code: HTTP status of the last failed attempt, if any.
+        """
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class BaseDomainLoader(ABC):
     """Base class for all domain data loaders.
 
@@ -267,11 +296,18 @@ class BaseDomainLoader(ABC):
                 only mask the real cause from the operator.
             ValueError: Other configuration-shaped failures (malformed
                 URL, bad params). Also re-raised immediately.
-            ConnectionError: All transient retries exhausted on
-                network / HTTP errors. Chains via ``__cause__`` to
+            FetchHTTPError: All transient retries exhausted on
+                network / HTTP errors (a ``ConnectionError`` subclass,
+                so existing handlers keep working). Carries the last
+                observed HTTP status in ``status_code`` — ``None`` for
+                pre-HTTP failures — and chains via ``__cause__`` to
                 the last underlying exception so the operator-facing
                 traceback names the real failure (timeout, refused
                 connection, 5xx response) rather than burying it.
+                HTTP 429 fails fast without further attempts: a
+                windowed quota cannot recover inside a 2-8 s backoff,
+                and retrying only multiplies the burn against the
+                upstream's limit.
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
@@ -279,6 +315,8 @@ class BaseDomainLoader(ABC):
 
         last_exc: Exception | None = None
         last_error_kind = "unknown"
+        last_status: int | None = None
+        attempts_made = 0
         for attempt in range(self.max_retries + 1):
             try:
                 # No user_configured=True here: we want the
@@ -304,14 +342,26 @@ class BaseDomainLoader(ABC):
             except Exception as exc:
                 last_exc = exc
                 last_error_kind = type(exc).__name__
+                attempts_made = attempt + 1
+                # Duck-typed so ``requests`` stays a deferred import:
+                # requests.HTTPError carries .response.status_code.
+                last_status = getattr(getattr(exc, "response", None), "status_code", None)
+                if last_status == 429:
+                    # A rate limit is a quota verdict, not a transient
+                    # fault: the window resets on the upstream's clock,
+                    # not on our backoff, so further attempts only burn
+                    # more of the same quota (FIRMS: ~4 min of blind
+                    # retries per tripped call before this guard).
+                    break
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
                     logger.warning(
-                        "%s fetch attempt %d/%d failed (%s). Retrying in %.1fs.",
+                        "%s fetch attempt %d/%d failed (%s%s). Retrying in %.1fs.",
                         self.DOMAIN,
                         attempt + 1,
                         self.max_retries + 1,
                         last_error_kind,
+                        f", HTTP {last_status}" if last_status is not None else "",
                         wait,
                     )
                     time.sleep(wait)
@@ -321,9 +371,12 @@ class BaseDomainLoader(ABC):
         # error) rather than just the wrapper. ``raise X from None``
         # would suppress the cause; the explicit ``from last_exc`` is
         # the operator-actionable choice.
-        raise ConnectionError(
+        status_detail = f", HTTP {last_status}" if last_status is not None else ""
+        raise FetchHTTPError(
             f"{self.DOMAIN}: Failed to fetch data after "
-            f"{self.max_retries + 1} attempts ({last_error_kind})"
+            f"{attempts_made} attempt{'s' if attempts_made != 1 else ''} "
+            f"({last_error_kind}{status_detail})",
+            status_code=last_status,
         ) from last_exc
 
     def _fetch_json(
@@ -363,6 +416,73 @@ class BaseDomainLoader(ABC):
 
         data = self._fetch_url(url, params=params)
         return pd.read_csv(io.BytesIO(data), **pandas_kwargs)
+
+    @staticmethod
+    def _iter_feed_rows(raw: Any, columns: tuple[str, ...]) -> list[dict[str, Any]]:
+        """Normalise a JSON table feed into per-row field dictionaries.
+
+        Upstream feeds serve two shapes for the same logical table and have
+        migrated between them without warning (SWPC did exactly this):
+
+        * **array-of-arrays** -- the first row is a header naming the columns,
+          every later row is positional.
+        * **array-of-objects** -- each row is already a mapping keyed by
+          column name, with no header row.
+
+        Reading a mapping row positionally raises ``KeyError: 1``, which is
+        precisely how the ``noaa-planetary-k-index`` migration surfaced (and
+        went unseen for three weekly runs). This helper accepts either shape
+        so a future flip in either direction is a no-op rather than an
+        outage. It lives on the base loader so every JSON-table consumer
+        (SWPC, DONKI, JPL fireball) shares one absorber instead of each
+        loader hardcoding one shape.
+
+        Args:
+            raw: Decoded JSON body of the feed.
+            columns: Field names in positional order, used to key the
+                array-of-arrays form and to select from the object form.
+
+        Returns:
+            One dictionary per data row, keyed by *columns*. Missing fields
+            are ``None``. Returns ``[]`` for an empty or unrecognised body.
+        """
+        if not isinstance(raw, list) or not raw:
+            return []
+
+        if isinstance(raw[0], dict):
+            # Object rows: select the requested fields, tolerating a feed that
+            # carries extra columns (RTSW ships ~30 alongside the 4 we use).
+            return [
+                {name: row.get(name) for name in columns} for row in raw if isinstance(row, dict)
+            ]
+
+        # Positional rows: the first row is the header and is not data. When
+        # the header actually names every requested column, map by name -- a
+        # feed that carries extra columns or reorders them then still parses
+        # correctly instead of silently mis-mapping positions.
+        header = raw[0]
+        if (
+            isinstance(header, (list, tuple))
+            and all(isinstance(name, str) for name in header)
+            and set(columns) <= set(header)
+        ):
+            positions = {name: header.index(name) for name in columns}
+            return [
+                {
+                    name: (row[pos] if pos < len(row) else None)
+                    for name, pos in positions.items()
+                }
+                for row in raw[1:]
+                if isinstance(row, (list, tuple))
+            ]
+
+        # Header does not name the requested columns: fall back to the
+        # caller's positional order.
+        return [
+            dict(zip(columns, row))
+            for row in raw[1:]
+            if isinstance(row, (list, tuple)) and len(row) >= len(columns)
+        ]
 
     # =========================================================================
     # Caching
