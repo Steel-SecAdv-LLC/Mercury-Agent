@@ -59,6 +59,30 @@ ENV AMA_NO_CYTHON=1
 # NOT installed here; the native build below is its sole installer.
 RUN pip install --no-cache-dir ".[all]"
 
+# Re-apply the supply-chain floors AFTER the dependency resolver has run.
+#
+# Ordering is the whole point. The floors above are installed before
+# ``pip install ".[all]"``, so any transitive requirement that resolves an older
+# pin silently wins and the image ships the vulnerable version -- which is what
+# the Container Security Scan was reporting: setuptools 70.3.0 present in the
+# venv even though line 41 had already installed >= 78.1.1, alongside a clean
+# 83.0.0 in the runtime prefix.
+#
+#   setuptools >= 78.1.1  CVE-2025-47273 (PackageIndex path traversal)
+#   msgpack    >= 1.2.1   GHSA-6v7p-g79w-8964 (out-of-bounds read on Unpacker
+#                         reuse); pulled in transitively, so it has no direct
+#                         declaration in pyproject to carry the floor.
+#
+# --upgrade-strategy only-if-needed keeps this from disturbing the resolved set
+# beyond these two packages.
+RUN pip install --no-cache-dir --upgrade --upgrade-strategy only-if-needed \
+        "setuptools>=78.1.1" "msgpack>=1.2.1" && \
+    python -c "import msgpack, setuptools; \
+from packaging.version import Version; \
+assert Version(setuptools.__version__) >= Version('78.1.1'), setuptools.__version__; \
+assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
+print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
+
 # Build and install the AMA Cryptography native PQC backend so the runtime image
 # can import omni_mercury_engine (the import-time PQC gate requires ML-DSA-65 +
 # Kyber-1024 + SPHINCS+ native availability — see omni_mercury_engine._pqc_gate).

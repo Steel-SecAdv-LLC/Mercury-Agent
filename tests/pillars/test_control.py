@@ -190,18 +190,48 @@ class TestEveryDecisionEmitsARecord:
         assert len(ledger) == 1
         assert ledger.entries[0].domain == "cyber"
 
-    def test_the_layer_is_opt_in_and_says_so(self) -> None:
-        """Honest gap, pinned: without the call there is no record.
+    def test_the_layer_is_on_by_default(self) -> None:
+        """The gap is closed: a plain engine already emits a record.
 
-        ``enable_decision_layer()`` is opt-in, so a deployment that never calls
-        it produces detections with no ``decision`` key and an empty audit
-        trail. Every first-party entry point calls it — CLI, MCP server, and the
-        HTTP detection route — and ``test_candor.py`` asserts that list stays
-        complete. This test pins the *behaviour* so the gap can never be
-        mistaken for a guarantee.
+        This used to assert the opposite — that ``enable_decision_layer()`` was
+        opt-in and a deployment which never called it produced detections with
+        no ``decision`` key. That made the abstention gate and the audit record
+        opt-in for precisely the callers least likely to know they existed:
+        every first-party entry point enabled it, and every library embedder
+        silently did not. The layer is additive and non-destructive, so there
+        was no safety reason for it to be conditional.
         """
         engine = self._engine()
         data = np.random.default_rng(2).standard_normal((16, 6))
+        result = engine.detect_with_fusion(data, domain="cyber")
+        assert "decision" in result
+        assert result["decision"]["domain"] == "cyber"
+
+    def test_an_uncalibrated_engine_abstains_rather_than_inventing_confidence(
+        self,
+    ) -> None:
+        """Default-on must not mean default-confident.
+
+        Without a conformal certificate the decider has no coverage guarantee,
+        so the honest output is an explicit abstention. If this ever returns a
+        grounded label on an uncalibrated engine, defaulting the layer on would
+        be manufacturing verdicts rather than recording them.
+        """
+        engine = self._engine()
+        data = np.random.default_rng(3).standard_normal((16, 6))
+        decision = engine.detect_with_fusion(data, domain="cyber")["decision"]
+        assert decision["state"] in {"unavailable", "undecidable"}
+        assert decision["disposition"] in {"defer", "hold"}
+
+    def test_the_layer_can_still_be_opted_out_of(self) -> None:
+        """``decision_layer=False`` returns the bare detection dict."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(
+            mode="fusion", require_explicit_fit=False, device="cpu", decision_layer=False
+        )
+        assert engine.decision_layer is None
+        data = np.random.default_rng(4).standard_normal((16, 6))
         assert "decision" not in engine.detect_with_fusion(data, domain="cyber")
 
 

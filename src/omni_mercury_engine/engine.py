@@ -890,6 +890,7 @@ class OmniMercuryEngine(LoggerMixin):
         equation_profile: str | None = None,
         require_explicit_fit: bool = True,
         cache_ethical_decisions: bool = True,
+        decision_layer: bool = True,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -900,6 +901,13 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            decision_layer: When True (default), the decision / abstention /
+                response layer is active, so every ``detect_with_fusion``
+                result carries a ``"decision"`` record — a grounded label or an
+                explicit abstention, plus a bounded non-destructive response.
+                Pass ``False`` for a bare detection dict. Use
+                :meth:`enable_decision_layer` to supply a custom policy,
+                ledger or calibrator.
             require_explicit_fit: When True (default), ``detect_with_fusion``
                 fails loud if a detector was never fit, rather than silently
                 auto-fitting it on the first inference batch (which leaks that
@@ -1035,6 +1043,10 @@ class OmniMercuryEngine(LoggerMixin):
         # unless reasoning is actually requested.
         self._reasoning_backend: ReasoningBackend | None = None
         self._reasoning_ledger: UsageLedger | None = None
+
+        # Read by _init_runtime_pipeline() below, which is where the decision /
+        # abstention / response layer is constructed.
+        self._decision_layer_enabled = bool(decision_layer)
 
         self._init_detectors()
         self._init_models()
@@ -1392,10 +1404,30 @@ class OmniMercuryEngine(LoggerMixin):
         self.subagent_fleet: SubAgentFleet | None = None
         # Decision / abstention / response layer: closes the loop from the
         # calibrated detection certificate to a bounded, non-destructive
-        # response with an explicit "don't-know" gate.  None until enabled via
-        # enable_decision_layer(); detect_with_fusion() is an exact no-op until
-        # then.
+        # response with an explicit "don't-know" gate.
+        #
+        # ON BY DEFAULT. It used to be None until enable_decision_layer() was
+        # called, which meant the three shipped entry points (CLI, MCP, HTTP)
+        # closed the loop and every library embedder silently did not -- the
+        # abstention gate and the audit record were opt-in for exactly the
+        # callers least likely to know they existed. Defaulting it on makes
+        # "Mercury decided X, and here is the record" true of every engine
+        # rather than of the deployments that remembered to ask.
+        #
+        # This is additive and non-destructive: it attaches a ``"decision"``
+        # key to detect_with_fusion() results and never authorises an action.
+        # Without a conformal certificate the decider abstains or falls back
+        # rather than inventing confidence, and the record states which basis
+        # it used, so an uncalibrated engine reports honest indecision instead
+        # of a fabricated verdict.
+        #
+        # Call enable_decision_layer() to customise policy/ledger/calibrator,
+        # or construct with ``decision_layer=False`` to opt out.
         self.decision_layer: DecisionAbstentionResponder | None = None
+        if getattr(self, "_decision_layer_enabled", True):
+            from omni_mercury_engine.decision import DecisionAbstentionResponder as _DAR
+
+            self.decision_layer = _DAR()
         # Optional append-only audit ledger for the "verify" step of the loop.
         # When set via enable_decision_layer(ledger=...), every detection's
         # decision is recorded; None keeps the serve path stateless.

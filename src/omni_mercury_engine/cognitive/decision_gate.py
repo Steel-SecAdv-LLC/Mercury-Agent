@@ -264,7 +264,19 @@ def enforce_decision_boundary(
     except Exception as exc:
         # Fail closed. Never return normally on an error path: an exception in
         # the gate must read as "refused", not as "allowed".
-        logger.exception("decision boundary %s: gate evaluation failed; failing closed", subject)
+        #
+        # Log provenance ONLY. The full subject carries ``request``, ``payload``
+        # and ``context`` -- the caller's own data -- so logging it would spill
+        # user input (credentials in a scanned payload, patient text, an
+        # intercepted attacker body) into an unstructured error log with a
+        # different retention and access policy than the audit trail, and would
+        # emit up to MAX_SUBJECT_CHARS per failure. The full detail still
+        # reaches the structured refusal below and the gate audit record.
+        logger.exception(
+            "decision boundary %s (domain=%s): gate evaluation failed; failing closed",
+            subject.surface,
+            sanitize_domain(subject.domain),
+        )
         raise EthicalConstraintViolationError(
             action=f"{subject.surface}:{subject.operation}",
             score=0.0,

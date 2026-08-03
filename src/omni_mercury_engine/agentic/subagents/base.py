@@ -384,7 +384,15 @@ class SubAgent(MercuryAgent):
             ),
             advisory_scorer=self._benevolence_scorer,
         )
-        return float(verdict.benevolence if verdict.benevolence is not None else 1.0)
+        # NaN, not 1.0, when the advisory scorer could not produce a number.
+        # ``benevolence`` is None exactly when the scorer raised or none was
+        # supplied; reporting a perfect 1.0 for that would invent the most
+        # favourable possible value for a measurement that did not happen, and
+        # a fleet-wide average would then quietly improve as scoring broke.
+        # NaN propagates through aggregation instead of hiding in it. The
+        # dispatch itself is unaffected — the enforced harm gate above already
+        # ran, and benevolence decides nothing.
+        return float(verdict.benevolence) if verdict.benevolence is not None else float("nan")
 
     def _perform(self, task: SubAgentTask) -> tuple[Any, float, str]:
         """Do the real work. Generalist base runs the full main-agent pipeline.

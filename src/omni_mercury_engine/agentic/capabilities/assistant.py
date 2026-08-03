@@ -321,18 +321,26 @@ class GeneralAssistant:
             # among displaced families" while the engine boundary permitted it.
             # Fail-closed: any of the three signals refuses, and a scorer that
             # omits a field is read as its safe default.
-            harmful = bool(getattr(score, "grave_harm", False)) or not bool(
-                getattr(score, "is_permissible", True)
-            )
+            grave_harm = bool(getattr(score, "grave_harm", False))
+            harmful = grave_harm or not bool(getattr(score, "is_permissible", True))
             if weapons_blocks:
                 reason = (
                     f"weapons/mass-casualty uplift gate: {disposition} "
                     f"(hazard={hazard}, intent={intent})"
                 )
-            elif harmful:
+            elif grave_harm:
                 reason = (
                     "grave-harm gate: the request states harm directed at a specific "
                     f"person (harm={harm:.3f}, severity={severity:.3f})"
+                )
+            elif harmful:
+                # ``is_permissible`` is false for a reason this layer did not
+                # itself identify -- the direct-physical-harm ceiling, or a
+                # custom injected scorer. Report that honestly instead of
+                # attributing it to the grave-harm lexicons.
+                reason = (
+                    "harm gate: the scorer refused this action "
+                    f"(harm={harm:.3f}, severity={severity:.3f})"
                 )
             else:
                 reason = ""
