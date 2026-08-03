@@ -208,8 +208,33 @@ set by the two meaning-level lexicons in `cognitive/ethical_bounding.py`:
   pinned to a specific person ("torture the prisoner"), or a lethal verb
   qualified by an explicit manner of violence ("kill … with violence").
 
-Permission is therefore `not (weapons.blocks or grave_harm)`. Both signals are
-block-on-harm and fail-closed; neither can be disabled by a flag.
+Alongside it runs a third signal on the same evidence: `direct_physical_harm`,
+which refuses when the **PHYSICAL** category alone reaches
+`BENEVOLENCE_CALIBRATION.direct_physical_harm_refusal_ceiling` (0.75 — three
+co-occurring physical-harm terms). That catches perpetration text naming no
+specific victim, which the person-pinned lexicons cannot: "destroy and kill with
+permanent irreversible violence" has no human object.
+
+The two are complementary, and neither subsumes the other:
+
+* `direct_physical_harm` misses a single unambiguous act with a human object —
+  "torture the prisoner" scores one PHYSICAL match (0.25), far below the
+  ceiling — and misses coercive harm entirely, since "stalk and harass her" and
+  "humiliate and demean him" are not PHYSICAL vocabulary.
+* `grave_harm` misses unpinned multi-term perpetration text.
+
+The ceiling is three terms rather than two because two is measurably wrong:
+clinical and forensic work on violence *victims* uses the same nouns as violence
+itself. "triage the assault victim and document the injury" and "treat torture
+survivors for trauma and injury" both reach two, and refusing them would break
+the responder and clinician workflows Mercury exists to serve.
+
+Permission is therefore
+`not (weapons.blocks or direct_physical_harm or grave_harm)`. All three signals
+are block-on-harm and fail-closed; none can be disabled by a flag. Measured on
+the combined corpus: **13/13 refused, 20/20 permitted**, the allow half
+including forensic homicide pathology, domestic-violence documentation and
+blast-injury triage.
 
 **Where each signal is enforced, and why they differ.** This is a deliberate
 split, not an inconsistency:

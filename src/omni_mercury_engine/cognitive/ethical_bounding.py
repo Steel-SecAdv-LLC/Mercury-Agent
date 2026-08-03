@@ -121,6 +121,24 @@ class BenevolenceCalibration:
     weapons_hard_refuse_harm_floor: float = 0.95
     weapons_refuse_redact_harm_floor: float = 0.75
     weapons_escalate_harm_floor: float = 0.55
+    # PHYSICAL-category harm at or above which an action is refused outright,
+    # independently of the weapons/mass-casualty axis (see
+    # BenevolenceScorer.score_action).
+    #
+    # 0.75 is THREE independent physical-harm term matches (harm_level =
+    # matches * 0.25). Two is deliberately not enough, and the reason is
+    # measured: clinical and forensic work on violence *victims* uses the same
+    # nouns as violence itself. "triage the assault victim and document the
+    # injury" and "treat torture survivors for trauma and injury" both reach
+    # two matches, and refusing them would break exactly the responder and
+    # clinician workflows Mercury exists to serve -- the same false-positive
+    # failure the deleted benevolence pass-bar had. Three co-occurring terms
+    # ("destroy and kill with permanent irreversible violence") indicate
+    # perpetration rather than care.
+    #
+    # Euphemistic harm-to-person is caught regardless: _euphemism_harm_present
+    # floors PHYSICAL at 0.9, well clear of this ceiling.
+    direct_physical_harm_refusal_ceiling: float = 0.75
     # Provenance of the active parameters: "default" (hand-set fallbacks) or the
     # calibration-file path the fitted values were loaded from. Never fabricated.
     source: str = "default"
@@ -1728,7 +1746,36 @@ class HarmReducer:
     ) -> float:
         """Assess harm level for a specific category."""
         harm_keywords = {
-            HarmCategory.PHYSICAL: ["injury", "damage", "hurt", "harm", "violence"],
+            # Lethal-force verbs belong in PHYSICAL. Their absence was a real
+            # scoring hole: "destroy and kill with permanent irreversible
+            # violence" matched only "violence" and scored 0.25 -- the same as a
+            # single incidental mention -- and the action was held back only by
+            # the (now deleted) benevolence pass-bar.
+            #
+            # "execute" and "terminate" are deliberately excluded: they are
+            # ordinary software verbs and would fire on routine engineering
+            # text. "assault" and "torture" are included, but the refusal
+            # ceiling is set at three co-occurring terms precisely so that the
+            # victim-care phrasings these two appear in ("assault victim
+            # triage", "torture survivor rehabilitation") stay permitted.
+            HarmCategory.PHYSICAL: [
+                "injury",
+                "damage",
+                "hurt",
+                "harm",
+                "violence",
+                "kill",
+                "murder",
+                "maim",
+                "mutilate",
+                "torture",
+                "strangle",
+                "suffocate",
+                "stab",
+                "slaughter",
+                "assault",
+                "destroy",
+            ],
             HarmCategory.PSYCHOLOGICAL: ["stress", "anxiety", "fear", "trauma", "distress"],
             HarmCategory.FINANCIAL: ["loss", "cost", "expense", "debt", "bankruptcy"],
             HarmCategory.PRIVACY: ["expose", "leak", "reveal", "track", "surveil"],
@@ -2300,40 +2347,63 @@ class BenevolenceScorer:
             reversibility=reversibility_score,
         )
 
-        # Permission is decided by harm evidence and by nothing else. The
-        # benevolence float above is advisory: it is reported, logged and
-        # attached to the score, but a low benevolence never blocks and a high
-        # one never permits. One harm policy, computed once, consulted
-        # everywhere -- the general-capability layer, the engine boundary and
-        # the hub all inherit this same verdict.
+        # Permission is decided by HARM, on three independent axes, and never by
+        # the benevolence float. The benevolence number above is advisory: it is
+        # reported, logged and attached to the score, but a low benevolence never
+        # blocks and a high one never permits. One harm policy, computed once,
+        # consulted everywhere -- the general-capability layer, the MCP report
+        # and the cache all inherit this same verdict.
         #
-        # TWO blocking signals, both block-on-harm, both fail-closed:
+        # Axis 1 -- weapons / mass-casualty uplift (assess_weapons_uplift).
         #
-        # 1. ``weapons.blocks`` -- the two-axis (hazard x operational-intent)
-        #    weapons/mass-casualty uplift gate.
-        # 2. ``last_grave_harm`` -- the meaning-level lexicons for grave harm
-        #    pinned to a person ("put him down", "torture the prisoner",
-        #    "kill ... with violence").
+        # Axis 2 -- direct physical harm, by weight of lexical evidence:
+        # PHYSICAL at or above ``direct_physical_harm_refusal_ceiling`` (three
+        # co-occurring physical-harm terms). Catches perpetration text that
+        # names no specific victim -- "destroy and kill with permanent
+        # irreversible violence".
         #
-        # (2) is not redundant with (1): the uplift gate is scoped to CBRNE and
-        # mass-harm actionability, so on its own it permitted plain
-        # interpersonal violence -- ``mercury_score_ethics`` answered
-        # "is_permissible": true for "destroy and kill with permanent
-        # irreversible violence". The evidence to refuse that was already being
-        # computed here and simply never reached the verdict.
+        # Axis 3 -- grave harm pinned to a *person*, from the meaning-level
+        # lexicons (``_euphemism_harm_present`` for indirection, "put him down";
+        # ``_direct_harm_present`` for plain statements, "torture the
+        # prisoner"). Catches what Axis 2 cannot: a single unambiguous act with
+        # a human object scores one PHYSICAL match (0.25), far below the
+        # ceiling, and coercive harm ("stalk and harass her", "humiliate and
+        # demean him") is not PHYSICAL vocabulary at all.
         #
-        # What deliberately does NOT decide permission is the scalar
-        # ``harm_score``/``severity_score``. Those come from a per-category
-        # keyword count, which measures *topic* rather than *intent*: on
-        # Mercury's own mission text "assess trauma and psychological distress
-        # among displaced families" scores severity 0.75 and "estimate
-        # earthquake damage and injury counts for triage" scores 0.50. Gating on
-        # them refuses humanitarian and security work for naming the hazard it
-        # exists to detect -- the same false-positive failure as the deleted
-        # benevolence pass-bar, wearing a different number.
+        # Axes 2 and 3 are both needed, and neither is redundant with Axis 1:
+        # the uplift gate is scoped to CBRNE and mass-harm actionability, so on
+        # its own it permitted plain interpersonal violence outright --
+        # ``mercury_score_ethics`` answered ``"is_permissible": true`` for
+        # "destroy and kill with permanent irreversible violence", and
+        # ``evaluate_harm`` scored "beat and torture the prisoner until he
+        # talks" at 0.000. That class had been held back only as a side effect
+        # of the >= 0.99 benevolence pass-bar, so deleting the bar deleted the
+        # control with it. The evidence to refuse was already being computed
+        # here; it simply never reached the verdict.
+        #
+        # What deliberately does NOT decide permission is the *aggregate*
+        # ``harm_score``/``severity_score``. Those average a per-category topic
+        # keyword count, so they measure what a request is *about* rather than
+        # what it intends: on Mercury's own mission text "assess trauma and
+        # psychological distress among displaced families" scores severity 0.75
+        # and "estimate earthquake damage and injury counts for triage" scores
+        # 0.50. Gating on them refuses humanitarian, clinical and security work
+        # for naming the hazard Mercury exists to detect -- the same
+        # false-positive failure as the deleted pass-bar, wearing a different
+        # number. Axis 2 is scoped to the PHYSICAL category and set at three
+        # co-occurring terms for exactly that reason: victim-care phrasings
+        # ("triage the assault victim and document the injury") reach two.
+        #
+        # Fail-closed and monotone: every axis can only revoke permission, never
+        # grant it, so appending positive language cannot rescue a harmful
+        # action (pinned by tests/test_ethics_semantic_severity.py).
         weapons = self.harm_reducer.last_weapons_assessment
+        physical_harm = float(harm_breakdown.get(HarmCategory.PHYSICAL.value, 0.0))
+        direct_physical_harm = (
+            physical_harm >= BENEVOLENCE_CALIBRATION.direct_physical_harm_refusal_ceiling
+        )
         grave_harm = bool(self.harm_reducer.last_grave_harm)
-        is_permissible = not (weapons.blocks or grave_harm)
+        is_permissible = not (weapons.blocks or direct_physical_harm or grave_harm)
 
         benevolence_advisory_low = benevolence_score < self.benevolence_threshold
         if benevolence_advisory_low:
