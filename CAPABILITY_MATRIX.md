@@ -97,17 +97,25 @@ by the merit gate that admitted it. Ten checkpoints ship; nine carry provenance
 | Math-Arrest equation family | — | probe count | **21** | `ls src/omni_mercury_engine/detectors/math_arrest/probes/*.py` | **measured** |
 | Statistical detector | — | — | — | `pytest tests/test_detectors.py` | **measured** — real, fitted, shipped by default |
 
-### Not re-measured in this change
+### Re-measured 2026-08-03 — both figures now carry a number
 
-These two figures have circulated and are **not published as current** here,
-because they were not re-measured in this change and a stale benchmark number
-presented as current is the failure mode this table exists to prevent. Run the
-command, then fill in the number and the date.
+Both rows below previously read "not re-measured". They were re-run against
+live ADBench data (SHA-256 of every NPZ recorded in the result JSON), so the
+figures are current rather than recalled. **One of them did not reproduce**, and
+that is stated as the result rather than smoothed over.
 
 | Claim | Dataset / task | Metric | Number | Repro command | Status |
 |---|---|---|---|---|---|
-| `OmniFusionModel` fusion quality ≈ 0.96 | ADBench subset | AUC | **not re-measured** | `python benchmarks/competitive_benchmark.py` (downloads ADBench; run on a machine with network) | **aspirational** until re-measured |
-| Multi-agent consensus ≈ 0.88 / member ≈ 0.84 | ADBench, 5 datasets × 3 seeds | consensus AUC / mean member AUC | **not re-measured** (last recorded run: `artifacts/orchestration_validation.json`, mean consensus 0.841, mean member 0.833) | `python benchmarks/orchestration_validation.py` | **aspirational** until re-measured |
+| `OmniFusionModel` fusion quality — the circulated figure was **≈ 0.96** | ADBench `--quick` subset: 8 Classical + 1 CV + 1 NLP embedding | mean ROC-AUC (unsupervised, label-free consensus path) | **0.8338** (median 0.9176; mean AP 0.5520; n = 9 of 10 — `nlp:20news_0` deferred at the 300 s wall budget) | `python benchmarks/competitive_benchmark.py --quick` | **measured 2026-08-03** — the **≈ 0.96 claim does not reproduce** and is withdrawn. Fusion also ranks **last of eight methods** (mean rank 7.00) on this subset, losing to every PyOD baseline on 6–9 of 9 datasets. |
+| Mercury tier detector (the same run's other Mercury method) | same 10 datasets | mean ROC-AUC | **0.8936** (median 0.9464; mean AP 0.6870; mean rank 4.00 of 8) | same command | **measured 2026-08-03** — mid-field: beats ECOD/COPOD/LOF/HBOS on 6–7 of 10, loses to IsolationForest and KNN 6–4. Best method on `cv:MVTec-AD_bottle` (0.9643). |
+| Multi-agent consensus ≈ 0.88 / member ≈ 0.84 | ADBench, 5 datasets (cardio, thyroid, breastw, WBC, Pima) × 3 seeds | consensus AUC / mean member AUC | **0.8562 / 0.8370** (mean best member 0.9069) | `python -m benchmarks.orchestration_validation` | **measured 2026-08-03** — reproduces the historical 0.841 / 0.833 within noise and clears the pre-registered bar (consensus ≥ mean member − 0.005). All four pre-registered questions pass: coordination, reflexion (paired Δ balanced-accuracy +0.059 over 15 runs), planning (executability 1.0), trace fidelity (1.0). |
+
+The fusion result is the reason this table exists. A figure that had circulated
+as "≈ 0.96" measures **0.83** on a fair, defaults-only, unsupervised protocol,
+and the honest reading is that `OmniFusionModel` is not competitive on this
+subset — it is the weakest of the eight methods compared. Losses are reported at
+the same prominence as wins because the harness is a measurement, not a
+highlight reel.
 
 ## 5. Untrained — relabelled, not benchmarked
 
@@ -140,6 +148,11 @@ an unfitted detector abstains rather than emitting a score.
 | "nine cognitive components" | Ten are wired at runtime. |
 | Lyapunov stability "guarantee" | A design-time convergence proof plus **runtime monitoring**. `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so at runtime it observes and records; it does not halt unless an operator constructs it with `halt_on_violation=True`. See `core/system_coherence.py`. |
 | 85 % coverage `fail_under` in `pyproject.toml` | No lane ever ran at 85: CI passes `--cov-fail-under` from `COVERAGE_THRESHOLD_CORE/FULL` (33 / 62), which overrides it. The config key now matches the enforced floor; 85 survives as a labelled aspiration in prose. |
+| "Benevolence decides nothing" — as a **repo-wide** claim | It was true of the three files the removal targeted and false elsewhere. Four survivors expressed the same `≥ 0.99` bar and were deleted only after each was reproduced: `SymbolicLogicLayer.evaluate_action` returned `allowed=False` for Mercury's own mission sentence (β = 0.597); `ValueExtractor.extract` returned `None` below 0.99, discarding humanitarian early warnings; `AdaptiveAnomalyDetector.evaluate_ethics` derived "benevolence" from the anomaly rate, so detecting >0.5 % of samples "failed ethics"; `NeurosymbolicFusionEngine` forwarded the 0.99 default into the symbolic layer. See §2 for the pins. |
+| `MetricsCalculator` "ethical gate" — a 0.5× penalty on `overall_score` | `ethical_compliance` is `benevolence_index ≥ 0.99 and harm_reduction_score ≥ 0.96`, and both quantities are detection statistics — harm-reduction **is** recall. So the multiplier halved the headline score of any detector that missed an anomaly: measured, 20 positives with one miss scored **0.3424** where the same run scores **0.6848** unpenalised (perfect: 0.7000). It also failed open on exception (flag defaults `True`, computation errors are swallowed) and closed on success — backwards. Benevolence keeps its honest 15 % weight in the combination. |
+| `GOSNNIntegration._apply_benevolence_adjustment` | Multiplied calibrated scores by `1 + w·((1 + (1 − 0.99)·φ) − 1)` **before** the threshold comparison, then returned the *unadjusted* scores. Measured at threshold 0.60: raw 0.5950 → adjusted 0.604547 → `is_anomaly=True`, with 0.5950 reported to the caller; the promotion boundary was 0.590593, a 1.568 %-wide band silently flipped. Its docstring had the direction backwards ("higher benevolence = more conservative"; the factor makes detection strictly *more* aggressive), and no measured benevolence entered it — it read the configuration constant. Classification is now `calibrated_scores > threshold`. |
+| `ethical_consent` symbolic rule | Its premise was the string `"requires_consent AND NOT consent_given"`, but `SymbolicReasoner.forward_chain` matches premises by set membership and parses no connectives, so no derived fact could ever equal it. The rule **never fired**: an action requiring consent, with consent explicitly withheld, was allowed. Premise is now the atomic `consent_missing`; an anti-vacuity test asserts no default rule premise contains whitespace. |
+| `benevolence_threshold` / `sigma_immutable` on five advanced detector configs | Declared as config fields and never read by any code path — advertising two controls the detectors do not implement. Enforcement is `cognitive/decision_gate.py`; configuration integrity is `security/sigma_immutable_gate.py`. |
 
 ## 7. Known false claims about *this* repository, corrected
 

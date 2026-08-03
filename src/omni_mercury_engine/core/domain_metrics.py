@@ -147,8 +147,14 @@ class MetricsCalculator:
         """Initialize metrics calculator.
 
         Args:
-            benevolence_threshold: Minimum required benevolence
-            sigma_immutable: Ethical threshold
+            benevolence_threshold: Reporting target for ``benevolence_index``.
+                Nothing is refused or penalised for missing it; it only sets the
+                advisory ``ethical_compliance`` flag on the emitted metrics.
+            sigma_immutable: Reporting target for ``harm_reduction_score``
+                (which is recall). Advisory, on the same terms. Unrelated to the
+                σ_Immutable configuration-integrity gate in
+                ``security/sigma_immutable_gate.py``, which verifies a signed
+                governance corpus and cannot be derived from detector output.
             n_calibration_bins: Bins for calibration metrics
         """
         self.benevolence_threshold = benevolence_threshold
@@ -566,10 +572,30 @@ class MetricsCalculator:
             + 0.15 * benevolence_score
         )
 
-        # Apply ethical gate
-        if not metrics.ethical_compliance:
-            overall *= 0.5  # Penalty for non-compliance
-
+        # No "ethical gate" multiplier here. It used to read:
+        #
+        #     if not metrics.ethical_compliance:
+        #         overall *= 0.5
+        #
+        # ``ethical_compliance`` is ``benevolence_index >= 0.99 and
+        # harm_reduction_score >= 0.96`` (see ``_compute_benevolence_metrics``),
+        # and both of those quantities are detection statistics: harm-reduction
+        # *is* recall, equity *is* a per-class accuracy ratio. So the multiplier
+        # halved the headline score of any detector that missed an anomaly.
+        # Measured: 20 positives with one miss (recall 0.95, equity 0.95) scored
+        # 0.3424 where the same run scores 0.6848 unpenalised, against 0.7000 for
+        # a literally perfect detector. Nothing about that run is unethical; it
+        # is an ordinary machine-learning result, and reporting it at half value
+        # under an ethics label is the same pass-bar this codebase deleted.
+        #
+        # It also failed in the wrong direction: ``ethical_compliance`` defaults
+        # to True on the dataclass and ``_compute_benevolence_metrics`` swallows
+        # exceptions with a warning, so a *failed* computation skipped the
+        # penalty while a *successful* one on good-but-imperfect output applied
+        # it. Fail-open on error, fail-closed on success -- exactly backwards.
+        #
+        # Benevolence already carries an honest 15 % weight in the combination
+        # above. That is how a reporting metric expresses a priority.
         return float(np.clip(overall, 0, 1))
 
 

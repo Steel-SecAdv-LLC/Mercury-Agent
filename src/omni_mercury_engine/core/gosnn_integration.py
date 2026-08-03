@@ -693,11 +693,8 @@ class GOSNNIntegration:
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)
 
-        # Apply benevolence weighting
-        benevolence_adjusted = self._apply_benevolence_adjustment(calibrated_scores, threshold)
-
-        # Final predictions
-        is_anomaly = benevolence_adjusted > threshold
+        # Final predictions, on the same scores this result reports.
+        is_anomaly = calibrated_scores > threshold
 
         # Compute benevolence metrics
         benevolence_score = self._compute_benevolence_score(domain_scores)
@@ -857,24 +854,39 @@ class GOSNNIntegration:
         # Convert back to original scale
         return float(best_threshold * (scores.max() - scores.min()) + scores.min())
 
-    def _apply_benevolence_adjustment(
-        self,
-        scores: np.ndarray[Any, Any],
-        threshold: float,
-    ) -> np.ndarray[Any, Any]:
-        """Apply benevolence-aware adjustment to scores."""
-        # Higher benevolence = more conservative (reduce false positives)
-        # Lower benevolence = more aggressive (reduce false negatives)
-
-        adjustment_factor = 1.0 + (1.0 - self.benevolence_threshold) * PHI
-
-        # Scores near threshold get adjusted more
-        distance_from_threshold = np.abs(scores - threshold)
-        adjustment_weight = np.exp(-distance_from_threshold / (threshold + 1e-10))
-
-        adjusted = scores * (1 + adjustment_weight * (adjustment_factor - 1))
-
-        return adjusted
+    # ``_apply_benevolence_adjustment`` is deleted, not disabled.
+    #
+    # It sat between the calibrated scores and the classification:
+    #
+    #     adjustment_factor = 1.0 + (1.0 - self.benevolence_threshold) * PHI
+    #     adjustment_weight = exp(-|scores - threshold| / (threshold + 1e-10))
+    #     adjusted          = scores * (1 + adjustment_weight * (factor - 1))
+    #     is_anomaly        = adjusted > threshold
+    #
+    # Four things were wrong with it, each measurable:
+    #
+    # 1. **It silently moved the operating point.** At the shipped default
+    #    (``benevolence_threshold`` = 0.99) the factor is 1.01618, so every
+    #    sample within ~1.57 % relative *below* the threshold was promoted to
+    #    ``is_anomaly=True``. Measured at threshold 0.60: raw 0.5950 -> adjusted
+    #    0.604547 -> flagged. The promotion boundary is 0.590593.
+    # 2. **Its own docstring had the direction backwards.** It claimed "higher
+    #    benevolence = more conservative (reduce false positives)". Raising the
+    #    threshold toward 1.0 drives the factor toward 1.0 -- *less* adjustment
+    #    -- and every value below 1.0 makes detection strictly more aggressive,
+    #    producing more false positives, not fewer.
+    # 3. **No benevolence entered it.** It read the configuration constant, never
+    #    the measured ``_compute_benevolence_score`` output. It was a hard-coded
+    #    sensitivity shift wearing an ethics label.
+    # 4. **It made the result internally inconsistent.** ``anomaly_scores`` and
+    #    ``calibrated_scores`` are returned unadjusted, so a caller received a
+    #    score plainly below the threshold alongside ``is_anomaly=True``, with no
+    #    field explaining the discrepancy.
+    #
+    # Classification is now ``calibrated_scores > threshold`` -- the decision
+    # matches the numbers reported with it. A genuine sensitivity control belongs
+    # in the threshold calculation, named for what it does, with the shifted
+    # threshold reported to the caller.
 
     def _compute_benevolence_score(
         self,
