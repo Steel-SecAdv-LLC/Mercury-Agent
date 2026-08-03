@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -251,6 +252,11 @@ class EnergyLoader(BaseDomainLoader):
         if event.get("grid_event") and self._eia_api_key:
             df = self._fetch_eia_grid_data(event)
         else:
+            check_synthetic_allowed(
+                "EnergyLoader",
+                f"event '{event_id}' predates the SWPC real-time feeds and no "
+                "keyed grid source is configured for it",
+            )
             df = self._generate_synthetic_kp_series(event)
 
         if df.empty:
@@ -652,7 +658,7 @@ class EnergyLoader(BaseDomainLoader):
             grid_supply, solar_wind_speed, solar_wind_density, xray_class.
         """
         if not self._eia_api_key:
-            logger.warning("EIA API key not set; falling back to synthetic data " "for grid event.")
+            check_synthetic_allowed("EnergyLoader", "EIA_API_KEY is not set")
             return self._generate_synthetic_kp_series(event)
 
         params: dict[str, str] = {
@@ -668,7 +674,7 @@ class EnergyLoader(BaseDomainLoader):
         try:
             response = self._fetch_json(_EIA_DAILY_REGION_URL, params=params)
         except ConnectionError:
-            logger.warning("EIA API unreachable; falling back to synthetic data.")
+            check_synthetic_allowed("EnergyLoader", "EIA API unreachable")
             return self._generate_synthetic_kp_series(event)
 
         data_rows = (
@@ -676,7 +682,7 @@ class EnergyLoader(BaseDomainLoader):
         )
 
         if not data_rows:
-            logger.warning("EIA returned no data; falling back to synthetic data.")
+            check_synthetic_allowed("EnergyLoader", "EIA returned no observations")
             return self._generate_synthetic_kp_series(event)
 
         records: list[dict[str, Any]] = []
