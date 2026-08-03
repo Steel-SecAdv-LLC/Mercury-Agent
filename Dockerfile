@@ -257,6 +257,33 @@ RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "s
     /opt/venv/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
     pip cache purge
 
+# Enforce the supply-chain floors in the VENV, in the runtime stage, last.
+#
+# The builder already floors and asserts these — and the assert passes there —
+# yet the blocking container scan on the *shipped image* still reported
+# ``setuptools 70.3.0`` (CVE-2025-47273) and ``msgpack 1.1.2``
+# (GHSA-6v7p-g79w-8964), both HIGH and both with fixes available. Everything
+# between the builder's assert and the final image (the AMA native install, the
+# venv COPY, the system-pip step above) is an opportunity to reintroduce a
+# resolved-down version, and the step above only re-floored ``/usr/local`` —
+# which is why the scan found a clean 83.0.0 there and a vulnerable one in the
+# venv at the same time.
+#
+# Checking the invariant where it actually has to hold — the artifact that
+# ships — is the difference between believing the floors held and knowing it.
+# The assertions run against ``/opt/venv/bin/python`` explicitly rather than the
+# ``PATH``-resolved ``python``, so this cannot silently check the wrong
+# interpreter, and a floor that cannot be met fails the build instead of
+# shipping.
+RUN /opt/venv/bin/python -m pip install --upgrade --no-cache-dir \
+        "setuptools>=83.0.0" "msgpack>=1.2.1" && \
+    /opt/venv/bin/python -c "import msgpack, setuptools; \
+from packaging.version import Version; \
+assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
+assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
+print('runtime venv floors held:', setuptools.__version__, msgpack.version)" && \
+    /opt/venv/bin/python -m pip cache purge
+
 # Mercury never calls SciPy/scikit-image sample datasets in production.  Drop
 # those bundled fetcher packages from the runtime image so the container does
 # not ship unused network-fetching demo code or upstream registry strings that
