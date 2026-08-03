@@ -118,6 +118,29 @@ RUN find /opt/venv -path '*/site-packages/scipy/datasets' -type d -prune -exec r
     test -z "$(find /opt/venv -path '*/site-packages/scipy/datasets/_fetchers.py' -print -quit)" && \
     test -z "$(find /opt/venv -path '*/site-packages/skimage/data/_fetchers.py' -print -quit)"
 
+# The shipped image carries NO pip. pip 26.x vendors msgpack 1.1.2 and a
+# setuptools 70.3.0 subset under ``pip/_vendor`` and documents them in a
+# PEP 770 CycloneDX SBOM (``pip/_vendor/bom.cdx.json``) that the blocking
+# Trivy gate parses — reporting GHSA-6v7p-g79w-8964 (msgpack) and
+# CVE-2025-47273 (setuptools) against the image even when the venv's real
+# msgpack/setuptools sit above their floors. No pip release with fixed
+# vendored copies exists, so the eliminate-don't-accept posture applies (as
+# with perl-base, gzip and the mesa GL stack in the runtime stage): the
+# runtime container never installs packages, which makes pip build tooling,
+# not a runtime dependency. First sweep any stale below-floor dist-info
+# metadata (this is pip's last job here), then remove pip itself — before
+# the venv is copied out, so no runtime layer ever carries it — and prove
+# the package, its dist-info and its vendored SBOM are gone.
+COPY scripts/enforce_wheel_floors.py /tmp/enforce_wheel_floors.py
+RUN /opt/venv/bin/python /tmp/enforce_wheel_floors.py /opt/venv && \
+    /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv && \
+    rm -f /tmp/enforce_wheel_floors.py && \
+    /opt/venv/bin/python -m pip uninstall -y pip && \
+    ! /opt/venv/bin/python -c "import pip" 2>/dev/null && \
+    test -z "$(find /opt/venv -name 'bom.cdx.json' -print -quit)" && \
+    test -z "$(find /opt/venv -type d -name 'pip' -path '*/site-packages/*' -print -quit)" && \
+    test -z "$(find /opt/venv -type d -name 'pip-*.dist-info' -print -quit)"
+
 # Copy remaining application files
 COPY . /app
 
@@ -230,37 +253,37 @@ RUN chmod 750 /home/$USERNAME
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Upgrade the base image's system Python pip to fix:
+# Remove the base image's system Python pip — the runtime container never
+# installs packages, so pip here is pure attack surface. Elimination closes
+# the pip CVE families harder than any upgrade could:
 #   CVE-2025-8869 (symlink extraction)
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
-# The builder's venv (copied above) already ships pip>=26.1, but the base
-# python:3.13-slim-trixie image carries its OWN pip under /usr/local that
-# Trivy detects.  Because ``ENV PATH`` puts /opt/venv/bin first, a bare
-# ``python -m pip`` would upgrade the *venv* pip (already patched) and leave
-# the vulnerable *system* pip in place — so target the system interpreter
-# explicitly via its absolute path, and drop the bundled ensurepip wheels that
-# would otherwise let ``python -m ensurepip`` re-seed a stale, pre-floor pip.
+# all require an installer to exist — no pip, no install-time code path. It
+# also removes pip 26.x's PEP 770 SBOM (``pip/_vendor/bom.cdx.json``), which
+# names pip's vendored msgpack 1.1.2 / setuptools 70.3.0 copies and which the
+# blocking Trivy gate otherwise reads as two HIGH findings with no fixed pip
+# release available (see the builder-stage note — the venv's pip is removed
+# there for the same reason). Same eliminate-don't-accept posture as
+# perl-base, gzip and the mesa GL stack above.
 #
-# The system stdlib path is derived from ``sysconfig`` rather than hardcoded to
-# ``/usr/local/lib/python3.NN``.  A hardcoded minor-version path silently turns
-# into a no-op the moment the base image's Python is bumped (e.g. 3.13 -> 3.14):
-# the cleanup would "pass" vacuously while leaving the vulnerable bundled pip in
-# the image.  Deriving the path keeps this hardening correct across base-image
-# Python bumps, and the version assertions below verify *both* the system and
-# venv interpreters resolve a patched pip rather than trusting a filename glob.
-RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=83.0.0" && \
+# The bundled ensurepip wheels are dropped too, so ``python -m ensurepip``
+# cannot re-seed an installer. The system stdlib path is derived from
+# ``sysconfig`` rather than hardcoded to ``/usr/local/lib/python3.NN``: a
+# hardcoded minor-version path silently turns into a no-op the moment the
+# base image's Python is bumped (e.g. 3.13 -> 3.14) — the cleanup would
+# "pass" vacuously while leaving the bundled wheels in the image. The
+# negative-import probe proves absence rather than trusting a filename glob.
+RUN /usr/local/bin/python -m pip uninstall -y pip && \
     SYS_STDLIB="$(/usr/local/bin/python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')" && \
     rm -rf "${SYS_STDLIB}/ensurepip/_bundled" && \
     test ! -d "${SYS_STDLIB}/ensurepip/_bundled" && \
-    /usr/local/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
-    /opt/venv/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
-    pip cache purge
+    ! /usr/local/bin/python -c "import pip" 2>/dev/null
 
-# Enforce the supply-chain floors in the VENV, in the runtime stage, last —
-# against what the scanner reads, not against what Python imports.
+# Verify — never mutate — the assembled runtime image, against what the
+# scanner reads, not only what Python imports.
 #
-# Both of these were true at the same time on the shipped image:
+# Both of these were once true at the same time on the shipped image:
 #
 #   * the import assert below passed (``setuptools.__version__`` >= 83.0.0);
 #   * the blocking container scan reported ``setuptools 70.3.0``
@@ -268,29 +291,30 @@ RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "s
 #
 # They measure different things. The assert reports the version Python
 # *resolves* — the winner of the ``sys.path`` search. Trivy's ``python-pkg``
-# analyzer reads ``*.dist-info/METADATA`` **files on disk**; it imports nothing
-# and does not care which copy would win. A stale below-floor ``.dist-info``
-# left anywhere on the image is therefore invisible to the assert and fully
-# visible to the gate, and upgrading harder cannot clear it.
-#
-# So: upgrade, then sweep the metadata the scanner actually reads, then assert
-# both. ``enforce_wheel_floors.py`` removes a below-floor ``.dist-info`` only
-# when a compliant copy of the same package is also present; a below-floor
-# package with no compliant sibling is a real failure and fails the build rather
-# than being deleted, because deleting it would blind the scanner instead of
-# fixing the image.
+# analyzer reads ``*.dist-info/METADATA`` **files on disk** and any SBOM
+# document it finds; it imports nothing and does not care which copy would
+# win. The floors are therefore enforced and swept in the builder (where pip
+# still exists to do it), and this stage re-proves everything on the final
+# assembly — "verified in the stage that built it" is not "verified in the
+# artifact that ships". ``--check`` mode never deletes anything: a violation
+# here fails the build rather than being papered over, because deleting
+# metadata at this point would blind the scanner instead of fixing the image.
+# The pip-absence probes cover both interpreters and the two on-disk traces
+# (dist-info, vendored SBOM) so a future base-image or builder change that
+# re-introduces an installer fails loudly here, before the Trivy gate.
 COPY scripts/enforce_wheel_floors.py /tmp/enforce_wheel_floors.py
-RUN /opt/venv/bin/python -m pip install --upgrade --no-cache-dir \
-        "setuptools>=83.0.0" "msgpack>=1.2.1" && \
+RUN /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv /usr/local /usr/lib && \
     /opt/venv/bin/python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
 assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
 assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
 print('runtime venv floors held (import):', setuptools.__version__, msgpack.version)" && \
-    /opt/venv/bin/python /tmp/enforce_wheel_floors.py /opt/venv /usr/local /usr/lib && \
-    /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv /usr/local /usr/lib && \
-    rm -f /tmp/enforce_wheel_floors.py && \
-    /opt/venv/bin/python -m pip cache purge
+    ! /opt/venv/bin/python -c "import pip" 2>/dev/null && \
+    ! /usr/local/bin/python -c "import pip" 2>/dev/null && \
+    test -z "$(find /opt/venv /usr/local /usr/lib -name 'bom.cdx.json' -print -quit 2>/dev/null)" && \
+    test -z "$(find /opt/venv /usr/local /usr/lib -type d -name 'pip' -path '*/site-packages/*' -print -quit 2>/dev/null)" && \
+    test -z "$(find /opt/venv /usr/local /usr/lib -type d -name 'pip-*.dist-info' -print -quit 2>/dev/null)" && \
+    rm -f /tmp/enforce_wheel_floors.py
 
 # Mercury never calls SciPy/scikit-image sample datasets in production.  Drop
 # those bundled fetcher packages from the runtime image so the container does
@@ -309,7 +333,6 @@ COPY --chown=$USERNAME:$USER_GID . .
 USER $USERNAME
 
 # Security environment variables
-ENV PIP_NO_WARN_SCRIPT_LOCATION=0
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
