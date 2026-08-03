@@ -81,6 +81,8 @@ _PQC_BUILD_RECOVERY_HINT = (
     "  git clone --depth 1 --branch v4.0.0 \\\n"
     "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
     "  cd /tmp/ama-cryptography\n"
+    '  python -m pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" '
+    '"cmake>=4.4.0"\n'
     "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
     "  AMA_NO_CYTHON=1 pip install --no-build-isolation .\n"
     "  export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:"

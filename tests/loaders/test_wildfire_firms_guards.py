@@ -56,14 +56,22 @@ class TestFIRMSRateLimitGuard:
             pytest.raises(ConnectionError) as exc_info,
         ):
             loader.fetch_realtime()
-        message = str(exc_info.value)
+        raised = exc_info.value
+        message = str(raised)
         assert "429" in message
         assert "rate limit" in message
-        assert _TEST_KEY not in message
         assert exc_info.value.__cause__ is None, (
             "the suppressed cause is the loader-layer key redaction; chaining "
             "it would leak the MAP key via the embedded URL"
         )
+        # Full leak contract, same bar as the base layer: context
+        # suppressed, and the key absent from every rendering a log
+        # sink can produce (str, repr, full traceback with chains).
+        assert raised.__suppress_context__ is True
+        assert _TEST_KEY not in message
+        assert _TEST_KEY not in repr(raised)
+        rendered = "".join(traceback.format_exception(raised))
+        assert _TEST_KEY not in rendered
 
     def test_non_429_fetch_errors_propagate_unchanged(self, tmp_path: Any) -> None:
         loader = _loader(tmp_path)
