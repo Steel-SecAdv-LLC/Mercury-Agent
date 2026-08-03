@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, FetchHTTPError
 from omni_mercury_engine.utils.geo import (
     haversine_km,
     haversine_km_to_point,
@@ -430,13 +430,50 @@ class WildfireLoader(BaseDomainLoader):
 
         Returns:
             DataFrame parsed from the CSV response.
+
+        Raises:
+            ConnectionError: FIRMS rate limit hit (HTTP 429). Raised without
+                the underlying cause: the ``requests.HTTPError`` message
+                embeds the full URL, whose path segment IS the MAP key
+                (``_build_area_url``), so chaining it would leak the key into
+                any traceback -- the same leak ``scripts/live_data_smoke.py``
+                redacts at its layer. Suppressing the cause here is the
+                loader-layer redaction; the message carries everything
+                actionable instead.
+            ValueError: FIRMS returned a non-CSV body. FIRMS signals key and
+                quota problems as HTTP-200 text bodies ("Invalid MAP_KEY.",
+                transaction-limit messages) that would otherwise parse into a
+                nonsense one-column frame and flow downstream.
         """
-        raw_bytes = self._fetch_url(url)
+        try:
+            raw_bytes = self._fetch_url(url)
+        except FetchHTTPError as exc:
+            if exc.status_code == 429:
+                raise ConnectionError(
+                    "wildfire: NASA FIRMS rate limit hit (HTTP 429). The MAP "
+                    "key's transaction quota is exhausted; wait for the "
+                    "10-minute window to reset (status at "
+                    "https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey/) "
+                    "instead of retrying."
+                ) from None
+            raise
         text = raw_bytes.decode("utf-8", errors="replace")
 
         if not text.strip():
             logger.warning("FIRMS returned empty response")
             return pd.DataFrame()
+
+        # Every FIRMS CSV product's header starts with ``latitude,longitude``;
+        # anything else is an error body served with HTTP 200. Fail closed
+        # rather than parse it into a nonsense frame. The slice keeps the
+        # diagnostic short, and error bodies never contain the MAP key.
+        first_line = text.lstrip().splitlines()[0]
+        if "latitude" not in first_line:
+            raise ValueError(
+                f"wildfire: FIRMS returned a non-CSV body ({first_line[:80]!r}); "
+                "this usually means an invalid MAP key or an exhausted "
+                "transaction quota."
+            )
 
         df = pd.read_csv(io.StringIO(text))
         return df
