@@ -146,29 +146,43 @@ verbs**, so test rows use a shape or a verb the model has never seen in any row.
 That is the property the classifier actually needs, since the act-verb class is
 open and cannot be enumerated.
 
-Measured 2026-08-04 on the shipped corpus (`PENDING_CV_TABLE`):
+Measured 2026-08-04 on the shipped corpus. `--cross-validate` also writes these
+into the artifact's own `metadata.generalization` block, so a retrain records its
+own generalization alongside the weights rather than leaving this table to drift:
 
-Read honestly: transfer to **unseen request frames is near-perfect**, which is
-the load-bearing case, since frames are a closed class the corpus covers well.
-Transfer to **unseen act verbs keeps recall high (0.976) but costs precision
-(0.730)**. That is a real limitation and worth stating plainly: with a quarter of
-the act vocabulary — *including the defensive verbs* — held out simultaneously,
-the model falls back on the frame and over-predicts offensive.
+| protocol | held out | mean AUROC | mean accuracy | mean recall | mean precision |
+|---|---|---|---|---|---|
+| leave-frame-out (4-fold) | 25% of request frames | 0.9991 | 0.968 | 0.938 | 0.998 |
+| leave-act-out (4-fold) | 25% of act verbs | 0.9494 | 0.813 | 0.969 | **0.723** |
+| leave-act-out (10-fold) | 10% of act verbs | 0.9569 | 0.833 | 0.985 | **0.737** |
 
-Two things bound the practical impact, neither of which excuses it:
+**Transfer to unseen request frames is near-perfect** (precision 0.998, recall
+0.938). This is the load-bearing case: frames are a closed class, so a novel
+phrasing of a request is the thing the model will actually meet in production,
+and it handles it.
 
-* A 4-fold split removes 25% of all verbs at once, which is far harsher than
-  meeting one novel verb at a time. The `leave-act-out-fine` (10-fold)
-  configuration is recorded in the artifact's provenance block for comparison.
-* In the deployed gate the classifier is consulted *only* when Axis B found no
-  professional allow-signal, so the professional framings the lexical patterns
-  already cover never reach it. The measured false-positive count on the real
-  hard-benign professional slice is **0**.
+**Transfer to unseen act verbs holds recall (0.969–0.985) but costs precision
+(0.723–0.737).** This is a real limitation and it is stated without softening.
+When an act verb is absent from training the model leans on the frame and
+over-predicts offensive — and note that the finer 10-fold split recovers almost
+nothing (0.737 vs 0.723). The obvious excuse, that holding out a quarter of the
+vocabulary at once is unrealistically harsh, is **not** supported by the data:
+holding out a tenth costs nearly as much. The honest reading is that precision
+depends materially on having seen the *defensive* act vocabulary, not that the
+protocol is unfair.
 
-The practical mitigation is that the defensive/professional act inventory in the
-training corpus is what buys precision, so it should grow alongside the offensive
-one. A future revision that adds offensive verbs without adding professional ones
-would show up as a precision drop in this table.
+What actually bounds the impact in the deployed gate — a mitigation, not a
+dismissal — is that the classifier is consulted *only* when Axis B found no
+professional allow-signal. The professional framings the lexical allow-patterns
+already cover never reach it, which is why the measured false-positive count on
+the real hard-benign professional slice is **0** despite this table. The
+protection is the composition of the two layers, not the classifier alone.
+
+The practical consequence for maintenance: the defensive/professional act
+inventory is what buys precision, so it must grow alongside the offensive one. A
+revision that adds offensive verbs without adding professional ones will show up
+here as a further precision drop, which is exactly why this table is measured
+rather than asserted.
 
 ## Known residual
 
