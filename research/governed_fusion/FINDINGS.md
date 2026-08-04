@@ -46,6 +46,11 @@ events); the self-label bucket measures 0.828 — *higher* than the mixed
 figure is the only one the Phase 2 promotion gate reads, and the only one
 this document claims as skill; see the baseline table below and
 `docs/BENCHMARKS.md` ("Transparent fitness substrate") for the same split.
+A 2026-08-04 refit in a fresh environment reproduced both external events
+within ~±0.05 per event (nsl_kdd 0.728 vs 0.679, batadal 0.889 vs 0.862;
+unsupervised adaptive weighting is environment-sensitive at that scale) —
+the committed artifacts remain the canonical record, and the qualitative
+conclusions are unchanged at that variance.
 
 **Provenance guard (this pass).** The static label is correct today, but `marine`
 is live-labelled while its loader *silently* synthesises on an empty OBIS response

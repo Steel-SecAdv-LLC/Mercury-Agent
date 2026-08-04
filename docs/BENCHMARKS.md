@@ -251,8 +251,16 @@ The audit is committed in
 fusion-marginal ablation ledger
 (`research/governed_fusion/ablation_ledger.json`, written by
 `research/governed_fusion/measure_marginal_ablation.py`, gated by
-`.github/workflows/ablation-ledger.yml`) tracks per-component leave-one-out
-lift on the `external_label` subset only.
+`.github/workflows/ablation-ledger.yml`) records per-component
+leave-one-out lift on the `external_label` subset only. The committed
+ledger carries **measured records** produced on cache-warmed hosts — the
+first (2026-08-04, `status: ok`) measured resonance at **+0.085 AUROC**
+marginal lift and kinematic at **−0.034** (the fusion scores *higher*
+without it on external labels) — while the CI lane's per-run append is
+runner-local and never committed: it proves reachability of the
+measurement path on every PR, it does not accumulate history. New
+committed records come from deliberate measured runs, never from CI
+side effects.
 
 The external-label mean is *below* the historical mixed mean. Label leakage
 does not only inflate; it can also degrade in either direction depending
