@@ -497,6 +497,36 @@ class DataSourceBase(ABC):
         headers.update(self.config.headers)
         return headers
 
+    def _scrub_diagnostic(self, text: str) -> str:
+        """Credential-redact upstream diagnostic text before surfacing it.
+
+        httpx embeds the fully-composed request URL in exception text
+        (``HTTPStatusError`` renders ``"... for url
+        'https://host/path?api_key=SECRET'"``), and keyed sources (NASA
+        DONKI / NeoWs ``api_key``, AirNow ``API_KEY``) compose their
+        credential into that URL as a query parameter — so any transport
+        exception string or upstream response body that reaches an error
+        message or log line is a disclosure surface.  Applies the
+        canonical structural redaction (URLs keep scheme, host and path
+        but lose credential-named query values) plus a value-based pass
+        for this source's own configured ``api_key``, which also covers
+        upstreams that echo the key outside a URL.
+        """
+        # Lazy import — the codebase-wide pattern; redaction is stdlib-only.
+        # The env pass additionally covers credentials held in the
+        # environment (path-segment keys, other services' keys echoed in
+        # an upstream body) that neither the structural pass nor this
+        # source's own config can know about.
+        from omni_mercury_engine.security.redaction import (
+            redact_env_secrets,
+            redact_secrets,
+            redact_text,
+        )
+
+        return redact_env_secrets(
+            redact_secrets(redact_text(text), {"api_key": self.config.api_key})
+        )
+
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create async HTTP client.
 
@@ -641,12 +671,21 @@ class DataSourceBase(ABC):
                     error_cls = (
                         SourceUnreachableError if e.response.status_code == 429 else DataSourceError
                     )
+                    # ``from None`` severs cause AND implicit context (PEP
+                    # 409): httpx.HTTPStatusError's str embeds the fully-
+                    # composed request URL, credential included, so chaining
+                    # ``e`` would leak the key into every rendered traceback
+                    # — the httpx analogue of the loaders-layer _fetch_url
+                    # fix.  status_code carries the upstream verdict; the
+                    # body snippet is scrubbed before truncation so a split
+                    # credential cannot survive at the cut point.
                     raise error_cls(
-                        f"HTTP {e.response.status_code}: {e.response.text[:200]}",
+                        f"HTTP {e.response.status_code}: "
+                        f"{self._scrub_diagnostic(e.response.text)[:200]}",
                         source_id=self.source_id,
                         status_code=e.response.status_code,
                         retryable=e.response.status_code == 429,
-                    ) from e
+                    ) from None
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -667,14 +706,20 @@ class DataSourceBase(ABC):
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
-                        f"{self.source_id}: Request error: {e}, "
+                        f"{self.source_id}: Request error: {self._scrub_diagnostic(str(e))}, "
                         f"retry {attempt}/{self.config.retry_attempts} in {delay:.1f}s"
                     )
                     await asyncio.sleep(delay)
                     delay = min(delay * self.config.retry_backoff, 60.0)
 
+        # ``{last_error}`` interpolated raw would embed the credentialed
+        # request URL whenever retries exhaust on an HTTPStatusError (5xx);
+        # scrub the rendered text and name the class so the diagnostic
+        # stays actionable without the secret.
+        last_error_kind = type(last_error).__name__ if last_error is not None else "unknown"
         raise SourceUnreachableError(
-            f"Request failed after {self.config.retry_attempts} attempts: {last_error}",
+            f"Request failed after {self.config.retry_attempts} attempts "
+            f"({last_error_kind}): {self._scrub_diagnostic(str(last_error))}",
             source_id=self.source_id,
             retryable=True,
         )
@@ -761,12 +806,17 @@ class DataSourceBase(ABC):
                     error_cls = (
                         SourceUnreachableError if e.response.status_code == 429 else DataSourceError
                     )
+                    # ``from None`` severs cause and implicit context — see
+                    # the async variant: httpx's exception str embeds the
+                    # credentialed request URL; the body snippet is scrubbed
+                    # before truncation.
                     raise error_cls(
-                        f"HTTP {e.response.status_code}: {e.response.text[:200]}",
+                        f"HTTP {e.response.status_code}: "
+                        f"{self._scrub_diagnostic(e.response.text)[:200]}",
                         source_id=self.source_id,
                         status_code=e.response.status_code,
                         retryable=e.response.status_code == 429,
-                    ) from e
+                    ) from None
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -787,14 +837,18 @@ class DataSourceBase(ABC):
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
-                        f"{self.source_id}: Request error: {e}, "
+                        f"{self.source_id}: Request error: {self._scrub_diagnostic(str(e))}, "
                         f"retry {attempt}/{self.config.retry_attempts} in {delay:.1f}s"
                     )
                     time.sleep(delay)
                     delay = min(delay * self.config.retry_backoff, 60.0)
 
+        # See the async variant: raw ``{last_error}`` would embed the
+        # credentialed URL when retries exhaust on an HTTPStatusError.
+        last_error_kind = type(last_error).__name__ if last_error is not None else "unknown"
         raise SourceUnreachableError(
-            f"Request failed after {self.config.retry_attempts} attempts: {last_error}",
+            f"Request failed after {self.config.retry_attempts} attempts "
+            f"({last_error_kind}): {self._scrub_diagnostic(str(last_error))}",
             source_id=self.source_id,
             retryable=True,
         )

@@ -531,3 +531,83 @@ class TestPIIPatterns:
             assert result == "[REDACTED]"
         else:
             assert result == "test_value"
+
+
+class TestCredentialScrubInFormatters:
+    """Rendered log records never carry a composed credential.
+
+    Source sites sever chains and scrub messages already; the formatters
+    are the last line of defence for exception text that never crossed a
+    scrubbed funnel (third-party libraries, operator code).
+    """
+
+    _SECRET = "FORMATTERKEY123"
+
+    def test_structured_formatter_scrubs_message_url(self) -> None:
+        formatter = StructuredFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg=f"fetch failed for url 'https://api.example/v1?api_key={self._SECRET}&d=1'",
+            args=(),
+            exc_info=None,
+        )
+        rendered = formatter.format(record)
+        assert self._SECRET not in rendered
+        assert "api.example/v1" in rendered  # diagnostics survive
+
+    def test_structured_formatter_scrubs_traceback(self) -> None:
+        formatter = StructuredFormatter()
+        try:
+            raise ConnectionError(f"Max retries exceeded with url: /q?apikey={self._SECRET}&f=D")
+        except ConnectionError:
+            import sys
+
+            exc_info = sys.exc_info()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="Error occurred",
+            args=(),
+            exc_info=exc_info,
+        )
+        rendered = formatter.format(record)
+        assert self._SECRET not in rendered
+        assert "ConnectionError" in rendered
+
+    def test_structured_formatter_scrubs_env_secret(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A configured env-held credential (path-segment shape) is caught
+        by value even where no URL structure identifies it."""
+        monkeypatch.setenv("NASA_FIRMS_MAP_KEY", "ENVHELDKEY99")
+        formatter = StructuredFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=1,
+            msg="fetched /api/area/csv/ENVHELDKEY99/VIIRS and failed",
+            args=(),
+            exc_info=None,
+        )
+        rendered = formatter.format(record)
+        assert "ENVHELDKEY99" not in rendered
+        assert "<NASA_FIRMS_MAP_KEY:redacted>" in rendered
+
+    def test_colored_formatter_scrubs_message_url(self) -> None:
+        formatter = ColoredFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=1,
+            msg=f"failed url 'https://h.example/p?token={self._SECRET}'",
+            args=(),
+            exc_info=None,
+        )
+        rendered = formatter.format(record)
+        assert self._SECRET not in rendered
+        assert "h.example/p" in rendered

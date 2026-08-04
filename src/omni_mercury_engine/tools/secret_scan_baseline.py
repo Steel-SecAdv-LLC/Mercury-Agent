@@ -162,7 +162,10 @@ def _scan_file(
                         "kind": kind,
                         "line": ln,
                         "secret_hash": _secret_hash(secret),
-                        "preview": secret[:8] + "..." if len(secret) > 8 else secret,
+                        # Two characters is enough to locate the value on the named
+                        # line without the report itself becoming a partial
+                        # disclosure (8 leading chars of a key is real key material).
+                        "preview": secret[:2] + f"...({len(secret)} chars)",
                     }
                 )
         for m in _BASE64_RUN.finditer(line):
@@ -177,7 +180,7 @@ def _scan_file(
                         "line": ln,
                         "entropy": round(ent, 3),
                         "secret_hash": _secret_hash(run),
-                        "preview": run[:8] + "...",
+                        "preview": run[:2] + f"...({len(run)} chars)",
                     }
                 )
     return findings

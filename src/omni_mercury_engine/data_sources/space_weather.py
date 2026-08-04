@@ -524,7 +524,11 @@ class NASANeoWsSource(DataSourceBase):
                             all_data_points.append(data_point)
 
             except Exception as e:
-                logger.warning(f"NeoWs fetch failed for {current_start}: {e}")
+                # Scrubbed: a transport-layer str can embed the composed
+                # (api_key-carrying) request URL.
+                logger.warning(
+                    f"NeoWs fetch failed for {current_start}: {self._scrub_diagnostic(str(e))}"
+                )
 
             current_start = current_end
 

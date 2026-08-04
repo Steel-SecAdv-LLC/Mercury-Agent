@@ -38,10 +38,44 @@ _CREDENTIAL_QUERY_PARAM = re.compile(
     r"[^&\s\"'<>]+"
 )
 
+#: Env-var NAMES treated as credential-holding for the value-based pass.
+#: Mirrors ``omni_mercury_engine.security.redaction._ENV_SECRET_NAME_RE`` —
+#: duplicated deliberately: this script's contract is import-light
+#: (``requests`` + stdlib, no engine import, because the engine's PQC gate
+#: requires the native AMA build that is absent this early in the lane).
+_ENV_SECRET_NAME = re.compile(
+    r"(?:^|_)(?:API_?KEY|APIKEY|TOKEN|SECRET|PASSWORD|PASSWD|MAP_?KEY"
+    r"|CREDENTIALS?|AUTH|BEARER|PRIVATE_?KEY|SIGNATURE)(?:$|_)",
+    re.IGNORECASE,
+)
+
 
 def _redact(text: str) -> str:
-    """Replace the value of any credential-bearing query parameter with ``***``."""
-    return _CREDENTIAL_QUERY_PARAM.sub(r"\1***", text)
+    """Strip credential values out of *text* before it is printed.
+
+    Two passes.  The query-parameter pass is structural (any value length,
+    no knowledge of the secret needed).  The env-value pass catches keys
+    that ride OUTSIDE a query string — NASA FIRMS embeds the MAP key as a
+    URL *path segment*, which no query-shaped regex can see.  Values of
+    4-7 characters are replaced only at non-alphanumeric boundaries so a
+    short value cannot mangle unrelated words; below 4 the value is
+    degenerate and skipped (the structural pass still covers it in query
+    position).
+    """
+    text = _CREDENTIAL_QUERY_PARAM.sub(r"\1***", text)
+    for name, raw in os.environ.items():
+        value = raw.strip()
+        if len(value) < 4 or not _ENV_SECRET_NAME.search(name):
+            continue
+        if len(value) >= 8:
+            text = text.replace(value, f"<{name}:redacted>")
+        else:
+            text = re.sub(
+                rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])",
+                f"<{name}:redacted>",
+                text,
+            )
+    return text
 
 
 def _get(url: str, timeout: int = 30) -> tuple[int, bytes]:

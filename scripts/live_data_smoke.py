@@ -54,16 +54,20 @@ def _redact(text: str) -> str:
 
     Several upstreams embed the credential in the request itself -- NASA FIRMS
     puts the MAP_KEY in the URL *path* -- so an exception message can carry the
-    secret verbatim. Every non-empty value among the known key env vars is
-    replaced before anything is printed, which keeps the diagnostic detail
-    (status code, host, reason) without ever emitting the credential.
+    secret verbatim.  Delegates to the canonical redaction primitives:
+    the structural pass strips credential-named query-parameter values out
+    of any URL in the text (protecting even keys this process never held,
+    and keys too short for value matching), then the value-based pass
+    replaces every configured key value -- URL-encoded forms included.
+    ``redact_secrets`` word-boundary-guards 4-7 character values instead
+    of skipping everything under 8 like this script's old local copy did,
+    so short-but-real keys no longer pass through unredacted.  The
+    diagnostic detail (status code, host, path, reason) survives.
     """
-    for var in _KEY_ENV_VARS:
-        value = os.environ.get(var, "").strip()
-        # Guard against a short/degenerate value matching everywhere.
-        if len(value) >= 8:
-            text = text.replace(value, f"<{var}:redacted>")
-    return text
+    from omni_mercury_engine.security.redaction import redact_secrets, redact_text
+
+    values = {var: os.environ.get(var, "").strip() for var in _KEY_ENV_VARS}
+    return redact_secrets(redact_text(text), values)
 
 
 def _record(name: str, status: str, detail: str) -> None:

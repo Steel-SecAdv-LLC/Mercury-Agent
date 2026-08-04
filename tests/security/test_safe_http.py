@@ -1163,3 +1163,142 @@ class TestResolveIPsLiteralShortCircuit:
             ips = _resolve_ips(ip_literal)
         assert len(ips) == 1
         assert str(ips[0]) == ip_literal
+
+
+class TestCredentialRedactionInErrors:
+    """No SafeHTTPClient error path may surface a composed credential.
+
+    requests renders HTTPError as ``"<status> ... for url: <full URL>"``
+    and urllib3 renders connection failures as ``"... Max retries
+    exceeded with url: /path?query"`` (measured shapes) — for keyed
+    callers (Alpha Vantage ``apikey``, OpenWeatherMap ``appid``, NASA
+    ``api_key`` in query params) both embed the live credential.  Every
+    re-raise out of ``_request`` must therefore carry redacted text with
+    the chain severed, and the gate's own refusal messages must redact
+    the URL they name.
+    """
+
+    _SECRET = "LIVEKEY12345"
+    _KEYED_URL = f"https://api.example.com/query?apikey={_SECRET}&function=DAILY"
+
+    @staticmethod
+    def _fake_plumbing(fake_session: Any) -> list[Any]:
+        """The patch set every _request test needs (mirrors TestRedirectRejection)."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        return [
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("93.184.216.34")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+        ]
+
+    def test_scheme_refusal_message_redacted(self) -> None:
+        """validate_url's scheme refusal names the URL — redacted."""
+        with pytest.raises(UnsafeURLError) as exc_info:
+            SafeHTTPClient.validate_url(f"ftp://h.example/p?api_key={self._SECRET}")
+        assert self._SECRET not in str(exc_info.value)
+        assert "ftp" in str(exc_info.value)
+
+    def test_redirect_refusal_redacts_both_urls(self) -> None:
+        """The 3xx refusal names request URL AND Location — an upstream
+        answering with a signed redirect target would otherwise leak both."""
+        from unittest.mock import MagicMock
+
+        location = "https://cdn.example.com/file?signature=SIGSECRET99&expires=1"
+        response = MagicMock()
+        response.status_code = 302
+        response.headers = {"Location": location}
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=response)
+        fake_session.mount = MagicMock()
+
+        import contextlib
+
+        with contextlib.ExitStack() as stack:
+            for p in self._fake_plumbing(fake_session):
+                stack.enter_context(p)
+            with pytest.raises(UnsafeURLError) as exc_info:
+                SafeHTTPClient.get(self._KEYED_URL)
+
+        message = str(exc_info.value)
+        assert self._SECRET not in message
+        assert "SIGSECRET99" not in message
+        assert "cdn.example.com" in message  # host survives for diagnosis
+
+    def test_http_error_redacted_type_and_response_preserved(self) -> None:
+        """4xx/5xx re-raises the same requests.HTTPError type with the
+        credentialed URL scrubbed, .response intact, chain severed."""
+        from unittest.mock import MagicMock
+
+        import requests
+
+        real_error = requests.HTTPError(f"403 Client Error: Forbidden for url: {self._KEYED_URL}")
+        response = MagicMock()
+        response.status_code = 403
+        response.headers = {}
+        response.raise_for_status = MagicMock(side_effect=real_error)
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=response)
+        fake_session.mount = MagicMock()
+
+        import contextlib
+
+        with contextlib.ExitStack() as stack:
+            for p in self._fake_plumbing(fake_session):
+                stack.enter_context(p)
+            with pytest.raises(requests.HTTPError) as exc_info:
+                SafeHTTPClient.get(self._KEYED_URL)
+
+        exc = exc_info.value
+        assert self._SECRET not in str(exc)
+        assert "403" in str(exc)
+        assert exc.response is response  # status branching keeps working
+        assert exc.__cause__ is None, "original (leaking) HTTPError chained back in"
+        assert exc.__suppress_context__ is True
+
+    def test_transport_exhaustion_redacted_type_preserved(self) -> None:
+        """Connection failure on every pinned IP re-raises the same
+        exception TYPE with urllib3's path+query text scrubbed and the
+        chain severed."""
+        from unittest.mock import MagicMock
+
+        import requests
+
+        transport_error = requests.ConnectionError(
+            "HTTPSConnectionPool(host='api.example.com', port=443): Max retries "
+            f"exceeded with url: /query?apikey={self._SECRET}&function=DAILY "
+            "(Caused by NewConnectionError('...'))"
+        )
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(side_effect=transport_error)
+        fake_session.mount = MagicMock()
+        fake_session.close = MagicMock()
+
+        import contextlib
+
+        with contextlib.ExitStack() as stack:
+            for p in self._fake_plumbing(fake_session):
+                stack.enter_context(p)
+            with pytest.raises(requests.ConnectionError) as exc_info:
+                SafeHTTPClient.get(self._KEYED_URL)
+
+        exc = exc_info.value
+        assert self._SECRET not in str(exc)
+        assert "function=DAILY" in str(exc)  # diagnostics survive
+        assert exc.__cause__ is None
+        assert exc.__suppress_context__ is True

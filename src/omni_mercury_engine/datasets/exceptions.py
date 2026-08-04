@@ -76,10 +76,27 @@ class OfflineModeError(RuntimeError):
 
     Fail-closed by design: offline mode never silently degrades to stale or
     synthetic data — it serves the local cache or refuses loudly.
+
+    The refused URL is credential-redacted (userinfo and credential-named
+    query-parameter values stripped) before it reaches the message *or* the
+    ``url`` attribute: keyed loaders compose their credential into the URL,
+    and this exception's text is exactly what lands in operator logs and CI
+    output.  Scheme, host and path survive, so the message still names the
+    artifact that was refused.
     """
 
     def __init__(self, url: str) -> None:
-        """Initialize with the refused URL and a remediation hint."""
+        """Initialize with the (redacted) refused URL and a remediation hint."""
+        # Lazy import — the codebase-wide pattern — so this module stays
+        # import-light; redaction itself is stdlib-only.  The env pass
+        # catches path-segment keys (FIRMS) that structural redaction
+        # cannot recognise by position.
+        from omni_mercury_engine.security.redaction import (
+            redact_env_secrets,
+            redact_url,
+        )
+
+        url = redact_env_secrets(redact_url(url))
         self.url = url
         super().__init__(
             f"MERCURY_OFFLINE is set; refusing network fetch of {url}. "
@@ -101,8 +118,12 @@ class DataSourceUnavailableError(RuntimeError):
 
     Attributes:
         loader_name: Name of the loader that failed.
-        source_url: URL that was attempted.
-        reason: Human-readable reason for the failure.
+        source_url: URL that was attempted, credential-redacted (userinfo
+            and credential-named query-parameter values stripped; scheme /
+            host / path survive).
+        reason: Human-readable reason for the failure.  Any URL embedded in
+            it (loaders re-wrap transport errors whose text carries the
+            fully-composed request URL) is credential-redacted the same way.
     """
 
     def __init__(
@@ -114,6 +135,21 @@ class DataSourceUnavailableError(RuntimeError):
         status_code: int | None = None,
     ) -> None:
         """Initialize the instance."""
+        # Lazy import — the codebase-wide pattern — so this module stays
+        # import-light; redaction itself is stdlib-only.  Redacting here,
+        # at the single constructor every loader funnels through, means no
+        # call site can forget: keyed loaders (sepsis, volcanic,
+        # network-security) re-wrap transport failures through this class,
+        # and both the attempted URL and a re-wrapped exception's text can
+        # embed a live credential.
+        from omni_mercury_engine.security.redaction import (
+            redact_env_secrets,
+            redact_text,
+            redact_url,
+        )
+
+        source_url = redact_env_secrets(redact_url(source_url)) if source_url else source_url
+        reason = redact_env_secrets(redact_text(reason)) if reason else reason
         self.loader_name = loader_name
         self.source_url = source_url
         self.reason = reason

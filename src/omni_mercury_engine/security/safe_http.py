@@ -79,6 +79,24 @@ if TYPE_CHECKING:
     import requests
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
+from omni_mercury_engine.security.redaction import (
+    redact_env_secrets,
+    redact_text,
+    redact_url,
+)
+
+
+def _redact_full(text: str) -> str:
+    """Canonical scrub for operator-facing diagnostics.
+
+    Structural redaction (``redact_url`` / ``redact_text``) removes
+    credential-named query values and userinfo; the env-value pass on
+    top catches credentials that ride in URL PATH segments (the FIRMS
+    MAP-key shape), which no structural rule can recognise.  Applied to
+    every URL or transport-exception text this module surfaces.
+    """
+    return redact_env_secrets(text)
+
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +125,19 @@ def _parse_and_check_scheme(url: str, *, allow_http: bool) -> tuple[str, str]:
     """
     parsed = urlparse(url)
     allowed = _HTTP_AND_HTTPS if allow_http else _HTTPS_ONLY
+    # Refusal messages carry the URL credential-REDACTED: a keyed URL that
+    # trips a gate would otherwise leak its credential into exception text
+    # (the exact channel the loader-layer chain-severing fix closed).
     if parsed.scheme not in allowed:
         raise UnsafeURLError(
-            f"SafeHTTPClient: refusing URL '{url}' -- scheme '{parsed.scheme}' "
-            f"is not in the allowlist {sorted(allowed)}."
+            f"SafeHTTPClient: refusing URL '{_redact_full(redact_url(url))}' -- scheme "
+            f"'{parsed.scheme}' is not in the allowlist {sorted(allowed)}."
         )
     host = parsed.hostname or ""
     if not host:
-        raise UnsafeURLError(f"SafeHTTPClient: URL '{url}' has no host component.")
+        raise UnsafeURLError(
+            f"SafeHTTPClient: URL '{_redact_full(redact_url(url))}' has no host component."
+        )
     return parsed.scheme, host
 
 
@@ -748,10 +771,12 @@ class SafeHTTPClient:
                 break
             except (requests.ConnectionError, requests.Timeout) as exc:
                 last_exc = exc
+                # Redacted: the transport error's text embeds the request
+                # path + query, which carries the credential for keyed URLs.
                 logger.debug(
                     "SafeHTTPClient: pinned-IP %s failed (%s); trying next.",
                     candidate_ip,
-                    exc,
+                    _redact_full(redact_text(str(exc))),
                 )
                 session.close()
                 continue
@@ -767,7 +792,15 @@ class SafeHTTPClient:
                     f"SafeHTTPClient: exhausted all validated IPs for '{host}' "
                     "without recording an exception (loop invariant violated)."
                 )
-            raise last_exc
+            # The raw transport error embeds the request path + query in
+            # its message (urllib3: "Max retries exceeded with url:
+            # /query?apikey=..."), so for a keyed caller re-raising the
+            # original object leaks the credential into exception text.
+            # Re-raise the same TYPE (existing ``except requests.
+            # ConnectionError`` / ``Timeout`` handlers keep working) with
+            # redacted text and a severed chain — the original message IS
+            # the leak, so it must not ride along as ``__cause__``.
+            raise type(last_exc)(_redact_full(redact_text(str(last_exc)))) from None
         # Reject 3xx explicitly.  ``allow_redirects=False`` blocks
         # ``requests`` from following the redirect, but
         # ``raise_for_status()`` only fires on 4xx/5xx, so without this
@@ -783,13 +816,30 @@ class SafeHTTPClient:
         # the allowlist if necessary), not to re-validate and follow.
         if 300 <= response.status_code < 400:
             location = response.headers.get("Location", "<no Location header>")
+            # Both URLs are credential-redacted: the request URL because a
+            # keyed loader composes its credential into it, and the Location
+            # header because upstreams answer with signed/tokenised redirect
+            # targets — either one in exception text is a disclosure.
             raise UnsafeURLError(
                 f"SafeHTTPClient: refused {response.status_code} redirect "
-                f"from '{url}' to '{location}'. SafeHTTPClient does not "
-                f"follow redirects; update the source URL to the final "
-                f"destination (and confirm it is in TRUSTED_DOMAINS)."
+                f"from '{_redact_full(redact_url(url))}' to '{_redact_full(redact_url(location))}'. "
+                f"SafeHTTPClient does not follow redirects; update the "
+                f"source URL to the final destination (and confirm it is "
+                f"in TRUSTED_DOMAINS)."
             )
-        response.raise_for_status()
+        # requests renders HTTPError as "<status> ... Error: <reason> for
+        # url: <fully-composed URL>" — for a keyed caller (Alpha Vantage
+        # ``apikey``, OpenWeatherMap ``appid``, NASA ``api_key`` in query
+        # params) that URL carries the live credential. Re-raise the same
+        # exception type with the URL credential-redacted and the chain
+        # severed (the original message is the leak); ``response`` is
+        # preserved so status-code branching keeps working.
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise requests.HTTPError(
+                _redact_full(redact_text(str(exc))), response=response
+            ) from None
         return response
 
     @classmethod

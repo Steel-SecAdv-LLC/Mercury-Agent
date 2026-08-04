@@ -168,3 +168,19 @@ class TestFIRMSErrorBodyGuard:
         ):
             df = loader.fetch_realtime()
         assert df.empty
+
+    def test_error_body_echoing_key_is_scrubbed(self, tmp_path: Any) -> None:
+        """Observed FIRMS error bodies do not echo the MAP key, but that is
+        upstream behaviour, not a contract — if one ever does, the value
+        scrub must keep it out of the raised message."""
+        loader = _loader(tmp_path)
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url",
+                return_value=f"Bad key {_TEST_KEY} rejected by FIRMS".encode(),
+            ),
+            pytest.raises(ValueError, match="non-CSV body") as exc_info,
+        ):
+            loader.fetch_realtime()
+        assert _TEST_KEY not in str(exc_info.value)
+        assert "<NASA_FIRMS_MAP_KEY:redacted>" in str(exc_info.value)

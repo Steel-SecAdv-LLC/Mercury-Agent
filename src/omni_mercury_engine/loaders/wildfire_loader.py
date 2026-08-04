@@ -474,11 +474,16 @@ class WildfireLoader(BaseDomainLoader):
         # Every FIRMS CSV product's header starts with ``latitude,longitude``;
         # anything else is an error body served with HTTP 200. Fail closed
         # rather than parse it into a nonsense frame. The slice keeps the
-        # diagnostic short, and error bodies never contain the MAP key.
+        # diagnostic short. Observed FIRMS error bodies do not contain the
+        # MAP key, but that is upstream behaviour, not a contract — the
+        # value scrub converts the assumption into a guarantee.
+        from omni_mercury_engine.security.redaction import redact_secrets
+
         first_line = text.lstrip().splitlines()[0]
         if "latitude" not in first_line:
+            safe_snippet = redact_secrets(first_line, {"NASA_FIRMS_MAP_KEY": self._api_key})[:80]
             raise ValueError(
-                f"wildfire: FIRMS returned a non-CSV body ({first_line[:80]!r}); "
+                f"wildfire: FIRMS returned a non-CSV body ({safe_snippet!r}); "
                 "this usually means an invalid MAP key or an exhausted "
                 "transaction quota."
             )

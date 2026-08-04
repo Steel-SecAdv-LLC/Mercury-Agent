@@ -532,3 +532,31 @@ class TestAuditChainKeyFromHDKeyManagement:
         monkeypatch.setattr(auth_mod, "_auth_key_manager", None)
 
         assert SecureHashChain().hmac_key == SecureHashChain().hmac_key
+
+
+class TestPIIMaskerCredentialURLs:
+    """Audit-trail details never carry a composed credential.
+
+    The heuristic patterns require prefix markers and a 20-character
+    floor; the canonical structural pass has neither restriction, so a
+    short key inside a URL query — or an env-held key in a path
+    segment — is caught too.
+    """
+
+    def test_short_query_credential_masked(self) -> None:
+        from omni_mercury_engine.security.secure_audit_logging import PIIMasker
+
+        masker = PIIMasker()
+        masked = masker.mask(
+            {"note": "upstream call https://api.example/v1?api_key=SHORT9&window=1d failed"}
+        )
+        assert "SHORT9" not in masked["note"]
+        assert "api.example/v1" in masked["note"]
+
+    def test_env_held_path_key_masked(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.security.secure_audit_logging import PIIMasker
+
+        monkeypatch.setenv("NASA_FIRMS_MAP_KEY", "AUDITPATHKEY1")
+        masker = PIIMasker()
+        masked = masker.mask({"detail": "GET /api/area/csv/AUDITPATHKEY1/VIIRS -> 200"})
+        assert "AUDITPATHKEY1" not in masked["detail"]
