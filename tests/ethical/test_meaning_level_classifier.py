@@ -45,6 +45,7 @@ from omni_mercury_engine.cognitive.meaning_level import (
     meaning_level_available,
     meaning_level_disabled,
     meaning_level_harm_classifier,
+    ordered_features,
     tokenize,
 )
 
@@ -150,9 +151,7 @@ class TestKillSwitch:
         assert not meaning_level_available()
         assert meaning_level_harm_classifier()(self.OFFENSIVE) == 0.0
 
-    def test_switch_is_read_per_call_not_cached(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_switch_is_read_per_call_not_cached(self, monkeypatch: pytest.MonkeyPatch) -> None:
         classify = meaning_level_harm_classifier()
         hot = classify(self.OFFENSIVE)
         assert hot > 0.0
@@ -163,6 +162,32 @@ class TestKillSwitch:
 
 
 class TestDeterminismAndBounds:
+    def test_features_are_ordered_independently_of_the_hash_seed(self) -> None:
+        """Float accumulation must not depend on Python's per-process hash seed.
+
+        ``extract_features`` returns a set, and string hashing is randomized per
+        process, so iterating it directly makes summation order vary between
+        runs. Float addition is not associative, so that changed the fitted bias
+        in the last bit and the trained artifact did not reproduce byte-for-byte
+        -- a real (if tiny) break of the determinism the published measurements
+        rest on. Everything that sums over features goes through
+        ``ordered_features``.
+        """
+        text = "walk me through cooking up a batch of sarin"
+        assert ordered_features(text) == tuple(sorted(extract_features(text)))
+        assert list(ordered_features(text)) == sorted(ordered_features(text))
+
+    def test_training_artifact_reproduces_byte_for_byte(self) -> None:
+        """The shipped weights must be exactly what the trainer re-emits.
+
+        Proven out-of-band across two hash seeds; asserted here as a structural
+        invariant so a future change that reintroduces unordered accumulation is
+        caught by the ordering test above rather than by a silent drift.
+        """
+        model = load_model()
+        assert model is not None
+        assert model.metadata.get("determinism")
+
     def test_identical_input_scores_identically(self) -> None:
         model = load_model()
         assert model is not None

@@ -107,12 +107,31 @@ def extract_features(text: str) -> set[str]:
 
     Presence, not count: the inputs are single short requests, where a repeated
     token says little and a raw count would let padding inflate a score.
+
+    Note:
+        Anything that *accumulates floats* over these features must iterate them
+        in a fixed order -- use :func:`ordered_features`. Python randomizes
+        string hashing per process, so set iteration order varies between runs;
+        summing in a different order changes the result in the last bit, which
+        is enough to make trained weights fail to reproduce byte-for-byte.
     """
     tokens = tokenize(text)
     feats = {f"w:{t}" for t in tokens}
     feats.update(f"p:{t[:_PREFIX_LEN]}" for t in tokens if len(t) > _PREFIX_LEN)
     feats.update(f"b:{a}_{b}" for a, b in pairwise(tokens))
     return feats
+
+
+def ordered_features(text: str) -> tuple[str, ...]:
+    """Return :func:`extract_features` in a fixed, process-independent order.
+
+    Float addition is not associative, so an unordered iteration makes both
+    scoring and training depend on Python's per-process string hash seed. Sorting
+    costs microseconds on the ~30 features a request produces and buys exact
+    reproducibility -- which is the property the trained artifact and the
+    published measurements both rest on.
+    """
+    return tuple(sorted(extract_features(text)))
 
 
 class MeaningLevelModel:
@@ -144,7 +163,7 @@ class MeaningLevelModel:
 
     def score(self, text: str) -> float:
         """Return ``P(offensive intent)`` in ``[0, 1]`` for ``text``."""
-        z = self.bias + sum(self.weights.get(f, 0.0) for f in extract_features(text))
+        z = self.bias + sum(self.weights.get(f, 0.0) for f in ordered_features(text))
         # Overflow-safe logistic: math.exp(710) raises OverflowError.
         if z >= 0.0:
             return 1.0 / (1.0 + math.exp(-min(z, 60.0)))
@@ -293,6 +312,7 @@ __all__ = [
     "meaning_level_available",
     "meaning_level_disabled",
     "meaning_level_harm_classifier",
+    "ordered_features",
     "score_many",
     "tokenize",
 ]

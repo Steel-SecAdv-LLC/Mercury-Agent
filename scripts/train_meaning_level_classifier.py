@@ -55,7 +55,7 @@ from omni_mercury_engine.cognitive.meaning_level import (
     FEATURE_VERSION,
     WEIGHTS_PATH,
     MeaningLevelModel,
-    extract_features,
+    ordered_features,
 )
 
 if TYPE_CHECKING:
@@ -93,7 +93,11 @@ def train(
     Full-batch gradient descent from a zero initialization, so the result is a
     deterministic function of ``rows`` alone.
     """
-    featurized = [(extract_features(r.text), float(r.label)) for r in rows]
+    # ordered_features(), not extract_features(): set iteration order varies with
+    # Python's per-process string hash seed, and float addition is not
+    # associative, so an unordered iteration makes the fitted weights differ in
+    # the last bit between runs. Sorting makes the artifact byte-reproducible.
+    featurized = [(ordered_features(r.text), float(r.label)) for r in rows]
     weights: dict[str, float] = {}
     bias = 0.0
     n = float(len(featurized)) or 1.0

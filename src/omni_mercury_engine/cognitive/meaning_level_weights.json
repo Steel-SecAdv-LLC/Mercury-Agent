@@ -1,5 +1,5 @@
 {
- "bias": -1.1980660615484353,
+ "bias": -1.1980660615484355,
  "feature_version": 1,
  "metadata": {
   "corpus": "benchmarks/meaning_level_corpus.py",
@@ -31,7 +31,29 @@
    "tn": 4688,
    "tp": 3888
   },
-  "generalization": {},
+  "generalization": {
+   "leave-act-out": {
+    "folds": 4,
+    "mean_accuracy": 0.8125,
+    "mean_auroc": 0.9494,
+    "mean_precision": 0.7227,
+    "mean_recall": 0.9689
+   },
+   "leave-act-out-fine": {
+    "folds": 10,
+    "mean_accuracy": 0.8334,
+    "mean_auroc": 0.9569,
+    "mean_precision": 0.7368,
+    "mean_recall": 0.9851
+   },
+   "leave-frame-out": {
+    "folds": 4,
+    "mean_accuracy": 0.9677,
+    "mean_auroc": 0.9991,
+    "mean_precision": 0.9984,
+    "mean_recall": 0.9383
+   }
+  },
   "hyperparameters": {
    "epochs": 400,
    "l2": 0.0002,
