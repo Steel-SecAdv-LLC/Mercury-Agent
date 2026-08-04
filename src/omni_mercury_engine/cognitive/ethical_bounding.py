@@ -43,7 +43,10 @@ import numpy as np
 from omni_mercury_engine.cognitive.harm_normalization import (
     MULTILINGUAL_HAZARD_TERMS,
     MULTILINGUAL_OFFENSIVE_CUES,
+    any_term_in_haystack,
+    compile_terms,
     normalized_haystack,
+    term_in_haystack,
 )
 
 logger = logging.getLogger(__name__)
@@ -980,19 +983,47 @@ _MULTILINGUAL_OFFENSIVE: tuple[tuple[str, OperationalIntent, str], ...] = tuple(
     (cue, OperationalIntent[tier_name], label)
     for cue, tier_name, label in MULTILINGUAL_OFFENSIVE_CUES
 )
+# Parallel to _MULTILINGUAL_OFFENSIVE by index (see _match_multilingual_offensive).
+_MULTILINGUAL_OFFENSIVE_FORMS: tuple[tuple[str, ...], ...] = compile_terms(
+    cue for cue, _tier, _label in _MULTILINGUAL_OFFENSIVE
+)
+
+
+# Pre-compiled match forms for every substring lexicon, built once at import.
+#
+# Each term is expanded to its base / obfuscation-folded / separator-free forms
+# (see harm_normalization.term_match_forms). The separator-free form is the
+# load-bearing one: normalized_haystack's collapsed variant has all separators
+# removed, so a multi-word term like "nerve agent" is only findable there as
+# "nerveagent". Matching the raw term alone let per-character spacing
+# ("n e r v e   a g e n t") evade ~70% of the Axis-A lexicon outright.
+#
+# Compiling at import keeps the per-query cost to a substring scan over a
+# de-duplicated form list (single-token ASCII terms yield exactly one form, so
+# they cost nothing extra).
+_HAZARD_DOMAIN_FORMS: dict[HazardDomain, tuple[tuple[str, ...], ...]] = {
+    domain: compile_terms(keywords) for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items()
+}
+_HAZARD_CONTEXT_ANCHOR_FORMS: tuple[tuple[str, ...], ...] = compile_terms(
+    sorted(_HAZARD_CONTEXT_ANCHORS)
+)
 
 
 def _match_hazard_domain(haystack: str) -> HazardDomain:
     """Axis A: cheap high-recall routing match; returns the first domain hit."""
-    for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items():
-        if any(kw in haystack for kw in keywords):
+    for domain, compiled in _HAZARD_DOMAIN_FORMS.items():
+        if any_term_in_haystack(haystack, compiled):
             return domain
     return HazardDomain.NONE
 
 
 def _match_multilingual_offensive(haystack: str) -> list[tuple[OperationalIntent, str]]:
     """Substring pass for the multilingual offensive-intent cues."""
-    return [(tier, label) for cue, tier, label in _MULTILINGUAL_OFFENSIVE if cue in haystack]
+    return [
+        (tier, label)
+        for (_cue, tier, label), forms in zip(_MULTILINGUAL_OFFENSIVE, _MULTILINGUAL_OFFENSIVE_FORMS)
+        if term_in_haystack(haystack, forms)
+    ]
 
 
 def _match_intent_patterns(
@@ -1071,7 +1102,7 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # (it would false-positive on "how do I cook dinner"). Either way the query
     # is routed to OTHER_MASS_HARM so Axis B gates it.
     if domain is HazardDomain.NONE:
-        anchored = any(anchor in haystack for anchor in _HAZARD_CONTEXT_ANCHORS)
+        anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
         gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
         if anchored:
             gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}

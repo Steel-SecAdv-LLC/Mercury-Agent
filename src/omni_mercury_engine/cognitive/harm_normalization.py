@@ -39,6 +39,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # ---------------------------------------------------------------------------
 # Character-level de-obfuscation.
@@ -207,6 +211,64 @@ def _punct_strip(folded: str) -> str:
     return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", folded)).strip()
 
 
+# A run of 2+ whitespace is the word gap in a per-character-spaced phrase: a
+# human writing "n e r v e   a g e n t" separates the letters with one space and
+# the words with more. Single spaces inside such a run are letter separators.
+_WORD_GAP_RE = re.compile(r"\s{2,}")
+
+
+def _rejoin_spaced_words(text: str) -> str:
+    """Rebuild words from per-character spacing; ``""`` when there is nothing to rebuild.
+
+    ``"h o w   t o   m a k e   a   n e r v e   a g e n t"`` becomes
+    ``"how to make a nerve agent"``. Runs of two or more consecutive
+    single-character tokens are joined; every other token is passed through, so
+    ordinary prose and the legitimate one-letter words ``a``/``i`` survive
+    unchanged.
+
+    This complements -- it does not replace -- the *collapsed* variant. Collapsing
+    removes every separator, which recovers a spaced single-token term
+    (``s a r i n``) but destroys the word boundaries that the Axis-B intent
+    regexes need in order to match at all. Rejoining keeps those boundaries, so a
+    spaced-out query is assessed for *intent*, not merely routed by Axis A.
+
+    Word segmentation is only recoverable when the attacker marks word gaps
+    (2+ spaces). Under uniform single spacing the segmentation is genuinely
+    ambiguous -- ``"m a k e a b o m b"`` has no unique reading -- and this
+    function correctly declines to guess; Axis A still routes such a query via
+    the collapsed variant, and the meaning-level classifier supplies intent.
+
+    Returns:
+        The rejoined text, or ``""`` when no run was found (the caller then adds
+        no variant, so ordinary queries pay nothing).
+    """
+    joined_any = False
+    groups: list[str] = []
+    for group in _WORD_GAP_RE.split(text):
+        out: list[str] = []
+        run: list[str] = []
+
+        def flush(out: list[str] = out, run: list[str] = run) -> None:
+            nonlocal joined_any
+            if len(run) >= 2:
+                out.append("".join(run))
+                joined_any = True
+            else:
+                out.extend(run)
+            run.clear()
+
+        for token in group.split():
+            if len(token) == 1 and token.isalnum():
+                run.append(token)
+            else:
+                flush()
+                out.append(token)
+        flush()
+        if out:
+            groups.append(" ".join(out))
+    return " ".join(groups) if joined_any else ""
+
+
 # Cyrillic -> Latin PHONETIC transliteration (distinct from the visual homoglyph
 # fold above: e.g. 'в' is visually 'B' but phonetically 'v'). Complements the
 # homoglyph variant so a *phonetic* Cyrillic obfuscation ("н3рв3" mixing Cyrillic
@@ -263,24 +325,47 @@ def _cyrillic_translit(base: str) -> str:
 def normalized_haystack(text: str) -> str:
     r"""Return a newline-joined bundle of normalization variants for matching.
 
-    The bundle is ``base \n folded \n collapsed``:
+    The bundle is ``base \n folded \n despaced \n collapsed``:
 
     * **base** -- lowercased, zero-width-stripped, diacritic-folded, whitespace-
       collapsed. Script-preserving; multi-word and native-script terms match here.
     * **folded** -- base with homoglyph + leetspeak folded to ASCII. Catches
       ``n3rv3 ag3nt`` and Cyrillic-glyph spoofing.
-    * **collapsed** -- folded with all separators removed. Catches per-character
-      spacing/punctuation insertion (``s.a.r.i.n``, ``n e r v e``).
+    * **despaced** -- folded with intra-word punctuation dropped but word
+      boundaries kept. Catches dotted/hyphenated multi-word terms
+      (``n.e.r.v.e a.g.e.n.t``).
+    * **rejoined** -- per-character-spaced words rebuilt using 2+ spaces as the
+      word gap (``h o w   t o   m a k e`` -> ``how to make``). Present only when
+      the query actually contains such a run. Unlike *collapsed* this keeps word
+      boundaries, so the Axis-B intent regexes can still match a spaced query.
+    * **collapsed** -- folded with *all* separators removed. Catches
+      per-character spacing (``s a r i n``).
 
-    Existing ``keyword in haystack`` and ``pattern.search(haystack)`` logic runs
-    unchanged and sees every variant. Fail-open on error: returns the plain
-    lowercased text so a normalization bug never blinds the gate.
+    .. important::
+       The **collapsed** variant has every separator removed, so a lexicon term
+       that itself contains a separator (``"nerve agent"``, ``"pipe bomb"`` --
+       70% of the Axis-A lexicon) can *never* be found in it by a plain
+       ``term in haystack`` test. Match lexicon terms with
+       :func:`term_match_forms` + :func:`term_in_haystack`, which probe the
+       term's own collapsed form as well; a raw substring test silently
+       re-opens the per-character-spacing bypass those two functions exist to
+       close.
+
+    Regex matching (``pattern.search(haystack)``) runs unchanged and sees every
+    variant. Fail-open on error: returns the plain lowercased text so a
+    normalization bug never blinds the gate.
     """
     try:
         base = base_normalize(text)
         folded = _fold_obfuscation(base)
         collapsed = _collapse(folded)
         despaced = _punct_strip(folded)
+        # Word-boundary-preserving de-spacing. Derived from the text *before*
+        # base_normalize squeezes runs of whitespace, because the run length is
+        # exactly the signal that distinguishes a letter gap from a word gap.
+        # Empty (and therefore skipped) for any query without per-character
+        # spacing, which is virtually all of them.
+        rejoined = _fold_obfuscation(base_normalize(_rejoin_spaced_words(text or "")))
         # Phonetic-Cyrillic variant: transliterate then apply the same folds, so a
         # phonetic Cyrillic obfuscation (Cyrillic н/р/в mixed with leetspeak) also
         # normalizes toward Latin. Skipped when there is no Cyrillic (no cost).
@@ -292,13 +377,91 @@ def normalized_haystack(text: str) -> str:
         # De-dup identical variants to keep the haystack compact.
         seen: set[str] = set()
         variants: list[str] = []
-        for v in (base, folded, despaced, collapsed, *translit_variants):
+        for v in (base, folded, despaced, rejoined, collapsed, *translit_variants):
             if v and v not in seen:
                 seen.add(v)
                 variants.append(v)
         return "\n".join(variants)
     except Exception:
         return (text or "").lower()
+
+
+# ---------------------------------------------------------------------------
+# Lexicon-term matching against a normalized haystack.
+#
+# ``normalized_haystack`` emits a *collapsed* variant with every separator
+# removed so per-character spacing ("s a r i n") still matches. That works for a
+# single-token term, whose collapsed form equals itself -- but a term containing
+# a separator ("nerve agent") keeps its space and therefore CANNOT occur in the
+# collapsed variant at all. Because ~70% of the Axis-A lexicon is multi-word,
+# a plain ``term in haystack`` test let per-character spacing evade almost the
+# entire router: measured, spacing every character of the fit-on offensive
+# corpus dropped the gate from 182/182 blocked to 1/182 (the single survivor was
+# ``s a r i n``, the one *single-token* term). These two functions are the fix
+# and the single source of truth for it -- see tests/ethical/
+# test_weapons_gate_properties.py for the lexicon-wide property that pins it.
+# ---------------------------------------------------------------------------
+
+
+def term_match_forms(term: str) -> tuple[str, ...]:
+    """Return every surface form of ``term`` that must be probed against a haystack.
+
+    A lexicon term has to be matched in the same normalization space as the
+    query. :func:`normalized_haystack` bundles several variants of the query, so
+    a term needs the corresponding variants of itself:
+
+    * its **base**-normalized form (matches the base/despaced query variants),
+    * its **obfuscation-folded** form (matches the folded query variant -- this
+      is what lets a native-script multilingual term match a homoglyph-folded
+      query), and
+    * its **collapsed**, separator-free form (matches the collapsed query
+      variant -- this is what closes the per-character-spacing bypass for
+      multi-word terms).
+
+    Forms are de-duplicated, so a single-token ASCII term collapses to one
+    string and costs no extra work. Intended to be called **once per term at
+    import time** and the result cached; :func:`term_in_haystack` consumes it.
+
+    Args:
+        term: A lexicon entry, e.g. ``"nerve agent"`` or ``"sarin"``.
+
+    Returns:
+        A de-duplicated tuple of non-empty surface forms, sorted for
+        determinism.
+    """
+    base = base_normalize(term)
+    if not base:
+        return ()
+    folded = _fold_obfuscation(base)
+    forms = {base, folded, _collapse(folded)}
+    return tuple(sorted(f for f in forms if f))
+
+
+def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
+    """True when any surface form of a lexicon term occurs in ``haystack``.
+
+    Args:
+        haystack: A bundle from :func:`normalized_haystack`.
+        forms: The term's pre-compiled forms from :func:`term_match_forms`.
+
+    Returns:
+        ``True`` if the term is present in *any* normalization variant.
+    """
+    return any(form in haystack for form in forms)
+
+
+def compile_terms(terms: Iterable[str]) -> tuple[tuple[str, ...], ...]:
+    """Pre-compile an iterable of lexicon terms into per-term match forms.
+
+    Order is preserved so a caller can zip the result back against parallel
+    metadata (intent tier, audit label) without re-deriving it.
+    """
+    return tuple(term_match_forms(t) for t in terms)
+
+
+def any_term_in_haystack(haystack: str, compiled: tuple[tuple[str, ...], ...]) -> bool:
+    """True when any pre-compiled term in ``compiled`` occurs in ``haystack``."""
+    return any(term_in_haystack(haystack, forms) for forms in compiled)
 
 
 # ---------------------------------------------------------------------------
@@ -683,6 +846,10 @@ MULTILINGUAL_OFFENSIVE_CUES: tuple[tuple[str, str, str], ...] = (
 __all__ = [
     "MULTILINGUAL_HAZARD_TERMS",
     "MULTILINGUAL_OFFENSIVE_CUES",
+    "any_term_in_haystack",
     "base_normalize",
+    "compile_terms",
     "normalized_haystack",
+    "term_in_haystack",
+    "term_match_forms",
 ]
