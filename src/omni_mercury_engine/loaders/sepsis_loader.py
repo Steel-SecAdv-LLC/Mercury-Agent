@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import io
 import logging
-import zipfile
+import re
 from pathlib import Path
 from typing import Any
 
@@ -35,9 +35,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # PhysioNet Challenge 2019 endpoints
 # ---------------------------------------------------------------------------
+# PhysioNet serves the training sets as DIRECTORIES of per-patient ``p*.psv``
+# files, one file per ICU stay -- there is no ``training_setA.zip`` on the
+# server (the previous zip URLs returned HTTP 404 on every fetch, so this
+# loader's download path was a dead wire). The transport lists the directory
+# index once, then fetches individual PSV files up to ``max_patients``.
 _BASE_DATA_URL = "https://physionet.org/files/challenge-2019/1.0.0/"
-_TRAINING_A_URL = f"{_BASE_DATA_URL}training/training_setA.zip"
-_TRAINING_B_URL = f"{_BASE_DATA_URL}training/training_setB.zip"
+_TRAINING_A_URL = f"{_BASE_DATA_URL}training/training_setA/"
+_TRAINING_B_URL = f"{_BASE_DATA_URL}training/training_setB/"
 
 # ---------------------------------------------------------------------------
 # Canonical column names from the challenge PSV files
@@ -493,97 +498,79 @@ class SepsisLoader(BaseDomainLoader):
         set_label: str,
         max_patients: int = 0,
     ) -> pd.DataFrame:
-        """Download and parse a PhysioNet Challenge 2019 training set ZIP.
+        """Download and parse a PhysioNet Challenge 2019 training set.
 
-        The training data is distributed as a ZIP archive containing
-        per-patient PSV (pipe-separated values) files named
-        ``p{NNNNNN}.psv``.
+        PhysioNet serves each training set as a directory of per-patient
+        PSV (pipe-separated values) files named ``p{NNNNNN}.psv`` — not as
+        a ZIP archive (the historical zip URLs 404). The directory index
+        is fetched once, the ``p*.psv`` entries are enumerated in sorted
+        order, and individual files are fetched up to ``max_patients``.
 
         Args:
-            url: URL of the training set ZIP archive.
+            url: URL of the training set directory (trailing slash).
             set_label: Human-readable label for the set (``"A"`` or ``"B"``).
-            max_patients: Maximum number of patient files to parse.
-                ``0`` means load all available files.
+            max_patients: Maximum number of patient files to fetch.
+                ``0`` means all files in the index — for the full sets that
+                is ~20k HTTP fetches; callers should cap.
 
         Returns:
             Concatenated DataFrame with all patient records.  Includes a
             ``patient_id`` column extracted from the filename.
 
         Raises:
-            DataSourceUnavailableError: If PhysioNet is unreachable or
-                the data cannot be downloaded.
+            DataSourceUnavailableError: If PhysioNet is unreachable, the
+                index lists no PSV files, or any listed file fails to
+                fetch. A listed-but-unfetchable file is upstream
+                inconsistency and fails loud rather than silently
+                shrinking the cohort.
         """
         try:
-            raw_bytes = self._fetch_url(url)
+            index_html = self._fetch_url(url).decode("utf-8", errors="replace")
         except ConnectionError as exc:
             raise DataSourceUnavailableError(
                 loader_name="SepsisLoader",
                 source_url=url,
-                reason=(f"Failed to download training set {set_label} from " f"PhysioNet: {exc}"),
+                reason=(f"Failed to list training set {set_label} from " f"PhysioNet: {exc}"),
             ) from exc
 
-        return self._parse_zip_archive(raw_bytes, max_patients=max_patients)
+        psv_names = sorted(set(re.findall(r'href="(p\d+\.psv)"', index_html)))
+        if not psv_names:
+            raise DataSourceUnavailableError(
+                loader_name="SepsisLoader",
+                source_url=url,
+                reason=(
+                    f"Training set {set_label} index at PhysioNet lists no "
+                    "p*.psv files; the upstream layout has changed."
+                ),
+            )
+        if max_patients > 0:
+            psv_names = psv_names[:max_patients]
 
-    def _parse_zip_archive(
-        self,
-        archive_bytes: bytes,
-        max_patients: int = 0,
-    ) -> pd.DataFrame:
-        """Parse a ZIP archive of per-patient PSV files.
-
-        Args:
-            archive_bytes: Raw bytes of the ZIP archive.
-            max_patients: Maximum patient files to parse (0 = all).
-
-        Returns:
-            Concatenated DataFrame with a ``patient_id`` column.
-        """
         frames: list[pd.DataFrame] = []
-        patients_parsed = 0
-
-        try:
-            with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
-                psv_names = sorted(name for name in zf.namelist() if name.endswith(".psv"))
-
-                if not psv_names:
-                    logger.warning("No .psv files found in ZIP archive.")
-                    return pd.DataFrame()
-
-                for psv_name in psv_names:
-                    if 0 < max_patients <= patients_parsed:
-                        break
-
-                    patient_id = self._extract_patient_id(psv_name)
-                    try:
-                        with zf.open(psv_name) as psv_file:
-                            patient_df = pd.read_csv(
-                                psv_file,
-                                sep="|",
-                                na_values=["NaN", "nan", ""],
-                            )
-                        patient_df["patient_id"] = patient_id
-                        frames.append(patient_df)
-                        patients_parsed += 1
-                    except Exception as exc:
-                        logger.warning(
-                            "Failed to parse patient file '%s': %s",
-                            psv_name,
-                            exc,
-                        )
-                        continue
-
-        except zipfile.BadZipFile as exc:
-            logger.error("Downloaded archive is not a valid ZIP file: %s", exc)
-            return pd.DataFrame()
-
-        if not frames:
-            logger.warning("No patient records could be parsed.")
-            return pd.DataFrame()
+        for psv_name in psv_names:
+            try:
+                raw = self._fetch_url(f"{url}{psv_name}")
+            except ConnectionError as exc:
+                raise DataSourceUnavailableError(
+                    loader_name="SepsisLoader",
+                    source_url=url,
+                    reason=(
+                        f"Training set {set_label}: listed file "
+                        f"'{psv_name}' failed to fetch: {exc}"
+                    ),
+                ) from exc
+            patient_df = pd.read_csv(
+                io.BytesIO(raw),
+                sep="|",
+                na_values=["NaN", "nan", ""],
+            )
+            patient_df["patient_id"] = self._extract_patient_id(psv_name)
+            frames.append(patient_df)
 
         combined = pd.concat(frames, ignore_index=True)
         logger.info(
             "Parsed %d patient files (%d total observations).",
-            patients_parsed,
+            len(frames),
             len(combined),
         )
         return combined
