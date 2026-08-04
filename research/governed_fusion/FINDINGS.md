@@ -36,6 +36,17 @@ The live-only headline AUROC (**0.823**) is *lower* than the old mixed 0.839: th
 reconstructions were the easier data (reconstructed baseline AUROC 0.920). The
 provable number is the smaller one.
 
+**Provenance split (supersedes the mixed live headline).** Of the 23 live
+events, only 2 carry labels independent of any scored feature
+(`network_security`: `nsl_kdd`, `batadal`); the other 21 threshold a scored
+feature (statistical / circular). Split by `LABEL_PROVENANCE_REGISTRY`, the
+externally-defensible number is **AUROC 0.770** (external_label only, 2
+events); the self-label bucket measures 0.828 — *higher* than the mixed
+0.823, i.e. label leakage flattered the mixed headline. The external-only
+figure is the only one the Phase 2 promotion gate reads, and the only one
+this document claims as skill; see the baseline table below and
+`docs/BENCHMARKS.md` ("Transparent fitness substrate") for the same split.
+
 **Provenance guard (this pass).** The static label is correct today, but `marine`
 is live-labelled while its loader *silently* synthesises on an empty OBIS response
 (tagging every row `dataset_id="synthetic"`; the live OBIS path never does). To
@@ -89,7 +100,9 @@ Tests: `tests/research/test_governed_suite_provenance.py` (4, offline).
 
 | group | events / domains | AUROC | AUPRC | F1 | P | R |
 |---|---|---:|---:|---:|---:|---:|
-| **live headline** | 23 / 7 | **0.823** | **0.410** | **0.277** | **0.273** | **0.572** |
+| **live — external_label (the skill claim)** | 2 / 1 | **0.770** | **0.429** | **0.186** | **0.330** | **0.324** |
+| live — self_label (leakage-flagged) | 21 / 6 | 0.828 | 0.408 | 0.285 | 0.267 | 0.595 |
+| live mixed (historical headline — superseded) | 23 / 7 | 0.823 | 0.410 | 0.277 | 0.273 | 0.572 |
 | reconstructed (labelled) | 7 / 3 | 0.920 | 0.552 | 0.368 | 0.476 | 0.549 |
 
 Reproduced from committed code (`results/baseline_results.json`). Pooled
@@ -338,7 +351,7 @@ verdict cites the committed artifact that proves it (numbers re-read from
 
 | axis | verdict | committed proof |
 |---|---|---|
-| baseline ensemble (0.40/0.30/0.30) | shipped; live AUROC **0.8231**; no re-weighting beats best-single (see fusion pooling) | `baseline_results.json` `real.overall.auroc` |
+| baseline ensemble (0.40/0.30/0.30) | shipped; live mixed AUROC **0.8231** (external_label-only **0.7704** — the skill claim; see provenance split) | `baseline_results.json` `real.overall.auroc` / `real.per_event` × `LABEL_PROVENANCE_REGISTRY` |
 | calibration | **Beta-MCA LANDED** — Brier −0.0939, ECE −0.2351, AUROC tie (0.7957); lever sweep + Venn-Abers are conclusive negatives | `calibration_results.json`; `calibration_levers_results.json` verdict `NEGATIVE`, `land_candidates: []` |
 | operating point | conformal a disclosed **recall/coverage trade**, −0.071 F1 vs Youden/F1 (0.3982 − 0.4697) | `conformal_results.json` `overall` |
 | fusion pooling | **KILL** — rel·clipped 0.8429 < best-single 0.8779 (gap −0.035); not shipped (I3) | `reliability_fusion_results.json` `gap_to_best_single`, `verdict` |

@@ -1,12 +1,12 @@
-# Hazard Regression Gate — per-hazard skill floors
+# Hazard Regression Gate — per-hazard behavior floors
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-08-04.
 
 ## TL;DR
 
 The hazard transparency wave (volcanic, space, tsunami/earthquake, and
 meteorological detectors) replaced untrained-network theater with
-deterministic physics paths — but nothing pinned their *skill*.
+deterministic physics paths — but nothing pinned their *behavior*.
 `benchmarks/hazard_regression_guard.py` + `hazard_domain_baseline.json` close
 that: every guarded detector runs over committed, hash-pinned scenario sets,
 standard skill scores (`omni_mercury_engine/evaluation/hazard_metrics.py` —
@@ -14,6 +14,19 @@ each formula unit-tested against a worked literature example) are compared to
 measured-minus-margin floors, and CI (`.github/workflows/hazard-regression.yml`,
 required check `ci/hazard-regression`) fails on any crossing. Fully offline
 and bit-deterministic.
+
+**What these floors are — and are not.** Six of the seven domains run over
+**constructed** scenario sets (seeded, physics-shaped, disclosed per-row in
+the table below), and their baselines sit at or near perfect scores. Those
+rows are **regression pins on the physics paths** — they prove the detector
+still detects the scenarios it was designed to detect, and they catch any
+change that degrades that. They are **not real-world skill claims**: no
+constructed-scenario number here may be quoted as detection skill on real
+events. The single exception is **solar**, whose windows are real measured
+SWPC/GOES data (fetched, cached in-repo, `label_source: measured`) — that
+row is a genuine real-data floor, and it is the pattern the other six
+domains should migrate to (fetch-once, hash-pin real event windows) as
+follow-up work.
 
 ## What is gated
 

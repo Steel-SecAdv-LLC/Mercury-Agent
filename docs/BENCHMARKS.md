@@ -520,6 +520,31 @@ data**. Reproduce the README near-peer table with
 `python -m benchmarks.empirical_benchmark --readme-subset -o benchmarks/empirical_benchmark_results.json`
 (license-clean scikit-learn datasets only).
 
+## Gate provenance census — real data vs constructed, stated once
+
+Every blocking CI lane's data provenance, so no threshold can be read as
+something it is not. **Rule:** a *skill claim* must rest on real,
+externally-labeled data; a *behavior/invariant pin* may run constructed or
+seeded input and must never be quoted as skill.
+
+| Blocking lane | Data | Provenance | Reads as |
+|---|---|---|---|
+| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 53 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 6 real domain) | **real, external labels** | skill claim |
+| `anomaly_regression_guard` | 8 ADBench sets, sha256-pinned, downloaded per run | **real, external labels** | skill regression floor |
+| `ci/hazard-regression` — solar row | 83 windows of measured SWPC/GOES data, cached in-repo | **real, measured** | real-data floor |
+| `ci/hazard-regression` — other 6 domains | 124 constructed scenarios (seeded, physics-shaped, disclosed per-row in `docs/HAZARD_REGRESSION.md`) | constructed | behavior pin — **not** skill |
+| Fusion AUC/F1 + conformal coverage gate | seeded synthetic corpus (stated in workflow header) | synthetic | math/behavior pin — **not** skill |
+| `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: recall 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
+| `ci/red-team` | deterministic mutation registry over seed prompts | constructed | control-survival pin |
+| CI `Performance Benchmark` latency asserts | `np.random.randn` arrays | synthetic | latency pin only |
+| Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.7704) | **real, external labels** | the only fusion skill claim |
+
+Counting individual blocking thresholds: **~24 rest on real data, ~40 on
+constructed/synthetic input.** The published headline numbers (ADBench
+0.8251/0.5998, governed-fusion external-label 0.7704) rest exclusively on
+the real side; every constructed lane above is a pin, and quoting one as
+skill is a documentation bug — report it.
+
 ## References
 
 1. Tavallaee et al., "A Detailed Analysis of the KDD CUP 99 Data Set", IEEE CISDA 2009
