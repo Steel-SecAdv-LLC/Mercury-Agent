@@ -455,12 +455,34 @@ limits plainly:
      ethical lane (`tests/ethical/test_weapons_gate_adversarial_eval.py`): 0 FP
      on the professional slice + an FN *ceiling* in the default posture (lexical
      coverage may not regress), the routing-rescue mechanism asserted directly,
-     and — when a real model is configured — an FN *budget*
-     (`MAX_REAL_CLASSIFIER_FN_RATE` < 35%, re-pinned from 30% on 2026-07-20 for
-     the expanded adversarial slice) with a real classifier. Absent a real model the FN-budget lane skips **loudly** (or
-     fails under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`), so "meaning-level
-     coverage met" is marked by the CI FN budget with a real model, **not** by
-     lexicon size.
+     and an FN *budget* (`MAX_REAL_CLASSIFIER_FN_RATE` < 35%) with a
+     meaning-level classifier serving.
+
+  **Superseded 2026-08-04 — the meaning-level layer now ships.** Points 2 and 3
+  above were written when the *only* thing that could serve the classifier hook
+  was a generative model, which made meaning-level coverage conditional on an
+  operator running Ollama. It no longer is.
+  `cognitive/meaning_level.py` ships a trained, deterministic, stdlib-only
+  classifier inside the package — no model server, no network call, no new
+  dependency — and it is now the **default** at `assess_weapons_uplift`,
+  `HarmReducer`, `BenevolenceScorer` and the `enforce_decision_boundary` choke
+  point. Consequences for this section:
+  * The default posture is meaning-level, not lexical-only. Held-out FN-rate
+    falls **0.744 → 0.263** (recall 0.256 → 0.737) with precision held at 1.00
+    and 0 FP on the professional slice.
+  * The FN-budget lane no longer skips. It previously recorded the gap loudly on
+    every normal PR and measured nothing; `test_shipped_classifier_beats_the_lexical_floor`
+    now pins the capability itself (≤ 0.30 FN-rate) so a weights file that loads
+    but cannot discriminate fails rather than passing silently.
+  * "Meaning-level coverage met" is now a property of the repository rather than
+    of a deployment's local model. It is still **not** a property of lexicon
+    size — the classifier learns the request *frame*, and its training corpus
+    asserts that hazard-noun presence carries no label information at all.
+
+  A served generative model still composes on top (combined by `max`), and
+  `MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER=1` restores the strictly lexical
+  posture. Full method, measurements, generalization protocol and the known
+  residuals are in `docs/MEANING_LEVEL_CLASSIFIER.md`.
 - **The verbatim synthesizer is the single highest-risk component.** The
   pre-emission output gate — now including the cross-sentence assembled-procedure
   re-gate — is load-bearing; any weakening of it is treated as a security

@@ -252,7 +252,7 @@ def _space_out(text: str, gap: str = "   ") -> str:
 @pytest.mark.parametrize(
     "mangle",
     [
-        pytest.param(lambda t: _space_out(t), id="spaced"),
+        pytest.param(_space_out, id="spaced"),
         pytest.param(lambda t: " ".join(".".join(w) for w in t.split()), id="dotted"),
         pytest.param(lambda t: " ".join("-".join(w) for w in t.split()), id="dashed"),
     ],

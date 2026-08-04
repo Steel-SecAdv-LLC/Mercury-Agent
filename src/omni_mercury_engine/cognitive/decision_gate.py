@@ -62,6 +62,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
+    USE_SHIPPED_CLASSIFIER,
     EthicalConstraintViolationError,
     HazardDomain,
     OperationalIntent,
@@ -227,7 +228,7 @@ def enforce_decision_boundary(
     subject: DecisionSubject,
     *,
     advisory_scorer: Any | None = None,
-    harm_classifier: Any | None = None,
+    harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
 ) -> BoundaryVerdict:
     """Run the enforced harm-uplift gate over a real decision; raise if it blocks.
 
@@ -243,9 +244,13 @@ def enforce_decision_boundary(
             computed, logged and attached to the verdict — **advisory only**.
             A scorer that raises is logged and ignored: an advisory signal must
             not be able to fail the decision, and must not be able to pass it.
-        harm_classifier: Optional meaning-level classifier forwarded to
+        harm_classifier: Meaning-level classifier forwarded to
             :func:`assess_weapons_uplift`.  Consulted, never trusted: it can
-            only raise a disposition.
+            only raise a disposition.  Defaults to Mercury's shipped offline
+            classifier; pass ``None`` for a strictly lexical gate.  This
+            forwarder must not default to ``None``, or the choke point every
+            decision surface routes through would be the one place that opts
+            out of meaning-level coverage.
 
     Returns:
         A :class:`BoundaryVerdict` describing the permitted decision.

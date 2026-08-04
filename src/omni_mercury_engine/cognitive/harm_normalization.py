@@ -403,6 +403,30 @@ def normalized_haystack(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def canonical_normalize(text: str) -> str:
+    """Return a single de-obfuscated form of ``text`` for tokenizing.
+
+    :func:`normalized_haystack` returns *several* variants because substring and
+    regex matching wants to see all of them at once. A tokenizer wants exactly
+    one canonical string instead -- feeding it the bundle would double-count
+    every token once per variant.
+
+    This is that one string: lowercased, zero-width-stripped, diacritic- and
+    homoglyph/leet-folded, with per-character spacing rebuilt into words where
+    the word gaps make that recoverable. Obfuscation is therefore normalized
+    away *before* tokenization, so a downstream model does not have to learn
+    leetspeak.
+
+    Fail-open: returns the plain lowercased text if normalization raises.
+    """
+    try:
+        rejoined = _rejoin_spaced_words(text or "")
+        base = base_normalize(rejoined or text)
+        return _fold_obfuscation(base)
+    except Exception:
+        return (text or "").lower()
+
+
 def term_match_forms(term: str) -> tuple[str, ...]:
     """Return every surface form of ``term`` that must be probed against a haystack.
 
@@ -848,6 +872,7 @@ __all__ = [
     "MULTILINGUAL_OFFENSIVE_CUES",
     "any_term_in_haystack",
     "base_normalize",
+    "canonical_normalize",
     "compile_terms",
     "normalized_haystack",
     "term_in_haystack",

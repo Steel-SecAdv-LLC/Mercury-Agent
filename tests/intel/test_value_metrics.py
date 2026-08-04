@@ -49,12 +49,12 @@ def test_meets_target_higher_is_better() -> None:
 
 
 def test_meets_target_lower_is_better() -> None:
-    m = VALUE_METRICS["adversarial_co_training"]  # baseline 0.34, target 0.0, lower better
+    m = VALUE_METRICS["adversarial_co_training"]  # baseline 0.56, target 0.0, lower better
     assert m.meets_target(0.0)
     assert not m.meets_target(0.1)
-    assert m.improves_on_baseline(0.34)  # at the floor is not a weakening
-    assert m.improves_on_baseline(0.2)
-    assert not m.improves_on_baseline(0.5)  # above the floor is a weakening
+    assert m.improves_on_baseline(m.baseline)  # at the floor is not a weakening
+    assert m.improves_on_baseline(m.baseline - 0.1)
+    assert not m.improves_on_baseline(m.baseline + 0.1)  # above the floor is a weakening
 
 
 def test_nan_fails_closed() -> None:

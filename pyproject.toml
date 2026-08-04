@@ -518,6 +518,14 @@ omni_mercury_engine = [
     # ``_apply_measured_sw_eng_metrics``; a non-editable install without it
     # silently falls back to the static placeholders.
     "core/sw_eng_metrics.json",
+    # Trained weights for the offline meaning-level harm classifier
+    # (cognitive/meaning_level.py), read lazily on the first classifier call.
+    # Without this, a non-editable install ships no weights, the classifier
+    # scores 0.0 for everything, and the weapons gate silently drops back to
+    # its lexical-only posture -- measured at a 0.744 held-out false-negative
+    # rate versus 0.263 with the model. Fail-open by design, so the loss is
+    # silent: this entry is what keeps it from happening.
+    "cognitive/meaning_level_weights.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
     # page scripts, and the vendored MIT qrcode-generator. Served straight
     # from the installed package when MERCURY_FRONTEND_ENABLED=true — a

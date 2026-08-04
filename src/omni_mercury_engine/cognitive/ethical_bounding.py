@@ -1021,7 +1021,9 @@ def _match_multilingual_offensive(haystack: str) -> list[tuple[OperationalIntent
     """Substring pass for the multilingual offensive-intent cues."""
     return [
         (tier, label)
-        for (_cue, tier, label), forms in zip(_MULTILINGUAL_OFFENSIVE, _MULTILINGUAL_OFFENSIVE_FORMS)
+        for (_cue, tier, label), forms in zip(
+            _MULTILINGUAL_OFFENSIVE, _MULTILINGUAL_OFFENSIVE_FORMS
+        )
         if term_in_haystack(haystack, forms)
     ]
 
@@ -1172,11 +1174,53 @@ def compute_gate_features(
     return n_off, n_allow, ev.weight, boost
 
 
+class _UseShippedClassifier:
+    """Sentinel: 'no classifier was specified, use the shipped offline one'.
+
+    Distinct from ``None``, which means "explicitly no meaning-level classifier"
+    -- the lexical-only posture. Keeping the two apart is what lets the
+    benchmarks still measure the pure lexical floor
+    (``eval_weapons_gate_adversarial.evaluate()`` passes ``None`` on purpose)
+    while every production caller gets meaning-level coverage by default.
+    """
+
+    def __repr__(self) -> str:
+        return "<shipped meaning-level classifier>"
+
+
+#: Default for every ``harm_classifier`` parameter in this module.
+USE_SHIPPED_CLASSIFIER = _UseShippedClassifier()
+
+_SHIPPED_CLASSIFIER_CACHE: list[Any] = []
+
+
+def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
+    """Map a ``harm_classifier`` argument to an actual callable or ``None``.
+
+    The shipped classifier is resolved lazily and cached: importing it eagerly
+    would pull the weight artifact into every process that merely imports the
+    ethics gate, and this module is deliberately cheap to import.
+    """
+    if harm_classifier is not USE_SHIPPED_CLASSIFIER:
+        return harm_classifier
+    if not _SHIPPED_CLASSIFIER_CACHE:
+        try:
+            from omni_mercury_engine.cognitive.meaning_level import (
+                meaning_level_harm_classifier,
+            )
+
+            _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
+        except Exception as exc:  # pragma: no cover - fail-open to lexical-only
+            logger.info("shipped meaning-level classifier unavailable (%s)", exc)
+            _SHIPPED_CLASSIFIER_CACHE.append(None)
+    return _SHIPPED_CLASSIFIER_CACHE[0]
+
+
 def assess_weapons_uplift(
     text: str,
     context: dict[str, Any] | None = None,
     *,
-    harm_classifier: Any | None = None,
+    harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
 ) -> WeaponsRiskAssessment:
     """Two-axis (hazard-domain x operational-intent) weapons/mass-casualty gate.
 
@@ -1207,6 +1251,7 @@ def assess_weapons_uplift(
         than propagating an exception or silently defaulting to ALLOW.
     """
     ctx = context or {}
+    harm_classifier = _resolve_harm_classifier(harm_classifier)
     try:
         ev = _gate_evidence(text, ctx)
         domain, weight, offensive, allowed = ev.domain, ev.weight, ev.offensive, ev.allowed
@@ -1634,23 +1679,31 @@ class HarmReducer:
         HarmCategory.SOCIETAL: 0.8,
     }
 
-    def __init__(self, harm_classifier: Any | None = None) -> None:
+    def __init__(self, harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER) -> None:
         """Initialize harm reducer.
 
         Args:
-            harm_classifier: Optional ``Callable[[str], float]`` returning a harm
-                probability in ``[0, 1]`` for a piece of text. This is the
-                meaning-level extension point -- a deployment can plug in a real
-                *semantic* classifier (e.g. one backed by Mercury's own local
-                Ollama reasoning backend, see
-                :func:`omni_mercury_engine.reasoning.backends.reasoning_harm_classifier`)
-                without this module taking a model dependency. It is fail-safe and
-                can only RAISE harm (combined by ``max``); an exception or a
-                lower score never lowers the deterministic lexical harm. Default
-                ``None`` keeps the scorer fully deterministic and model-free.
+            harm_classifier: ``Callable[[str], float]`` returning a harm
+                probability in ``[0, 1]`` for a piece of text -- the
+                meaning-level layer above the deterministic lexical evidence. It
+                is fail-safe and can only RAISE harm (combined by ``max``); an
+                exception or a lower score never lowers the lexical harm.
+
+                Defaults to Mercury's **shipped offline classifier**
+                (:mod:`omni_mercury_engine.cognitive.meaning_level`): trained,
+                deterministic, stdlib-only, no network call and no model server,
+                so it is safe to run at every decision boundary and in air-gapped
+                deployments. It previously defaulted to ``None`` because the only
+                available classifier was a served LLM, which could not be put on
+                this hot path; that is no longer the constraint, and running
+                lexical-only was measured at a 0.744 held-out false-negative rate
+                versus 0.263 with the model.
+
+                Pass ``None`` explicitly for a strictly lexical, model-free
+                scorer, or any other callable to supply your own.
         """
         self._evaluation_counter = 0
-        self._harm_classifier = harm_classifier
+        self._harm_classifier = _resolve_harm_classifier(harm_classifier)
         # Populated by evaluate_harm(); read back by BenevolenceScorer.score_action
         # so the two-axis weapons verdict rides along with the harm computation
         # instead of being assessed twice. Single-caller-per-instance-at-a-time
@@ -2270,7 +2323,7 @@ class BenevolenceScorer:
         self,
         benevolence_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
         *,
-        harm_classifier: Any | None = None,
+        harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
     ) -> None:
         """Initialize benevolence scorer.
 
@@ -2282,11 +2335,13 @@ class BenevolenceScorer:
                 ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) so the advisory signal stays
                 comparable across deployments; values below the floor are
                 clamped with a warning.
-            harm_classifier: Optional ``Callable[[str], float]`` forwarded to the
-                :class:`HarmReducer` -- a meaning-level harm classifier (e.g. one
-                backed by Mercury's local Ollama reasoning backend) that can only
-                RAISE harm. Default ``None`` keeps scoring deterministic and
-                model-free.
+            harm_classifier: ``Callable[[str], float]`` forwarded to the
+                :class:`HarmReducer` -- a meaning-level harm classifier that can
+                only RAISE harm. Defaults to Mercury's shipped offline
+                classifier, which is deterministic, model-free in the sense that
+                matters (no server, no network) and cheap enough for this path.
+                Pass ``None`` for a strictly lexical scorer. See
+                :meth:`HarmReducer.__init__` for the full rationale.
         """
         # Use the property setter so the floor is enforced consistently
         # whether the value is set in __init__ or reassigned later.

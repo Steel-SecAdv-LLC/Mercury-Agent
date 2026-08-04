@@ -1,8 +1,42 @@
 # Weapons-Gate Adversarial Evaluation (held-out generalization slice)
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-08-04.
 
 *Measured 2026-07-02 against PR #315 head. Reproducible; taxonomy-level only.*
+
+> ## Status update (2026-08-04): the meaning-level layer now ships
+>
+> Everything below describing the default posture as **lexical-only** was true
+> until this date. It is no longer. Two changes landed:
+>
+> 1. **A shipped offline meaning-level classifier**
+>    (`src/omni_mercury_engine/cognitive/meaning_level.py`) is now wired as the
+>    default at every decision boundary. It needs no model server, no network
+>    call and no new dependency, so meaning-level coverage exists in CI,
+>    air-gapped deployments and every default install — not only where an
+>    operator happens to run Ollama.
+>
+>    | posture | FN | FN-rate | recall | FP |
+>    |---|---|---|---|---|
+>    | lexical-only (the old default) | 99 / 133 | **0.744** | 0.256 | 0 |
+>    | **shipped classifier (the new default)** | 35 / 133 | **0.263** | **0.737** | **0** |
+>
+>    Held-out false negatives fall **65% relative**, with precision held at
+>    1.00 — still zero false positives on all 30 hard-benign professional
+>    queries. The classifier's own separation on the slice is **AUROC 0.9970**;
+>    the highest-scoring benign row reaches 0.541 against a 0.600 escalation
+>    threshold. See `docs/MEANING_LEVEL_CLASSIFIER.md`.
+>
+> 2. **A per-character-spacing bypass was closed.** `normalized_haystack`'s
+>    collapsed variant strips every separator, but 70% of the Axis-A lexicon is
+>    multi-word and so could never match it. Spacing every character of the
+>    fit-on corpus dropped the gate from 182/182 blocked to **1/182**. The one
+>    survivor was `s a r i n` — the only single-token term, and the only spaced
+>    example the corpus contained, which is why the corpus reported 0% FN while
+>    blind to its own worst evasion. Now 182/182, with 0 FP.
+>
+> The tables further down are retained as the measured record of the
+> lexical-only floor, which is still gated as a non-regression ceiling.
 
 ## Why this exists
 

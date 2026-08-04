@@ -84,7 +84,7 @@ class _StubClassifier:
 class TestHarmClassifierHook:
     def test_classifier_can_only_raise_harm(self) -> None:
         benign_action = "write a friendly birthday note"
-        base, _ = HarmReducer().evaluate_harm(benign_action, {})
+        base, _ = HarmReducer(harm_classifier=None).evaluate_harm(benign_action, {})
         raised, _ = HarmReducer(harm_classifier=_StubClassifier(0.95)).evaluate_harm(
             benign_action, {}
         )
@@ -93,7 +93,10 @@ class TestHarmClassifierHook:
 
     def test_classifier_low_score_never_lowers_lexical_harm(self) -> None:
         harmful = "inflict injury and damage and violence"
-        lexical, _ = HarmReducer().evaluate_harm(harmful, {})
+        # Baseline is the strictly LEXICAL scorer. HarmReducer() now defaults to
+        # the shipped meaning-level classifier, so the lexical-only floor has to
+        # be requested explicitly -- otherwise this compares two classifiers.
+        lexical, _ = HarmReducer(harm_classifier=None).evaluate_harm(harmful, {})
         # A classifier reporting "safe" must NOT pull the lexical harm down.
         combined, _ = HarmReducer(harm_classifier=_StubClassifier(0.0)).evaluate_harm(harmful, {})
         assert combined >= lexical
@@ -103,7 +106,7 @@ class TestHarmClassifierHook:
             raise RuntimeError("model down")
 
         harmful = "inflict injury and damage"
-        lexical, _ = HarmReducer().evaluate_harm(harmful, {})
+        lexical, _ = HarmReducer(harm_classifier=None).evaluate_harm(harmful, {})
         combined, _ = HarmReducer(harm_classifier=_boom).evaluate_harm(harmful, {})
         # Falls back to deterministic lexical harm, never lower.
         assert combined >= lexical
