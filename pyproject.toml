@@ -523,7 +523,7 @@ omni_mercury_engine = [
     # Without this, a non-editable install ships no weights, the classifier
     # scores 0.0 for everything, and the weapons gate silently drops back to
     # its lexical-only posture -- measured at a 0.744 held-out false-negative
-    # rate versus 0.263 with the model. Fail-open by design, so the loss is
+    # rate versus 0.286 with the model. Fail-open by design, so the loss is
     # silent: this entry is what keeps it from happening.
     "cognitive/meaning_level_weights.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,

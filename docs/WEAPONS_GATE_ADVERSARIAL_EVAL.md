@@ -19,9 +19,9 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-08-04.
 >    | posture | FN | FN-rate | recall | FP |
 >    |---|---|---|---|---|
 >    | lexical-only (the old default) | 99 / 133 | **0.744** | 0.256 | 0 |
->    | **shipped classifier (the new default)** | 35 / 133 | **0.263** | **0.737** | **0** |
+>    | **shipped classifier (the new default)** | 38 / 133 | **0.286** | **0.714** | **0** |
 >
->    Held-out false negatives fall **65% relative**, with precision held at
+>    Held-out false negatives fall **62% relative**, with precision held at
 >    1.00 — still zero false positives on all 30 hard-benign professional
 >    queries. The classifier's own separation on the slice is **AUROC 0.9970**;
 >    the highest-scoring benign row reaches 0.541 against a 0.600 escalation

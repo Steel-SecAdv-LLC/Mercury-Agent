@@ -468,7 +468,7 @@ limits plainly:
   `HarmReducer`, `BenevolenceScorer` and the `enforce_decision_boundary` choke
   point. Consequences for this section:
   * The default posture is meaning-level, not lexical-only. Held-out FN-rate
-    falls **0.744 → 0.263** (recall 0.256 → 0.737) with precision held at 1.00
+    falls **0.744 → 0.286** (recall 0.256 → 0.714) with precision held at 1.00
     and 0 FP on the professional slice.
   * The FN-budget lane no longer skips. It previously recorded the gap loudly on
     every normal PR and measured nothing; `test_shipped_classifier_beats_the_lexical_floor`

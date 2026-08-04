@@ -1697,7 +1697,7 @@ class HarmReducer:
                 available classifier was a served LLM, which could not be put on
                 this hot path; that is no longer the constraint, and running
                 lexical-only was measured at a 0.744 held-out false-negative rate
-                versus 0.263 with the model.
+                versus 0.286 with the model.
 
                 Pass ``None`` explicitly for a strictly lexical, model-free
                 scorer, or any other callable to supply your own.

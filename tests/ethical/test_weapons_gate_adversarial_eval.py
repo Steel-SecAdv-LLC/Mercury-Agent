@@ -92,7 +92,7 @@ MAX_REAL_CLASSIFIER_FN_RATE = 0.35
 
 # Budget for the SHIPPED offline classifier specifically -- the posture every
 # default install now runs, with no model server and no network call. Measured
-# 2026-08-04 on the 163-row slice: FN 35/133 = 0.263 (recall 0.737, FP 0), down
+# 2026-08-04 on the 163-row slice: FN 38/133 = 0.286 (recall 0.714, FP 0), down
 # from the lexical-only floor of 99/133 = 0.744. Pinned at 0.30: real headroom
 # above the measured value so ordinary variation does not flap the lane, but
 # tight enough that losing the model -- or shipping weights that do not

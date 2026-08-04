@@ -34,10 +34,10 @@ Held-out adversarial slice (`benchmarks/weapons_gate_adversarial.py`, 163 rows,
 | posture | FN | FN-rate | recall | precision | FP |
 |---|---|---|---|---|---|
 | lexical-only (previous default) | 99 / 133 | 0.744 | 0.256 | 1.00 | 0 |
-| **shipped classifier (new default)** | 35 / 133 | **0.263** | **0.737** | **1.00** | **0** |
+| **shipped classifier (new default)** | 38 / 133 | **0.286** | **0.714** | **1.00** | **0** |
 
-Per axis, recall rises: paraphrase 0.190 → 0.672, conjunction 0.298 → 0.872,
-obfuscation 0.364 → 0.727.
+Per axis, recall rises: paraphrase 0.190 → 0.672, conjunction 0.298 → 0.745,
+obfuscation 0.364 → 0.818, out-of-lexicon 0.167 → 0.500.
 
 The classifier's own separation on the slice is **AUROC 0.9970**. Its score
 distribution has real margin at the gate's 0.600 escalation threshold:
@@ -47,6 +47,9 @@ distribution has real margin at the gate's 0.600 escalation threshold:
 | base-corpus benign | 180 | 0.409 | 0 |
 | hard-benign professional | 30 | 0.280 | 0 |
 | extra civilian/professional probes | 10 | 0.541 | 0 |
+
+The highest score any benign row reaches anywhere is **0.541**, against a 0.600
+escalation threshold.
 
 Reproduce:
 
@@ -73,11 +76,22 @@ are folded away and the model never has to learn them.
 Properties that make it safe to run at every decision boundary:
 
 * **Stdlib only.** No numpy, no model server, no network call, no new dependency.
-* **Deterministic.** Weights start at zero, the optimizer is full-batch gradient
-  descent, and the corpus generator uses no RNG. There is nothing to seed; the
-  same source always yields byte-identical weights.
-* **Fast.** ~18–25 µs per query. Adds ~40 µs to a hazard-routed gate call and
-  ~1 µs to a benign one (the rescue path is not reached for most benign text).
+* **Deterministic, and verified so.** Weights start at zero, the optimizer is
+  full-batch gradient descent, and the corpus generator uses no RNG — there is
+  nothing to seed. Determinism is *proven*, not asserted: training under
+  `PYTHONHASHSEED=1` and `PYTHONHASHSEED=999` produces byte-identical artifacts,
+  and the shipped artifact re-derives byte-for-byte under `PYTHONHASHSEED=4242`.
+
+  This needed a real fix to become true. `extract_features` returns a set,
+  Python randomizes string hashing per process, and float addition is not
+  associative, so an earlier revision's fitted bias differed by one ULP between
+  runs. Everything that accumulates floats now goes through `ordered_features()`.
+  The behavioural impact was nil (2.2e-16 against a 0.600 threshold), but a
+  weight artifact that cannot be re-derived byte-for-byte cannot be audited by
+  re-deriving it, which is the point of shipping it in readable JSON.
+* **Fast.** ~28 µs per query, including the feature sort that buys the
+  reproducibility above. Adds ~40 µs to a hazard-routed gate call and ~1 µs to a
+  benign one (the rescue path is not reached for most benign text).
 * **Auditable.** The artifact is plain JSON mapping human-readable feature
   strings to weights (1931 features, 57 KiB). `MeaningLevelModel.explain()`
   returns the top contributing features for any input, so "why did it score
