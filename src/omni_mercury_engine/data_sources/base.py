@@ -1010,20 +1010,28 @@ class DataSourceBase(ABC):
             )
 
         except DataSourceError as e:
-            logger.warning(f"{self.source_id}: Fetch failed: {e}")
+            # Transport-raised errors arrive origin-scrubbed from
+            # _http_get, but a _fetch_impl subclass can raise
+            # DataSourceError with its own composed text — scrub at this
+            # funnel too so FetchResult.error and the log line hold the
+            # no-credential contract regardless of who raised.
+            safe_error = self._scrub_diagnostic(str(e))
+            logger.warning(f"{self.source_id}: Fetch failed: {safe_error}")
             return FetchResult(
                 success=False,
-                error=str(e),
+                error=safe_error,
                 fetch_time_ms=(time.time() - fetch_start) * 1000,
                 rate_limited="Rate limit" in str(e),
                 unreachable=isinstance(e, SourceUnreachableError),
             )
 
         except Exception as e:
-            logger.error(f"{self.source_id}: Unexpected error: {e}")
+            # Same funnel argument as the DataSourceError branch above.
+            safe_error = self._scrub_diagnostic(str(e))
+            logger.error(f"{self.source_id}: Unexpected error: {safe_error}")
             return FetchResult(
                 success=False,
-                error=f"Unexpected error: {e}",
+                error=f"Unexpected error: {safe_error}",
                 fetch_time_ms=(time.time() - fetch_start) * 1000,
             )
 

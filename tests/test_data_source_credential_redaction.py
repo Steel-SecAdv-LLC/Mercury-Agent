@@ -205,3 +205,37 @@ class TestAsyncHTTPGetRedaction:
         message = str(exc_info.value)
         assert "HTTPStatusError" in message
         assert _SECRET not in message
+
+
+class TestFetchResultErrorFunnel:
+    """fetch() holds the no-credential contract even for subclass-raised errors.
+
+    Transport errors arrive origin-scrubbed from _http_get, but a
+    _fetch_impl can raise DataSourceError with its own composed text —
+    the funnel that builds FetchResult.error and the warning log must
+    scrub regardless of who raised.
+    """
+
+    async def test_subclass_raised_error_scrubbed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        import logging
+
+        source = _make_source()
+
+        async def _raise_impl(*args: Any, **kwargs: Any) -> list[Any]:
+            raise DataSourceError(
+                f"upstream call {_KEYED_URL} failed hard",
+                source_id="keyed_test_source",
+            )
+
+        monkeypatch.setattr(source, "_fetch_impl", _raise_impl)
+        with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.data_sources.base"):
+            result = await source.fetch(use_cache=False)
+
+        assert result.success is False
+        assert _SECRET not in (result.error or "")
+        assert _SECRET not in caplog.text
+        assert "api.example.test" in (result.error or "")  # diagnostics survive
