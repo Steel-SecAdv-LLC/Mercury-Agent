@@ -218,7 +218,7 @@ _WORD_GAP_RE = re.compile(r"\s{2,}")
 
 
 def _rejoin_spaced_words(text: str) -> str:
-    """Rebuild words from per-character spacing; ``""`` when there is nothing to rebuild.
+    r"""Rebuild words from per-character spacing; ``""`` when there is nothing to rebuild.
 
     ``"h o w   t o   m a k e   a   n e r v e   a g e n t"`` becomes
     ``"how to make a nerve agent"``. Runs of two or more consecutive

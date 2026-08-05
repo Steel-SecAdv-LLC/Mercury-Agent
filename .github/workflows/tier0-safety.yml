@@ -163,7 +163,7 @@ jobs:
         run: >-
           pytest
           tests/ethical/test_meaning_level_double.py
-          tests/ethical/test_weapons_gate_adversarial_eval.py::test_real_classifier_fn_budget
+          tests/ethical/test_weapons_gate_adversarial_eval.py::test_meaning_level_fn_budget
           -q
 
       - name: Sample run artifact (served-model via the double)
