@@ -216,12 +216,33 @@ def dump_corpus() -> Path:
 def main() -> None:
     """CLI: evaluate the adversarial slice and optionally dump the corpus."""
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--posture", default="default", choices=["default", "classifier"])
+    ap.add_argument(
+        "--posture",
+        default="default",
+        choices=["default", "shipped", "classifier"],
+        help=(
+            "default: lexical-only floor (no meaning-level model). "
+            "shipped: the shipped offline classifier -- this is the posture the "
+            "published headline figures are measured in. "
+            "classifier: a constant 1.0 stand-in; an FN-reachability probe only, "
+            "NOT an FP measurement."
+        ),
+    )
     ap.add_argument("--dump", action="store_true", help="rewrite weapons_gate_adversarial.jsonl")
     args = ap.parse_args()
     if args.dump:
         print(f"wrote {dump_corpus()}")
-    metrics = evaluate(use_classifier=(args.posture == "classifier"))
+    # The shipped posture was previously unreachable from the CLI: the published
+    # "Reproduce" commands named --posture default, which measures the lexical
+    # floor, so following the docs produced a number 61 false negatives away from
+    # the one they printed beside it. A published figure whose published repro
+    # command does not reproduce it is not evidence.
+    if args.posture == "shipped":
+        from omni_mercury_engine.cognitive.meaning_level import meaning_level_harm_classifier
+
+        metrics = evaluate(classifier=meaning_level_harm_classifier())
+    else:
+        metrics = evaluate(use_classifier=(args.posture == "classifier"))
 
     def _to_json(v: dict[str, AxisMetrics] | AxisMetrics) -> object:
         if isinstance(v, AxisMetrics):

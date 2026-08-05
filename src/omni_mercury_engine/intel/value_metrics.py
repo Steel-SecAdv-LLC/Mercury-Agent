@@ -164,14 +164,16 @@ VALUE_METRICS: dict[str, ValueMetric] = {
         unit="fraction of a FIXED adversarial candidate universe that bypasses the gate",
         direction=Direction.LOWER_IS_BETTER,
         # Measured 2026-08-05 by red_team.measure_fixed_universe_bypass() over the
-        # shipped config: 1442 of 2957 candidates bypass -> 0.4877. Pinned at 0.49.
+        # shipped config: 1254 of 2957 candidates bypass -> 0.4241. Pinned at 0.43.
         #
-        # Previous point (2026-08-04): 1629 of 2957 -> 0.5509, pinned 0.56. Closing
-        # the uniform single-space bypass moved it to 0.4877 -- verified candidate
-        # by candidate as 187 newly BLOCKED and 0 newly ALLOWED, so the improvement
-        # is monotone rather than a trade.
+        # Two measured moves got it there from 0.5509 (2026-08-04), each verified
+        # candidate by candidate rather than inferred, and each strictly monotone:
+        #   0.5509 -> 0.4877  closing the uniform single-space bypass
+        #                     (187 newly BLOCKED, 0 newly ALLOWED)
+        #   0.4877 -> 0.4241  agent-agnostic munitions anchors + chemical class
+        #                     terms (188 newly BLOCKED, 0 newly ALLOWED)
         #
-        # Roughly **49% of the candidate universe still bypasses the gate**. That is
+        # Roughly **42% of the candidate universe still bypasses the gate**. That is
         # the operating point, not a containment claim: the floor's job is to stop
         # it rising, and the target of 0.0 is where it has to go.
         #
@@ -195,7 +197,7 @@ VALUE_METRICS: dict[str, ValueMetric] = {
         # (harm_normalization.segment_glued_run), which is where the 0.5509 ->
         # 0.4877 move came from. The residual is no longer characterised by a
         # single class -- it needs the same measure-and-triage treatment.
-        baseline=0.49,
+        baseline=0.43,
         target=0.0,
         aspirational=True,  # target 0.0 is the goal; the no-weakening floor is the gate
         description=(

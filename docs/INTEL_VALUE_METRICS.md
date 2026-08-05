@@ -30,7 +30,7 @@ number.
 | `closed_feedback_loop` | `poisoned_candidate_block_rate` | higher-is-better | `0.0` | `1.0` | Fraction of poisoned retrain candidates the OOF/adversarial regression gate blocks; measured by `scripts/closed_loop_demo.py --poisoned` and `tests/intel/test_feedback_loop.py`. |
 | `confidence_cascade` | `compute_saved_at_bounded_accuracy` | higher-is-better | `0.0` | `0.50` | Fraction of heavy-path calls avoided at accuracy loss within tolerance vs the all-heavy baseline; measured by `benchmarks/confidence_cascade_report.py`. |
 | `self_consistency` | `disagreement_error_auroc` | higher-is-better | `0.50` | `0.70` | AUROC of the N-sample disagreement signal predicting prediction error on a held-out set; measured by `benchmarks/self_consistency_signal_report.py`. |
-| `adversarial_co_training` | `fixed_universe_gate_bypass_rate` | lower-is-better | `0.49` | `0.0` | Bypass rate over a candidate universe fixed by the *config* (not by which seeds the gate blocks); pinned no-weakening floor in `benchmarks/red_team_baseline.json`; measured by `benchmarks/red_team_harness.py --check`. |
+| `adversarial_co_training` | `fixed_universe_gate_bypass_rate` | lower-is-better | `0.43` | `0.0` | Bypass rate over a candidate universe fixed by the *config* (not by which seeds the gate blocks); pinned no-weakening floor in `benchmarks/red_team_baseline.json`; measured by `benchmarks/red_team_harness.py --check`. |
 | `verifier_in_loop` | `false_claim_block_rate` | higher-is-better | `0.0` | `1.0` | Fraction of oracle-refuted symbolic claims blocked in hard mode; measured by `tests/intel/test_verifier_loop.py`. |
 | `provenance` | `boundary_provenance_enforcement_rate` | higher-is-better | `0.0` | `1.0` | Fraction of provenance-required emissions enforced (unprovenanced ones withheld) at the boundary; measured by `tests/intel/test_provenance.py`. |
 
@@ -70,10 +70,10 @@ treated as meeting its target or holding its floor.
 ```python
 from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
-m = VALUE_METRICS["adversarial_co_training"]   # baseline 0.49, target 0.0, lower better
+m = VALUE_METRICS["adversarial_co_training"]   # baseline 0.43, target 0.0, lower better
 m.meets_target(0.0)            # True
 m.meets_target(0.1)           # False
-m.improves_on_baseline(0.49)  # True  — at the floor is not a weakening
+m.improves_on_baseline(0.43)  # True  — at the floor is not a weakening
 m.improves_on_baseline(0.5)   # False — above the floor is a weakening
 m.meets_target(float("nan"))  # False — fails closed
 ```
@@ -107,7 +107,7 @@ This row is the exception to "target is the gate". Its **target is `0.0`** —
 drive every surviving bypass to zero — but that is **aspirational**, reached by
 triaging survivors into the corpus/pending set, not by a single benchmark run.
 
-The **enforced CI floor is the pinned baseline `0.49`**, measured over a *fixed*
+The **enforced CI floor is the pinned baseline `0.43`**, measured over a *fixed*
 candidate universe.
 
 ### Why the metric changed (2026-08-04), and why the floor moved again (2026-08-05)
@@ -123,12 +123,17 @@ while nothing had regressed.
 seed regardless of gate outcome, so the denominator is a property of the config
 alone and the metric is monotone in gate strength.
 
-**Current operating point, measured 2026-08-05:** `1442` of `2957` candidates
-bypass → **`0.4877`**. Roughly **49% of the candidate universe still bypasses the
-gate.** That is a documented operating point, not a containment guarantee. The
-previous point was `1629 / 2957 → 0.5509`; closing the uniform single-space
-bypass produced the move, verified candidate-by-candidate as **187 newly blocked
-and 0 newly allowed**.
+**Current operating point, measured 2026-08-05:** `1254` of `2957` candidates
+bypass → **`0.4241`**. Roughly **42% of the candidate universe still bypasses the
+gate.** That is a documented operating point, not a containment guarantee.
+
+Two measured moves got it there from `0.5509` (2026-08-04), each verified
+candidate-by-candidate rather than inferred, and each strictly monotone:
+
+| change | rate | newly blocked | newly allowed |
+|---|---|---|---|
+| closing the uniform single-space bypass | `0.5509 → 0.4877` | 187 | **0** |
+| agent-agnostic munitions anchors + chemical class terms | `0.4877 → 0.4241` | 188 | **0** |
 
 ```bash
 PYTHONPATH=src python benchmarks/red_team_harness.py --check    # no-weakening gate (exit 1)
@@ -137,10 +142,10 @@ PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the ba
 
 `--check` fails (exit 1) when a gate change *raises* the fixed-universe bypass
 rate above the floor — i.e. weakens the gate. It reads the floor from the pinned
-`red_team_baseline.json` (`fixed_universe_bypass_rate`, `0.487656`), refuses to
+`red_team_baseline.json` (`fixed_universe_bypass_rate`, `0.424078`), refuses to
 run against a baseline file that predates the metric, separately enforces that
 this floor stays ≤ the declared
-`VALUE_METRICS["adversarial_co_training"].baseline` (`0.49`, the ceiling), and
+`VALUE_METRICS["adversarial_co_training"].baseline` (`0.43`, the ceiling), and
 fails if the universe changes size without a deliberate re-pin. `survival_rate`
 is still measured and still written to the baseline as a descriptive per-run
 figure; it decides nothing. Triaged survivors feed the corpus to push the

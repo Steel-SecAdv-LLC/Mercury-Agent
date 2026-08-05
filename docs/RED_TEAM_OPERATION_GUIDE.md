@@ -90,16 +90,16 @@ The summary shape:
 {
   "harness_version": "1.0",
   "n_seeds": 133,
-  "n_skipped_seeds": 38,
-  "n_candidates": 2826,
-  "n_survivors": 955,
+  "n_skipped_seeds": 28,
+  "n_candidates": 3122,
+  "n_survivors": 1007,
   "n_downgraded": 0,
-  "survival_rate": 0.337933,
+  "survival_rate": 0.32255,
   "fixed_universe": {
     "n_candidates": 2957,
-    "n_blocked": 1515,
-    "n_bypassed": 1442,
-    "bypass_rate": 0.487656
+    "n_blocked": 1703,
+    "n_bypassed": 1254,
+    "bypass_rate": 0.424078
   },
   "appended_to_pending": 0
 }
@@ -131,16 +131,20 @@ punctuation injection are now closed, as is uniform single-space insertion; the
 residual is no longer characterised by a single class and needs the same
 measure-and-triage treatment.
 
-**The headline number, measured 2026-08-05: `1442` of `2957` fixed-universe
-candidates bypass the gate — a bypass rate of `0.4877`. Roughly 49% of the
+**The headline number, measured 2026-08-05: `1254` of `2957` fixed-universe
+candidates bypass the gate — a bypass rate of `0.4241`. Roughly 42% of the
 candidate universe still gets through.** This is a documented operating point,
 not a containment guarantee. It is pinned as a **no-weakening floor** so the
 number can only go down.
 
-The previous point was `1629 / 2957 → 0.5509` (2026-08-04). Closing the uniform
-single-space bypass produced the move, and it was verified candidate-by-candidate
-as **187 newly blocked and 0 newly allowed** — a monotone improvement rather than
-a trade.
+Two measured moves got it there from `0.5509` (2026-08-04). Each was verified
+candidate-by-candidate rather than inferred, and each was strictly monotone —
+no candidate that used to block became allowed:
+
+| change | rate | newly blocked | newly allowed |
+|---|---|---|---|
+| closing the uniform single-space bypass | `0.5509 → 0.4877` | 187 | **0** |
+| agent-agnostic munitions anchors + chemical class terms | `0.4877 → 0.4241` | 188 | **0** |
 
 ### The metric changed, because the old one was not sound
 
@@ -148,9 +152,20 @@ Through 2026-08-04 this stream gated on `survival_rate`. `run_red_team` skips an
 seed the gate already blocks, so that denominator *shrinks as the gate weakens and
 grows as it strengthens*: a strictly stronger gate can score worse. Measured, that
 is exactly what happened — strengthening the gate took skipped seeds `99 → 38` and
-raised `survival_rate` `0.335 → 0.438` with nothing regressed. On the current tree
-`survival_rate` reads `0.337933`, which is **above** the `0.335306` that used to be
-pinned; the old gate would have failed a gate that is strictly stronger.
+raised `survival_rate` `0.335 → 0.438` with nothing regressed.
+
+The clearest demonstration is what the number did across this session's two
+strengthening changes, both of which were verified monotone on the fixed universe:
+
+| gate state | `survival_rate` | fixed-universe bypass |
+|---|---|---|
+| floor as pinned 2026-07-20 | `0.335306` | — |
+| after the single-space fix | `0.337933` (**above** the floor) | `0.4877` |
+| after the anchor/class-term additions | `0.322550` (below it again) | `0.4241` |
+
+The gate only ever got stronger, and `survival_rate` moved **up and then down**.
+The middle row would have failed the old `--check` outright. The fixed-universe
+rate fell monotonically throughout, which is what a no-weakening guard has to do.
 
 `survival_rate` is still measured, printed, and written to the baseline, because it
 describes a single run usefully. It decides nothing.
@@ -158,7 +173,7 @@ describes a single run usefully. It decides nothing.
 The stream's value metric (`omni_mercury_engine.intel.value_metrics.VALUE_METRICS['adversarial_co_training']`):
 
 - metric `fixed_universe_gate_bypass_rate`, `LOWER_IS_BETTER`;
-- `baseline = 0.49` (the ceiling the pinned floor must stay under);
+- `baseline = 0.43` (the ceiling the pinned floor must stay under);
 - `target = 0.0`.
 
 ## 5. The no-weakening gate
@@ -169,7 +184,7 @@ floor pinned in `benchmarks/red_team_baseline.json` and fails (exit 1) when:
 - the run rate (rounded to 6 decimals) rises above the pinned floor — compared
   strictly, with only a `1e-9` float epsilon (`round(rate, 6) > floor + _FLOAT_EPS`)
   — a gate change *weakened* the surface against obfuscation;
-- the pinned floor itself exceeds the declared value-metric baseline (`0.49`) —
+- the pinned floor itself exceeds the declared value-metric baseline (`0.43`) —
   re-declare the value metric before pinning a higher floor;
 - the fixed universe changes size without a deliberate re-pin — the candidate set
   is derived from the config alone, so a silent change of size means the harness
@@ -274,4 +289,4 @@ re-run `--update` after any such change.
 | `ValueError: unknown mutations` | A name in the config's `mutations` is not in `red_team.MUTATIONS`. |
 | Seeds silently defaulted | The `seeds` path is missing/unreadable, or has no `label == "offensive"` rows — the harness warns and falls back to the bundled seeds. |
 | `--check` says missing baseline | No `benchmarks/red_team_baseline.json` — run `--update` once to pin it. |
-| `--check` fails on pinned floor > value metric | The floor exceeds `0.49`; re-declare the `adversarial_co_training` value metric before pinning higher. |
+| `--check` fails on pinned floor > value metric | The floor exceeds `0.43`; re-declare the `adversarial_co_training` value metric before pinning higher. |
