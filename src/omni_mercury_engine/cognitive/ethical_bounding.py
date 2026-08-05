@@ -46,6 +46,8 @@ from omni_mercury_engine.cognitive.harm_normalization import (
     any_term_in_haystack,
     compile_terms,
     normalized_haystack,
+    register_pattern_literals,
+    register_segmentation_terms,
     term_in_haystack,
 )
 
@@ -1006,6 +1008,25 @@ _HAZARD_DOMAIN_FORMS: dict[HazardDomain, tuple[tuple[str, ...], ...]] = {
 }
 _HAZARD_CONTEXT_ANCHOR_FORMS: tuple[tuple[str, ...], ...] = compile_terms(
     sorted(_HAZARD_CONTEXT_ANCHORS)
+)
+
+# Hand the router's own vocabulary to the word-boundary recovery used on
+# uniformly-spaced text. Registering here rather than duplicating a word list
+# inside harm_normalization keeps a single source of truth: a term added to the
+# Axis-A lexicon becomes segmentable in the same commit, with no second edit to
+# remember.
+register_segmentation_terms(
+    [term for keywords in _HAZARD_DOMAIN_KEYWORDS.values() for term in keywords]
+)
+register_segmentation_terms(_HAZARD_CONTEXT_ANCHORS)
+# Axis B contributes the literals of its own patterns -- offensive and allow
+# alike, by the same rule. A pattern whose words cannot be segmented is a
+# pattern that cannot fire on uniformly-spaced input, so harvesting from the
+# pattern sources is what keeps recovery and matching in step automatically.
+register_pattern_literals(
+    [p.pattern for p, _tier, _label in _OFFENSIVE_INTENT_PATTERNS]
+    + [p.pattern for p, _tier, _label in _ALLOW_INTENT_PATTERNS]
+    + [_DEFENSIVE_PRODUCTION_RE.pattern]
 )
 
 

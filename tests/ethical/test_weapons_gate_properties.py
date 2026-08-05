@@ -16,7 +16,16 @@ Two kinds of assurance the fixed-string corpus cannot give:
 
 from __future__ import annotations
 
+import re
+import sys
+from pathlib import Path
+
 import pytest
+
+_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO / "benchmarks"))
+
+from weapons_gate_corpus import build_corpus
 
 hypothesis = pytest.importorskip("hypothesis")
 from hypothesis import (
@@ -311,6 +320,99 @@ def test_separator_insertion_does_not_false_positive_on_benign() -> None:
     for text in benign:
         for mangled in (text, _space_out(text), " ".join(".".join(w) for w in text.split())):
             assert not assess_weapons_uplift(mangled).blocks, mangled
+
+
+# --------------------------------------------------------------------------- #
+# Uniform single-space insertion (regression: word-boundary recovery).
+# --------------------------------------------------------------------------- #
+# Marked word gaps ("n e r v e   a g e n t") are read straight off the spacing.
+# UNIFORM single spacing carries no such marker, so the run glues to one token --
+# and Axis B, whose patterns are all written with \b boundaries, then matches
+# nothing. Measured on the fit-on offensive corpus: spacing every character with
+# a single space dropped the gate from 182/182 blocked to 8/182 (4.4%). Word
+# boundaries are now recovered by a dynamic program over the gate's own
+# vocabulary, which takes it to 181/182 (99.5%) with benign false positives held
+# at 0/180.
+#
+# These tests pin both halves. The precision half is not a formality: an early
+# revision whose vocabulary carried only the offensive verbs produced 14/180
+# false positives, because "detect" and "diagnose" had no entries to segment on
+# and defensive queries became unreadable while offensive ones stayed legible.
+
+
+def _single_space(text: str) -> str:
+    """Space every character with ONE separator, erasing the word gaps."""
+    return " ".join(text.replace(" ", ""))
+
+
+def test_uniform_single_spacing_does_not_bypass_the_gate() -> None:
+    """A uniformly-spaced offensive request must still block.
+
+    Pinned by rate rather than per-example so the property survives corpus
+    growth, with the floor set well below the measured 99.5% so ordinary
+    lexicon churn does not make this test the thing that fails.
+    """
+    offensive = [r.text for r in build_corpus() if r.label == "offensive"]
+    blocked_plain = [t for t in offensive if assess_weapons_uplift(t).blocks]
+    assert blocked_plain, "corpus fixture supplied no blocked offensive rows"
+
+    blocked_spaced = sum(1 for t in blocked_plain if assess_weapons_uplift(_single_space(t)).blocks)
+    rate = blocked_spaced / len(blocked_plain)
+    assert rate >= 0.95, (
+        f"uniform single-space insertion bypasses the gate: only {blocked_spaced}"
+        f"/{len(blocked_plain)} ({rate:.1%}) still block"
+    )
+
+
+def test_uniform_single_spacing_does_not_false_positive_on_benign() -> None:
+    """Recovery must not make defensive work unreadable. Zero tolerance."""
+    benign = [r.text for r in build_corpus() if r.label == "benign"]
+    refused = [t for t in benign if assess_weapons_uplift(_single_space(t)).blocks]
+    assert not refused, f"benign rows refused once uniformly spaced: {refused[:5]}"
+
+
+def test_marked_word_gaps_are_never_re_segmented() -> None:
+    """Explicit word gaps are the attacker's own segmentation; trust them.
+
+    Re-deriving boundaries from a vocabulary on text that already marks them
+    regressed this corpus from 182/182 to 162/182, so recovery is confined to
+    the uniform case. This pins that confinement.
+    """
+    offensive = [r.text for r in build_corpus() if r.label == "offensive"]
+    blocked_plain = [t for t in offensive if assess_weapons_uplift(t).blocks]
+    unblocked = [t for t in blocked_plain if not assess_weapons_uplift(_space_out(t)).blocks]
+    assert not unblocked, f"marked-gap spacing bypassed the gate: {unblocked[:5]}"
+
+
+def test_segmentation_never_invents_a_boundary_it_cannot_justify() -> None:
+    """A span no vocabulary explains stays glued rather than being split."""
+    from omni_mercury_engine.cognitive.harm_normalization import segment_glued_run
+
+    assert segment_glued_run("howtomakeabomb") == "how to make a bomb"
+    # Unknown span kept whole, known words around it still delimited.
+    assert segment_glued_run("makeaqqqzzbomb").split()[-1] == "bomb"
+    assert "qqqzz" in segment_glued_run("makeaqqqzzbomb")
+    # Nothing recognisable -> returned untouched, no fabricated reading.
+    assert segment_glued_run("zzzzzzzzzz") == "zzzzzzzzzz"
+
+
+def test_every_axis_b_pattern_word_is_segmentable() -> None:
+    """A pattern whose words cannot be recovered is dead on spaced input.
+
+    This is the invariant that keeps offensive and defensive coverage growing
+    together: both pattern families feed the vocabulary by the same rule, so a
+    new allow pattern is as segmentable as a new offensive one.
+    """
+    from omni_mercury_engine.cognitive import ethical_bounding as eb
+    from omni_mercury_engine.cognitive.harm_normalization import segment_glued_run
+
+    for family in (eb._OFFENSIVE_INTENT_PATTERNS, eb._ALLOW_INTENT_PATTERNS):
+        for pattern, _tier, _label in family:
+            for word in re.findall(r"[a-z]{4,}", re.sub(r"\\[A-Za-z]", " ", pattern.pattern)):
+                assert segment_glued_run(word) == word, (
+                    f"Axis-B literal {word!r} is not recoverable from glued text; "
+                    "it would never match a uniformly-spaced query"
+                )
 
 
 # --------------------------------------------------------------------------- #

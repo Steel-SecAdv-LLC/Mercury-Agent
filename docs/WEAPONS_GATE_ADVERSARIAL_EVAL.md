@@ -35,6 +35,35 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-08-04.
 >    example the corpus contained, which is why the corpus reported 0% FN while
 >    blind to its own worst evasion. Now 182/182, with 0 FP.
 >
+> 3. **The *uniform single-space* case was a separate, wider hole, now closed.**
+>    Fixing (2) fixed spacing that *marks its word gaps* (`n e r v e   a g e n t`,
+>    two or more spaces between words). Uniform single spacing carries no such
+>    marker, so the whole query glued into one token — and every Axis-B intent
+>    pattern is written with `\b` boundaries, so none of them could fire.
+>    Measured on the same corpus, single-spacing every character left only
+>    **8/182 blocked (4.4%)**. Word boundaries are now recovered by a dynamic
+>    program over the gate's own vocabulary (Axis-A lexicon plus the literals
+>    harvested from the Axis-B patterns themselves), taking it to **181/182
+>    (99.5%)** with **0/180** benign false positives, and with the marked-gap
+>    case held at 182/182. The held-out adversarial slice is **unchanged**
+>    (FN 38/133, recall 0.714, precision 1.00) — that corpus contains no
+>    uniformly-spaced rows, so this is a genuine gain on an axis it never
+>    measured, not a fit to it.
+>
+>    One residual, stated rather than rounded away: **1 of 182** still bypasses
+>    under uniform single spacing.
+>
+>    The precision half of that result was not free, and the failure is worth
+>    recording. An early revision whose segmentation vocabulary carried only the
+>    *offensive* verbs produced **14/180 false positives** — "how to detect a
+>    anthrax and diagnose exposure" among them — because `detect` and `diagnose`
+>    had no entries to segment on, so defensive queries became unreadable to the
+>    allow patterns while offensive ones stayed legible to the offensive ones.
+>    Segmentation decides what the gate is *able to see*, so an asymmetric
+>    vocabulary is an asymmetric gate. Both pattern families now feed the
+>    vocabulary by the same rule, and a test asserts every Axis-B literal is
+>    recoverable.
+>
 > The tables further down are retained as the measured record of the
 > lexical-only floor, which is still gated as a non-regression ceiling.
 

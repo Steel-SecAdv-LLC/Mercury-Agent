@@ -232,16 +232,24 @@ def _rejoin_spaced_words(text: str) -> str:
     regexes need in order to match at all. Rejoining keeps those boundaries, so a
     spaced-out query is assessed for *intent*, not merely routed by Axis A.
 
-    Word segmentation is only recoverable when the attacker marks word gaps
-    (2+ spaces). Under uniform single spacing the segmentation is genuinely
-    ambiguous -- ``"m a k e a b o m b"`` has no unique reading -- and this
-    function correctly declines to guess; Axis A still routes such a query via
-    the collapsed variant, and the meaning-level classifier supplies intent.
+    When the attacker marks word gaps (2+ spaces) the segmentation is read
+    straight off the spacing. Under **uniform single spacing** there is no such
+    marker -- ``"m a k e a b o m b"`` glues to ``"makeabomb"`` -- so each glued
+    run is handed to :func:`segment_glued_run`, which recovers the word
+    boundaries from Mercury's own gate vocabulary instead of guessing. That
+    matters because gluing alone defeats Axis B: the intent regexes are written
+    with ``\b`` boundaries, so a boundary-free run matches none of them.
 
     Returns:
         The rejoined text, or ``""`` when no run was found (the caller then adds
         no variant, so ordinary queries pay nothing).
     """
+    # When the text carries explicit word gaps the attacker has already told us
+    # where the words end; re-deriving boundaries from a vocabulary could only
+    # contradict that, and did -- an early revision that segmented every run
+    # regressed the marked-gap corpus from 182/182 blocked to 162/182. Recovery
+    # therefore runs only on uniformly-spaced text, where nothing else can.
+    recover = _WORD_GAP_RE.search(text) is None
     joined_any = False
     groups: list[str] = []
     for group in _WORD_GAP_RE.split(text):
@@ -251,7 +259,8 @@ def _rejoin_spaced_words(text: str) -> str:
         def flush(out: list[str] = out, run: list[str] = run) -> None:
             nonlocal joined_any
             if len(run) >= 2:
-                out.append("".join(run))
+                glued = "".join(run)
+                out.append(segment_glued_run(glued) if recover else glued)
                 joined_any = True
             else:
                 out.extend(run)
@@ -267,6 +276,248 @@ def _rejoin_spaced_words(text: str) -> str:
         if out:
             groups.append(" ".join(out))
     return " ".join(groups) if joined_any else ""
+
+
+# ---------------------------------------------------------------------------
+# Word-boundary recovery for uniformly-spaced text.
+#
+# Per-character spacing with a *uniform* single separator ("m a k e a b o m b")
+# carries no word-gap marker, so rejoining yields one glued run. Axis A survives
+# that -- ``term_match_forms`` probes each lexicon term's own collapsed form --
+# but Axis B does not: every offensive-intent pattern is written with ``\b``
+# boundaries and a boundary-free run matches none of them. Measured on the
+# fit-on offensive corpus, spacing every character with a single space dropped
+# the gate from 182/182 blocked to 8/182.
+#
+# The recovery is a dynamic program over Mercury's own gate vocabulary: prefer
+# the segmentation that leaves the fewest characters unexplained, tie-broken
+# toward fewer words. Spans no vocabulary explains stay glued rather than being
+# split arbitrarily, so the function never invents a boundary it cannot justify.
+# It runs only on text that already contained a per-character-spaced run, which
+# ordinary prose never does.
+# ---------------------------------------------------------------------------
+
+#: Closed-class English and the request/production/targeting/evasion vocabulary
+#: the Axis-B intent patterns are written over. Sourced from those patterns and
+#: from ordinary function words -- never from an evaluation corpus, so recovery
+#: cannot become memorisation of the benchmark. Hazard nouns are *not* listed
+#: here: :func:`register_segmentation_terms` contributes them from the Axis-A
+#: lexicon at import, keeping one source of truth.
+#:
+#: .. important::
+#:    The **allow** vocabulary below is not optional politeness -- it is what
+#:    keeps recovery symmetric. Segmentation decides which words the Axis-B
+#:    regexes can see, so a vocabulary carrying only offensive verbs renders a
+#:    defensive query unreadable while leaving an offensive one legible, and the
+#:    gate then refuses work it exists to support. Measured: with the offensive
+#:    half alone, spacing the benign corpus produced **14/180 false positives**
+#:    ("how to detect a anthrax and diagnose exposure" among them) because
+#:    ``detect`` and ``diagnose`` had no entries to segment on. With the allow
+#:    half present it is 0/180. Any future growth of the offensive half must
+#:    carry the corresponding defensive terms in the same change.
+_SEGMENTATION_WORD_GROUPS: tuple[str, ...] = (
+    # --- shared: function words, determiners, pronouns, prepositions ---
+    "a an the and or of for to in into on at by as with without from that this "
+    "it is are be can could would should will do does did i we you one me my "
+    "some any all more most best other another each every no not",
+    # --- shared: request frames ---
+    "how what when where which who why need want trying help teach give tell "
+    "show walk through step steps guide instructions instruction recipe recipes "
+    "tutorial method methods process procedure route routes way ways plan plans "
+    "list parts order detail details",
+    # --- offensive: production / acquisition verbs and their inflections ---
+    "make makes making made produce produces producing production synthesize "
+    "synthesise synthesizing synthesis manufacture manufacturing fabricate "
+    "fabrication build building construct construction assemble assembly "
+    "formulate create creating generate cook cooking brew brewing prepare "
+    "preparation obtain acquire acquiring source buy purchase get precursor "
+    "precursors ingredient ingredients material materials equipment",
+    # --- offensive: quantity / potency ---
+    "amount amounts dose dosage quantity batch gram grams kilogram kilograms "
+    "purity yield concentration potency lethal deadly grade weapons",
+    # --- offensive: targeting / mass-harm framing ---
+    "attack attacking target targeting maximize maximise maximizing casualty "
+    "casualties kill killing harm harming damage destroy deploy deployment "
+    "disperse dispersal release spread poison poisoning contaminate mass crowd "
+    "stadium water supply air food people population civilian civilians",
+    # --- offensive: weaponisation / evasion ---
+    "weapon weaponize weaponise weaponizing evade evading avoid avoiding "
+    "undetected untraceable bypass conceal concealing hide smuggle "
+    "use using against",
+    # --- allow: detection / identification ---
+    "detect detects detected detecting detector detectors detection identify "
+    "identifies identifying identification diagnose diagnosis diagnostic "
+    "diagnostics screen screening test testing kit assay sensor sensors "
+    "biosensor alarm alarms monitor monitors monitoring recognize recognise "
+    "symptom symptoms sequencing surveillance epidemiology dosimeter",
+    # --- allow: treatment / protection ---
+    "treat treats treatment treating antidote antidotes decontaminate "
+    "decontamination protective equipment gear suit mask clothing ppe vaccine "
+    "vaccines vaccination therapy therapeutic dosing oxime atropine antitoxin "
+    "casualty care countermeasure countermeasures prophylaxis respirator "
+    "filter filtering medical",
+    # --- allow: response / planning ---
+    "triage consequence modeling modelling dispersion plume evacuation "
+    "emergency response management exposure",
+    # --- allow: policy / licensed practice / mechanism ---
+    "policy regulation regulations compliance treaty history safety standard "
+    "standards proliferation export control law licensed certified permit "
+    "regulatory approval commercial blasting demolition controlled licensing "
+    "requirement mechanism action chemistry physics work works research "
+    "defend defense defence protect protection safely",
+)
+
+_BASE_SEGMENTATION_WORDS: frozenset[str] = frozenset(
+    word for group in _SEGMENTATION_WORD_GROUPS for word in group.split()
+)
+
+#: Vocabulary contributed by the gate's Axis-A lexicon via
+#: :func:`register_segmentation_terms`. Kept separate from the base set so the
+#: registration is idempotent and inspectable.
+_REGISTERED_SEGMENTATION_WORDS: set[str] = set()
+
+#: Longest run handed to the dynamic program. The gate already bounds its
+#: subject string; this is a second, local ceiling so segmentation can never
+#: become a cost centre on pathological input.
+_MAX_SEGMENT_RUN = 512
+
+#: Shortest vocabulary entry admitted. Two-character entries match almost
+#: anywhere, and because the dynamic program's first objective is to leave few
+#: characters unexplained, admitting them makes *shredding an unknown word*
+#: cheaper than leaving it whole: with a floor of 2, ``dissemination`` came back
+#: as ``d is sem in at i on``, which matches no pattern at all. A floor of 3
+#: costs nothing, because short function words do not need to be in the
+#: vocabulary to be recovered -- an unexplained character sitting between two
+#: known words already becomes its own token, so ``howtomakeabomb`` still yields
+#: ``how to make a bomb`` with neither ``to`` nor ``a`` listed.
+_MIN_VOCAB_LEN = 3
+
+#: Strip regex metacharacters when harvesting literal words from a compiled
+#: pattern. ``\b``/``\w``/``\s`` and friends become separators so the harvest
+#: does not weld an escape onto the word beside it.
+_REGEX_ESCAPE_RE = re.compile(r"\\[A-Za-z]")
+_REGEX_LITERAL_WORD_RE = re.compile(r"[a-z]{4,}")
+
+
+def register_segmentation_terms(terms: Iterable[str]) -> None:
+    """Contribute lexicon terms to the word-boundary recovery vocabulary.
+
+    Called by the gate at import time with its Axis-A hazard lexicon, so the
+    segmenter and the router share one vocabulary and cannot drift apart. Terms
+    are base-normalised and split on whitespace, so a multi-word entry
+    (``"nerve agent"``) contributes both of its words. Idempotent.
+
+    Args:
+        terms: Lexicon entries, e.g. the Axis-A hazard keywords.
+    """
+    for term in terms:
+        for word in base_normalize(term).split():
+            folded = _fold_obfuscation(word)
+            if len(folded) >= _MIN_VOCAB_LEN and folded.isalnum():
+                _REGISTERED_SEGMENTATION_WORDS.add(folded)
+
+
+def register_pattern_literals(patterns: Iterable[str]) -> None:
+    """Contribute the literal words of Axis-B regex sources to the vocabulary.
+
+    Segmentation decides which words the intent patterns are *able* to see, so
+    any word a pattern can match must be recoverable or that pattern is dead on
+    uniformly-spaced input. Harvesting the literals from the pattern sources
+    themselves makes that automatic and symmetric: an offensive pattern and an
+    allow pattern contribute by the same rule, in the same change that adds
+    them, with no second list to keep in step.
+
+    Only runs of four or more lowercase letters are taken, which skips the
+    optional-suffix fragments regex alternations are full of (``(?:ing)?``,
+    ``(?:ors)?``) -- those are too short to be worth segmenting on and admitting
+    them would reintroduce shredding.
+
+    Args:
+        patterns: Regex source strings, e.g. ``pattern.pattern`` for each
+            compiled Axis-B pattern.
+    """
+    for source in patterns:
+        cleaned = _REGEX_ESCAPE_RE.sub(" ", source.lower())
+        _REGISTERED_SEGMENTATION_WORDS.update(_REGEX_LITERAL_WORD_RE.findall(cleaned))
+
+
+def _vocabulary() -> frozenset[str]:
+    """The current segmentation vocabulary (base + everything registered)."""
+    return frozenset(_BASE_SEGMENTATION_WORDS | _REGISTERED_SEGMENTATION_WORDS)
+
+
+def segment_glued_run(run: str) -> str:
+    """Recover word boundaries in a glued run using the gate's own vocabulary.
+
+    ``"attackplantomaximizecasualties"`` becomes
+    ``"attack plan to maximize casualties"``. Characters no vocabulary word
+    explains are kept glued together rather than split at a guessed boundary, so
+    the result never asserts a segmentation the vocabulary cannot support:
+    ``"makeaqqqbomb"`` yields ``"make a qqq bomb"``, not a fabricated reading of
+    ``qqq``.
+
+    The dynamic program minimises unexplained characters first and word count
+    second. Preferring fewer words on a tie is what stops a long word being
+    shredded into a chain of short ones ("casualties" surviving instead of
+    becoming "casual ties").
+
+    Args:
+        run: A glued run of alphanumerics, already obfuscation-folded.
+
+    Returns:
+        The run with recovered boundaries, or the run unchanged when it is
+        empty, over :data:`_MAX_SEGMENT_RUN`, or explains nothing.
+    """
+    n = len(run)
+    if not run or n > _MAX_SEGMENT_RUN:
+        return run
+    vocab = _vocabulary()
+    longest = max((len(w) for w in vocab), default=0)
+    if not longest:
+        return run
+
+    # dp[i] = (unexplained chars, words) for the best segmentation of run[:i];
+    # back[i] = length of the final piece and whether it was a vocabulary hit.
+    inf = (n + 1, n + 1)
+    dp: list[tuple[int, int]] = [inf] * (n + 1)
+    back: list[tuple[int, bool]] = [(0, False)] * (n + 1)
+    dp[0] = (0, 0)
+    for i in range(1, n + 1):
+        # Unexplained single character: costs one, and does not open a new word
+        # when the previous piece was also unexplained (they stay glued).
+        prev_unknown = back[i - 1][1] is False and i - 1 > 0
+        cand = (dp[i - 1][0] + 1, dp[i - 1][1] + (0 if prev_unknown else 1))
+        best, best_back = cand, (1, False)
+        for length in range(min(longest, i), _MIN_VOCAB_LEN - 1, -1):
+            if run[i - length : i] in vocab:
+                prior = dp[i - length]
+                cand = (prior[0], prior[1] + 1)
+                if cand < best:
+                    best, best_back = cand, (length, True)
+        dp[i], back[i] = best, best_back
+
+    if dp[n][0] >= n:  # nothing was explained -- do not assert a segmentation
+        return run
+
+    # Walk the back-pointers, then merge neighbouring unexplained pieces so an
+    # unrecognised span stays one glued token instead of becoming loose letters.
+    pieces: list[tuple[str, bool]] = []
+    i = n
+    while i > 0:
+        length, known = back[i]
+        pieces.append((run[i - length : i], known))
+        i -= length
+    pieces.reverse()
+
+    merged: list[str] = []
+    last_known = True
+    for piece, known in pieces:
+        if not known and merged and not last_known:
+            merged[-1] += piece
+        else:
+            merged.append(piece)
+        last_known = known
+    return " ".join(merged)
 
 
 # Cyrillic -> Latin PHONETIC transliteration (distinct from the visual homoglyph
@@ -875,6 +1126,8 @@ __all__ = [
     "canonical_normalize",
     "compile_terms",
     "normalized_haystack",
+    "register_segmentation_terms",
+    "segment_glued_run",
     "term_in_haystack",
     "term_match_forms",
 ]
