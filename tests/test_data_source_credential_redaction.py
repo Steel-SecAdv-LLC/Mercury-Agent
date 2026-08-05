@@ -239,3 +239,85 @@ class TestFetchResultErrorFunnel:
         assert _SECRET not in (result.error or "")
         assert _SECRET not in caplog.text
         assert "api.example.test" in (result.error or "")  # diagnostics survive
+
+
+class TestScrubDiagnosticSink:
+    """Direct coverage of ``_scrub_diagnostic``, the funnel every log site uses.
+
+    Every ``logger.warning``/``logger.error`` in this module's error paths
+    passes its text through this one helper, so it is the single point where a
+    credential either survives into a log line or does not. It had no direct
+    test: the surrounding tests exercise it only through ``fetch``, which cannot
+    distinguish "the helper scrubbed it" from "the path never carried it".
+
+    It is also what CodeQL's eight `py/clear-text-logging-sensitive-data` alerts
+    point at. Those are a sanitizer-modelling artifact rather than leaks -- the
+    flow CodeQL follows runs through ``redaction.py``'s
+    ``replacement = f"<{label}:redacted>"``, so what it tracks to the log is the
+    environment variable *name* taken from ``os.environ.items()``, not the
+    credential. ``test_env_var_name_is_what_reaches_the_log`` pins exactly that
+    distinction, so the claim is enforced here rather than only asserted in a
+    review comment.
+    """
+
+    def _source(self) -> _KeyedSource:
+        return _make_source()
+
+    def test_query_parameter_credential_is_structurally_redacted(self) -> None:
+        src = self._source()
+        text = (
+            "HTTPSConnectionPool(host='api.example.test'): Max retries exceeded "
+            f"with url: /v1/data?api_key={_SECRET}&window=7d "
+            "(Caused by NewConnectionError('failed to establish a connection'))"
+        )
+        out = src._scrub_diagnostic(text)
+        assert _SECRET not in out
+        # Diagnostics survive: host and path are what name the failing artifact.
+        assert "api.example.test" in out
+        assert "window=7d" in out
+
+    def test_path_segment_credential_is_value_redacted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """NASA FIRMS puts the key in a URL *path segment*.
+
+        No query-shaped structural rule can see that, so only the value-based
+        pass catches it. The value used here is deliberately NOT this source's
+        configured ``api_key`` -- that pass runs first and would mask which
+        mechanism did the work -- so what is exercised is the environment
+        sweep, the one that covers another service's key echoed into a body.
+        """
+        other = "OTHER_SERVICE_KEY_ABCDEFGH"
+        monkeypatch.setenv("MERCURY_PROBE_API_KEY", other)
+        src = self._source()
+        out = src._scrub_diagnostic(
+            f"404 Client Error for url 'https://firms.test/api/area/csv/{other}/VIIRS/1'"
+        )
+        assert other not in out
+        assert "firms.test" in out
+
+    def test_sources_own_configured_key_is_redacted(self) -> None:
+        """A key held in config, never in the environment, is still scrubbed."""
+        src = self._source()
+        out = src._scrub_diagnostic(f"401 for url 'https://h/p?apikey={_SECRET}'")
+        assert _SECRET not in out
+
+    def test_env_var_name_is_what_reaches_the_log(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The label is the variable NAME, and the value is absent.
+
+        This is deliberate -- the reader learns *which* credential was scrubbed
+        without learning the credential -- and it is the whole content of the
+        eight open CodeQL alerts against these log sites.
+        """
+        other = "OTHER_SERVICE_KEY_ABCDEFGH"
+        monkeypatch.setenv("MERCURY_PROBE_API_KEY", other)
+        src = self._source()
+        out = src._scrub_diagnostic(f"failed fetching https://h/v1/{other}/rows")
+        assert "<MERCURY_PROBE_API_KEY:redacted>" in out
+        assert other not in out
+
+    def test_scrubbing_is_idempotent(self) -> None:
+        """Layers stack: a scrubbed transport string is re-scrubbed downstream."""
+        src = self._source()
+        once = src._scrub_diagnostic(f"url 'https://h/p?api_key={_SECRET}'")
+        assert src._scrub_diagnostic(once) == once
