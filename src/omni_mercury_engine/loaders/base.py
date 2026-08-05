@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import OfflineModeError
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
@@ -351,6 +352,18 @@ class BaseDomainLoader(ABC):
                 # Note: requests.HTTPError is an IOError, not a
                 # ValueError, so HTTP 4xx/5xx still flow into the
                 # transient-retry path below.
+                raise
+            except OfflineModeError:
+                # Offline mode is a deterministic, pre-socket refusal
+                # (``SafeHTTPClient.validate_url`` raises it before any
+                # network call), not a transient fault. It is a
+                # ``RuntimeError``, so without this it would fall into
+                # the generic handler below and be retried through the
+                # full 2+4+8 s backoff and then masked as a
+                # ``FetchHTTPError`` -- turning an instant, typed
+                # fail-closed into a ~14 s wait that loses the offline
+                # signal. Re-raise immediately and untouched, mirroring
+                # the ``ValueError`` branch.
                 raise
             except Exception as exc:
                 last_error_kind = type(exc).__name__

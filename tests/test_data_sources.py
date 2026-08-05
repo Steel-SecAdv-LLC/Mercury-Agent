@@ -428,6 +428,69 @@ class TestNOAASWPCSource:
         assert point.confidence == 0.9
         assert point.metadata["product"] == SWPCProduct.REALTIME_SOLAR_WIND.value
 
+    def test_parse_rtsw_mag_returns_newest_not_oldest(self) -> None:
+        """The live RTSW feed is NEWEST-first, opposite to the GOES products.
+
+        Selecting the trailing 60 rows by position (``preferred[-60:]``) then
+        returned the OLDEST hour -- ~24 h-stale data on every fetch of a product
+        named ``realtime``. The parser must choose the newest minutes by time.
+        """
+        from datetime import timedelta
+
+        source = NOAASWPCSource()
+        base = datetime(2026, 8, 5, 23, 0, tzinfo=UTC)
+        payload = [  # index 0 = newest minute, later indices older
+            {
+                "time_tag": (base - timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%S"),
+                "bt": 5.0,
+                "bx_gsm": 1.0,
+                "by_gsm": 1.0,
+                "bz_gsm": -3.0,
+                "source": "SOLAR1",
+                "active": True,
+            }
+            for i in range(200)
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        assert len(points) == 60
+        assert max(p.timestamp for p in points) == base, "parser returned stale, not newest, data"
+        assert min(p.timestamp for p in points) == base - timedelta(minutes=59)
+        assert [p.timestamp for p in points] == sorted(p.timestamp for p in points)
+
+    def test_parse_rtsw_mag_dedups_per_minute(self) -> None:
+        """One row per UTC minute — no duplicate ``event_id``s even when several
+        spacecraft report the same minute (incl. sub-minute jitter) or none is
+        active."""
+        source = NOAASWPCSource()
+        payload = [
+            {
+                "time_tag": "2026-08-05T23:10:00",
+                "bt": 5.0,
+                "bz_gsm": -3.0,
+                "source": "ACE",
+                "active": False,
+            },
+            {
+                "time_tag": "2026-08-05T23:10:31",
+                "bt": 6.0,
+                "bz_gsm": -4.0,
+                "source": "IMAP",
+                "active": False,
+            },
+            {
+                "time_tag": "2026-08-05T23:11:00",
+                "bt": 5.5,
+                "bz_gsm": -2.0,
+                "source": "ACE",
+                "active": False,
+            },
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        ids = [p.event_id for p in points]
+        assert len(ids) == len(set(ids)), f"duplicate event_ids: {ids}"
+        assert len(points) == 2, "23:10:00 and 23:10:31 must floor to one minute"
+        assert all(p.confidence == 0.7 for p in points), "non-active rows carry lower confidence"
+
     def test_parse_rtsw_mag_fill_values_become_none(self) -> None:
         source = NOAASWPCSource()
         payload = [

@@ -96,17 +96,25 @@ def _measure_provenance() -> float:
 
 
 def _measure_adversarial() -> float:
-    """Live surviving-bypass rate: run the red-team harness against the current gate.
+    """Live bypass rate over the FIXED adversarial candidate universe.
 
-    Measured, not read from the pinned floor: the committed
-    ``red_team_baseline.json`` is the *no-weakening floor* the board compares
-    against (via :meth:`ValueMetric.improves_on_baseline`), never the 'measured'
-    value itself. A gate weakening that raises the true survival rate is reflected
-    here rather than masked by a stale constant.
+    Must return the quantity the ``adversarial_co_training`` metric *declares* --
+    ``fixed_universe_gate_bypass_rate`` (:data:`VALUE_METRICS`) -- not
+    ``run_red_team().survival_rate``. They are different numbers:
+    :meth:`RedTeamResult.survival_rate` skips every seed the gate already blocks,
+    so its denominator moves with gate strength and a strictly *stronger* gate can
+    raise it above the floor (measured: 0.335 -> 0.438 across two strengthening
+    changes that blocked hundreds more candidates and unblocked none). Comparing
+    that non-monotone number against the fixed-universe floor is exactly the
+    cross-quantity gate the metric definition warns against. :func:`
+    measure_fixed_universe_bypass` scores every mutation chain of every configured
+    seed regardless of gate outcome, so its denominator is a property of the config
+    alone and the value is monotone in gate strength -- the no-weakening floor the
+    board actually enforces.
     """
-    from omni_mercury_engine.intel.red_team import run_red_team
+    from omni_mercury_engine.intel.red_team import measure_fixed_universe_bypass
 
-    return float(run_red_team().survival_rate)
+    return float(measure_fixed_universe_bypass()["bypass_rate"])
 
 
 def _measure_closed_loop() -> float:

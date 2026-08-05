@@ -244,12 +244,23 @@ def _rejoin_spaced_words(text: str) -> str:
         The rejoined text, or ``""`` when no run was found (the caller then adds
         no variant, so ordinary queries pay nothing).
     """
-    # When the text carries explicit word gaps the attacker has already told us
-    # where the words end; re-deriving boundaries from a vocabulary could only
-    # contradict that, and did -- an early revision that segmented every run
-    # regressed the marked-gap corpus from 182/182 blocked to 162/182. Recovery
-    # therefore runs only on uniformly-spaced text, where nothing else can.
-    recover = _WORD_GAP_RE.search(text) is None
+    # Recovery is decided PER GROUP, not once for the whole text. ``_WORD_GAP_RE``
+    # (2+ spaces) is the attacker's own word-gap marker, and splitting on it here
+    # consumes every marker -- so no ``group`` below can contain an internal
+    # marked boundary that :func:`segment_glued_run` could contradict. A marked
+    # group is a single char-spelled word that segments to itself; an unmarked
+    # (uniformly-spaced) group is the only place recovery is needed at all.
+    #
+    # This replaces an earlier single ``recover = _WORD_GAP_RE.search(text) is
+    # None`` flag computed over the WHOLE text. Because that flag was global, a
+    # single stray 2+-space run anywhere -- a double space after a period, a tab,
+    # a ``\n\n`` paragraph break -- turned recovery off for *every* uniformly
+    # spaced run in the query, so ``"ok.  a t t a c k p l a n ..."`` glued and
+    # the ``\b``-anchored Axis-B patterns matched nothing: a silent reopening of
+    # the exact bypass the recovery exists to close. Per-group recovery keeps the
+    # marked-gap corpus intact (each marked group is one word, segmenting to
+    # itself) while closing that hole, and a partially-marked query still has its
+    # uniformly-spaced groups recovered instead of the whole input opting out.
     joined_any = False
     groups: list[str] = []
     for group in _WORD_GAP_RE.split(text):
@@ -259,8 +270,7 @@ def _rejoin_spaced_words(text: str) -> str:
         def flush(out: list[str] = out, run: list[str] = run) -> None:
             nonlocal joined_any
             if len(run) >= 2:
-                glued = "".join(run)
-                out.append(segment_glued_run(glued) if recover else glued)
+                out.append(segment_glued_run("".join(run)))
                 joined_any = True
             else:
                 out.extend(run)
@@ -376,6 +386,24 @@ _BASE_SEGMENTATION_WORDS: frozenset[str] = frozenset(
 #: registration is idempotent and inspectable.
 _REGISTERED_SEGMENTATION_WORDS: set[str] = set()
 
+#: Memoised ``(vocabulary, longest_word_length)`` for :func:`segment_glued_run`.
+#: The vocabulary is fixed after import-time registration, but the segmenter runs
+#: once per glued run on the hot gate path, so rebuilding the frozenset union and
+#: recomputing ``max(len(w))`` on every call is pure waste -- measured at ~60 us
+#: per call over the ~1.9k-word vocabulary, and the gate can be handed one run
+#: per few characters of a crafted input. Rebuilt lazily and invalidated whenever
+#: a registration mutates the word set (which only happens at import).
+_VOCAB_CACHE: frozenset[str] | None = None
+_VOCAB_LONGEST: int = 0
+
+
+def _invalidate_vocabulary_cache() -> None:
+    """Drop the memoised vocabulary so the next lookup rebuilds it."""
+    global _VOCAB_CACHE, _VOCAB_LONGEST
+    _VOCAB_CACHE = None
+    _VOCAB_LONGEST = 0
+
+
 #: Longest run handed to the dynamic program. The gate already bounds its
 #: subject string; this is a second, local ceiling so segmentation can never
 #: become a cost centre on pathological input.
@@ -415,6 +443,7 @@ def register_segmentation_terms(terms: Iterable[str]) -> None:
             folded = _fold_obfuscation(word)
             if len(folded) >= _MIN_VOCAB_LEN and folded.isalnum():
                 _REGISTERED_SEGMENTATION_WORDS.add(folded)
+    _invalidate_vocabulary_cache()
 
 
 def register_pattern_literals(patterns: Iterable[str]) -> None:
@@ -439,11 +468,21 @@ def register_pattern_literals(patterns: Iterable[str]) -> None:
     for source in patterns:
         cleaned = _REGEX_ESCAPE_RE.sub(" ", source.lower())
         _REGISTERED_SEGMENTATION_WORDS.update(_REGEX_LITERAL_WORD_RE.findall(cleaned))
+    _invalidate_vocabulary_cache()
 
 
 def _vocabulary() -> frozenset[str]:
-    """The current segmentation vocabulary (base + everything registered)."""
-    return frozenset(_BASE_SEGMENTATION_WORDS | _REGISTERED_SEGMENTATION_WORDS)
+    """The current segmentation vocabulary (base + everything registered).
+
+    Memoised: the word set only changes at import-time registration, and this
+    sits on the per-glued-run hot path. :func:`_invalidate_vocabulary_cache`
+    clears it whenever a registration mutates the underlying set.
+    """
+    global _VOCAB_CACHE, _VOCAB_LONGEST
+    if _VOCAB_CACHE is None:
+        _VOCAB_CACHE = frozenset(_BASE_SEGMENTATION_WORDS | _REGISTERED_SEGMENTATION_WORDS)
+        _VOCAB_LONGEST = max((len(w) for w in _VOCAB_CACHE), default=0)
+    return _VOCAB_CACHE
 
 
 def segment_glued_run(run: str) -> str:
@@ -471,8 +510,8 @@ def segment_glued_run(run: str) -> str:
     n = len(run)
     if not run or n > _MAX_SEGMENT_RUN:
         return run
-    vocab = _vocabulary()
-    longest = max((len(w) for w in vocab), default=0)
+    vocab = _vocabulary()  # also refreshes the memoised ``_VOCAB_LONGEST``
+    longest = _VOCAB_LONGEST
     if not longest:
         return run
 

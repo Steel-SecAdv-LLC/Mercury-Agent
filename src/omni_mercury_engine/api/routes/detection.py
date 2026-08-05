@@ -245,10 +245,44 @@ async def detect_neurosymbolic(
     user: User | None = Depends(_get_optional_user),
 ) -> NeurosymbolicResponse:
     """Perform neuro-symbolic anomaly detection."""
+    # Import the gate machinery up front so its ``EthicalConstraintViolationError``
+    # name is always bound when the except clauses below are evaluated (mirrors
+    # the flagship endpoint). These are core modules; a failure here is a genuine
+    # environment fault, surfaced as 503 rather than swallowed as a 500.
+    try:
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+    except ImportError as e:
+        logger.error("Harm-uplift gate unavailable for neuro-symbolic endpoint: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The decision gate is not available in this environment.",
+        ) from e
+
     try:
         from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
             FusionStrategy,
             NeurosymbolicFusionEngine,
+        )
+
+        # Fail-closed harm-uplift gate. This endpoint's own OpenAPI description
+        # advertises it, and ``NeurosymbolicFusionEngine`` does not run it
+        # internally, so it must be enforced here or the documented control is
+        # absent on a public decision surface. The caller-supplied records reach
+        # the gate as the payload (string values in the records are scored),
+        # mirroring the engine's gated ``detect`` surfaces; a refusal maps to
+        # HTTP 403 below rather than a silent allow.
+        enforce_decision_boundary(
+            DecisionSubject(
+                surface="api.detect_neurosymbolic",
+                operation="neuro-symbolic anomaly detection over caller-supplied records",
+                payload=request.data,
+            )
         )
 
         strategy_map = {
@@ -317,6 +351,13 @@ async def detect_neurosymbolic(
             audit_trail=result.audit_trail if request.include_explanations else [],
         )
 
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the harm-uplift gate refused this request.
+        logger.warning("Neuro-symbolic detection blocked by harm-uplift gate '%s'", e.check)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+        ) from e
     except ImportError as e:
         logger.error("Neuro-symbolic module not available: %s", e)
         raise HTTPException(

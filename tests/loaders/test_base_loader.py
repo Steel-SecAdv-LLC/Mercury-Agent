@@ -216,6 +216,35 @@ class TestFetchUrlExceptionRouting:
             loader._fetch_url("ftp://earthquake.usgs.gov/data")
         assert call_count["n"] == 1
 
+    def test_offline_mode_raised_immediately_no_retry(self, tmp_path: Any) -> None:
+        """``OfflineModeError`` is a pre-socket refusal: fail fast, unmasked.
+
+        It is a ``RuntimeError``, so before it was routed explicitly it fell
+        into the generic transient handler -- retried through the full backoff
+        (2+4+8 s at defaults) and then re-raised as ``FetchHTTPError``, turning
+        an instant fail-closed into a ~14 s wait that lost the offline signal.
+        """
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 3
+        loader.retry_backoff = 5.0  # would be a 35 s wait if retried
+        call_count = {"n": 0}
+
+        def offline(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise OfflineModeError("https://earthquake.usgs.gov/data")
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=offline,
+            ),
+            pytest.raises(OfflineModeError),
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/data")
+        assert call_count["n"] == 1, "OfflineModeError must NOT trigger retries"
+
     def test_transient_network_error_still_retries(self, tmp_path: Any) -> None:
         """``OSError`` from the gate is treated as transient and retried."""
         loader = StubLoader(cache_dir=tmp_path / "cache")

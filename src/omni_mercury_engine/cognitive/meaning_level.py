@@ -238,7 +238,14 @@ def load_model(path: Path | None = None, *, refresh: bool = False) -> MeaningLev
             model = MeaningLevelModel.from_dict(json.load(fh))
     except FileNotFoundError:
         logger.info("meaning-level weights not present at %s; classifier inactive", target)
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except Exception as exc:
+        # Fail-open at EVERY malformed-artifact mode, not just I/O and JSON
+        # syntax. A file that is valid JSON but the wrong SHAPE makes
+        # ``MeaningLevelModel.from_dict`` raise ``KeyError``/``TypeError``; if
+        # that escaped it would both defeat the fail-open contract (the gate
+        # must degrade to its lexical floor, never crash) and skip the
+        # ``_MODEL_CACHE`` write below, so every subsequent call would re-open
+        # and re-raise on the hot path. Catch broadly and cache the ``None``.
         logger.warning("meaning-level weights unusable (%s); classifier inactive", exc)
     _MODEL_CACHE[key] = model
     return model

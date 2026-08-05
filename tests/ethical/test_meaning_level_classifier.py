@@ -114,6 +114,21 @@ class TestFailOpen:
         )
         assert load_model(empty, refresh=True) is None
 
+    @pytest.mark.parametrize("payload", [[1, 2, 3], "just a string", 42, 3.14, True])
+    def test_valid_json_wrong_shape_fails_open(self, tmp_path: Path, payload: object) -> None:
+        """Valid JSON of the wrong *type* must degrade to None, not raise.
+
+        ``MeaningLevelModel.from_dict`` calls ``.get`` on its argument, so a
+        non-mapping payload raises ``AttributeError`` -- which the old
+        ``(OSError, ValueError, JSONDecodeError)`` catch missed. The escaping
+        exception crashed the gate off its lexical floor AND skipped the cache
+        write below, so every later call re-opened and re-raised on the hot
+        path. This pins the broadened fail-open.
+        """
+        wrong = tmp_path / "wrong.json"
+        wrong.write_text(json.dumps(payload), encoding="utf-8")
+        assert load_model(wrong, refresh=True) is None
+
     @pytest.mark.parametrize("text", ["", "   ", "\x00\x01", "é" * 500, "a" * 10000])
     def test_scoring_never_raises_on_hostile_input(self, text: str) -> None:
         assert 0.0 <= meaning_level_harm_classifier()(text) <= 1.0

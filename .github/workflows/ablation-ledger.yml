@@ -136,6 +136,16 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      # The score cache MUST live where actions/cache saves and restores it.
+      # ``gf_env.sh`` and ``score_cache.py`` default ``GF_CACHE_DIR`` to
+      # ``/home/user/gf_cache`` -- this repo's dev-container home -- which a
+      # GitHub runner neither has nor can create as a non-root user, so the
+      # cache action (keyed on ``~/gf_cache``) never restored the warmed scores
+      # and the warm step could fail on the missing parent directory. Pin the
+      # env var and the cache path below to one workspace-relative location so
+      # the warm step, the measure step, and the cache all agree.
+      GF_CACHE_DIR: ${{ github.workspace }}/.gf_cache
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -165,7 +175,7 @@ jobs:
         id: gf-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          path: ~/gf_cache
+          path: ${{ github.workspace }}/.gf_cache
           key: >-
             gf-scores-v1-${{ hashFiles('research/governed_fusion/manifest.json',
             'src/omni_mercury_engine/detectors/statistical.py',

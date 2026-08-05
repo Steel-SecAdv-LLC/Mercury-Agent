@@ -1029,18 +1029,14 @@ class NOAASWPCSource(DataSourceBase):
             source_type: Mapped :class:`DataSourceType` for the product.
 
         Returns:
-            DataPoints for the trailing hour of preferred rows. Southward
-            IMF drives the alert level: ``bz_gsm < -20`` nT is STRONG,
+            DataPoints for the trailing hour, oldest-first, one per UTC minute.
+            Southward IMF drives the alert level: ``bz_gsm < -20`` nT is STRONG,
             ``< -10`` nT MODERATE — the geoeffective threshold range used
             across the SWPC parsers.
         """
         data_points: list[DataPoint] = []
         if not isinstance(data, list) or not data:
             return data_points
-
-        rows = [row for row in data if isinstance(row, dict) and row.get("time_tag")]
-        active_rows = [row for row in rows if row.get("active")]
-        preferred = active_rows or rows
 
         def _mag(record: dict[str, Any], key: str) -> float | None:
             # Field components are signed, so only the instrument fill
@@ -1054,45 +1050,68 @@ class NOAASWPCSource(DataSourceBase):
                 return None
             return None if parsed <= -9999.0 else parsed
 
-        for record in preferred[-60:]:
+        # Select ONE row per UTC minute by explicit preference, then keep the
+        # newest 60 minutes by timestamp. Two facts about this feed forbid the
+        # ``preferred[-60:]`` shortcut the GOES parsers use:
+        #   * it is NEWEST-first (verified live: index 0 is the latest minute,
+        #     the tail is ~24 h old), the opposite of the GOES products, so a
+        #     positional tail returns a full day of stale data; and
+        #   * it is multi-spacecraft — each minute carries an active SOLAR1 row
+        #     and usually a non-active ACE row — so a positional slice with no
+        #     per-minute dedup mixes calibrations and can emit duplicate
+        #     ``event_id``s. Bucketing by minute and choosing the newest minutes
+        #     by time is correct regardless of feed order or row multiplicity.
+        _MAG_KEYS = ("bt", "bx_gsm", "by_gsm", "bz_gsm")
+        best_by_minute: dict[datetime, tuple[tuple[bool, int], dict[str, Any]]] = {}
+        for record in data:
+            if not isinstance(record, dict) or not record.get("time_tag"):
+                continue
             try:
-                time_str = str(record["time_tag"])
-                timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
-                if timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=UTC)
-
-                point_data = {
-                    "bt": _mag(record, "bt"),
-                    "bx_gsm": _mag(record, "bx_gsm"),
-                    "by_gsm": _mag(record, "by_gsm"),
-                    "bz_gsm": _mag(record, "bz_gsm"),
-                    "source": record.get("source"),
-                    "active": bool(record.get("active")),
-                }
-
-                bz = point_data.get("bz_gsm")
-                if isinstance(bz, float) and bz < -20:
-                    alert_level = AlertLevel.STRONG
-                elif isinstance(bz, float) and bz < -10:
-                    alert_level = AlertLevel.MODERATE
-                else:
-                    alert_level = AlertLevel.NONE
-
-                data_points.append(
-                    DataPoint(
-                        source_id=self.source_id,
-                        source_type=source_type,
-                        event_id=f"rtsw_mag_{timestamp.isoformat()}",
-                        timestamp=timestamp,
-                        data=point_data,
-                        alert_level=alert_level,
-                        confidence=0.9 if point_data["active"] else 0.7,
-                        metadata={"product": SWPCProduct.REALTIME_SOLAR_WIND.value},
-                    )
-                )
+                ts = datetime.fromisoformat(str(record["time_tag"]).replace("Z", "+00:00"))
             except (KeyError, ValueError, TypeError) as e:
                 logger.debug(f"Failed to parse RTSW mag row: {e}")
                 continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=UTC)
+            minute = ts.replace(second=0, microsecond=0)
+            # Prefer the active spacecraft, then the row with the most valid
+            # field components (a fill-only row must never shadow a real one).
+            rank = (bool(record.get("active")), sum(_mag(record, k) is not None for k in _MAG_KEYS))
+            current = best_by_minute.get(minute)
+            if current is None or rank > current[0]:
+                best_by_minute[minute] = (rank, record)
+
+        # Newest 60 minutes, returned oldest-first (matches the sibling parsers).
+        for minute, (_rank, record) in sorted(best_by_minute.items())[-60:]:
+            point_data = {
+                "bt": _mag(record, "bt"),
+                "bx_gsm": _mag(record, "bx_gsm"),
+                "by_gsm": _mag(record, "by_gsm"),
+                "bz_gsm": _mag(record, "bz_gsm"),
+                "source": record.get("source"),
+                "active": bool(record.get("active")),
+            }
+
+            bz = point_data.get("bz_gsm")
+            if isinstance(bz, float) and bz < -20:
+                alert_level = AlertLevel.STRONG
+            elif isinstance(bz, float) and bz < -10:
+                alert_level = AlertLevel.MODERATE
+            else:
+                alert_level = AlertLevel.NONE
+
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=source_type,
+                    event_id=f"rtsw_mag_{minute.isoformat()}",
+                    timestamp=minute,
+                    data=point_data,
+                    alert_level=alert_level,
+                    confidence=0.9 if point_data["active"] else 0.7,
+                    metadata={"product": SWPCProduct.REALTIME_SOLAR_WIND.value},
+                )
+            )
 
         return data_points
 

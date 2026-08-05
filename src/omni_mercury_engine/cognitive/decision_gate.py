@@ -89,6 +89,23 @@ _MAX_VALUE_CHARS = 512
 #: Number of mapping keys rendered into a payload summary before eliding.
 _MAX_KEYS = 24
 
+#: Upper bound on the whole payload summary. The gate scores ``describe()``,
+#: whose caller-controlled ``request`` must always survive the
+#: :data:`MAX_SUBJECT_CHARS` cut. Without a total cap a structured payload can
+#: render to tens of kilobytes and, placed before ``request``, evict it from the
+#: scored string entirely -- a harm-uplift bypass (large benign payload +
+#: trailing uplift ``request`` -> only the benign padding is scored). The cap
+#: leaves at least ``MAX_SUBJECT_CHARS - _MAX_PAYLOAD_SUMMARY_CHARS`` for the
+#: request, and ``describe()`` additionally scores the request FIRST.
+_MAX_PAYLOAD_SUMMARY_CHARS = 2048
+
+#: Recursion ceiling for :func:`summarize_payload`. Deep enough that a string
+#: nested a few containers down (``{"a": {"b": {"c": "<uplift text>"}}}``) still
+#: reaches the gate's lexicons instead of collapsing to the token ``dict`` -- the
+#: old depth-2 ceiling hid exactly that. The total-character cap above, not the
+#: depth, is what bounds cost, so this can be generous.
+_MAX_PAYLOAD_DEPTH = 6
+
 
 def summarize_payload(payload: Any, *, _depth: int = 0) -> str:
     """Render ``payload`` as the factual description of what is being decided on.
@@ -124,7 +141,7 @@ def summarize_payload(payload: Any, *, _depth: int = 0) -> str:
         if shape is not None:
             dtype = getattr(payload, "dtype", None)
             return f"{type(payload).__name__}(shape={tuple(shape)}, dtype={dtype})"
-        if _depth >= 2:
+        if _depth >= _MAX_PAYLOAD_DEPTH:
             return type(payload).__name__
         if isinstance(payload, dict):
             keys = list(payload)[:_MAX_KEYS]
@@ -181,17 +198,25 @@ class DecisionSubject:
         """Render the decision as the text the harm gate scores.
 
         Returns:
-            ``"<surface>: <operation> | domain=... | input=... | request=..."``,
-            truncated to :data:`MAX_SUBJECT_CHARS`.  The caller's own text is
-            placed last so truncation drops trailing caller text rather than the
-            surface provenance an auditor needs.
+            ``"<surface>: <operation> | domain=... | request=... | input=..."``,
+            truncated to :data:`MAX_SUBJECT_CHARS`.
+
+        The ``request`` -- the caller's own free text, and the highest-signal
+        harm evidence -- is placed **before** the structured payload summary, and
+        the summary is capped at :data:`_MAX_PAYLOAD_SUMMARY_CHARS`. Both matter:
+        the caller controls both fields, and a payload that renders to tens of
+        kilobytes would otherwise fill the whole :data:`MAX_SUBJECT_CHARS` budget
+        and push a trailing uplift ``request`` off the end -- so the gate would
+        score only the benign padding and permit the decision. Ordering the
+        request first, and bounding the summary, guarantees the request is always
+        scored.
         """
         parts = [f"{self.surface}: {self.operation}", f"domain={sanitize_domain(self.domain)}"]
-        summary = summarize_payload(self.payload)
-        if summary:
-            parts.append(f"input={summary}")
         if self.request:
             parts.append(f"request={self.request}")
+        summary = summarize_payload(self.payload)
+        if summary:
+            parts.append(f"input={summary[:_MAX_PAYLOAD_SUMMARY_CHARS]}")
         return " | ".join(parts)[:MAX_SUBJECT_CHARS]
 
 

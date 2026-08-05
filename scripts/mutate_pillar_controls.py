@@ -190,14 +190,20 @@ MUTATIONS: tuple[Mutation, ...] = (
 )
 
 
-def run_mutation(mutation: Mutation) -> bool:
-    """Apply one mutation and report whether the pillar suite killed it.
+def run_mutation(mutation: Mutation) -> str:
+    """Apply one mutation and report how the pillar suite responded.
 
     Args:
         mutation: The control-disabling patch to apply.
 
     Returns:
-        True when the suite went red (mutation killed), False when it survived.
+        ``"KILLED"`` when a test actually failed (pytest exit 1 -- the mutation
+        was caught by an assertion), ``"SURVIVED"`` when every test still passed
+        (exit 0), or ``"ERROR"`` for any other pytest exit (2 = collection/usage
+        error, 5 = no tests collected, ...). ``ERROR`` is NOT a kill: the suite
+        never ran a pass-to-fail transition, so a mutation that breaks import or
+        collection would otherwise be miscounted as observed and inflate the
+        kill rate. The mutation gate must fail loudly on it instead.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         plugin = Path(tmpdir) / "mercury_mutant_plugin.py"
@@ -227,12 +233,26 @@ def run_mutation(mutation: Mutation) -> bool:
             env=env,
             check=False,
         )
-    killed = proc.returncode != 0
+    # Only pytest exit 1 -- a test ran and FAILED -- is a genuine kill. Exit 0
+    # is a survivor; any other code (2 collection/usage error, 3 internal, 5 no
+    # tests collected) means the transition we are testing for never happened,
+    # so it must not be scored as a kill.
+    if proc.returncode == 0:
+        result = "SURVIVED"
+    elif proc.returncode == 1:
+        result = "KILLED"
+    else:
+        result = "ERROR"
     tail = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "(no output)"
-    status = "KILLED  " if killed else "SURVIVED"
-    print(f"  {status}  [{mutation.pillar}] {mutation.name}")
-    print(f"              {tail[:100]}")
-    return killed
+    label = {"KILLED": "KILLED  ", "SURVIVED": "SURVIVED", "ERROR": "ERROR   "}[result]
+    print(f"  {label}  [{mutation.pillar}] {mutation.name}")
+    if result == "ERROR":
+        print(
+            f"              pytest exit {proc.returncode} (suite did not run a kill) -- {tail[:80]}"
+        )
+    else:
+        print(f"              {tail[:100]}")
+    return result
 
 
 def main() -> int:
@@ -254,14 +274,23 @@ def main() -> int:
     print("Mutation test: break each pillar control, confirm tests/pillars/ catches it")
     print("=" * 78)
 
-    survivors = [m for m in MUTATIONS if not run_mutation(m)]
+    results = [(m, run_mutation(m)) for m in MUTATIONS]
+    killed = [m for m, r in results if r == "KILLED"]
+    survivors = [m for m, r in results if r == "SURVIVED"]
+    errored = [m for m, r in results if r == "ERROR"]
 
     print()
-    print(f"kill rate: {len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)}")
+    print(f"kill rate: {len(killed)}/{len(MUTATIONS)} (killed by a genuine test failure)")
+    if errored:
+        print("ERRORS -- the suite could not be run for these mutations, so coverage is")
+        print("UNPROVEN (a collection/usage error is not a kill):")
+        for mutation in errored:
+            print(f"  - [{mutation.pillar}] {mutation.name}")
     if survivors:
         print("SURVIVORS -- these pillars are not actually observed:")
         for mutation in survivors:
             print(f"  - [{mutation.pillar}] {mutation.name}")
+    if survivors or errored:
         return 1
     print("Every disabled control was caught. No vacuous pillar coverage found.")
     return 0
