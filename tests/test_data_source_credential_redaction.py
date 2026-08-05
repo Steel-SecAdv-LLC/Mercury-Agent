@@ -76,7 +76,7 @@ def _status_response(status_code: int, body: str) -> httpx.Response:
 class _StubClient:
     """Stands in for httpx.Client/AsyncClient: returns or raises per call."""
 
-    def __init__(self, outcomes: list[Any]) -> None:
+    def __init__(self, outcomes: list[httpx.Response | Exception]) -> None:
         self._outcomes = outcomes
         self.calls = 0
 

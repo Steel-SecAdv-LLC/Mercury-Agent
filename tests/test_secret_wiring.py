@@ -157,14 +157,22 @@ class TestWorkflowInjection:
             ), f"{env_var} must be fed from secrets.{secret}, got secrets.{m.group(1)}"
 
     def test_eros_credentials_injected(self) -> None:
-        # USGS EROS/EarthExplorer M2M needs a username + token (or password);
-        # all three must be injected for the credential-delivery check to run.
+        # USGS EROS/EarthExplorer M2M authenticates via login-token: the ERS
+        # username plus the application token in USGS_KEY. USGS retired the
+        # password `login` endpoint (2026-02-26) and the client never reads a
+        # password env var, so the workflow must inject exactly these two --
+        # a password injection would advertise a credential path that no
+        # longer exists.
         env = _collect_step_env(_load_workflow())
-        for env_var in ("EROSERS_USERNAME", "USGS_KEY", "EROSERS_PASSWORD"):
+        for env_var in ("EROSERS_USERNAME", "USGS_KEY"):
             assert env_var in env, f"network-tests must inject {env_var} for the EROS check"
             assert _SECRET_RE.search(
                 env[env_var]
             ), f"{env_var} must be fed from a repository secret"
+        assert "EROSERS_PASSWORD" not in env, (
+            "EROSERS_PASSWORD is dead wiring: USGS deprecated the M2M password "
+            "login endpoint and integrations/usgs_eros.py never reads it"
+        )
 
     def test_workflow_not_fork_pr_triggered(self) -> None:
         wf = _load_workflow()

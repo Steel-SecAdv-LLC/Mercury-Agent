@@ -116,6 +116,19 @@ _MIN_SECRET_LEN = 4
 #: value cannot silently mangle unrelated words that merely contain it.
 _BOUNDARY_SECRET_LEN = 8
 
+#: Upper bound on the scheme this pattern will scan before giving up on a
+#: candidate start position.  RFC 3986 places no length limit on a scheme,
+#: but the longest IANA-registered one is 31 characters, so 40 admits every
+#: real scheme with room to spare.  The bound is what makes the scan
+#: **linear**: unbounded, ``[a-zA-Z0-9+.-]*`` re-scans to end-of-string from
+#: every one of ``n`` start positions before failing to find ``://``, which
+#: is quadratic in the input length.  That input is attacker-influenced --
+#: this module exists to scrub *upstream* response bodies and transport
+#: exception text -- so the quadratic form is a denial-of-service surface on
+#: the sanitizer itself.  Measured on a scheme-shaped string with no ``://``:
+#: 128 KB took 13.4 s unbounded and 11.7 ms bounded.
+_MAX_SCHEME_LEN = 40
+
 #: ``<`` and ``>`` terminate a URL/query match so markup is never
 #: swallowed -- EXCEPT the literal :data:`REDACTED` token, which must be
 #: admitted mid-match or redaction would not be idempotent: on a second
@@ -124,7 +137,9 @@ _BOUNDARY_SECRET_LEN = 8
 #: second token beside the first.  Layers deliberately stack (a scrubbed
 #: transport message flows into ``DataSourceUnavailableError`` and again
 #: through script-level redaction), so idempotency is load-bearing.
-_URL_IN_TEXT_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://(?:<redacted>|[^\s'\"<>`\\])+")
+_URL_IN_TEXT_RE = re.compile(
+    rf"[a-zA-Z][a-zA-Z0-9+.-]{{0,{_MAX_SCHEME_LEN - 1}}}://(?:<redacted>|[^\s'\"<>`\\])+"
+)
 
 #: A query string appearing WITHOUT a scheme-qualified URL around it.
 #: urllib3 renders transport failures as ``"HTTPSConnectionPool(host=...):

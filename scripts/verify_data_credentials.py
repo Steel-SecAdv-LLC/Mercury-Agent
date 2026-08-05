@@ -206,14 +206,15 @@ def check_alpha_vantage(key: str) -> tuple[bool, str]:
     return False, f"unexpected response: {str(data)[:120]}"
 
 
-def check_usgs_eros(username: str, token: str, password: str = "") -> tuple[bool, str]:
-    """USGS EROS / EarthExplorer M2M login (username + application token/password).
+def check_usgs_eros(username: str, token: str) -> tuple[bool, str]:
+    """USGS EROS / EarthExplorer M2M login (username + application token).
 
-    The M2M API authenticates a ``username`` with either an application ``token``
-    (recommended; generated in the EarthExplorer profile) or a ``password``. A
-    successful login returns a session token in ``data`` with ``errorCode: null``;
-    that session is then used (and a small ``dataset-search`` is issued) to prove
-    real data delivery, and finally logged out.
+    The M2M API authenticates a ``username`` with an application ``token``
+    (generated in the EarthExplorer profile) via ``login-token``; USGS retired
+    the password ``login`` endpoint on 2026-02-26. A successful login returns a
+    session token in ``data`` with ``errorCode: null``; that session is then
+    used (and a small ``dataset-search`` is issued) to prove real data
+    delivery, and finally logged out.
     """
     base = "https://m2m.cr.usgs.gov/api/api/json/stable"
 
@@ -231,23 +232,15 @@ def check_usgs_eros(username: str, token: str, password: str = "") -> tuple[bool
         except Exception as exc:  # pragma: no cover - network variance
             return {"errorMessage": str(exc)}
 
-    body: dict[str, Any] = {}
-    method = ""
-    if token:
-        method = "token"
-        body = _post("login-token", {"username": username, "token": token})
-    if not body.get("data") and password:
-        method = "password"
-        body = _post("login", {"username": username, "password": password})
+    body = _post("login-token", {"username": username, "token": token})
     session = body.get("data")
     if not session:
         return (
             False,
-            f"login failed ({method or 'no-credential'}): "
-            f"{body.get('errorCode')} {body.get('errorMessage')}",
+            f"login failed (token): {body.get('errorCode')} {body.get('errorMessage')}",
         )
 
-    detail = f"authenticated via {method}; session token issued"
+    detail = "authenticated via token; session token issued"
     hdr = {"X-Auth-Token": str(session)}
     ds = _post("dataset-search", {"datasetName": "landsat_ot_c2_l2"}, hdr)
     if isinstance(ds.get("data"), list):
@@ -293,13 +286,13 @@ def run() -> int:
             failures += 1
 
     # USGS EROS / EarthExplorer M2M: authenticates a username with an application
-    # token (USGS_KEY, recommended) or a password. The other USGS services
-    # (earthquake FDSN, water, elevation) are keyless and need no credential.
+    # token (USGS_KEY) via login-token -- USGS retired the password login
+    # endpoint on 2026-02-26. The other USGS services (earthquake FDSN, water,
+    # elevation) are keyless and need no credential.
     eros_user = os.environ.get("EROSERS_USERNAME", "")
     eros_token = os.environ.get("USGS_KEY", "")
-    eros_pw = os.environ.get("EROSERS_PASSWORD", "")
-    if eros_user and (eros_token or eros_pw):
-        ok, detail = check_usgs_eros(eros_user, eros_token, eros_pw)
+    if eros_user and eros_token:
+        ok, detail = check_usgs_eros(eros_user, eros_token)
         print(f"  {'USGS/EROS':14s} {'DELIVERS' if ok else 'FAIL   '}  {detail}")
         if not ok:
             failures += 1
@@ -310,7 +303,7 @@ def run() -> int:
         )
         print(
             f"  {'USGS/EROS':14s} SKIP  need EROSERS_USERNAME + USGS_KEY (EROS M2M "
-            f"application token) or EROSERS_PASSWORD; keyless USGS earthquake feed "
+            f"application token); keyless USGS earthquake feed "
             f"reachable HTTP {status}"
         )
     print(f"=== {failures} failure(s) among sources with a key present ===")
