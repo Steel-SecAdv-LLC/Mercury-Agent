@@ -775,7 +775,7 @@ The five ethical pillars are:
 | $\sigma_{\text{medical}}$ | 0.93 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_MEDICAL` | Medical ethical threshold | **UNJUSTIFIED:** needs clinical validation |
 | $\sigma_{\text{infrastructure}}$ | 0.995 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_INFRASTRUCTURE` | Infrastructure ethical threshold | **UNJUSTIFIED:** needs operational validation |
 | $\sigma_{\text{humanitarian}}$ | 0.95 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_HUMANITARIAN` | Humanitarian ethical threshold | **UNJUSTIFIED:** needs field validation |
-| $\beta_{\text{immutable}}$ | 0.99 | `centralized_constants.py` `EthicalConstants.BENEVOLENCE_IMMUTABLE` | Benevolence hard threshold | **UNJUSTIFIED:** needs empirical basis for 0.99 vs. alternatives |
+| $\beta_{\text{scalar}}$ | 0.99 | `centralized_constants.py` `EthicalConstants.OMNIBENEVOLENCE_SCALAR` | Advisory benevolence scalar (renamed from `BENEVOLENCE_IMMUTABLE`; no longer a gate) | Advisory only — decides nothing, so there is no pass/fail threshold to justify |
 | Sigma Directive threshold | 0.8 | `centralized_constants.py` `EthicalConstants.SIGMA_DIRECTIVE_THRESHOLD` | Ethical gate pass/fail | **UNJUSTIFIED:** design choice |
 | Bias detection threshold | 0.1 | `centralized_constants.py` `EthicalConstants.BIAS_DETECTION_THRESHOLD` | Demographic parity max diff | Fairlearn convention |
 | $b_0$ (Medical sigmoid) | 0.93 | `centralized_constants.py` `BenevolenceGateConstants.MEDICAL` | Sigmoid inflection point | **UNJUSTIFIED:** needs clinical calibration |

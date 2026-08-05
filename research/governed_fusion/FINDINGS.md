@@ -316,7 +316,17 @@ MCA only adds the additive `calibrated_probabilities` key). Item 4's
 the detector's threshold for the conformal quantile — measured above as a
 recall/coverage trade, default off. Tests: `tests/test_decision_curve.py`.
 
-### R6 — decouple η^Φ from the probability (opt-in, default-off)
+### R6 — decouple η^Φ from the probability (superseded: multiplier now unconditionally removed)
+
+> **Update (harm-uplift-gate PR).** The opt-in `decouple_ethical_scaling`
+> constructor flag and the soft η^Φ multiplier it gated have since been
+> **removed from `OmniAvaEquation` entirely** — the fused score is now the plain
+> weighted sum on every path, so the decoupling below is no longer a
+> configurable option but the default and only behaviour. Constructing
+> `OmniAvaEquation(decouple_ethical_scaling=True)` now raises `TypeError`, and
+> `tests/test_eta_decoupling.py` pins the parameter's removal rather than a
+> default-off equality. The paragraph below is retained as the original R6
+> record.
 
 `OmniAvaEquation(decouple_ethical_scaling=True)` removes the **soft** η^Φ
 multiplier from the fused-score path so a proper-scored monotone calibrator (MCA)

@@ -164,6 +164,73 @@ def test_workflow_version_drift_gate_detects_drift(tmp_path: Path) -> None:
     assert rc == 1
 
 
+def test_workflow_version_drift_gate_is_not_vacuous_on_real_tree(tmp_path: Path) -> None:
+    """The real repo migrated from the ``AMA_REF:`` env var to the ``ama-ref:``
+    composite-action input; the gate must actually parse those pins rather than
+    verify the pyproject ref against an empty workflow set and pass for free."""
+    out = tmp_path / "cert.json"
+    workflow_version_drift_gate.main(["--output", str(out)])
+    body = _load_cert(out)["body"]
+    assert body["builds_ama_seen"] is True
+    parsed = sum(len(w["refs"]) for w in body["workflows"])
+    assert parsed > 0, "gate parsed no workflow AMA refs — it is verifying nothing"
+
+
+def test_workflow_version_drift_gate_detects_ama_ref_input_drift(tmp_path: Path) -> None:
+    """Drift in the modern ``ama-ref:`` action input is caught, not just the env."""
+    root = tmp_path / "repo"
+    (root / ".github" / "workflows").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        'dependencies = ["ama-cryptography @ git+https://x/AMA.git@v4.0.0"]\n'
+    )
+    (root / ".github" / "workflows" / "ci.yml").write_text(
+        "jobs:\n  b:\n    steps:\n      - uses: ./.github/actions/build-ama-cryptography\n"
+        "        with:\n          ama-ref: v3.3.0\n"
+    )
+    out = tmp_path / "cert.json"
+    rc = workflow_version_drift_gate.main(["--root", str(root), "--output", str(out)])
+    assert _load_cert(out)["status"] == "fail"
+    assert rc == 1
+
+
+def test_workflow_version_drift_gate_fails_when_ref_key_renamed(tmp_path: Path) -> None:
+    """A build-AMA workflow whose ref key no longer matches must FAIL, not pass
+    vacuously — the regression that let the env->input migration slip through."""
+    root = tmp_path / "repo"
+    (root / ".github" / "workflows").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        'dependencies = ["ama-cryptography @ git+https://x/AMA.git@v4.0.0"]\n'
+    )
+    (root / ".github" / "workflows" / "ci.yml").write_text(
+        "jobs:\n  b:\n    steps:\n      - uses: ./.github/actions/build-ama-cryptography\n"
+        "        with:\n          amaref: v4.0.0\n"  # a key the pattern does not match
+    )
+    out = tmp_path / "cert.json"
+    rc = workflow_version_drift_gate.main(["--root", str(root), "--output", str(out)])
+    assert _load_cert(out)["status"] == "fail"
+    assert rc == 1
+
+
+def test_workflow_version_drift_gate_skips_templated_ref(tmp_path: Path) -> None:
+    """A templated ``AMA_REF: ${{ inputs.ama-ref }}`` is not parsed as a ref."""
+    root = tmp_path / "repo"
+    (root / ".github" / "workflows").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        'dependencies = ["ama-cryptography @ git+https://x/AMA.git@v4.0.0"]\n'
+    )
+    (root / ".github" / "workflows" / "ci.yml").write_text(
+        "env:\n  AMA_REF: ${{ inputs.ama-ref }}\n"
+        "jobs:\n  b:\n    steps:\n      - uses: ./.github/actions/build-ama-cryptography\n"
+        "        with:\n          ama-ref: v4.0.0\n"
+    )
+    out = tmp_path / "cert.json"
+    rc = workflow_version_drift_gate.main(["--root", str(root), "--output", str(out)])
+    cert = _load_cert(out)
+    assert cert["status"] == "ok", cert["warnings"]
+    assert cert["body"]["distinct_refs"] == ["v4.0.0"]
+    assert rc == 0
+
+
 def test_config_validator_ok(tmp_path: Path) -> None:
     cfg_dir = tmp_path / "configs"
     cfg_dir.mkdir()
