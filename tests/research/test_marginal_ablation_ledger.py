@@ -184,9 +184,68 @@ def test_external_label_score_loader_uses_requested_cache_dir(
     monkeypatch.setattr(mma, "build_suite", lambda kind="real": [event])
     monkeypatch.setattr("research.governed_fusion.score_cache.event_scores", fake_event_scores)
 
-    scores = _load_external_label_scores(str(tmp_path))
+    scores = _load_external_label_scores(str(tmp_path), [event])
     assert [(score.domain, score.event_id) for score in scores] == [("network_security", "nsl_kdd")]
     assert requested == [str(tmp_path)]
+
+
+def test_cache_key_constants_match_the_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Completeness is resolved from filenames, so cap/seed must match the writer.
+
+    ``_missing_score_caches`` reconstructs the score-cache paths without importing
+    the detector. If its cap/seed drifted from ``score_cache.event_scores``'
+    defaults it would look for filenames nothing ever writes, and every warmed
+    cache would be reported as missing.
+    """
+    import inspect
+
+    from research.governed_fusion import score_cache
+
+    params = inspect.signature(score_cache.event_scores).parameters
+    assert params["cap"].default == mma._CACHE_CAP
+    assert params["seed"].default == mma._CACHE_SEED
+
+
+def test_partially_warmed_cache_reports_needs_cache_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A half-warmed cache must be reported, not walked into.
+
+    The directory-is-non-empty test this replaced passed for a partial cache,
+    took the measuring path, and faulted inside ``event_scores`` -- a crash where
+    the honest answer is "not measurable yet".
+    """
+    from research.governed_fusion.score_cache import _scores_path
+
+    events = [
+        EventData(
+            domain="network_security",
+            event_id=event_id,
+            X=np.zeros((8, 3), dtype=np.float64),
+            y=np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=int),
+        )
+        for event_id in ("nsl_kdd", "batadal")
+    ]
+    monkeypatch.setattr(mma, "build_suite", lambda kind="real": events)
+    monkeypatch.setattr(mma, "external_label_events", list)
+
+    # Warm exactly one of the two required score caches.
+    warmed = _scores_path(
+        events[0].domain,
+        events[0].event_id,
+        mma._CACHE_CAP,
+        mma._CACHE_SEED,
+        cache_dir=str(tmp_path),
+    )
+    Path(warmed).write_bytes(b"")
+
+    rec = mma.measure(cache_dir=str(tmp_path))
+    assert rec["status"] == "needs_cache"
+    assert rec["full"] is None
+    # The gap is named, not merely counted, so an operator can act on it.
+    assert len(rec["missing_score_caches"]) == 1
+    assert events[1].event_id in rec["missing_score_caches"][0]
 
 
 def test_compute_marginal_lift_schema_is_stable() -> None:

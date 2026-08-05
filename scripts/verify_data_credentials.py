@@ -6,15 +6,30 @@
 For each keyed data source, make ONE real authenticated request and report
 whether the key actually *delivers* real data -- the practical meaning of
 "wired and delivers when called". Secret VALUES are never printed; only a
-boolean verdict and a small non-sensitive data sample (row counts, a date,
-a numeric value).
+verdict and a small non-sensitive data sample (row counts, a date, a numeric
+value).
 
 This is import-light (``requests`` + stdlib only, no engine / native crypto),
 so it runs early in the network lane where the secrets are injected. Sources
 whose key env var is unset are reported ``SKIP`` (not a failure): an operator
 running locally without a given key still gets a clean report.
 
-Exit code is non-zero only if a source whose key IS present fails to deliver.
+Each checked source lands on one of three verdicts:
+
+``DELIVERS``
+    The credential was accepted and real data came back.
+``FAIL``
+    The provider rejected the credential, or accepted it and returned nothing --
+    an actionable credential problem. **This is the only verdict that fails the
+    lane.**
+``UNREACH``
+    The upstream could not answer at all (transport failure, 5xx, or a 429 rate
+    limit). This says nothing about the credential, so it is reported and not
+    counted against it.
+
+The exception: if *every* source with a key present is ``UNREACH``, the run
+verified nothing, and exiting 0 would be a green light with no evidence behind
+it -- so that case fails too.
 """
 
 from __future__ import annotations
@@ -115,7 +130,57 @@ def _fail_detail(status: int, body: bytes) -> str:
     return f"HTTP {status}" + (f": {text[:160]}" if text else "")
 
 
-def check_eia(key: str) -> tuple[bool, str]:
+#: Verdicts a checker can return.
+#:
+#: ``UNREACHABLE`` is the one that earns its keep. This lane answers a single
+#: question -- *does this credential deliver?* -- and an upstream that cannot
+#: answer at all is not evidence either way. Counting it as a credential failure
+#: makes the lane fail for reasons no operator can act on, which is how a gate
+#: gets ignored. Measured 2026-08-05 in a dispatched run: every key delivered
+#: except NASA, which returned ``HTTP 503: upstream connect error or
+#: disconnect/reset before headers`` -- an outage on NASA's side that said
+#: nothing about ``NASA_API_KEY``, yet turned the lane red.
+#:
+#: A rejected credential is still a hard failure: 401/403, a provider's
+#: invalid-key JSON, and an authenticated-but-empty response all return ``FAIL``.
+DELIVERS = "DELIVERS"
+FAIL = "FAIL"
+UNREACHABLE = "UNREACH"
+
+
+def _non_200(status: int, body: bytes) -> tuple[str, str]:
+    """Classify a non-200 as a credential failure or an upstream outage.
+
+    Server-side 5xx and transport failures (``status == 0``: DNS, TLS, timeout,
+    connection reset) are the upstream's problem, not the key's -- a 503 arrives
+    identically for a valid and an invalid credential, so it carries no
+    information about the credential.
+
+    **429 belongs with them, not with the failures.** A rate limit is the
+    provider saying it *recognised* the credential and is declining to serve it
+    right now; that is closer to evidence the key works than evidence it does
+    not. The Alpha Vantage checker already reaches the same conclusion for the
+    HTTP-200 throttle body it returns instead of a 429, and the two paths should
+    not disagree about the same fact.
+
+    Everything else -- 401 and 403 above all -- is the provider telling us
+    something about the credential we presented, which is exactly what this lane
+    is for.
+
+    Args:
+        status: Status from :func:`_get` (``0`` means transport error).
+        body: Response body, or transport exception text when ``status`` is 0.
+
+    Returns:
+        ``(verdict, detail)`` with the detail already redacted.
+    """
+    detail = _fail_detail(status, body)
+    if status == 0 or status == 429 or 500 <= status < 600:
+        return UNREACHABLE, detail
+    return FAIL, detail
+
+
+def check_eia(key: str) -> tuple[str, str]:
     """EIA API v2 hourly grid demand for one balancing authority."""
     q = urllib.parse.urlencode(
         {
@@ -132,21 +197,21 @@ def check_eia(key: str) -> tuple[bool, str]:
     )
     status, body = _get(f"https://api.eia.gov/v2/electricity/rto/region-data/data/?{q}")
     if status != 200:
-        return False, _fail_detail(status, body)
+        return _non_200(status, body)
     try:
         rows = json.loads(body)["response"]["data"]
     except Exception as exc:
-        return False, f"unparseable response: {exc}"
+        return FAIL, f"unparseable response: {exc}"
     if not rows:
-        return False, "authenticated but zero rows"
+        return FAIL, "authenticated but zero rows"
     r0 = rows[0]
     return (
-        True,
+        DELIVERS,
         f"{len(rows)} rows; e.g. {r0.get('period')} {r0.get('respondent')} D={r0.get('value')} MW",
     )
 
 
-def check_fred(key: str) -> tuple[bool, str]:
+def check_fred(key: str) -> tuple[str, str]:
     """FRED 10-Year Treasury (DGS10) latest observations."""
     q = urllib.parse.urlencode(
         {
@@ -159,54 +224,53 @@ def check_fred(key: str) -> tuple[bool, str]:
     )
     status, body = _get(f"https://api.stlouisfed.org/fred/series/observations?{q}")
     if status != 200:
-        return False, _fail_detail(status, body)
+        return _non_200(status, body)
     try:
         obs = json.loads(body)["observations"]
     except Exception as exc:
-        return False, f"unparseable: {exc}"
-    return (
-        bool(obs),
-        f"{len(obs)} obs; latest {obs[0]['date']}={obs[0]['value']}" if obs else "zero obs",
-    )
+        return FAIL, f"unparseable: {exc}"
+    if not obs:
+        return FAIL, "authenticated but zero observations"
+    return DELIVERS, f"{len(obs)} obs; latest {obs[0]['date']}={obs[0]['value']}"
 
 
-def check_nasa(key: str) -> tuple[bool, str]:
+def check_nasa(key: str) -> tuple[str, str]:
     """NASA DONKI space-weather notifications feed."""
     status, body = _get(f"https://api.nasa.gov/DONKI/notifications?type=all&api_key={key}")
     if status != 200:
-        return False, _fail_detail(status, body)
+        return _non_200(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
-        return False, f"unparseable: {exc}"
-    return True, f"DONKI reachable; {len(data)} notifications"
+        return FAIL, f"unparseable: {exc}"
+    return DELIVERS, f"DONKI reachable; {len(data)} notifications"
 
 
-def check_alpha_vantage(key: str) -> tuple[bool, str]:
+def check_alpha_vantage(key: str) -> tuple[str, str]:
     """Alpha Vantage GLOBAL_QUOTE for a single symbol (SPY)."""
     status, body = _get(
         f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=SPY&apikey={key}"
     )
     if status != 200:
-        return False, _fail_detail(status, body)
+        return _non_200(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
-        return False, f"unparseable: {exc}"
+        return FAIL, f"unparseable: {exc}"
     if data.get("Global Quote"):
-        return True, f"SPY quote delivered ({data['Global Quote'].get('05. price')})"
+        return DELIVERS, f"SPY quote delivered ({data['Global Quote'].get('05. price')})"
     # A rate-limit / info Note means the KEY was accepted but throttled (free tier
     # is 25 req/day) -- that is still "wired", so don't hard-fail the lane on it.
     # Only a genuine "Error Message" (bad/invalid key) is a delivery failure.
     if data.get("Error Message"):
-        return False, f"bad key: {data['Error Message']}"
+        return FAIL, f"bad key: {data['Error Message']}"
     throttle = data.get("Note") or data.get("Information")
     if throttle:
-        return True, f"key accepted (throttled): {str(throttle)[:100]}"
-    return False, f"unexpected response: {str(data)[:120]}"
+        return DELIVERS, f"key accepted (throttled): {str(throttle)[:100]}"
+    return FAIL, f"unexpected response: {str(data)[:120]}"
 
 
-def check_usgs_eros(username: str, token: str) -> tuple[bool, str]:
+def check_usgs_eros(username: str, token: str) -> tuple[str, str]:
     """USGS EROS / EarthExplorer M2M login (username + application token).
 
     The M2M API authenticates a ``username`` with an application ``token``
@@ -220,7 +284,14 @@ def check_usgs_eros(username: str, token: str) -> tuple[bool, str]:
 
     def _post(
         path: str, payload: dict[str, Any], headers: dict[str, str] | None = None
-    ) -> dict[str, Any]:
+    ) -> tuple[int, dict[str, Any]]:
+        """POST one M2M call, returning ``(http_status, body)``.
+
+        The status is returned alongside the body so a login failure can be
+        classified the same way :func:`_non_200` classifies the GET-based
+        checkers: a 5xx or a transport error is M2M being down, not the token
+        being wrong. ``0`` marks a transport failure.
+        """
         try:
             resp = requests.post(
                 f"{base}/{path}",
@@ -228,37 +299,43 @@ def check_usgs_eros(username: str, token: str) -> tuple[bool, str]:
                 headers={"User-Agent": "mercury-cred-check", **(headers or {})},
                 timeout=30,
             )
-            return resp.json() if resp.content else {"errorMessage": f"HTTP {resp.status_code}"}
+            body = resp.json() if resp.content else {"errorMessage": f"HTTP {resp.status_code}"}
+            return resp.status_code, body
         except Exception as exc:  # pragma: no cover - network variance
-            return {"errorMessage": str(exc)}
+            return 0, {"errorMessage": str(exc)}
 
-    body = _post("login-token", {"username": username, "token": token})
+    status, body = _post("login-token", {"username": username, "token": token})
     session = body.get("data")
     if not session:
-        return (
-            False,
-            f"login failed (token): {body.get('errorCode')} {body.get('errorMessage')}",
+        detail = (
+            f"login failed (token): {body.get('errorCode')} "
+            f"{_redact(str(body.get('errorMessage')))}"
         )
+        # Same rule as the GET checkers: M2M being unable to answer is not a
+        # verdict on the credential.
+        if status == 0 or status == 429 or 500 <= status < 600:
+            return UNREACHABLE, detail
+        return FAIL, detail
 
     detail = "authenticated via token; session token issued"
     hdr = {"X-Auth-Token": str(session)}
-    ds = _post("dataset-search", {"datasetName": "landsat_ot_c2_l2"}, hdr)
+    _status, ds = _post("dataset-search", {"datasetName": "landsat_ot_c2_l2"}, hdr)
     if isinstance(ds.get("data"), list):
         detail += f"; dataset-search returned {len(ds['data'])} dataset(s)"
     _post("logout", {}, hdr)
-    return True, detail
+    return DELIVERS, detail
 
 
-def check_openweathermap(key: str) -> tuple[bool, str]:
+def check_openweathermap(key: str) -> tuple[str, str]:
     """Current weather for one city (London) via the OpenWeatherMap API."""
     status, body = _get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={key}")
     if status != 200:
-        return False, _fail_detail(status, body)
+        return _non_200(status, body)
     try:
         data = json.loads(body)
     except Exception as exc:
-        return False, f"unparseable: {exc}"
-    return True, f"London weather delivered (T={data.get('main', {}).get('temp')})"
+        return FAIL, f"unparseable: {exc}"
+    return DELIVERS, f"London weather delivered (T={data.get('main', {}).get('temp')})"
 
 
 #: source -> (env var(s), checker). First present env var is used.
@@ -275,15 +352,20 @@ def run() -> int:
     """Run every keyed data-source delivery check; exit 1 if any present key fails, else 0."""
     print("=== Mercury data-source credential delivery check ===")
     failures = 0
+    unreachable = 0
+    checked = 0
     for name, (env_vars, checker) in CHECKS.items():
         key = next((os.environ[e] for e in env_vars if os.environ.get(e)), "")
         if not key:
             print(f"  {name:14s} SKIP  ({'/'.join(env_vars)} not set)")
             continue
-        ok, detail = checker(key)
-        print(f"  {name:14s} {'DELIVERS' if ok else 'FAIL   '}  {detail}")
-        if not ok:
+        checked += 1
+        verdict, detail = checker(key)
+        print(f"  {name:14s} {verdict:8s}  {detail}")
+        if verdict == FAIL:
             failures += 1
+        elif verdict == UNREACHABLE:
+            unreachable += 1
 
     # USGS EROS / EarthExplorer M2M: authenticates a username with an application
     # token (USGS_KEY) via login-token -- USGS retired the password login
@@ -292,10 +374,13 @@ def run() -> int:
     eros_user = os.environ.get("EROSERS_USERNAME", "")
     eros_token = os.environ.get("USGS_KEY", "")
     if eros_user and eros_token:
-        ok, detail = check_usgs_eros(eros_user, eros_token)
-        print(f"  {'USGS/EROS':14s} {'DELIVERS' if ok else 'FAIL   '}  {detail}")
-        if not ok:
+        checked += 1
+        verdict, detail = check_usgs_eros(eros_user, eros_token)
+        print(f"  {'USGS/EROS':14s} {verdict:8s}  {detail}")
+        if verdict == FAIL:
             failures += 1
+        elif verdict == UNREACHABLE:
+            unreachable += 1
     else:
         status, _ = _get(
             "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
@@ -306,7 +391,21 @@ def run() -> int:
             f"application token); keyless USGS earthquake feed "
             f"reachable HTTP {status}"
         )
-    print(f"=== {failures} failure(s) among sources with a key present ===")
+    print(
+        f"=== {failures} credential failure(s), {unreachable} upstream-unreachable "
+        f"among {checked} source(s) with a key present ==="
+    )
+    # An unreachable upstream is reported, never counted as a credential verdict.
+    # But "every upstream we tried was down" is its own signal and must not read
+    # as a clean run, so it fails: at that point the lane measured nothing, and
+    # silently exiting 0 would be a green light with no evidence behind it.
+    if checked and unreachable == checked:
+        print(
+            "=== every source with a key present was unreachable; this run "
+            "verified no credential ===",
+            file=sys.stderr,
+        )
+        return 1
     return 1 if failures else 0
 
 

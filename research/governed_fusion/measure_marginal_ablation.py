@@ -62,6 +62,8 @@ from research.governed_fusion.metrics import _safe_auc, _safe_auprc
 from research.governed_fusion.suite import build_suite
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from research.governed_fusion.score_cache import EventScores
 
 _LEDGER_PATH = Path(__file__).resolve().with_name("ablation_ledger.json")
@@ -70,6 +72,14 @@ _DEFAULT_CACHE_DIR = os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
 # Detectors whose marginal lift the ledger tracks.  Names must match the
 # attribute names on ``EventScores``.
 _COMPONENTS = ("resonance", "kinematic", "info_geo")
+
+# Subsample cap and seed the score cache is keyed on.  These mirror
+# ``score_cache.event_scores``' defaults (and ``measure_baseline.CAP``); they are
+# restated here only so cache *completeness* can be resolved without importing
+# the detector, and a test pins them equal to the real defaults so the two cannot
+# drift into checking for filenames nothing writes.
+_CACHE_CAP = 6000
+_CACHE_SEED = 42
 
 
 def _is_git_sha(value: str) -> bool:
@@ -204,23 +214,49 @@ def _git_sha() -> str | None:
     return env_sha if env_sha and _is_git_sha(env_sha) else None
 
 
-def _has_cache(cache_dir: str) -> bool:
-    path = Path(cache_dir)
-    return path.is_dir() and any(path.iterdir())
+def _missing_score_caches(cache_dir: str, events: Sequence[Any]) -> list[str]:
+    """Which of ``events``' score caches are absent from ``cache_dir``.
+
+    Testing that the directory merely exists and is non-empty is not enough: a
+    *partially* warmed cache passes that test, takes the measuring path, and then
+    faults inside ``event_scores`` -- a crash where the honest answer is "not
+    measurable yet". Resolving the exact filenames lets a partial cache be
+    reported as ``needs_cache`` with the gap named.
+
+    Args:
+        cache_dir: Directory holding cached event scores.
+        events: The event metadata whose caches are required -- passed in rather
+            than rebuilt, because building the suite reaches the live loaders and
+            doing it twice per run would double that cost.
+
+    Returns:
+        The missing score-cache paths; empty when the cache is complete.
+    """
+    # Lazy import for the same reason as _load_external_label_scores: resolving
+    # paths must not cold-import the detector.
+    from research.governed_fusion.score_cache import _scores_path
+
+    missing: list[str] = []
+    for ev in events:
+        scores = _scores_path(ev.domain, ev.event_id, _CACHE_CAP, _CACHE_SEED, cache_dir=cache_dir)
+        if not Path(scores).exists():
+            missing.append(scores)
+    return missing
 
 
-def _load_external_label_scores(cache_dir: str) -> list[EventScores]:
+def _load_external_label_scores(cache_dir: str, events: Sequence[Any]) -> list[EventScores]:
     """Load cached scores for the external-label live subset only.
 
     Refuses to fit live (which would require network) -- this script is the
     measurement step, not the fit step. ``measure_baseline.py`` is the
-    designated fit-and-cache entry point.
+    designated fit-and-cache entry point. ``events`` is supplied by the caller,
+    which has already built the suite, so the live loaders are touched once per
+    run rather than once per helper.
     """
     # Lazy import: pulling event_scores cold-imports the detector, which is
     # heavy and not needed in the no-cache informational path.
     from research.governed_fusion.score_cache import event_scores
 
-    events = external_label_events(build_suite(kind="real"))
     return [event_scores(ev, cache_dir=cache_dir) for ev in events]
 
 
@@ -270,7 +306,9 @@ def measure(*, cache_dir: str = _DEFAULT_CACHE_DIR) -> dict[str, Any]:
         "components": list(_COMPONENTS),
         "cache_dir": cache_dir,
     }
-    if not _has_cache(cache_dir):
+    # Checked before the suite is built: an absent cache is the common CI case
+    # and answering it must not reach the live loaders.
+    if not Path(cache_dir).is_dir():
         record.update(_empty_subset_record("needs_cache"))
         record["note"] = (
             f"score cache {cache_dir!r} absent; run measure_baseline first to "
@@ -278,14 +316,27 @@ def measure(*, cache_dir: str = _DEFAULT_CACHE_DIR) -> dict[str, Any]:
         )
         return record
 
-    events = _load_external_label_scores(cache_dir)
-    if not events:
+    event_meta = external_label_events(build_suite(kind="real"))
+    if not event_meta:
         record.update(_empty_subset_record("no_external_label_events"))
         record["note"] = (
             "the manifest contains no live events with audited ground-truth "
             "labels; the transparent fitness substrate is empty"
         )
         return record
+
+    missing = _missing_score_caches(cache_dir, event_meta)
+    if missing:
+        record.update(_empty_subset_record("needs_cache"))
+        record["missing_score_caches"] = missing
+        record["note"] = (
+            f"score cache {cache_dir!r} is incomplete: {len(missing)} of the "
+            f"external-label subset's {len(event_meta)} score files are absent; "
+            "run measure_baseline to finish warming it"
+        )
+        return record
+
+    events = _load_external_label_scores(cache_dir, event_meta)
 
     lift = compute_marginal_lift(events)
     record.update(
