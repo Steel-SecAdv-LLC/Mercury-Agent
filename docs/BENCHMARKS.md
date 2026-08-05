@@ -262,6 +262,33 @@ measurement path on every PR, it does not accumulate history. New
 committed records come from deliberate measured runs, never from CI
 side effects.
 
+### A shipped component with negative measured lift
+
+State it plainly: **`kinematic` is in the shipped fusion sum and its only
+measured marginal contribution is negative** (−0.034 AUROC, −0.023 AUPRC,
+−0.036 F1). It is not gated behind a flag; `MercuryAnomalyDetector.detect`
+always includes it, and the mechanisms that touch it (`_WEIGHT_MARGIN_POWER`,
+the `TABULAR` compatibility modifier, the Spearman inversion guard) only
+*down-weight* it. The reason it is not removed is **not** that the measurement
+is disputed — it is that the measurement rests on `n_events = 2`, which is too
+thin to justify deleting a component, and removing it on that evidence would
+be the same error in the other direction.
+
+Two things follow, and both are structural rather than intentions:
+
+- The measurement was made repeatable. `ablation-ledger.yml` now carries a
+  **cache-warmed measuring lane** (`ablation-measure`) that runs off
+  `pull_request`, warms `$GF_CACHE_DIR` from the live loaders, and measures
+  under `--check` so a run that cannot measure fails instead of appending
+  another `needs_cache`. Before it, the per-PR lane could only ever record
+  reachability, which is why this figure has `n = 1` record behind it.
+- Nothing in the repository claims kinematic contributes positively. The
+  `Known Weaknesses` entry below documents the mechanism (derivatives over
+  unordered rows are noise), and this figure is the measured consequence.
+
+The honest summary is that the component's fate is an open question with one
+measurement against it, not a settled decision in either direction.
+
 The external-label mean is *below* the historical mixed mean. Label leakage
 does not only inflate; it can also degrade in either direction depending
 on the geometry of the threshold rule. The discipline is unchanged
