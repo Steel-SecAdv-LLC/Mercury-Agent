@@ -34,8 +34,8 @@ import pytest
 # them.
 pytest.importorskip("fastapi", reason="fastapi (optional '[api]' extra) is required")
 
-from omni_mercury_engine.api import quota  # noqa: E402  (guarded by the skip above)
-from omni_mercury_engine.api.routes import accounts  # noqa: E402
+from omni_mercury_engine.api import quota
+from omni_mercury_engine.api.routes import accounts
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
