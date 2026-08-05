@@ -39,13 +39,42 @@ class NullMailer:
 
 
 def _tight_limiter(**rules: tuple[int, int]) -> ActionRateLimiter:
-    """Build an in-memory limiter with the given (max, window) per action."""
+    """Build an in-memory limiter with the given (max, window) per action.
+
+    The clock is **frozen**. ``ActionRateLimiter`` is a fixed-window counter:
+    ``window_start = now - (now % window_seconds)``, so the bucket rolls over at
+    wall-clock multiples of the window rather than relative to the first
+    attempt. Every test here exhausts a budget across several requests, and if
+    those requests straddle a boundary the counter resets mid-test and the
+    attempt that should be throttled is allowed instead.
+
+    That is not theoretical -- it is the observed failure. `Core Tests
+    (Python 3.13)` failed once on this branch with::
+
+        test_login_ip_limit_yields_429_with_retry_after - assert 401 == 429
+
+    while 3.11 and 3.14 passed on the same commit and a re-run passed on all
+    four, which is the signature of a wall-clock race rather than a code fault.
+    Reproduced deterministically against the real limiter: with attempts at
+    t=1197/1198/1199 (window_start 900) and the fourth at t=1200 (window_start
+    1200), the fourth is *allowed*, so the route answers 401 and the assertion
+    fails exactly as CI reported.
+
+    Freezing the clock removes the race without weakening anything: the tests
+    still drive the real limiter through the real routes, they simply cannot
+    land on a boundary. The constructor was already built for this -- its
+    ``clock`` argument is documented as the seam tests inject a fake through.
+    No test in this module exercises window *rollover*; one that did would pass
+    its own advancing clock.
+    """
+    frozen = 1_000_000.0  # any instant; what matters is that it does not move
     return ActionRateLimiter(
         InMemoryCounterStore(),
         rules={
             name: ActionRule(max_attempts=mx, window_seconds=win)
             for name, (mx, win) in rules.items()
         },
+        clock=lambda: frozen,
     )
 
 
