@@ -1,7 +1,10 @@
 {
+  "fixed_universe_bypass_rate": 0.487656,
+  "fixed_universe_bypassed": 1442,
+  "fixed_universe_candidates": 2957,
   "harness_version": "1.0",
-  "n_candidates": 1014,
-  "n_skipped_seeds": 99,
-  "n_survivors": 340,
-  "survival_rate": 0.335306
+  "n_candidates": 2826,
+  "n_skipped_seeds": 38,
+  "n_survivors": 955,
+  "survival_rate": 0.337933
 }

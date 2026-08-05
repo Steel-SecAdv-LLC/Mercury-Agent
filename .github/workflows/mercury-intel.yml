@@ -207,7 +207,7 @@ jobs:
       - name: Run harness -> append surviving bypasses to corpus/pending
         run: PYTHONPATH=src python benchmarks/red_team_harness.py
 
-      - name: No-weakening survival-rate gate
+      - name: No-weakening fixed-universe bypass gate
         run: PYTHONPATH=src python benchmarks/red_team_harness.py --check --no-append
 
       - name: Confirm survivors appended with metadata
