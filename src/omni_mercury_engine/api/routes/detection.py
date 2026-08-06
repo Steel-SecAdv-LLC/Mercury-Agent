@@ -43,6 +43,26 @@ _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
 
 
+def _record_text(records: list[dict[str, Any]]) -> str:
+    """Concatenate every string leaf of detection ``records`` for the harm gate.
+
+    The harm-uplift gate scores ``DecisionSubject.request`` first and guarantees
+    it survives the bounded subject, but a ``payload`` list is summarised only up
+    to a fixed item cap. Folding the record text into ``request`` therefore keeps
+    uplift text that would otherwise sit past that cap (in an arbitrarily long
+    ``data`` list) within what the gate actually scores. String values one level
+    deep cover the record shapes this endpoint accepts (``{"note": "..."}``);
+    the shared ``MAX_SUBJECT_CHARS`` bound still applies downstream.
+    """
+    parts: list[str] = []
+    for record in records:
+        if isinstance(record, str):
+            parts.append(record)
+        elif isinstance(record, dict):
+            parts.extend(v for v in record.values() if isinstance(v, str))
+    return " ".join(parts)
+
+
 def _run_flagship_detection(
     matrix: np.ndarray[Any, Any],
     domain: str | None,
@@ -273,15 +293,20 @@ async def detect_neurosymbolic(
         # Fail-closed harm-uplift gate. This endpoint's own OpenAPI description
         # advertises it, and ``NeurosymbolicFusionEngine`` does not run it
         # internally, so it must be enforced here or the documented control is
-        # absent on a public decision surface. The caller-supplied records reach
-        # the gate as the payload (string values in the records are scored),
-        # mirroring the engine's gated ``detect`` surfaces; a refusal maps to
-        # HTTP 403 below rather than a silent allow.
+        # absent on a public decision surface. A refusal maps to HTTP 403 below.
+        #
+        # The record text is folded into ``request`` rather than passed as the
+        # ``payload``: the gate scores ``request`` FIRST and guarantees it is not
+        # evicted from the bounded subject, whereas a payload list is summarised
+        # only up to its first N items -- so uplift buried past that cap in an
+        # arbitrarily long ``data`` list would never be scored. Every string leaf
+        # of the (unbounded, min_length=1) records is concatenated so the request
+        # carries all caller text before the shared MAX_SUBJECT_CHARS bound.
         enforce_decision_boundary(
             DecisionSubject(
                 surface="api.detect_neurosymbolic",
                 operation="neuro-symbolic anomaly detection over caller-supplied records",
-                payload=request.data,
+                request=_record_text(request.data),
             )
         )
 
