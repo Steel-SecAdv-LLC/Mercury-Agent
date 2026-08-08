@@ -149,6 +149,16 @@ repos:
         language: system
         pass_filenames: false
         files: ^((src|tests|scripts|tools|research|benchmarks|examples)/.*\.py|rust_crypto/src/.*\.rs)$
+      - id: mercury-codebase-scale-drift
+        name: mercury — README codebase-scale drift gate
+        # Local twin of the Workflow Hardening step (ci.yml "Run
+        # codebase-scale documentation drift gate"): catches a stale
+        # README scale block at commit time, before CI.  Dependency-free
+        # and sub-second — the script measures the tree with stdlib only.
+        entry: python scripts/measure_codebase_scale.py --check README.md
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|(src|tests)/.*\.py|\.github/workflows/.*\.ya?ml)$
       - id: mercury-convergence-proof
         name: mercury — convergence-proof emitter (--check)
         entry: python -m omni_mercury_engine.tools.convergence_proof_emitter --check
