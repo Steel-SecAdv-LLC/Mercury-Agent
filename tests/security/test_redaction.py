@@ -137,14 +137,14 @@ class TestRedactSecrets:
 
     def test_long_value_replaced_everywhere(self) -> None:
         text = "GET /api/area/csv/LONGMAPKEY99/VIIRS_SNPP_NRT failed; body echoed LONGMAPKEY99"
-        redacted = redact_secrets(text, {"NASA_FIRMS_MAP_KEY": "LONGMAPKEY99"})
+        redacted = redact_secrets(text, ("NASA_FIRMS_MAP_KEY",), ("LONGMAPKEY99",))
         assert "LONGMAPKEY99" not in redacted
         assert "<NASA_FIRMS_MAP_KEY:redacted>" in redacted
         assert "/VIIRS_SNPP_NRT" in redacted
 
     def test_url_encoded_form_replaced(self) -> None:
         """A key with special characters appears percent-encoded in composed URLs."""
-        redacted = redact_secrets("enc LONGSECRET%2B99 form", {"K": "LONGSECRET+99"})
+        redacted = redact_secrets("enc LONGSECRET%2B99 form", ("K",), ("LONGSECRET+99",))
         assert "LONGSECRET%2B99" not in redacted
         assert "<K:redacted>" in redacted
 
@@ -152,18 +152,33 @@ class TestRedactSecrets:
         """4-7 char values are replaced standalone but never mangle words
         that merely contain them — the fix for the old 8-char floor that
         skipped short-but-real keys entirely."""
-        redacted = redact_secrets("key=ABC123 ok; but FABC123X stays", {"V": "ABC123"})
+        redacted = redact_secrets("key=ABC123 ok; but FABC123X stays", ("V",), ("ABC123",))
         assert "key=<V:redacted> ok" in redacted
         assert "FABC123X" in redacted
 
     def test_degenerate_value_skipped(self) -> None:
         """<4 chars cannot be a real credential; replacing would corrupt text."""
         text = "do not mangle: monkey key on and 1"
-        assert redact_secrets(text, {"V": "on", "W": "1", "X": ""}) == text
+        assert redact_secrets(text, ("V", "W", "X"), ("on", "1", "")) == text
 
     def test_none_and_whitespace_ignored(self) -> None:
         text = "nothing to do"
-        assert redact_secrets(text, {"A": None, "B": "   "}) == text
+        assert redact_secrets(text, ("A", "B"), (None, "   ")) == text
+
+    def test_mismatched_channel_lengths_raise(self) -> None:
+        """Silent zip-truncation would drop a value and let it through
+        unredacted — a length mismatch is a programming error, not a
+        redaction outcome."""
+        with pytest.raises(ValueError, match="position-matched"):
+            redact_secrets("text", ("A", "B"), ("LONGSECRET99",))
+
+    def test_bare_string_channel_raises(self) -> None:
+        """A ``str`` is itself a ``Sequence[str]``; iterating one would
+        silently redact per character instead of per label."""
+        with pytest.raises(TypeError, match="not a single string"):
+            redact_secrets("text", "LABEL", ("LONGSECRET99",))
+        with pytest.raises(TypeError, match="not a single string"):
+            redact_secrets("text", ("LABEL",), "LONGSECRET99")
 
 
 class TestRedactEnvSecrets:

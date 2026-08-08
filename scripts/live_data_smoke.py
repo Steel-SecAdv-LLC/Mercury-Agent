@@ -66,8 +66,11 @@ def _redact(text: str) -> str:
     """
     from omni_mercury_engine.security.redaction import redact_secrets, redact_text
 
-    values = {var: os.environ.get(var, "").strip() for var in _KEY_ENV_VARS}
-    return redact_secrets(redact_text(text), values)
+    return redact_secrets(
+        redact_text(text),
+        _KEY_ENV_VARS,
+        [os.environ.get(var, "").strip() for var in _KEY_ENV_VARS],
+    )
 
 
 def _record(name: str, status: str, detail: str) -> None:

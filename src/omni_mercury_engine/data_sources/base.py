@@ -524,7 +524,7 @@ class DataSourceBase(ABC):
         )
 
         return redact_env_secrets(
-            redact_secrets(redact_text(text), {"api_key": self.config.api_key})
+            redact_secrets(redact_text(text), ("api_key",), (self.config.api_key,))
         )
 
     async def _get_client(self) -> httpx.AsyncClient:

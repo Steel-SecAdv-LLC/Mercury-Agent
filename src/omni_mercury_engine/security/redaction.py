@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Sequence
 
 #: Replacement token for a structurally-redacted value.
 REDACTED = "<redacted>"
@@ -249,7 +249,7 @@ def redact_text(text: str) -> str:
     return _BARE_QUERY_RE.sub(lambda match: f"?{_redact_query(match.group(0)[1:])}", text)
 
 
-def redact_secrets(text: str, secrets: Mapping[str, str | None]) -> str:
+def redact_secrets(text: str, labels: Sequence[str], secret_values: Sequence[str | None]) -> str:
     """Replace known secret values wherever they appear in ``text``.
 
     The complement of the structural functions: when the caller *holds*
@@ -260,6 +260,17 @@ def redact_secrets(text: str, secrets: Mapping[str, str | None]) -> str:
     ``<LABEL:redacted>`` so the reader learns *which* credential was
     scrubbed without learning the credential.
 
+    Labels and secret values travel as PARALLEL SEQUENCES, deliberately
+    not as one mapping or as ``(label, value)`` pairs: the replacement
+    token -- the only part of the output this function composes -- is
+    built exclusively from the ``labels`` channel, which never holds
+    secret material, so "no secret value reaches the output" holds by
+    construction and is visible to dataflow analysis.  Collapsing the
+    two channels back into one container re-couples them: every read
+    out of a secret-holding container carries the secret's taint, which
+    puts label extraction -- and therefore the composed output -- back
+    on the tainted path at every log site downstream of this function.
+
     Values shorter than 4 characters are skipped: they cannot be real
     credentials and replacing them would corrupt arbitrary text (see
     :data:`_MIN_SECRET_LEN`).  Values of 4-7 characters are replaced
@@ -269,18 +280,35 @@ def redact_secrets(text: str, secrets: Mapping[str, str | None]) -> str:
     concatenated into surrounding text).
 
     Args:
-        secrets: Mapping of a human-readable label (typically the env
-            var or config-field name) to the secret value; ``None`` /
-            empty / whitespace-only values are ignored.
         text: Text that may contain the secret values.
+        labels: Human-readable label per secret (typically the env var
+            or config-field name); position-matched with
+            ``secret_values``.
+        secret_values: The secret value per label; ``None`` / empty /
+            whitespace-only values are ignored.
 
     Returns:
         ``text`` with every known secret value redacted.
+
+    Raises:
+        TypeError: If ``labels`` or ``secret_values`` is a single
+            string -- a ``str`` is itself a ``Sequence[str]``, and
+            iterating one silently redacts per *character*.
+        ValueError: If the two sequences differ in length -- silent
+            zip-truncation would drop a value and let it through
+            unredacted.
     """
+    if isinstance(labels, str) or isinstance(secret_values, str):
+        raise TypeError("labels and secret_values must be sequences, not a single string")
+    if len(labels) != len(secret_values):
+        raise ValueError(
+            f"labels ({len(labels)}) and secret_values ({len(secret_values)}) "
+            "must be position-matched"
+        )
     if not text:
         return text
-    for label, raw_value in secrets.items():
-        value = (raw_value or "").strip()
+    for index, label in enumerate(labels):
+        value = (secret_values[index] or "").strip()
         if len(value) < _MIN_SECRET_LEN:
             continue
         replacement = f"<{label}:redacted>"
@@ -336,10 +364,10 @@ def redact_env_secrets(text: str) -> str:
     """
     if not text:
         return text
-    secrets = {
-        name: value for name, value in os.environ.items() if _ENV_SECRET_NAME_RE.search(name)
-    }
-    return redact_secrets(text, secrets)
+    # Names first, values looked up per name: the two channels stay
+    # separate from the origin (see the redact_secrets docstring).
+    labels = [name for name in os.environ if _ENV_SECRET_NAME_RE.search(name)]
+    return redact_secrets(text, labels, [os.environ.get(name) for name in labels])
 
 
 __all__ = [

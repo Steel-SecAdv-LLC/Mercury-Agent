@@ -481,7 +481,9 @@ class WildfireLoader(BaseDomainLoader):
 
         first_line = text.lstrip().splitlines()[0]
         if "latitude" not in first_line:
-            safe_snippet = redact_secrets(first_line, {"NASA_FIRMS_MAP_KEY": self._api_key})[:80]
+            safe_snippet = redact_secrets(first_line, ("NASA_FIRMS_MAP_KEY",), (self._api_key,))[
+                :80
+            ]
             raise ValueError(
                 f"wildfire: FIRMS returned a non-CSV body ({safe_snippet!r}); "
                 "this usually means an invalid MAP key or an exhausted "
