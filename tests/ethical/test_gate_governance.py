@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -291,15 +291,15 @@ class TestContentGateBounded:
 
         orig = eb.assess_weapons_uplift
 
-        def _spy(text, *a, **k):  # type: ignore[no-untyped-def]
+        def _spy(text: str, *a: Any, **k: Any) -> WeaponsRiskAssessment:
             called_with["len"] = len(text)
             return orig(text, *a, **k)
 
-        eb.assess_weapons_uplift = _spy  # type: ignore[assignment]
+        eb.assess_weapons_uplift = _spy
         try:
             real(page)
         finally:
-            eb.assess_weapons_uplift = orig  # type: ignore[assignment]
+            eb.assess_weapons_uplift = orig
         assert (
             called_with["len"] == wr._HARM_SCREEN_MAX_CHARS
         ), "content gate scored the whole page instead of the bounded screen"

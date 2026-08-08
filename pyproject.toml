@@ -646,6 +646,7 @@ module = [
     "pydantic.*",
     "fastapi.*",
     "uvicorn.*",
+    "httpx",
     "httpx.*",
     "requests.*",
     "urllib3.*",
@@ -771,6 +772,7 @@ module = [
     "eval_weapons_gate_adversarial",
     "weapons_gate_adversarial",
     "cal_core",
+    "intel_value_metrics_report",
     "meaning_level_model_double",
     "meaning_level_corpus",
     # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
