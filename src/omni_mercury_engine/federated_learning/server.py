@@ -542,36 +542,39 @@ class FederatedServer:
     def _enforce_round_ethics(self, n_clients: int, total_samples: int) -> None:
         """Round-level benevolence + σ_Immutable dual hard ethical gate.
 
-        Federated training is a privacy-preserving, consent-based collective
-        improvement action, so the action text is positive-keyword-rich and
-        severity / anomaly_prob stay benign.  Both gates fail closed; a
-        violation raises :class:`EthicalConstraintViolationError` and the
-        round halts.  Invoked at round granularity **outside** the per-client
-        ``try/except`` in :meth:`_execute_round` so a violation cannot be
-        swallowed as a single client's failure.
+        The gated decision is the real one — this boundary carries no caller
+        free text, so the subject is the operation plus the round's own
+        provenance (round number, client count, sample count). It used to be a
+        hand-written positive-keyword string asserting the round was benign,
+        which told the gate nothing it could check. Severity / anomaly_prob
+        stay benign. Both gates fail closed; a violation raises
+        :class:`EthicalConstraintViolationError` and the round halts. Invoked
+        at round granularity **outside** the per-client ``try/except`` in
+        :meth:`_execute_round` so a violation cannot be swallowed as a single
+        client's failure.
         """
-        action = (
-            f"federated_training_round:{self._ethics_domain}:audit verify protect "
-            "privacy consent research evidence fair oversight monitor data care "
-            "help support"
-        )
-        context = {
-            "purpose": "privacy-preserving federated model training",
-            "safety": "protect verify privacy consent monitor evidence",
-            "domain": self._ethics_domain,
+        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+
+        round_provenance = {
+            "round": self._current_round,
+            "n_clients": n_clients,
+            "total_samples": total_samples,
         }
         enforce_dual_ethical_gate(
-            benevolence_scorer=self._benevolence_scorer,
+            subject=DecisionSubject(
+                surface="FederatedServer._execute_round",
+                operation=(
+                    "aggregate client updates into a new global model for one "
+                    "federated training round"
+                ),
+                domain=self._ethics_domain,
+                payload=round_provenance,
+            ),
             sigma_gate=self._sigma_immutable_gate,
-            action=action,
-            context=context,
+            advisory_scorer=self._benevolence_scorer,
             boundary="FederatedServer._execute_round",
             domain=self._ethics_domain,
-            extra_details={
-                "round": self._current_round,
-                "n_clients": n_clients,
-                "total_samples": total_samples,
-            },
+            extra_details=round_provenance,
         )
 
     def _route_round_through_gosnn(self, updates: list[LocalUpdate]) -> np.ndarray[Any, Any]:

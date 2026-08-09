@@ -37,7 +37,7 @@ if [ "${MERCURY_SETUP_FORCE:-}" != "1" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true
   exit 0
 fi
 
-AMA_REF="v3.3.0"                 # keep in lockstep with pyproject.toml [pqc] pin
+AMA_REF="v4.0.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
 AMA_LIB="${AMA_SRC}/build/lib"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -61,7 +61,7 @@ else
   # because the base image's Debian-managed setuptools/wheel have no RECORD file
   # and so cannot be uninstalled/upgraded in place.
   python -m pip install --quiet --ignore-installed \
-    "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
+    "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
   rm -rf "${AMA_SRC}"
   git clone --depth 1 --branch "${AMA_REF}" \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git "${AMA_SRC}"

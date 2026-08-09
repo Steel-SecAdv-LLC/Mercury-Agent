@@ -44,7 +44,7 @@ except Exception:
 # the simulated harmonic path because DeepFace is unavailable.  That fallback
 # is deterministic but is *not* a face-identity embedding, so we surface a
 # single WARNING rather than let callers silently mistake degraded signal for
-# real recognition (``biometric_advanced.py`` logs the equivalent per call).
+# real recognition (``biometric_multimodal.py`` logs the equivalent per call).
 _SIMULATED_FALLBACK_WARNED = False
 
 

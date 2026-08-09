@@ -35,7 +35,10 @@ logger = logging.getLogger(__name__)
 
 # Constants from centralized source of truth
 PHI = MATH.GOLDEN_RATIO
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+# Advisory level the reported ``ethical_compliance`` flag is measured against.
+# Reporting only: this module returns the flag in its result and never refuses
+# on it. Enforcement is cognitive.decision_gate.enforce_decision_boundary.
+BENEVOLENCE_THRESHOLD = ETHICAL.OMNIBENEVOLENCE_SCALAR
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
@@ -410,8 +413,8 @@ class GOSNNIntegration:
         Includes: Statistical, Temporal, Spatial, Dimensional, Graph-based
         """
         try:
-            from omni_mercury_engine.core.enhanced_base_domains import (
-                EnhancedBaseDetector,
+            from omni_mercury_engine.core.base_domains import (
+                BaseDomainDetector,
             )
             from omni_mercury_engine.detectors.dimensional import (
                 DimensionalAnalyzer,
@@ -443,7 +446,7 @@ class GOSNNIntegration:
             for name, detector_class, weight, ethical_score in domain_configs:
                 try:
                     base = detector_class({})
-                    enhanced = EnhancedBaseDetector(
+                    enhanced = BaseDomainDetector(
                         base_detector=base,
                         domain=name,
                         threshold_method="otsu",
@@ -469,16 +472,16 @@ class GOSNNIntegration:
         Includes: Quantum, Biometric, Affective, Consciousness
         """
         try:
-            from omni_mercury_engine.core.enhanced_model_domains import (
-                EnhancedAffectiveModel,
-                EnhancedBiometricModel,
-                EnhancedQuantumModel,
+            from omni_mercury_engine.core.model_domains import (
+                AffectiveStateModel,
+                MultimodalBiometricModel,
+                QuantumFeatureModel,
             )
 
             # Quantum model
             self.add_domain(
                 "quantum",
-                detector=EnhancedQuantumModel(seed=self.seed),
+                detector=QuantumFeatureModel(seed=self.seed),
                 weight=PHI,
                 ethical_score=0.99,
             )
@@ -486,7 +489,7 @@ class GOSNNIntegration:
             # Biometric model (with fairness)
             self.add_domain(
                 "biometric",
-                detector=EnhancedBiometricModel(
+                detector=MultimodalBiometricModel(
                     enforce_fairness=True,
                     fairness_threshold=0.8,
                 ),
@@ -497,7 +500,7 @@ class GOSNNIntegration:
             # Affective model
             self.add_domain(
                 "affective",
-                detector=EnhancedAffectiveModel(seed=self.seed),
+                detector=AffectiveStateModel(seed=self.seed),
                 weight=1.0 / PHI,
                 ethical_score=0.97,
             )
@@ -584,7 +587,7 @@ class GOSNNIntegration:
 
         self._fitted = True
         logger.info(
-            f"GOSNNIntegration fitted: {len(self.domains)} domains, " f"fusion={self.fusion_method}"
+            f"GOSNNIntegration fitted: {len(self.domains)} domains, fusion={self.fusion_method}"
         )
 
         return self
@@ -690,11 +693,8 @@ class GOSNNIntegration:
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)
 
-        # Apply benevolence weighting
-        benevolence_adjusted = self._apply_benevolence_adjustment(calibrated_scores, threshold)
-
-        # Final predictions
-        is_anomaly = benevolence_adjusted > threshold
+        # Final predictions, on the same scores this result reports.
+        is_anomaly = calibrated_scores > threshold
 
         # Compute benevolence metrics
         benevolence_score = self._compute_benevolence_score(domain_scores)
@@ -854,24 +854,39 @@ class GOSNNIntegration:
         # Convert back to original scale
         return float(best_threshold * (scores.max() - scores.min()) + scores.min())
 
-    def _apply_benevolence_adjustment(
-        self,
-        scores: np.ndarray[Any, Any],
-        threshold: float,
-    ) -> np.ndarray[Any, Any]:
-        """Apply benevolence-aware adjustment to scores."""
-        # Higher benevolence = more conservative (reduce false positives)
-        # Lower benevolence = more aggressive (reduce false negatives)
-
-        adjustment_factor = 1.0 + (1.0 - self.benevolence_threshold) * PHI
-
-        # Scores near threshold get adjusted more
-        distance_from_threshold = np.abs(scores - threshold)
-        adjustment_weight = np.exp(-distance_from_threshold / (threshold + 1e-10))
-
-        adjusted = scores * (1 + adjustment_weight * (adjustment_factor - 1))
-
-        return adjusted
+    # ``_apply_benevolence_adjustment`` is deleted, not disabled.
+    #
+    # It sat between the calibrated scores and the classification:
+    #
+    #     adjustment_factor = 1.0 + (1.0 - self.benevolence_threshold) * PHI
+    #     adjustment_weight = exp(-|scores - threshold| / (threshold + 1e-10))
+    #     adjusted          = scores * (1 + adjustment_weight * (factor - 1))
+    #     is_anomaly        = adjusted > threshold
+    #
+    # Four things were wrong with it, each measurable:
+    #
+    # 1. **It silently moved the operating point.** At the shipped default
+    #    (``benevolence_threshold`` = 0.99) the factor is 1.01618, so every
+    #    sample within ~1.57 % relative *below* the threshold was promoted to
+    #    ``is_anomaly=True``. Measured at threshold 0.60: raw 0.5950 -> adjusted
+    #    0.604547 -> flagged. The promotion boundary is 0.590593.
+    # 2. **Its own docstring had the direction backwards.** It claimed "higher
+    #    benevolence = more conservative (reduce false positives)". Raising the
+    #    threshold toward 1.0 drives the factor toward 1.0 -- *less* adjustment
+    #    -- and every value below 1.0 makes detection strictly more aggressive,
+    #    producing more false positives, not fewer.
+    # 3. **No benevolence entered it.** It read the configuration constant, never
+    #    the measured ``_compute_benevolence_score`` output. It was a hard-coded
+    #    sensitivity shift wearing an ethics label.
+    # 4. **It made the result internally inconsistent.** ``anomaly_scores`` and
+    #    ``calibrated_scores`` are returned unadjusted, so a caller received a
+    #    score plainly below the threshold alongside ``is_anomaly=True``, with no
+    #    field explaining the discrepancy.
+    #
+    # Classification is now ``calibrated_scores > threshold`` -- the decision
+    # matches the numbers reported with it. A genuine sensitivity control belongs
+    # in the threshold calculation, named for what it does, with the shifted
+    # threshold reported to the caller.
 
     def _compute_benevolence_score(
         self,

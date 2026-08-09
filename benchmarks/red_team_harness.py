@@ -8,18 +8,33 @@ weapons/mass-casualty gate, appends surviving bypasses to ``corpus/pending``, an
 emits a run summary. The gate requires the AMA/PQC backend, so run this in the
 ``ci/red-team`` lane (which builds AMA).
 
-Everything is deterministic (fixed seeds + mutation registry), so the
-surviving-bypass rate is a stable, pin-able number:
+Everything is deterministic (fixed seeds + mutation registry), so both rates
+below are stable, pin-able numbers:
 
     PYTHONPATH=src python benchmarks/red_team_harness.py            # run + append + print
     PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the baseline
     PYTHONPATH=src python benchmarks/red_team_harness.py --check    # no-weakening gate (exit 1)
     PYTHONPATH=src python benchmarks/red_team_harness.py --no-append # run without writing pending
 
-``--check`` fails when the survival rate rises above the pinned floor
-(``benchmarks/red_team_baseline.json``, kept ``<=`` the value-metric baseline in
-:data:`omni_mercury_engine.intel.value_metrics.VALUE_METRICS`), i.e. a change that
-*weakens* the gate against obfuscation.
+**What ``--check`` gates on, and why it changed.** The gating quantity is
+:func:`~omni_mercury_engine.intel.red_team.measure_fixed_universe_bypass` --
+the bypass rate over a candidate universe fixed by the *config*, which is the
+metric ``VALUE_METRICS["adversarial_co_training"]`` has declared since
+2026-08-04 (``fixed_universe_gate_bypass_rate``).
+
+It previously gated on :attr:`RedTeamResult.survival_rate`, which is not a
+sound no-weakening guard: ``run_red_team`` skips a seed the gate does not
+block, so the denominator *shrinks as the gate weakens and grows as it
+strengthens*, and a strictly stronger gate can fail the floor. That is not
+hypothetical -- it is recorded in ``red_team.measure_fixed_universe_bypass``'s
+own docstring. The two were also being compared across the type boundary: the
+declared ceiling had already moved to the fixed-universe metric while the
+harness still measured survival rate against it, so the check was comparing
+two different quantities and passing only because 0.438 happens to be below
+0.56.
+
+``survival_rate`` is still computed, still printed, and still pinned -- it
+describes one run usefully. It is no longer what decides the lane.
 """
 
 from __future__ import annotations
@@ -36,17 +51,18 @@ sys.path.insert(0, str(_REPO / "src"))
 from omni_mercury_engine.intel.red_team import (
     RedTeamConfig,
     append_survivors,
+    measure_fixed_universe_bypass,
     run_red_team,
 )
 from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
 BASELINE_PATH = _REPO / "benchmarks" / "red_team_baseline.json"
 ARTIFACT_PATH = _REPO / "artifacts" / "red_team" / "run_summary.json"
-#: Float-comparison epsilon only. The survival rate is ``survivors/candidates`` --
-#: a set-cardinality ratio that is fully deterministic and order-independent for a
-#: fixed config + gate, so there is NO benign drift for a slack margin to absorb.
-#: The gate therefore fails on any rise above the pinned floor (a real weakening),
-#: and separately never permits a rate above the declared value-metric ceiling.
+#: Float-comparison epsilon only. Both rates are set-cardinality ratios that are
+#: fully deterministic and order-independent for a fixed config + gate, so there
+#: is NO benign drift for a slack margin to absorb. The gate therefore fails on
+#: any rise above the pinned floor (a real weakening), and separately never
+#: permits a rate above the declared value-metric ceiling.
 _FLOAT_EPS = 1e-9
 
 
@@ -54,6 +70,10 @@ def _run() -> tuple[Any, dict[str, Any]]:
     cfg = RedTeamConfig.load()
     result = run_red_team(cfg)
     summary = result.summary()
+    # The gating measurement. Scored over the same config, so one invocation of
+    # the harness reports both the descriptive per-run view and the sound
+    # no-weakening quantity rather than leaving the latter to a separate tool.
+    summary["fixed_universe"] = measure_fixed_universe_bypass(cfg)
     return result, summary
 
 
@@ -87,17 +107,24 @@ def main(argv: list[str] | None = None) -> int:
 
     declared = VALUE_METRICS["adversarial_co_training"].baseline
     rate = result.survival_rate
+    fixed = summary["fixed_universe"]
+    fixed_rate = float(fixed["bypass_rate"])
 
     if args.update:
         BASELINE_PATH.write_text(
             json.dumps(
                 {
+                    # The gating quantity: denominator fixed by the config, so it
+                    # is monotone in gate strength.
+                    "fixed_universe_bypass_rate": round(fixed_rate, 6),
+                    "fixed_universe_candidates": fixed["n_candidates"],
+                    "fixed_universe_bypassed": fixed["n_bypassed"],
+                    # Descriptive, retained: survival_rate characterises one run,
+                    # but its denominator moves with gate strength so it is not
+                    # gated on. See the module docstring.
                     "survival_rate": round(rate, 6),
                     "n_candidates": summary["n_candidates"],
                     "n_survivors": summary["n_survivors"],
-                    # Pinned so a seed the gate USED to block becoming ALLOW (which
-                    # drops it from the denominator and can silently lower the
-                    # survival rate) is caught as a seed-level weakening in --check.
                     "n_skipped_seeds": summary["n_skipped_seeds"],
                     "harness_version": summary["harness_version"],
                 },
@@ -108,7 +135,9 @@ def main(argv: list[str] | None = None) -> int:
             encoding="utf-8",
         )
         print(
-            f"pinned red-team baseline: survival_rate={rate:.4f} ({summary['n_survivors']} bypasses)"
+            f"pinned red-team baseline: fixed_universe_bypass_rate={fixed_rate:.4f} "
+            f"({fixed['n_bypassed']}/{fixed['n_candidates']} bypass); "
+            f"survival_rate={rate:.4f} (descriptive)"
         )
         return 0
 
@@ -117,13 +146,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"missing baseline {BASELINE_PATH.name}; run --update to pin it", file=sys.stderr)
             return 1
         baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
-        floor = baseline["survival_rate"]
+        if "fixed_universe_bypass_rate" not in baseline:
+            print(
+                f"{BASELINE_PATH.name} predates the fixed-universe metric and pins only the "
+                "survival rate, which is not a sound no-weakening guard; run --update to "
+                "re-pin before gating on it",
+                file=sys.stderr,
+            )
+            return 1
+        floor = baseline["fixed_universe_bypass_rate"]
         problems = []
         # Compare at the precision the floor is pinned to (6 decimals, as --update
-        # writes): the true rate is a full-precision ratio (e.g. 140/420 =
-        # 0.333333...) while the pinned floor is rounded, so a raw ``>`` would trip
-        # on the rounding delta, not a real weakening.
-        rate_q = round(rate, 6)
+        # writes): the true rate is a full-precision ratio while the pinned floor is
+        # rounded, so a raw ``>`` would trip on the rounding delta, not a real
+        # weakening.
+        rate_q = round(fixed_rate, 6)
         # The pinned floor must itself stay within the declared value-metric ceiling.
         if floor > declared + _FLOAT_EPS:
             print(
@@ -137,28 +174,24 @@ def main(argv: list[str] | None = None) -> int:
         # declared value-metric ceiling.
         if rate_q > floor + _FLOAT_EPS:
             problems.append(
-                f"survival rate {rate_q:.6f} rose above pinned floor {floor:.6f} "
-                "(gate weakened against obfuscation)"
+                f"fixed-universe bypass rate {rate_q:.6f} rose above pinned floor "
+                f"{floor:.6f} (gate weakened against obfuscation)"
             )
         if rate_q > declared + _FLOAT_EPS:
             problems.append(
-                f"survival rate {rate_q:.6f} exceeds declared value-metric ceiling {declared:.4f}"
+                f"fixed-universe bypass rate {rate_q:.6f} exceeds declared value-metric "
+                f"ceiling {declared:.4f}"
             )
-        # Seed-level weakening: a seed the gate previously blocked becoming ALLOW
-        # is dropped from the denominator (n_skipped_seeds rises / n_candidates
-        # falls) and can lower the survival rate while the gate is *more* broken.
-        # Guard both counts so that failure mode cannot pass green.
-        pinned_skipped = baseline.get("n_skipped_seeds")
-        if pinned_skipped is not None and summary["n_skipped_seeds"] > pinned_skipped:
+        # The universe is a property of the config alone, so it must not move
+        # unless the config did. A shrinking universe would mean the harness is
+        # scoring fewer candidates -- the exact denominator drift this metric
+        # exists to remove.
+        pinned_universe = baseline.get("fixed_universe_candidates")
+        if pinned_universe is not None and fixed["n_candidates"] != pinned_universe:
             problems.append(
-                f"n_skipped_seeds rose {pinned_skipped} -> {summary['n_skipped_seeds']}: a seed "
-                "the gate used to block is now ALLOWed (seed-level weakening)"
-            )
-        pinned_candidates = baseline.get("n_candidates")
-        if pinned_candidates is not None and summary["n_candidates"] < pinned_candidates:
-            problems.append(
-                f"n_candidates fell {pinned_candidates} -> {summary['n_candidates']}: fewer "
-                "attackable seeds (a blocked seed became ALLOW, shrinking the denominator)"
+                f"fixed universe changed size {pinned_universe} -> {fixed['n_candidates']}: "
+                "the candidate set is config-derived, so re-pin deliberately with --update "
+                "when the config changes and never let it drift silently"
             )
         if problems:
             print("RED-TEAM REGRESSION:", file=sys.stderr)
@@ -166,9 +199,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  - {p}", file=sys.stderr)
             return 1
         print(
-            f"OK: survival rate {rate:.4f} at/below pinned floor {floor:.4f}; "
-            f"{summary['n_survivors']} bypass(es), {summary['n_skipped_seeds']} skipped seed(s), "
-            f"{appended} newly appended"
+            f"OK: fixed-universe bypass rate {fixed_rate:.4f} at/below pinned floor "
+            f"{floor:.4f} ({fixed['n_bypassed']}/{fixed['n_candidates']} bypass, "
+            f"{fixed['n_blocked']} blocked); survival_rate {rate:.4f} (descriptive); "
+            f"{summary['n_skipped_seeds']} skipped seed(s), {appended} newly appended"
         )
         return 0
 

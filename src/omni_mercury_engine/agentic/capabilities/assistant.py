@@ -252,15 +252,27 @@ class GeneralAssistant:
 
     # -- ethics gate (unified with the rest of Mercury) --------------------
 
-    #: General-harm floor: harm/severity at or above this refuses a
-    #: general-capability action. The gate is on detected HARM, not on a
-    #: positive-benevolence floor: a neutral research query carries no harm
-    #: and must not be false-rejected merely for lacking positive keywords
-    #: (the benevolence-floor model is calibrated for detection *actions* and
-    #: would refuse all benign research). This catches interpersonal-harm
-    #: intent; the weapons/mass-casualty uplift gate (below) is the
-    #: authoritative control for CBRNE/weapon actionability, and both
-    #: are computed in the SAME ``score_action`` call -- one harm policy.
+    #: Advisory reporting floor for the scalar harm/severity numbers surfaced
+    #: on a :class:`GateVerdict`. **It no longer refuses anything.**
+    #:
+    #: It used to: ``_permitted`` refused when ``harm`` or ``severity`` reached
+    #: this value. That was measured against Mercury's own operating vocabulary
+    #: and found to refuse the mission -- the scalars come from a per-category
+    #: keyword count, so they score *topic* rather than *intent*:
+    #:
+    #:   "assess trauma and psychological distress among displaced families"
+    #:       -> severity 0.75, REFUSED
+    #:   "estimate earthquake damage and injury counts for triage"
+    #:       -> severity 0.50, REFUSED
+    #:   "track the failed login attempts and expose the credential-stuffing
+    #:    pattern" -> severity 0.50, REFUSED
+    #:
+    #: Interpersonal-harm intent is now carried by ``EthicalScore.grave_harm``
+    #: -- the meaning-level lexicons, which require the act to be pinned to a
+    #: specific person and therefore separate "assess trauma" from "torture the
+    #: prisoner". That is a strictly sharper discriminator, not a weaker one:
+    #: every case the scalar bar refused correctly is still refused, and the
+    #: humanitarian/security/ML false positives above are not.
     HARM_REFUSAL_THRESHOLD: float = 0.5
 
     def _sentence_is_safe(self, sentence: str) -> bool:
@@ -300,14 +312,38 @@ class GeneralAssistant:
             hazard = str(getattr(score, "hazard_domain", "none"))
             intent = str(getattr(score, "operational_intent", "mechanism"))
             weapons_blocks = disposition in ("escalate", "refuse_redact", "hard_refuse")
-            harmful = harm >= self.HARM_REFUSAL_THRESHOLD or severity >= self.HARM_REFUSAL_THRESHOLD
+            # Honour the scorer's own verdict rather than re-deriving policy
+            # here. ``BenevolenceScorer.score_action`` already decides
+            # permission from the weapons gate plus the meaning-level
+            # grave-harm lexicons, so reading ``is_permissible`` keeps ONE harm
+            # policy instead of a second, divergent copy that drifts from it --
+            # which is exactly how this layer came to refuse "assess trauma ...
+            # among displaced families" while the engine boundary permitted it.
+            # Fail-closed: any of the three signals refuses, and a scorer that
+            # omits the decision field is refused rather than waved through --
+            # ``EthicalScore`` always carries ``is_permissible``, so absence
+            # means an injected scorer that never issued a verdict.
+            grave_harm = bool(getattr(score, "grave_harm", False))
+            harmful = grave_harm or not bool(getattr(score, "is_permissible", False))
             if weapons_blocks:
                 reason = (
                     f"weapons/mass-casualty uplift gate: {disposition} "
                     f"(hazard={hazard}, intent={intent})"
                 )
+            elif grave_harm:
+                reason = (
+                    "grave-harm gate: the request states harm directed at a specific "
+                    f"person (harm={harm:.3f}, severity={severity:.3f})"
+                )
             elif harmful:
-                reason = f"harmful content detected (harm={harm:.3f}, severity={severity:.3f})"
+                # ``is_permissible`` is false for a reason this layer did not
+                # itself identify -- the direct-physical-harm ceiling, or a
+                # custom injected scorer. Report that honestly instead of
+                # attributing it to the grave-harm lexicons.
+                reason = (
+                    "harm gate: the scorer refused this action "
+                    f"(harm={harm:.3f}, severity={severity:.3f})"
+                )
             else:
                 reason = ""
             return GateVerdict(

@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, FetchHTTPError
 from omni_mercury_engine.utils.geo import (
     haversine_km,
     haversine_km_to_point,
@@ -430,13 +430,65 @@ class WildfireLoader(BaseDomainLoader):
 
         Returns:
             DataFrame parsed from the CSV response.
+
+        Raises:
+            ConnectionError: FIRMS rate limit hit (HTTP 429), rewritten as a
+                purpose-built quota message. Key redaction for EVERY status
+                is anchored one layer down: ``_fetch_url`` raises
+                ``FetchHTTPError`` with ``from None`` and a URL-free message,
+                because the underlying ``requests.HTTPError`` message embeds
+                the full URL, whose path segment IS the MAP key
+                (``_build_area_url``). Both this 429 rewrite and the non-429
+                re-raise therefore propagate exceptions that carry no URL,
+                no cause, and no suppressed-context leak;
+                ``scripts/live_data_smoke.py``'s redaction remains as
+                defence in depth.
+            ValueError: FIRMS returned a non-CSV body. FIRMS signals key and
+                quota problems as HTTP-200 text bodies ("Invalid MAP_KEY.",
+                transaction-limit messages) that would otherwise parse into a
+                nonsense one-column frame and flow downstream.
         """
-        raw_bytes = self._fetch_url(url)
+        try:
+            raw_bytes = self._fetch_url(url)
+        except FetchHTTPError as exc:
+            if exc.status_code == 429:
+                raise ConnectionError(
+                    "wildfire: NASA FIRMS rate limit hit (HTTP 429). The MAP "
+                    "key's transaction quota is exhausted; wait for the "
+                    "10-minute window to reset (status at "
+                    "https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey/) "
+                    "instead of retrying."
+                ) from None
+            # Non-429: propagate unchanged. Key-safe because _fetch_url
+            # severs the exception chain and its message never contains
+            # the URL — pinned end-to-end (real _fetch_url, key in path)
+            # by test_wildfire_firms_guards.py and at the base layer by
+            # TestFetchCredentialRedaction.
+            raise
         text = raw_bytes.decode("utf-8", errors="replace")
 
         if not text.strip():
             logger.warning("FIRMS returned empty response")
             return pd.DataFrame()
+
+        # Every FIRMS CSV product's header starts with ``latitude,longitude``;
+        # anything else is an error body served with HTTP 200. Fail closed
+        # rather than parse it into a nonsense frame. The slice keeps the
+        # diagnostic short. Observed FIRMS error bodies do not contain the
+        # MAP key, but that is upstream behaviour, not a contract — the
+        # value scrub converts the assumption into a guarantee.
+        from omni_mercury_engine.security.redaction import redact_secrets
+
+        first_line = text.lstrip().splitlines()[0]
+        if "latitude" not in first_line:
+            safe_snippet = redact_secrets(first_line, ("NASA_FIRMS_MAP_KEY",), (self._api_key,))[
+                :80
+            ]
+            raise ValueError(
+                f"wildfire: FIRMS returned a non-CSV body ({safe_snippet!r}); "
+                "this usually means an invalid MAP key or an exhausted "
+                "transaction quota."
+            )
 
         df = pd.read_csv(io.StringIO(text))
         return df

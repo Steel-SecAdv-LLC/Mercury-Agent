@@ -404,8 +404,23 @@ class TestEnvironmentalDatasets:
         assert features.shape[1] == len(NOAAWeatherLoader.FEATURE_NAMES)
         assert loader.is_real_data is False
 
-    def test_wildfire_loader(self, tmpdir: Any) -> None:
-        """Test wildfire detection loader."""
+    def test_wildfire_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test wildfire loader synthetic-fallback path.
+
+        Forces the synthetic path the same way ``test_weather_loader`` above
+        does, and for the same reason: this file's contract is offline unit
+        testing against the synthetic generator, with live-API coverage in
+        ``tests/test_loaders_live.py`` under ``@pytest.mark.network``.
+
+        Without the patch this test silently reached NASA FIRMS and was
+        **flaky** — measured 3 passes and 1 failure over four consecutive local
+        runs, the failure reporting ``Fire rate 0.00`` because a partially
+        successful fetch returns a real window containing no detections, which
+        the synthetic generator's ~30 % expectation does not describe. A network
+        outcome must not decide whether an offline unit test passes; the
+        assertion below is only meaningful against the generator it was written
+        for, so the path is pinned rather than the tolerance widened.
+        """
         config = DatasetConfig(
             name="wildfire",
             data_dir=tmpdir,
@@ -414,8 +429,13 @@ class TestEnvironmentalDatasets:
             random_seed=42,
         )
         loader = WildfireDataLoader(config)
+        monkeypatch.setattr(loader, "_download_from_firms", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
+
+        # Pin the path, so a future change that reaches the network again fails
+        # here rather than intermittently in the fire-rate assertion below.
+        assert loader.is_real_data is False
 
         # ~30% fire detections expected, with wider tolerance for small sample variance
         # With n=100 and p=0.3, std_dev ~= 4.6, so 4-sigma range is ~12-48%

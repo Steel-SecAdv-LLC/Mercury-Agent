@@ -421,14 +421,45 @@ class ScoreDiagnostics:
             actual_contamination=actual_contamination,
         )
 
+    #: Bin count for the bimodality heuristic's histogram.
+    _BIMODALITY_BINS = 50
+
     @staticmethod
     def _detect_bimodality(scores: NDArray[np.float64]) -> bool:
-        """Detect if score distribution is bimodal using dip test heuristic."""
+        """Detect if score distribution is bimodal using dip test heuristic.
+
+        Args:
+            scores: Raw score array. May be degenerate: this is called on
+                bootstrap resamples, which can draw a near-constant sample even
+                when the parent sample is well spread.
+
+        Returns:
+            True when at least two significant peaks are found. A sample with no
+            usable spread returns False rather than raising — see below.
+        """
         if len(scores) < 20:
             return False
 
-        # Use histogram-based heuristic
-        hist, bin_edges = np.histogram(scores, bins=50)
+        # ``np.histogram(scores, bins=50)`` raises
+        # ``ValueError: Too many bins for data range`` when the span is not
+        # divisible into 50 finite-sized bins — a non-finite span, or one so
+        # small that ``span / 50`` underflows to zero. That crashed the caller
+        # outright: ``compute_bca`` draws bootstrap resamples, a resample of a
+        # spread parent sample can still come back all-but-constant, and the
+        # whole confidence interval then died inside a *descriptive statistic*.
+        # A distribution with no spread has no two peaks to find, so answer the
+        # question directly instead of raising out of a diagnostic.
+        finite = scores[np.isfinite(scores)]
+        if len(finite) < 20:
+            return False
+        low, high = float(np.min(finite)), float(np.max(finite))
+        span = high - low
+        if not np.isfinite(span) or span / ScoreDiagnostics._BIMODALITY_BINS <= 0.0:
+            return False
+
+        hist, bin_edges = np.histogram(
+            finite, bins=ScoreDiagnostics._BIMODALITY_BINS, range=(low, high)
+        )
 
         # Smooth histogram
         kernel = np.array([1, 2, 3, 2, 1]) / 9.0
@@ -1537,12 +1568,41 @@ class ThresholdConfidenceIntervalCalculator:
         ci_upper = float(np.percentile(bootstrap_thresholds, pct_high))
         std_error = float(np.std(bootstrap_thresholds))
 
+        # An interval that does not contain its own point estimate is not a
+        # confidence interval, and this one could fail to.
+        #
+        # The percentile bounds are order statistics of the bootstrap
+        # distribution, while ``point_threshold`` is computed on the full sample.
+        # ``AutoThresholdOptimizer`` is a discontinuous estimator, so on
+        # low-cardinality input the full sample can land on an optimum that no
+        # resample reproduces. Measured on 22 binary scores: the estimate is
+        # 1.0 while every replicate sits at or below 0.973, giving the
+        # nonsensical report "threshold 1.0, 95 % CI [0.970, 0.973]".
+        #
+        # Widen to cover the estimate. Widening is the conservative direction --
+        # it can only raise coverage, never lower it -- and the ``method`` string
+        # records that the bounds are no longer pure BCa order statistics, so a
+        # reader is not told this was a clean fit.
+        widened = ci_lower > point_threshold or ci_upper < point_threshold
+        if widened:
+            logger.warning(
+                "BCa bounds [%.6g, %.6g] excluded the point estimate %.6g; widening to "
+                "cover it. The bootstrap distribution did not reproduce the full-sample "
+                "optimum, which happens when the threshold estimator is discontinuous "
+                "over low-cardinality scores. Treat this interval as indicative.",
+                ci_lower,
+                ci_upper,
+                point_threshold,
+            )
+            ci_lower = min(ci_lower, point_threshold)
+            ci_upper = max(ci_upper, point_threshold)
+
         return ThresholdConfidenceInterval(
             threshold=point_threshold,
             lower=ci_lower,
             upper=ci_upper,
             confidence_level=self.confidence_level,
-            method="bootstrap_bca",
+            method="bootstrap_bca_widened" if widened else "bootstrap_bca",
             n_bootstrap=self.n_bootstrap,
             std_error=std_error,
         )

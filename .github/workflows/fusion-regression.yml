@@ -57,7 +57,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       # Fast: pins the gate's pass/fail logic (floors, coverage floor) with
       # synthetic metrics — no training.

@@ -127,13 +127,13 @@ class HarmonicDatabase:
         return len(self._signatures)
 
 
-class AdvancedHarmonicAnalyzer:
+class HarmonicAnalyzer:
     """High-level interface for spherical harmonic analysis.
 
     Provides methods for decomposition, feature extraction, and anomaly detection.
 
     Example:
-        analyzer = AdvancedHarmonicAnalyzer(
+        analyzer = HarmonicAnalyzer(
             l_max=64,
             backend="numpy",
             precision="float64",
@@ -264,7 +264,7 @@ class AdvancedHarmonicAnalyzer:
         self,
         point_clouds: list[np.ndarray[Any, Any]],
         labels: list[str] | None = None,
-    ) -> AdvancedHarmonicAnalyzer:
+    ) -> HarmonicAnalyzer:
         """Fit analyzer on reference data.
 
         Args:

@@ -32,6 +32,7 @@ Run::
 from __future__ import annotations
 
 import json
+import math
 import os
 from typing import Any
 
@@ -112,8 +113,11 @@ def _fit(
 
     x0 = _mle_start(u, y) if warm_start == "mle" else np.array([1.0, 1.0, 0.0])
     res = optimize.minimize(
-        objective, x0, method="L-BFGS-B",
-        bounds=[(0.0, None), (0.0, None), (None, None)], options={"maxiter": 200},
+        objective,
+        x0,
+        method="L-BFGS-B",
+        bounds=[(0.0, None), (0.0, None), (None, None)],
+        options={"maxiter": 200},
     )
     return float(res.x[0]), float(res.x[1]), float(res.x[2])
 
@@ -156,8 +160,11 @@ def _holdout_metrics() -> tuple[dict[str, dict[str, float]], dict[str, Any]]:
         for label, l_ece, l_nb, warm in _CONFIGS:
             p_ev = _apply(p0_ev, _fit(p0_cal, y_cal, l_ece, l_nb, warm), lohi)
             au = _auroc(y_ev, p_ev)
-            # paired tie deviation: only when BOTH identity and config are computable
-            d_au = (au - auroc_id) if (au == au and auroc_id == auroc_id) else float("nan")
+            # paired tie deviation: only when BOTH identity and config are computable.
+            # `math.isnan` rather than the `x == x` NaN idiom -- same semantics,
+            # and it does not read as an accidental self-comparison.
+            computable = not math.isnan(au) and not math.isnan(auroc_id)
+            d_au = (au - auroc_id) if computable else float("nan")
             per_cfg[label].append(
                 (float(brier_score_loss(y_ev, p_ev)), float(compute_ece(y_ev, p_ev)), d_au)
             )
@@ -210,7 +217,9 @@ def main() -> None:
 
     print("\naccept-gate ece_tol sweep (accept_rate / held-out Brier of gated map):")
     for label, g in gate_summary.items():
-        print(f"  {label:<14} accept={g['accept_rate']:.3f}  holdout_brier={g['holdout_brier']:.4f}")
+        print(
+            f"  {label:<14} accept={g['accept_rate']:.3f}  holdout_brier={g['holdout_brier']:.4f}"
+        )
 
     verdict = (
         f"LAND candidates (beat default on BOTH Brier and ECE held-out): {landed}"

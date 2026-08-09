@@ -1,13 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""State-of-the-Art Anomaly Detection Models.
+"""Third-party-derived anomaly detection architectures.
 
-This module integrates cutting-edge architectures from academic research:
+This module integrates architectures published in academic research:
 - Association Discrepancy (Anomaly Transformer, ICLR 2022)
 - TranAD (VLDB 2022)
 - MAAT (Mamba Adaptive Anomaly Transformer, 2025)
 
-All implementations respect Mercury-Agent's ethical scalars and survivor-first philosophy.
+All implementations respect Mercury-Agent's ethical scalars and its
+civilization-first mission.
 
 References:
     - Xu et al., "Anomaly Transformer: Time Series Anomaly Detection with

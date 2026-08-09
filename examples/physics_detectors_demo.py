@@ -7,7 +7,7 @@ Demonstrates the advanced physics-inspired anomaly detection modules:
 1. SpectralVibrationDetector - Frequency-domain analysis with GNN/CNN
 2. AccelerationDynamicsDetector - Kinematic and phase space analysis
 3. UIUXAnomalyDetector - User interaction behavioral analysis
-4. AdvancedPhysicsIntegratedDetector - Unified multi-modal fusion
+4. PhysicsIntegratedDetector - Unified multi-modal fusion
 """
 
 import argparse
@@ -18,8 +18,8 @@ import numpy as np
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
-from omni_mercury_engine.detectors.advanced_physics_integration import (
-    AdvancedPhysicsIntegratedDetector,
+from omni_mercury_engine.detectors.physics_integration import (
+    PhysicsIntegratedDetector,
     PhysicsDetectorType,
 )
 from omni_mercury_engine.detectors.spectral_vibration import (
@@ -379,12 +379,12 @@ def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
 
 
 def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False):
-    """Demonstrate AdvancedPhysicsIntegratedDetector."""
+    """Demonstrate PhysicsIntegratedDetector."""
     print("\n" + "=" * 70)
     print("DEMO 4: INTEGRATED PHYSICS DETECTOR - MULTI-MODAL FUSION")
     print("=" * 70)
 
-    detector = AdvancedPhysicsIntegratedDetector(
+    detector = PhysicsIntegratedDetector(
         {
             "threshold": threshold,
             "enabled_detectors": [
@@ -496,9 +496,9 @@ def profile_memory_usage():
     total_mem = sum(stat.size_diff for stat in top_stats) / 1024 / 1024
     print(f"  Memory allocated: {total_mem:.2f} MB")
 
-    print("\n[4/4] AdvancedPhysicsIntegratedDetector Memory Usage")
+    print("\n[4/4] PhysicsIntegratedDetector Memory Usage")
     snapshot1 = tracemalloc.take_snapshot()
-    detector = AdvancedPhysicsIntegratedDetector()
+    detector = PhysicsIntegratedDetector()
     data = {
         "spectral": generate_normal_vibration_signal(),
         "dynamics": generate_normal_motion(),
@@ -562,8 +562,8 @@ def profile_runtime():
         times.append(time.time() - start)
     print(f"  Mean runtime: {np.mean(times)*1000:.2f} ms +/- {np.std(times)*1000:.2f} ms")
 
-    print("\n[4/4] AdvancedPhysicsIntegratedDetector Runtime")
-    detector = AdvancedPhysicsIntegratedDetector()
+    print("\n[4/4] PhysicsIntegratedDetector Runtime")
+    detector = PhysicsIntegratedDetector()
     data = {
         "spectral": generate_normal_vibration_signal(),
         "dynamics": generate_normal_motion(),

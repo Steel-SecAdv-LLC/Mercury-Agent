@@ -106,7 +106,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Mutation-harness unit tests
         run: pytest tests/scripts/test_run_sigma_mutation_gate.py -q
@@ -160,7 +160,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       # Fast: pins the harness's own semantics (enumeration determinism,
       # byte-exact restoration, red-baseline abort, kill/survive
@@ -172,7 +172,7 @@ jobs:
       # The real measurement: every enumerated mutant of the sigma hot path
       # runs against the sigma-focused test subset, across 4 parallel workers
       # (isolated repo copy each). Floor calibration (2026-07-21, local, native
-      # AMA v3.3.0): 119/120 mutants killed — 99.2% — after the two *_semantics
+      # AMA v4.0.0): 119/120 mutants killed — 99.2% — after the two *_semantics
       # suites landed (the first honest measurement with the interface-level
       # subset alone was 9.7%). The single survivor is the exc_info=True flip
       # inside a diagnostic logger.warning (log verbosity, zero behavioral

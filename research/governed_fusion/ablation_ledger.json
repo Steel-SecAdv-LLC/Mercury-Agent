@@ -8,5 +8,75 @@
   ],
   "transparent_fitness_bucket": "external_label",
   "note": "Phase 1 seed record. The script measure_marginal_ablation.py appends one entry per CI run; the rolling baseline for regression is the most recent 'ok' record. When run on a host with no cached event scores (e.g. a fresh CI runner before measure_baseline has fit + cached), the record is written with status='needs_cache' so the ledger always carries a chronological account of suite reachability.",
-  "runs": []
+  "runs": [
+    {
+      "timestamp_utc": "2026-08-04T07:25:49+00:00",
+      "git_sha": "1e422e2b1806a17a747d192c7df1e7efca6c23f1",
+      "components": [
+        "resonance",
+        "kinematic",
+        "info_geo"
+      ],
+      "cache_dir": "/home/user/gf_cache",
+      "status": "ok",
+      "external_label_events": 2,
+      "event_keys": [
+        [
+          "network_security",
+          "nsl_kdd"
+        ],
+        [
+          "network_security",
+          "batadal"
+        ]
+      ],
+      "full": {
+        "auroc": 0.8243172824073914,
+        "auprc": 0.5187459196457755,
+        "f1": 0.6261057239810031,
+        "n_events": 2
+      },
+      "leave_one_out": {
+        "resonance": {
+          "ablated": {
+            "auroc": 0.7396170754760059,
+            "auprc": 0.424824312146894,
+            "f1": 0.5780777289818881,
+            "n_events": 2
+          },
+          "delta": {
+            "auroc": 0.08470020693138558,
+            "auprc": 0.09392160749888157,
+            "f1": 0.04802799499911492
+          }
+        },
+        "kinematic": {
+          "ablated": {
+            "auroc": 0.8581094948179547,
+            "auprc": 0.5413609536726596,
+            "f1": 0.6622948227786241,
+            "n_events": 2
+          },
+          "delta": {
+            "auroc": -0.033792212410563294,
+            "auprc": -0.02261503402688403,
+            "f1": -0.036189098797621
+          }
+        },
+        "info_geo": {
+          "ablated": {
+            "auroc": 0.7627873698058503,
+            "auprc": 0.55195986427155,
+            "f1": 0.5908567455402733,
+            "n_events": 2
+          },
+          "delta": {
+            "auroc": 0.06152991260154117,
+            "auprc": -0.03321394462577443,
+            "f1": 0.03524897844072972
+          }
+        }
+      }
+    }
+  ]
 }

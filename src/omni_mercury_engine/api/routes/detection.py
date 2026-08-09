@@ -43,6 +43,26 @@ _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
 
 
+def _record_text(records: list[dict[str, Any]]) -> str:
+    """Concatenate every string leaf of detection ``records`` for the harm gate.
+
+    The harm-uplift gate scores ``DecisionSubject.request`` first and guarantees
+    it survives the bounded subject, but a ``payload`` list is summarised only up
+    to a fixed item cap. Folding the record text into ``request`` therefore keeps
+    uplift text that would otherwise sit past that cap (in an arbitrarily long
+    ``data`` list) within what the gate actually scores. String values one level
+    deep cover the record shapes this endpoint accepts (``{"note": "..."}``);
+    the shared ``MAX_SUBJECT_CHARS`` bound still applies downstream.
+    """
+    parts: list[str] = []
+    for record in records:
+        if isinstance(record, str):
+            parts.append(record)
+        elif isinstance(record, dict):
+            parts.extend(v for v in record.values() if isinstance(v, str))
+    return " ".join(parts)
+
+
 def _run_flagship_detection(
     matrix: np.ndarray[Any, Any],
     domain: str | None,
@@ -156,7 +176,16 @@ class ThreeRRequest(BaseModel):
         default=0.96,
         ge=0.90,
         le=0.99,
-        description="Ethical compliance threshold",
+        description=(
+            "Score-scaling base for the 3R fusion equation, NOT an ethics control. "
+            "The fused score is multiplied by this value raised to the golden "
+            "ratio (eta**1.618), so it scales every score monotonically: 0.90 "
+            "scales by 0.845, 0.99 by 0.984. Raising it therefore RAISES scores "
+            "(more detections) -- the opposite of what 'stricter ethical "
+            "threshold' suggests. It refuses nothing. Ethics enforcement is the "
+            "fail-closed harm-uplift gate in cognitive.decision_gate, which no "
+            "request field can tune."
+        ),
     )
 
 
@@ -220,7 +249,8 @@ Perform hybrid neural-symbolic anomaly detection using the NeurosymbolicFusionEn
 - Neural pattern detection via memory embeddings
 - Symbolic logic reasoning with rule-based inference
 - Attention-based fusion of neural and symbolic outputs
-- Ethical gating with benevolence threshold enforcement
+- Fail-closed harm-uplift decision gate (`cognitive.decision_gate`); the
+  benevolence score is reported, not enforced
 - Full audit trail for explainability
 
 ## Fusion Strategies
@@ -235,10 +265,49 @@ async def detect_neurosymbolic(
     user: User | None = Depends(_get_optional_user),
 ) -> NeurosymbolicResponse:
     """Perform neuro-symbolic anomaly detection."""
+    # Import the gate machinery up front so its ``EthicalConstraintViolationError``
+    # name is always bound when the except clauses below are evaluated (mirrors
+    # the flagship endpoint). These are core modules; a failure here is a genuine
+    # environment fault, surfaced as 503 rather than swallowed as a 500.
+    try:
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+    except ImportError as e:
+        logger.error("Harm-uplift gate unavailable for neuro-symbolic endpoint: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The decision gate is not available in this environment.",
+        ) from e
+
     try:
         from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
             FusionStrategy,
             NeurosymbolicFusionEngine,
+        )
+
+        # Fail-closed harm-uplift gate. This endpoint's own OpenAPI description
+        # advertises it, and ``NeurosymbolicFusionEngine`` does not run it
+        # internally, so it must be enforced here or the documented control is
+        # absent on a public decision surface. A refusal maps to HTTP 403 below.
+        #
+        # The record text is folded into ``request`` rather than passed as the
+        # ``payload``: the gate scores ``request`` FIRST and guarantees it is not
+        # evicted from the bounded subject, whereas a payload list is summarised
+        # only up to its first N items -- so uplift buried past that cap in an
+        # arbitrarily long ``data`` list would never be scored. Every string leaf
+        # of the (unbounded, min_length=1) records is concatenated so the request
+        # carries all caller text before the shared MAX_SUBJECT_CHARS bound.
+        enforce_decision_boundary(
+            DecisionSubject(
+                surface="api.detect_neurosymbolic",
+                operation="neuro-symbolic anomaly detection over caller-supplied records",
+                request=_record_text(request.data),
+            )
         )
 
         strategy_map = {
@@ -307,6 +376,13 @@ async def detect_neurosymbolic(
             audit_trail=result.audit_trail if request.include_explanations else [],
         )
 
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the harm-uplift gate refused this request.
+        logger.warning("Neuro-symbolic detection blocked by harm-uplift gate '%s'", e.check)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+        ) from e
     except ImportError as e:
         logger.error("Neuro-symbolic module not available: %s", e)
         raise HTTPException(

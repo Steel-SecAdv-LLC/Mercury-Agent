@@ -34,13 +34,13 @@ Run::
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from research.governed_fusion.input_pin import sha256_xy
 from research.governed_fusion.label_provenance import (
     event_is_external_label,
     label_provenance,
@@ -52,16 +52,11 @@ from research.governed_fusion.suite import EventData, build_suite, stratified_su
 _GF_DIR = Path(__file__).resolve().parent
 
 
-def _sha256_xy(X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> str:
-    """Deterministic, shape-tagged SHA-256 over canonical ``(X, y)`` bytes."""
-    h = hashlib.sha256()
-    xc = np.ascontiguousarray(X, dtype=np.float64)
-    yc = np.ascontiguousarray(y, dtype=np.int64).reshape(-1)
-    h.update(b"X" + str(xc.shape).encode())
-    h.update(xc.tobytes())
-    h.update(b"y" + str(yc.shape).encode())
-    h.update(yc.tobytes())
-    return h.hexdigest()
+# Re-exported from input_pin so the writer and the verifier hash identically by
+# construction. Two copies of this function would let the manifest and the check
+# disagree about what "the same data" means, which is the one thing a pin cannot
+# afford to be wrong about.
+_sha256_xy = sha256_xy
 
 
 def _entry(ev: EventData) -> dict[str, Any]:

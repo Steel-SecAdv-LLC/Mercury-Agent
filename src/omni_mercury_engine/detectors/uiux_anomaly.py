@@ -44,6 +44,23 @@ Research foundations:
 - Fitts's Law for pointing device movement
 - Cognitive load theory
 - User behavior modeling
+
+Trained status — read this before quoting a number from this module
+-------------------------------------------------------------------
+
+The ``nn.Module`` subclasses here (``InteractionSequenceEncoder``,
+``MouseTrajectoryNetwork``, ``ClickPatternNetwork``,
+``BehaviorClassificationNetwork``) are **untrained**, and are additionally
+**not consulted by the scoring path**: they are constructed and put in
+``eval()``, and nothing calls them. Detection is entirely statistical —
+reference timing/velocity/duration distributions and page-transition
+probabilities learned in ``fit()``.
+
+They are kept because they define the intended architecture, but nothing here
+is a trained model and no ML accuracy claim attaches to this detector. It fails
+closed (``DetectorException``) until ``fit()`` has run, so an unfitted detector
+abstains rather than emitting a score. ``CAPABILITY_MATRIX.md`` carries status
+``untrained`` for this row.
 """
 
 from __future__ import annotations

@@ -999,7 +999,7 @@ class DynamicThresholdAdapter:
         }
 
 
-class EnhancedStatisticalDetector(BaseDetector):
+class ExtendedStatisticalDetector(BaseDetector):
     """Unified enhanced statistical anomaly detector.
 
     Combines multiple statistical methods with configurable ensemble.
@@ -1092,7 +1092,7 @@ class EnhancedStatisticalDetector(BaseDetector):
                     alpha=self.config.get("gesd_alpha", 0.05),
                 )
 
-    def fit(self, data: np.ndarray[Any, Any] | Any) -> EnhancedStatisticalDetector:
+    def fit(self, data: np.ndarray[Any, Any] | Any) -> ExtendedStatisticalDetector:
         """Fit all detectors."""
         data = np.asarray(data)
         if data.ndim == 1:
@@ -1139,7 +1139,7 @@ class EnhancedStatisticalDetector(BaseDetector):
             return {
                 "is_anomaly": np.zeros(n_samples, dtype=bool),
                 "scores": np.zeros(n_samples),
-                "detector_type": "enhanced_statistical",
+                "detector_type": "statistical_extended",
                 "method_results": {},
             }
 
@@ -1172,7 +1172,7 @@ class EnhancedStatisticalDetector(BaseDetector):
             "is_anomaly": is_anomaly,
             "scores": combined_scores,
             "threshold": threshold,
-            "detector_type": "enhanced_statistical",
+            "detector_type": "statistical_extended",
             "method_results": {
                 method: {
                     "scores": result.scores,
@@ -1229,7 +1229,7 @@ __all__ = [
     "DBSCANDetector",
     "DynamicThresholdAdapter",
     "DynamicThresholdState",
-    "EnhancedStatisticalDetector",
+    "ExtendedStatisticalDetector",
     "GESDTest",
     "GrubbsTest",
     "LOFDetector",

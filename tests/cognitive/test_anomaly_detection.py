@@ -6,18 +6,19 @@ from __future__ import annotations
 
 import time
 
-from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+from omni_mercury_engine.cognitive.anomaly_detection import (
     BayesianPredictor,
-    EnhancedAnomalyDetector,
     ExternalDataIntegrator,
     ExternalSourceCategory,
     HiddenMarkovPredictor,
+    IntegratedAnomalyDetector,
     MemoryKnowledgeGraph,
     PredictionType,
     SimulatedEnvironmentalSource,
     SimulatedGeologicalSource,
     ValueExtractor,
 )
+from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 
 
 class TestMemoryKnowledgeGraph:
@@ -272,12 +273,18 @@ class TestValueExtractor:
 
     def test_init(self) -> None:
         """Test extractor initialization."""
-        extractor = ValueExtractor(benevolence_threshold=0.95)
-        assert extractor.benevolence_threshold == 0.95
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.95)
+        assert extractor.benevolence_advisory_threshold == 0.95
+
+    def test_default_threshold_is_advisory_not_the_deleted_pass_bar(self) -> None:
+        """Anti-regression: the default was ``0.99`` and it filtered."""
+        extractor = ValueExtractor()
+        assert extractor.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
+        assert not hasattr(extractor, "benevolence_threshold")
 
     def test_extract_benevolent(self) -> None:
         """Test extraction with benevolent score."""
-        extractor = ValueExtractor(benevolence_threshold=0.99)
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = extractor.extract(anomaly, ethical_score=0.995)
@@ -286,18 +293,28 @@ class TestValueExtractor:
         assert extraction.is_benevolent is True
         assert extraction.value_type == "early_warning"
 
-    def test_extract_not_benevolent(self) -> None:
-        """Test extraction with low ethical score."""
-        extractor = ValueExtractor(benevolence_threshold=0.99)
+    def test_low_score_annotates_the_opportunity_instead_of_dropping_it(self) -> None:
+        """Replaces ``test_extract_not_benevolent``.
+
+        That test asserted ``extraction is None`` for a benign anomaly whose
+        advisory score was 0.5 — i.e. it pinned a silent drop. Mercury's own
+        humanitarian text scores ~0.6 on this scalar, so the behaviour it
+        protected discarded exactly the early warnings this class exists to
+        surface. The score is now an annotation on the emitted record.
+        """
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = extractor.extract(anomaly, ethical_score=0.5)
 
-        assert extraction is None
+        assert extraction is not None, "a low advisory score must not suppress the opportunity"
+        assert extraction.is_benevolent is False
+        assert extraction.ethical_score == 0.5
+        assert extraction.value_type == "early_warning"
 
     def test_extract_different_types(self) -> None:
         """Test extraction for different anomaly types."""
-        extractor = ValueExtractor(benevolence_threshold=0.9)
+        extractor = ValueExtractor(benevolence_advisory_threshold=0.9)
 
         types_and_expected = [
             ("escalation", "early_warning"),
@@ -316,18 +333,18 @@ class TestValueExtractor:
 
 
 class TestEnhancedAnomalyDetector:
-    """Tests for EnhancedAnomalyDetector main interface."""
+    """Tests for IntegratedAnomalyDetector main interface."""
 
     def test_init(self) -> None:
         """Test detector initialization."""
-        detector = EnhancedAnomalyDetector()
-        assert detector.benevolence_threshold == 0.99
+        detector = IntegratedAnomalyDetector()
+        assert detector.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
         assert detector.memory_graph is not None
         assert detector.bayesian_predictor is not None
 
     def test_add_memory(self) -> None:
         """Test adding memory to graph."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         node_id = detector.add_memory(
             memory_id="m1",
             memory_type="episodic",
@@ -339,7 +356,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_add_memory_with_relations(self) -> None:
         """Test adding memory with relations."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         node_id = detector.add_memory(
             memory_id="m2",
@@ -354,21 +371,21 @@ class TestEnhancedAnomalyDetector:
 
     def test_update_predictor(self) -> None:
         """Test updating Bayesian predictor."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.update_predictor("context_1", success=True)
 
         assert "context_1" in detector.bayesian_predictor.contexts
 
     def test_observe_sequence(self) -> None:
         """Test HMM observation."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         state = detector.observe_sequence("event_a")
 
         assert 0 <= state < 3
 
     def test_predict(self) -> None:
         """Test prediction generation."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
 
         for _ in range(5):
             detector.update_predictor("test_context", success=True)
@@ -381,14 +398,14 @@ class TestEnhancedAnomalyDetector:
 
     def test_predict_with_external(self) -> None:
         """Test prediction with external data."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         result = detector.predict("test_context", include_external=True)
 
         assert "External data points" in str(result.contributing_factors)
 
     def test_extract_value(self) -> None:
         """Test value extraction."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.9)
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.9)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
 
         extraction = detector.extract_value(anomaly, ethical_score=0.95)
@@ -398,7 +415,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_analyze_memory_patterns(self) -> None:
         """Test memory pattern analysis."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.add_memory("m2", "episodic", {"event": "e2"}, related_to=["m1"])
 
@@ -410,7 +427,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
-        detector = EnhancedAnomalyDetector()
+        detector = IntegratedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.predict("test", include_external=False)
 
@@ -453,7 +470,7 @@ class TestIntegration:
 
     def test_full_pipeline(self) -> None:
         """Test complete enhanced detection pipeline."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.95)
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.95)
 
         for i in range(10):
             detector.add_memory(
@@ -485,14 +502,21 @@ class TestIntegration:
         analysis = detector.analyze_memory_patterns("m5")
         assert len(analysis["related_memories"]) >= 0
 
-    def test_ethical_filtering(self) -> None:
-        """Test that unethical extractions are blocked."""
-        detector = EnhancedAnomalyDetector(benevolence_threshold=0.99)
+    def test_the_advisory_score_annotates_and_does_not_filter(self) -> None:
+        """Replaces ``test_ethical_filtering``, which asserted the opposite.
+
+        Nothing was ever "ethically filtered" here: the score is a topic-keyword
+        scalar, and dropping the record on it discarded benign opportunities
+        while passing anything phrased positively. Enforcement lives at the
+        decision boundary (``cognitive/decision_gate.py``); this surface reports.
+        """
+        detector = IntegratedAnomalyDetector(benevolence_advisory_threshold=0.99)
 
         anomaly = {"id": "risky", "type": "opportunity", "confidence": 0.9}
 
         extraction_low = detector.extract_value(anomaly, ethical_score=0.5)
-        assert extraction_low is None
+        assert extraction_low is not None
+        assert extraction_low.is_benevolent is False
 
         extraction_high = detector.extract_value(anomaly, ethical_score=0.995)
         assert extraction_high is not None
@@ -503,7 +527,7 @@ class TestMemoryGraphEviction:
     """The memory graph must be bounded so it cannot leak in a long-running run."""
 
     def test_evicts_oldest_past_cap(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 
@@ -521,7 +545,7 @@ class TestMemoryGraphEviction:
             assert "mem_m24" in graph.nodes
 
     def test_default_cap_is_bounded(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 
@@ -533,7 +557,7 @@ class TestHMMHistoryBounded:
     """HMM histories must be bounded — STEP 10 calls observe() every analyze()."""
 
     def test_observe_history_is_capped(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             HiddenMarkovPredictor,
         )
 
@@ -551,7 +575,7 @@ class TestRelationshipEndpointsAreCapped:
     """Edges to unknown endpoints must not mint nodes that escape the cap."""
 
     def test_auto_created_endpoints_are_tracked_and_evictable(self) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             MemoryKnowledgeGraph,
         )
 

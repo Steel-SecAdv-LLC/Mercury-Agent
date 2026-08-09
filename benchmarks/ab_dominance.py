@@ -76,7 +76,7 @@ class BenchmarkConfig:
     seed: int = 42
     output_dir: str = "benchmark_results"
     log_interval: int = 10
-    use_advanced_optimizers: bool = True
+    use_optimizers: bool = True
     sigma_immutable: float = 0.96
     lambda_baseline: float = 0.18
     lambda_enhanced: float = 0.25

@@ -113,22 +113,24 @@ class TestNeuroSymbolicHub:
             assert 0 <= result.anomaly_score <= 1
             assert 0 <= result.confidence <= 1
 
-    def test_benevolence_enforcement(self) -> None:
-        """Hard ethical decision boundary: predict() raises on violation.
+    def test_harm_gate_enforcement(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Hard ethical decision boundary: predict() fails closed on gate failure.
 
-        With ``benevolence_threshold=0.99`` and untrained-encoder inputs
-        the per-sample benevolence will fall below the threshold, and
-        ``predict()`` must raise ``EthicalConstraintViolationError`` —
-        the previous advisory ``ethical_violations`` list is no longer
-        the contract at this boundary.
+        The benevolence threshold is gone and is not what is being tested. This
+        pins the fail-closed direction of the *harm* gate: when
+        ``assess_weapons_uplift`` cannot be evaluated at all, ``predict()``
+        must raise ``EthicalConstraintViolationError`` with
+        ``check="harm_uplift"`` rather than fall through to a verdict. The
+        previous advisory ``ethical_violations`` list is no longer the contract
+        at this boundary.
         """
+        import omni_mercury_engine.cognitive.decision_gate as gate_module
         from omni_mercury_engine.cognitive.ethical_bounding import (
             EthicalConstraintViolationError,
         )
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
         hub = NeuroSymbolicHub(
-            benevolence_threshold=0.99,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
@@ -136,12 +138,20 @@ class TestNeuroSymbolicHub:
         )
 
         X = np.random.randn(3, 64)
+        # Benign data is no longer refused for being benign -- the deleted
+        # 0.99 hub gate tested a transform of the fused anomaly score, not harm.
+        assert len(hub.predict(X)) == 3
+
+        # What is enforced: the shared fail-closed harm-uplift choke point.
+        def _boom(*_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("simulated harm-gate failure")
+
+        monkeypatch.setattr(gate_module, "assess_weapons_uplift", _boom)
         with pytest.raises(EthicalConstraintViolationError) as exc_info:
             hub.predict(X)
 
-        assert exc_info.value.check == "benevolence"
-        assert exc_info.value.threshold == 0.99
-        assert exc_info.value.score < 0.99
+        assert exc_info.value.check == "harm_uplift"
+        assert exc_info.value.details["fail_closed"] is True
 
     def test_knowledge_graph_rules(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test symbolic rules fire correctly."""
@@ -384,7 +394,7 @@ class TestRealWorldBenchmark:
     def test_benchmark_runner_sklearn_detector(self) -> None:
         """Test benchmark with sklearn detector - verifies fail-closed behavior without real data."""
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
-        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.detectors.statistical_extended import MADDetector
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 

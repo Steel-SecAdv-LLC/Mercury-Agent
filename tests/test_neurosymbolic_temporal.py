@@ -8,9 +8,8 @@ import numpy as np
 import pytest
 
 # Import components
-from omni_mercury_engine.models.neurosymbolic_enhanced import (
+from omni_mercury_engine.models.neurosymbolic_temporal import (
     CausalReasoningModule,
-    EnhancedNeurosymbolicEngine,
     FuzzyOperators,
     FuzzySemantics,
     KnowledgeGraphBridge,
@@ -18,6 +17,7 @@ from omni_mercury_engine.models.neurosymbolic_enhanced import (
     ProbabilisticLogicLayer,
     ReasoningState,
     TemporalGraphReasoner,
+    TemporalNeurosymbolicEngine,
 )
 
 # Check if PyTorch is available
@@ -414,7 +414,7 @@ class TestEnhancedNeurosymbolicEngine:
 
     def test_initialization(self) -> None:
         """Test engine initialization."""
-        engine = EnhancedNeurosymbolicEngine(
+        engine = TemporalNeurosymbolicEngine(
             input_dim=32,
             hidden_dim=128,
             use_knowledge_graph=True,
@@ -431,7 +431,7 @@ class TestEnhancedNeurosymbolicEngine:
 
     def test_predict(self) -> None:
         """Test prediction with full neuro-symbolic stack."""
-        engine = EnhancedNeurosymbolicEngine(input_dim=16)
+        engine = TemporalNeurosymbolicEngine(input_dim=16)
 
         features = np.random.randn(5, 16).astype(np.float32)
         context = {"elevated_heart_rate": True}
@@ -448,7 +448,7 @@ class TestEnhancedNeurosymbolicEngine:
 
     def test_extract_features(self) -> None:
         """Test feature extraction for detector integration."""
-        engine = EnhancedNeurosymbolicEngine(input_dim=16)
+        engine = TemporalNeurosymbolicEngine(input_dim=16)
 
         data = np.random.randn(10, 16).astype(np.float32)
         features = engine.extract_features(data)
@@ -458,7 +458,7 @@ class TestEnhancedNeurosymbolicEngine:
 
     def test_explanation_generation(self) -> None:
         """Test explanation generation."""
-        engine = EnhancedNeurosymbolicEngine(input_dim=16)
+        engine = TemporalNeurosymbolicEngine(input_dim=16)
 
         features = np.random.randn(3, 16).astype(np.float32)
         result = engine.predict(features)
@@ -471,9 +471,9 @@ class TestEnhancedNeurosymbolicEngine:
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
     def test_ltn_grounding(self) -> None:
         """Test Logic Tensor Network predicate grounding."""
-        from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
+        from omni_mercury_engine.models.neurosymbolic_temporal import TemporalLogicTensorNetwork
 
-        ltn = EnhancedLogicTensorNetwork(
+        ltn = TemporalLogicTensorNetwork(
             input_dim=32,
             hidden_dim=64,
             num_predicates=8,
@@ -490,9 +490,9 @@ class TestEnhancedNeurosymbolicEngine:
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
     def test_formula_evaluation(self) -> None:
         """Test logical formula evaluation."""
-        from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
+        from omni_mercury_engine.models.neurosymbolic_temporal import TemporalLogicTensorNetwork
 
-        ltn = EnhancedLogicTensorNetwork(
+        ltn = TemporalLogicTensorNetwork(
             input_dim=32,
             hidden_dim=64,
             num_predicates=4,

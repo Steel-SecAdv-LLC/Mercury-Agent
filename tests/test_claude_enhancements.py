@@ -62,7 +62,7 @@ from omni_mercury_engine.core.rigorous_benchmark import (
 from omni_mercury_engine.core.stacking_fusion import (
     PHI,
     BayesianModelAveraging,
-    EthicallyConstrainedFusion,
+    ReliabilityWeightedFusion,
     StackingFusion,
 )
 
@@ -377,25 +377,32 @@ class TestFusion:
         assert bma.weights is not None
         assert abs(np.sum(bma.weights.weights) - 1.0) < 1e-6
 
-    def test_ethical_fusion_constraint(self) -> None:
-        """Ethical fusion should respect sigma_immutable threshold."""
+    def test_reliability_weighted_fusion_respects_its_reliability_floor(self) -> None:
+        """Renamed with the class: this never tested an ethics control.
+
+        ``ReliabilityWeightedFusion`` (formerly ``EthicallyConstrainedFusion``)
+        weights detectors by a caller-supplied trust score. The floor is a soft
+        penalty in the weight-optimisation objective, not a gate -- nothing is
+        refused when it is missed.
+        """
         np.random.seed(42)
         X = np.random.randn(100, 10)
         y = np.random.randint(0, 2, 100)
 
         sigma_immutable = 0.90
 
-        fusion = EthicallyConstrainedFusion(sigma_immutable=sigma_immutable)
-        fusion.add_detector("lr1", LogisticRegression(), ethical_score=0.95)
-        fusion.add_detector("lr2", LogisticRegression(C=0.1), ethical_score=0.85)
+        fusion = ReliabilityWeightedFusion(sigma_immutable=sigma_immutable)
+        fusion.add_detector("lr1", LogisticRegression(), reliability_score=0.95)
+        fusion.add_detector("lr2", LogisticRegression(C=0.1), reliability_score=0.85)
 
         fusion.fit(X, y)
-        compliance = fusion.get_ethical_compliance()
+        report = fusion.get_reliability_report()
 
-        # Average ethical score should be >= threshold
+        # The optimiser is pushed toward the weighted-average reliability floor.
         assert (
-            compliance["average_ethical_score"] >= sigma_immutable * 0.9
-        ), f"Ethical score {compliance['average_ethical_score']} below threshold"
+            report["average_reliability"] >= sigma_immutable * 0.9
+        ), f"average reliability {report['average_reliability']} below the floor"
+        assert report["floor_met"] is True
 
     @given(st.floats(min_value=1.0, max_value=3.0))
     @settings(max_examples=10)

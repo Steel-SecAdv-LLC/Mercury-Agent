@@ -151,18 +151,19 @@ class ReasoningBackend(abc.ABC):
         """
         if not self.ethics_enabled:
             return
+        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+
         safe_domain = sanitize_domain(context.domain)
-        action = f"reasoning_backend:{safe_domain}:{_PURPOSE_KEYWORDS}"
-        gate_context = {
-            "purpose": "truth-dense reasoning over Mercury detections",
-            "safety": "inform protect verify transparency evidence",
-            "domain": safe_domain,
-        }
         enforce_dual_ethical_gate(
-            benevolence_scorer=self._benevolence_scorer,
+            subject=DecisionSubject(
+                surface=boundary,
+                operation="generate a natural-language explanation of a Mercury finding",
+                domain=safe_domain,
+                request=str(context.summary or ""),
+                payload=context,
+            ),
             sigma_gate=self._sigma_gate,
-            action=action,
-            context=gate_context,
+            advisory_scorer=self._benevolence_scorer,
             boundary=boundary,
             domain=safe_domain,
             severity=context.severity,

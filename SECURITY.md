@@ -71,9 +71,9 @@ Mercury Agent implements multiple layers of security:
 ### Post-Quantum Cryptography (PQC) Backend Audit Status
 
 Mercury Agent uses NIST-approved post-quantum cryptographic algorithms
-sourced from AMA Cryptography v3.3.0 (pinned in
+sourced from AMA Cryptography v4.0.0 (pinned in
 `pyproject.toml [project.optional-dependencies].pqc` and via the
-`ama-ref: v3.3.0` input that `.github/workflows/ci.yml` /
+`ama-ref: v4.0.0` input that `.github/workflows/ci.yml` /
 `.github/workflows/pqc-production-check.yml` pass to the
 `build-ama-cryptography` composite action, which exports it internally
 as `AMA_REF`):
@@ -85,6 +85,22 @@ as `AMA_REF`):
 | SLH-DSA (SPHINCS+) | SLH-DSA-SHAKE-128s (NIST L1) | FIPS 205 | `SlhDsaKeyPair(param_set="SHAKE-128s")` |
 | SLH-DSA (SPHINCS+) | SLH-DSA-SHA2-256f (NIST L5) | FIPS 205 | `SlhDsaKeyPair(param_set="SHA2-256f")` |
 | Legacy SPHINCS+ | SPHINCS+-SHA2-256f-simple | (pre-FIPS-205 NIST round-3 name) | `SphincsKeyPair` |
+
+> **What the AMA dependency is, and is not.** AMA Cryptography is Mercury's
+> **trust substrate** — the thing Mercury's own guarantees rest on — not a
+> mission or a marketing claim. Stated exactly:
+>
+> * It **implements** NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA) and FIPS 205
+>   (SLH-DSA), and **passes the ACVP-Server known-answer-test vectors
+>   bit-for-bit in CI** (`tests/security/test_nist_fips_kat.py`).
+> * It has been **internally reviewed (AI-assisted)**. It is **not** CAVP- or
+>   CMVP-validated, and it has **not** been independently audited.
+> * Constant-time behaviour is **asserted** by the implementation; it has
+>   **not** been independently verified.
+>
+> Passing the published test vectors is evidence the algorithms are implemented
+> correctly. It is not certification, and the two are not interchangeable:
+> "FIPS-certified" and "NIST-validated" are claims about a formal validation programme Mercury has not entered, and neither phrase may appear anywhere else in this repository (`scripts/doc_lint.py` fails CI on them). <!-- doc-lint: allow -->
 
 The legacy `SphincsKeyPair` surface (Mercury's pre-v1.6.x SPHINCS+ entry
 point) and the FIPS 205 `SlhDsaKeyPair` surface coexist: callers can
@@ -98,7 +114,7 @@ SlhDsaKeyPair` declarations).
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| AMA Cryptography (Native C, v3.3.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
+| AMA Cryptography (Native C, v4.0.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
 
 **Important Security Considerations:**
 
@@ -111,15 +127,15 @@ SlhDsaKeyPair` declarations).
 
 3. **Sole Backend**: Mercury Agent **hard-requires** AMA Cryptography. There is no fallback chain — if AMA Cryptography is not installed, Mercury refuses to start. The native C library must be built for PQC algorithms:
    ```bash
-   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.3.0"
+   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v4.0.0"
    cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
    ```
 
 4. **Universal Enforcement**: Mercury Agent refuses to run without real PQC cryptography at package import. `AMA_REQUIRE_REAL_PQC=true` is retained for legacy workflow readability, but the gate is no longer optional.
 
-5. **Constant-Time Operation**: AMA Cryptography v3.3.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
+5. **Constant-Time Operation**: AMA Cryptography v4.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
-6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.3.0 also surfaces
+6. **HMAC routing (v1.7.x)**: AMA Cryptography v4.0.0 also surfaces
    ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
    `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
@@ -310,6 +326,8 @@ no fixed version):
 **3.14 re-enumeration (2026-06-30).** After the `python:3.13-slim-trixie` → `python:3.14-slim-trixie` base-image bump, the ledger was re-enumerated with the gate's own trivy 0.70.0. The SQLite FTS5 pair (CVE-2026-11822 / CVE-2026-11824) was re-scored by the upstream vendor from HIGH to MEDIUM — still present in `libsqlite3-0 3.46.1-7+deb13u1` with no upstream fix, but out of scope for the CRITICAL/HIGH blocking gate, so the entries were dropped (to be re-added, not silently ignored, should a future re-scoring raise them back). The unfixed acl/attr pair (CVE-2026-54369 / CVE-2026-54371) entered the ledger with the rationale in the table above. Accepted count: 3 → 3 (Critical 0, High 3); the subsequent 2026-07-09 `util-linux` addition (below) raised it to 4 (Critical 0, High 4).
 
 **gzip + glib — eliminated, not accepted (2026-07-02).** The vulnerability DB published four new unfixed CRITICAL/HIGH findings against the image: `gzip` CVE-2026-41992 (High — LZH-decompression buffer overflow) and `libglib2.0-0t64` CVE-2026-58016 (Critical) / CVE-2026-58014 / CVE-2026-58015 (High), none with a trixie fix. Both packages turned out to be removable rather than acceptable: `libglib2.0-0` was carried only as cv2's historical `libgthread-2.0` import dependency, but the shipped `opencv-python-headless` wheel (≥ 4.13) vendors its media stack and links no glib library at all (verified via `readelf` on the wheel's `cv2.abi3.so` and a cv2 import + image-op run on a glib-less trixie base), so the Dockerfile no longer installs it; `gzip` is Debian-essential but has no runtime consumer (CPython's `gzip`/`zlib` modules use the linked `libz`, never the binary; dpkg/apt decompress internally; nothing runs `tar -z`), so the Dockerfile purges it alongside `perl-base` (verified post-purge: `apt-get update`/`install`/`upgrade`, `dpkg`, and a Python `gzip` round-trip all work). All four CVEs are gone from the image; the accepted count stays **3 (0 Critical, 3 High)** at this point.
+
+**pip — eliminated from the runtime image, not accepted (2026-08-03).** The blocking container gate reported two HIGH findings — `msgpack 1.1.2` (GHSA-6v7p-g79w-8964) and `setuptools 70.3.0` (CVE-2025-47273) — under an aggregate `Python` target while every installed `*.dist-info` scanned clean and the venv's real msgpack/setuptools sat above their floors (1.2.1 / 83.0.0). The findings trace to pip itself: pip 26.x vendors private copies of both libraries under `pip/_vendor` and documents them in a PEP 770 CycloneDX SBOM (`pip/_vendor/bom.cdx.json`) that Trivy parses as a third-party SBOM — the scan's two `Third-party SBOM` warnings are the image's two pip installations (venv and `/usr/local`). No pip release with fixed vendored copies exists and the vendored copies cannot be upgraded independently, but the runtime container never installs packages, so pip is build tooling, not a runtime dependency. Both pip copies are now removed — the venv's at the end of the builder stage (before the venv is copied out, so no runtime layer ever carries it), the base image's in the runtime stage together with the bundled `ensurepip` wheels that could re-seed one — and the Dockerfile proves absence with negative-import probes plus on-disk probes for the dist-info metadata and the vendored SBOM. This also retires the pip CVE family (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) by elimination rather than upgrade. Reproduced end-to-end before shipping: a venv with pip 26.2 scans to exactly the two findings under trivy 0.70.0; the same venv with pip removed and floors held scans clean.
 
 **util-linux — accepted, not eliminated (2026-07-09).** The vulnerability DB published CVE-2026-53615 (High) against the `util-linux` family (`bsdutils`/`libblkid1`/`libmount1`/`libuuid1`/`login`/`mount`/`util-linux` 2.41-5): an integer overflow in `libblkid`'s MS-DOS partition-table parser (`libblkid/src/partitions/dos.c`), Debian trixie status "open" with no fixed version published. Unlike gzip/glib, `util-linux` is genuinely irreducible — it is Debian-essential (`mount`/`login` back the base image, and `libuuid1`/`libblkid1` back CPython and `coreutils`), so it cannot be purged without breaking the image's own toolchain. The parse path is reachable only when a *privileged* caller probes an attacker-crafted block device or disk image; the container runs non-root UID 1000 with SUID/SGID stripped and never probes block devices, so the finding was accepted as a time-boxed, enumerated entry (`exp:2026-10-07`) rather than eliminated. Accepted count: **3 → 4 (0 Critical, 4 High)**.
 

@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -977,10 +978,9 @@ class PandemicLoader(BaseDomainLoader):
 
             records = data.get("value", [])
             if not records:
-                logger.warning(
-                    "WHO GHO returned no records for indicator '%s'. "
-                    "Falling back to synthetic Ebola data.",
-                    indicator,
+                check_synthetic_allowed(
+                    "PandemicLoader",
+                    f"WHO GHO returned no records for indicator '{indicator}'",
                 )
                 return self._synthetic_ebola_2014()
 
@@ -1010,9 +1010,9 @@ class PandemicLoader(BaseDomainLoader):
             df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
 
             if df.empty:
-                logger.warning(
-                    "WHO GHO data empty after date filtering. "
-                    "Falling back to synthetic Ebola data."
+                check_synthetic_allowed(
+                    "PandemicLoader",
+                    "WHO GHO data empty after filtering to the event window",
                 )
                 return self._synthetic_ebola_2014()
 
@@ -1020,10 +1020,7 @@ class PandemicLoader(BaseDomainLoader):
             return df
 
         except (ConnectionError, KeyError, TypeError) as exc:
-            logger.warning(
-                "Failed to fetch WHO GHO data: %s. " "Falling back to synthetic Ebola data.",
-                exc,
-            )
+            check_synthetic_allowed("PandemicLoader", f"WHO GHO fetch failed: {exc}")
             return self._synthetic_ebola_2014()
 
     @staticmethod

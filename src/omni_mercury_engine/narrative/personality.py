@@ -143,7 +143,7 @@ class PersonalityEngine:
 
         # Default scalar values (used when GOSNN unavailable)
         self._default_scalars = {
-            "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,
+            "omnibenevolence": ETHICAL.OMNIBENEVOLENCE_SCALAR,
             "omnitransparency": 0.18,
             "omniexplainability": 0.9,
             "omnicompassion": 1.30,
@@ -477,7 +477,7 @@ class PersonalityEngine:
                 "Full reasoning transparency enabled. Ready for analysis."
             )
         elif profile.tone == CommunicationTone.CAUTIOUS:
-            return "Mercury Agent active. " "Note: All findings include uncertainty quantification."
+            return "Mercury Agent active. Note: All findings include uncertainty quantification."
         return "Mercury Agent operational."
 
     def get_uncertainty_statement(
@@ -508,15 +508,15 @@ class PersonalityEngine:
         # Base confidence statement
         if confidence < 0.3:
             parts.append(
-                f"Confidence is low ({confidence:.0%}). " "Multiple interpretations are possible."
+                f"Confidence is low ({confidence:.0%}). Multiple interpretations are possible."
             )
         elif confidence < 0.5:
             parts.append(
-                f"Moderate uncertainty ({confidence:.0%} confidence). " "Verification recommended."
+                f"Moderate uncertainty ({confidence:.0%} confidence). Verification recommended."
             )
         elif confidence < 0.7:
             parts.append(
-                f"Reasonable confidence ({confidence:.0%}), " "though some uncertainty remains."
+                f"Reasonable confidence ({confidence:.0%}), though some uncertainty remains."
             )
 
         # Decomposition if thorough

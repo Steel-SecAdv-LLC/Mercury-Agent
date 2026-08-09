@@ -4,7 +4,10 @@
 
 Implements Phase 6 of the neuro-symbolic evolution:
 - Hardcoded utility function for scoring actions on good/evil metrics
-- Benevolence threshold enforcement (>=0.99 required)
+- Benevolence scoring, **advisory** — the former ``>= 0.99`` pass-bar is gone
+  (it scored a fixed string, so it refused plain vocabulary and admitted
+  anything positive). The enforced controls are the fail-closed harm-uplift
+  gate in ``cognitive/decision_gate.py`` and the grave-harm axis below.
 - Empathy modules for human-centric choices
 - Value preservation for positive outcomes
 - Audit mechanisms for alignment verification
@@ -40,24 +43,34 @@ import numpy as np
 from omni_mercury_engine.cognitive.harm_normalization import (
     MULTILINGUAL_HAZARD_TERMS,
     MULTILINGUAL_OFFENSIVE_CUES,
+    any_term_in_haystack,
+    compile_terms,
     normalized_haystack,
+    register_pattern_literals,
+    register_segmentation_terms,
+    term_in_haystack,
 )
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Hard ethical floor — callers cannot configure the benevolence threshold
-# below this value, regardless of domain or operational mode.
+# Advisory benevolence reporting floor.
 #
-# HARD vs SOFT benevolence gates (disambiguation):
-# * This module implements the HARD gate: ``BenevolenceScorer.enforce``
-#   (threshold 0.99, floored here at 0.70) is the mandatory decision-boundary
-#   gate and raises ``EthicalConstraintViolationError``.
-# * ``core.centralized_constants.sigmoid_benevolence_gate`` is the SOFT
-#   weighting η(b): a smooth multiplier used inside score fusion
-#   (``core/three_r/fusion.py``) so the fused score has no threshold
-#   discontinuity.  It is advisory weighting only and never substitutes for
-#   the hard gate.  Enforcement semantics are unchanged by this note.
+# Benevolence is NOT a gate. There is no benevolence pass-bar anywhere in
+# Mercury: the enforced decision-boundary control is the harm-uplift gate
+# (``assess_weapons_uplift`` -> ``BenevolenceScorer.enforce`` ->
+# ``cognitive.decision_gate.enforce_decision_boundary``), whose polarity is
+# block-on-harm and which fails closed.
+#
+# This constant is the lowest value a deployment may configure for the
+# *advisory* reporting threshold, so a benevolence number logged by one
+# deployment means the same thing as one logged by another. Clamping it has no
+# effect on what is permitted.
+#
+# ``core.centralized_constants.sigmoid_benevolence_gate`` remains a SOFT
+# weighting η(b): a smooth multiplier used inside score fusion
+# (``core/three_r/fusion.py``) so the fused score has no threshold
+# discontinuity. It is fusion weighting, not a control.
 # ---------------------------------------------------------------------------
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
@@ -116,6 +129,24 @@ class BenevolenceCalibration:
     weapons_hard_refuse_harm_floor: float = 0.95
     weapons_refuse_redact_harm_floor: float = 0.75
     weapons_escalate_harm_floor: float = 0.55
+    # PHYSICAL-category harm at or above which an action is refused outright,
+    # independently of the weapons/mass-casualty axis (see
+    # BenevolenceScorer.score_action).
+    #
+    # 0.75 is THREE independent physical-harm term matches (harm_level =
+    # matches * 0.25). Two is deliberately not enough, and the reason is
+    # measured: clinical and forensic work on violence *victims* uses the same
+    # nouns as violence itself. "triage the assault victim and document the
+    # injury" and "treat torture survivors for trauma and injury" both reach
+    # two matches, and refusing them would break exactly the responder and
+    # clinician workflows Mercury exists to serve -- the same false-positive
+    # failure the deleted benevolence pass-bar had. Three co-occurring terms
+    # ("destroy and kill with permanent irreversible violence") indicate
+    # perpetration rather than care.
+    #
+    # Euphemistic harm-to-person is caught regardless: _euphemism_harm_present
+    # floors PHYSICAL at 0.9, well clear of this ceiling.
+    direct_physical_harm_refusal_ceiling: float = 0.75
     # Provenance of the active parameters: "default" (hand-set fallbacks) or the
     # calibration-file path the fitted values were loaded from. Never fabricated.
     source: str = "default"
@@ -252,8 +283,12 @@ _EUPHEMISM_OBJECT: tuple[str, ...] = (
     # person-directed cases stay covered by the standalone idioms and the
     # unambiguous person objects (him/her/the witness/the hostages).
     "the journalist",
+    "the prisoner",
     "the prisoners",
+    "the hostage",
     "the hostages",
+    "the detainee",
+    "the detainees",
     "everyone",
     "these people",
     "those people",
@@ -274,6 +309,91 @@ _EUPHEMISM_PATTERN = re.compile(
     r"|(?:" + _PARTICLES + r")\s+(?:" + _OBJ + r"))"
     r"|(?:" + _PREP_VERBS + r")\s+(?:" + _OBJ + r"))\b"
 )
+
+
+# ---------------------------------------------------------------------------
+# Direct grave-harm lexicon (the plain-language sibling of the euphemism layer).
+#
+# The euphemism layer above catches *indirection* ("put him down"). It does not
+# catch plain, explicit violence ("torture the prisoner"), and the per-category
+# keyword scan in ``HarmReducer._assess_category_harm`` does not either -- its
+# PHYSICAL list is five generic nouns (injury/damage/hurt/harm/violence), so
+# "beat and torture the prisoner until he talks" measured harm 0.000 before this
+# layer existed.
+#
+# Design constraint, inherited verbatim from the euphemism lexicon: this must
+# not fire on Mercury's own mission vocabulary. Mercury does human-rights and
+# conflict monitoring, so *topic* words are unusable as evidence -- "assess
+# torture survivors' trauma", "document torture of civilians" and "monitor
+# conflict violence for early warning" are the work, not the harm. Evidence is
+# therefore only ever taken from an act pinned to a specific person
+# (:data:`_EUPHEMISM_OBJECT`), never from a bare topic term.
+# ---------------------------------------------------------------------------
+
+#: Acts that are unambiguously grave harm *when done to a named person*. Bare
+#: topic use ("torture survivors", "assault rifle", "poison control centre")
+#: cannot match, because a person object is mandatory below.
+#:
+#: Polysemous verbs are deliberately EXCLUDED even though they are violent in
+#: the person-directed reading, because their technical reading is ordinary
+#: Mercury vocabulary and the object test alone does not disambiguate them:
+#: "choke" (*choke point* — used in this very module), "execute" ("execute them
+#: in parallel"), "shoot" ("shoot them a message"), "beat" ("beat them on the
+#: benchmark"), "butcher"/"assault" (metaphorical and materiel senses). The
+#: grave cases they would have carried are covered by the unambiguous verbs
+#: below — "beat and torture the prisoner" matches on *torture*.
+_DIRECT_HARM_VERBS = (
+    "torture|strangle|stab|mutilate|maim|behead|decapitate"
+    "|rape|molest|bludgeon|suffocate|lynch"
+    # Coercive / degrading harm. Same person-object requirement, so the
+    # analytic uses Mercury depends on ("assess humiliation and degradation of
+    # detainees", "stalking-behaviour detection") cannot match.
+    # "degrade" is excluded for the same polysemy reason: "these detectors
+    # degrade when we feed them noisy data" pins it to a person object by
+    # accident. Measured as a false positive; "humiliate"/"demean" carry the
+    # degrading-treatment cases without it.
+    "|humiliate|demean|terrorize|terrorise|harass|stalk|blackmail|extort|intimidate"
+)
+
+#: ``<verb> ... <person>`` within a short same-clause window, so "torture the
+#: prisoner" and "beat and torture the prisoner" both match while a sentence
+#: that merely mentions both far apart does not. The window deliberately
+#: excludes sentence-final punctuation.
+_DIRECT_HARM_PATTERN = re.compile(
+    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+)
+
+#: Lethal verb whose *manner* is stated as interpersonal violence. This is what
+#: separates "destroy and kill with permanent irreversible violence" from "kill
+#: the process and repair the damage": a technical kill has no manner of
+#: violence, and a violence-monitoring sentence has no lethal verb acting on
+#: anything. Both terms are required, in either order, in the same clause.
+_LETHAL_VERBS = "kill|murder|slaughter|butcher|exterminate|liquidate"
+_VIOLENCE_MANNER = "violence|violently|brutality|brutally|bloodshed|savagery|cruelty"
+_LETHAL_MANNER_PATTERN = re.compile(
+    r"\b(?:(?:" + _LETHAL_VERBS + r")\w*\b[^.!?;]{0,60}?\b(?:" + _VIOLENCE_MANNER + r")"
+    r"|(?:" + _VIOLENCE_MANNER + r")\b[^.!?;]{0,60}?\b(?:" + _LETHAL_VERBS + r")\w*)\b"
+)
+
+
+def _direct_harm_present(text: str) -> bool:
+    """True when ``text`` states plain, person-directed grave harm.
+
+    The deterministic, model-free complement to
+    :func:`_euphemism_harm_present`: that function covers indirection, this one
+    covers explicit statements. Both are meaning-level (an act bound to a
+    person), both are tuned so Mercury's defensive, clinical and human-rights
+    vocabulary cannot trip them, and both only ever ADD harm evidence.
+
+    Args:
+        text: Lower-cased action text (plus rendered context).
+
+    Returns:
+        ``True`` when a grave-harm act is pinned to a specific person, or a
+        lethal verb is qualified by an explicit manner of violence.
+    """
+    t = text.lower()
+    return bool(_DIRECT_HARM_PATTERN.search(t) or _LETHAL_MANNER_PATTERN.search(t))
 
 
 def _euphemism_harm_present(text: str) -> bool:
@@ -526,6 +646,14 @@ _HAZARD_DOMAIN_KEYWORDS: dict[HazardDomain, tuple[str, ...]] = {
         "mustard gas",
         "novichok",
         "cyanide gas",
+        # Class terms, not agent names -- the same taxonomy level as "nerve
+        # agent" and "blister agent" above. "Fourth-generation agent" is the
+        # standard open-source designation for the Novichok class, and
+        # "organophosphate nerve agent" names the chemistry family; both route a
+        # query whose specific agent the lexicon does not carry.
+        "fourth-generation agent",
+        "fourth generation agent",
+        "organophosphate nerve agent",
     ),
     HazardDomain.BIOLOGICAL: (
         "biological weapon",
@@ -681,6 +809,25 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
         "mass-casualty",
         "chemical warfare",
         "biological warfare",
+        # Delivery/packaging vocabulary. Agent-agnostic by construction: these
+        # name the *munition*, never the fill, so they anchor a query about an
+        # agent the Axis-A lexicon has never heard of. Added after the
+        # out-of-lexicon axis measured recall 0.500, where "how to build a binary
+        # chemical munition to disperse over a stadium" carried a production verb
+        # but no anchor, so the safety net dropped it. An anchor alone still
+        # refuses nothing -- it only admits a production/acquisition verb to Axis
+        # B -- so ordinary use ("unexploded ordnance disposal", which carries a
+        # response frame and no production verb) is unaffected.
+        "munition",
+        "munitions",
+        "submunition",
+        "ordnance",
+        "binary agent",
+        "unitary agent",
+        "persistent agent",
+        "dispersal device",
+        "dissemination device",
+        "incendiary device",
     }
 )
 
@@ -865,19 +1012,68 @@ _MULTILINGUAL_OFFENSIVE: tuple[tuple[str, OperationalIntent, str], ...] = tuple(
     (cue, OperationalIntent[tier_name], label)
     for cue, tier_name, label in MULTILINGUAL_OFFENSIVE_CUES
 )
+# Parallel to _MULTILINGUAL_OFFENSIVE by index (see _match_multilingual_offensive).
+_MULTILINGUAL_OFFENSIVE_FORMS: tuple[tuple[str, ...], ...] = compile_terms(
+    cue for cue, _tier, _label in _MULTILINGUAL_OFFENSIVE
+)
+
+
+# Pre-compiled match forms for every substring lexicon, built once at import.
+#
+# Each term is expanded to its base / obfuscation-folded / separator-free forms
+# (see harm_normalization.term_match_forms). The separator-free form is the
+# load-bearing one: normalized_haystack's collapsed variant has all separators
+# removed, so a multi-word term like "nerve agent" is only findable there as
+# "nerveagent". Matching the raw term alone let per-character spacing
+# ("n e r v e   a g e n t") evade ~70% of the Axis-A lexicon outright.
+#
+# Compiling at import keeps the per-query cost to a substring scan over a
+# de-duplicated form list (single-token ASCII terms yield exactly one form, so
+# they cost nothing extra).
+_HAZARD_DOMAIN_FORMS: dict[HazardDomain, tuple[tuple[str, ...], ...]] = {
+    domain: compile_terms(keywords) for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items()
+}
+_HAZARD_CONTEXT_ANCHOR_FORMS: tuple[tuple[str, ...], ...] = compile_terms(
+    sorted(_HAZARD_CONTEXT_ANCHORS)
+)
+
+# Hand the router's own vocabulary to the word-boundary recovery used on
+# uniformly-spaced text. Registering here rather than duplicating a word list
+# inside harm_normalization keeps a single source of truth: a term added to the
+# Axis-A lexicon becomes segmentable in the same commit, with no second edit to
+# remember.
+register_segmentation_terms(
+    [term for keywords in _HAZARD_DOMAIN_KEYWORDS.values() for term in keywords]
+)
+register_segmentation_terms(_HAZARD_CONTEXT_ANCHORS)
+# Axis B contributes the literals of its own patterns -- offensive and allow
+# alike, by the same rule. A pattern whose words cannot be segmented is a
+# pattern that cannot fire on uniformly-spaced input, so harvesting from the
+# pattern sources is what keeps recovery and matching in step automatically.
+register_pattern_literals(
+    [p.pattern for p, _tier, _label in _OFFENSIVE_INTENT_PATTERNS]
+    + [p.pattern for p, _tier, _label in _ALLOW_INTENT_PATTERNS]
+    + [_DEFENSIVE_PRODUCTION_RE.pattern]
+)
 
 
 def _match_hazard_domain(haystack: str) -> HazardDomain:
     """Axis A: cheap high-recall routing match; returns the first domain hit."""
-    for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items():
-        if any(kw in haystack for kw in keywords):
+    for domain, compiled in _HAZARD_DOMAIN_FORMS.items():
+        if any_term_in_haystack(haystack, compiled):
             return domain
     return HazardDomain.NONE
 
 
 def _match_multilingual_offensive(haystack: str) -> list[tuple[OperationalIntent, str]]:
     """Substring pass for the multilingual offensive-intent cues."""
-    return [(tier, label) for cue, tier, label in _MULTILINGUAL_OFFENSIVE if cue in haystack]
+    return [
+        (tier, label)
+        for (_cue, tier, label), forms in zip(
+            _MULTILINGUAL_OFFENSIVE, _MULTILINGUAL_OFFENSIVE_FORMS
+        )
+        if term_in_haystack(haystack, forms)
+    ]
 
 
 def _match_intent_patterns(
@@ -956,7 +1152,7 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # (it would false-positive on "how do I cook dinner"). Either way the query
     # is routed to OTHER_MASS_HARM so Axis B gates it.
     if domain is HazardDomain.NONE:
-        anchored = any(anchor in haystack for anchor in _HAZARD_CONTEXT_ANCHORS)
+        anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
         gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
         if anchored:
             gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}
@@ -1026,11 +1222,53 @@ def compute_gate_features(
     return n_off, n_allow, ev.weight, boost
 
 
+class _UseShippedClassifier:
+    """Sentinel: 'no classifier was specified, use the shipped offline one'.
+
+    Distinct from ``None``, which means "explicitly no meaning-level classifier"
+    -- the lexical-only posture. Keeping the two apart is what lets the
+    benchmarks still measure the pure lexical floor
+    (``eval_weapons_gate_adversarial.evaluate()`` passes ``None`` on purpose)
+    while every production caller gets meaning-level coverage by default.
+    """
+
+    def __repr__(self) -> str:
+        return "<shipped meaning-level classifier>"
+
+
+#: Default for every ``harm_classifier`` parameter in this module.
+USE_SHIPPED_CLASSIFIER = _UseShippedClassifier()
+
+_SHIPPED_CLASSIFIER_CACHE: list[Any] = []
+
+
+def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
+    """Map a ``harm_classifier`` argument to an actual callable or ``None``.
+
+    The shipped classifier is resolved lazily and cached: importing it eagerly
+    would pull the weight artifact into every process that merely imports the
+    ethics gate, and this module is deliberately cheap to import.
+    """
+    if harm_classifier is not USE_SHIPPED_CLASSIFIER:
+        return harm_classifier
+    if not _SHIPPED_CLASSIFIER_CACHE:
+        try:
+            from omni_mercury_engine.cognitive.meaning_level import (
+                meaning_level_harm_classifier,
+            )
+
+            _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
+        except Exception as exc:  # pragma: no cover - fail-open to lexical-only
+            logger.info("shipped meaning-level classifier unavailable (%s)", exc)
+            _SHIPPED_CLASSIFIER_CACHE.append(None)
+    return _SHIPPED_CLASSIFIER_CACHE[0]
+
+
 def assess_weapons_uplift(
     text: str,
     context: dict[str, Any] | None = None,
     *,
-    harm_classifier: Any | None = None,
+    harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
 ) -> WeaponsRiskAssessment:
     """Two-axis (hazard-domain x operational-intent) weapons/mass-casualty gate.
 
@@ -1061,6 +1299,7 @@ def assess_weapons_uplift(
         than propagating an exception or silently defaulting to ALLOW.
     """
     ctx = context or {}
+    harm_classifier = _resolve_harm_classifier(harm_classifier)
     try:
         ev = _gate_evidence(text, ctx)
         domain, weight, offensive, allowed = ev.domain, ev.weight, ev.offensive, ev.allowed
@@ -1417,6 +1656,19 @@ class EthicalScore:
     hazard_domain: str = "none"
     operational_intent: str = "mechanism"
     weapons_disposition: str = "allow"
+    #: True when :attr:`benevolence_score` fell below the scorer's *advisory*
+    #: reporting threshold. Purely informational — it never affects
+    #: :attr:`is_permissible`, which is decided by :attr:`weapons_disposition`
+    #: and :attr:`grave_harm`.
+    benevolence_advisory_low: bool = False
+    #: True when the meaning-level lexicons found grave harm pinned to a
+    #: specific person ("put him down", "torture the prisoner", "kill ... with
+    #: violence"). Enforced — together with :attr:`weapons_disposition` it
+    #: decides :attr:`is_permissible`. Unlike :attr:`harm_score`/
+    #: :attr:`severity_score`, which count topic keywords and therefore score
+    #: Mercury's own humanitarian and security vocabulary as harmful, this
+    #: signal requires an act bound to a person, so it discriminates intent.
+    grave_harm: bool = False
 
 
 @dataclass
@@ -1475,28 +1727,42 @@ class HarmReducer:
         HarmCategory.SOCIETAL: 0.8,
     }
 
-    def __init__(self, harm_classifier: Any | None = None) -> None:
+    def __init__(self, harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER) -> None:
         """Initialize harm reducer.
 
         Args:
-            harm_classifier: Optional ``Callable[[str], float]`` returning a harm
-                probability in ``[0, 1]`` for a piece of text. This is the
-                meaning-level extension point -- a deployment can plug in a real
-                *semantic* classifier (e.g. one backed by Mercury's own local
-                Ollama reasoning backend, see
-                :func:`omni_mercury_engine.reasoning.backends.reasoning_harm_classifier`)
-                without this module taking a model dependency. It is fail-safe and
-                can only RAISE harm (combined by ``max``); an exception or a
-                lower score never lowers the deterministic lexical harm. Default
-                ``None`` keeps the scorer fully deterministic and model-free.
+            harm_classifier: ``Callable[[str], float]`` returning a harm
+                probability in ``[0, 1]`` for a piece of text -- the
+                meaning-level layer above the deterministic lexical evidence. It
+                is fail-safe and can only RAISE harm (combined by ``max``); an
+                exception or a lower score never lowers the lexical harm.
+
+                Defaults to Mercury's **shipped offline classifier**
+                (:mod:`omni_mercury_engine.cognitive.meaning_level`): trained,
+                deterministic, stdlib-only, no network call and no model server,
+                so it is safe to run at every decision boundary and in air-gapped
+                deployments. It previously defaulted to ``None`` because the only
+                available classifier was a served LLM, which could not be put on
+                this hot path; that is no longer the constraint, and running
+                lexical-only was measured at a 0.744 held-out false-negative rate
+                versus 0.286 with the model.
+
+                Pass ``None`` explicitly for a strictly lexical, model-free
+                scorer, or any other callable to supply your own.
         """
         self._evaluation_counter = 0
-        self._harm_classifier = harm_classifier
+        self._harm_classifier = _resolve_harm_classifier(harm_classifier)
         # Populated by evaluate_harm(); read back by BenevolenceScorer.score_action
         # so the two-axis weapons verdict rides along with the harm computation
         # instead of being assessed twice. Single-caller-per-instance-at-a-time
         # assumption, consistent with the counters above.
         self.last_weapons_assessment: WeaponsRiskAssessment = WeaponsRiskAssessment()
+        #: Set by :meth:`evaluate_harm`; read back by
+        #: ``BenevolenceScorer.score_action``. True when the meaning-level
+        #: lexicons found grave harm pinned to a person -- evidence the scalar
+        #: ``harm_score`` cannot carry, because averaging one floored category
+        #: across eight dilutes it below any usable bar.
+        self.last_grave_harm: bool = False
 
     def evaluate_harm(
         self,
@@ -1527,10 +1793,20 @@ class HarmReducer:
 
         combined = action.lower() + " " + str(context).lower()
 
-        # Euphemism/paraphrase evidence is unambiguous harm-to-person intent ->
-        # raise the gravest (PHYSICAL) category to near-max. Meaning-level, not
-        # spelling-level; fail-closed (max, never lowers).
-        if _euphemism_harm_present(combined):
+        # Euphemism/paraphrase evidence ("put him down") and plain person-directed
+        # violence ("torture the prisoner", "kill ... with violence") are both
+        # unambiguous harm-to-person intent -> raise the gravest (PHYSICAL)
+        # category to near-max. Meaning-level, not spelling-level; fail-closed
+        # (max, never lowers).
+        #
+        # Recorded on the instance as well as folded into the breakdown: the
+        # weighted average across eight categories dilutes a single floored
+        # category to ~0.13, so the *scalar* harm cannot carry this verdict to a
+        # caller. ``BenevolenceScorer.score_action`` reads the flag directly.
+        # This is the same pattern as ``last_weapons_assessment`` below, and for
+        # the same reason.
+        self.last_grave_harm = _euphemism_harm_present(combined) or _direct_harm_present(combined)
+        if self.last_grave_harm:
             breakdown[HarmCategory.PHYSICAL.value] = max(
                 breakdown[HarmCategory.PHYSICAL.value], 0.9
             )
@@ -1605,7 +1881,36 @@ class HarmReducer:
     ) -> float:
         """Assess harm level for a specific category."""
         harm_keywords = {
-            HarmCategory.PHYSICAL: ["injury", "damage", "hurt", "harm", "violence"],
+            # Lethal-force verbs belong in PHYSICAL. Their absence was a real
+            # scoring hole: "destroy and kill with permanent irreversible
+            # violence" matched only "violence" and scored 0.25 -- the same as a
+            # single incidental mention -- and the action was held back only by
+            # the (now deleted) benevolence pass-bar.
+            #
+            # "execute" and "terminate" are deliberately excluded: they are
+            # ordinary software verbs and would fire on routine engineering
+            # text. "assault" and "torture" are included, but the refusal
+            # ceiling is set at three co-occurring terms precisely so that the
+            # victim-care phrasings these two appear in ("assault victim
+            # triage", "torture survivor rehabilitation") stay permitted.
+            HarmCategory.PHYSICAL: [
+                "injury",
+                "damage",
+                "hurt",
+                "harm",
+                "violence",
+                "kill",
+                "murder",
+                "maim",
+                "mutilate",
+                "torture",
+                "strangle",
+                "suffocate",
+                "stab",
+                "slaughter",
+                "assault",
+                "destroy",
+            ],
             HarmCategory.PSYCHOLOGICAL: ["stress", "anxiety", "fear", "trauma", "distress"],
             HarmCategory.FINANCIAL: ["loss", "cost", "expense", "debt", "bankruptcy"],
             HarmCategory.PRIVACY: ["expose", "leak", "reveal", "track", "surveil"],
@@ -2034,34 +2339,57 @@ class ValuePreserver:
 
 
 class BenevolenceScorer:
-    """Main benevolence scoring engine — the HARD decision-boundary gate.
+    """Benevolence scoring engine — an **advisory** score plus the enforced harm gate.
 
-    Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
-    unified score.  :meth:`enforce` is the mandatory hard gate (threshold
-    0.99, floored at ``MINIMUM_BENEVOLENCE_FLOOR``); the smooth
-    ``sigmoid_benevolence_gate`` in ``core.centralized_constants`` is a
-    separate SOFT fusion-weighting term and never replaces this gate.
+    Combines harm reduction, benefit maximization, equity, empathy, and value
+    preservation into a unified benevolence float.
+
+    **The benevolence float is not a pass-bar.**  It used to be: every action
+    had to score ``>= 0.99`` to be permitted.  That control was deleted because
+    it did not measure harm.  It measured how *positively worded* an action
+    description was, which meant (a) benign work was rejected for having plain
+    vocabulary, and (b) the engine's own boundary passed itself by handing the
+    scorer a fixed keyword salad instead of the caller's request.  A high bar on
+    an uninformative number is not a safety control.
+
+    The enforced control is the two-axis (hazard-domain × operational-intent)
+    **harm-uplift gate** of :func:`assess_weapons_uplift` (see
+    ``docs/HARM_POLICY.md``), computed here on the *action text the caller
+    actually supplied*.  Its polarity is block-on-harm: an action is permitted
+    because no operational-uplift evidence was found, not because it scored
+    highly on a positivity lexicon.  :meth:`enforce` raises on exactly that
+    signal and on nothing else.
+
+    :attr:`benevolence_threshold` survives as an **advisory reporting
+    threshold**: crossing it is logged and surfaced on the
+    :class:`EthicalScore`, and it decides nothing.  The smooth
+    ``sigmoid_benevolence_gate`` in ``core.centralized_constants`` remains a
+    separate SOFT fusion-weighting term.
     """
 
-    BENEVOLENCE_THRESHOLD = 0.99
-
     def __init__(
-        self, benevolence_threshold: float = 0.99, *, harm_classifier: Any | None = None
+        self,
+        benevolence_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
+        *,
+        harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
     ) -> None:
         """Initialize benevolence scorer.
 
         Args:
-            benevolence_threshold: Minimum score for action approval.  Must be
-                at or above ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70).  Values below
-                this absolute floor are clamped with a warning, and any later
-                assignment to :attr:`benevolence_threshold` is also clamped
-                via the property setter — the floor cannot be lowered after
-                construction.
-            harm_classifier: Optional ``Callable[[str], float]`` forwarded to the
-                :class:`HarmReducer` -- a meaning-level harm classifier (e.g. one
-                backed by Mercury's local Ollama reasoning backend) that can only
-                RAISE harm. Default ``None`` keeps scoring deterministic and
-                model-free.
+            benevolence_threshold: **Advisory** reporting threshold — the score
+                below which the computed benevolence is flagged on the
+                :class:`EthicalScore` and logged.  It is not a pass-bar: it
+                cannot block an action and cannot permit one.  Kept at or above
+                ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) so the advisory signal stays
+                comparable across deployments; values below the floor are
+                clamped with a warning.
+            harm_classifier: ``Callable[[str], float]`` forwarded to the
+                :class:`HarmReducer` -- a meaning-level harm classifier that can
+                only RAISE harm. Defaults to Mercury's shipped offline
+                classifier, which is deterministic, model-free in the sense that
+                matters (no server, no network) and cheap enough for this path.
+                Pass ``None`` for a strictly lexical scorer. See
+                :meth:`HarmReducer.__init__` for the full rationale.
         """
         # Use the property setter so the floor is enforced consistently
         # whether the value is set in __init__ or reassigned later.
@@ -2081,23 +2409,32 @@ class BenevolenceScorer:
         # Log the clamped value (self.benevolence_threshold via the property
         # getter), not the raw constructor argument — otherwise an operator
         # debugging a below-floor request would see the value they tried to
-        # set instead of the value the gate is actually using.
-        logger.info("BenevolenceScorer initialized with threshold %s", self.benevolence_threshold)
+        # set instead of the value actually in use.
+        logger.info(
+            "BenevolenceScorer initialized with advisory reporting threshold %s "
+            "(enforcement is the harm-uplift gate, not this number)",
+            self.benevolence_threshold,
+        )
 
     @property
     def benevolence_threshold(self) -> float:
-        """Approval threshold, always at or above ``MINIMUM_BENEVOLENCE_FLOOR``."""
+        """Advisory reporting threshold, at or above ``MINIMUM_BENEVOLENCE_FLOOR``.
+
+        Crossing it sets :attr:`EthicalScore.benevolence_advisory_low` and logs.
+        It approves nothing and blocks nothing — permission comes from the
+        harm-uplift gate.
+        """
         return self._benevolence_threshold
 
     @benevolence_threshold.setter
     def benevolence_threshold(self, value: float) -> None:
-        """Clamp every assignment to the absolute floor.
+        """Clamp every assignment to the advisory floor.
 
-        Storing the threshold as a property instead of a plain attribute
-        ensures the ``MINIMUM_BENEVOLENCE_FLOOR`` guarantee survives later
-        mutation (``scorer.benevolence_threshold = 0.0`` no longer bypasses
-        the gate — the assignment is silently raised to the floor with a
-        warning).
+        Storing the threshold as a property instead of a plain attribute keeps
+        the advisory signal comparable across deployments: an operator cannot
+        quietly set it to ``0.0`` and make every logged benevolence look
+        acceptable. Because the value is advisory, clamping it changes what is
+        *reported*, never what is permitted.
         """
         if value < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
@@ -2147,18 +2484,75 @@ class BenevolenceScorer:
             reversibility=reversibility_score,
         )
 
-        is_permissible = benevolence_score >= self.benevolence_threshold
-
-        # Weapons/mass-casualty uplift hard veto: a blocking Axis-B
-        # disposition (ESCALATE/REFUSE_REDACT/HARD_REFUSE) forces
-        # is_permissible False regardless of the benevolence float --
-        # monotone, can only revoke permission, never grant it. This is what
-        # makes the general-capability layer inherit the SAME hard gate as
-        # detect/analyze/predict instead of a separate, weaker check: one
-        # harm policy, computed once, consulted everywhere.
+        # Permission is decided by HARM, on three independent axes, and never by
+        # the benevolence float. The benevolence number above is advisory: it is
+        # reported, logged and attached to the score, but a low benevolence never
+        # blocks and a high one never permits. One harm policy, computed once,
+        # consulted everywhere -- the general-capability layer, the MCP report
+        # and the cache all inherit this same verdict.
+        #
+        # Axis 1 -- weapons / mass-casualty uplift (assess_weapons_uplift).
+        #
+        # Axis 2 -- direct physical harm, by weight of lexical evidence:
+        # PHYSICAL at or above ``direct_physical_harm_refusal_ceiling`` (three
+        # co-occurring physical-harm terms). Catches perpetration text that
+        # names no specific victim -- "destroy and kill with permanent
+        # irreversible violence".
+        #
+        # Axis 3 -- grave harm pinned to a *person*, from the meaning-level
+        # lexicons (``_euphemism_harm_present`` for indirection, "put him down";
+        # ``_direct_harm_present`` for plain statements, "torture the
+        # prisoner"). Catches what Axis 2 cannot: a single unambiguous act with
+        # a human object scores one PHYSICAL match (0.25), far below the
+        # ceiling, and coercive harm ("stalk and harass her", "humiliate and
+        # demean him") is not PHYSICAL vocabulary at all.
+        #
+        # Axes 2 and 3 are both needed, and neither is redundant with Axis 1:
+        # the uplift gate is scoped to CBRNE and mass-harm actionability, so on
+        # its own it permitted plain interpersonal violence outright --
+        # ``mercury_score_ethics`` answered ``"is_permissible": true`` for
+        # "destroy and kill with permanent irreversible violence", and
+        # ``evaluate_harm`` scored "beat and torture the prisoner until he
+        # talks" at 0.000. That class had been held back only as a side effect
+        # of the >= 0.99 benevolence pass-bar, so deleting the bar deleted the
+        # control with it. The evidence to refuse was already being computed
+        # here; it simply never reached the verdict.
+        #
+        # What deliberately does NOT decide permission is the *aggregate*
+        # ``harm_score``/``severity_score``. Those average a per-category topic
+        # keyword count, so they measure what a request is *about* rather than
+        # what it intends: on Mercury's own mission text "assess trauma and
+        # psychological distress among displaced families" scores severity 0.75
+        # and "estimate earthquake damage and injury counts for triage" scores
+        # 0.50. Gating on them refuses humanitarian, clinical and security work
+        # for naming the hazard Mercury exists to detect -- the same
+        # false-positive failure as the deleted pass-bar, wearing a different
+        # number. Axis 2 is scoped to the PHYSICAL category and set at three
+        # co-occurring terms for exactly that reason: victim-care phrasings
+        # ("triage the assault victim and document the injury") reach two.
+        #
+        # Fail-closed and monotone: every axis can only revoke permission, never
+        # grant it, so appending positive language cannot rescue a harmful
+        # action (pinned by tests/test_ethics_semantic_severity.py).
         weapons = self.harm_reducer.last_weapons_assessment
-        if weapons.blocks:
-            is_permissible = False
+        physical_harm = float(harm_breakdown.get(HarmCategory.PHYSICAL.value, 0.0))
+        direct_physical_harm = (
+            physical_harm >= BENEVOLENCE_CALIBRATION.direct_physical_harm_refusal_ceiling
+        )
+        grave_harm = bool(self.harm_reducer.last_grave_harm)
+        is_permissible = not (weapons.blocks or direct_physical_harm or grave_harm)
+
+        benevolence_advisory_low = benevolence_score < self.benevolence_threshold
+        if benevolence_advisory_low:
+            logger.info(
+                "advisory: benevolence %.4f below the reporting threshold %.4f for "
+                "action %r (informational — the enforced control is the harm-uplift "
+                "gate, which returned %s)",
+                benevolence_score,
+                self.benevolence_threshold,
+                action[:200],
+                weapons.disposition.value,
+            )
 
         explanation = self._generate_explanation(
             action, benevolence_score, harm_score, benefit_score, is_permissible
@@ -2171,6 +2565,12 @@ class BenevolenceScorer:
                 0,
                 f"weapons-uplift gate: {weapons.disposition.value} "
                 f"(hazard={weapons.hazard_domain.value}, intent={weapons.intent_tier.value})",
+            )
+        if grave_harm:
+            recommendations.insert(
+                0,
+                "grave-harm gate: refused — the request states harm directed at a "
+                "specific person",
             )
 
         return EthicalScore(
@@ -2192,6 +2592,8 @@ class BenevolenceScorer:
             hazard_domain=weapons.hazard_domain.value,
             operational_intent=weapons.intent_tier.value,
             weapons_disposition=weapons.disposition.value,
+            benevolence_advisory_low=benevolence_advisory_low,
+            grave_harm=grave_harm,
         )
 
     def enforce(
@@ -2199,30 +2601,45 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """Score an action and raise on violation — the *mandatory* gate.
+        """Score an action and raise when the harm-uplift gate blocks it.
 
         Unlike :meth:`score_action`, which returns the result regardless of
         permissibility, ``enforce`` raises
-        :class:`EthicalConstraintViolationError` when the benevolence score
-        falls below the configured threshold so that impermissible actions
+        :class:`EthicalConstraintViolationError` so an impermissible action
         **cannot** be silently ignored upstream.
 
+        The raise condition is the harm-uplift gate's disposition
+        (ESCALATE / REFUSE_REDACT / HARD_REFUSE) and nothing else. It is *not*
+        the benevolence float: a benign action with plain vocabulary scores low
+        and is permitted, exactly as it should be.
+
         Args:
-            action: Action to evaluate.
+            action: The real action text to evaluate. Callers must pass the
+                decision they are actually making — never a synthesised
+                keyword string, which is what made the superseded benevolence
+                pass-bar unfalsifiable.
             context: Contextual metadata for the action.
 
         Returns:
             EthicalScore when the action is permissible.
 
         Raises:
-            EthicalConstraintViolationError: When ``benevolence_score < threshold``.
+            EthicalConstraintViolationError: with ``check="harm_uplift"`` when
+                the two-axis gate blocks.
         """
         result = self.score_action(action, context)
         if not result.is_permissible:
             raise EthicalConstraintViolationError(
                 action=action,
-                score=result.benevolence_score,
-                threshold=self.benevolence_threshold,
+                score=float(self.harm_reducer.last_weapons_assessment.confidence),
+                threshold=1.0,
+                check="harm_uplift",
+                details={
+                    "hazard_domain": result.hazard_domain,
+                    "operational_intent": result.operational_intent,
+                    "disposition": result.weapons_disposition,
+                    "benevolence_advisory": result.benevolence_score,
+                },
             )
         return result
 
@@ -2433,9 +2850,15 @@ class BenevolenceScorer:
 
         failure_reasons = []
 
+        # Only a real refusal is a failure reason. The benevolence float is
+        # advisory and is deliberately NOT listed here: a benign action with
+        # plain vocabulary scores low, and failing an audit on that would be
+        # the same false-positive the deleted pass-bar produced.
         if not ethical_score.is_permissible:
             failure_reasons.append(
-                f"Benevolence score {ethical_score.benevolence_score:.2%} below threshold"
+                f"harm-uplift gate: {ethical_score.weapons_disposition} "
+                f"(hazard={ethical_score.hazard_domain}, "
+                f"intent={ethical_score.operational_intent})"
             )
 
         if empathy_assessment.overall_empathy_score < 0.7:

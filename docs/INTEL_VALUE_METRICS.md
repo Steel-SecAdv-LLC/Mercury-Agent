@@ -30,7 +30,7 @@ number.
 | `closed_feedback_loop` | `poisoned_candidate_block_rate` | higher-is-better | `0.0` | `1.0` | Fraction of poisoned retrain candidates the OOF/adversarial regression gate blocks; measured by `scripts/closed_loop_demo.py --poisoned` and `tests/intel/test_feedback_loop.py`. |
 | `confidence_cascade` | `compute_saved_at_bounded_accuracy` | higher-is-better | `0.0` | `0.50` | Fraction of heavy-path calls avoided at accuracy loss within tolerance vs the all-heavy baseline; measured by `benchmarks/confidence_cascade_report.py`. |
 | `self_consistency` | `disagreement_error_auroc` | higher-is-better | `0.50` | `0.70` | AUROC of the N-sample disagreement signal predicting prediction error on a held-out set; measured by `benchmarks/self_consistency_signal_report.py`. |
-| `adversarial_co_training` | `gate_bypass_survival_rate` | lower-is-better | `0.34` | `0.0` | Surviving-bypass rate of the red-team harness against the gate; pinned no-weakening floor in `benchmarks/red_team_baseline.json`; measured by `benchmarks/red_team_harness.py --check`. |
+| `adversarial_co_training` | `fixed_universe_gate_bypass_rate` | lower-is-better | `0.43` | `0.0` | Bypass rate over a candidate universe fixed by the *config* (not by which seeds the gate blocks); pinned no-weakening floor in `benchmarks/red_team_baseline.json`; measured by `benchmarks/red_team_harness.py --check`. |
 | `verifier_in_loop` | `false_claim_block_rate` | higher-is-better | `0.0` | `1.0` | Fraction of oracle-refuted symbolic claims blocked in hard mode; measured by `tests/intel/test_verifier_loop.py`. |
 | `provenance` | `boundary_provenance_enforcement_rate` | higher-is-better | `0.0` | `1.0` | Fraction of provenance-required emissions enforced (unprovenanced ones withheld) at the boundary; measured by `tests/intel/test_provenance.py`. |
 
@@ -41,7 +41,7 @@ number.
   "what happens with the stream absent" (a poisoned candidate lands, a false
   claim emits, an unprovenanced answer ships, nothing is saved). For
   `self_consistency` it is chance (AUROC `0.50`). For `adversarial_co_training`
-  it is an empirically-pinned survival ceiling, not zero — see §5.
+  it is an empirically-pinned bypass ceiling, not zero — see §5.
 - **target** — the goal value the stream aims to reach. For `HIGHER_IS_BETTER`
   streams a larger measured value is the improvement; for `LOWER_IS_BETTER`
   (`adversarial_co_training`) a smaller one is.
@@ -70,10 +70,10 @@ treated as meeting its target or holding its floor.
 ```python
 from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
-m = VALUE_METRICS["adversarial_co_training"]   # baseline 0.34, target 0.0, lower better
+m = VALUE_METRICS["adversarial_co_training"]   # baseline 0.43, target 0.0, lower better
 m.meets_target(0.0)            # True
 m.meets_target(0.1)           # False
-m.improves_on_baseline(0.34)  # True  — at the floor is not a weakening
+m.improves_on_baseline(0.43)  # True  — at the floor is not a weakening
 m.improves_on_baseline(0.5)   # False — above the floor is a weakening
 m.meets_target(float("nan"))  # False — fails closed
 ```
@@ -107,27 +107,49 @@ This row is the exception to "target is the gate". Its **target is `0.0`** —
 drive every surviving bypass to zero — but that is **aspirational**, reached by
 triaging survivors into the corpus/pending set, not by a single benchmark run.
 
-The **enforced CI floor is the pinned baseline `0.34`**. The dominant bypass class
-is character obfuscation (spacing/punctuation) that defeats lexical matching; the
-deterministic first-run survival rate (`0.335306` against the current 163-row
-seed corpus, re-pinned 2026-07-20; `0.333333` at the original 41-row corpus --
-see `benchmarks/red_team_baseline.json`) is rounded up to the pinned
-no-weakening ceiling `0.34`. The lane checks `improves_on_baseline`, not
-`meets_target`:
+The **enforced CI floor is the pinned baseline `0.43`**, measured over a *fixed*
+candidate universe.
+
+### Why the metric changed (2026-08-04), and why the floor moved again (2026-08-05)
+
+The stream used to gate on `RedTeamResult.survival_rate`. That is **not a sound
+no-weakening guard**: `run_red_team` skips any seed the gate already blocks, so
+its denominator *shrinks as the gate weakens and grows as it strengthens*, and a
+strictly stronger gate can score worse. That is not hypothetical — strengthening
+the gate took skipped seeds `99 → 38` and pushed the old rate `0.335 → 0.438`
+while nothing had regressed.
+
+`fixed_universe_gate_bypass_rate` scores every mutation chain of every configured
+seed regardless of gate outcome, so the denominator is a property of the config
+alone and the metric is monotone in gate strength.
+
+**Current operating point, measured 2026-08-05:** `1254` of `2957` candidates
+bypass → **`0.4241`**. Roughly **42% of the candidate universe still bypasses the
+gate.** That is a documented operating point, not a containment guarantee.
+
+Two measured moves got it there from `0.5509` (2026-08-04), each verified
+candidate-by-candidate rather than inferred, and each strictly monotone:
+
+| change | rate | newly blocked | newly allowed |
+|---|---|---|---|
+| closing the uniform single-space bypass | `0.5509 → 0.4877` | 187 | **0** |
+| agent-agnostic munitions anchors + chemical class terms | `0.4877 → 0.4241` | 188 | **0** |
 
 ```bash
 PYTHONPATH=src python benchmarks/red_team_harness.py --check    # no-weakening gate (exit 1)
-PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the survival-rate baseline
+PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the baseline
 ```
 
-`--check` fails (exit 1) when a gate change *raises* the survival rate above the
-floor — i.e. weakens the gate. It reads the floor from the pinned
-`red_team_baseline.json` (`survival_rate`, `0.335306`) and separately enforces
-that this floor stays ≤ the declared
-`VALUE_METRICS["adversarial_co_training"].baseline` (`0.34`, the ceiling), so a
-higher floor can never be pinned without first re-declaring the value metric.
-Triaged survivors feed the corpus to push the measured rate down toward the
-aspirational `0.0` over time.
+`--check` fails (exit 1) when a gate change *raises* the fixed-universe bypass
+rate above the floor — i.e. weakens the gate. It reads the floor from the pinned
+`red_team_baseline.json` (`fixed_universe_bypass_rate`, `0.424078`), refuses to
+run against a baseline file that predates the metric, separately enforces that
+this floor stays ≤ the declared
+`VALUE_METRICS["adversarial_co_training"].baseline` (`0.43`, the ceiling), and
+fails if the universe changes size without a deliberate re-pin. `survival_rate`
+is still measured and still written to the baseline as a descriptive per-run
+figure; it decides nothing. Triaged survivors feed the corpus to push the
+measured rate down toward the aspirational `0.0` over time.
 
 ## 6. Measuring each stream
 
@@ -161,6 +183,6 @@ PYTHONPATH=src python benchmarks/intel_value_metrics_report.py
 |---|---|
 | A stream reports `meets_target=False` but `improves_on_baseline=True` | The stream holds its floor but has not reached its goal — expected for `adversarial_co_training`; investigate for the others. |
 | A metric row shows `NaN` / `meets_target=False` with no measured value | Measurement failed to compute; it fails closed. Fix the benchmark before trusting the board. |
-| `red_team_harness.py --check` exits 1 | A gate change raised the bypass survival rate above the pinned floor (weakening) — do not merge; re-triage survivors or revert. |
+| `red_team_harness.py --check` exits 1 | A gate change raised the fixed-universe bypass rate above the pinned floor (weakening) — do not merge; re-triage survivors or revert. |
 | Threshold in doc/test/gate disagree | Something hard-coded a value instead of importing `VALUE_METRICS`; route it through the registry. |
 | `get_value_metric(stream)` raises `KeyError` | The stream declared no value metric — add a `ValueMetric` to `VALUE_METRICS` before measuring it. |

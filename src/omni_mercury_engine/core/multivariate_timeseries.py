@@ -1,12 +1,29 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Multivariate Time-Series Anomaly Detection with LTG Method.
+"""Multivariate time-series anomaly detection — statistical LTG-shaped baseline.
 
-Based on: A novel anomaly detection method for multivariate time series based on LTG
-(Springer, 2025: https://link.springer.com/article/10.1007/s44443-025-00024-3)
+Motivated by the LTG method (Springer, 2025:
+https://link.springer.com/article/10.1007/s44443-025-00024-3), which combines Long
+short-term memory, Temporal convolution and Graph convolution.
 
-Implements Long short-term memory + Temporal convolution + Graph convolution (LTG)
-for detecting cascading anomalies across domains (biometrics + quantum simulations).
+**This module does not implement that architecture.** It implements a
+deterministic statistical baseline with the same three-branch *shape*: the
+"LSTM" branch is a per-window mean, the "temporal convolution" branch is a
+per-window standard deviation, and the "graph" branch is a feature-correlation
+summary. There are no learned parameters, no recurrent state and no convolution
+kernels anywhere in this file. The names are kept because they map onto the
+paper's branches and the reconstruction-error score they feed; the docstrings
+say plainly what each one computes.
+
+The previous docstring described this as an LTG implementation and the detector
+returned a ``roc_auc_estimate`` computed as ``0.5 + 0.4 * tanh(separation)`` from
+its *own* scores and its *own* thresholded predictions -- no labels were involved
+at any point, so the number could not be an AUC of anything and rose whenever the
+detector was merely self-consistent. It has been removed rather than renamed: a
+fabricated metric is worse than no metric, because it invites comparison with
+real ones. Callers that want a real AUC must supply ground-truth labels and use
+``sklearn.metrics.roc_auc_score`` (or Mercury's evaluation harness) over the
+returned ``anomaly_scores``.
 """
 
 from __future__ import annotations
@@ -92,36 +109,41 @@ class MultivariateTSDetector:
 
         predictions = anomaly_scores > self.threshold
 
-        roc_auc_estimate = self._estimate_roc_auc(anomaly_scores, predictions)
-
         return {
             "anomaly_scores": anomaly_scores,
             "predictions": predictions,
             "threshold": self.threshold,
-            "roc_auc_estimate": roc_auc_estimate,
-            "method": "LTG_Multivariate_TS",
+            # No ``roc_auc_estimate``: this method never sees a label, so it
+            # cannot report a ranking metric. See the module docstring.
+            "method": "statistical_multivariate_ts",
+            "is_learned": False,
         }
 
     def _extract_lstm_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract long-term dependencies using LSTM (simplified).
+        """Return the per-window mean — the long-horizon branch.
 
-        In full implementation, would use actual LSTM layers with hidden states.
+        Named for the LTG paper's LSTM branch, which it stands in for. It is a
+        mean, not a recurrent network: there is no hidden state and nothing
+        learned.
         """
         result: np.ndarray[Any, Any] = np.mean(data, axis=1)
         return result
 
     def _extract_temporal_conv_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract short-term patterns using temporal convolution (simplified).
+        """Return the per-window standard deviation — the short-horizon branch.
 
-        In full implementation, would use 1D convolution layers with multiple filters.
+        Named for the LTG paper's temporal-convolution branch. It is a standard
+        deviation, not a convolution: there are no filters and nothing learned.
         """
         result: np.ndarray[Any, Any] = np.std(data, axis=1)
         return result
 
     def _extract_graph_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract inter-feature dependencies using graph convolution (simplified).
+        """Return a feature-correlation summary — the inter-feature branch.
 
-        In full implementation, would build dependency graph and apply GCN layers.
+        Named for the LTG paper's graph-convolution branch. It is the row-mean of
+        the Pearson correlation matrix, not a GCN: no graph is built and nothing
+        is learned.
         """
         n_samples = len(data)
         reshaped = data.reshape(-1, self.num_features)
@@ -140,30 +162,6 @@ class MultivariateTSDetector:
         )
         result: np.ndarray[Any, Any] = np.mean((original - reconstructed) ** 2, axis=(1, 2))
         return result
-
-    def _estimate_roc_auc(
-        self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]
-    ) -> float:
-        """Estimate ROC-AUC from scores and predictions."""
-        if np.all(predictions) or not np.any(predictions):
-            return 0.5
-
-        normal_scores = scores[~predictions]
-        anomaly_scores = scores[predictions]
-
-        if len(normal_scores) == 0 or len(anomaly_scores) == 0:
-            return 0.5
-
-        mean_normal = np.mean(normal_scores)
-        mean_anomaly = np.mean(anomaly_scores)
-
-        if mean_anomaly > mean_normal:
-            separation = (mean_anomaly - mean_normal) / (np.std(scores) + 1e-8)
-            roc_auc = 0.5 + 0.4 * np.tanh(separation)
-        else:
-            roc_auc = 0.5
-
-        return float(min(max(roc_auc, 0.0), 1.0))
 
 
 class ChaosMultivariateFusion:
@@ -212,10 +210,9 @@ class ChaosMultivariateFusion:
             "predictions": refined_predictions,
             "threshold": chaos_refined_threshold,
             "original_threshold": results["threshold"],
-            "roc_auc_estimate": self._estimate_roc_auc(
-                results["anomaly_scores"], refined_predictions
-            ),
-            "method": "Chaos_LTG_Fusion",
+            # No ``roc_auc_estimate``: no labels reach this method either.
+            "method": "chaos_refined_statistical_multivariate_ts",
+            "is_learned": False,
         }
 
     def _apply_chaos_refinement(self, scores: np.ndarray[Any, Any], base_threshold: float) -> float:
@@ -229,27 +226,3 @@ class ChaosMultivariateFusion:
         refined_threshold = base_threshold * (1 + perturbation)
 
         return max(refined_threshold, 0.0)
-
-    def _estimate_roc_auc(
-        self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]
-    ) -> float:
-        """Estimate ROC-AUC from scores and predictions."""
-        if np.all(predictions) or not np.any(predictions):
-            return 0.5
-
-        normal_scores = scores[~predictions]
-        anomaly_scores = scores[predictions]
-
-        if len(normal_scores) == 0 or len(anomaly_scores) == 0:
-            return 0.5
-
-        mean_normal = np.mean(normal_scores)
-        mean_anomaly = np.mean(anomaly_scores)
-
-        if mean_anomaly > mean_normal:
-            separation = (mean_anomaly - mean_normal) / (np.std(scores) + 1e-8)
-            roc_auc = 0.5 + 0.4 * np.tanh(separation)
-        else:
-            roc_auc = 0.5
-
-        return float(min(max(roc_auc, 0.0), 1.0))

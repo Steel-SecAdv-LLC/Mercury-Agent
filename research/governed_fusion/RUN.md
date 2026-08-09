@@ -58,6 +58,36 @@ python research/governed_fusion/measure_decorrelation.py       # -> results/deco
 python research/governed_fusion/build_manifest.py              # -> manifest.json
 ```
 
+## 2b. Verify you measured the pinned inputs (do this before quoting a number)
+
+```bash
+python research/governed_fusion/input_pin.py --check              # whole live suite
+python research/governed_fusion/input_pin.py --external-only --check   # just the fitness set
+```
+
+`build_manifest.py` has always *recorded* a SHA-256 of every event's `(X, y)`;
+until 2026-08-04 nothing *checked* one, which is why the suite's per-event drift
+was unattributable. A fresh-environment refit moved `nsl_kdd 0.679 → 0.728` and
+`batadal 0.862 → 0.889` (headline **0.770 → 0.809**) and the repository could not
+say whether the inputs or the environment had moved — so neither could be ruled
+out, and no improvement smaller than that drift was falsifiable.
+
+Read the verdicts as:
+
+| verdict | meaning |
+|---|---|
+| `OK` | rebuilt `(X, y)` hashes to the pin — a metric change here is **code/environment**, and is a real finding |
+| `DRIFT` | the inputs changed — the metric is **not comparable**; re-pin and re-measure, do not publish across it |
+| `UNPIN` | event in the suite with no manifest entry — unverifiable |
+| `UNREA` | upstream unreachable — an availability fact, **not** evidence of change, so it does not fail `--check` |
+
+`promotion_gate.py` now refuses to promote a candidate whose declared
+external-label event set differs from the manifest's, and refuses a manifest
+that disagrees with itself (the `provenance_summary` rollup the gate reads
+versus the per-event entries the pin reads). A gate that compares numbers from
+different data is not a gate.
+```
+
 ## 3. What each artifact backs
 
 | artifact | FINDINGS section |

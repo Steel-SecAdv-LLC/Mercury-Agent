@@ -481,9 +481,14 @@ class DexcomConfig:
             :func:`_validate_dexcom_base_url` at construction time.
     """
 
+    # ``repr=False`` on the two live credentials: the auto-generated
+    # dataclass repr is exactly what lands in a log line or traceback when
+    # an operator renders the config, and the ``config`` property
+    # documents credentials as redacted — this is what makes that claim
+    # true rather than aspirational.
     client_id: str
-    client_secret: str
-    refresh_token: str
+    client_secret: str = field(repr=False)
+    refresh_token: str = field(repr=False)
     redirect_uri: str
     base_url: str = _DEXCOM_PROD_BASE
 

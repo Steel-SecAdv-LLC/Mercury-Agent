@@ -13,6 +13,7 @@ Ground truth events cover major geomagnetic storms and grid disruptions where se
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 from typing import Any
@@ -20,6 +21,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _KP_INDEX_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
 _XRAY_FLARES_URL = "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json"
-_SOLAR_WIND_URL = "https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json"
+# SWPC retired the whole ``/products/solar-wind/`` tree (every ``plasma-*`` and
+# ``mag-*`` file under it now answers 404); real-time solar wind plasma moved to
+# the RTSW feed, which serves 1-minute records for the trailing 24 hours.
+_SOLAR_WIND_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
+# RTSW only reaches back 24 hours; ACE SWEPAM hourly supplies the rest of the
+# 7-day Kp window that ``plasma-7-day`` used to cover on its own.
+_ACE_SWEPAM_URL = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json"
 
 # ---------------------------------------------------------------------------
 # EIA API v2 endpoint (requires API key)
@@ -245,6 +253,11 @@ class EnergyLoader(BaseDomainLoader):
         if event.get("grid_event") and self._eia_api_key:
             df = self._fetch_eia_grid_data(event)
         else:
+            check_synthetic_allowed(
+                "EnergyLoader",
+                f"event '{event_id}' predates the SWPC real-time feeds and no "
+                "keyed grid source is configured for it",
+            )
             df = self._generate_synthetic_kp_series(event)
 
         if df.empty:
@@ -428,39 +441,41 @@ class EnergyLoader(BaseDomainLoader):
     # Private helpers -- data fetching
     # ------------------------------------------------------------------
 
-    def _fetch_kp_index(self) -> pd.DataFrame:
-        """Fetch the NOAA SWPC Kp index JSON feed.
+    # ``_iter_feed_rows`` moved to ``BaseDomainLoader`` so every JSON-table
+    # consumer shares the same shape-flip absorber; this loader inherits it.
 
-        The SWPC Kp index endpoint returns an array of arrays where each
-        inner array is ``[timestamp, Kp, a_running, station_count]``.
-        The first row is the header.
+    @staticmethod
+    def _as_float(value: Any) -> float:
+        """Coerce a feed value to float, mapping missing/unparsable to NaN."""
+        if value is None:
+            return float(np.nan)
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return float(np.nan)
+
+    def _fetch_kp_index(self) -> pd.DataFrame:
+        """Fetch the NOAA SWPC planetary Kp index feed.
+
+        Accepts both feed shapes SWPC has served for this endpoint (see
+        :meth:`_iter_feed_rows`); it currently returns objects keyed
+        ``time_tag`` / ``Kp`` / ``a_running`` / ``station_count``.
 
         Returns:
             DataFrame with columns: timestamp, kp.
         """
-        raw: list[list[Any]] = self._fetch_json(_KP_INDEX_URL)
+        raw = self._fetch_json(_KP_INDEX_URL)
+        rows = self._iter_feed_rows(raw, ("time_tag", "Kp", "a_running", "station_count"))
 
-        if not raw or len(raw) < 2:
+        if not rows:
             logger.warning("Kp index feed returned empty or malformed data.")
             return pd.DataFrame(columns=["timestamp", "kp"])
 
-        # First row is header; skip it
-        rows = raw[1:]
-
-        records: list[dict[str, Any]] = []
-        for row in rows:
-            if len(row) < 2:
-                continue
-            try:
-                kp_value = float(row[1])
-            except (ValueError, TypeError):
-                kp_value = np.nan
-            records.append(
-                {
-                    "timestamp": str(row[0]),
-                    "kp": kp_value,
-                }
-            )
+        records = [
+            {"timestamp": str(row["time_tag"]), "kp": self._as_float(row["Kp"])}
+            for row in rows
+            if row.get("time_tag") is not None
+        ]
 
         df = pd.DataFrame(records)
         if not df.empty:
@@ -468,22 +483,113 @@ class EnergyLoader(BaseDomainLoader):
             df = df.dropna(subset=["timestamp"])
         return df
 
-    def _fetch_solar_wind(self) -> pd.DataFrame:
-        """Fetch the NOAA SWPC 7-day solar wind plasma data.
+    def _solar_wind_records(
+        self,
+        url: str,
+        columns: tuple[str, str, str, str],
+        *,
+        default_source: str = "",
+        carries_provenance: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Read one solar wind feed into canonical solar-wind records.
 
-        The SWPC solar wind plasma endpoint returns an array of arrays
-        where each inner array is
-        ``[time_tag, density, speed, temperature]``.
-        The first row is the header.
+        Args:
+            url: Feed to read.
+            columns: Source field names in the order
+                ``(time_tag, density, speed, temperature)``.
+            default_source: Provenance label recorded when the feed does not
+                carry a per-row ``source`` field (the ACE SWEPAM history).
+            carries_provenance: When true, also select the feed's per-row
+                ``source`` and ``active`` fields (the RTSW constellation
+                feed carries both; as of 2026 the sources are SOLAR1/SWFO-L1
+                — the active spacecraft — plus ACE and IMAP).
+
+        Returns:
+            Records keyed ``timestamp`` / ``solar_wind_density`` /
+            ``solar_wind_speed`` / ``solar_wind_temperature`` plus the
+            provenance keys ``_source`` / ``_active`` (dedup inputs, dropped
+            before the frame leaves ``_fetch_solar_wind``). Instrument fill
+            values (negative density/speed/temperature, which the feeds emit
+            for dropouts) become NaN rather than being read as measurements.
+            Returns ``[]`` when the feed is unreachable or unusable.
+        """
+        try:
+            raw = self._fetch_json(url)
+        except (OSError, json.JSONDecodeError) as exc:
+            # Transport failure or a garbled body: the other feed still covers
+            # part of the window, so degrade rather than abort. Configuration
+            # faults (``UnsafeURLError`` and other ``ValueError``s from the
+            # allowlist gate) deliberately propagate -- swallowing those would
+            # turn an off-allowlist host into a silent coverage gap.
+            logger.warning("Solar wind feed %s unavailable: %s", url, exc)
+            return []
+
+        ts_key, dens_key, speed_key, temp_key = columns
+        selected = columns + (("source", "active") if carries_provenance else ())
+        records: list[dict[str, Any]] = []
+        for row in self._iter_feed_rows(raw, selected):
+            if row.get(ts_key) is None:
+                continue
+            values = {
+                "solar_wind_density": self._as_float(row[dens_key]),
+                "solar_wind_speed": self._as_float(row[speed_key]),
+                "solar_wind_temperature": self._as_float(row[temp_key]),
+            }
+            # ACE reports dropouts as large negatives (-9999.9); a negative
+            # density, speed or temperature is unphysical from either feed.
+            values = {k: (v if v > 0 else float(np.nan)) for k, v in values.items()}
+            records.append(
+                {
+                    "timestamp": str(row[ts_key]),
+                    **values,
+                    "_source": str(row.get("source") or default_source),
+                    "_active": bool(row.get("active")),
+                }
+            )
+        return records
+
+    def _fetch_solar_wind(self) -> pd.DataFrame:
+        """Fetch NOAA SWPC solar wind plasma data across the Kp window.
+
+        SWPC retired ``plasma-7-day``, and its RTSW replacement only serves the
+        trailing 24 hours -- against a 7-day Kp feed that leaves ~86% of rows
+        without plasma values. Two live feeds are therefore combined:
+
+        * **RTSW 1-minute** (:data:`_SOLAR_WIND_URL`) -- freshest, high
+          cadence, and multi-spacecraft: each minute can carry rows from the
+          active spacecraft (SOLAR1/SWFO-L1 as of 2026) plus non-active
+          ACE and IMAP rows whose calibrations differ materially (measured
+          median deltas: 7.2 /cc density, 42% temperature).
+        * **ACE SWEPAM 1-hour** (:data:`_ACE_SWEPAM_URL`) -- ~31 days of
+          hourly history, which covers the whole Kp window.
+
+        One row survives per minute, chosen by explicit preference -- most
+        valid measurements first, then the active spacecraft, then feed
+        order (RTSW before ACE history) -- rather than by feed order alone.
+        Feed order was measured keeping the non-active spacecraft in 35% of
+        duplicate minutes and once kept a fill row (NaN) while discarding a
+        valid measurement at the same minute. Either feed alone still yields
+        a usable frame, so one endpoint being retired degrades coverage
+        instead of emptying the result.
 
         Returns:
             DataFrame with columns: timestamp, solar_wind_density,
-            solar_wind_speed, solar_wind_temperature.
+            solar_wind_speed, solar_wind_temperature, sorted by timestamp.
         """
-        raw: list[list[Any]] = self._fetch_json(_SOLAR_WIND_URL)
+        records = self._solar_wind_records(
+            _SOLAR_WIND_URL,
+            ("time_tag", "proton_density", "proton_speed", "proton_temperature"),
+            carries_provenance=True,
+        )
+        preferred = len(records)
+        records += self._solar_wind_records(
+            _ACE_SWEPAM_URL,
+            ("time_tag", "dens", "speed", "temperature"),
+            default_source="ace_swepam_1h",
+        )
 
-        if not raw or len(raw) < 2:
-            logger.warning("Solar wind feed returned empty or malformed data.")
+        if not records:
+            logger.warning("Solar wind feeds returned empty or malformed data.")
             return pd.DataFrame(
                 columns=[
                     "timestamp",
@@ -493,39 +599,39 @@ class EnergyLoader(BaseDomainLoader):
                 ]
             )
 
-        # First row is header; skip it
-        rows = raw[1:]
-
-        records: list[dict[str, Any]] = []
-        for row in rows:
-            if len(row) < 4:
-                continue
-            try:
-                density = float(row[1]) if row[1] is not None else np.nan
-            except (ValueError, TypeError):
-                density = np.nan
-            try:
-                speed = float(row[2]) if row[2] is not None else np.nan
-            except (ValueError, TypeError):
-                speed = np.nan
-            try:
-                temperature = float(row[3]) if row[3] is not None else np.nan
-            except (ValueError, TypeError):
-                temperature = np.nan
-
-            records.append(
-                {
-                    "timestamp": str(row[0]),
-                    "solar_wind_density": density,
-                    "solar_wind_speed": speed,
-                    "solar_wind_temperature": temperature,
-                }
-            )
-
+        value_columns = [
+            "solar_wind_density",
+            "solar_wind_speed",
+            "solar_wind_temperature",
+        ]
         df = pd.DataFrame(records)
-        if not df.empty:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
-            df = df.dropna(subset=["timestamp"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
+        df = df.dropna(subset=["timestamp"])
+        # RTSW is a 1-minute product, but non-active spacecraft (IMAP) tag
+        # rows with per-spacecraft sampling jitter in the seconds field, so
+        # exact-string dedup silently interleaved a third calibration between
+        # grid minutes. Floor to the product's minute grid so one preference
+        # rule picks one row per minute.
+        df["timestamp"] = df["timestamp"].dt.floor("min")
+        # Preference order within a minute: most valid measurements first
+        # (a fill row must never shadow a valid one), then the active
+        # spacecraft's calibration. The stable mergesort makes feed order
+        # (RTSW appended before ACE history) the final tiebreak, preserving
+        # the RTSW-over-ACE-hourly preference at overlapping stamps.
+        df["_n_valid"] = df[value_columns].notna().sum(axis=1)
+        df = df.sort_values(
+            ["timestamp", "_n_valid", "_active"],
+            ascending=[True, False, False],
+            kind="mergesort",
+        )
+        df = df.drop_duplicates(subset=["timestamp"], keep="first")
+        df = df.drop(columns=["_n_valid", "_active", "_source"]).reset_index(drop=True)
+        logger.info(
+            "Solar wind: %d RTSW + %d ACE records -> %d unique minute timestamps.",
+            preferred,
+            len(records) - preferred,
+            len(df),
+        )
         return df
 
     def _fetch_xray_flares(self) -> pd.DataFrame:
@@ -572,7 +678,7 @@ class EnergyLoader(BaseDomainLoader):
             grid_supply, solar_wind_speed, solar_wind_density, xray_class.
         """
         if not self._eia_api_key:
-            logger.warning("EIA API key not set; falling back to synthetic data " "for grid event.")
+            check_synthetic_allowed("EnergyLoader", "EIA_API_KEY is not set")
             return self._generate_synthetic_kp_series(event)
 
         params: dict[str, str] = {
@@ -588,7 +694,7 @@ class EnergyLoader(BaseDomainLoader):
         try:
             response = self._fetch_json(_EIA_DAILY_REGION_URL, params=params)
         except ConnectionError:
-            logger.warning("EIA API unreachable; falling back to synthetic data.")
+            check_synthetic_allowed("EnergyLoader", "EIA API unreachable")
             return self._generate_synthetic_kp_series(event)
 
         data_rows = (
@@ -596,7 +702,7 @@ class EnergyLoader(BaseDomainLoader):
         )
 
         if not data_rows:
-            logger.warning("EIA returned no data; falling back to synthetic data.")
+            check_synthetic_allowed("EnergyLoader", "EIA returned no observations")
             return self._generate_synthetic_kp_series(event)
 
         records: list[dict[str, Any]] = []

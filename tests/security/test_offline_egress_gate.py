@@ -369,7 +369,8 @@ class TestCognitiveHTTPXSourcesOfflineGate:
     """The ad-hoc httpx enrichment sources refuse loudly, pre-socket."""
 
     def test_usgs_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        pytest.importorskip("httpx")
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             USGSEarthquakeSource,
         )
 
@@ -383,7 +384,8 @@ class TestCognitiveHTTPXSourcesOfflineGate:
             source.fetch()
 
     def test_noaa_source_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        pytest.importorskip("httpx")
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             NOAAWeatherSource,
         )
 
@@ -400,12 +402,13 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         """The production path never disguises the air-gap as a fetch error.
 
         ``ExternalDataIntegrator.fetch_all`` is the sole in-repo consumer of
-        these sources (via ``EnhancedAnomalyDetector.predict``); under
+        these sources (via ``IntegratedAnomalyDetector.predict``); under
         ``MERCURY_OFFLINE`` it must emit one explicit offline log -- not a
         per-source "Error fetching..." line -- and return empty so local
         detection continues.
         """
-        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+        pytest.importorskip("httpx")
+        from omni_mercury_engine.cognitive.anomaly_detection import (
             ExternalDataIntegrator,
             USGSEarthquakeSource,
         )
@@ -415,11 +418,29 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
         _forbid_dns(monkeypatch)
         _forbid_sockets(monkeypatch)
-        logger_name = "omni_mercury_engine.cognitive.anomaly_detection_enhanced"
+        logger_name = "omni_mercury_engine.cognitive.anomaly_detection"
         with caplog.at_level("WARNING", logger=logger_name):
             assert integrator.fetch_all() == []
         assert any("MERCURY_OFFLINE" in r.message for r in caplog.records)
         assert not any(r.message.startswith("Error fetching") for r in caplog.records)
+
+    def test_sources_refuse_construction_without_httpx(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without httpx the sources raise a clear ImportError, not a NameError.
+
+        The module guards ``import httpx`` behind ``HTTPX_AVAILABLE`` but the
+        constructors used to reference ``httpx`` unconditionally, crashing
+        with ``NameError`` on any install without the ``[api]`` extra. The
+        guard must stay wired to the constructors.
+        """
+        from omni_mercury_engine.cognitive import anomaly_detection
+
+        monkeypatch.setattr(anomaly_detection, "HTTPX_AVAILABLE", False)
+        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+            anomaly_detection.USGSEarthquakeSource()
+        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+            anomaly_detection.NOAAWeatherSource(state="CA")
 
 
 class TestNISTCSFFetcherOfflineGate:

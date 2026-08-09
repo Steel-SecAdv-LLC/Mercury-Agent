@@ -1192,9 +1192,9 @@ def physics_integrated(
         raise SystemExit(1)
 
     try:
-        from omni_mercury_engine.detectors.advanced_physics_integration import (
-            AdvancedPhysicsIntegratedDetector,
+        from omni_mercury_engine.detectors.physics_integration import (
             PhysicsDetectorType,
+            PhysicsIntegratedDetector,
         )
         from omni_mercury_engine.detectors.uiux_anomaly import (
             InteractionType,
@@ -1225,7 +1225,7 @@ def physics_integrated(
             },
         }
 
-        detector = AdvancedPhysicsIntegratedDetector(config)
+        detector = PhysicsIntegratedDetector(config)
 
         # Load data for each input type
         spectral_data = None
@@ -1284,7 +1284,7 @@ def physics_integrated(
 
         # Format output
         output_data = {
-            "detector": "AdvancedPhysicsIntegratedDetector",
+            "detector": "PhysicsIntegratedDetector",
             "is_anomaly": result.get("is_anomaly", False),
             "fused_anomaly_score": float(result.get("fused_anomaly_score", 0.0)),
             "enabled_detectors": [d.value for d in enabled_detectors],
@@ -1380,7 +1380,7 @@ def physics_list() -> None:
     click.echo()
     click.echo("     Command: mercury physics uiux -i <file.json>")
 
-    click.echo("\n  4. AdvancedPhysicsIntegratedDetector")
+    click.echo("\n  4. PhysicsIntegratedDetector")
     click.echo("     ─────────────────────────────────────────────────────")
     click.echo("     Unified detector combining all physics modules with")
     click.echo("     3R mechanism and GOSNN ethical governance.")
@@ -1662,13 +1662,20 @@ def intel_rollback(staging_dir: str) -> None:
 def intel_red_team(append: bool, config: str | None) -> None:
     """Run the adversarial red-team harness against the LIVE harm gate.
 
-    Reports the surviving-bypass rate (the ``adversarial_co_training`` value
-    metric) and, with --append, triages survivors into ``corpus/pending``. Exits
-    non-zero if the survival rate exceeds the pinned no-weakening floor.
+    Reports both rates and, with --append, triages survivors into
+    ``corpus/pending``. Exits non-zero if the **fixed-universe bypass rate** --
+    the ``adversarial_co_training`` value metric -- exceeds the pinned
+    no-weakening floor.
+
+    The per-run ``survival_rate`` is reported alongside but is not what decides
+    the exit code: ``run_red_team`` skips seeds the gate blocks, so that
+    denominator moves with gate strength and a strictly stronger gate can score
+    worse on it. The fixed universe is derived from the config alone.
     """
     from omni_mercury_engine.intel.red_team import (
         RedTeamConfig,
         append_survivors,
+        measure_fixed_universe_bypass,
         run_red_team,
     )
     from omni_mercury_engine.intel.value_metrics import get_value_metric
@@ -1676,15 +1683,18 @@ def intel_red_team(append: bool, config: str | None) -> None:
     cfg = RedTeamConfig.load(config) if config else None
     result = run_red_team(cfg)
     summary = result.summary()
+    summary["fixed_universe"] = measure_fixed_universe_bypass(cfg)
     floor = get_value_metric("adversarial_co_training").baseline
     click.echo(json.dumps(summary, indent=2))
     if append:
         n = append_survivors(result.survivors)
         click.echo(f"appended {n} new surviving bypass(es) to corpus/pending", err=True)
-    rate = result.survival_rate
+    rate = float(summary["fixed_universe"]["bypass_rate"])
     if rate > floor + 1e-9:
         click.echo(
-            f"FAIL: survival rate {rate:.4f} exceeds no-weakening floor {floor:.4f}", err=True
+            f"FAIL: fixed-universe bypass rate {rate:.4f} exceeds no-weakening "
+            f"floor {floor:.4f}",
+            err=True,
         )
         raise SystemExit(1)
 

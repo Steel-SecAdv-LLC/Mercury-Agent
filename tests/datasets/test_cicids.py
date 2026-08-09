@@ -342,7 +342,7 @@ class TestCICIDSIntegration:
 
     def test_cicids_benchmark(self) -> None:
         """Test benchmarking CICIDS with Isolation Forest."""
-        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.detectors.statistical_extended import MADDetector
         from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         config = DatasetConfig(

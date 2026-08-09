@@ -383,6 +383,158 @@ class TestNOAASWPCSource:
         assert source._parse_kp_alert_level(5) == AlertLevel.MINOR
         assert source._parse_kp_alert_level(3) == AlertLevel.NONE
 
+    def test_rtsw_endpoint_served_under_json_prefix(self) -> None:
+        """RTSW lives under ``json/``; the old ``products/`` path 404s.
+
+        The ``REALTIME_SOLAR_WIND`` branch used to assign the same value as
+        the default (a literal no-op), fetch a 404, and fall through a
+        parser dispatch with no branch for it — a fully dead wire.
+        """
+        from omni_mercury_engine.data_sources.space_weather import SWPCProduct
+
+        assert SWPCProduct.REALTIME_SOLAR_WIND.value == "rtsw/rtsw_mag_1m.json"
+
+    def test_parse_rtsw_mag_prefers_active_spacecraft(self) -> None:
+        """Constructed to the verified 2026-08-03 RTSW mag row shape."""
+        from omni_mercury_engine.data_sources.space_weather import SWPCProduct
+
+        source = NOAASWPCSource()
+        payload = [
+            {
+                "time_tag": "2026-08-03T18:50:00",
+                "bt": 6.1,
+                "bx_gsm": 1.2,
+                "by_gsm": -2.0,
+                "bz_gsm": -5.5,
+                "source": "ACE",
+                "active": False,
+            },
+            {
+                "time_tag": "2026-08-03T18:50:00",
+                "bt": 6.4,
+                "bx_gsm": 1.0,
+                "by_gsm": -1.8,
+                "bz_gsm": -22.0,
+                "source": "SOLAR1",
+                "active": True,
+            },
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        assert len(points) == 1, "non-active rows are used only when no active row exists"
+        point = points[0]
+        assert point.data["source"] == "SOLAR1"
+        assert point.data["bz_gsm"] == -22.0
+        assert point.alert_level == AlertLevel.STRONG
+        assert point.confidence == 0.9
+        assert point.metadata["product"] == SWPCProduct.REALTIME_SOLAR_WIND.value
+
+    def test_parse_rtsw_mag_returns_newest_not_oldest(self) -> None:
+        """The live RTSW feed is NEWEST-first, opposite to the GOES products.
+
+        Selecting the trailing 60 rows by position (``preferred[-60:]``) then
+        returned the OLDEST hour -- ~24 h-stale data on every fetch of a product
+        named ``realtime``. The parser must choose the newest minutes by time.
+        """
+        from datetime import timedelta
+
+        source = NOAASWPCSource()
+        base = datetime(2026, 8, 5, 23, 0, tzinfo=UTC)
+        payload = [  # index 0 = newest minute, later indices older
+            {
+                "time_tag": (base - timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%S"),
+                "bt": 5.0,
+                "bx_gsm": 1.0,
+                "by_gsm": 1.0,
+                "bz_gsm": -3.0,
+                "source": "SOLAR1",
+                "active": True,
+            }
+            for i in range(200)
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        assert len(points) == 60
+        assert max(p.timestamp for p in points) == base, "parser returned stale, not newest, data"
+        assert min(p.timestamp for p in points) == base - timedelta(minutes=59)
+        assert [p.timestamp for p in points] == sorted(p.timestamp for p in points)
+
+    def test_parse_rtsw_mag_dedups_per_minute(self) -> None:
+        """One row per UTC minute — no duplicate ``event_id``s even when several
+        spacecraft report the same minute (incl. sub-minute jitter) or none is
+        active."""
+        source = NOAASWPCSource()
+        payload = [
+            {
+                "time_tag": "2026-08-05T23:10:00",
+                "bt": 5.0,
+                "bz_gsm": -3.0,
+                "source": "ACE",
+                "active": False,
+            },
+            {
+                "time_tag": "2026-08-05T23:10:31",
+                "bt": 6.0,
+                "bz_gsm": -4.0,
+                "source": "IMAP",
+                "active": False,
+            },
+            {
+                "time_tag": "2026-08-05T23:11:00",
+                "bt": 5.5,
+                "bz_gsm": -2.0,
+                "source": "ACE",
+                "active": False,
+            },
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        ids = [p.event_id for p in points]
+        assert len(ids) == len(set(ids)), f"duplicate event_ids: {ids}"
+        assert len(points) == 2, "23:10:00 and 23:10:31 must floor to one minute"
+        assert all(p.confidence == 0.7 for p in points), "non-active rows carry lower confidence"
+
+    def test_parse_rtsw_mag_fill_values_become_none(self) -> None:
+        source = NOAASWPCSource()
+        payload = [
+            {
+                "time_tag": "2026-08-03T18:50:00",
+                "bt": -9999.9,
+                "bx_gsm": -3.5,
+                "by_gsm": -9999.9,
+                "bz_gsm": -1.0,
+                "source": "SOLAR1",
+                "active": True,
+            }
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        assert len(points) == 1
+        data = points[0].data
+        assert data["bt"] is None and data["by_gsm"] is None
+        assert data["bx_gsm"] == -3.5, "signed components must not be treated as fills"
+        assert points[0].alert_level == AlertLevel.NONE
+
+    def test_parse_rtsw_mag_falls_back_to_nonactive_rows(self) -> None:
+        source = NOAASWPCSource()
+        payload = [
+            {
+                "time_tag": "2026-08-03T18:50:00",
+                "bt": 5.0,
+                "bx_gsm": 0.5,
+                "by_gsm": 0.5,
+                "bz_gsm": -11.0,
+                "source": "IMAP",
+                "active": False,
+            }
+        ]
+        points = source._parse_rtsw_mag(payload, DataSourceType.SOLAR_WIND)
+        assert len(points) == 1
+        assert points[0].confidence == 0.7
+        assert points[0].alert_level == AlertLevel.MODERATE
+
+    def test_parse_rtsw_mag_rejects_unusable_bodies(self) -> None:
+        source = NOAASWPCSource()
+        assert source._parse_rtsw_mag([], DataSourceType.SOLAR_WIND) == []
+        assert source._parse_rtsw_mag({"not": "a list"}, DataSourceType.SOLAR_WIND) == []
+        assert source._parse_rtsw_mag(None, DataSourceType.SOLAR_WIND) == []
+
 
 class TestNASAEONETSource:
     """Tests for NASA EONET data source."""

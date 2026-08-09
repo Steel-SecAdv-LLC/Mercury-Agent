@@ -203,7 +203,21 @@ class StructuredFormatter(logging.Formatter):
         # Add configured extra fields
         log_entry.update(self.extra_fields)
 
-        return json.dumps(log_entry, default=str)
+        rendered = json.dumps(log_entry, default=str)
+        if self.redact_pii:
+            # Scrub the RENDERED record: the message text and any
+            # formatted traceback pass through here, and transport-layer
+            # exception text embeds fully-composed (credentialed) request
+            # URLs. Source sites sever/scrub already; this is the
+            # last-line defence for exceptions that never crossed a
+            # scrubbed funnel. Lazy import — redaction is stdlib-only.
+            from omni_mercury_engine.security.redaction import (
+                redact_env_secrets,
+                redact_text,
+            )
+
+            rendered = redact_env_secrets(redact_text(rendered))
+        return rendered
 
 
 class ColoredFormatter(logging.Formatter):
@@ -245,7 +259,15 @@ class ColoredFormatter(logging.Formatter):
         """
         color = self.COLORS.get(record.levelname, "")
         record.levelname = f"{color}{record.levelname}{self.RESET}"
-        return super().format(record)
+        # Same last-line scrub as StructuredFormatter: the dev console
+        # renders messages and tracebacks too, and a credential is no
+        # less live for appearing on a developer's terminal.
+        from omni_mercury_engine.security.redaction import (
+            redact_env_secrets,
+            redact_text,
+        )
+
+        return redact_env_secrets(redact_text(super().format(record)))
 
 
 class PerformanceLogger:

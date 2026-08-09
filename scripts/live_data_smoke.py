@@ -33,11 +33,72 @@ if TYPE_CHECKING:
 Results = list[tuple[str, str, str]]
 _RESULTS: Results = []
 
+#: Every env var that can hold live-data credentials in this job. Used solely
+#: to redact those values out of anything this script prints.
+_KEY_ENV_VARS: tuple[str, ...] = (
+    "NASA_FIRMS_MAP_KEY",
+    "FIRMS_MAP_KEY",
+    "NASA_API_KEY",
+    "FRED_API_KEY",
+    "EIA_API_KEY",
+    "ALPHA_VANTAGE_API_KEY",
+    "OPENWEATHERMAP_API_KEY",
+    "USGS_KEY",
+    "EROSERS_USERNAME",
+    "EROSERS_PASSWORD",
+)
+
+
+def _redact(text: str) -> str:
+    """Strip any configured key material out of *text*.
+
+    Several upstreams embed the credential in the request itself -- NASA FIRMS
+    puts the MAP_KEY in the URL *path* -- so an exception message can carry the
+    secret verbatim.  Delegates to the canonical redaction primitives:
+    the structural pass strips credential-named query-parameter values out
+    of any URL in the text (protecting even keys this process never held,
+    and keys too short for value matching), then the value-based pass
+    replaces every configured key value -- URL-encoded forms included.
+    ``redact_secrets`` word-boundary-guards 4-7 character values instead
+    of skipping everything under 8 like this script's old local copy did,
+    so short-but-real keys no longer pass through unredacted.  The
+    diagnostic detail (status code, host, path, reason) survives.
+    """
+    from omni_mercury_engine.security.redaction import redact_secrets, redact_text
+
+    return redact_secrets(
+        redact_text(text),
+        _KEY_ENV_VARS,
+        [os.environ.get(var, "").strip() for var in _KEY_ENV_VARS],
+    )
+
 
 def _record(name: str, status: str, detail: str) -> None:
     """Record and print one loader's smoke result (no key material)."""
+    detail = _redact(detail)
     _RESULTS.append((name, status, detail))
     print(f"[{status:4s}] {name}: {detail}", flush=True)
+
+
+def _describe(exc: BaseException) -> str:
+    """Render an exception with any chained causes.
+
+    ``FetchHTTPError`` deliberately severs its chain (``raise ... from
+    None``): the chained transport error embeds the credentialed request
+    URL, so the safe diagnostics — host, attempt count, exception kind,
+    HTTP status — ride in its own message and the walk stops after one
+    segment by design. Other exception families still chain normally, so
+    the ``__cause__``/``__context__`` walk is kept for them; ``_record``
+    redacts the rendered text either way as defence in depth.
+    """
+    parts: list[str] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        parts.append(f"{type(cur).__name__}: {cur}")
+        cur = cur.__cause__ or cur.__context__
+    return " <- ".join(parts)
 
 
 def _key_present(*env_vars: str) -> bool:
@@ -55,7 +116,7 @@ def _smoke(
     try:
         n = fetch()
     except Exception as exc:
-        _record(name, "FAIL", f"{type(exc).__name__}: {exc}")
+        _record(name, "FAIL", _describe(exc))
         return
     if n < min_rows:
         _record(name, "FAIL", f"returned {n} rows (< {min_rows}); endpoint reachable but empty")

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent SOTA Model Registry.
 
-Provides a unified interface for accessing state-of-the-art anomaly detection
+Provides a unified interface for accessing published anomaly detection
 models. This registry enables:
 - Centralized model discovery and instantiation
 - Consistent configuration management
@@ -57,7 +57,7 @@ class ModelInfo:
 
 
 class SOTARegistry:
-    """Registry for state-of-the-art anomaly detection models.
+    """Registry for published third-party anomaly detection models.
 
     This singleton registry provides centralized access to SOTA models
     with consistent configuration and instantiation patterns.

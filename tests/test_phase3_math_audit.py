@@ -604,16 +604,22 @@ class TestOAEEnhancements:
         assert aafe_one.ethical_exponent == pytest.approx(1.0)
         assert aafe_two.ethical_exponent == pytest.approx(2.0)
 
-    def test_ethical_exponent_affects_fusion_score(self) -> None:
-        """Different ethical exponents should produce different fusion scores."""
+    def test_ethical_exponent_does_not_affect_fusion_score(self) -> None:
+        """Inverted from ``test_ethical_exponent_affects_fusion_score``.
+
+        That test asserted the ethics exponent moved the detection score, which
+        is the defect rather than the feature: the exponent is a governance
+        setting, and a governance setting must not silently rescale a detection
+        number. The ``eta ** exponent`` multiplier is removed from the score
+        path, so the exponent now changes only the reported provenance value.
+        """
         aafe_low = OmniAvaEquation(ethical_exponent=0.5)
         aafe_high = OmniAvaEquation(ethical_exponent=3.0)
 
         result_low = aafe_low.compute(0.8, 0.7, 0.6)
         result_high = aafe_high.compute(0.8, 0.7, 0.6)
 
-        # Higher exponent with eta < 1 => lower scaling => lower score
-        assert result_low.fusion_score > result_high.fusion_score
+        assert result_low.fusion_score == pytest.approx(result_high.fusion_score, abs=1e-12)
 
     # --- NaN guard ---
 
@@ -686,15 +692,23 @@ class TestOAEEnhancements:
         )
         assert result.ethical_compliance_threshold == pytest.approx(0.96)
 
-    def test_high_benevolence_boosts_score(self) -> None:
-        """A high benevolence_score (near 1.0) should produce a higher score than a low one."""
+    def test_benevolence_does_not_boost_the_detection_score(self) -> None:
+        """Inverted from ``test_high_benevolence_boosts_score``.
+
+        A benevolence float raising an anomaly score is the pass-bar failure in
+        miniature: it makes positively-scored input look *more* anomalous for a
+        reason unrelated to the evidence. Benevolence is advisory everywhere, so
+        it must leave the fused score alone. It is still reported.
+        """
         aafe = OmniAvaEquation(domain="security")
         result_high = aafe.compute(0.8, 0.7, 0.6, benevolence_score=0.99)
 
         aafe2 = OmniAvaEquation(domain="security")
         result_low = aafe2.compute(0.8, 0.7, 0.6, benevolence_score=0.5)
 
-        assert result_high.fusion_score > result_low.fusion_score
+        assert result_high.fusion_score == pytest.approx(result_low.fusion_score, abs=1e-12)
+        # ...and the advisory value still differs, so it is genuinely reported.
+        assert result_high.ethical_compliance_threshold != result_low.ethical_compliance_threshold
 
     # --- Backward compatibility ---
 

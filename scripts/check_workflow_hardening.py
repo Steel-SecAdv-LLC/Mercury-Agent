@@ -177,9 +177,63 @@ def check_workflow(path: Path) -> list[str]:
             warnings.append(f"{path}: {action}@{ref} is tag-pinned, not SHA-pinned")
 
     errors.extend(_check_pip_cve_2026_6357(path, text))
+    errors.extend(_check_pytest_node_ids(path, text))
 
     for warning in warnings:
         print(f"::warning title=Workflow supply-chain hardening::{warning}")
+    return errors
+
+
+#: A ``path/to/test_x.py::test_name`` pytest node id inside a workflow.
+_NODE_ID_RE = re.compile(r"([\w./-]+\.py)::(\w+)")
+#: A top-level ``def test_...`` in a test module.  Deliberately anchored at
+#: column 0: a method inside a class is addressed as ``Class::method`` and is
+#: matched separately below.
+_TEST_DEF_RE = re.compile(r"^def (\w+)\s*\(", re.MULTILINE)
+_CLASS_DEF_RE = re.compile(r"^class (\w+)", re.MULTILINE)
+
+
+def _check_pytest_node_ids(path: Path, text: str) -> list[str]:
+    """Every ``file.py::name`` a workflow runs must actually exist.
+
+    A workflow that names a test which has been renamed does not run a smaller
+    suite -- ``pytest`` exits 4 with ``ERROR: not found``, so the lane fails for
+    a reason that looks like a broken test rather than a broken reference, and
+    whatever that lane was asserting stops being asserted.
+
+    This is not hypothetical: `tier0-safety.yml` invoked
+    ``test_weapons_gate_adversarial_eval.py::test_real_classifier_fn_budget``
+    after that test had been renamed to ``test_meaning_level_fn_budget``, so the
+    served-model FN-budget assertion -- the one guarded by
+    ``MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1``, whose entire purpose is to fail
+    when meaning-level coverage is missing -- never executed at all.
+
+    Only the module and the final name are checked. That is enough to catch a
+    rename, and it needs no import of the test module (which would drag in the
+    engine and its native crypto gate).
+
+    Args:
+        path: The workflow file, for error attribution.
+        text: Its contents.
+
+    Returns:
+        One error per node id that does not resolve.
+    """
+    errors: list[str] = []
+    for match in _NODE_ID_RE.finditer(text):
+        module, name = match.groups()
+        target = REPO_ROOT / module
+        if not target.is_file():
+            errors.append(f"{path}: runs {module}::{name} but {module} does not exist")
+            continue
+        source = target.read_text(encoding="utf-8", errors="replace")
+        known = set(_TEST_DEF_RE.findall(source)) | set(_CLASS_DEF_RE.findall(source))
+        if name not in known:
+            errors.append(
+                f"{path}: runs {module}::{name}, which does not exist in that module "
+                "(pytest exits 4 on an unresolved node id, so the lane fails without "
+                "asserting anything)"
+            )
     return errors
 
 

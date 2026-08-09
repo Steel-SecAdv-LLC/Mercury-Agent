@@ -46,9 +46,12 @@ def test_oae_fused_score_byte_identical_to_canonical_formula() -> None:
     eq = OmniAvaEquation()
     r = eq.compute(0.8, 0.6, 0.4)
     w = eq.weights
-    weighted = w["w_R"] * 0.8 + w["w_H"] * 0.6 + w["w_O"] * 0.4
-    expected = weighted * (eq.ethical_compliance_threshold**eq.ethical_exponent)
+    expected = w["w_R"] * 0.8 + w["w_H"] * 0.6 + w["w_O"] * 0.4
     assert r.fusion_score == pytest.approx(expected, abs=1e-12)
+    # The eta**p multiplier was removed from the fused score (eta is advisory
+    # metadata only); guard against it silently returning.
+    old_multiplied_form = expected * (eq.ethical_compliance_threshold**eq.ethical_exponent)
+    assert abs(r.fusion_score - old_multiplied_form) > 1e-6
 
 
 def test_oae_fused_score_is_deterministic() -> None:

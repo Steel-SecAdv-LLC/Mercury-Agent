@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 #: Dict key under which a caller declares a genuine affective modality: an
 #: emotion-probability time series of shape ``(time, 6)`` (one sample) or
 #: ``(batch, time, 6)``, ordered per
-#: :attr:`~omni_mercury_engine.core.enhanced_model_domains.EnhancedAffectiveModel.emotion_labels`
+#: :attr:`~omni_mercury_engine.core.model_domains.AffectiveStateModel.emotion_labels`
 #: — ``["neutral", "happy", "sad", "angry", "fearful", "surprised"]``.
 AFFECTIVE_EMOTIONS_KEY = "emotions"
 
@@ -29,9 +29,9 @@ class AffectiveAnomalyModel:
     * **Declared affective input** — a dict carrying an emotion-probability
       time series under :data:`AFFECTIVE_EMOTIONS_KEY` — is analysed with the
       deterministic in-repo affective pipeline
-      (:class:`~omni_mercury_engine.core.enhanced_model_domains.EnhancedAffectiveModel`):
+      (:class:`~omni_mercury_engine.core.model_domains.AffectiveStateModel`):
       per-sample temporal emotion aggregation, entropy/negative-affect
-      distress scoring (:meth:`~..EnhancedAffectiveModel.detect_distress`),
+      distress scoring (:meth:`~..AffectiveStateModel.detect_distress`),
       and a distress-driven anomaly score. Nothing is learned or fabricated;
       the pipeline is a documented deterministic heuristic over genuinely
       declared emotion distributions, and malformed declared input fails
@@ -162,9 +162,9 @@ class AffectiveAnomalyModel:
         # Deterministic declared-modality path: normalise each timestep to a
         # probability distribution, aggregate temporally, and score distress
         # with the documented entropy/negative-affect heuristic.
-        from omni_mercury_engine.core.enhanced_model_domains import EnhancedAffectiveModel
+        from omni_mercury_engine.core.model_domains import AffectiveStateModel
 
-        analyzer = EnhancedAffectiveModel(n_emotions=6)
+        analyzer = AffectiveStateModel(n_emotions=6)
         batch = emotions.shape[0]
         emotion_scores = np.zeros((batch, 6), dtype=np.float32)
         distress_levels = np.zeros(batch, dtype=np.float32)

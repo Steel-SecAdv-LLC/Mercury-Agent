@@ -268,7 +268,7 @@ class TestNeurosymbolicFusionEngine:
 
     def test_evaluate_action_allowed(self) -> None:
         """Test evaluating allowed action."""
-        engine = NeurosymbolicFusionEngine(benevolence_threshold=0.9)
+        engine = NeurosymbolicFusionEngine(benevolence_review_threshold=0.9)
 
         allowed, decision = engine.evaluate_action(
             action="safe_action",
@@ -280,7 +280,7 @@ class TestNeurosymbolicFusionEngine:
 
     def test_evaluate_action_blocked(self) -> None:
         """Test evaluating blocked action."""
-        engine = NeurosymbolicFusionEngine(benevolence_threshold=0.99)
+        engine = NeurosymbolicFusionEngine(benevolence_review_threshold=0.99)
 
         allowed, decision = engine.evaluate_action(
             action="risky_action",
@@ -349,7 +349,7 @@ class TestIntegration:
             embedding_dim=32,
             n_clusters=4,
             confidence_threshold=0.7,
-            benevolence_threshold=0.99,
+            benevolence_review_threshold=0.99,
         )
 
         training_data = [
@@ -387,7 +387,7 @@ class TestIntegration:
 
     def test_ethical_blocking(self) -> None:
         """Test that ethical violations are properly blocked."""
-        engine = NeurosymbolicFusionEngine(benevolence_threshold=0.99)
+        engine = NeurosymbolicFusionEngine(benevolence_review_threshold=0.99)
 
         allowed, decision = engine.evaluate_action(
             action="harmful_action",

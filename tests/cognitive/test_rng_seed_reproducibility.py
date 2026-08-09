@@ -130,8 +130,8 @@ def test_uncertainty_quantifier_seed_reproducible() -> None:
     assert a._rng.standard_normal(16).tolist() == b._rng.standard_normal(16).tolist()
 
 
-def test_anomaly_detection_enhanced_hmm_default_seed_42() -> None:
-    from omni_mercury_engine.cognitive.anomaly_detection_enhanced import HiddenMarkovPredictor
+def test_anomaly_detection_hmm_default_seed_42() -> None:
+    from omni_mercury_engine.cognitive.anomaly_detection import HiddenMarkovPredictor
 
     a = HiddenMarkovPredictor(n_states=4)
     b = HiddenMarkovPredictor(n_states=4)
@@ -139,7 +139,7 @@ def test_anomaly_detection_enhanced_hmm_default_seed_42() -> None:
 
 
 def test_anomaly_detection_simulated_sources_seed_reproducible() -> None:
-    from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+    from omni_mercury_engine.cognitive.anomaly_detection import (
         SimulatedEnvironmentalSource,
         SimulatedGeologicalSource,
     )
@@ -208,14 +208,14 @@ def test_quantum_state_measure_no_global_state() -> None:
     assert snap_before == snap_after
 
 
-def test_biometric_advanced_engine_seed_reproducible() -> None:
-    from omni_mercury_engine.models.biometric_advanced import (
-        AdvancedBiometricEngine,
+def test_biometric_multimodal_engine_seed_reproducible() -> None:
+    from omni_mercury_engine.models.biometric_multimodal import (
         AgeProgressionEngine,
+        MultimodalBiometricEngine,
     )
 
-    a = AdvancedBiometricEngine(seed=14)
-    b = AdvancedBiometricEngine(seed=14)
+    a = MultimodalBiometricEngine(seed=14)
+    b = MultimodalBiometricEngine(seed=14)
     assert a._rng.standard_normal(8).tolist() == b._rng.standard_normal(8).tolist()
 
     c = AgeProgressionEngine(seed=14)

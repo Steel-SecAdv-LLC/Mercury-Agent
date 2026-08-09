@@ -276,6 +276,19 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     return status, raw.decode(charset, errors="replace"), final_url
 
 
+#: Upper bound on the text handed to the harm screen per fetched page. The gate
+#: runs several O(n) normalization passes plus per-run word-boundary recovery, so
+#: an attacker-fetched page filled to :data:`_DEFAULT_MAX_BYTES` (2 MB) with
+#: per-character-spaced filler is a ~2 s CPU sink on the screen itself. A fetched
+#: page is untrusted input, so the screen scans a bounded prefix -- the gate's
+#: own decision-boundary surfaces already bound their subject to 4096 chars for
+#: the same reason. 256 KiB covers the substantive text of virtually every real
+#: page while capping the worst case to a few hundred ms; genuine weapons-cookbook
+#: content is dense and does not hide only past a quarter-megabyte of benign
+#: padding.
+_HARM_SCREEN_MAX_CHARS = 262_144
+
+
 def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple[bool, str]:
     """Default post-retrieval harm screen: the two-axis weapons/mass-casualty gate.
 
@@ -287,11 +300,18 @@ def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple
     layer through to the gate. The ethics import is lazy so :mod:`web_research`
     stays importable without the cognitive layer; any failure fails closed to
     *blocked*.
+
+    The text is bounded to :data:`_HARM_SCREEN_MAX_CHARS` before scoring: a
+    fetched page is untrusted and can be up to :data:`_DEFAULT_MAX_BYTES`, and the
+    gate's normalization is linear in its input, so an unbounded screen is a
+    self-inflicted CPU DoS on a crafted page.
     """
     try:
         from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
 
-        verdict = assess_weapons_uplift(text, harm_classifier=harm_classifier)
+        verdict = assess_weapons_uplift(
+            text[:_HARM_SCREEN_MAX_CHARS], harm_classifier=harm_classifier
+        )
         if verdict.blocks:
             return True, (
                 f"weapons/mass-casualty content gate: {verdict.disposition.value} "

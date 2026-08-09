@@ -9,11 +9,15 @@ with ethical constraints and domain-specific task planning.
 Key Components:
 - MercuryAgent: Main orchestrator with planning, execution, reasoning, learning
 - MercuryPlanner: Goal decomposition and task orchestration
-- MercuryReasoner: Chain-of-thought reasoning with correlation graph building
+- MercuryReasoner: templated Thought->Action->Observation tool loop with
+  correlation-graph building. It runs ReAct's *control flow*; the thoughts are
+  fixed templates and the action choice is positional, so it does not reason.
+  Use ``omni_mercury_engine.reasoning`` for actual natural-language reasoning.
 - AgentMemory: Short-term, long-term, episodic, semantic memory systems
 
 References:
-    - ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
+    - ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting" --
+      the loop structure MercuryReasoner borrows, not a claim to implement it
     - Memory systems: Tulving (1972) episodic/semantic distinction
 """
 
@@ -320,9 +324,27 @@ class AgentMemory:
 
 
 class MercuryReasoner:
-    """Chain-of-thought reasoning engine with correlation graph building.
+    """Templated Thought→Action→Observation loop with correlation-graph building.
 
-    Implements ReAct-style reasoning: Thought → Action → Observation loop.
+    **Not ReAct, and not chain-of-thought.** This class runs the *control flow*
+    of a ReAct loop — iterate, emit a thought, pick an action, record an
+    observation, feed it forward — but the thought is a fixed f-string
+    (:meth:`_generate_thought` produces ``"Analyzing query: ..."`` /
+    ``"Based on observation '...', considering next step"``) and the action is
+    ``next(iter(tools))``, i.e. whichever tool happens to be first in the dict.
+    Nothing here reasons: no model is consulted, no plan is formed, and the
+    "chain" would read the same for any query.
+
+    It is genuinely useful as what it is: a deterministic, auditable tool-loop
+    driver that produces a structured trace and a correlation graph over the
+    observations. That trace is real. The reasoning is not, and calling it
+    ReAct or chain-of-thought invites a reader to believe a capability that
+    would have to be implemented to exist.
+
+    For actual natural-language reasoning Mercury calls out to
+    :mod:`omni_mercury_engine.reasoning` (an operator-supplied, gated,
+    provenance-stamped backend). ``CAPABILITY_MATRIX.md`` carries this row with
+    status ``advisory``.
     """
 
     def __init__(self, max_steps: int = 15) -> None:
@@ -338,7 +360,12 @@ class MercuryReasoner:
         context: dict[str, Any],
         tools: dict[str, Callable[..., Any]] | None = None,
     ) -> dict[str, Any]:
-        """Perform chain-of-thought reasoning on a query.
+        """Run the templated tool loop over a query and return its trace.
+
+        Emits a structured Thought→Action→Observation chain. The thoughts are
+        templates and the action choice is the first registered tool -- see the
+        class docstring. The trace and the correlation graph are real outputs;
+        the "reasoning" is control flow, not inference.
 
         Args:
             query: The query to reason about
@@ -378,7 +405,12 @@ class MercuryReasoner:
         return self._conclude("Max reasoning steps reached")
 
     def _generate_thought(self, query: str, context: dict[str, Any], step_num: int) -> str:
-        """Generate a thought based on query and context."""
+        """Return the step's template string.
+
+        Deliberately fixed text: this is the loop's narration, not a model's
+        output. It is named ``_generate_thought`` to match the ReAct control
+        flow it drives, and it generates nothing.
+        """
         if step_num == 0:
             return f"Analyzing query: {query}"
 
@@ -391,7 +423,12 @@ class MercuryReasoner:
     def _decide_action(
         self, thought: str, tools: dict[str, Callable[..., Any]]
     ) -> tuple[str, str | None]:
-        """Decide what action to take based on thought."""
+        """Pick the next action.
+
+        Selection is positional -- the first registered tool -- not a decision.
+        A real ReAct policy would choose a tool from the thought; this returns
+        ``next(iter(tools))``.
+        """
         if "conclude" in thought.lower() or "final" in thought.lower():
             return "conclude", None
 
@@ -1100,28 +1137,37 @@ class MercuryAgent:
     def _enforce_task_ethics(self, task: Task) -> None:
         """Fail-closed ethical gate on a task before any tool side-effect.
 
-        Mirrors the OODA reference (`cognitive/autonomous_agent.py`), which
-        scores the decision and refuses to act below its ethical threshold.
-        Here the *task itself* is scored (its description rides into the
-        action text alongside the agent's defensive-purpose keywords), so a
-        harmful goal that propagated into a task description fails closed —
-        the violation propagates as :class:`EthicalConstraintViolationError`
-        and halts the plan rather than being recorded as a benign result.
-        Domain hints are collapsed by ``sanitize_domain`` first.
+        The *task itself* is what gets gated — its real description and
+        payload, through the same fail-closed harm-uplift choke point every
+        other public decision surface uses. A harmful goal that propagated into
+        a task description therefore fails closed: the violation propagates as
+        :class:`EthicalConstraintViolationError` and halts the plan rather than
+        being recorded as a benign result. Domain hints are collapsed by
+        ``sanitize_domain`` first, so a hostile hint carries no evidence.
+
+        The task description used to be concatenated with a block of the
+        agent's own defensive-purpose keywords (``audit verify protect
+        research ...``) before scoring. Under a pass-on-positive-vocabulary
+        control that padding is what made the check pass; it is gone.
         """
-        safe_domain = sanitize_domain(getattr(task.domain, "value", str(task.domain)))
-        action = (
-            f"agentic_task:{safe_domain}:{task.description} audit verify protect "
-            "research evidence fair oversight monitor data care help support"
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
         )
-        context = {
-            "purpose": "autonomous anomaly-analysis task execution",
-            "safety": "protect verify monitor evidence",
-            "domain": safe_domain,
-        }
-        # ``enforce`` raises EthicalConstraintViolationError on violation; it is
-        # intentionally NOT wrapped in the execution try/except below.
-        self._benevolence_scorer.enforce(action, context)
+
+        safe_domain = sanitize_domain(getattr(task.domain, "value", str(task.domain)))
+        # Raises EthicalConstraintViolationError on violation; intentionally NOT
+        # wrapped in the execution try/except below.
+        enforce_decision_boundary(
+            DecisionSubject(
+                surface="MercuryAgent._execute_task",
+                operation="execute one planned agentic task via a bound tool",
+                domain=safe_domain,
+                request=task.description,
+                payload=getattr(task, "metadata", None),
+            ),
+            advisory_scorer=self._benevolence_scorer,
+        )
 
     def _execute_task(self, task: Task, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a single task by dispatching to a bound tool.

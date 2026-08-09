@@ -661,6 +661,7 @@ class MercuryCrypto:
         self,
         content: bytes,
         package: CryptoPackageResult,
+        expected_public_key: bytes | None = None,
     ) -> dict[str, bool]:
         """Verify a 6-layer AMA crypto package produced by :meth:`create_crypto_package`.
 
@@ -670,13 +671,47 @@ class MercuryCrypto:
         them. Delegates to AMA's ``verify_crypto_package`` against the
         ``ama_package`` carried on the result.
 
+        **Integrity is not authenticity.** Every key needed to check a package
+        travels *inside that package* — the signing public key, the HMAC key and
+        the HKDF master secret. Verifying a package against its own material
+        proves only that its parts agree with each other and were not corrupted;
+        it does not prove who produced it, because anyone can build a package
+        whose every layer verifies. This is the same distinction Mercury draws
+        for the σ_Immutable corpus (tamper-evident, not authenticated) — see
+        ``CAPABILITY_MATRIX.md`` §3.
+
+        To get authenticity, pass ``expected_public_key``: a signing public key
+        obtained **out of band** (pinned in config, fetched from a directory you
+        trust, or established at enrolment). AMA compares it in constant time
+        against the package's embedded signing key; on mismatch the signature is
+        not evaluated and ``primary_signature`` is False.
+
+        .. versionchanged:: AMA 4.0
+           ``all_valid`` is False unless ``expected_public_key`` was supplied and
+           matched. Under the pinned AMA 3.x an *unanchored* call returned
+           ``all_valid`` True, which reported success for a check that could not
+           tell the expected signer from an attacker who had built their own
+           package. Callers that want the old meaning — "these parts agree with
+           each other" — must read ``core_valid``, which still covers Layers 1-4.
+           AMA provides no flag to restore the old aggregate, and Mercury does
+           not add one: that would reintroduce the same silent default under a
+           different name.
+
         Args:
             content: The original signed content.
             package: A :class:`CryptoPackageResult` from
                 :meth:`create_crypto_package` with ``use_six_layer=True``.
+            expected_public_key: Out-of-band signing public key to pin. When
+                ``None`` (default) no authenticity claim is made: ``key_pinned``
+                and ``all_valid`` are both False even for a wholly intact
+                package, and ``core_valid`` is the meaningful result.
 
         Returns:
-            Per-layer booleans plus ``all_valid`` (True iff every layer passed).
+            Per-layer booleans plus two aggregates:
+
+            * ``core_valid`` — Layers 1-4 passed (integrity / self-consistency).
+            * ``all_valid`` — every executed check passed **and** the signing key
+              was pinned. Requires ``expected_public_key``.
 
         Raises:
             ValueError: If ``package`` carries no AMA six-layer payload to verify
@@ -689,7 +724,9 @@ class MercuryCrypto:
                 "(create with CryptoPackageConfig(use_six_layer=True)); "
                 "this result carries no AMA package to verify."
             )
-        result: dict[str, bool] = _ama_verify_crypto_package(content, ama_package)
+        result: dict[str, bool] = _ama_verify_crypto_package(
+            content, ama_package, expected_public_key
+        )
         return result
 
     def get_capabilities(self) -> dict[str, Any]:

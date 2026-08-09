@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -266,3 +266,57 @@ class TestAggregateFailClosed:
         verdict = tracker.record_and_assess("any query")
         assert verdict.disposition is WeaponsDisposition.HARD_REFUSE
         assert verdict.blocks
+
+
+class TestContentGateBounded:
+    """The post-retrieval harm screen bounds a fetched page before scoring.
+
+    A fetched page is untrusted and can be up to ``_DEFAULT_MAX_BYTES`` (2 MB);
+    the gate's normalization is linear in its input, so an unbounded screen is a
+    self-inflicted CPU DoS on a crafted page. The screen scans a bounded prefix.
+    """
+
+    def test_large_crafted_page_is_bounded_not_scored_whole(self) -> None:
+        from omni_mercury_engine.agentic.capabilities import web_research as wr
+
+        # A page far larger than the screen window, filled with the segmenter's
+        # worst-case per-character-spaced filler. The gate must score only the
+        # bounded prefix, not the whole 2 MB.
+        page = ("a b QQ " * (wr._DEFAULT_MAX_BYTES // 7))[: wr._DEFAULT_MAX_BYTES]
+        assert len(page) > wr._HARM_SCREEN_MAX_CHARS
+        called_with: dict[str, int] = {}
+        real = wr.default_content_gate
+
+        import omni_mercury_engine.cognitive.ethical_bounding as eb
+
+        orig = eb.assess_weapons_uplift
+
+        def _spy(text: str, *a: Any, **k: Any) -> WeaponsRiskAssessment:
+            called_with["len"] = len(text)
+            return orig(text, *a, **k)
+
+        eb.assess_weapons_uplift = _spy
+        try:
+            real(page)
+        finally:
+            eb.assess_weapons_uplift = orig
+        assert (
+            called_with["len"] == wr._HARM_SCREEN_MAX_CHARS
+        ), "content gate scored the whole page instead of the bounded screen"
+
+    def test_harmful_content_within_window_still_blocks(self) -> None:
+        from omni_mercury_engine.agentic.capabilities.web_research import default_content_gate
+
+        harmful = (
+            "detailed end-to-end procedure to synthesize sarin nerve agent "
+            "and weaponize it for mass casualties. "
+        ) * 20
+        blocked, _note = default_content_gate(harmful)
+        assert blocked, "harmful content inside the screen window must block"
+
+    def test_benign_page_is_not_blocked(self) -> None:
+        from omni_mercury_engine.agentic.capabilities.web_research import default_content_gate
+
+        benign = "the quick brown fox reads about earthquakes and weather forecasting. " * 500
+        blocked, _note = default_content_gate(benign)
+        assert not blocked

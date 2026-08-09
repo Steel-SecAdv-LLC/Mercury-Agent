@@ -226,7 +226,7 @@ Rust sources under `rust_crypto/src/` carry the same canonical pair, expressed w
 ### General Principles
 
 1. **Security First:** Never compromise security for convenience or performance
-2. **Ethical Alignment:** Maintain survivor-first principles and bias auditing
+2. **Ethical Alignment:** Maintain the civilization-first mission and bias auditing
 3. **Code Quality:** Follow PEP 8 and maintain type hints throughout
 4. **Documentation:** Every change must be documented
 5. **Cyclomatic Complexity**: Keep complexity <10 per function

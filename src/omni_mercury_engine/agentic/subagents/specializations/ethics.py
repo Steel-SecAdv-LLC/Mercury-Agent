@@ -244,7 +244,10 @@ class AIEthicsEnforcer:
                     severity="HIGH",
                     description="System may negatively impact user well-being",
                     ai_system=system_id,
-                    remediation="Implement trauma-informed design, survivor-first UX",
+                    remediation=(
+                        "Implement trauma-informed design; put the people most "
+                        "affected first in the UX"
+                    ),
                 )
             )
 
@@ -471,7 +474,7 @@ class AIEthicsEnforcer:
         )
 
     def _check_wellbeing(self, context: dict[str, Any]) -> bool:
-        """Check well-being considerations (trauma-informed, survivor-first)."""
+        """Check well-being considerations (trauma-informed, most-affected-first)."""
         return bool(
             context.get("trauma_informed_design", False) and context.get("survivor_first_ux", False)
         )
@@ -709,8 +712,7 @@ class EthicsEnforcementSubAgent(SubAgent):
         level = _RISK_LEVEL_BY_NAME.get(key)
         if level is None:
             raise SubAgentExecutionError(
-                f"unrecognized risk_category {raw!r}; expected one of "
-                f"{sorted(_RISK_LEVEL_BY_NAME)}"
+                f"unrecognized risk_category {raw!r}; expected one of {sorted(_RISK_LEVEL_BY_NAME)}"
             )
         return level
 
@@ -907,8 +909,7 @@ class EthicsEnforcementSubAgent(SubAgent):
             "no fairness data"
             if bias is None
             else (
-                f"fairness {'OK' if bias.passed else 'FAIL'} "
-                f"({bias.metric.value} {bias.score:.3f})"
+                f"fairness {'OK' if bias.passed else 'FAIL'} ({bias.metric.value} {bias.score:.3f})"
             )
         )
         return (

@@ -18,6 +18,7 @@ calculator directly rather than through the engine.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from hypothesis import (
     HealthCheck,
     assume,
@@ -28,6 +29,7 @@ from hypothesis import (
 from hypothesis.extra import numpy as hnp
 
 from omni_mercury_engine.core.score_calibration import (
+    ScoreDiagnostics,
     ThresholdConfidenceInterval,
     ThresholdConfidenceIntervalCalculator,
 )
@@ -151,4 +153,112 @@ def test_compute_bca_is_always_finite_and_ordered(data: np.ndarray) -> None:
     ci = calc.compute_bca(data)
 
     assert np.isfinite([ci.lower, ci.threshold, ci.upper]).all()
+    assert ci.lower <= ci.threshold <= ci.upper
+
+
+# =============================================================================
+# Degenerate-resample regression: a descriptive statistic must not raise
+# =============================================================================
+@pytest.mark.parametrize(
+    ("name", "scores"),
+    [
+        ("all identical", np.zeros(40)),
+        ("subnormal span", np.concatenate([np.zeros(39), np.array([5e-324])])),
+        ("tiny span", np.concatenate([np.zeros(39), np.array([1e-320])])),
+        ("contains nan", np.concatenate([np.zeros(39), np.array([np.nan])])),
+        ("contains inf", np.concatenate([np.zeros(39), np.array([np.inf])])),
+    ],
+)
+def test_bimodality_on_a_degenerate_sample_answers_instead_of_raising(
+    name: str, scores: np.ndarray
+) -> None:
+    """``np.histogram(scores, bins=50)`` raised on spans it cannot bin.
+
+    Found by the property test above: ``compute_bca`` draws bootstrap
+    resamples, and a resample of a well-spread parent can still come back
+    all-but-constant. ``ValueError: Too many bins for data range`` then
+    propagated out of ``_detect_bimodality`` and killed the whole confidence
+    interval — a crash originating in a *diagnostic*. A sample with no spread
+    has no two peaks, which is an answer, not an error.
+    """
+    assert ScoreDiagnostics._detect_bimodality(scores) is False, name
+
+
+def test_bimodality_still_detects_two_real_peaks() -> None:
+    """The other direction: the degenerate guard must not blind the heuristic."""
+    rng = np.random.default_rng(0)
+    two_peaks = np.concatenate([rng.normal(0.0, 0.1, 60), rng.normal(5.0, 0.1, 60)])
+    assert ScoreDiagnostics._detect_bimodality(two_peaks) is True
+
+
+def test_compute_bca_survives_a_near_constant_sample() -> None:
+    """End-to-end: the interval computes rather than raising."""
+    scores = np.concatenate([np.zeros(39), np.array([1e-9])])
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=80, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(scores)
+
+    assert np.isfinite([ci.lower, ci.threshold, ci.upper]).all()
+    assert ci.lower <= ci.threshold <= ci.upper
+
+
+def test_bca_interval_always_contains_its_own_point_estimate() -> None:
+    """A CI that excludes its point estimate is not a confidence interval.
+
+    Found by the property test above once the degenerate-sample crash stopped
+    masking it. The percentile bounds are order statistics of the bootstrap
+    distribution while the estimate is computed on the full sample, and
+    ``AutoThresholdOptimizer`` is discontinuous -- so on low-cardinality scores
+    the full sample can land on an optimum no resample reproduces. Measured on
+    this exact input before the fix: ``threshold=1.0`` with
+    ``CI [0.96975, 0.97299]``.
+    """
+    data = np.array(
+        [
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0,
+        ]
+    )
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=80, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(data)
+
+    assert ci.lower <= ci.threshold <= ci.upper
+    # The widening is disclosed rather than silently applied.
+    assert ci.method == "bootstrap_bca_widened"
+
+
+def test_a_clean_fit_is_not_labelled_as_widened() -> None:
+    """The disclosure must be specific, or it means nothing."""
+    calc = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=200, confidence_level=0.95, random_state=0
+    )
+
+    ci = calc.compute_bca(_skewed_scores(400, seed=3))
+
+    assert ci.method == "bootstrap_bca"
     assert ci.lower <= ci.threshold <= ci.upper

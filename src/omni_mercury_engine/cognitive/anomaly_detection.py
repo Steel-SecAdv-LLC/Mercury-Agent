@@ -39,6 +39,8 @@ except ImportError:
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
+
 try:
     import networkx as nx
 
@@ -650,6 +652,11 @@ class USGSEarthquakeSource(ExternalDataSource):
             days_back: Number of days to look back for earthquakes (default 7)
             timeout_seconds: HTTP request timeout in seconds (default 30)
         """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "httpx is required for USGSEarthquakeSource. "
+                "Install with: pip install 'mercury-agent[api]'"
+            )
         self.source_name = "usgs_earthquake"
         self.min_magnitude = min_magnitude
         self.max_results = max_results
@@ -778,6 +785,11 @@ class NOAAWeatherSource(ExternalDataSource):
             zone: Specific NWS zone ID (e.g., "CAZ006")
             timeout_seconds: HTTP request timeout in seconds (default 30)
         """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "httpx is required for NOAAWeatherSource. "
+                "Install with: pip install 'mercury-agent[api]'"
+            )
         self.source_name = "noaa_weather"
         self.state = state
         self.zone = zone
@@ -1007,16 +1019,27 @@ class ExternalDataIntegrator:
 class ValueExtractor:
     """Extract value/opportunities from detected anomalies.
 
-    Identifies benevolent intervention opportunities while filtering through ethical constraints.
+    Identifies intervention opportunities — an early warning, a discovery, an
+    insight worth acting on. It is a *reporting* surface, not a control.
+
+    It used to drop any opportunity whose ``ethical_score`` fell below ``0.99``,
+    which was the deleted benevolence pass-bar under another name and failed in
+    the same direction: Mercury's own mission text scores ~0.6 on that scalar,
+    so real humanitarian early warnings were discarded silently while any
+    positively-phrased input passed. The enforced control is the harm-uplift
+    gate at the decision boundary (``cognitive/decision_gate.py``); this class
+    now annotates rather than filters.
     """
 
-    def __init__(self, benevolence_threshold: float = 0.99) -> None:
+    def __init__(self, benevolence_advisory_threshold: float = MINIMUM_BENEVOLENCE_FLOOR) -> None:
         """Initialize value extractor.
 
         Args:
-            benevolence_threshold: Minimum benevolence score for actions
+            benevolence_advisory_threshold: Advisory. Sets the
+                :attr:`ValueExtraction.is_benevolent` annotation on the emitted
+                record. It drops nothing and refuses nothing.
         """
-        self.benevolence_threshold = benevolence_threshold
+        self.benevolence_advisory_threshold = benevolence_advisory_threshold
         self._extraction_counter = 0
 
     def extract(
@@ -1024,19 +1047,19 @@ class ValueExtractor:
         anomaly: dict[str, Any],
         ethical_score: float,
     ) -> ValueExtraction | None:
-        """Extract value from an anomaly if ethically appropriate.
+        """Extract the value opportunity an anomaly represents.
 
         Args:
-            anomaly: Anomaly data
-            ethical_score: Ethical evaluation score
+            anomaly: Anomaly data.
+            ethical_score: Advisory benevolence score, recorded on the result
+                and used only to set ``is_benevolent``.
 
         Returns:
-            ValueExtraction if opportunity found, None otherwise
+            ValueExtraction when the anomaly carries enough estimated benefit to
+            be worth reporting; ``None`` only when it does not. A low
+            ``ethical_score`` annotates the record — it never suppresses it.
         """
-        is_benevolent = ethical_score >= self.benevolence_threshold
-
-        if not is_benevolent:
-            return None
+        is_benevolent = ethical_score >= self.benevolence_advisory_threshold
 
         value_type = self._determine_value_type(anomaly)
         potential_benefit = self._estimate_benefit(anomaly, value_type)
@@ -1110,7 +1133,7 @@ class ValueExtractor:
         )
 
 
-class EnhancedAnomalyDetector:
+class IntegratedAnomalyDetector:
     """Enhanced Anomaly Detector with memory graph and external integration.
 
     Main interface for Phase 4 capabilities combining internal memory-driven patterns with external
@@ -1123,34 +1146,39 @@ class EnhancedAnomalyDetector:
 
     def __init__(
         self,
-        benevolence_threshold: float = 0.99,
+        benevolence_advisory_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
         hmm_states: int = 3,
         use_simulated_sources: bool = True,
     ):
         """Initialize enhanced anomaly detector.
 
         Args:
-            benevolence_threshold: Minimum benevolence score
+            benevolence_advisory_threshold: Advisory only — forwarded to
+                :class:`ValueExtractor`, where it annotates emitted records and
+                filters nothing. It is not a pass-bar; the enforced control is
+                the harm-uplift gate at the decision boundary.
             hmm_states: Number of HMM states
             use_simulated_sources: If True, register simulated data sources for
                 development/testing. Set to False in production and register
                 real data sources using register_external_source().
         """
-        self.benevolence_threshold = benevolence_threshold
+        self.benevolence_advisory_threshold = benevolence_advisory_threshold
         self.use_simulated_sources = use_simulated_sources
 
         self.memory_graph = MemoryKnowledgeGraph()
         self.bayesian_predictor = BayesianPredictor()
         self.hmm_predictor = HiddenMarkovPredictor(n_states=hmm_states)
         self.external_integrator = ExternalDataIntegrator()
-        self.value_extractor = ValueExtractor(benevolence_threshold=benevolence_threshold)
+        self.value_extractor = ValueExtractor(
+            benevolence_advisory_threshold=benevolence_advisory_threshold
+        )
 
         if use_simulated_sources:
             self._register_simulated_sources()
         self._prediction_counter = 0
 
         mode = "simulated" if use_simulated_sources else "production"
-        logger.info(f"EnhancedAnomalyDetector initialized in {mode} mode")
+        logger.info(f"IntegratedAnomalyDetector initialized in {mode} mode")
 
     def _register_simulated_sources(self) -> None:
         """Register simulated data sources for development/testing.

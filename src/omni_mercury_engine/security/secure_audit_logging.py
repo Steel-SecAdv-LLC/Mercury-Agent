@@ -232,11 +232,25 @@ class PIIMasker:
         return data
 
     def _mask_string(self, text: str) -> str:
-        """Mask PII patterns in string."""
+        """Mask PII patterns in string.
+
+        On top of the heuristic patterns (which require prefix markers and
+        a 20-character floor), the canonical redaction primitives run so a
+        credentialed URL in an audit detail is caught STRUCTURALLY — any
+        length, no prefix marker needed — and any configured env-held
+        credential is caught by value (the only defence for path-segment
+        keys like FIRMS).
+        """
+        # Lazy import — the codebase-wide pattern; redaction is stdlib-only.
+        from omni_mercury_engine.security.redaction import (
+            redact_env_secrets,
+            redact_text,
+        )
+
         result = text
         for _, (pattern, replacement) in self._compiled.items():
             result = pattern.sub(replacement, result)
-        return result
+        return redact_env_secrets(redact_text(result))
 
 
 class SecureHashChain:

@@ -5,9 +5,14 @@
 CVE-2026-6357 lets a malicious wheel hijack the install process on pip
 versions earlier than 26.1.  We mitigate it project-wide by:
 
-1. Pinning ``pip>=26.1`` in every CI workflow, every Dockerfile, and
-   every devcontainer / dev-tooling script that installs from PyPI.
-2. Failing the ``Workflow Hardening`` CI job if any workflow YAML adds
+1. Pinning ``pip>=26.1`` in every CI workflow, in the Dockerfile stage
+   that performs installs (the builder), and in every devcontainer /
+   dev-tooling script that installs from PyPI.
+2. Shipping the runtime container image with NO pip at all — both the
+   venv's and the base image's copies are removed once the last install
+   has run, which closes this CVE (and pip's vendored-dependency SBOM
+   findings) by elimination rather than by upgrade.
+3. Failing the ``Workflow Hardening`` CI job if any workflow YAML adds
    a ``pip install`` step that is not preceded by ``pip install
    --upgrade "pip>=26.1"`` earlier in the same job.
 
@@ -96,43 +101,56 @@ class TestWorkflowInventory:
             f"Offenders: {offenders}"
         )
 
-    def test_dockerfile_pins_pip(self) -> None:
+    def test_dockerfile_pins_pip_where_installs_happen(self) -> None:
         text = DOCKERFILE.read_text(encoding="utf-8")
-        # Both build stages (builder + runtime) must pin pip.
+        # The builder is the only stage that installs from PyPI, and it must
+        # floor pip before doing so.  The runtime stage installs nothing and
+        # ships no pip (see the elimination test below), so a runtime-stage
+        # floor would be vacuous rather than protective.
         upgrade_matches = LOCAL_PIP_UPGRADE_RE.findall(text)
-        assert len(upgrade_matches) >= 2, (
-            "Dockerfile must pin ``pip>=26.1`` in both the builder and "
-            f"runtime stages (CVE-2026-6357).  Found {len(upgrade_matches)} "
+        assert len(upgrade_matches) >= 1, (
+            "Dockerfile must pin ``pip>=26.1`` in the builder stage before "
+            f"any install (CVE-2026-6357).  Found {len(upgrade_matches)} "
             "matching upgrade lines."
         )
 
-    def test_dockerfile_removes_stale_system_pip_metadata(self) -> None:
-        """Runtime image must not retain the base image's vulnerable pip metadata.
+    def test_dockerfile_eliminates_pip_from_runtime_image(self) -> None:
+        """The shipped image must carry no pip at all — either copy.
 
-        The hardening upgrades the *system* interpreter's pip in place — which
-        replaces the base image's stale ``pip-*.dist-info`` with the patched
-        version's — drops the bundled ``ensurepip`` wheels that could re-seed a
-        pre-floor pip, and asserts that **both** the system and the venv
-        interpreters resolve ``pip>=26.1``.  The stdlib path is derived from
-        ``sysconfig`` rather than a hardcoded ``/usr/local/lib/python3.NN``
-        directory, so a base-image Python bump (e.g. 3.13 -> 3.14) cannot
-        silently turn the cleanup into a vacuously-passing no-op that ships the
-        vulnerable bundled pip.  (The blocking Trivy image scan in ``ci.yml`` is
-        the empirical backstop; this test pins the source-level mechanism.)
+        CVE-2026-6357 (and the wider pip CVE family) requires an installer to
+        exist; the runtime container never installs packages, so both pip
+        copies are removed once the last build-time install has run: the
+        venv's in the builder stage (before ``COPY --from=builder`` so no
+        runtime layer ever carries it) and the base image's under
+        ``/usr/local`` in the runtime stage.  Removal also drops pip 26.x's
+        PEP 770 vendored-dependency SBOM (``pip/_vendor/bom.cdx.json``),
+        which records pip's vendored msgpack 1.1.2 / setuptools 70.3.0 and
+        which the blocking Trivy gate otherwise reports as two HIGH findings
+        with no fixed pip release available.  The bundled ``ensurepip``
+        wheels are dropped so ``python -m ensurepip`` cannot re-seed an
+        installer, with the stdlib path derived from ``sysconfig`` rather
+        than a hardcoded ``/usr/local/lib/python3.NN`` directory so a
+        base-image Python bump cannot turn the cleanup into a vacuous no-op.
+        (The blocking Trivy image scan in ``ci.yml`` is the empirical
+        backstop; this test pins the source-level mechanism.)
         """
         text = DOCKERFILE.read_text(encoding="utf-8")
-        # System pip upgraded in place — replaces the stale base-image dist-info.
-        assert "/usr/local/bin/python -m pip install --upgrade" in text
+        # Both pip copies removed — venv (builder stage) and system (runtime).
+        assert "/opt/venv/bin/python -m pip uninstall -y pip" in text
+        assert "/usr/local/bin/python -m pip uninstall -y pip" in text
         # Bundled ensurepip wheels (the re-seed vector) removed AND removal verified.
         assert 'rm -rf "${SYS_STDLIB}/ensurepip/_bundled"' in text
         assert 'test ! -d "${SYS_STDLIB}/ensurepip/_bundled"' in text
         # Path derived from sysconfig, not a hardcoded python3.NN directory, so a
         # base-image Python bump cannot turn the cleanup into a no-op.
         assert 'sysconfig.get_path("stdlib")' in text
-        # The actual security guarantee: BOTH the system and venv interpreters
-        # are asserted to resolve a patched pip (>=26.1) — two independent checks.
-        assert "/opt/venv/bin/python -c" in text
-        assert text.count(">= (26, 1)") >= 2
+        # Absence is PROVED, not assumed: negative-import probes for both
+        # interpreters, plus on-disk probes for the two traces Trivy reads
+        # (the dist-info metadata and the vendored-dependency SBOM).
+        assert text.count('! /opt/venv/bin/python -c "import pip"') >= 1
+        assert text.count('! /usr/local/bin/python -c "import pip"') >= 1
+        assert "bom.cdx.json" in text
+        assert "pip-*.dist-info" in text
 
     def test_dockerfile_prunes_unused_dataset_fetchers(self) -> None:
         """Runtime image must not ship unused network dataset fetchers."""

@@ -17,9 +17,9 @@ if TYPE_CHECKING:
         AstrophysicalAnomalyModel as AstrophysicalAnomalyModel,
     )
     from omni_mercury_engine.models.biometric import BiometricAnomalyModel as BiometricAnomalyModel
-    from omni_mercury_engine.models.biometric_advanced import (
-        AdvancedBiometricEngine as AdvancedBiometricEngine,
+    from omni_mercury_engine.models.biometric_multimodal import (
         AgeProgressionEngine as AgeProgressionEngine,
+        MultimodalBiometricEngine as MultimodalBiometricEngine,
         QuantumAgeVariant as QuantumAgeVariant,
     )
     from omni_mercury_engine.models.chemistry import (
@@ -66,7 +66,6 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
-    "AdvancedBiometricEngine",
     "AdversarialTrainer",
     "AffectiveAnomalyModel",
     "AgeProgressionEngine",
@@ -82,6 +81,7 @@ __all__ = [
     "MAATModel",
     "MAMLOptimizer",
     "MambaSSM",
+    "MultimodalBiometricEngine",
     "MultiverseOmniEngine",
     "NeuralCognitiveModel",
     "NeurosymbolicEngine",
@@ -117,9 +117,9 @@ _LAZY_IMPORTS = {
     "NuclearForensicsAnalyzer": "omni_mercury_engine.models.isotope_predictor",
     "RadiologicalThreatAssessor": "omni_mercury_engine.models.isotope_predictor",
     "ParapsychologyDetector": "omni_mercury_engine.models.parapsychology",
-    "AdvancedBiometricEngine": "omni_mercury_engine.models.biometric_advanced",
-    "AgeProgressionEngine": "omni_mercury_engine.models.biometric_advanced",
-    "QuantumAgeVariant": "omni_mercury_engine.models.biometric_advanced",
+    "MultimodalBiometricEngine": "omni_mercury_engine.models.biometric_multimodal",
+    "AgeProgressionEngine": "omni_mercury_engine.models.biometric_multimodal",
+    "QuantumAgeVariant": "omni_mercury_engine.models.biometric_multimodal",
     "QuantumEngine": "omni_mercury_engine.models.quantum_engine",
     "QuantumCircuit": "omni_mercury_engine.models.quantum_engine",
     "QuantumGate": "omni_mercury_engine.models.quantum_engine",

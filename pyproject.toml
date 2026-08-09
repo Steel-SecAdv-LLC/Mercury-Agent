@@ -104,10 +104,10 @@ ml = [
     "timm>=1.0.26",
     # OpenCV 5.0.0 (released 2026-07) relocated the Haar/HOG detectors -- notably
     # ``cv2.CascadeClassifier`` and the bundled ``cv2.data.haarcascades`` used by
-    # ``models/biometric_advanced.py`` -- into ``opencv_contrib``, so they are
+    # ``models/biometric_multimodal.py`` -- into ``opencv_contrib``, so they are
     # absent from the ``-headless`` 5.x wheel (both at runtime and in the type
     # stubs, which is what previously broke the blocking ``mypy`` gate with
-    # ``Module has no attribute "CascadeClassifier"``).  ``biometric_advanced.py``
+    # ``Module has no attribute "CascadeClassifier"``).  ``biometric_multimodal.py``
     # now feature-detects those symbols via ``getattr`` and degrades gracefully
     # (the DNN face detector stays primary), so both the runtime path and the
     # mypy gate are safe on the 5.x line.  Every other ``cv2`` symbol this code
@@ -241,7 +241,7 @@ compliance = [
 # resolvable on 3.14 for end users as well: it installs *without* face there
 # instead of hanging.  Real face recognition therefore requires Python <= 3.13
 # (where TensorFlow ships wheels) until a cp314 TensorFlow wheel exists.  The
-# deepface imports in ``models/biometric.py`` / ``models/biometric_advanced.py``
+# deepface imports in ``models/biometric.py`` / ``models/biometric_multimodal.py``
 # are guarded (``except Exception`` -> ``DeepFace = None``, and call sites check
 # ``DeepFace is not None``), so the gated-out environments degrade to simulated
 # embeddings.  Remove the markers once TensorFlow publishes a cp314 wheel.
@@ -317,9 +317,9 @@ fairness = [
 
 # Post-Quantum Cryptography - Primary backend (AMA Cryptography)
 pqc = [
-    # Pinned to v3.3.0 to match the validated real-AMA surface used by
-    # CI (`AMA_REF: v3.3.0`) and the production PQC gate.
-    # v3.3.0 (this pin) carries forward the v3.2.0
+    # Pinned to v4.0.0 to match the validated real-AMA surface used by
+    # CI (`AMA_REF: v4.0.0`) and the production PQC gate.
+    # v4.0.0 (this pin) carries forward the v3.2.0
     # ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python
     # bindings consumed by
     # ``omni_mercury_engine.security.native_jwt._sign`` for the
@@ -331,7 +331,7 @@ pqc = [
     # silently bump the Mercury PQC surface mid-cycle.  Bump this tag
     # in lockstep with `tests/security/test_pqc_gate_real_ama.py` and
     # the migration notes in `docs/MIGRATION-1.6-to-1.7.md` §3.
-    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.3.0",  # Primary: Steel Security PQC framework (pinned v3.3.0; native HMAC-SHA-256/384/512 bindings route HS256/HS384/HS512 in native_jwt)
+    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v4.0.0",  # Primary: Steel Security PQC framework (pinned v4.0.0; native HMAC-SHA-256/384/512 bindings route HS256/HS384/HS512 in native_jwt)
 ]
 
 
@@ -428,7 +428,11 @@ explainability = [
 # authoritative CSF 2.0 XLSX) — observed as ModuleNotFoundError in the
 # network-marked tests/test_nist_csf_integrator.py live lane.
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance]",
+    # ``performance`` (numba) is in this list on purpose: without it the numba
+    # fast-path parity tests in tests/test_native_acceleration.py skip in every
+    # CI lane, so the JIT paths were shipped with a test suite that never ran
+    # them and still reported green.
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
 ]
 
 # Test environment: all runtime features + dev tooling
@@ -514,6 +518,14 @@ omni_mercury_engine = [
     # ``_apply_measured_sw_eng_metrics``; a non-editable install without it
     # silently falls back to the static placeholders.
     "core/sw_eng_metrics.json",
+    # Trained weights for the offline meaning-level harm classifier
+    # (cognitive/meaning_level.py), read lazily on the first classifier call.
+    # Without this, a non-editable install ships no weights, the classifier
+    # scores 0.0 for everything, and the weapons gate silently drops back to
+    # its lexical-only posture -- measured at a 0.744 held-out false-negative
+    # rate versus 0.286 with the model. Fail-open by design, so the loss is
+    # silent: this entry is what keeps it from happening.
+    "cognitive/meaning_level_weights.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
     # page scripts, and the vendored MIT qrcode-generator. Served straight
     # from the installed package when MERCURY_FRONTEND_ENABLED=true — a
@@ -634,6 +646,7 @@ module = [
     "pydantic.*",
     "fastapi.*",
     "uvicorn.*",
+    "httpx",
     "httpx.*",
     "requests.*",
     "urllib3.*",
@@ -759,7 +772,9 @@ module = [
     "eval_weapons_gate_adversarial",
     "weapons_gate_adversarial",
     "cal_core",
+    "intel_value_metrics_report",
     "meaning_level_model_double",
+    "meaning_level_corpus",
     # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
     # and ``hazard_scenarios/generate_scenarios.py`` import these siblings via
     # sys.path manipulation (same first-party-outside-src pattern as above).
@@ -980,7 +995,18 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
-fail_under = 85
+# The ENFORCED floor, matching ``COVERAGE_THRESHOLD_CORE`` in
+# .github/workflows/ci.yml. It was 85 for a long time and nothing ever ran at
+# 85: CI passes ``--cov-fail-under=${COVERAGE_THRESHOLD_CORE/FULL}`` on the
+# command line, which overrides this key, so the 85 declared a bar the project
+# did not hold itself to. A number in a config file that no lane enforces reads
+# as a guarantee and is not one.
+#
+# 85 remains the project's stated *aspiration*, in prose, labelled as an
+# aspiration -- see README "Coverage" and docs/MAINT1_2_COVERAGE_REMEDIATION.md.
+# ``tests/pillars/test_competence.py`` fails if this value and the CI CORE floor
+# ever drift apart.
+fail_under = 33
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

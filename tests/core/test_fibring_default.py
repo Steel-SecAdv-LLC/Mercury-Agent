@@ -307,9 +307,9 @@ def test_fibring_does_not_regress_vs_balanced_on_synthetic_workload() -> None:
 def test_stacking_fusion_factory_default_is_fibring() -> None:
     """The ensemble-level factory now defaults to "fibring"."""
     from omni_mercury_engine.core.stacking_fusion import (
-        EthicallyConstrainedFusion,
+        ReliabilityWeightedFusion,
         create_fusion_ensemble,
     )
 
     ensemble = create_fusion_ensemble(detectors={})
-    assert isinstance(ensemble, EthicallyConstrainedFusion)
+    assert isinstance(ensemble, ReliabilityWeightedFusion)

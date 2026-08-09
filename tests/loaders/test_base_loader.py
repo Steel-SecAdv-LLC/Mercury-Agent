@@ -15,6 +15,7 @@ Covers:
 from __future__ import annotations
 
 import ipaddress
+import traceback
 from typing import Any
 from unittest.mock import patch
 
@@ -22,7 +23,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader, _get_mercury_version
+from omni_mercury_engine.loaders.base import (
+    BaseDomainLoader,
+    FetchHTTPError,
+    _get_mercury_version,
+)
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 # =============================================================================
@@ -211,6 +216,35 @@ class TestFetchUrlExceptionRouting:
             loader._fetch_url("ftp://earthquake.usgs.gov/data")
         assert call_count["n"] == 1
 
+    def test_offline_mode_raised_immediately_no_retry(self, tmp_path: Any) -> None:
+        """``OfflineModeError`` is a pre-socket refusal: fail fast, unmasked.
+
+        It is a ``RuntimeError``, so before it was routed explicitly it fell
+        into the generic transient handler -- retried through the full backoff
+        (2+4+8 s at defaults) and then re-raised as ``FetchHTTPError``, turning
+        an instant fail-closed into a ~14 s wait that lost the offline signal.
+        """
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 3
+        loader.retry_backoff = 5.0  # would be a 35 s wait if retried
+        call_count = {"n": 0}
+
+        def offline(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise OfflineModeError("https://earthquake.usgs.gov/data")
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=offline,
+            ),
+            pytest.raises(OfflineModeError),
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/data")
+        assert call_count["n"] == 1, "OfflineModeError must NOT trigger retries"
+
     def test_transient_network_error_still_retries(self, tmp_path: Any) -> None:
         """``OSError`` from the gate is treated as transient and retried."""
         loader = StubLoader(cache_dir=tmp_path / "cache")
@@ -235,14 +269,18 @@ class TestFetchUrlExceptionRouting:
         # accidentally re-routed by the new ValueError branch.
         assert call_count["n"] == 3
 
-    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path: Any) -> None:
-        """``ConnectionError`` after retry-exhaustion chains via ``__cause__``.
+    def test_retry_exhaustion_severs_underlying_exception(self, tmp_path: Any) -> None:
+        """Retry exhaustion severs the exception chain (``from None``).
 
-        Wrapping the failure in ``ConnectionError`` is the operator-
-        facing API contract, but losing the underlying exception in
-        the traceback makes diagnosis harder than it has to be.
-        PR #210 wires ``raise ConnectionError(...) from last_exc`` so
-        the original socket / HTTP failure is one frame away.
+        PR #210 chained ``from last_exc`` for operator diagnostics, but
+        requests/urllib3 error messages embed the fully-composed request
+        URL, and for keyed loaders that URL carries the credential (the
+        FIRMS MAP key as a path segment; EIA / OpenWeatherMap /
+        Alpha Vantage / NASA keys in query params) — so the chain is a
+        credential leak. The safe diagnostics (host, attempt count,
+        exception class name, HTTP status) now live in the
+        ``FetchHTTPError`` message itself; the full leak contract is
+        pinned in :class:`TestFetchCredentialRedaction`.
         """
         loader = StubLoader(cache_dir=tmp_path / "cache")
         loader.max_retries = 1
@@ -259,10 +297,17 @@ class TestFetchUrlExceptionRouting:
         ):
             loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
-        assert exc_info.value.__cause__ is original, (
-            "ConnectionError did not chain to the underlying exception; "
-            "operators lose the real cause in the traceback."
+        raised = exc_info.value
+        assert raised.__cause__ is None, (
+            "the exception chain must be severed: the chained transport "
+            "error embeds the request URL, which carries the credential "
+            "for keyed loaders"
         )
+        assert raised.__suppress_context__ is True
+        # The diagnostics the chain used to carry now live in the message.
+        message = str(raised)
+        assert "OSError" in message
+        assert "earthquake.usgs.gov" in message
 
 
 class TestAllowUntrustedRemovedFromLoader:
@@ -497,3 +542,267 @@ class TestLoaderInitialization:
         assert loader.max_retries == 5
         assert loader.retry_backoff == 3.0
         assert loader.timeout == 120
+
+
+class _HTTPStatusError(OSError):
+    """Stand-in for ``requests.HTTPError``: an OSError with a ``.response``."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"simulated HTTP {status_code}")
+        self.response = type("_Resp", (), {"status_code": status_code})()
+
+
+class TestFetchHTTPErrorStatus:
+    """``_fetch_url`` preserves the HTTP status instead of flattening it.
+
+    The old behaviour raised a bare ``ConnectionError`` carrying only the
+    exception class name, so a throttling response (HTTP 429) was
+    indistinguishable from a DNS outage without walking ``__cause__``.
+    """
+
+    def test_http_status_preserved_on_exhaustion(self, tmp_path: Any) -> None:
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 1
+        loader.retry_backoff = 0.0
+        original = _HTTPStatusError(503)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=original,
+            ),
+            pytest.raises(ConnectionError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        raised = exc_info.value
+        assert isinstance(raised, FetchHTTPError)
+        assert raised.status_code == 503
+        assert "HTTP 503" in str(raised)
+        # The chain is severed (credential redaction — see
+        # TestFetchCredentialRedaction); ``status_code`` IS the
+        # supported way to read the upstream verdict.
+        assert raised.__cause__ is None
+        assert raised.__suppress_context__ is True
+
+    def test_rate_limit_fails_fast_without_retry(self, tmp_path: Any) -> None:
+        """HTTP 429 is a quota verdict: one attempt, no backoff burn."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 3
+        loader.retry_backoff = 0.0
+        call_count = {"n": 0}
+
+        def rate_limited(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise _HTTPStatusError(429)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=rate_limited,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert call_count["n"] == 1, "429 must not be retried: the quota window resets upstream"
+        assert exc_info.value.status_code == 429
+        assert "1 attempt" in str(exc_info.value)
+
+    def test_status_none_for_pre_http_failures(self, tmp_path: Any) -> None:
+        """DNS/socket failures carry no status and still retry fully."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 2
+        loader.retry_backoff = 0.0
+        call_count = {"n": 0}
+
+        def socket_failure(*args: Any, **kwargs: Any) -> None:
+            call_count["n"] += 1
+            raise OSError("simulated DNS failure")
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=socket_failure,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert call_count["n"] == 3
+        assert exc_info.value.status_code is None
+
+    def test_subclasses_connection_error_for_existing_handlers(self, tmp_path: Any) -> None:
+        """Every ``except ConnectionError`` / ``except OSError`` still catches."""
+        assert issubclass(FetchHTTPError, ConnectionError)
+        assert issubclass(FetchHTTPError, OSError)
+
+
+class TestFetchCredentialRedaction:
+    """``_fetch_url`` must never let a credentialed URL escape via its exception.
+
+    ``requests.HTTPError`` messages embed the fully-composed request URL
+    ("404 Client Error: Not Found for url: https://host/<key>/...") and
+    urllib3 connection errors embed the path+query ("Max retries exceeded
+    with url: /path?api_key=..."). FIRMS carries its MAP key as a URL
+    *path* segment; EIA / OpenWeatherMap / Alpha Vantage / NASA carry
+    keys in *query* parameters. The contract pinned here, for both
+    placements and for pre-HTTP transport failures: the escaping
+    ``FetchHTTPError`` has ``__cause__ is None``, suppresses its implicit
+    context, and the secret appears nowhere in ``str(exc)``,
+    ``repr(exc)``, or the fully-rendered traceback (which walks cause
+    AND context chains — the strongest observable a log sink sees).
+    """
+
+    SECRET = "hunter2-secret-key-000042"
+
+    @staticmethod
+    def _http_error(status: int, message: str) -> OSError:
+        """Stand-in for ``requests.HTTPError``: message + ``.response``."""
+        exc = OSError(message)
+        exc.response = type("_Resp", (), {"status_code": status})()  # type: ignore[attr-defined]
+        return exc
+
+    def _exhaust(self, tmp_path: Any, original: Exception) -> FetchHTTPError:
+        """Drive ``_fetch_url`` to exhaustion against ``original``."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 0
+        loader.retry_backoff = 0.0
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=original,
+            ),
+            pytest.raises(FetchHTTPError) as exc_info,
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        return exc_info.value
+
+    def _assert_secret_free(self, exc: FetchHTTPError) -> None:
+        """The tight leak contract: cause, context, str, repr, traceback."""
+        assert exc.__cause__ is None, "explicit cause must be severed (raise ... from None)"
+        assert exc.__suppress_context__ is True, (
+            "implicit context must be suppressed, or the leak survives "
+            "as 'During handling of the above exception' in tracebacks"
+        )
+        assert self.SECRET not in str(exc)
+        assert self.SECRET not in repr(exc)
+        rendered = "".join(traceback.format_exception(exc))
+        assert self.SECRET not in rendered, (
+            "the fully-rendered traceback (cause and context chains "
+            "included) must not contain the credential"
+        )
+
+    def test_path_embedded_secret_firms_style(self, tmp_path: Any) -> None:
+        """FIRMS-style: the MAP key is a URL *path* segment."""
+        original = self._http_error(
+            404,
+            "404 Client Error: Not Found for url: "
+            f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{self.SECRET}"
+            "/VIIRS_SNPP_NRT/world/1",
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        # Safe diagnostics are preserved in the message.
+        assert exc.status_code == 404
+        assert "HTTP 404" in str(exc)
+        assert "earthquake.usgs.gov" in str(exc)
+
+    def test_query_embedded_secret_api_key_style(self, tmp_path: Any) -> None:
+        """EIA/OpenWeatherMap/Alpha Vantage-style: key in the query string."""
+        original = self._http_error(
+            403,
+            "403 Client Error: Forbidden for url: "
+            f"https://api.eia.gov/v2/electricity/rto/region-data/data/"
+            f"?api_key={self.SECRET}&frequency=hourly",
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        assert exc.status_code == 403
+        assert "HTTP 403" in str(exc)
+
+    def test_pre_http_transport_failure_with_secret_in_message(self, tmp_path: Any) -> None:
+        """urllib3-style connection errors embed path+query pre-HTTP too."""
+        original = OSError(
+            "HTTPSConnectionPool(host='api.openweathermap.org', port=443): "
+            "Max retries exceeded with url: "
+            f"/data/3.0/onecall?appid={self.SECRET}&lat=0&lon=0 "
+            "(Caused by NewConnectionError)"
+        )
+        exc = self._exhaust(tmp_path, original)
+        self._assert_secret_free(exc)
+        assert exc.status_code is None
+
+
+class TestIterFeedRows:
+    """Both feed shapes normalise identically through ``_iter_feed_rows``."""
+
+    COLUMNS = ("time_tag", "Kp", "a_running", "station_count")
+
+    def test_object_rows_with_extra_columns(self) -> None:
+        raw = [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8, "extra": 1},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8, "extra": 2},
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8},
+        ]
+
+    def test_positional_rows_with_matching_header(self) -> None:
+        raw = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3, 10, 8],
+            ["t2", 4, 12, 8],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+            {"time_tag": "t2", "Kp": 4, "a_running": 12, "station_count": 8},
+        ]
+
+    def test_positional_rows_mapped_by_header_when_reordered(self) -> None:
+        """A feed that reorders or widens its columns still parses by name."""
+        raw = [
+            ["station_count", "time_tag", "extra", "Kp", "a_running"],
+            [8, "t1", "x", 3, 10],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8}]
+
+    def test_positional_fallback_when_header_unrecognised(self) -> None:
+        """A header that does not name the columns falls back to position."""
+        raw = [
+            ["c0", "c1", "c2", "c3"],
+            ["t1", 3, 10, 8],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8}]
+
+    def test_object_and_positional_shapes_parse_identically(self) -> None:
+        """The exact guarantee behind the ``KeyError: 1`` incident fix."""
+        obj_shape = [
+            {"time_tag": "t1", "Kp": 3, "a_running": 10, "station_count": 8},
+        ]
+        pos_shape = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3, 10, 8],
+        ]
+        assert BaseDomainLoader._iter_feed_rows(
+            obj_shape, self.COLUMNS
+        ) == BaseDomainLoader._iter_feed_rows(pos_shape, self.COLUMNS)
+
+    def test_empty_and_unrecognised_bodies(self) -> None:
+        assert BaseDomainLoader._iter_feed_rows([], self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows(None, self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows({"not": "a list"}, self.COLUMNS) == []
+        assert BaseDomainLoader._iter_feed_rows("text", self.COLUMNS) == []
+
+    def test_short_positional_rows_fill_none_under_named_header(self) -> None:
+        raw = [
+            ["time_tag", "Kp", "a_running", "station_count"],
+            ["t1", 3],
+        ]
+        rows = BaseDomainLoader._iter_feed_rows(raw, self.COLUMNS)
+        assert rows == [{"time_tag": "t1", "Kp": 3, "a_running": None, "station_count": None}]

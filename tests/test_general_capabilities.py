@@ -292,6 +292,22 @@ class _RefusingScorer:
         return _S()
 
 
+class _VerdictlessScorer:
+    """Stub scorer whose score object never issues ``is_permissible``.
+
+    A custom scorer that omits the decision field must be read as a refusal,
+    not waved through -- the gate is fail-closed on absence.
+    """
+
+    def score_action(self, action, context):
+        class _S:
+            benevolence_score = 0.95
+            harm_score = 0.0
+            severity_score = 0.0
+
+        return _S()
+
+
 class TestGeneralAssistant:
     def test_research_report_builds_cited_document(self) -> None:
         assistant = GeneralAssistant(researcher=_online_researcher())
@@ -323,6 +339,16 @@ class TestGeneralAssistant:
             researcher=_online_researcher(), benevolence_scorer=_RefusingScorer()
         )
         assert assistant.write_document("T", [Section("S", "body")]) is None
+
+    def test_scorer_without_verdict_field_fails_closed(self) -> None:
+        # A scorer whose score object omits ``is_permissible`` entirely must
+        # refuse, not default to permitted (copilot review, PR #360).
+        assistant = GeneralAssistant(
+            researcher=_online_researcher(), benevolence_scorer=_VerdictlessScorer()
+        )
+        report = assistant.research_report("quantum sensing")
+        assert report.refused is True
+        assert report.document is None
 
     def test_real_scorer_refuses_harmful_query_permits_benign(self) -> None:
         # Real benevolence scorer (not a stub): harmful query refused, benign

@@ -80,10 +80,16 @@ _TRANSPORT_ERR = "ConnectTimeoutError: connection timed out"
 def test_checkers_surface_transport_error_not_http_zero(
     mod: Any, monkeypatch: pytest.MonkeyPatch, checker: str
 ) -> None:
-    """Every keyed HTTP checker reports the real transport reason, never "HTTP 0"."""
+    """Every keyed HTTP checker reports the real transport reason, never "HTTP 0".
+
+    The verdict is ``UNREACH``, not ``FAIL``: a connection that never completed
+    is the upstream's problem and says nothing about the credential. Only
+    ``FAIL`` fails the lane, so mis-classifying this would make an outage look
+    like a bad key.
+    """
     monkeypatch.setattr(mod, "_get", lambda *a, **k: (0, _TRANSPORT_ERR.encode()))
-    ok, detail = getattr(mod, checker)("dummy-key")
-    assert ok is False
+    verdict, detail = getattr(mod, checker)("dummy-key")
+    assert verdict == mod.UNREACHABLE
     assert "HTTP 0" not in detail, f"{checker} collapsed a transport error to 'HTTP 0'"
     assert "transport error" in detail and "timed out" in detail
 
@@ -95,10 +101,15 @@ def test_checkers_surface_transport_error_not_http_zero(
 def test_checkers_surface_http_status_on_real_http_error(
     mod: Any, monkeypatch: pytest.MonkeyPatch, checker: str
 ) -> None:
-    """A genuine HTTP error still reports its status (and any provider message)."""
+    """A genuine HTTP error still reports its status (and any provider message).
+
+    A 401 is the provider rejecting the credential we presented, which is the
+    one thing this lane exists to catch -- so it must be ``FAIL``, the verdict
+    that fails the lane, and never be softened to ``UNREACH``.
+    """
     monkeypatch.setattr(mod, "_get", lambda *a, **k: (401, b'{"error":"bad key"}'))
-    ok, detail = getattr(mod, checker)("dummy-key")
-    assert ok is False
+    verdict, detail = getattr(mod, checker)("dummy-key")
+    assert verdict == mod.FAIL
     assert detail.startswith("HTTP 401")
 
 
@@ -159,6 +170,76 @@ def test_checkers_never_leak_key_on_transport_error(
         + _SECRET
     )
     monkeypatch.setattr(mod, "_get", lambda *a, **k: (0, leak.encode()))
-    ok, detail = getattr(mod, checker)(_SECRET)
-    assert ok is False
+    verdict, detail = getattr(mod, checker)(_SECRET)
+    assert verdict != mod.DELIVERS
     assert _SECRET not in detail, f"{checker} leaked the credential: {detail}"
+
+
+# --- The FAIL / UNREACH boundary ---------------------------------------------
+# Only FAIL fails the lane, so where a status lands decides whether an operator
+# is asked to act. Getting this wrong in either direction is costly: classify an
+# outage as FAIL and the lane fails for something nobody can fix (which is how a
+# gate gets ignored); classify a rejected credential as UNREACH and a genuinely
+# broken key ships silently.
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        (0, "UNREACHABLE"),  # transport failure: DNS, TLS, timeout, reset
+        (500, "UNREACHABLE"),
+        (502, "UNREACHABLE"),
+        (503, "UNREACHABLE"),  # the real NASA outage that turned the lane red
+        (504, "UNREACHABLE"),
+        (429, "UNREACHABLE"),  # rate limit: the provider RECOGNISED the key
+        (400, "FAIL"),
+        (401, "FAIL"),  # rejected credential
+        (403, "FAIL"),
+        (404, "FAIL"),
+    ],
+)
+def test_non_200_classification(mod: Any, status: int, expected: str) -> None:
+    verdict, _detail = mod._non_200(status, b"body")
+    assert verdict == getattr(mod, expected)
+
+
+def test_all_sources_unreachable_is_not_a_clean_run(
+    mod: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """If every keyed source was unreachable the run verified nothing.
+
+    Exiting 0 there would be a green light with no evidence behind it, so this
+    is the one case where UNREACH still fails.
+    """
+    monkeypatch.setenv("EIA_API_KEY", "dummy-key-value")
+    for var in ("FRED_API_KEY", "NASA_API_KEY", "ALPHA_VANTAGE_API_KEY", "OPENWEATHERMAP_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    for var in ("EROSERS_USERNAME", "USGS_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(mod, "_get", lambda *a, **k: (503, b"upstream down"))
+
+    assert mod.run() == 1
+    assert "verified no credential" in capsys.readouterr().err
+
+
+def test_unreachable_alone_does_not_fail_when_another_source_delivered(
+    mod: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An outage beside a real delivery must not fail the lane.
+
+    This is the case the three-state split exists for: measured 2026-08-05,
+    five sources delivered and NASA returned 503, and the lane went red on the
+    one result that carried no information about any credential.
+    """
+    monkeypatch.setenv("EIA_API_KEY", "dummy-key-value")
+    monkeypatch.setenv("NASA_API_KEY", "dummy-key-value")
+    for var in ("FRED_API_KEY", "ALPHA_VANTAGE_API_KEY", "OPENWEATHERMAP_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    for var in ("EROSERS_USERNAME", "USGS_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(mod, "check_eia", lambda _k: (mod.DELIVERS, "7 rows"))
+    monkeypatch.setattr(mod, "check_nasa", lambda _k: (mod.UNREACHABLE, "HTTP 503"))
+    monkeypatch.setitem(mod.CHECKS, "EIA", (("EIA_API_KEY",), mod.check_eia))
+    monkeypatch.setitem(mod.CHECKS, "NASA", (("NASA_API_KEY",), mod.check_nasa))
+
+    assert mod.run() == 0

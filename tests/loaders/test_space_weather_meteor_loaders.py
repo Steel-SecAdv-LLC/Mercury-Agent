@@ -195,3 +195,99 @@ class TestMeteorLoader:
         key = "meteor_loader.MeteorLoader"
         assert key in registry
         assert registry[key][0] == "statistical"
+
+
+class TestFeedShapeFlipAbsorption:
+    """Array-of-arrays and array-of-objects payloads parse identically.
+
+    The SWPC ``noaa-planetary-k-index`` migration surfaced as ``KeyError: 1``
+    because only one shape was hardcoded; these tests pin that DONKI GST and
+    the JPL fireball archive absorb a flip in either direction.
+    """
+
+    def _sw_loader_with_gst(
+        self, tmp_path: Path, positional: bool
+    ) -> tuple[SpaceWeatherLoader, str]:
+        """Construct a loader whose DONKI GST payload uses the given shape."""
+        from datetime import datetime, timedelta
+
+        loader = SpaceWeatherLoader(cache_dir=tmp_path / ("pos" if positional else "obj"))
+        event_id = loader.list_events()[0]["event_id"]
+        meta = loader._event(event_id)
+        t0 = datetime.fromisoformat(meta["start"].replace("Z", "+00:00"))
+        times = [(t0 + timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(6)]
+        gst_window_end = (t0 + timedelta(minutes=3)).strftime("%Y-%m-%dT%H:%MZ")
+
+        gst: Any
+        if positional:
+            gst = [
+                ["gstID", "startTime", "allKpIndex", "link"],
+                [
+                    "TEST-GST-001",
+                    meta["start"],
+                    [
+                        ["observedTime", "kpIndex", "source"],
+                        [gst_window_end, KP_STORM_THRESHOLD + 2, "NOAA"],
+                    ],
+                    None,
+                ],
+            ]
+        else:
+            gst = [
+                {
+                    "gstID": "TEST-GST-001",
+                    "allKpIndex": [
+                        {"observedTime": gst_window_end, "kpIndex": KP_STORM_THRESHOLD + 2}
+                    ],
+                }
+            ]
+
+        def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
+            if "DONKI" in url:
+                return gst
+            return _geomag_payload(
+                times,
+                x=[100.0, 105.0, 400.0, 90.0, 92.0, 91.0],
+                y=[50.0, 51.0, 300.0, 49.0, 50.0, 50.5],
+            )
+
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        return loader, event_id
+
+    def test_donki_gst_labels_identical_across_shapes(self, tmp_path: Path) -> None:
+        obj_loader, event_id = self._sw_loader_with_gst(tmp_path, positional=False)
+        pos_loader, _ = self._sw_loader_with_gst(tmp_path, positional=True)
+        obj_labels = obj_loader.get_ground_truth(event_id)
+        pos_labels = pos_loader.get_ground_truth(event_id)
+        assert obj_labels.sum() > 0, "the constructed Kp window must label at least one row"
+        assert np.array_equal(obj_labels, pos_labels)
+
+    def test_fireball_frames_identical_across_shapes(self) -> None:
+        import pandas as pd
+
+        payload = _fixture("jpl_fireball_2012_2013.json")
+        fields = [str(name) for name in payload["fields"]]
+        object_payload = {
+            "count": payload.get("count"),
+            "fields": fields,
+            "data": [dict(zip(fields, row)) for row in payload["data"]],
+        }
+        positional = MeteorLoader._fireball_to_dataframe(payload)
+        objects = MeteorLoader._fireball_to_dataframe(object_payload)
+        assert not positional.empty
+        pd.testing.assert_frame_equal(positional, objects)
+
+    def test_fireball_falls_back_to_documented_field_order(self) -> None:
+        """A payload that drops ``fields`` parses via the documented order."""
+        payload = _fixture("jpl_fireball_2012_2013.json")
+        from omni_mercury_engine.loaders.meteor_loader import _FIREBALL_API_FIELDS
+
+        # The recorded fixture's header must equal the documented API order
+        # for the fallback to be sound; pin that equivalence here.
+        assert tuple(payload["fields"]) == _FIREBALL_API_FIELDS
+        no_fields = {"count": payload.get("count"), "data": payload["data"]}
+        import pandas as pd
+
+        with_fields = MeteorLoader._fireball_to_dataframe(payload)
+        without_fields = MeteorLoader._fireball_to_dataframe(no_fields)
+        pd.testing.assert_frame_equal(with_fields, without_fields)

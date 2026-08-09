@@ -7,6 +7,7 @@ Addresses specific weaknesses identified in benchmark analysis. All detection is
 """
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -494,14 +495,25 @@ class AdaptiveAnomalyDetector:
     def __init__(
         self,
         contamination: float = 0.05,
-        benevolence_threshold: float = 0.99,
-        sigma_immutable: float = 0.96,
         auto_profile: bool = True,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            contamination: Expected fraction of anomalies, used to calibrate the
+                decision threshold.
+            auto_profile: Profile the dataset and pick a detection strategy.
+
+        Note:
+            The former ``benevolence_threshold`` and ``sigma_immutable``
+            parameters are gone. Neither configured a control: they were read
+            only by ``evaluate_ethics``, which derived both quantities from the
+            detector's own output. Ethics is enforced at the decision boundary
+            (``cognitive/decision_gate.py``); configuration integrity is
+            enforced by ``security/sigma_immutable_gate.py``. Accepting these
+            names here advertised two controls this class does not implement.
+        """
         self.contamination = contamination
-        self.benevolence_threshold = benevolence_threshold
-        self.sigma_immutable = sigma_immutable
         self.auto_profile = auto_profile
 
         # Component detectors
@@ -918,37 +930,72 @@ class AdaptiveAnomalyDetector:
             logger.warning(f"CovarianceAwareDetector scoring failed: {e}, falling back")
             return self._detect_covariance(X)
 
-    def evaluate_ethics(self, result: DetectionResult) -> dict[str, Any]:
-        """Evaluate detection result against ethical constraints.
+    def evaluate_detection_quality(self, result: DetectionResult) -> dict[str, Any]:
+        """Report the shape of a detection run: how much fired, how spread out.
 
-        Ensures sigma_Immutable >= 0.93 (hard) and benevolence >= 0.99.
+        These are descriptive statistics over ``result``. They are **not** an
+        ethical evaluation and they gate nothing.
+
+        This method replaces ``evaluate_ethics``, which returned three numbers
+        that named controls they did not compute:
+
+        * ``benevolence`` was ``1 - anomaly_ratio / 0.5`` — a rescaled anomaly
+          rate. Because the accompanying pass-bar was ``>= 0.99``, flagging more
+          than 0.5 % of samples made the detector "fail ethics"; doing its job
+          was the violation. The real benevolence scalar is advisory and lives
+          in ``cognitive/ethical_bounding.py``.
+        * ``sigma_immutable`` was ``confidence * 0.95 + 0.05`` — a rescaled
+          detector confidence, unrelated to the real σ_Immutable
+          configuration-integrity gate
+          (``security/sigma_immutable_gate.py``), which verifies a signed
+          governance corpus and cannot be derived from a score array.
+        * ``lyapunov_stability`` was ``1 / (1 + score variance)``, unrelated to
+          the Lyapunov convergence work in ``core/system_coherence.py``.
+
+        The enforced controls are the harm-uplift gate at every public decision
+        surface (``cognitive/decision_gate.py``) and the real σ_Immutable gate.
+        Neither can be approximated from detector output, so nothing here tries.
+
+        Args:
+            result: A completed detection result.
+
+        Returns:
+            Dict with ``anomaly_ratio`` (fraction of samples flagged),
+            ``mean_confidence`` (the run's reported confidence),
+            ``score_dispersion`` (variance of the raw scores) and
+            ``score_concentration`` (``1 / (1 + variance)``, a bounded monotone
+            transform of dispersion — high means scores cluster tightly).
         """
-        anomaly_ratio = float(result.predictions.mean())
-
-        benevolence = 1.0 - min(anomaly_ratio, 0.5) / 0.5
-        benevolence = max(benevolence, 0.0)
-
-        sigma_immutable = result.confidence * 0.95 + 0.05
-
         score_variance = float(result.scores.var())
-        lyapunov = 1.0 / (1.0 + score_variance)
-
-        passes_ethics = sigma_immutable >= 0.93 and benevolence >= self.benevolence_threshold
-
         return {
-            "passes": passes_ethics,
-            "benevolence": benevolence,
-            "sigma_immutable": sigma_immutable,
-            "lyapunov_stability": lyapunov,
-            "anomaly_ratio": anomaly_ratio,
-            "violations": (
-                []
-                if passes_ethics
-                else (
-                    ["sigma_Immutable < 0.93"] if sigma_immutable < 0.93 else ["benevolence < 0.99"]
-                )
-            ),
+            "anomaly_ratio": float(result.predictions.mean()),
+            "mean_confidence": float(result.confidence),
+            "score_dispersion": score_variance,
+            "score_concentration": 1.0 / (1.0 + score_variance),
         }
+
+    def evaluate_ethics(self, result: DetectionResult) -> dict[str, Any]:
+        """Deprecated. Never evaluated ethics; use :meth:`evaluate_detection_quality`.
+
+        Args:
+            result: A completed detection result.
+
+        Returns:
+            Whatever :meth:`evaluate_detection_quality` returns. The former
+            ``passes`` / ``benevolence`` / ``sigma_immutable`` / ``violations``
+            keys are gone rather than retained with corrected values: a caller
+            reading them was reading a fabricated number, so failing loudly with
+            ``KeyError`` is the honest outcome.
+        """
+        warnings.warn(
+            "AdaptiveAnomalyDetector.evaluate_ethics never evaluated ethics -- its "
+            "'benevolence' was a rescaled anomaly rate and its 'sigma_immutable' a "
+            "rescaled confidence. Use evaluate_detection_quality(); the enforced "
+            "controls are the harm-uplift gate and security/sigma_immutable_gate.py.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.evaluate_detection_quality(result)
 
 
 # ============================================================================

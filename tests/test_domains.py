@@ -35,7 +35,7 @@ class TestAdaptiveThresholdOptimizer:
 
     @pytest.fixture
     def optimizer(self):
-        from omni_mercury_engine.core.enhanced_base_domains import (
+        from omni_mercury_engine.core.base_domains import (
             AdaptiveThresholdOptimizer,
         )
 
@@ -58,7 +58,7 @@ class TestAdaptiveThresholdOptimizer:
         assert result.otsu_score is not None
 
     def test_percentile_threshold(self, sample_scores: Any) -> None:
-        from omni_mercury_engine.core.enhanced_base_domains import (
+        from omni_mercury_engine.core.base_domains import (
             AdaptiveThresholdOptimizer,
         )
 
@@ -69,7 +69,7 @@ class TestAdaptiveThresholdOptimizer:
         assert result.threshold >= np.percentile(sample_scores, 95) - 0.01
 
     def test_bayesian_threshold(self, sample_scores: Any) -> None:
-        from omni_mercury_engine.core.enhanced_base_domains import (
+        from omni_mercury_engine.core.base_domains import (
             AdaptiveThresholdOptimizer,
         )
 
@@ -81,7 +81,7 @@ class TestAdaptiveThresholdOptimizer:
         assert len(result.bayesian_bounds) == 2
 
     def test_f1_max_threshold_with_labels(self, sample_scores: Any) -> None:
-        from omni_mercury_engine.core.enhanced_base_domains import (
+        from omni_mercury_engine.core.base_domains import (
             AdaptiveThresholdOptimizer,
         )
 
@@ -98,7 +98,7 @@ class TestAdaptiveThresholdOptimizer:
     @settings(max_examples=10)
     def test_threshold_within_range(self, scores: Any) -> None:
         """Threshold should always be within score range."""
-        from omni_mercury_engine.core.enhanced_base_domains import (
+        from omni_mercury_engine.core.base_domains import (
             AdaptiveThresholdOptimizer,
         )
 
@@ -117,7 +117,7 @@ class TestEventBasedMetrics:
 
     @pytest.fixture
     def metrics(self):
-        from omni_mercury_engine.core.enhanced_base_domains import EventBasedMetrics
+        from omni_mercury_engine.core.base_domains import EventBasedMetrics
 
         return EventBasedMetrics(tolerance=2, min_event_length=1)
 
@@ -175,7 +175,7 @@ class TestSpatialAutocorrelation:
 
     @pytest.fixture
     def spatial(self):
-        from omni_mercury_engine.core.enhanced_base_domains import SpatialAutocorrelation
+        from omni_mercury_engine.core.base_domains import SpatialAutocorrelation
 
         return SpatialAutocorrelation(normalize=True)
 
@@ -235,9 +235,9 @@ class TestEnhancedQuantumModel:
 
     @pytest.fixture
     def quantum(self):
-        from omni_mercury_engine.core.enhanced_model_domains import EnhancedQuantumModel
+        from omni_mercury_engine.core.model_domains import QuantumFeatureModel
 
-        return EnhancedQuantumModel(num_qubits=4, seed=SEED)
+        return QuantumFeatureModel(num_qubits=4, seed=SEED)
 
     @pytest.fixture
     def sample_data(self):
@@ -316,9 +316,9 @@ class TestEnhancedBiometricModel:
 
     @pytest.fixture
     def biometric(self):
-        from omni_mercury_engine.core.enhanced_model_domains import EnhancedBiometricModel
+        from omni_mercury_engine.core.model_domains import MultimodalBiometricModel
 
-        return EnhancedBiometricModel(enforce_fairness=True, fairness_threshold=0.8)
+        return MultimodalBiometricModel(enforce_fairness=True, fairness_threshold=0.8)
 
     def test_fairness_metrics_balanced(self, biometric: Any) -> None:
         """Balanced groups should have high fairness metrics."""
@@ -364,7 +364,7 @@ class TestEnhancedBiometricModel:
 
     def test_passes_threshold(self, biometric: Any) -> None:
         """Test threshold checking."""
-        from omni_mercury_engine.core.enhanced_model_domains import FairnessMetrics
+        from omni_mercury_engine.core.model_domains import FairnessMetrics
 
         good_metrics = FairnessMetrics(
             demographic_parity_ratio=0.9,
@@ -390,7 +390,7 @@ class TestLyapunovStabilityAnalyzer:
 
     @pytest.fixture
     def analyzer(self):
-        from omni_mercury_engine.core.enhanced_model_domains import LyapunovStabilityAnalyzer
+        from omni_mercury_engine.core.model_domains import LyapunovStabilityAnalyzer
 
         return LyapunovStabilityAnalyzer(embedding_dim=5, tau=1)
 
@@ -432,9 +432,9 @@ class TestEnhancedAffectiveModel:
 
     @pytest.fixture
     def affective(self):
-        from omni_mercury_engine.core.enhanced_model_domains import EnhancedAffectiveModel
+        from omni_mercury_engine.core.model_domains import AffectiveStateModel
 
-        return EnhancedAffectiveModel(n_emotions=6, seed=SEED)
+        return AffectiveStateModel(n_emotions=6, seed=SEED)
 
     def test_emotional_entropy_uniform(self, affective: Any) -> None:
         """Uniform distribution should have maximum entropy."""
@@ -714,14 +714,14 @@ class TestPropertyBased:
     def test_emotional_entropy_range(self, probs: Any) -> None:
         """Emotional entropy should be in [0, 1]."""
         try:
-            from omni_mercury_engine.core.enhanced_model_domains import (
-                EnhancedAffectiveModel,
+            from omni_mercury_engine.core.model_domains import (
+                AffectiveStateModel,
             )
 
             if sum(probs) < 0.01:
                 return
 
-            affective = EnhancedAffectiveModel(n_emotions=len(probs), seed=42)
+            affective = AffectiveStateModel(n_emotions=len(probs), seed=42)
             entropy = affective.compute_emotional_entropy(np.array(probs))
 
             assert 0 <= entropy <= 1.01

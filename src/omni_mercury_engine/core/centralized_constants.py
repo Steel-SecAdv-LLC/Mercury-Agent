@@ -131,9 +131,19 @@ class EthicalConstants:
     # Origin: Domain-specific calibration
     SIGMA_IMMUTABLE_HUMANITARIAN: float = 0.95
 
-    # Benevolence immutable - Required for civilization-first decisions
+    # Configured magnitude of the GOSNN ``omnibenevolence`` omni-scalar.
+    #
+    # This is a SCALAR VALUE, not a pass-bar. It used to be
+    # ``BENEVOLENCE_IMMUTABLE`` and was read in two incompatible ways: as the
+    # omni-scalar's setting (correct) and as a >= 0.99 decision-boundary
+    # threshold every action had to clear (deleted). The threshold reading is
+    # gone: benevolence is advisory everywhere, and the enforced
+    # decision-boundary control is the harm-uplift gate
+    # (``cognitive.decision_gate.enforce_decision_boundary``, see
+    # ``docs/HARM_POLICY.md``). The rename exists so the two readings can never
+    # be confused again.
     # Origin: ethical_alignment_engine.py
-    BENEVOLENCE_IMMUTABLE: float = 0.99
+    OMNIBENEVOLENCE_SCALAR: float = 0.99
 
     # Minimum ethical alignment score
     # Origin: ethical_governor.py
@@ -176,15 +186,17 @@ ETHICAL = EthicalConstants()
 # ==============================================================================
 # SOFT SIGMOID BENEVOLENCE WEIGHTING (Phase 3)
 #
-# Disambiguation — Mercury has TWO benevolence mechanisms and they are NOT
-# interchangeable:
-#   * HARD gate: ``BenevolenceScorer.enforce`` (cognitive/ethical_bounding.py)
-#     — the mandatory decision-boundary gate (threshold 0.99, configurable no
-#     lower than the 0.70 MINIMUM_BENEVOLENCE_FLOOR); raises
-#     EthicalConstraintViolationError.  It is NOT replaced by anything here.
+# Disambiguation — neither of Mercury's two benevolence mechanisms is a gate:
+#   * ADVISORY score: ``BenevolenceScorer.score_action``
+#     (cognitive/ethical_bounding.py) reports a benevolence float and flags it
+#     against an advisory reporting threshold. It approves nothing and blocks
+#     nothing. The mandatory decision-boundary control is the harm-uplift gate
+#     (``cognitive.decision_gate.enforce_decision_boundary`` /
+#     ``assess_weapons_uplift``, see docs/HARM_POLICY.md), which raises
+#     EthicalConstraintViolationError with ``check="harm_uplift"``.
 #   * SOFT weighting: ``sigmoid_benevolence_gate`` below — a smooth η(b)
 #     multiplier used inside score fusion (core/three_r/fusion.py) where a
-#     hard step would create a discontinuity in the fused score.  Advisory
+#     hard step would create a discontinuity in the fused score.  Fusion
 #     weighting only; it cannot approve or veto an action.
 # ==============================================================================
 
@@ -250,11 +262,16 @@ def sigmoid_benevolence_gate(
 ) -> float:
     """Compute the SOFT sigmoid benevolence weighting value.
 
-    Smooth fusion-weighting term (see the disambiguation note above): within
-    score fusion it substitutes a smooth sigmoid curve for the hard
-    threshold (≥ 0.99), which stays enforced at every decision boundary by
-    ``BenevolenceScorer.enforce``:
+    Smooth fusion-weighting term (see the disambiguation note above):
         η(b) = 1 / (1 + exp(-k · (b - b₀)))
+
+    There is **no hard ``≥ 0.99`` benevolence threshold** for this to be the
+    smooth counterpart of. That pass-bar was deleted: it scored a fixed string
+    the engine wrote for itself, so it refused benign work for having plain
+    vocabulary and admitted anything phrased positively.
+    ``BenevolenceScorer.enforce`` no longer applies it. The enforced control at
+    every decision boundary is the fail-closed harm-uplift gate in
+    ``cognitive/decision_gate.py``; benevolence is advisory.
 
     Args:
         benevolence_score: Raw benevolence score in [0, 1].

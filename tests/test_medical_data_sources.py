@@ -271,6 +271,19 @@ class TestDexcomConfigAllowlist:
         with pytest.raises(ConfigurationError, match="DEXCOM_BASE_URL"):
             DexcomConfig(**self._base_kwargs(), base_url="http://api.dexcom.com")
 
+    def test_repr_omits_live_credentials(self) -> None:
+        """The dataclass repr is what a log line renders; the ``config``
+        property documents credentials as redacted, and this is the pin
+        that keeps that claim true."""
+        config = DexcomConfig(**self._base_kwargs())
+        rendered = repr(config)
+        assert "test-client-secret" not in rendered
+        assert "test-refresh-token" not in rendered
+        assert "test-client-id" in rendered  # non-secret fields stay diagnostic
+        # The attributes themselves remain readable for the OAuth flow.
+        assert config.client_secret == "test-client-secret"
+        assert config.refresh_token == "test-refresh-token"
+
 
 class TestDexcomV3DataSource:
     """End-to-end adapter tests with the SafeHTTPClient boundary mocked."""

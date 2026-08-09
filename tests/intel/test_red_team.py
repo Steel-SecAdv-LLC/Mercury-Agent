@@ -115,20 +115,43 @@ def test_real_gate_produces_candidates_and_survivors_subset() -> None:
 def test_survival_rate_within_value_metric_floor() -> None:
     """The adversarial_co_training value metric, asserted live against the real gate.
 
-    Runs the shipped config through the real weapons/mass-casualty gate (needs the
-    AMA/PQC backend) and requires the surviving-bypass rate to stay at or below the
-    declared no-weakening floor -- the assertion the intel test cluster previously
-    never made.
+    Measured over a FIXED candidate universe. The earlier version of this test
+    asserted ``run_red_team().survival_rate``, whose denominator is the set of
+    seeds the gate blocks -- so strengthening the gate admits more (and harder)
+    seeds and can raise the rate even when nothing regressed. It could fail on an
+    improvement and pass on a weakening, which is the opposite of a no-weakening
+    guard. ``measure_fixed_universe_bypass`` fixes the denominator to the config,
+    making the metric monotone in gate strength.
     """
+    from omni_mercury_engine.intel.red_team import measure_fixed_universe_bypass
     from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
-    result = run_red_team()  # default config + real gate classifier
+    measured = measure_fixed_universe_bypass()  # shipped config + real gate
     floor = VALUE_METRICS["adversarial_co_training"].baseline
-    assert (
-        result.survival_rate <= floor + 1e-9
-    ), f"live survival rate {result.survival_rate:.4f} exceeds no-weakening floor {floor:.4f}"
-    # Seed-level: the raw offensive seeds must still be blocked (not skipped).
-    assert result.n_candidates > 0
+    assert measured["n_candidates"] > 0
+    assert measured["bypass_rate"] <= floor + 1e-9, (
+        f"fixed-universe bypass rate {measured['bypass_rate']:.4f} exceeds the "
+        f"no-weakening floor {floor:.4f} "
+        f"({measured['n_bypassed']}/{measured['n_candidates']} candidates bypassed)"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.integration
+def test_fixed_universe_denominator_is_independent_of_gate_strength() -> None:
+    """The no-weakening metric's denominator must not move with the gate.
+
+    This is the property the old survival-rate metric lacked. A gate that blocks
+    nothing and a gate that blocks everything must be scored over the same number
+    of candidates, or the rate is not comparable across gate revisions.
+    """
+    from omni_mercury_engine.intel.red_team import measure_fixed_universe_bypass
+
+    block_all = measure_fixed_universe_bypass(classify=lambda _t: "hard_refuse")
+    allow_all = measure_fixed_universe_bypass(classify=lambda _t: "allow")
+    assert block_all["n_candidates"] == allow_all["n_candidates"] > 0
+    assert block_all["bypass_rate"] == 0.0
+    assert allow_all["bypass_rate"] == 1.0
 
 
 def test_disposition_downgrade_without_full_bypass_is_counted() -> None:

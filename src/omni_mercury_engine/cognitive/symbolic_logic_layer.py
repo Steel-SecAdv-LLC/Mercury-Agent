@@ -17,6 +17,26 @@ Research Sources:
 Integration:
     This module receives neural features from NeuralMemoryLayer
     and produces explainable decisions for the hybrid fusion layer.
+
+Benevolence is advisory here, as everywhere else
+--------------------------------------------------
+
+:meth:`SymbolicLogicLayer.evaluate_action` used to end with
+``allowed = allowed and benevolence_score >= 0.99`` — the same pass-bar
+``cognitive/decision_gate.py`` was written to delete, surviving in a second
+place. It refused benign work for having plain vocabulary: Mercury's own
+"assess trauma and psychological distress among displaced families" scores
+**0.597**, so the layer answered ``allowed=False`` for the mission it exists to
+serve, while any request phrased with enough positive keywords passed.
+
+Permission is now decided by the symbolic rule graph alone — facts the caller
+supplies (``potential_harm``, ``requires_consent`` without consent,
+``privacy_sensitive``) fire real rules that conclude ``action_blocked``. The
+benevolence float still enters the reasoner as a *value*, where it can fire
+``thresh_benevolence_block`` → ``ethical_review_required``: a flag for review,
+which :meth:`SymbolicReasoner._determine_decision` deliberately does not map to
+``BLOCK``. The threshold that triggers that flag is named
+``benevolence_review_threshold`` so it cannot be mistaken for a pass-bar again.
 """
 
 from __future__ import annotations
@@ -28,6 +48,8 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 
 try:
     import networkx as nx
@@ -834,16 +856,22 @@ class SymbolicLogicLayer:
     def __init__(
         self,
         confidence_threshold: float = 0.7,
-        benevolence_threshold: float = 0.99,
+        benevolence_review_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
     ):
         """Initialize Symbolic Logic Layer.
 
         Args:
-            confidence_threshold: Minimum confidence for decisions
-            benevolence_threshold: Minimum benevolence score for actions
+            confidence_threshold: Minimum confidence for decisions.
+            benevolence_review_threshold: Advisory. Below this, the reasoner
+                derives ``ethical_review_required`` — a flag an operator can
+                route to review. It is **not** a pass-bar: it never maps to
+                ``DecisionType.BLOCK`` and never sets ``allowed=False``.
+                Defaults to
+                :data:`~omni_mercury_engine.cognitive.ethical_bounding.MINIMUM_BENEVOLENCE_FLOOR`,
+                not the deleted ``0.99``, which flagged every benign action.
         """
         self.confidence_threshold = confidence_threshold
-        self.benevolence_threshold = benevolence_threshold
+        self.benevolence_review_threshold = benevolence_review_threshold
 
         self.reasoner = SymbolicReasoner(
             confidence_threshold=confidence_threshold,
@@ -855,7 +883,7 @@ class SymbolicLogicLayer:
 
         logger.info(
             f"SymbolicLogicLayer initialized (conf={confidence_threshold}, "
-            f"benevolence={benevolence_threshold})"
+            f"benevolence_review={benevolence_review_threshold} [advisory])"
         )
 
     def _initialize_ethical_rules(self) -> None:
@@ -877,7 +905,16 @@ class SymbolicLogicLayer:
             SymbolicRule(
                 rule_id="ethical_consent",
                 rule_type=RuleType.ETHICAL,
-                premise="requires_consent AND NOT consent_given",
+                # Atomic, because :meth:`SymbolicReasoner.forward_chain` matches
+                # premises by set membership (``rule.premise in derived``) — it
+                # parses no connectives. The previous premise,
+                # ``"requires_consent AND NOT consent_given"``, was therefore a
+                # string no derived fact could ever equal, so this rule never
+                # fired: an action needing consent, with consent explicitly
+                # withheld, was ALLOWED. The conjunction is evaluated in Python
+                # by :meth:`SymbolicLogicLayer.evaluate_action`, which derives
+                # this fact only when consent is actually missing.
+                premise="consent_missing",
                 conclusion="action_blocked",
                 confidence=1.0,
                 priority=100,
@@ -917,10 +954,13 @@ class SymbolicLogicLayer:
                 rule_id="thresh_benevolence_block",
                 variable="benevolence_score",
                 operator="<",
-                threshold=self.benevolence_threshold,
+                threshold=self.benevolence_review_threshold,
                 conclusion="ethical_review_required",
                 confidence=1.0,
-                explanation_template=f"Benevolence score below {self.benevolence_threshold} threshold",
+                explanation_template=(
+                    f"Benevolence below the advisory review threshold "
+                    f"{self.benevolence_review_threshold} — flagged for review, not blocked"
+                ),
             )
         )
 
@@ -972,18 +1012,27 @@ class SymbolicLogicLayer:
     ) -> tuple[bool, ExplainableDecision]:
         """Evaluate whether an action should be allowed.
 
+        Permission is decided by the symbolic rule graph — the caller's facts
+        fire rules that conclude ``action_blocked``. ``benevolence_score``
+        enters the reasoner as a value and is **advisory**: a low score can
+        derive ``ethical_review_required``, which does not block. See the module
+        docstring for why the ``>= 0.99`` conjunction that used to close this
+        method was deleted.
+
         Args:
-            action: Action to evaluate
-            context: Action context
-            benevolence_score: Computed benevolence score
+            action: Action to evaluate.
+            context: Action context. ``potential_harm``, ``privacy_sensitive``
+                and an unconsented ``requires_consent`` are the facts that
+                actually refuse.
+            benevolence_score: Computed benevolence score. Advisory.
 
         Returns:
-            Tuple of (allowed, decision)
+            Tuple of (allowed, decision).
         """
         facts = set()
 
         if context.get("requires_consent") and not context.get("consent_given"):
-            facts.add("requires_consent")
+            facts.add("consent_missing")
 
         if context.get("potential_harm"):
             facts.add("potential_harm")
@@ -1002,8 +1051,11 @@ class SymbolicLogicLayer:
 
         decision = self.reasoner.reason(facts=facts, values=values)
 
+        # The rule graph is the decision. Benevolence is NOT reconsulted here as
+        # a pass-bar: it already entered ``values`` above, where it can flag
+        # review. Re-adding a ``>= threshold`` conjunction would restore the
+        # control this codebase deleted for measuring vocabulary, not intent.
         allowed = decision.decision_type not in [DecisionType.BLOCK]
-        allowed = allowed and benevolence_score >= self.benevolence_threshold
 
         self.decisions.append(decision)
 
@@ -1088,7 +1140,7 @@ class SymbolicLogicLayer:
         return {
             "total_decisions": len(self.decisions),
             "confidence_threshold": self.confidence_threshold,
-            "benevolence_threshold": self.benevolence_threshold,
+            "benevolence_review_threshold": self.benevolence_review_threshold,
             "reasoner_stats": self.reasoner.get_statistics(),
             "decision_type_distribution": {
                 dt.value: sum(1 for d in self.decisions if d.decision_type == dt)

@@ -32,7 +32,7 @@
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
               |   -------------------    |   -------------------   |   -------------------    |
-              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
+              |   Harm-Uplift Gate       |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
               |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication     |
               |   Civilization-First     |   Property Testing      |   Rate Limiting          |
               |                                                                               |
@@ -41,10 +41,24 @@
 ```
 
 > **On the Layer-3 entries:** these are runtime-enforced gates, **not static
-> guarantees**. The benevolence gate defaults to ≥ 0.99 and is configurable no
-> lower than a hard 0.70 floor (enforced in `src/omni_mercury_engine/cognitive/ethical_bounding.py`);
-> Lyapunov stability is *monitored and reported* (`is_stable`), not proven a
-> priori. See [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3.
+> guarantees**.
+>
+> The enforced harm control is the two-axis (hazard-domain × operational-intent)
+> **harm-uplift gate** (`src/omni_mercury_engine/cognitive/decision_gate.py`,
+> policy in [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)). It gates on
+> *operational uplift toward a weapon or mass-casualty outcome*, not on the
+> presence of a hazardous subject, and it fails closed. It replaced a
+> benevolence pass-bar (`≥ 0.99`) that scored a **fixed string the engine wrote
+> for itself** rather than the caller's request — so it rejected benign work for
+> having plain vocabulary and could not discriminate anything. Benevolence
+> remains as an **advisory** score that decides nothing.
+>
+> Lyapunov stability is a *design-time* convergence proof plus *runtime
+> monitoring* (`is_stable`), not a runtime guarantee:
+> `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so it
+> observes and records unless an operator constructs it to halt. See
+> [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3, and
+> [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md).
 
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
@@ -60,7 +74,7 @@
 
 Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
-The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must clear a mandatory benevolence enforcement gate — **0.99 by default**, configurable no lower than a hard **0.70** floor — keeping the system in service of human flourishing and civilizational progress.
+The framework embodies a **Civilization-First** mission: serving the broad range of scientific, clinical, engineering, humanitarian and public-safety work that hazard detection touches. FINDΩYOU™ — locating the lost, missing and abducted — is one deployment of that mission, not its ceiling. Every public decision surface clears one mandatory, fail-closed **harm-uplift gate** (`cognitive/decision_gate.py`, [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)), which refuses operational uplift toward a weapon or mass-casualty outcome and permits the diagnostic, defensive, clinical and responsive half of every hazard domain. Benevolence is scored and logged as an **advisory** signal; it is not a pass-bar.
 
 Beyond the library and CLI, the repository ships an **opt-in self-service platform** for operating the detection API as a hosted service — account registration with email verification, TOTP two-factor, API keys with per-account quotas, a dependency-free browser dashboard, an operator CLI, and a TLS compose overlay — all off by default and documented under [Self-Service Account Platform](#quick-start) and [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md).
 
@@ -156,14 +170,14 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **774** |
-| Source lines of code (LOC) | **~406,000** |
+| Python source files in `src/omni_mercury_engine/` | **777** |
+| Source lines of code (LOC) | **~410,000** |
 | Top-level subpackages (true Python packages with `__init__.py`) | **49** |
 | Files importing PyTorch (optional `[ml]` extra) | **175** |
 | Distinct `torch.nn.Module` subclasses | **173** |
 | Detector classes (`class *Detector`) in `detectors/` | **88** |
 | Data-loader classes (`class *Loader`) in `loaders/` | **21** |
-| Test modules (`test_*.py`) / total test LOC | **678 modules / ~190,000 LOC** |
+| Test modules (`test_*.py`) / total test LOC | **695 modules / ~196,000 LOC** |
 | GitHub Actions workflows | **23** |
 
 _Generated by `python scripts/measure_codebase_scale.py --update README.md` and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); do not hand-edit between the markers._
@@ -196,7 +210,7 @@ Mercury Agent implements a 7-phase cognitive architecture that progressively bui
 | **Phase 3** | Neuro-Symbolic Fusion | Hybrid anomaly scoring | Attention-based fusion, confidence weighting, neural-symbolic integration |
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
 | **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, Mercury/AMA Disconnect |
-| **Phase 6** | Ethical Bounding | Benevolence scoring (>=0.99) | Harm reduction, equity calculation (Gini), empathy module |
+| **Phase 6** | Ethical Bounding | Harm-uplift gate (enforced); benevolence scoring (advisory) | Harm reduction, equity calculation (Gini), empathy module |
 | **Phase 7** | Cognitive Evolution Engine | Curiosity-driven exploration | `CuriosityEngine`: measured novelty scoring (online diagonal-Mahalanobis distance) of detected anomalies, wired into the `CognitiveOrchestrator`. The earlier self-play / genetic-mutation / theory-of-mind internals were measured decorative and removed. |
 
 The seven phases are the historical evolution spine, not the whole cognitive
@@ -547,7 +561,7 @@ Mercury Agent addresses all three challenges through:
 
 - **Unified Framework**: 30 detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
-- **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v3.3.0, JWT authentication, rate limiting
+- **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v4.0.0, JWT authentication, rate limiting
 
 ### Target Use Cases
 
@@ -569,7 +583,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 
 | Layer | Protection | Components |
 |-------|------------|------------|
-| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v3.3.0), JWT auth, OWASP validation |
+| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v4.0.0), JWT auth, OWASP validation |
 | 2. ML/AI Pipeline | Detection intelligence | 30 engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
@@ -639,7 +653,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
 | Benchmark Coverage | 66 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8251** / Median **0.8747** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8251** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
-| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable hard gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), Benevolence ≥ 0.99 |
+| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
 </details>
@@ -653,7 +667,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; enabled by default on the served entrypoints (API `/detect/flagship`, MCP, CLI fusion), opt-in on the core engine via `enable_decision_layer()` |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
-| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v3.3.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
+| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v4.0.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
 | Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
@@ -693,7 +707,7 @@ See `examples/decision_abstention_response_demo.py` and
 
 - **Threat Detection**: SQL injection, XSS, path traversal detection with pattern matching and ML classification
 - **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT) with bias-aware aggregation
-- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography v3.3.0)
+- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography v4.0.0)
 - **Traffic Analysis**: Encrypted traffic anomaly detection with privacy-preserving techniques
 
 </details>
@@ -921,7 +935,7 @@ python examples/live_anomaly_demo.py --all --samples 20
 ```
 
 **Demo features:** real-time streaming with configurable sample rates,
-multi-domain detection, ethical-governance benevolence scoring (target 0.99+),
+multi-domain detection, advisory benevolence scoring,
 threat classification (LOW/MEDIUM/HIGH/CRITICAL), and JSON output for monitoring
 integration. A recorded session is at
 [`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
@@ -1365,7 +1379,7 @@ The test suite includes:
 - `test_temporal_real.py`: 26+ tests for time-series pattern detection
 - `test_resilience_real.py`: 27+ tests for circuit breaker state machine
 - `test_enhanced_geological_detectors.py`: 60+ tests for Landslide/Wildfire/Volcanic with 3R synapses
-- `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
+- `test_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_mercury_amacrypto.py`: 60+ tests for AMA Cryptography PQC adapter and EWMA timing monitor
 
 **v1.7 development-cycle additions:**
@@ -1450,8 +1464,8 @@ lanes) is measured in the CI-gated
 | Layer | Protection |
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
-| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v3.3.0's ACVP-validated native HMAC, fail-closed |
-| Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v3.3.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
+| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v4.0.0's ACVP-validated native HMAC, fail-closed |
+| Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v4.0.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
 | Classical Cryptography | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via Rust + PyO3 (`rust_crypto/`); constant-time comparisons |
 | Rate Limiting | Token bucket algorithm with configurable limits (100 req/min, 20 burst by default) |
 | Secret Detection | `detect-secrets` in pre-commit hooks |
@@ -1841,7 +1855,24 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Signature verification
 - Rate limiting (token bucket algorithm)
 
-**Post-Quantum Cryptography (AMA Cryptography v3.3.0):**
+**Post-Quantum Cryptography (AMA Cryptography v4.0.0):**
+
+> **What the AMA dependency is, and is not.** AMA Cryptography is Mercury's
+> **trust substrate** — the thing Mercury's own guarantees rest on — not a
+> mission or a marketing claim. Stated exactly:
+>
+> * It **implements** NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA) and FIPS 205
+>   (SLH-DSA), and **passes the ACVP-Server known-answer-test vectors
+>   bit-for-bit in CI** (`tests/security/test_nist_fips_kat.py`).
+> * It has been **internally reviewed (AI-assisted)**. It is **not** CAVP- or
+>   CMVP-validated, and it has **not** been independently audited.
+> * Constant-time behaviour is **asserted** by the implementation; it has
+>   **not** been independently verified.
+>
+> Passing the published test vectors is evidence the algorithms are implemented
+> correctly. It is not certification, and the two are not interchangeable:
+> "FIPS-certified" and "NIST-validated" are claims about a formal validation programme Mercury has not entered, and neither phrase may appear anywhere else in this repository (`scripts/doc_lint.py` fails CI on them). <!-- doc-lint: allow -->
+
 - **Kyber-1024 / ML-KEM-1024** key encapsulation (NIST Level 5, exposed as `KyberKeyPair(algorithm="Kyber1024")` in `src/omni_mercury_engine/security/pqc_backends.py`).
 - **ML-DSA-65** lattice signatures (FIPS 204 name for the Dilithium-3 parameter set; supports the §5.2 context-aware sign API from AMA v3.1.0+).
 - **SPHINCS+-SHA2-256f-simple** hash-based signatures plus the FIPS 205 SLH-DSA parameter family.
@@ -1926,7 +1957,7 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub. It regis
 
 The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
-**PQC Algorithms** (sourced from AMA Cryptography v3.3.0):
+**PQC Algorithms** (sourced from AMA Cryptography v4.0.0):
 - **ML-KEM-1024 / Kyber-1024**: Post-quantum key encapsulation, FIPS 203, NIST Level 5
 - **ML-DSA-65 (Dilithium-3)**: Post-quantum digital signatures, FIPS 204 §5.2 (context-aware deterministic signing), NIST Level 3 (≈ 192-bit classical security strength)
 - **SLH-DSA-SHAKE-128s / SHA2-256f**: Hash-based digital signatures, FIPS 205, NIST Level 1 / Level 5 respectively
@@ -2040,10 +2071,10 @@ The **OmniFusionModel** now supports advanced optimizers for accelerated trainin
 - **DifferenceTargetPropagation (DTP)**: Biologically plausible learning
 - **AuxiliaryMaxVariance (AMAV)**: Multi-task loss with variance maximization
 
-**Training Integration** (`omni_mercury_engine.ml.OmniFusionModel.train_with_advanced_optimizers`):
+**Training Integration** (`omni_mercury_engine.ml.OmniFusionModel.train_with_optimizers`):
 ```python
 model = OmniFusionModel(hidden_dim=128, num_heads=4)
-stats = model.train_with_advanced_optimizers(
+stats = model.train_with_optimizers(
     train_loader=train_loader,
     epochs=300,
     learning_rate=0.001,
@@ -2080,8 +2111,8 @@ The **Enhanced Statistical Detection** module provides 8 advanced statistical an
 
 **Usage:**
 ```python
-from omni_mercury_engine.detectors.enhanced_statistical import (
-    MADDetector, LOFDetector, EnhancedStatisticalDetector
+from omni_mercury_engine.detectors.statistical_extended import (
+    MADDetector, LOFDetector, ExtendedStatisticalDetector
 )
 
 # Single method
@@ -2090,7 +2121,7 @@ mad.fit(data)
 result = mad.detect(data)
 
 # Ensemble of methods
-detector = EnhancedStatisticalDetector(
+detector = ExtendedStatisticalDetector(
     methods=["mad", "lof", "dbscan"],
     fusion_strategy="weighted_average"
 )
@@ -2280,7 +2311,7 @@ the Free Software Foundation, either version 3 of the License, or
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
 - **FastAPI**: MIT license
-- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v3.3.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
+- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v4.0.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
 
 PyJWT was retired from the dependency surface in v1.7.0; Mercury now
 ships a pure-stdlib JOSE implementation
@@ -2384,7 +2415,7 @@ The human architect does not hold formal credentials in machine learning or medi
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
-- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v3.3.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
+- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v4.0.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
 
 ### What Requires Caution
 

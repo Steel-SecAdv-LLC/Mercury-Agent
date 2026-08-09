@@ -49,9 +49,14 @@ class GovernorTripped(RuntimeError):
     """
 
 
-@dataclass
+@dataclass(frozen=True)
 class CapabilityCeiling:
     """Hard limits the governor enforces on the fleet.
+
+    Frozen: a ceiling that the governed system can widen at runtime is not a
+    ceiling. Installing a different ceiling means constructing a new one (and
+    ``__post_init__`` re-validates every bound), so raising a limit is always an
+    explicit, auditable act rather than an attribute assignment.
 
     Attributes:
         max_replicas: Max subagents one ``scale_dispatch`` may run at once.
@@ -182,8 +187,7 @@ class AutonomyGovernor:
                 raise GovernorTripped("governor paused: dispatches are halted")
             if depth > self.ceiling.max_recursion_depth:
                 raise GovernorTripped(
-                    f"recursion depth {depth} exceeds ceiling "
-                    f"{self.ceiling.max_recursion_depth}"
+                    f"recursion depth {depth} exceeds ceiling {self.ceiling.max_recursion_depth}"
                 )
             if replicas > self.ceiling.max_replicas:
                 raise GovernorTripped(
@@ -242,8 +246,7 @@ class AutonomyGovernor:
                 if r.autonomy_ceiling > self.ceiling.max_autonomy + 1e-9:
                     self._tripped = True
                     self._trip_reasons.append(
-                        f"autonomy breach observed in {r.subagent_id} "
-                        f"({r.autonomy_ceiling:.3f})"
+                        f"autonomy breach observed in {r.subagent_id} ({r.autonomy_ceiling:.3f})"
                     )
             graded = self._total_completed + self._total_failed
             if graded >= self.ceiling.tripwire_min_observations:

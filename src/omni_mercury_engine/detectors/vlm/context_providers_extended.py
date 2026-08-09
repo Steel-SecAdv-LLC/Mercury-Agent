@@ -1001,7 +1001,7 @@ class AppearanceContextProvider(BaseContextProvider):
         return f"\n[Appearance Analysis: {context.description}]"
 
 
-class EnhancedCombinedContextProvider:
+class CombinedContextProvider:
     """Enhanced combined context provider with all context types.
 
     Integrates:

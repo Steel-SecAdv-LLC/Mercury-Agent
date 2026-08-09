@@ -486,7 +486,7 @@ class HeteroscedasticEstimator:
 class UncertaintyQuantifier:
     """Production Uncertainty Quantification Engine.
 
-    Implements rigorous uncertainty estimation following state-of-the-art methods:
+    Implements uncertainty estimation following published methods:
 
     1. Monte Carlo Dropout (Gal & Ghahramani 2016)
        - Enables dropout at test time for epistemic uncertainty

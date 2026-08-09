@@ -29,6 +29,7 @@ aggregate.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -48,7 +49,6 @@ from omni_mercury_engine.agentic.subagents.registry import (
 from omni_mercury_engine.cognitive.ethical_bounding import (
     MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
-    EthicalConstraintViolationError,
     sanitize_domain,
 )
 
@@ -61,6 +61,8 @@ if TYPE_CHECKING:
 # bounds the logical fleet size; this bounds the physical thread pool so a
 # mass dispatch does not oversubscribe the box. Mirrors the orchestrator's
 # bounded thread usage.
+logger = logging.getLogger(__name__)
+
 _MAX_POOL_WORKERS = 16
 
 
@@ -338,42 +340,63 @@ class SubAgentFleet:
     def _commit(self, results: Sequence[SubAgentResult], domain: DomainType) -> bool:
         """Authorize the fleet to act on these results, via the dual gate.
 
-        Mirrors :meth:`MultiAgentOrchestrator._enforce_ethics`: benevolence is
-        scored on a controlled action description (subagent output never reaches
-        the scorer), then the σ-Immutable gate scores the calibrated 256-d
-        vector. Both raise :class:`EthicalConstraintViolationError` on failure;
-        nothing downstream of a failed gate is treated as committed.
+        Two independent gates run in order, both fail-closed. First the shared
+        harm-uplift choke point
+        (:func:`~omni_mercury_engine.cognitive.decision_gate.enforce_decision_boundary`)
+        over the **real** commit decision, including the subagents' own output;
+        then the σ-Immutable gate over the calibrated 256-d vector. Both raise
+        :class:`EthicalConstraintViolationError`; nothing downstream of a failed
+        gate is treated as committed.
+
+        Subagent output reaches the gate on purpose. Under the superseded
+        benevolence pass-bar that would have been an injection vector — positive
+        vocabulary in an output could buy a permit. The harm-uplift gate is
+        block-on-harm, so output content can only move the verdict toward a
+        refusal, and withholding it would have hidden exactly the case worth
+        catching: a fleet about to commit uplift material.
 
         Returns ``True`` when both gates authorize commitment.
         """
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+
         safe_domain = sanitize_domain(getattr(domain, "value", str(domain)))
         confidences = [r.confidence for r in results if r.status == "completed"]
         severity = max(confidences) if confidences else 0.0
         anomaly_prob = (sum(confidences) / len(confidences)) if confidences else 0.0
 
-        action_desc = (
-            f"subagent_fleet_commit:{safe_domain}:severity={severity:.2f}:"
-            "audit monitor verify data research evidence fair oversight"
+        verdict = enforce_decision_boundary(
+            DecisionSubject(
+                surface="SubAgentFleet.commit",
+                operation="commit delegated subagent results under fleet governance",
+                domain=safe_domain,
+                payload={
+                    "severity": round(severity, 4),
+                    "outputs": [r.output for r in results if r.status == "completed"],
+                },
+            ),
+            advisory_scorer=self._benevolence_scorer,
         )
-        context = {
-            "purpose": "commit delegated subagent results under fleet governance",
-            "safety": "care help support review protect",
-            "domain": safe_domain,
-        }
-        ethical = self._benevolence_scorer.score_action(action_desc, context)
-        if not ethical.is_permissible:
-            raise EthicalConstraintViolationError(
-                action=action_desc,
-                score=ethical.benevolence_score,
-                threshold=self._benevolence_scorer.benevolence_threshold,
+        if verdict.benevolence is not None:
+            logger.debug(
+                "SubAgentFleet.commit[%s]: advisory benevolence %.4f (informational; "
+                "the enforced control is the harm-uplift gate, which returned %s)",
+                safe_domain,
+                verdict.benevolence,
+                verdict.assessment.disposition.value,
             )
 
         from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
             build_sigma_immutable_vector,
         )
 
+        # The ethical band carries the system's configured posture, not the
+        # per-call advisory float — see ``PERMITTED_ETHICAL_POSTURE``.
         sigma_vector = build_sigma_immutable_vector(
-            benevolence_score=ethical.benevolence_score,
+            benevolence_score=PERMITTED_ETHICAL_POSTURE,
             severity=severity,
             anomaly_prob=anomaly_prob,
         )

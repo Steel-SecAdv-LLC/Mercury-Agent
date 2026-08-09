@@ -289,7 +289,7 @@ class ThreatDetector:
         threats: list[dict[str, Any]],
         context: dict[str, Any],
     ) -> float:
-        """Evaluate ethical alignment of threat response Ensures survivor-first principles.
+        """Evaluate ethical alignment of a threat response, weighting who is most exposed.
 
         Args:
             threats: List of threats

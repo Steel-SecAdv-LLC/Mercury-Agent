@@ -143,7 +143,7 @@ _PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
 #: insensitive to a single anchor when the rest sit at their >=0.99
 #: defaults -- still scored above threshold.  0.93 closes the gap while
 #: keeping margin: every genuine anchor defaults to >= 0.99 (the lowest is
-#: omnibenevolence == BENEVOLENCE_IMMUTABLE), so the healthy operating
+#: omnibenevolence == OMNIBENEVOLENCE_SCALAR), so the healthy operating
 #: point clears the floor by >= 0.06.  Narrative tuning scalars are
 #: excluded by name (see ``GlobalOmniScalarNetwork.critical_ethical_anchors``),
 #: so their intentionally-low defaults never trip it.
@@ -282,6 +282,27 @@ def _sigma_base_vector(benevolence_score: float) -> np.ndarray[Any, Any]:
     return vector
 
 
+#: The ethical-band input a boundary supplies to σ_Immutable once the enforced
+#: harm-uplift gate has permitted the decision.
+#:
+#: σ_Immutable is a **configuration**-integrity check, not a per-input
+#: classifier: it reads the operational governance scalars, which are a property
+#: of how the system is configured, not of the row being scored (measured:
+#: bit-constant across normal and anomalous inputs in four domains — see the
+#: README's σ_Immutable section). Its ethical-band input is therefore the
+#: system's configured omnibenevolence posture.
+#:
+#: It used to be the per-call benevolence float. That worked only because a
+#: ``>= 0.99`` benevolence pass-bar ran first, so anything reaching σ_Immutable
+#: was pinned near 1.0 by construction — the "per-call" input was a constant
+#: with extra steps. With the pass-bar deleted (it scored a synthetic keyword
+#: string; see ``cognitive.decision_gate``), feeding a raw content score here
+#: would make σ_Immutable fire on benign plain-vocabulary inputs, which is not
+#: what it measures. The authoritative catch for a corrupted ethical anchor
+#: remains the deterministic :meth:`SigmaImmutableGate.enforce_ethical_floor`.
+PERMITTED_ETHICAL_POSTURE: float = ETHICAL.OMNIBENEVOLENCE_SCALAR
+
+
 def build_sigma_immutable_vector(
     benevolence_score: float,
     severity: float = 0.0,
@@ -319,60 +340,74 @@ def build_sigma_immutable_vector(
 
 def enforce_dual_ethical_gate(
     *,
-    benevolence_scorer: Any,
+    subject: Any,
     sigma_gate: SigmaImmutableGate,
-    action: str,
-    context: dict[str, Any],
     boundary: str,
     domain: str,
     severity: float = 0.0,
     anomaly_prob: float = 0.0,
+    advisory_scorer: Any | None = None,
     extra_details: dict[str, Any] | None = None,
 ) -> Any:
-    """Run the BenevolenceScorer + σ_Immutable dual hard ethical gate.
+    """Run the harm-uplift choke point + σ_Immutable dual hard ethical gate.
 
-    Single shared primitive for the σ_Immutable Wave C surfaces (narrative
-    voice, federation aggregator, FL server) so the benevolence-first /
-    σ_Immutable-second contract cannot drift between boundaries.  Mirrors
-    the inline dual-gate already wired at the engine, orchestrator, and
-    neuro-symbolic-hub boundaries.
+    Single shared primitive for the σ_Immutable Wave C surfaces (reasoning
+    backend, narrative voice, federation aggregator, FL server) so the
+    harm-first / σ_Immutable-second contract cannot drift between boundaries.
+    It is the same choke point the engine, cognitive orchestrator,
+    multi-agent orchestrator, hub and subagent fleet use.
 
-    Both gates fail closed and the σ_Immutable call is **not** wrapped in a
-    swallowing ``try/except`` — a violation propagates as
+    Both gates fail closed and neither call is wrapped in a swallowing
+    ``try/except`` — a violation propagates as
     :class:`EthicalConstraintViolationError` so the caller's operation halts.
 
+    The first gate takes a
+    :class:`~omni_mercury_engine.cognitive.decision_gate.DecisionSubject`, not a
+    free-form action string. That is deliberate: every caller previously passed
+    a hand-written, positive-keyword-rich description of its own good
+    intentions (``"...audit verify protect research evidence fair
+    oversight..."``) and the *real* request never reached the gate, so the check
+    could not discriminate anything. Taking a structured subject makes the real
+    decision the only thing that can be scored.
+
     Args:
-        benevolence_scorer: Object exposing ``.enforce(action, context)``
-            (a :class:`BenevolenceScorer`); raises on benevolence violation.
+        subject: The real decision — surface, operation, domain, caller request
+            and payload.
         sigma_gate: The process-wide :class:`SigmaImmutableGate`.
-        action: Positive-keyword-rich action description (the boundary's
-            *purpose*, not the anomalous payload).
-        context: Benevolence-scoring context dict.
         boundary: Fully-qualified boundary name for the audit trail.
         domain: Already-:func:`sanitize_domain`-d domain hint.
         severity: Per-call severity in ``[0, 1]``.
         anomaly_prob: Per-call anomaly probability in ``[0, 1]``.
+        advisory_scorer: Optional benevolence scorer, consulted for the advisory
+            number only.
         extra_details: Optional structured context merged into the σ_Immutable
             violation details.
 
     Returns:
-        The :class:`EthicalScore` from the benevolence gate on success.
+        The permitted
+        :class:`~omni_mercury_engine.cognitive.decision_gate.BoundaryVerdict`.
 
     Raises:
-        EthicalConstraintViolationError: ``check="benevolence"`` (first gate),
+        EthicalConstraintViolationError: ``check="harm_uplift"`` (first gate),
             ``check="sigma_immutable"`` or ``check="gosnn_unavailable"``
             (second gate).
     """
-    ethical_score = benevolence_scorer.enforce(action, context)
+    from omni_mercury_engine.cognitive.decision_gate import enforce_decision_boundary
+
+    verdict = enforce_decision_boundary(subject, advisory_scorer=advisory_scorer)
+    # The first gate permitted this decision, so σ_Immutable reads the system's
+    # configured ethical posture, not a per-call content score — see
+    # PERMITTED_ETHICAL_POSTURE for why that float was never the signal here.
     sigma_vector = build_sigma_immutable_vector(
-        benevolence_score=float(ethical_score.benevolence_score),
+        benevolence_score=PERMITTED_ETHICAL_POSTURE,
         severity=severity,
         anomaly_prob=anomaly_prob,
     )
     details: dict[str, Any] = {
         "boundary": boundary,
         "domain": domain,
-        "benevolence_score": float(ethical_score.benevolence_score),
+        "benevolence_advisory": verdict.benevolence,
+        "harm_uplift_disposition": verdict.assessment.disposition.value,
         "severity": float(severity),
         "anomaly_prob": float(anomaly_prob),
     }
@@ -383,7 +418,7 @@ def enforce_dual_ethical_gate(
         scalar_vector=sigma_vector,
         details=details,
     )
-    return ethical_score
+    return verdict
 
 
 @dataclass(frozen=True)

@@ -46,7 +46,7 @@ Architecture:
         - SpectralVibrationDetector (GNN/CNN spectral, phonon interactions)
         - AccelerationDynamicsDetector (kinematics, Lyapunov, phase space)
         - UIUXAnomalyDetector (user behavior, engagement, bot detection)
-        - AdvancedPhysicsIntegratedDetector (unified with 3R and GOSNN)
+        - PhysicsIntegratedDetector (unified with 3R and GOSNN)
 
 Example:
     >>> from omni_mercury_engine.core.detector_registry import DetectorRegistry
@@ -948,8 +948,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     DetectorManifestEntry(
         "physics_integrated",
-        "omni_mercury_engine.detectors.advanced_physics_integration",
-        "AdvancedPhysicsIntegratedDetector",
+        "omni_mercury_engine.detectors.physics_integration",
+        "PhysicsIntegratedDetector",
         DetectorCategory.PHYSICS,
         "Unified physics detector with 3R and GOSNN integration",
         tags=["physics", "integrated", "3r", "gosnn", "fusion"],

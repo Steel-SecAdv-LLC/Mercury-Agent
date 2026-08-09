@@ -14,9 +14,9 @@ import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.detectors.advanced_physics_integration import (
-    AdvancedPhysicsIntegratedDetector,
+from omni_mercury_engine.detectors.physics_integration import (
     PhysicsGOSNNScalars,
+    PhysicsIntegratedDetector,
     create_dynamics_detector,
     create_integrated_detector,
     create_spectral_detector,
@@ -54,11 +54,11 @@ def create_test_interactions(count: int = 30) -> list[UserInteraction]:
 
 
 class TestAdvancedPhysicsIntegratedDetector:
-    """Tests for AdvancedPhysicsIntegratedDetector."""
+    """Tests for PhysicsIntegratedDetector."""
 
     def test_init_default_config(self) -> None:
         """Test initialization with default configuration."""
-        detector = AdvancedPhysicsIntegratedDetector()
+        detector = PhysicsIntegratedDetector()
         assert detector is not None
         assert not detector.is_fitted()
 
@@ -68,7 +68,7 @@ class TestAdvancedPhysicsIntegratedDetector:
             "enabled_detectors": ["all"],
             "threshold": 0.6,
         }
-        detector = AdvancedPhysicsIntegratedDetector(config)
+        detector = PhysicsIntegratedDetector(config)
         assert detector._spectral_detector is not None
         assert detector._dynamics_detector is not None
         assert detector._uiux_detector is not None
@@ -78,7 +78,7 @@ class TestAdvancedPhysicsIntegratedDetector:
         config = {
             "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
         }
-        detector = AdvancedPhysicsIntegratedDetector(config)
+        detector = PhysicsIntegratedDetector(config)
         assert detector._spectral_detector is not None
         assert detector._dynamics_detector is not None
         assert detector._uiux_detector is None
@@ -88,13 +88,13 @@ class TestAdvancedPhysicsIntegratedDetector:
         config = {
             "use_3r_enhancement": False,
         }
-        detector = AdvancedPhysicsIntegratedDetector(config)
+        detector = PhysicsIntegratedDetector(config)
         assert detector._fusion_equation is None
         assert detector._recursion_engine is None
 
     def test_fit_time_series(self) -> None:
         """Test fitting on time series data."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
             }
@@ -110,7 +110,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_fit_interactions(self) -> None:
         """Test fitting on user interactions."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["uiux_anomaly"],
             }
@@ -125,7 +125,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_fit_mixed_data(self) -> None:
         """Test fitting on mixed data types."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["all"],
             }
@@ -141,7 +141,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_time_series(self) -> None:
         """Test detection on time series."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
                 "threshold": 0.6,
@@ -163,7 +163,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_with_3r_enhancement(self) -> None:
         """Test detection with 3R enhancement."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
                 "use_3r_enhancement": True,
@@ -180,7 +180,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_with_gosnn_scaling(self) -> None:
         """Test detection with GOSNN ethical scaling."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["all"],
                 "use_gosnn_scaling": True,
@@ -200,7 +200,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_returns_recommendations(self) -> None:
         """Test that detection returns recommendations."""
-        detector = AdvancedPhysicsIntegratedDetector()
+        detector = PhysicsIntegratedDetector()
 
         signal = create_test_time_series()
         detector.fit(signal, data_type="time_series")
@@ -211,7 +211,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_extract_features(self) -> None:
         """Test feature extraction."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
             }
@@ -225,7 +225,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_get_detector_status(self) -> None:
         """Test getting detector status."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration"],
             }
@@ -238,7 +238,7 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_get_gosnn_scalars(self) -> None:
         """Test getting GOSNN scalars."""
-        detector = AdvancedPhysicsIntegratedDetector()
+        detector = PhysicsIntegratedDetector()
         scalars = detector.get_gosnn_scalars()
 
         assert "SPECTRAL_INTEGRITY" in scalars
@@ -249,7 +249,7 @@ class TestAdvancedPhysicsIntegratedDetector:
         """Test that detection before fitting raises exception."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
-        detector = AdvancedPhysicsIntegratedDetector()
+        detector = PhysicsIntegratedDetector()
         with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.detect(create_test_time_series(), data_type="time_series")
 
@@ -348,7 +348,7 @@ class TestIntegrationScenarios:
 
     def test_predictive_maintenance_scenario(self) -> None:
         """Test predictive maintenance scenario with spectral analysis."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["spectral_vibration"],
                 "spectral_config": {
@@ -376,7 +376,7 @@ class TestIntegrationScenarios:
 
     def test_system_monitoring_scenario(self) -> None:
         """Test system monitoring scenario with dynamics analysis."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["acceleration_dynamics"],
                 "dynamics_config": {
@@ -403,7 +403,7 @@ class TestIntegrationScenarios:
 
     def test_user_experience_scenario(self) -> None:
         """Test user experience monitoring scenario."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["uiux_anomaly"],
             }
@@ -444,7 +444,7 @@ class TestIntegrationScenarios:
 
     def test_full_system_integration(self) -> None:
         """Test full system with all detectors and 3R enhancement."""
-        detector = AdvancedPhysicsIntegratedDetector(
+        detector = PhysicsIntegratedDetector(
             {
                 "enabled_detectors": ["all"],
                 "use_3r_enhancement": True,

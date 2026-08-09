@@ -358,6 +358,51 @@ def run_red_team(
     return result
 
 
+def measure_fixed_universe_bypass(
+    config: RedTeamConfig | None = None,
+    *,
+    classify: Any | None = None,
+) -> dict[str, float | int]:
+    """Bypass rate over a candidate universe that does NOT move with gate strength.
+
+    :attr:`RedTeamResult.survival_rate` is a useful description of one run, but it
+    is **not** a sound no-weakening guard, because its denominator depends on the
+    gate being measured: :func:`run_red_team` skips a seed the gate does not
+    block, so *strengthening* the gate admits more seeds, generates more (harder)
+    candidates, and can push the rate up even when nothing regressed.
+
+    That is not hypothetical. Enabling the shipped meaning-level classifier and
+    fixing the multi-word separator bypass took skipped seeds from 99 to 38 --
+    61 more seeds blocked -- and the survival rate rose 0.335 -> 0.438 purely
+    from the denominator change. Measured over a fixed universe the same change
+    was strictly an improvement: 141 -> 155 of 184 candidates blocked, 14 newly
+    blocked and **0** newly allowed.
+
+    This function fixes the denominator: every mutation chain of every configured
+    seed is scored, whether or not the gate blocks the seed. The result is
+    monotone in gate strength, so it can be pinned as a regression floor.
+
+    Returns:
+        ``{"n_candidates", "n_blocked", "n_bypassed", "bypass_rate"}``.
+    """
+    cfg = config or RedTeamConfig.load()
+    classifier = classify or _classifier()
+    universe: set[str] = set()
+    for seed in cfg.seeds:
+        universe.add(seed)
+        for chain in _chains(cfg.mutations, cfg.max_chain):
+            universe.add(apply_chain(seed, chain))
+    candidates = sorted(universe)
+    bypassed = sum(1 for text in candidates if classifier(text) in _ALLOW_DISPOSITIONS)
+    n = len(candidates)
+    return {
+        "n_candidates": n,
+        "n_blocked": n - bypassed,
+        "n_bypassed": bypassed,
+        "bypass_rate": round(bypassed / n, 6) if n else 0.0,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Survivor append (corpus/pending).
 # --------------------------------------------------------------------------- #
@@ -417,5 +462,6 @@ __all__ = [
     "RedTeamResult",
     "append_survivors",
     "apply_chain",
+    "measure_fixed_universe_bypass",
     "run_red_team",
 ]

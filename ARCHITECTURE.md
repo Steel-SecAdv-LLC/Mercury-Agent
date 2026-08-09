@@ -237,7 +237,7 @@ trainer = FusionTrainer(...)  # 'ava_' prefix retained for back-compat;
 ```
 Threats → Confidence score (avg of threats) →
 Temporal relevance (recent = higher) →
-Ethical alignment (survivor-first) →
+Ethical alignment (civilization-first) →
 Validity score (weighted) →
 Action: ESCALATE / BANISH / MAINTAIN / VOID
 ```
@@ -598,7 +598,7 @@ The infrastructure modules implement several specialized capabilities:
 
 3. **Cross-Border Threat Correlation**: Correlates anomaly patterns across international boundaries (EU-US) for comprehensive threat intelligence
 
-4. **Labor Resilience with Ethical AI**: Monitors essential worker availability with trauma-informed ethical scalars (survivor-first, compassion, omnibenevolent)
+4. **Labor Resilience with Ethical AI**: Monitors essential worker availability with trauma-informed ethical scalars (compassion, omnibenevolent), weighting the workers most exposed in a crisis
 
 5. **Post-Quantum Cryptography Planning**: Integrated with `quantum_risk.py` to assess vulnerabilities and plan migration to NIST PQC standards
 
@@ -616,7 +616,7 @@ Infrastructure modules integrate seamlessly with the core 30 detection engines:
 
 - **NCF Monitor** → Uses temporal, statistical, and spatial detectors for pattern analysis
 - **Space Infrastructure** → Leverages quantum and astrophysical models for orbital anomalies
-- **Essential Workers** → Integrates ethical framework (180+ omni-scalars) for survivor-first monitoring
+- **Essential Workers** → Integrates ethical framework (180+ omni-scalars); humanitarian continuity is one deployment of the civilization-first mission
 - **World Bank Sectors** → Connects to regenerative architecture for sustainability scoring
 - **Emerging Tech** → Uses multiverse engine for scenario exploration and adaptive detection
 
@@ -1268,7 +1268,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ **Cross-border threat correlation** (EU-US integration)
 - ✅ **STEM discipline routing** in fusion network for optimized multi-engine detection
 - ✅ **Post-quantum cryptography** migration planning (NIST PQC standards)
-- ✅ **Labor resilience monitoring** with trauma-informed ethical AI (survivor-first principles)
+- ✅ **Labor resilience monitoring** with trauma-informed ethical AI, weighting the workers most exposed
 - ✅ **Economic development tracking** with regenerative sustainability scoring
 
 ### Integration Opportunities:

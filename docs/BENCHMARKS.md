@@ -251,8 +251,43 @@ The audit is committed in
 fusion-marginal ablation ledger
 (`research/governed_fusion/ablation_ledger.json`, written by
 `research/governed_fusion/measure_marginal_ablation.py`, gated by
-`.github/workflows/ablation-ledger.yml`) tracks per-component leave-one-out
-lift on the `external_label` subset only.
+`.github/workflows/ablation-ledger.yml`) records per-component
+leave-one-out lift on the `external_label` subset only. The committed
+ledger carries **measured records** produced on cache-warmed hosts — the
+first (2026-08-04, `status: ok`) measured resonance at **+0.085 AUROC**
+marginal lift and kinematic at **−0.034** (the fusion scores *higher*
+without it on external labels) — while the CI lane's per-run append is
+runner-local and never committed: it proves reachability of the
+measurement path on every PR, it does not accumulate history. New
+committed records come from deliberate measured runs, never from CI
+side effects.
+
+### A shipped component with negative measured lift
+
+State it plainly: **`kinematic` is in the shipped fusion sum and its only
+measured marginal contribution is negative** (−0.034 AUROC, −0.023 AUPRC,
+−0.036 F1). It is not gated behind a flag; `MercuryAnomalyDetector.detect`
+always includes it, and the mechanisms that touch it (`_WEIGHT_MARGIN_POWER`,
+the `TABULAR` compatibility modifier, the Spearman inversion guard) only
+*down-weight* it. The reason it is not removed is **not** that the measurement
+is disputed — it is that the measurement rests on `n_events = 2`, which is too
+thin to justify deleting a component, and removing it on that evidence would
+be the same error in the other direction.
+
+Two things follow, and both are structural rather than intentions:
+
+- The measurement was made repeatable. `ablation-ledger.yml` now carries a
+  **cache-warmed measuring lane** (`ablation-measure`) that runs off
+  `pull_request`, warms `$GF_CACHE_DIR` from the live loaders, and measures
+  under `--check` so a run that cannot measure fails instead of appending
+  another `needs_cache`. Before it, the per-PR lane could only ever record
+  reachability, which is why this figure has `n = 1` record behind it.
+- Nothing in the repository claims kinematic contributes positively. The
+  `Known Weaknesses` entry below documents the mechanism (derivatives over
+  unordered rows are noise), and this figure is the measured consequence.
+
+The honest summary is that the component's fate is an open question with one
+measurement against it, not a settled decision in either direction.
 
 The external-label mean is *below* the historical mixed mean. Label leakage
 does not only inflate; it can also degrade in either direction depending
@@ -519,6 +554,31 @@ unavailable is **skipped (recorded as unavailable), never substituted with synth
 data**. Reproduce the README near-peer table with
 `python -m benchmarks.empirical_benchmark --readme-subset -o benchmarks/empirical_benchmark_results.json`
 (license-clean scikit-learn datasets only).
+
+## Gate provenance census — real data vs constructed, stated once
+
+Every blocking CI lane's data provenance, so no threshold can be read as
+something it is not. **Rule:** a *skill claim* must rest on real,
+externally-labeled data; a *behavior/invariant pin* may run constructed or
+seeded input and must never be quoted as skill.
+
+| Blocking lane | Data | Provenance | Reads as |
+|---|---|---|---|
+| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 53 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 6 real domain) | **real, external labels** | skill claim |
+| `anomaly_regression_guard` | 8 ADBench sets, sha256-pinned, downloaded per run | **real, external labels** | skill regression floor |
+| `ci/hazard-regression` — solar row | 83 windows of measured SWPC/GOES data, cached in-repo | **real, measured** | real-data floor |
+| `ci/hazard-regression` — other 6 domains | 124 constructed scenarios (seeded, physics-shaped, disclosed per-row in `docs/HAZARD_REGRESSION.md`) | constructed | behavior pin — **not** skill |
+| Fusion AUC/F1 + conformal coverage gate | seeded synthetic corpus (stated in workflow header) | synthetic | math/behavior pin — **not** skill |
+| `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: recall 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
+| `ci/red-team` | deterministic mutation registry over seed prompts | constructed | control-survival pin |
+| CI `Performance Benchmark` latency asserts | `np.random.randn` arrays | synthetic | latency pin only |
+| Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.7704) | **real, external labels** | the only fusion skill claim |
+
+Counting individual blocking thresholds: **~24 rest on real data, ~40 on
+constructed/synthetic input.** The published headline numbers (ADBench
+0.8251/0.5998, governed-fusion external-label 0.7704) rest exclusively on
+the real side; every constructed lane above is a pin, and quoting one as
+skill is a documentation bug — report it.
 
 ## References
 

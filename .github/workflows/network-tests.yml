@@ -86,7 +86,6 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
           EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
-          EROSERS_PASSWORD: ${{ secrets.EROSERS_PASSWORD }}
           USGS_KEY: ${{ secrets.USGS_KEY }}
         run: python scripts/verify_data_credentials.py
 
@@ -98,7 +97,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run @pytest.mark.network suite
         env:
@@ -129,9 +128,8 @@ jobs:
           # OpenWeatherMap -- weather loader reads OPENWEATHERMAP_API_KEY.
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
           # USGS EROS M2M (login-token) needs BOTH the application token and the
-          # ERS username (and optional password).
+          # ERS username (the app token in USGS_KEY replaces the ERS password).
           USGS_KEY: ${{ secrets.USGS_KEY }}
           EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
-          EROSERS_PASSWORD: ${{ secrets.EROSERS_PASSWORD }}
         run: |
           pytest -m network -v --tb=short

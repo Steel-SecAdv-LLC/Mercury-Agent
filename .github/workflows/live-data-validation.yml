@@ -42,7 +42,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Keyed-loader live-data smoke
         env:
@@ -63,3 +63,49 @@ jobs:
           EROSERS_USERNAME: ${{ secrets.EROSERS_USERNAME }}
         run: |
           python scripts/live_data_smoke.py
+
+  # Self-clearing failure alert (same idiom as gate-watchdog.yml / PR #354):
+  # a red weekly run on main opens or updates a labeled tracking issue; the
+  # next green run on main closes it. Without this, a red weekly run existed
+  # only in the Actions tab — the EIA ``KeyError: 1`` regression ran red for
+  # three consecutive Mondays with nobody told. Branch workflow_dispatch runs
+  # are excluded so a green branch run cannot close an alert that is still
+  # live on main. Uses no third-party actions: the preinstalled ``gh`` CLI
+  # authenticates via the job's own token, and every call passes -R so no
+  # checkout is needed.
+  alert-on-failure:
+    needs: keyed-loader-smoke
+    if: >-
+      always() && github.ref == 'refs/heads/main' &&
+      contains(fromJSON('["failure","success"]'), needs.keyed-loader-smoke.result)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TITLE: "live-data-validation: weekly keyed-loader smoke failing"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RESULT: ${{ needs.keyed-loader-smoke.result }}
+    steps:
+      - name: Open/update or self-clear the live-data alert issue
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list -R "$REPO" --state open --label live-data-validation \
+            --search "\"$TITLE\" in:title" --json number --jq '.[0].number' || true)"
+          if [ "$RESULT" = "failure" ]; then
+            body="Weekly keyed-loader live-data smoke FAILED: $RUN_URL — see the job log's FAILED-loaders summary. A keyed-and-configured loader returned empty or errored, i.e. live-wiring drift."
+            if [ -n "$existing" ]; then
+              printf '%s' "$body" | gh issue comment -R "$REPO" "$existing" --body-file -
+            else
+              gh label create live-data-validation -R "$REPO" --color B60205 \
+                --description "Weekly live-data smoke alerts" 2>/dev/null || true
+              printf '%s' "$body" | gh issue create -R "$REPO" --title "$TITLE" \
+                --label live-data-validation --body-file -
+            fi
+          elif [ -n "$existing" ]; then
+            printf 'Weekly keyed-loader smoke is green again: %s' "$RUN_URL" \
+              | gh issue comment -R "$REPO" "$existing" --body-file -
+            gh issue close -R "$REPO" "$existing" --reason completed
+          fi

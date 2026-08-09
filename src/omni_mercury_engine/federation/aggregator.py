@@ -99,29 +99,26 @@ class FederatedAggregator:
     def _enforce_ethics(self, boundary: str, extra_details: dict[str, Any] | None = None) -> None:
         """Run the benevolence + σ_Immutable dual hard gate for federation.
 
-        Federated aggregation is a privacy-preserving statistics merge — a
-        benign, evidence-gathering action — so the action text is
-        positive-keyword-rich and severity / anomaly_prob stay at their
-        benign defaults.  Both gates fail closed; a violation raises
-        :class:`EthicalConstraintViolationError` and the federation
-        operation halts (the call is *not* wrapped in a swallowing
-        ``try/except``).
+        The gated decision is the real one — this boundary carries no caller
+        free text, so the subject is the operation plus the node/round
+        provenance in ``extra_details``. It used to be a hand-written
+        positive-keyword string asserting the merge was benign, which told the
+        gate nothing it could check. Severity / anomaly_prob stay at their
+        benign defaults. Both gates fail closed; a violation raises
+        :class:`EthicalConstraintViolationError` and the federation operation
+        halts (the call is *not* wrapped in a swallowing ``try/except``).
         """
-        action = (
-            f"federated_statistics_aggregation:{self._domain}:audit verify "
-            "protect privacy research evidence fair oversight monitor data "
-            "care help support consent"
-        )
-        context = {
-            "purpose": "privacy-preserving federated statistics aggregation",
-            "safety": "protect verify monitor privacy consent evidence",
-            "domain": self._domain,
-        }
+        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+
         enforce_dual_ethical_gate(
-            benevolence_scorer=self._benevolence_scorer,
+            subject=DecisionSubject(
+                surface=boundary,
+                operation="merge fitted per-node statistics into a federated model",
+                domain=self._domain,
+                payload=extra_details,
+            ),
             sigma_gate=self._sigma_immutable_gate,
-            action=action,
-            context=context,
+            advisory_scorer=self._benevolence_scorer,
             boundary=boundary,
             domain=self._domain,
             extra_details=extra_details,

@@ -76,7 +76,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       # 1. Loader-side audit -- the foundation everything else stands on.
       - name: Loader label-provenance audit
@@ -94,13 +94,11 @@ jobs:
       - name: Governed promotion gate unit tests
         run: pytest tests/research/test_governed_promotion_gate.py -q
 
-      # 5. Run the actual measurement.  When the score cache is absent on
-      # the runner, the script writes a 'needs_cache' record (exit 0) so
-      # the ledger keeps a chronological account of reachability without
-      # blocking the gate.  --check would be enabled by the same job on a
-      # nightly runner with a pre-built $GF_CACHE_DIR; that's a Phase 2
-      # follow-up, not Phase 1's deliverable.
-      - name: Measure marginal-ablation ledger (informational)
+      # 5. Reachability only.  This lane deliberately does NOT warm the score
+      # cache: it runs on every PR and must stay fast and network-free, so it
+      # writes a 'needs_cache' record (exit 0) proving the measurement path is
+      # callable.  The measuring lane below is the one that produces numbers.
+      - name: Measure marginal-ablation ledger (reachability)
         run: |
           source research/governed_fusion/gf_env.sh
           python research/governed_fusion/measure_marginal_ablation.py
@@ -109,5 +107,101 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ablation-ledger
+          path: research/governed_fusion/ablation_ledger.json
+          retention-days: 90
+
+  # ---------------------------------------------------------------------------
+  # The measuring lane.
+  #
+  # The job above proves the measurement path is reachable; it cannot measure,
+  # because a GitHub runner has no $GF_CACHE_DIR and the reachability lane is not
+  # allowed to spend network time warming one.  Without this job the ledger only
+  # ever accumulates 'needs_cache' records, `promotion_gate._latest_ok_ledger_run`
+  # has exactly one real baseline to compare against (2026-08-04), and the
+  # marginal-lift figures -- including kinematic's measured -0.034 AUROC -- rest
+  # on a single measurement that nothing re-runs.
+  #
+  # This job warms the cache from the live loaders, then measures with --check so
+  # a lane that cannot measure fails loudly instead of appending another
+  # 'needs_cache' and exiting green.  It is excluded from pull_request for the
+  # reason above: it is slow and it reaches the network.
+  #
+  # Results are uploaded, never committed.  docs/BENCHMARKS.md states the rule --
+  # committed ledger records come from deliberate measured runs, never from CI
+  # side effects -- and `contents: write` is refused to this file by
+  # scripts/check_workflow_hardening.py regardless.
+  # ---------------------------------------------------------------------------
+  ablation-measure:
+    name: Cache-warmed marginal ablation (measuring lane)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # The score cache MUST live where actions/cache saves and restores it.
+      # ``gf_env.sh`` and ``score_cache.py`` default ``GF_CACHE_DIR`` to
+      # ``/home/user/gf_cache`` -- this repo's dev-container home -- which a
+      # GitHub runner neither has nor can create as a non-root user, so the
+      # cache action (keyed on ``~/gf_cache``) never restored the warmed scores
+      # and the warm step could fail on the missing parent directory. Pin the
+      # env var and the cache path below to one workspace-relative location so
+      # the warm step, the measure step, and the cache all agree.
+      GF_CACHE_DIR: ${{ github.workspace }}/.gf_cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install scikit-learn
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v4.0.0
+
+      # The score cache is a pure function of (event data, cap, seed, detector),
+      # so it is safe to carry between runs and re-warming it on every nightly
+      # would hammer the upstreams for no new information. The key carries the
+      # input pin and the detector source, so a change to either invalidates it
+      # rather than measuring new code against stale scores.
+      - name: Restore governed-fusion score cache
+        id: gf-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/.gf_cache
+          key: >-
+            gf-scores-v1-${{ hashFiles('research/governed_fusion/manifest.json',
+            'src/omni_mercury_engine/detectors/statistical.py',
+            'research/governed_fusion/score_cache.py') }}
+
+      # Fits the detector once per event and caches the scores. Only the
+      # external-label subset is measured downstream, but measure_baseline warms
+      # the whole live suite in one pass, which is what the cache key covers.
+      - name: Warm the score cache from the live loaders
+        if: steps.gf-cache.outputs.cache-hit != 'true'
+        run: |
+          source research/governed_fusion/gf_env.sh
+          python research/governed_fusion/measure_baseline.py
+
+      # --check turns "could not measure" into a failure. That is the whole point
+      # of this lane: a measuring job that silently records 'needs_cache' is the
+      # state this job exists to end.
+      - name: Measure marginal ablation (gated)
+        run: |
+          source research/governed_fusion/gf_env.sh
+          python research/governed_fusion/measure_marginal_ablation.py --check
+
+      - name: Upload measured ablation ledger
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ablation-ledger-measured
           path: research/governed_fusion/ablation_ledger.json
           retention-days: 90

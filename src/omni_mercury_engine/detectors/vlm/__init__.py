@@ -37,12 +37,6 @@ Example:
 
 from __future__ import annotations
 
-from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
-    AppearanceContextProvider,
-    EnhancedCombinedContextProvider,
-    FrequencyContextProvider,
-    SemanticContextProvider,
-)
 from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyDetector
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.blip_vlm import (
@@ -53,6 +47,12 @@ from omni_mercury_engine.detectors.vlm.blip_vlm import (
 from omni_mercury_engine.detectors.vlm.context_providers import (
     PositionContextProvider,
     TemporalContextProvider,
+)
+from omni_mercury_engine.detectors.vlm.context_providers_extended import (
+    AppearanceContextProvider,
+    CombinedContextProvider,
+    FrequencyContextProvider,
+    SemanticContextProvider,
 )
 from omni_mercury_engine.detectors.vlm.lavad import LAVADDetector
 from omni_mercury_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvlm_backend
@@ -71,7 +71,7 @@ __all__ = [
     "BLIPConfig",
     "BLIPVLMDetector",
     "BaseVLMDetector",
-    "EnhancedCombinedContextProvider",
+    "CombinedContextProvider",
     "FrequencyContextProvider",
     "LAVADDetector",
     # Backends

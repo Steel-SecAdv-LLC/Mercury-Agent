@@ -524,7 +524,11 @@ class NASANeoWsSource(DataSourceBase):
                             all_data_points.append(data_point)
 
             except Exception as e:
-                logger.warning(f"NeoWs fetch failed for {current_start}: {e}")
+                # Scrubbed: a transport-layer str can embed the composed
+                # (api_key-carrying) request URL.
+                logger.warning(
+                    f"NeoWs fetch failed for {current_start}: {self._scrub_diagnostic(str(e))}"
+                )
 
             current_start = current_end
 
@@ -714,7 +718,9 @@ class NOAASWPCSource(DataSourceBase):
         if product in (SWPCProduct.XRAY_FLUX, SWPCProduct.INTEGRAL_PROTONS):
             endpoint = f"json/goes/{product.value}"
         elif product == SWPCProduct.REALTIME_SOLAR_WIND:
-            endpoint = f"products/{product.value}"
+            # RTSW is served under json/, not products/ — the old
+            # ``products/rtsw/...`` path 404s (verified 2026-08-03).
+            endpoint = f"json/{product.value}"
 
         try:
             response = await self._http_get(endpoint)
@@ -746,6 +752,8 @@ class NOAASWPCSource(DataSourceBase):
             data_points = self._parse_xray_flux(data, source_type)
         elif product == SWPCProduct.INTEGRAL_PROTONS:
             data_points = self._parse_integral_protons(data, source_type)
+        elif product == SWPCProduct.REALTIME_SOLAR_WIND:
+            data_points = self._parse_rtsw_mag(data, source_type)
 
         return data_points
 
@@ -998,6 +1006,112 @@ class NOAASWPCSource(DataSourceBase):
             except (ValueError, IndexError, TypeError) as e:
                 logger.debug(f"Failed to parse propagated solar wind row: {e}")
                 continue
+
+        return data_points
+
+    def _parse_rtsw_mag(
+        self,
+        data: Any,
+        source_type: DataSourceType,
+    ) -> list[DataPoint]:
+        """Parse the RTSW 1-minute interplanetary magnetic field product.
+
+        Format (verified live 2026-08-03 at ``json/rtsw/rtsw_mag_1m.json``):
+        array-of-objects rows carrying ``time_tag``, GSM/GSE field components,
+        ``bt``, plus per-row ``source`` and ``active`` — the RTSW
+        constellation is multi-spacecraft (SOLAR1/SWFO-L1 active, ACE and
+        IMAP non-active as of 2026), so rows from the active spacecraft are
+        preferred and non-active rows are used only when no active row
+        exists in the payload.
+
+        Args:
+            data: Decoded JSON body of the feed.
+            source_type: Mapped :class:`DataSourceType` for the product.
+
+        Returns:
+            DataPoints for the trailing hour, oldest-first, one per UTC minute.
+            Southward IMF drives the alert level: ``bz_gsm < -20`` nT is STRONG,
+            ``< -10`` nT MODERATE — the geoeffective threshold range used
+            across the SWPC parsers.
+        """
+        data_points: list[DataPoint] = []
+        if not isinstance(data, list) or not data:
+            return data_points
+
+        def _mag(record: dict[str, Any], key: str) -> float | None:
+            # Field components are signed, so only the instrument fill
+            # sentinel (-9999.x) is invalid — not negatives in general.
+            value = record.get(key)
+            if value is None:
+                return None
+            try:
+                parsed = float(value)
+            except (TypeError, ValueError):
+                return None
+            return None if parsed <= -9999.0 else parsed
+
+        # Select ONE row per UTC minute by explicit preference, then keep the
+        # newest 60 minutes by timestamp. Two facts about this feed forbid the
+        # ``preferred[-60:]`` shortcut the GOES parsers use:
+        #   * it is NEWEST-first (verified live: index 0 is the latest minute,
+        #     the tail is ~24 h old), the opposite of the GOES products, so a
+        #     positional tail returns a full day of stale data; and
+        #   * it is multi-spacecraft — each minute carries an active SOLAR1 row
+        #     and usually a non-active ACE row — so a positional slice with no
+        #     per-minute dedup mixes calibrations and can emit duplicate
+        #     ``event_id``s. Bucketing by minute and choosing the newest minutes
+        #     by time is correct regardless of feed order or row multiplicity.
+        _MAG_KEYS = ("bt", "bx_gsm", "by_gsm", "bz_gsm")
+        best_by_minute: dict[datetime, tuple[tuple[bool, int], dict[str, Any]]] = {}
+        for record in data:
+            if not isinstance(record, dict) or not record.get("time_tag"):
+                continue
+            try:
+                ts = datetime.fromisoformat(str(record["time_tag"]).replace("Z", "+00:00"))
+            except (KeyError, ValueError, TypeError) as e:
+                logger.debug(f"Failed to parse RTSW mag row: {e}")
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=UTC)
+            minute = ts.replace(second=0, microsecond=0)
+            # Prefer the active spacecraft, then the row with the most valid
+            # field components (a fill-only row must never shadow a real one).
+            rank = (bool(record.get("active")), sum(_mag(record, k) is not None for k in _MAG_KEYS))
+            current = best_by_minute.get(minute)
+            if current is None or rank > current[0]:
+                best_by_minute[minute] = (rank, record)
+
+        # Newest 60 minutes, returned oldest-first (matches the sibling parsers).
+        for minute, (_rank, record) in sorted(best_by_minute.items())[-60:]:
+            point_data = {
+                "bt": _mag(record, "bt"),
+                "bx_gsm": _mag(record, "bx_gsm"),
+                "by_gsm": _mag(record, "by_gsm"),
+                "bz_gsm": _mag(record, "bz_gsm"),
+                "source": record.get("source"),
+                "active": bool(record.get("active")),
+            }
+
+            bz = point_data.get("bz_gsm")
+            if isinstance(bz, float) and bz < -20:
+                alert_level = AlertLevel.STRONG
+            elif isinstance(bz, float) and bz < -10:
+                alert_level = AlertLevel.MODERATE
+            else:
+                alert_level = AlertLevel.NONE
+
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=source_type,
+                    event_id=f"rtsw_mag_{minute.isoformat()}",
+                    timestamp=minute,
+                    data=point_data,
+                    alert_level=alert_level,
+                    confidence=0.9 if point_data["active"] else 0.7,
+                    metadata={"product": SWPCProduct.REALTIME_SOLAR_WIND.value},
+                )
+            )
 
         return data_points
 

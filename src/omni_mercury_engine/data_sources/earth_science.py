@@ -1159,7 +1159,9 @@ class EPAAirNowSource(DataSourceBase):
                     continue
 
         except Exception as e:
-            logger.warning(f"EPA AirNow fetch failed: {e}")
+            # Scrubbed: a transport-layer str can embed the composed
+            # (API_KEY-carrying) request URL.
+            logger.warning(f"EPA AirNow fetch failed: {self._scrub_diagnostic(str(e))}")
 
         logger.info(f"EPA AirNow: Fetched {len(data_points)} air quality readings")
         return data_points

@@ -383,7 +383,7 @@ def list_available_datasets() -> list[str]:
 
 
 def get_sota_for_dataset(dataset: str) -> tuple[str | None, dict[str, object]]:
-    """Get the state-of-the-art result for a dataset."""
+    """Get the best published result on record for a dataset."""
     if dataset not in BASELINE_RESULTS:
         raise ValueError(f"Unknown dataset: {dataset}")
 

@@ -29,15 +29,15 @@ from omni_mercury_engine.detectors.fusion.multimodal_fusion import (
     ScoreWeightedFusion,
     create_fusion_optimizer,
 )
+from omni_mercury_engine.detectors.vlm.context_providers import ContextInfo
 
 # Context Providers
-from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
+from omni_mercury_engine.detectors.vlm.context_providers_extended import (
     AppearanceContextProvider,
-    EnhancedCombinedContextProvider,
+    CombinedContextProvider,
     FrequencyContextProvider,
     SemanticContextProvider,
 )
-from omni_mercury_engine.detectors.vlm.context_providers import ContextInfo
 
 # LVLM Cache
 from omni_mercury_engine.detectors.vlm.lvlm_cache import (
@@ -330,11 +330,11 @@ class TestAppearanceContextProvider:
 
 
 class TestEnhancedCombinedContextProvider:
-    """Tests for EnhancedCombinedContextProvider."""
+    """Tests for CombinedContextProvider."""
 
     def test_initialization_all_enabled(self) -> None:
         """Test with all providers enabled."""
-        provider = EnhancedCombinedContextProvider(
+        provider = CombinedContextProvider(
             enable_position=True,
             enable_temporal=True,
             enable_semantic=True,
@@ -345,7 +345,7 @@ class TestEnhancedCombinedContextProvider:
 
     def test_initialization_partial(self) -> None:
         """Test with some providers disabled."""
-        provider = EnhancedCombinedContextProvider(
+        provider = CombinedContextProvider(
             enable_position=True,
             enable_temporal=False,
             enable_semantic=True,
@@ -356,7 +356,7 @@ class TestEnhancedCombinedContextProvider:
 
     def test_extract_all_context(self, sample_video: np.ndarray) -> None:
         """Test extracting all context types."""
-        provider = EnhancedCombinedContextProvider()
+        provider = CombinedContextProvider()
         contexts = provider.extract_all_context(sample_video)
 
         assert "position" in contexts
@@ -367,7 +367,7 @@ class TestEnhancedCombinedContextProvider:
 
     def test_extract_selective(self, sample_frame: np.ndarray) -> None:
         """Test selective context extraction."""
-        provider = EnhancedCombinedContextProvider()
+        provider = CombinedContextProvider()
         contexts = provider.extract_all_context(
             sample_frame,
             context_types=["semantic", "appearance"],
@@ -379,7 +379,7 @@ class TestEnhancedCombinedContextProvider:
 
     def test_format_combined_prompt(self, sample_frame: np.ndarray) -> None:
         """Test combined prompt formatting."""
-        provider = EnhancedCombinedContextProvider()
+        provider = CombinedContextProvider()
         contexts = provider.extract_all_context(sample_frame)
         prompt = provider.format_combined_prompt(contexts)
 
@@ -793,7 +793,7 @@ class TestIntegration:
     ) -> None:
         """Test full pipeline from context extraction to fusion."""
         # Extract context
-        context_provider = EnhancedCombinedContextProvider()
+        context_provider = CombinedContextProvider()
         contexts = context_provider.extract_all_context(sample_video)
 
         # Add context to metadata

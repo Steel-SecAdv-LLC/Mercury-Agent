@@ -124,6 +124,19 @@ _FIREBALL_COLUMNS = [
     "altitude_km",
     "velocity_km_s",
 ]
+#: JPL fireball API field order, used as the fallback when a future payload
+#: drops the ``fields`` header (the API's documented column set).
+_FIREBALL_API_FIELDS: tuple[str, ...] = (
+    "date",
+    "energy",
+    "impact-e",
+    "lat",
+    "lat-dir",
+    "lon",
+    "lon-dir",
+    "alt",
+    "vel",
+)
 _NEO_COLUMNS = [
     "time",
     "miss_distance_km",
@@ -401,20 +414,28 @@ class MeteorLoader(BaseDomainLoader):
 
     @staticmethod
     def _fireball_to_dataframe(payload: dict[str, Any]) -> pd.DataFrame:
-        """Convert a JPL fireball API response to a DataFrame."""
+        """Convert a JPL fireball API response to a DataFrame.
+
+        The API documents a ``{"fields": [...], "data": [[...], ...]}``
+        envelope with positional rows, but the parser routes rows through the
+        shared shape-flip absorber so a migration to object rows (the outage
+        class behind the SWPC ``KeyError: 1`` incident) parses identically.
+        """
         fields = payload.get("fields", [])
         rows = payload.get("data", []) or []
-        if not fields or not rows:
+        if not rows:
             return pd.DataFrame(columns=_FIREBALL_COLUMNS)
-        index = {name: i for i, name in enumerate(fields)}
-
-        def _get(row: list[Any], name: str) -> Any:
-            pos = index.get(name)
-            return row[pos] if pos is not None and pos < len(row) else None
+        cols = tuple(str(name) for name in fields) if fields else _FIREBALL_API_FIELDS
+        if rows and isinstance(rows[0], dict):
+            row_dicts = MeteorLoader._iter_feed_rows(rows, cols)
+        else:
+            # Prepend the header row the absorber's positional contract
+            # expects; JPL's envelope keeps the header in ``fields`` instead.
+            row_dicts = MeteorLoader._iter_feed_rows([list(cols), *rows], cols)
 
         records: list[dict[str, Any]] = []
-        for row in rows:
-            date_str = _get(row, "date")
+        for row in row_dicts:
+            date_str = row.get("date")
             if not date_str:
                 continue
             timestamp = (
@@ -422,21 +443,21 @@ class MeteorLoader(BaseDomainLoader):
                 .replace(tzinfo=UTC)
                 .timestamp()
             )
-            lat = _to_float(_get(row, "lat"))
-            if lat is not None and _get(row, "lat-dir") == "S":
+            lat = _to_float(row.get("lat"))
+            if lat is not None and row.get("lat-dir") == "S":
                 lat = -lat
-            lon = _to_float(_get(row, "lon"))
-            if lon is not None and _get(row, "lon-dir") == "W":
+            lon = _to_float(row.get("lon"))
+            if lon is not None and row.get("lon-dir") == "W":
                 lon = -lon
             records.append(
                 {
                     "time": timestamp,
-                    "radiated_energy_e10_j": _to_float(_get(row, "energy")),
-                    "impact_energy_kt": _to_float(_get(row, "impact-e")),
+                    "radiated_energy_e10_j": _to_float(row.get("energy")),
+                    "impact_energy_kt": _to_float(row.get("impact-e")),
                     "latitude": lat,
                     "longitude": lon,
-                    "altitude_km": _to_float(_get(row, "alt")),
-                    "velocity_km_s": _to_float(_get(row, "vel")),
+                    "altitude_km": _to_float(row.get("alt")),
+                    "velocity_km_s": _to_float(row.get("vel")),
                 }
             )
         return pd.DataFrame(records, columns=_FIREBALL_COLUMNS)

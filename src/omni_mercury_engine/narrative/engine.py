@@ -314,7 +314,7 @@ class NarrativeEngine:
         gosnn = self._get_gosnn()
         if gosnn is None:
             return {
-                "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,
+                "omnibenevolence": ETHICAL.OMNIBENEVOLENCE_SCALAR,
                 "omnitransparency": 0.18,
                 "omniexplainability": 0.9,
                 "omnicompassion": 1.30,
@@ -322,7 +322,7 @@ class NarrativeEngine:
             }
 
         return {
-            "omnibenevolence": gosnn.get_scalar("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
+            "omnibenevolence": gosnn.get_scalar("omnibenevolence", ETHICAL.OMNIBENEVOLENCE_SCALAR),
             "omnitransparency": gosnn.get_scalar("omnitransparency", 0.18),
             "omniexplainability": gosnn.get_scalar("omniexplainability", 0.9),
             "omnicompassion": gosnn.get_scalar("omnicompassion", 1.30),
@@ -486,7 +486,7 @@ class NarrativeEngine:
             )
         elif confidence < 0.5:
             parts.append(
-                f"Moderate uncertainty (confidence: {confidence:.0%}). " "Verification recommended."
+                f"Moderate uncertainty (confidence: {confidence:.0%}). Verification recommended."
             )
         elif confidence < 0.7:
             parts.append(f"Reasonable confidence ({confidence:.0%}), but uncertainty remains.")

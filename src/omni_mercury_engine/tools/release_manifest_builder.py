@@ -109,7 +109,7 @@ def _ethical_constants() -> dict[str, Any]:
     try:
         from omni_mercury_engine.core.centralized_constants import ETHICAL, LYAPUNOV
 
-        out["benevolence_immutable"] = float(ETHICAL.BENEVOLENCE_IMMUTABLE)
+        out["benevolence_immutable"] = float(ETHICAL.OMNIBENEVOLENCE_SCALAR)
         out["lambda_convergence"] = float(LYAPUNOV.LAMBDA_CONVERGENCE)
     except Exception as exc:
         out["error"] = str(exc)

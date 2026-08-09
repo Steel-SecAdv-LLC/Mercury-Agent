@@ -5,7 +5,7 @@
 Integrates GEOINT (Geospatial Intelligence) for natural disaster,
 humanitarian crisis, and essential worker protection monitoring.
 
-Survivor-first prioritization using ethical scalars.
+Prioritisation weighted toward the people most exposed, using ethical scalars.
 """
 
 from __future__ import annotations
@@ -31,13 +31,13 @@ class CrisisAlert:
 
 
 class CrisisMonitor:
-    """Humanitarian Crisis Monitor (Survivor-First CI).
+    """Humanitarian Crisis Monitor (most-exposed-first counter-intelligence).
 
     Features:
     - GEOINT fusion for disaster detection
     - Vulnerable population prioritization
     - Essential worker protection
-    - Real-time survivor-first alerts
+    - Real-time alerts that prioritise the people most at risk
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -171,7 +171,7 @@ class CrisisMonitor:
         return groups
 
     def _prioritize_survivors(self, vulnerable_groups: list[str], crisis_type: str) -> list[str]:
-        """Prioritize survivors for rescue/aid (survivor-first principle)."""
+        """Order survivors for rescue/aid by need, most exposed first."""
         priorities = []
 
         priorities.append("Immediate medical attention for critically injured")

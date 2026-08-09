@@ -26,7 +26,10 @@ from omni_mercury_engine.core.centralized_constants import ETHICAL
 logger = logging.getLogger(__name__)
 
 # Benevolence threshold from centralized constants
-BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+# Optimisation target for the multi-objective benevolence loss — the level the
+# optimiser steers toward and penalises distance from. Not a decision gate:
+# nothing here can permit or refuse an action.
+BENEVOLENCE_THRESHOLD = ETHICAL.OMNIBENEVOLENCE_SCALAR
 
 # Golden ratio for harmonic scaling
 PHI = 1.618033988749895

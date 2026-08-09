@@ -1,14 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Adapt a text-generation callable into a harm classifier for the ethics gate.
+"""Meaning-level harm classification for the ethics gate.
 
-This is the *meaning-level* extension point for
+This is the *meaning-level* layer for
 :class:`omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`. The
 gate's built-in evidence is keyword + char-trigram (morphological) + a curated
-euphemism lexicon -- all deterministic and model-free. A deployment that wants
-genuine semantic harm classification can plug in a model **it already runs**
-(e.g. Mercury's own offline Ollama reasoning backend) via this adapter, with no
-new dependency and no cloud call.
+euphemism lexicon -- all deterministic and model-free, and all bounded by what a
+lexicon can enumerate.
+
+Two sources can supply meaning above that lexical floor, and
+:func:`default_harm_classifier` combines both by ``max``:
+
+* **The shipped offline classifier** in
+  :mod:`omni_mercury_engine.cognitive.meaning_level` -- a trained linear model
+  over request-frame features, deterministic and stdlib-only. It ships with the
+  package, so meaning-level coverage exists in **every** deployment, including
+  air-gapped ones and CI, with no model server and no network call.
+* **A served generative model** the deployment already runs (e.g. Mercury's
+  offline Ollama reasoning backend), adapted by
+  :func:`reasoning_harm_classifier`.
 
 Pure stdlib -- no LLM/crypto imports -- so it loads anywhere the ethics gate
 does. The model is consulted, never trusted: its score can only RAISE harm in
@@ -162,61 +172,82 @@ def _resolve_default_backend() -> object | None:
 
 
 def default_harm_classifier() -> Callable[[str], float]:
-    """Mercury's own offline reasoning-backed harm classifier, wired by default.
+    """Mercury's meaning-level harm classifier, wired by default.
 
-    Returns a fail-open ``Callable[[str], float]`` backed by
-    :class:`~omni_mercury_engine.reasoning.backends.LocalReasoningBackend`
-    (Ollama-when-present, deterministic-template otherwise, always offline-safe).
-    It contributes a harm probability **only when a genuine local/cloud model is
-    actually serving**; under the template fallback (no model), a missing
-    reasoning stack, or any error, it returns ``0.0``. Because the ethics gate
-    combines the classifier by ``max``, this can only ever RAISE harm when a real
-    semantic model is present and never regresses the deterministic lexical gate
-    -- so it is safe to wire by default on the open-web/text surface without
-    adding a hard dependency or a network call in air-gapped deployments.
+    Combines two independent meaning-level sources by ``max``:
+
+    1. **The shipped offline classifier**
+       (:mod:`omni_mercury_engine.cognitive.meaning_level`) -- a trained linear
+       model over request-frame features. Deterministic, stdlib-only, no network
+       call, no model server, and therefore available in **every** deployment
+       including air-gapped ones and CI. This is what makes the meaning-level
+       layer intrinsic rather than conditional on an operator running Ollama.
+    2. **A served generative model**, when one happens to be running
+       (:class:`~omni_mercury_engine.reasoning.backends.LocalReasoningBackend`,
+       Ollama-when-present). Contributes only when a *genuine* local/cloud model
+       is serving; under the template fallback it contributes ``0.0``, because a
+       template's output is not a harm probability.
+
+    Combining by ``max`` means adding either source can only ever RAISE harm --
+    the gate itself also combines by ``max`` -- so neither can regress the
+    deterministic lexical gate, and a deployment that runs a strong local model
+    still benefits from it on top of the shipped floor.
 
     Disable entirely with ``MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER=1`` (e.g. to
-    keep a surface strictly deterministic). The returned callable is cheap to
-    obtain repeatedly (backend construction is cached).
+    keep a surface strictly deterministic and lexical). The returned callable is
+    cheap to obtain repeatedly (both the backend and the weight artifact are
+    cached).
     """
 
     def classify(text: str) -> float:
         if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
             return 0.0
+        score = _shipped_meaning_level_score(text)
         backend = _resolve_default_backend()
         if backend is None:
-            return 0.0
+            return score
         try:
             active = str(getattr(backend, "model", "")).lower()
             if not active.startswith(_REAL_MODEL_PREFIXES):
-                return 0.0  # template / no real model: not a harm probability
+                return score  # template / no real model: not a harm probability
             adapter = _DEFAULT_CACHE.get("adapter")
             if not callable(adapter):
-                return 0.0
-            return float(adapter(text))
+                return score
+            return max(score, float(adapter(text)))
         except Exception as exc:  # pragma: no cover - fail-open
-            logger.info("default harm classifier failed (%s); contributing 0.0", exc)
-            return 0.0
+            logger.info(
+                "served harm classifier failed (%s); using shipped score only (%s)", exc, score
+            )
+            return score
 
     return classify
 
 
-def real_harm_classifier_available() -> bool:
-    """True iff a genuine meaning-level model backs :func:`default_harm_classifier`.
+def _shipped_meaning_level_score(text: str) -> float:
+    """Score ``text`` with the shipped offline model; ``0.0`` if unavailable.
 
-    Resolves Mercury's local reasoning backend and reports whether a *real* model
+    Imported lazily so this module keeps its stdlib-only, load-anywhere import
+    contract for callers that never reach the classifier.
+    """
+    try:
+        from omni_mercury_engine.cognitive.meaning_level import meaning_level_harm_classifier
+
+        return float(meaning_level_harm_classifier()(text))
+    except Exception as exc:  # pragma: no cover - fail-open
+        logger.info("shipped meaning-level classifier unavailable (%s); contributing 0.0", exc)
+        return 0.0
+
+
+def served_model_available() -> bool:
+    """True iff a *served generative model* backs :func:`default_harm_classifier`.
+
+    Resolves Mercury's local reasoning backend and reports whether a real model
     (not the deterministic template fallback, and not disabled) is actually
-    serving -- i.e. whether ``default_harm_classifier()`` can contribute a nonzero
-    meaning-level harm probability. The meaning-level routing rescue in
-    :func:`~omni_mercury_engine.cognitive.ethical_bounding.assess_weapons_uplift`
-    only cuts false-negatives when this is ``True``; under a template/absent model
-    the weapons gate is lexical-only. A generative surface can branch on this to
-    warn (or fail closed) rather than silently degrading -- see
-    ``docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`` for the measured FN gap between the
-    two postures.
+    serving. This is now only *one* of the two meaning-level sources -- see
+    :func:`real_harm_classifier_available` for whether meaning-level coverage
+    exists at all.
 
-    Fail-safe: any resolution/attribute error returns ``False`` (treat an
-    unknown backend as no meaning-level coverage).
+    Fail-safe: any resolution/attribute error returns ``False``.
     """
     if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
         return False
@@ -230,8 +261,67 @@ def real_harm_classifier_available() -> bool:
     return active.startswith(_REAL_MODEL_PREFIXES) and _DEFAULT_CACHE.get("adapter") is not None
 
 
+def real_harm_classifier_available() -> bool:
+    """True iff genuine meaning-level coverage backs :func:`default_harm_classifier`.
+
+    Meaning-level coverage no longer requires an operator to be running a model.
+    It is satisfied by **either**:
+
+    * the shipped offline classifier
+      (:mod:`omni_mercury_engine.cognitive.meaning_level`), which is present in
+      every install and needs no network or model server, **or**
+    * a served generative model (:func:`served_model_available`).
+
+    The meaning-level routing rescue in
+    :func:`~omni_mercury_engine.cognitive.ethical_bounding.assess_weapons_uplift`
+    only cuts false-negatives when this is ``True``. Before the shipped model
+    existed, that meant the weapons gate ran lexical-only in CI, air-gapped
+    deployments and every default install -- a measured 0.744 held-out
+    false-negative rate. See ``docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md``.
+
+    Fail-safe: returns ``False`` if neither source resolves.
+    """
+    if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+        return False
+    try:
+        from omni_mercury_engine.cognitive.meaning_level import meaning_level_available
+
+        if meaning_level_available():
+            return True
+    except Exception:  # pragma: no cover - fail-safe
+        pass
+    return served_model_available()
+
+
+def harm_classifier_posture() -> dict[str, bool]:
+    """Report which meaning-level sources are active, for audit and CI logging.
+
+    Keys: ``shipped_model`` (the offline classifier loaded), ``served_model``
+    (a generative backend is serving), ``disabled`` (the kill switch is set),
+    and ``meaning_level`` (coverage exists at all).
+    """
+    disabled = os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1"
+    shipped = False
+    if not disabled:
+        try:
+            from omni_mercury_engine.cognitive.meaning_level import meaning_level_available
+
+            shipped = meaning_level_available()
+        except Exception:  # pragma: no cover - fail-safe
+            shipped = False
+    served = served_model_available()
+    return {
+        "disabled": disabled,
+        "shipped_model": shipped,
+        "served_model": served,
+        "meaning_level": bool(shipped or served),
+    }
+
+
 __all__ = [
     "default_harm_classifier",
+    "harm_classifier_posture",
     "real_harm_classifier_available",
     "reasoning_harm_classifier",
+    "served_model_available",
 ]

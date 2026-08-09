@@ -65,10 +65,14 @@ class EthicalConfig(BaseModel):
         description="Ethical purity threshold (σ_Immutable). Higher = stricter ethical gating.",
     )
     benevolence_threshold: float = Field(
-        default=ETHICAL.BENEVOLENCE_IMMUTABLE,
-        ge=0.90,
+        default=ETHICAL.OMNIBENEVOLENCE_SCALAR,
+        ge=0.0,
         le=1.0,
-        description="Benevolence threshold for net-positive outcomes.",
+        description=(
+            "Advisory benevolence reporting level. Informational only — no "
+            "decision is refused on it; the enforced decision-boundary control "
+            "is the harm-uplift gate (docs/HARM_POLICY.md)."
+        ),
     )
     p_value_threshold: float = Field(
         default=0.05,

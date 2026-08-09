@@ -329,7 +329,7 @@ class SpectralDomainFrequency(BaseDetector):
        of score, entropy, breadth, flux, and coherence.
 
     The resulting :class:`FrequencyInfluenceVector` modulates the fused
-    anomaly score in ``AdvancedPhysicsIntegratedDetector``.
+    anomaly score in ``PhysicsIntegratedDetector``.
 
     Example::
 
@@ -1480,7 +1480,7 @@ class SpectralDomainFrequency(BaseDetector):
         .. note::
             The Oracle operates entirely in numpy/scipy space. The
             integration layer in
-            ``AdvancedPhysicsIntegratedDetector._extract_combined_features()``
+            ``PhysicsIntegratedDetector._extract_combined_features()``
             handles the numpy-to-torch conversion at the boundary.
             If adding new callers, convert via:
             ``torch.from_numpy(oracle.extract_features(data).numpy()).float()``

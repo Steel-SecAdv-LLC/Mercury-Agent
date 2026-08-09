@@ -30,6 +30,8 @@ from typing import cast
 
 JsonMap = dict[str, object]
 
+from research.governed_fusion.input_pin import verify_pinned_results
+
 _DEFAULT_MANIFEST = Path(__file__).resolve().with_name("manifest.json")
 _DEFAULT_LEDGER = Path(__file__).resolve().with_name("ablation_ledger.json")
 _DEFAULT_STORE_DIR = Path("artifacts/governed_promotion")
@@ -345,6 +347,13 @@ def evaluate_candidate(
         reasons.append("capability_regression block is required")
     capability = _optional_mapping(capability_raw, "capability_regression")
     reasons.extend(_capability_reasons(capability))
+
+    # Input pin. A candidate measured over a different event set than this
+    # manifest pins is not comparable to the baseline, no matter how good its
+    # numbers look -- the gate would be reading a difference in data as a
+    # difference in capability. This check is offline and cheap; the full
+    # content-digest rebuild lives in input_pin.verify_suite (CLI / CI lane).
+    reasons.extend(verify_pinned_results(candidate_record, manifest=manifest))
 
     latest_run = _latest_ok_ledger_run(ledger)
     ledger_status = "no_ok_baseline"

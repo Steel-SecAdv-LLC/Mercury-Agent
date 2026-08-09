@@ -5,7 +5,17 @@
 These tests pin the two bugs the script was rewritten to cure:
   * ``__pycache__`` (and other non-package directories) must NOT be counted
     as subpackages, and
-  * the README scale block must never silently drift from disk.
+  * ``--check`` must actually detect drift (exercised against fixture
+    READMEs, never the live tree).
+
+The LIVE-TREE drift gate — ``--check README.md`` against the real
+repository — deliberately does NOT live in this suite.  It runs as a
+dedicated Workflow Hardening step (ci.yml) and a pre-commit hook, both
+of which fail in seconds with the exact remediation command.  As a
+pytest test it sat inside the ~17-minute full-sweep lanes, where every
+added or removed test module turned an entire test lane red over a
+documentation integer, minutes after the fast gate had already said the
+same thing.
 """
 
 from __future__ import annotations
@@ -98,14 +108,6 @@ def test_render_block_is_stable_under_small_loc_churn() -> None:
     grown = dict(stats)
     grown["src_loc"] = int(stats["src_loc"]) + mcs.LOC_BUCKET
     assert mcs.render_block(grown) != base, "bucket-sized growth must move the block"
-
-
-def test_readme_scale_block_is_in_sync() -> None:
-    """This test IS the drift gate: README must match measured numbers."""
-    rc = mcs.main(["--check", str(REPO_ROOT / "README.md")])
-    assert (
-        rc == 0
-    ), "README scale block drifted — run: python scripts/measure_codebase_scale.py --update README.md"
 
 
 def test_check_detects_drift(tmp_path: Path) -> None:

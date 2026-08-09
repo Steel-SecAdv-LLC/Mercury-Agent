@@ -171,6 +171,14 @@ jobs:
       - name: Run canonical header/content check
         run: python scripts/normalize_headers.py --check
 
+      - name: Run documentation lint (banned claims, mission line, claims registry)
+        # Blocking. Prose is part of the interface: this fails the build on a
+        # claim the code cannot back (a certification Mercury does not hold, a
+        # retired framing, or a CAPABILITY_MATRIX.md row marked "enforced" that
+        # cites no code). Offline, no heavy imports -- it runs in the fast lane
+        # so a wording regression is caught before any test lane starts.
+        run: python scripts/doc_lint.py
+
       - name: Verify changed-file docstring retention
         shell: bash
         run: |
@@ -380,7 +388,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run actionlint
         run: |
@@ -555,7 +563,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run MyPy
         # MyPy reads strict config from pyproject.toml automatically.
@@ -795,7 +803,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Install bandit / safety / pip-audit (audit-tool layer)
         # Audit tools live in the *runner's* default Python and are
@@ -1047,7 +1055,7 @@ jobs:
         # real native AMA backend; non-native PQC execution is not a CI mode.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run core tests with coverage
         env:
@@ -1215,7 +1223,7 @@ jobs:
         # against the native backend, never the soft stubs.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run neuro-symbolic test suite
         env:
@@ -1232,6 +1240,13 @@ jobs:
         # hatches here.  If the AI's reasoning, alignment, or Mercury/AMA
         # Disconnect logic fails, the PR fails.
         #
+        # ``tests/pillars/`` is the one-module-per-pillar suite: each module
+        # asserts the property its pillar names, so a pillar claimed in the
+        # README always has a passing test behind it. It runs here because the
+        # non-maleficence and control modules exercise the real engine, the real
+        # harm-uplift choke point and the real σ_Immutable gate -- all of which
+        # need the full neural fusion stack and the native AMA backend.
+        #
         # ``tests/ethical/`` is the regression suite for the hard
         # ethics-enforcement decision boundary contract documented in
         # ``src/omni_mercury_engine/ethical/__init__.py`` — Phase 2 of the
@@ -1246,8 +1261,9 @@ jobs:
             tests/cognitive/ \
             tests/safeguards/ \
             tests/ethical/ \
+            tests/pillars/ \
             tests/test_neurosymbolic_integration.py \
-            tests/test_neurosymbolic_enhanced.py \
+            tests/test_neurosymbolic_temporal.py \
             tests/test_neurosymbolic_extended.py \
             tests/test_three_r.py \
             tests/test_ai_ethics.py \
@@ -1261,6 +1277,15 @@ jobs:
             --cov=src/omni_mercury_engine/models \
             --cov-report=xml \
             --cov-report=term-missing
+        # COVERAGE REPORT-ONLY (no --cov-fail-under, deliberately).
+        # This lane measures a hand-picked subpackage slice for Codecov flags,
+        # not a merge gate: a floor over a subset is not comparable to the
+        # CORE/FULL floors and would be a second, differently-scoped number
+        # claiming the same authority. The blocking coverage gates are
+        # core-tests (COVERAGE_THRESHOLD_CORE) and ml-tests
+        # (COVERAGE_THRESHOLD_FULL), and ml-tests covers every file this lane
+        # touches. The *tests* here are still blocking -- only the coverage
+        # number is informational.
 
       - name: Upload neuro-symbolic coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
@@ -1349,12 +1374,12 @@ jobs:
         # ``tests/security/test_pqc_gate_real_ama.py`` which imports
         # ``ama_cryptography.pqc_backends`` at module scope and would fail
         # collection if the native library were absent. The composite action
-        # builds AMA v3.3.0 identically to every other lane (toolchain,
+        # builds AMA v4.0.0 identically to every other lane (toolchain,
         # supply-chain floors, cmake build, LD_LIBRARY_PATH export) — no mock,
         # no skip, no silent stub.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run full test suite with parallelization
         env:
@@ -1480,7 +1505,7 @@ jobs:
         # the native backend, never the soft stubs.
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run integration tests
         # Integration tests are a blocking gate.  For an anomaly detection
@@ -1556,7 +1581,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run ethics audit
         # Ethics audit enforces AI alignment — failures block the pipeline.
@@ -1628,7 +1653,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.3.0
+          ama-ref: v4.0.0
 
       - name: Run performance benchmarks
         # Performance gate: Detect regressions in key operations
@@ -1642,7 +1667,7 @@ jobs:
           from omni_mercury_engine.core.gosnn_integration import (
               TTLCache, GOSNNPerformanceMonitor, get_detection_cache
           )
-          from omni_mercury_engine.ml.advanced_optimizers import (
+          from omni_mercury_engine.ml.optimizers import (
               SyntheticGradientPredictor, get_gradient_cache
           )
 

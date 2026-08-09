@@ -104,12 +104,6 @@ from omni_mercury_engine.ml.lightweight_primitives import (
 
 # Lazy imports - only load when torch is available OR during type checking
 if HAS_TORCH or TYPE_CHECKING:
-    from omni_mercury_engine.ml.advanced_optimizers import (
-        AuxiliaryMaxVariance,
-        DifferenceTargetPropagation,
-        SyntheticGradientModule,
-        SyntheticGradientPredictor,
-    )
     from omni_mercury_engine.ml.attention import (
         CrossModalAttention,
         MultiHeadDetectorAttention,
@@ -144,6 +138,12 @@ if HAS_TORCH or TYPE_CHECKING:
     )
     from omni_mercury_engine.ml.fusion_network import OmniFusionModel
     from omni_mercury_engine.ml.inference import FusionInference
+    from omni_mercury_engine.ml.optimizers import (
+        AuxiliaryMaxVariance,
+        DifferenceTargetPropagation,
+        SyntheticGradientModule,
+        SyntheticGradientPredictor,
+    )
     from omni_mercury_engine.ml.three_r_attention import (
         ThreeRAnomalyTransformer,
         ThreeRAttentionBlock,

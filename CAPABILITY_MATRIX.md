@@ -1,0 +1,228 @@
+<!--
+Copyright (C) 2025 Steel Security Advisors LLC
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# Mercury Agent — Capability Matrix
+
+Applies to Mercury Agent **v2.1.x**. Last reviewed: 2026-08-03.
+
+One row per claim: **claim · dataset/task · metric · number · repro command ·
+status**. If a capability is not in this table, Mercury does not claim it.
+
+This file exists because pillars and capabilities are different kinds of thing
+and were being written up as if they were the same. A **pillar** is a property
+that either holds or does not, and it lives in `tests/pillars/` where a test
+observes it. A **capability** is a *measurement* — it drifts with the data, the
+seed and the checkpoint, so it belongs in a table with a repro command and a
+date, not in a test asserting a number. Nothing in `tests/pillars/` asserts a
+benchmark figure, and nothing here is called a pillar.
+
+`scripts/doc_lint.py` fails CI if a row here says **enforced** without naming a
+path that exists in this repository.
+
+## Status vocabulary
+
+| Status | Means |
+|---|---|
+| **enforced** | A control that runs and refuses. A named test observes it; deleting the control fails CI. |
+| **measured** | A number produced by a repro command on a stated dataset. Re-measure before quoting it. |
+| **advisory** | Computed and reported; it decides nothing. |
+| **untrained** | Code exists, weights are at initialisation. Not a learned model; no accuracy attaches. |
+| **aspirational** | Not built. Listed so it is not mistaken for shipped. |
+| **removed** | Previously claimed, now deleted, with the reason. |
+
+---
+
+## 1. Structural facts (CI-gated counts)
+
+| Claim | Dataset / task | Metric | Number | Repro command | Status |
+|---|---|---|---|---|---|
+| `torch.nn.Module` subclasses | this source tree | AST count | **173** | `python scripts/measure_codebase_scale.py` | **measured** (CI-gated in README "Codebase Scale") |
+| Data-loader classes in `loaders/` | this source tree | regex `class *Loader` | **21** | `python scripts/measure_codebase_scale.py` | **measured** — 20 concrete loaders + `BaseDomainLoader`, which the CI regex also matches. The previously published "16" was stale. |
+| Detector classes under `detectors/` | this source tree | AST count | **88** | `python scripts/measure_codebase_scale.py` | **measured** |
+| Source files / LOC | this source tree | file + line count | **775 / 407,560** | `python scripts/measure_codebase_scale.py` | **measured** |
+| Cognitive components wired at runtime | `CognitiveOrchestrator` | count | **ten** | `python -c "from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator"` | **measured** — the "nine components" figure was stale; the "7-phase" spine is *historical build order*, not a runtime pipeline |
+
+## 2. Safety controls
+
+| Claim | Dataset / task | Metric | Number | Repro command | Status |
+|---|---|---|---|---|---|
+| Harm-uplift gate refuses weapons/mass-casualty uplift at every public decision surface | red-team corpus in `tests/pillars/test_non_maleficence.py` | refusal on each surface | 4/4 requests × 6 surfaces | `pytest tests/pillars/test_non_maleficence.py` | **enforced** — `src/omni_mercury_engine/cognitive/decision_gate.py`; the `GATED_BOUNDARY` capability contract makes deleting it a CI failure |
+| — *scope limit of the row above* | `detect(ndarray)` and other numeric-payload calls | discriminable calls | **0 of them** | `python -c "from omni_mercury_engine.cognitive.decision_gate import summarize_payload; import numpy as np; print(summarize_payload(np.zeros((4,4))))"` | **stated, not claimed.** "Every surface is gated" means every call is *routed* through the choke point, **not** that every call is *discriminable*. A float matrix renders as `ndarray(shape=…, dtype=…)`, so there is no lexical content and the harm gate can never block it. That is correct — floats carry no harm evidence — but it is strictly a routing guarantee on these calls, and it is honest to say so rather than let "6 surfaces gated" imply screening that is not happening. Text-bearing surfaces (`detect_security_threat`, and any payload with string fields) *are* discriminable. |
+| Benign input is not refused for having plain vocabulary | benign corpus incl. real injection/XSS payloads and clinical-toxicology queries | permit rate | 7/7 | `pytest tests/pillars/test_non_maleficence.py -k benign` | **enforced** — `tests/pillars/test_non_maleficence.py` |
+| Identical decision → identical verdict on every surface | red-team + benign corpus × 7 surfaces | verdict agreement | 11/11 unanimous | `pytest tests/pillars/test_non_maleficence.py -k surface` | **enforced** — `tests/pillars/test_non_maleficence.py` |
+| No response the loop can recommend is destructive | all dispositions × 10 severities × 6 domains × 2 postures | destructive-verb hits | **0 / 960** | `pytest tests/pillars/test_non_maleficence.py -k destructive` | **enforced** — `src/omni_mercury_engine/decision/response.py` |
+| Gate fails closed when it cannot be evaluated | fault injection into `assess_weapons_uplift` | refusals | 100 % | `pytest tests/pillars -k fail_closed` | **enforced** — `src/omni_mercury_engine/cognitive/decision_gate.py` |
+| σ_Immutable configuration-integrity gate | 256-D governance scalar vector | decision threshold | 0.93 | `pytest tests/security/test_sigma_immutable_gate_semantics.py` | **enforced** — `src/omni_mercury_engine/security/sigma_immutable_gate.py` |
+| Grave harm directed at a person is refused | `GRAVE_HARM_REQUESTS` in `tests/pillars/test_non_maleficence.py` | refusal rate | **12/12** | `pytest tests/pillars/test_non_maleficence.py -k GraveHarm` | **enforced** — `cognitive/ethical_bounding.py` (`_direct_harm_present` / `_euphemism_harm_present` → `EthicalScore.grave_harm`). The weapons gate is scoped to CBRNE/mass-casualty uplift and on its own permitted plain interpersonal violence. |
+| Mercury's own mission vocabulary is **not** refused | `MISSION_VOCABULARY` in `tests/pillars/test_non_maleficence.py` — humanitarian, security, clinical, ML | permit rate | **19/19** | `pytest tests/pillars/test_non_maleficence.py -k MissionVocabulary` | **enforced** — this is the false-positive budget that makes the row above falsifiable. A gate that refuses "assess trauma among displaced families" is measuring topic, not intent. |
+| The pillar suite is not vacuous — disabling a control makes it fail | 7 mutations, each disabling or inverting one enforced control (harm gate → always ALLOW, boundary swallows its refusal, grave-harm axis off, GATED_BOUNDARY contract → no-op, decision records mutable, governor tripwire reversible, response policy emits a destructive verb) | mutation kill rate | **7 / 7** | `python scripts/mutate_pillar_controls.py` | **enforced** — a suite written alongside the controls it guards can pass because the control works or because the test never looked; reading cannot tell those apart, so each control is killed and the suite is required to go red. A survivor would mean that pillar is not actually observed. |
+| Analysing real attacker traffic is **not** refused | 30 real-shaped hostile payloads (injection, traversal, RCE, deserialisation, incident narrative incl. violent wording) through `detect_security_threat` | refusal rate | **0 / 30 (0.0 %)** | `pytest tests/pillars/test_non_maleficence.py -k DefensiveAnalysis` | **enforced** — this is the availability budget for the surface a SOC feeds attacker traffic. A gate that refused attack strings would be a denial-of-service by wording against the defenders it serves. Anti-vacuity: genuine uplift still refuses 4/4 on the *same* surface, so the 0 % is precision, not an inert control. |
+| Benevolence score | any action text | float in [0,1] | n/a | `pytest tests/cognitive/test_ethical_bounding.py` | **advisory** — reported and logged; it approves nothing and refuses nothing. The former `≥ 0.99` pass-bar is **removed** (see §6). |
+| Scalar `harm_score` / `severity_score` | any action text | float in [0,1] | n/a | `pytest tests/pillars/test_non_maleficence.py -k ScalarHarm` | **advisory** — a per-category *topic keyword count*, not an intent measure. Measured on Mercury's own text: "assess trauma and psychological distress among displaced families" → severity **0.75**; "estimate earthquake damage and injury counts for triage" → **0.50**. Gating on these refuses the mission, so they decide nothing. |
+| Decision records are immutable and the ledger is append-only | synthetic decision stream | mutation attempts refused | 100 % | `pytest tests/pillars/test_control.py` | **enforced** — `src/omni_mercury_engine/decision/{record,ledger}.py` |
+| Every `detect_with_fusion` result carries a decision record | any engine, no setup | results with a `"decision"` key | **all of them** | `pytest tests/pillars/test_control.py -k default` | **enforced** — on by default in `OmniMercuryEngine.__init__`. It was previously opt-in via `enable_decision_layer()`, which meant the three first-party entry points closed the loop and every library embedder silently did not. Opt out with `decision_layer=False`. |
+| A decision record never claims more than its basis supports | uncalibrated engine (no conformal certificate) | grounded verdicts emitted | **0** | `pytest tests/pillars/test_control.py -k uncalibrated` | **enforced** — default-on must not mean default-confident: without a coverage guarantee the decider returns `state=unavailable` / `disposition=defer` rather than a grounded label. |
+| Tripwire halt is irreversible; capability ceiling cannot be self-raised | governor fault injection | escapes found | **0** | `pytest tests/pillars/test_corrigibility.py` | **enforced** — `src/omni_mercury_engine/agentic/subagents/governor.py` |
+| No autonomous change to a live boundary | threshold-move + recalibration proposals | authorised autonomously | **0** | `pytest tests/pillars/test_corrigibility.py` | **enforced** — `src/omni_mercury_engine/governance/self_improvement.py` |
+
+### Live-data reachability, verified 2026-08-03
+
+Mercury's loaders were exercised against their **real upstreams** in this
+environment, not against fixtures. `is_real_data=True` is the loader's own
+assertion that upstream bytes arrived and the synthetic fallback did not run.
+
+| Source | Result | Shape / positives |
+|---|---|---|
+| USGS earthquake feed | **live** | 200 × 11, 41 positive |
+| Open-Meteo weather | **live** | 200 × 8, 2 positive |
+| NOAA SWPC solar | **live** | 200 × 2, 40 positive |
+| NASA Exoplanet Archive (TAP) | **live** | 200 × 8, 23 positive |
+| USGS geochemistry | **live** | 200 × 11, 0 positive |
+| ADBench (`cardio`) | **live** | 1831 × 21, 176 positive |
+
+End-to-end on live data: 400 real USGS seismicity records → `OmniMercuryEngine`
+(decision layer on by default, AMA-Cryptography 4.0.0 with real PQC required) →
+`detect()` returns a verdict; the **same live-configured engine** then refuses a
+weapons-uplift request with `check="harm_uplift"` and still analyses a SQL
+injection payload. Repro:
+`python -m pytest tests/test_loaders_live.py -m network` for the loaders.
+
+**Keyed sources are unavailable here and nothing pretends otherwise.**
+`NASA_API_KEY`, `NASA_FIRMS_MAP_KEY`, `ALPHA_VANTAGE_API_KEY`, `EIA_API_KEY`,
+`OPENWEATHERMAP_API_KEY`, `BRAVE_API_KEY`, `HUGGINGFACE_API_KEY`,
+`NIXTLA_API_KEY`, `FHIR_BEARER_TOKEN` and `DEXCOM_REFRESH_TOKEN` are all unset,
+so those paths were not exercised and no figure here rests on them. FIRMS being
+keyless-unreachable is also why `test_wildfire_loader` must pin the synthetic
+path rather than reach the network (see §6).
+
+## 3. Cryptography
+
+| Claim | Dataset / task | Metric | Number | Repro command | Status |
+|---|---|---|---|---|---|
+| ML-KEM-1024 / ML-DSA-65 / SLH-DSA implement FIPS 203/204/205 | NIST ACVP-Server KAT vectors | bit-exact match | pass | `pytest tests/security/test_nist_fips_kat.py` | **enforced** — `src/omni_mercury_engine/security/pqc_backends.py` |
+| Formal cryptographic validation | CAVP / CMVP | — | — | — | **aspirational** — not entered. Internally reviewed (AI-assisted); not independently audited. |
+| Constant-time primitive behaviour | AMA native C primitives | — | asserted | — | **advisory** — asserted by the implementation, not independently verified |
+| σ_Immutable corpus integrity | `sigma_immutable_corpus.json` | Ed25519 + ML-DSA-65 signature verify | pass | `pytest tests/security/ -k corpus` | **enforced**, but **tamper-evident, not authenticated** — the verifying public key is carried *inside the same signed payload* (`security/sigma_immutable_corpus.py`), so an attacker who can rewrite the corpus can re-sign it. It detects corruption and accidental drift; it does not prove origin. Do not describe it as "signed for authenticity". |
+| 6-layer crypto package — integrity | emitted `CryptoPackageResult` | `core_valid` (Layers 1–4) | pass | `pytest tests/security/test_crypto_api.py -k SixLayerVerify` | **enforced** — `security/crypto_api.py`. Self-consistency only: every key needed to check a package travels *inside* it, so this proves the parts agree and were not corrupted, not who produced them. Same distinction as the σ_Immutable row above. |
+| 6-layer crypto package — authenticity | emitted `CryptoPackageResult` + out-of-band signing key | `all_valid` (requires `key_pinned`) | pass **only when a key is pinned** | `pytest tests/security/test_crypto_api.py -k pinned` | **enforced** — requires the caller to pass `expected_public_key`. Under AMA 4.0 an *unanchored* verify returns `all_valid` False even for a wholly intact package; through AMA 3.x it returned True, reporting success for a check that could not tell the expected signer from an attacker who built their own package. There is no flag to restore the old aggregate and Mercury adds none. |
+
+## 4. Detection models
+
+Numbers below come from each checkpoint's shipped `*.provenance.json`, written
+by the merit gate that admitted it. Ten checkpoints ship; nine carry provenance
+(`default_fusion.pt` is the packaged default and does not).
+
+| Claim | Dataset / task | Metric | Number | Repro command | Status |
+|---|---|---|---|---|---|
+| Seismic event detection | STEAD | AUC | **0.9949** | `python -c "import json;print(json.load(open('src/omni_mercury_engine/models/checkpoints/seismic_stead.provenance.json'))['evaluation']['learned'])"` | **measured** (merit-gated) |
+| Volcanic eruption precursor | AVO seismic | AUC | **0.9402** | same pattern, `volcanic_avo_seismic.provenance.json` | **measured** (merit-gated) |
+| Hurricane detection | ERA5 patches | detection AUC | **0.9882** | same pattern, `hurricane_era5.provenance.json` | **measured** (merit-gated; category accuracy is **0.608** — quote both) |
+| Wildfire ignition | FIRMS | AUC | **0.8750** | same pattern, `wildfire_firms.provenance.json` | **measured** (merit-gated) |
+| Landslide | COOLR | AUC | **0.8498** | same pattern, `landslide_coolr.provenance.json` | **measured** (merit-gated) |
+| Tornado | NEXRAD | AUC | **0.8099** | same pattern, `tornado_nexrad.provenance.json` | **measured** (merit-gated) |
+| Solar storm | GEOMAG | G-bucket accuracy | **0.9598** | same pattern, `solar_storm_geomag.provenance.json` | **measured** (merit-gated) |
+| Regularity deviation | GCP | fault AUC | **0.7875** | same pattern, `reg_deviation_gcp.provenance.json` | **measured** (merit-gated) |
+| GOSNN attention fusion | harvested fused states (n=450) | val MSE vs reference | learned 3.88e6 vs reference 8.30e6 | same pattern, `gosnn_attention_fusion.provenance.json` | **measured** — an **observability** head (MSE), *not* a detection head. It ships no detection metric, so the decision layer's GOSNN disagreement overlay is inert on this build. |
+| PatchCore visual anomaly detection | — | — | — | `pytest tests/detectors -k patchcore` | **measured** — implementation at `src/omni_mercury_engine/detectors/visual/patchcore.py`; no benchmark number is published here because none was re-measured in this change |
+| Math-Arrest equation family | — | probe count | **21** | `ls src/omni_mercury_engine/detectors/math_arrest/probes/*.py` | **measured** |
+| Statistical detector | — | — | — | `pytest tests/test_detectors.py` | **measured** — real, fitted, shipped by default |
+
+### Re-measured 2026-08-03 — both figures now carry a number
+
+Both rows below previously read "not re-measured". They were re-run against
+live ADBench data (SHA-256 of every NPZ recorded in the result JSON), so the
+figures are current rather than recalled. **One of them did not reproduce**, and
+that is stated as the result rather than smoothed over.
+
+| Claim | Dataset / task | Metric | Number | Repro command | Status |
+|---|---|---|---|---|---|
+| `OmniFusionModel` fusion quality — the circulated figure was **≈ 0.96** | ADBench `--quick` subset: 8 Classical + 1 CV + 1 NLP embedding | mean ROC-AUC (unsupervised, label-free consensus path) | **0.8338** (median 0.9176; mean AP 0.5520; n = 9 of 10 — `nlp:20news_0` deferred at the 300 s wall budget) | `python benchmarks/competitive_benchmark.py --quick` | **measured 2026-08-03** — the **≈ 0.96 claim does not reproduce** and is withdrawn. Fusion also ranks **last of eight methods** (mean rank 7.00) on this subset, losing to every PyOD baseline on 6–9 of 9 datasets. |
+| Mercury tier detector (the same run's other Mercury method) | same 10 datasets | mean ROC-AUC | **0.8936** (median 0.9464; mean AP 0.6870; mean rank 4.00 of 8) | same command | **measured 2026-08-03** — mid-field: beats ECOD/COPOD/LOF/HBOS on 6–7 of 10, loses to IsolationForest and KNN 6–4. Best method on `cv:MVTec-AD_bottle` (0.9643). |
+| Multi-agent consensus ≈ 0.88 / member ≈ 0.84 | ADBench, 5 datasets (cardio, thyroid, breastw, WBC, Pima) × 3 seeds | consensus AUC / mean member AUC | **0.8562 / 0.8370** (mean best member 0.9069) | `python -m benchmarks.orchestration_validation` | **measured 2026-08-03** — reproduces the historical 0.841 / 0.833 within noise and clears the pre-registered bar (consensus ≥ mean member − 0.005). All four pre-registered questions pass: coordination, reflexion (paired Δ balanced-accuracy +0.059 over 15 runs), planning (executability 1.0), trace fidelity (1.0). |
+
+#### Removing the ethics-labelled score multipliers did not move any of this
+
+The `eta ** Φ` factor in `OmniAvaEquation`, the `ethical_scaling ** Φ` factor in
+`detectors/physics_integration.py`, the GOSNN benevolence adjustment and the
+`MetricsCalculator` 0.5× penalty were all removed in this change (§6). Each was a
+constant monotone rescale, so the prediction was that detection AUC would be
+unchanged. That prediction was checked rather than assumed — the whole `--quick`
+suite was re-run after the removals and compared per dataset:
+
+| Dataset | tier before → after | fusion before → after |
+|---|---|---|
+| breastw | 0.992 → 0.992 | 0.971 → 0.971 |
+| cardio | 0.951 → 0.951 | 0.939 → 0.939 |
+| glass | 0.768 → 0.768 | 0.553 → 0.553 |
+| Ionosphere | 0.941 → 0.941 | 0.696 → 0.696 |
+| Lymphography | 0.984 → 0.984 | 0.930 → 0.930 |
+| pendigits | 0.874 → 0.874 | 0.918 → 0.918 |
+| Pima | 0.705 → 0.705 | 0.657 → 0.657 |
+| WBC | 0.991 → 0.991 | 0.949 → 0.949 |
+| cv:MVTec-AD_bottle | 0.964 → 0.964 | 0.892 → *deferred* |
+
+Every dataset that completed in both runs is identical. `mercury_tier`'s summary
+figures are unchanged to four decimal places. The only difference is that
+`cv:MVTec-AD_bottle` fusion exceeded the 300 s per-cell wall budget on the second
+run — machine timing, not behaviour — which is why the fusion mean over the cells
+that completed reads 0.8265 (n = 8) there against 0.8338 (n = 9) above. The
+published figure is the one from the run with more cells completed.
+
+The fusion result is the reason this table exists. A figure that had circulated
+as "≈ 0.96" measures **0.83** on a fair, defaults-only, unsupervised protocol,
+and the honest reading is that `OmniFusionModel` is not competitive on this
+subset — it is the weakest of the eight methods compared. Losses are reported at
+the same prominence as wins because the harness is a measurement, not a
+highlight reel.
+
+## 5. Untrained — relabelled, not benchmarked
+
+Each of these ships `nn.Module` subclasses that **no training script fits and
+no checkpoint restores**. They run at initialisation weights. They are not
+learned models and no accuracy figure attaches to them. Every one fails closed
+(`DetectorException`) until `fit()` has computed its statistical reference, so
+an unfitted detector abstains rather than emitting a score.
+
+| Claim | What actually runs | Repro command | Status |
+|---|---|---|---|
+| UI/UX interaction anomaly detection | Statistical only. The four networks are constructed, put in `eval()`, and **never called** by the scoring path. | `pytest tests/test_uiux_anomaly.py` | **untrained** — `detectors/uiux_anomaly.py` |
+| Spectral vibration analysis (GNN/CNN/MLIP) | The networks *are* called, at init weights — a deterministic **random projection**. `fit()` builds its reference through the same projection, so the comparison is like-for-like; the discriminative power is the statistical reference, not the networks. `detect()` reports `neural_backbone="untrained_random_projection"`. | `pytest tests/test_spectral_vibration.py` | **untrained** — `detectors/spectral_vibration.py` |
+| EMP-attack, fraud, pathogen (QBM), interstellar-object and pandemic-transmission models | Deterministic/statistical scoring; the neural components are unfitted. | `pytest tests/medical tests/space` | **untrained** |
+| Multivariate time-series LTG detector | Per-window mean / standard deviation / feature-correlation summary. No LSTM, no convolution kernels, no graph. | `pytest tests/test_multivariate_timeseries.py` | **untrained** — `core/multivariate_timeseries.py` |
+| `MercuryReasoner` "ReAct / chain-of-thought" | ReAct's *control flow* with templated thoughts and positional action selection. The trace and correlation graph are real; the reasoning is not. Actual NL reasoning is `omni_mercury_engine.reasoning` (operator-supplied backend). | `pytest tests/test_mercury_a_agent.py` | **advisory** — `agentic/mercury_a_agent.py` |
+| Effective reproduction number (pandemic) | Wallinga–Lipsitch `R = exp(r·T_s)` under a **delta** serial interval — an upper bound, and **R_e, not R₀**: nothing observes susceptibility or immunity. Reported as `re_estimate`; `r0_estimate` is a retained back-compatible alias for the same number. | `pytest tests/medical` | **advisory** |
+| SOFA / qSOFA | Deterministic instruments computed exactly per Vincent et al. (1996); `sofa_is_lower_bound` marks partial input. | `pytest tests/medical` | **enforced** (deterministic instrument) — `medical/critical_care/sepsis_detector.py`. **No clinical validation**: no accuracy claim is made, and none may be made without validation on real patient data. |
+
+## 6. Removed claims
+
+| Claim | Why it was removed |
+|---|---|
+| "Benevolence ≥ 0.99 hard gate at every decision boundary" | The score was computed over a **fixed string the engine wrote for itself** (`"anomaly_detection:{domain}:audit verify protect research evidence…"`), so the caller's request never reached it. As a bar it rejected benign work for having plain vocabulary and admitted anything phrased positively. Replaced by the harm-uplift gate scored on the real decision. |
+| `multivariate_timeseries` `roc_auc_estimate` | Computed as `0.5 + 0.4·tanh(separation)` from the detector's own scores and its own thresholded predictions. No label was ever involved, so it was not an AUC of anything; it rose whenever the detector was self-consistent. |
+| `MultivariateTSDetector` "LSTM / temporal convolution / graph convolution" | The three branches are a mean, a standard deviation and a correlation summary. Renamed and documented rather than deleted, since the statistical baseline is real. |
+| "R₀ estimation" | The quantity is an effective reproduction number estimated from observed growth. Calling it R₀ overstates it whenever the population is partly immune — i.e. during any surge. |
+| σ_Immutable corpus "signed for authenticity" | The verifying key travels inside the signed payload. Tamper-evident, not authenticated. |
+| "16 live data-loader classes" | The real count is 21 by the CI regex (20 concrete + the base class). |
+| "nine cognitive components" | Ten are wired at runtime. |
+| Lyapunov stability "guarantee" | A design-time convergence proof plus **runtime monitoring**. `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so at runtime it observes and records; it does not halt unless an operator constructs it with `halt_on_violation=True`. See `core/system_coherence.py`. |
+| 85 % coverage `fail_under` in `pyproject.toml` | No lane ever ran at 85: CI passes `--cov-fail-under` from `COVERAGE_THRESHOLD_CORE/FULL` (33 / 62), which overrides it. The config key now matches the enforced floor; 85 survives as a labelled aspiration in prose. |
+| "Benevolence decides nothing" — as a **repo-wide** claim | It was true of the three files the removal targeted and false elsewhere. Four survivors expressed the same `≥ 0.99` bar and were deleted only after each was reproduced: `SymbolicLogicLayer.evaluate_action` returned `allowed=False` for Mercury's own mission sentence (β = 0.597); `ValueExtractor.extract` returned `None` below 0.99, discarding humanitarian early warnings; `AdaptiveAnomalyDetector.evaluate_ethics` derived "benevolence" from the anomaly rate, so detecting >0.5 % of samples "failed ethics"; `NeurosymbolicFusionEngine` forwarded the 0.99 default into the symbolic layer. See §2 for the pins. |
+| `MetricsCalculator` "ethical gate" — a 0.5× penalty on `overall_score` | `ethical_compliance` is `benevolence_index ≥ 0.99 and harm_reduction_score ≥ 0.96`, and both quantities are detection statistics — harm-reduction **is** recall. So the multiplier halved the headline score of any detector that missed an anomaly: measured, 20 positives with one miss scored **0.3424** where the same run scores **0.6848** unpenalised (perfect: 0.7000). It also failed open on exception (flag defaults `True`, computation errors are swallowed) and closed on success — backwards. Benevolence keeps its honest 15 % weight in the combination. |
+| `GOSNNIntegration._apply_benevolence_adjustment` | Multiplied calibrated scores by `1 + w·((1 + (1 − 0.99)·φ) − 1)` **before** the threshold comparison, then returned the *unadjusted* scores. Measured at threshold 0.60: raw 0.5950 → adjusted 0.604547 → `is_anomaly=True`, with 0.5950 reported to the caller; the promotion boundary was 0.590593, a 1.568 %-wide band silently flipped. Its docstring had the direction backwards ("higher benevolence = more conservative"; the factor makes detection strictly *more* aggressive), and no measured benevolence entered it — it read the configuration constant. Classification is now `calibrated_scores > threshold`. |
+| `ethical_consent` symbolic rule | Its premise was the string `"requires_consent AND NOT consent_given"`, but `SymbolicReasoner.forward_chain` matches premises by set membership and parses no connectives, so no derived fact could ever equal it. The rule **never fired**: an action requiring consent, with consent explicitly withheld, was allowed. Premise is now the atomic `consent_missing`; an anti-vacuity test asserts no default rule premise contains whitespace. |
+| `benevolence_threshold` / `sigma_immutable` on five advanced detector configs | Declared as config fields and never read by any code path — advertising two controls the detectors do not implement. Enforcement is `cognitive/decision_gate.py`; configuration integrity is `security/sigma_immutable_gate.py`. |
+
+## 7. Known false claims about *this* repository, corrected
+
+* **There is no `np.math.factorial` bug in `harmonics/transform.py`.** The code
+  already calls stdlib `math.factorial` (lines 121–124), with a comment noting
+  that `np.math` was removed in NumPy 2.0. Anyone "fixing" this would be
+  changing working code.
+* **Coverage is 33 % (core) / 62 % (full), enforced.** Not 85, not 95.
+* **Mercury ships no generative language-model weights.** LLM adapters exist
+  (`models/foundation/llm_adapter.py`, `ollama_adapter.py`,
+  `reasoning/backend.py`) so an operator can attach one; none is bundled. The
+  broader claim "Mercury never produces fabricated prose" is false as stated and
+  is not made — see `tests/pillars/test_evidence.py`.
