@@ -212,7 +212,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `RateLimitMiddleware` (`api.server`) — Token bucket rate limiting middleware.
 - `RequestRateLimiter` (`api.auth`) — Request-aware rate limiter wrapper.
 - `SecretSealer` (`api.secret_sealer`) — Seals/opens short account secrets with AAD-bound at-rest encryption.
-- `SecurityHeadersMiddleware` (`api.security_headers`) — Attach the security header set to every response.
+- `SecurityHeadersMiddleware` (`api.security_headers`) — Attach the security header set to every response that reaches it.
 - `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
 - `SmtpMailer` (`api.mailer`) — Mailer that delivers over SMTP using environment-supplied credentials.
 - `SqliteCounterStore` (`api.rate_limit_store`) — Durable, cross-worker counter store on the shared SQLite file.

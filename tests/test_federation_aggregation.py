@@ -75,16 +75,24 @@ class TestPooledPrecision:
     def test_beats_the_plain_average_against_a_centralized_fit(self, gap: float) -> None:
         """Measured, not asserted by construction.
 
-        Reference numbers for this fixture (relative Frobenius error against a
-        centralized ``MercuryAnomalyDetector.fit`` on the concatenated data)::
+        Reference numbers produced by *this* fixture (relative Frobenius error
+        against a centralized ``MercuryAnomalyDetector.fit`` on the
+        concatenated data)::
 
             gap   pooled    plain average
             0.0   0.0012    0.0055
-            1.0   0.0012    0.2756
-            4.0   0.0013    0.5587
+            1.0   0.0012    0.2478
+            4.0   0.0013    0.4743
 
         The pooled error is flat in the gap; the plain average degrades with
         it, because the term it omits is exactly the between-node spread.
+
+        Re-derive with ``_split_population`` / ``_aggregate`` from this module,
+        never from a separate script: an earlier revision quoted 0.2756 and
+        0.5587 here, measured with a single RNG shared across all three gaps,
+        whereas ``_split_population`` re-seeds per call. Same conclusion,
+        different draw -- and numbers attached to the wrong fixture are worth
+        less than no numbers at all.
         """
         node_a, node_b, full = _split_population(gap)
         central = MercuryAnomalyDetector()
