@@ -2075,6 +2075,25 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Assert the Prometheus Operator integration renders
+        # The chart declares no monitoring subcharts; it integrates with an
+        # existing Prometheus Operator through these two objects instead. That
+        # substitution has to be a gated property, not a claim in a comment --
+        # if either template stops rendering, the chart has silently lost its
+        # monitoring surface.
+        run: |
+          set -euo pipefail
+          rendered=$(helm template mercury-agent ./helm/mercury-agent \
+            --set metrics.serviceMonitor.enabled=true \
+            --set metrics.prometheusRule.enabled=true)
+          for kind in ServiceMonitor PrometheusRule; do
+            if ! grep -q "^kind: ${kind}$" <<< "${rendered}"; then
+              echo "::error::the chart no longer renders a ${kind}; the Prometheus Operator integration that replaced the removed monitoring subcharts is gone"
+              exit 1
+            fi
+          done
+          echo "ServiceMonitor + PrometheusRule render."
+
       - name: Assert the rendered manifests carry the required configuration
         run: |
           set -euo pipefail

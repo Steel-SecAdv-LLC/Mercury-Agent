@@ -414,12 +414,30 @@ metrics:
 # version 30.0.1 that does not exist in the prometheus-community index.
 #
 # Monitoring integrates through the Prometheus Operator instead, which is what
-# this chart's own templates actually implement: set
-# `monitoring.serviceMonitor.enabled` and `monitoring.prometheusRule.enabled`
-# above and the chart emits a ServiceMonitor and a PrometheusRule for an
-# existing operator to pick up. Grafana dashboards live in `monitoring/grafana`
-# in the repository. Redis, when the streaming engine needs it, is addressed by
-# URL through `config.app.REDIS_URL` -- an external release, not a subchart.
+# this chart's own templates actually implement. Set
+# `metrics.serviceMonitor.enabled=true` and `metrics.prometheusRule.enabled=true`
+# (the `metrics:` block above -- both gate on `metrics.enabled`, which defaults
+# to true) and the chart emits a ServiceMonitor and a PrometheusRule for an
+# existing operator to discover:
+#
+#   helm template mercury-agent ./helm/mercury-agent \
+#     --set metrics.serviceMonitor.enabled=true \
+#     --set metrics.prometheusRule.enabled=true
+#
+# `values-staging.yaml` and `values-production.yaml` already turn the
+# ServiceMonitor on. The CI "Deployment Manifests" job renders exactly that
+# command and fails if either object goes missing, so this replacement is a
+# gated property rather than a claim in a comment.
+#
+# This is also the better architecture, not merely the one that renders: a
+# cluster runs ONE monitoring stack (kube-prometheus-stack) and applications
+# contribute ServiceMonitors to it. A subchart would have installed a second,
+# app-scoped Prometheus that scrapes only Mercury and federates with nothing.
+#
+# Grafana dashboards live in `monitoring/grafana` in the repository and are
+# provisioned into that same cluster-wide stack. Redis, when the streaming
+# engine needs it, is addressed by URL through `config.app.REDIS_URL` -- an
+# external release, not a subchart.
 
 # ============================================================================
 # Additional Configuration
