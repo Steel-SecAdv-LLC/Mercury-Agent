@@ -2094,6 +2094,24 @@ jobs:
           done
           echo "ServiceMonitor + PrometheusRule render."
 
+      - name: Install PyYAML for the assertion step
+        # The assertion below parses rendered manifests with PyYAML. It is
+        # preinstalled on the ubuntu-latest image and the step has passed on
+        # every run so far -- but "the runner image happens to ship it" is a
+        # borrowed dependency, not a declared one, and GitHub trims that image
+        # without notice. Declaring it costs one step and removes a way for
+        # this gate to break for a reason that has nothing to do with the
+        # manifests it guards. (`pyyaml>=6.0` is already a project dependency;
+        # this job deliberately installs nothing else, so it cannot use it.)
+        #
+        # The pip upgrade first is not optional decoration: the repository's
+        # workflow-hardening gate rejects a ``pip install`` in a job that has
+        # not raised pip to >= 26.1 (CVE-2026-6357 regression guard), and it
+        # caught this step when it was added without one.
+        run: |
+          python3 -m pip install --upgrade --quiet --disable-pip-version-check "pip>=26.1"
+          python3 -m pip install --quiet --disable-pip-version-check "pyyaml>=6.0"
+
       - name: Assert the rendered manifests carry the required configuration
         run: |
           set -euo pipefail
