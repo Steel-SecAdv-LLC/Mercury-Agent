@@ -31,7 +31,7 @@ from omni_mercury_engine.api.rate_limit_store import (
     SqliteCounterStore,
     SqliteRateLimitBackend,
 )
-from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.rate_limiting import RateLimiter, RateLimitInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -242,6 +242,50 @@ class TestDeliveredRate:
         info = limiter.check("c")
         assert info.allowed is False
         assert info.retry_after == pytest.approx(0.25, abs=1e-6)
+
+    def test_retry_after_header_never_tells_a_client_to_retry_now(self) -> None:
+        """``Retry-After: 0`` is an invitation to a hot retry loop.
+
+        The header is whole seconds (RFC 9110 delay-seconds), and the value
+        was truncated with ``int()``. At the shipped 100 rpm default the wait
+        for the next token is 0.6s, so *every* 429 the limiter produced
+        advertised ``Retry-After: 0`` -- a conforming client reads that as
+        "retry immediately" against the limiter that just denied it. Present
+        on ``main`` as well; the fractional refill only varied the value.
+        """
+        for wait in (0.0, 0.05, 0.2, 0.6, 0.999):
+            info = RateLimitInfo(
+                allowed=False, limit=100, remaining=0, reset_at=0, retry_after=wait
+            )
+            assert info.to_headers()["Retry-After"] == "1", wait
+
+    def test_retry_after_header_rounds_up_never_down(self) -> None:
+        """Under-stating the wait is the failure mode; over-stating costs one poll."""
+        for wait, expected in ((1.0, "1"), (1.01, "2"), (1.5, "2"), (59.1, "60")):
+            info = RateLimitInfo(
+                allowed=False, limit=100, remaining=0, reset_at=0, retry_after=wait
+            )
+            assert info.to_headers()["Retry-After"] == expected, wait
+
+    def test_retry_after_absent_when_allowed(self) -> None:
+        info = RateLimitInfo(allowed=True, limit=100, remaining=5, reset_at=0)
+        assert "Retry-After" not in info.to_headers()
+
+    def test_shipped_defaults_emit_a_usable_retry_after(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end on 100 rpm / burst 20 -- the configuration that shipped."""
+        clock = {"now": 1_700_000_000.0}
+        monkeypatch.setattr(
+            "omni_mercury_engine.security.rate_limiting.time.time",
+            lambda: clock["now"],
+        )
+        limiter = RateLimiter(requests_per_minute=self._RPM, burst_size=self._BURST)
+        for _ in range(self._BURST):
+            assert limiter.check("client").allowed
+        denied = limiter.check("client")
+        assert denied.allowed is False
+        assert int(denied.to_headers()["Retry-After"]) >= 1
 
     def test_fractional_balance_survives_the_store(self) -> None:
         """A sub-token balance round-trips through the backend unrounded."""

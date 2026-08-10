@@ -216,9 +216,17 @@ def _request_is_secure(request: Request) -> bool:
         return True
     if trusted_proxy_hops() < 1:
         return False
-    forwarded = request.headers.get("x-forwarded-proto", "")
+    # Explicitly typed: Starlette's ``Headers`` inherits ``get`` from
+    # ``Mapping``, and whether that resolves to ``str`` or to ``Any`` depends
+    # on how the installed Starlette parameterises the base class. Binding the
+    # value to a ``str`` local states the contract this function relies on
+    # here, instead of inheriting it from a third-party stub that can change
+    # under a dependency bump.
+    forwarded: str = request.headers.get("x-forwarded-proto", "")
     # A proxy chain appends, so the client-facing hop is the left-most entry.
-    return forwarded.split(",")[0].strip().lower() == "https"
+    # ``maxsplit=1`` because only that first entry is ever read -- splitting a
+    # long forwarded chain any further is wasted work.
+    return forwarded.split(",", maxsplit=1)[0].strip().lower() == "https"
 
 
 def _csp_for(path: str, content_type: str) -> str:
@@ -269,7 +277,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         for name, value in _STATIC_HEADERS:
             response.headers.setdefault(name, value)
 
-        content_type = response.headers.get("content-type", "").lower()
+        # Explicitly typed for the same reason as ``_request_is_secure``: the
+        # header mapping's ``get`` may resolve to ``Any`` depending on the
+        # installed Starlette.
+        raw_content_type: str = response.headers.get("content-type", "")
+        content_type = raw_content_type.lower()
         response.headers.setdefault(
             "Content-Security-Policy", _csp_for(request.url.path, content_type)
         )

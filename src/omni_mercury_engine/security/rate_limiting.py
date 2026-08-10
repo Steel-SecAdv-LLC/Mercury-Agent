@@ -12,6 +12,7 @@ Unified rate limiting module consolidating:
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from dataclasses import dataclass
@@ -39,14 +40,30 @@ class RateLimitInfo:
     retry_after: float | None = None
 
     def to_headers(self) -> dict[str, str]:
-        """Convert to HTTP response headers."""
+        """Convert to HTTP response headers.
+
+        ``Retry-After`` is a whole number of seconds (RFC 9110 delay-seconds),
+        so a sub-second wait has to be rounded. It is rounded **up**, with a
+        floor of 1.
+
+        Truncating instead -- ``int(0.6) == 0``, which is what this emitted --
+        tells a conforming client "retry immediately" on a request that was
+        just denied, so a well-behaved client turns into a hot retry loop
+        against the limiter that rejected it. The shipped defaults reach that
+        directly: at 100 requests/minute the wait for the next token is 0.6s,
+        and every 429 advertised ``Retry-After: 0``.
+
+        Rounding up can over-state the wait by at most one second, which costs
+        a client one skipped poll. Rounding down under-states it every time
+        and costs the server the retry storm.
+        """
         headers = {
             "X-RateLimit-Limit": str(self.limit),
             "X-RateLimit-Remaining": str(max(0, self.remaining)),
             "X-RateLimit-Reset": str(self.reset_at),
         }
         if self.retry_after is not None:
-            headers["Retry-After"] = str(int(self.retry_after))
+            headers["Retry-After"] = str(max(1, math.ceil(self.retry_after)))
         return headers
 
 
