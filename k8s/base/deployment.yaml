@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/version: "2.1.0"
   annotations:
     kubernetes.io/change-cause: "Initial deployment"
 spec:
@@ -28,7 +28,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: api
-        app.kubernetes.io/version: "2.0.0"
+        app.kubernetes.io/version: "2.1.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -74,20 +74,15 @@ spec:
               app.kubernetes.io/name: mercury-agent
               app.kubernetes.io/component: api
 
-      initContainers:
-        - name: init-permissions
-          image: busybox:1.36
-          command: ['sh', '-c', 'chmod -R 755 /app/logs /app/cache /app/data']
-          volumeMounts:
-            - name: logs
-              mountPath: /app/logs
-            - name: cache
-              mountPath: /app/cache
-            - name: data
-              mountPath: /app/data
-          securityContext:
-            runAsUser: 0
-            allowPrivilegeEscalation: false
+      # No init container. There used to be an `init-permissions` busybox that
+      # ran `chmod -R 755 /app/logs /app/cache /app/data` as `runAsUser: 0`
+      # without also setting `runAsNonRoot: false`. The pod-level context above
+      # requires non-root, so the kubelet's verifyRunAsNonRoot check refuses to
+      # start it (CreateContainerConfigError) and no pod in this Deployment
+      # could ever come up. It was also counter-productive on the merits:
+      # `fsGroup: 1000` already makes the kubelet chgrp every volume -- the two
+      # emptyDirs and both PersistentVolumeClaims -- to GID 1000 and add group
+      # write, whereas `chmod -R 755` would have REMOVED that group write bit.
 
       containers:
         - name: api
@@ -215,7 +210,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
-    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/version: "2.1.0"
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -233,7 +228,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: engine
-        app.kubernetes.io/version: "2.0.0"
+        app.kubernetes.io/version: "2.1.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"

@@ -40,7 +40,15 @@ api:
     minAvailable: 2
 
   ingress:
-    enabled: true
+    # Off until a hostname is supplied. An externally reachable
+    # Ingress needs a name that resolves, and a chart cannot know it;
+    # the reserved *.example.com hostnames this file used to ship made
+    # it look configured while routing nothing. Enable it together
+    # with `api.ingress.hosts` (and `api.ingress.tls`) -- see the
+    # `hosts:` note below. `templates/ingress.yaml` refuses to render
+    # `enabled: true` with an empty `hosts`, so the two cannot drift
+    # apart.
+    enabled: false
     className: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -48,20 +56,24 @@ api:
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
       nginx.ingress.kubernetes.io/limit-rps: "100"
       nginx.ingress.kubernetes.io/limit-connections: "50"
-    hosts:
-      - host: mercury-agent.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-      - host: api.mercury-agent.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - hosts:
-          - mercury-agent.example.com
-          - api.mercury-agent.example.com
-        secretName: mercury-agent-prod-tls
+    # Supply your own hostnames. This file used to ship
+    # `mercury-agent.example.com` / `api.mercury-agent.example.com` -- an IANA
+    # reserved documentation domain that nothing overrode -- so the rendered
+    # production Ingress matched hostnames that cannot resolve and routed
+    # nothing. `templates/ingress.yaml` now fails the render with an
+    # actionable message rather than emitting a rule-less Ingress, so this
+    # cannot be left unset by accident:
+    #
+    #   helm install mercury-agent ./helm/mercury-agent \
+    #     -f helm/mercury-agent/values-production.yaml \
+    #     --set-json 'api.ingress.hosts=[{"host":"api.your-domain.example",
+    #        "paths":[{"path":"/","pathType":"Prefix"}]}]' \
+    #     --set-json 'api.ingress.tls=[{"hosts":["api.your-domain.example"],
+    #        "secretName":"mercury-agent-prod-tls"}]'
+    #
+    # cert-manager creates the Secret named in `tls[].secretName`.
+    hosts: []
+    tls: []
 
   affinity:
     podAntiAffinity:
@@ -119,10 +131,17 @@ engine:
 
 config:
   app:
-    OMNI_LOG_LEVEL: "WARNING"
-    OMNI_API_WORKERS: "4"
-    OMNI_ENABLE_PROFILING: "false"
-    OMNI_ETHICS_STRICT_MODE: "true"
+    # The one setting that arms every production guard in the application:
+    # API_KEY_HASH_SALT becomes mandatory instead of silently falling back to
+    # the built-in default salt, CORS drops the localhost allowlist, and JWT
+    # signing keys resolve through the production branch. No chart path set it
+    # before, so "production" deployments ran in development mode.
+    # It replaces four keys that had no reader anywhere in src/
+    # (OMNI_LOG_LEVEL, OMNI_API_WORKERS, OMNI_ENABLE_PROFILING,
+    # OMNI_ETHICS_STRICT_MODE) -- this file's entire config hardening was
+    # inert.
+    MERCURY_ENV: "production"
+    OMNI_STRICT_VALIDATION: "true"
 
 persistence:
   data:

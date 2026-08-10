@@ -51,13 +51,22 @@ class RateLimitInfo:
 
 
 class RateLimitBackend(Protocol):
-    """Protocol for rate limit storage backends (e.g., Redis)."""
+    """Protocol for rate limit storage backends (e.g., Redis).
 
-    def get(self, key: str) -> tuple[float, int] | None:
-        """Get bucket state: (last_update_time, tokens)."""
+    Token balances are **fractional** (``float``).  A token bucket refills
+    continuously at ``requests_per_minute / 60`` tokens per second, so a
+    backend that rounds the balance to whole tokens on every store loses the
+    sub-token remainder each time the bucket is touched.  At any polling rate
+    faster than one request per refill period, that remainder is the entire
+    refill -- see :meth:`RateLimiter._check_token_bucket` for the arithmetic
+    this protocol exists to keep exact.
+    """
+
+    def get(self, key: str) -> tuple[float, float] | None:
+        """Get bucket state: ``(last_update_time, tokens)``."""
         ...
 
-    def set(self, key: str, last_time: float, tokens: int, ttl: int) -> None:
+    def set(self, key: str, last_time: float, tokens: float, ttl: int) -> None:
         """Set bucket state with TTL."""
         ...
 
@@ -67,31 +76,77 @@ class RateLimitBackend(Protocol):
 
 
 class InMemoryBackend:
-    """Thread-safe in-memory rate limit backend."""
+    """Thread-safe in-memory rate limit backend.
+
+    Implements the optional atomic :meth:`consume_token` extension so the
+    process-local path spends tokens under exactly the same arithmetic as
+    :class:`~omni_mercury_engine.api.rate_limit_store.SqliteRateLimitBackend`.
+    Both backends therefore deliver the configured rate; swapping one for the
+    other changes durability and cross-process sharing, never the rate.
+    """
 
     def __init__(self, max_entries: int = 10000, ttl_seconds: int = 300) -> None:
         """Initialize the instance."""
-        self._buckets: dict[str, tuple[float, int]] = {}
+        self._buckets: dict[str, tuple[float, float]] = {}
         self._lock = threading.RLock()
         self._max_entries = max_entries
         self._ttl_seconds = ttl_seconds
         self._last_cleanup = time.time()
 
-    def get(self, key: str) -> tuple[float, int] | None:
+    def get(self, key: str) -> tuple[float, float] | None:
         """Get."""
         with self._lock:
             return self._buckets.get(key)
 
-    def set(self, key: str, last_time: float, tokens: int, ttl: int) -> None:
+    def set(self, key: str, last_time: float, tokens: float, ttl: int) -> None:
         """Set."""
         with self._lock:
             self._cleanup_if_needed()
-            self._buckets[key] = (last_time, tokens)
+            self._buckets[key] = (last_time, float(tokens))
 
     def delete(self, key: str) -> None:
         """Delete."""
         with self._lock:
             self._buckets.pop(key, None)
+
+    def consume_token(
+        self,
+        key: str,
+        *,
+        refill_rate: float,
+        burst: int,
+        now: float,
+    ) -> tuple[bool, float]:
+        """Atomically refill ``key``'s bucket and spend one token if available.
+
+        Mirrors ``SqliteRateLimitBackend.consume_token`` exactly -- fractional
+        refill, capacity clamp, spend-on-success -- with the instance ``RLock``
+        standing in for the SQLite ``BEGIN IMMEDIATE`` transaction.
+
+        Args:
+            key: Bucket identifier.
+            refill_rate: Tokens added per second.
+            burst: Bucket capacity.
+            now: Current UNIX time (injected for deterministic tests).
+
+        Returns:
+            ``(allowed, tokens_remaining)`` -- ``tokens_remaining`` is the
+            balance *after* the spend (or the unspendable balance on deny).
+        """
+        with self._lock:
+            self._cleanup_if_needed()
+            state = self._buckets.get(key)
+            if state is None:
+                tokens = float(burst)
+            else:
+                last_time, stored = state
+                elapsed = max(0.0, now - last_time)
+                tokens = min(float(burst), stored + elapsed * refill_rate)
+            allowed = tokens >= 1.0
+            if allowed:
+                tokens -= 1.0
+            self._buckets[key] = (now, tokens)
+        return allowed, tokens
 
     def _cleanup_if_needed(self) -> None:
         """Remove stale entries to prevent memory exhaustion."""
@@ -217,18 +272,29 @@ class RateLimiter:
     def _check_token_bucket(self, identifier: str) -> RateLimitInfo:
         """Token bucket algorithm with burst support.
 
-        When the backend exposes an atomic ``consume_token`` (the shared
-        SQLite backend does), the whole refill-and-spend happens inside the
-        backend's own transaction — the only race-free option once buckets
-        are shared across worker processes. The plain ``get``/``set`` path
-        below is kept for simple in-memory backends, where the process-local
-        lock already serialises access.
+        When the backend exposes an atomic ``consume_token`` (both shipped
+        backends do), the whole refill-and-spend happens inside the backend's
+        own critical section — the only race-free option once buckets are
+        shared across worker processes. The plain ``get``/``set`` path below
+        is the compatibility route for third-party backends that implement
+        only the two-method protocol.
+
+        Both routes refill **fractionally**: ``tokens += elapsed *
+        requests_per_minute / 60`` with no truncation, and the balance is
+        stored as a float. Truncating the refill to whole tokens while also
+        advancing ``last_time`` to ``now`` — the behaviour this method used
+        to have on the ``get``/``set`` route — discards the elapsed time that
+        produced the truncated remainder. A client polling faster than
+        ``requests_per_minute / 60`` then never accumulates a whole token
+        between calls and is starved permanently after its initial burst,
+        delivering a small fraction of the configured rate rather than the
+        configured rate.
         """
         now = time.time()
+        refill_rate = self.requests_per_minute / 60.0
 
         consume = getattr(self.backend, "consume_token", None)
         if callable(consume):
-            refill_rate = self.requests_per_minute / 60.0
             allowed, remaining = consume(
                 identifier,
                 refill_rate=refill_rate,
@@ -247,42 +313,56 @@ class RateLimiter:
                 limit=self.requests_per_minute,
                 remaining=0,
                 reset_at=int(now) + 60,
-                retry_after=60.0 / self.requests_per_minute,
+                retry_after=self._retry_after(remaining, refill_rate),
             )
 
-        # Get current bucket state
+        # Compatibility route: refill-then-spend over a plain get/set backend.
         bucket = self.backend.get(identifier)
         if bucket is not None:
-            last_time, tokens = bucket
-            # Refill tokens based on elapsed time
-            elapsed = now - last_time
-            refill_rate = self.requests_per_minute / 60.0
-            new_tokens = int(elapsed * refill_rate)
-            tokens = min(self.burst_size, tokens + new_tokens)
+            last_time, stored = bucket
+            # max(0.0, ...) guards a backwards clock jump (NTP step, or a
+            # backend shared between hosts): elapsed time can never be
+            # negative, and a negative refill would drain the bucket.
+            elapsed = max(0.0, now - last_time)
+            tokens = min(float(self.burst_size), float(stored) + elapsed * refill_rate)
         else:
-            last_time = now
-            tokens = self.burst_size
+            tokens = float(self.burst_size)
 
-        # Check if request is allowed
-        if tokens > 0:
-            self.backend.set(identifier, now, tokens - 1, self.DEFAULT_TTL_SECONDS)
+        if tokens >= 1.0:
+            tokens -= 1.0
+            self.backend.set(identifier, now, tokens, self.DEFAULT_TTL_SECONDS)
             return RateLimitInfo(
                 allowed=True,
                 limit=self.requests_per_minute,
-                remaining=tokens - 1,
+                remaining=int(tokens),
                 reset_at=int(now) + 60,
             )
-        else:
-            # Calculate retry time
-            time_to_next_token = 60.0 / self.requests_per_minute
-            self.backend.set(identifier, now, 0, self.DEFAULT_TTL_SECONDS)
-            return RateLimitInfo(
-                allowed=False,
-                limit=self.requests_per_minute,
-                remaining=0,
-                reset_at=int(now) + 60,
-                retry_after=time_to_next_token,
-            )
+
+        # Denied: still write back the refilled (fractional) balance and the
+        # new timestamp. Storing the fraction is what makes advancing
+        # ``last_time`` lossless — the elapsed time is not discarded, it has
+        # been converted into the stored remainder.
+        self.backend.set(identifier, now, tokens, self.DEFAULT_TTL_SECONDS)
+        return RateLimitInfo(
+            allowed=False,
+            limit=self.requests_per_minute,
+            remaining=0,
+            reset_at=int(now) + 60,
+            retry_after=self._retry_after(tokens, refill_rate),
+        )
+
+    @staticmethod
+    def _retry_after(tokens: float, refill_rate: float) -> float:
+        """Seconds until the bucket holds one whole token again.
+
+        ``tokens`` is the (sub-1.0) balance left after a denial, so the wait
+        is the time to refill the shortfall — not a flat ``60 /
+        requests_per_minute``, which over-reports whenever the bucket is
+        already part-way to the next token.
+        """
+        if refill_rate <= 0:
+            return float("inf")
+        return max(0.0, (1.0 - tokens) / refill_rate)
 
     def _check_sliding_window(self, identifier: str) -> RateLimitInfo:
         """Sliding window algorithm for strict rate limiting."""

@@ -1,5 +1,54 @@
 # Mercury-Agent Ingress Configuration
-# Routes external traffic to the API service with TLS termination
+#
+# Routes external traffic to the API service.
+#
+# NO HOST IS SET, deliberately. This Ingress previously served
+# `mercury-agent.example.com` and `api.mercury-agent.example.com` -- an IANA
+# reserved documentation domain that no overlay, values file or patch ever
+# replaced, so every rule matched a hostname that could not resolve and the
+# Ingress routed nothing in any environment. A host-less rule matches *any*
+# Host header, which means these manifests serve correctly through whatever
+# name (or bare load-balancer address) the cluster actually answers on,
+# immediately and with no editing.
+#
+# To pin a hostname and terminate TLS, add this patch to your overlay -- one
+# place, real values, no placeholder anywhere in the repository:
+#
+#   patches:
+#     - target:
+#         kind: Ingress
+#         name: mercury-agent-ingress
+#       patch: |-
+#         - op: add
+#           path: /metadata/annotations/cert-manager.io~1cluster-issuer
+#           value: letsencrypt-prod
+#         - op: replace
+#           path: /metadata/annotations/nginx.ingress.kubernetes.io~1ssl-redirect
+#           value: "true"
+#         - op: add
+#           path: /spec/tls
+#           value:
+#             - hosts: [api.your-domain.example]
+#               secretName: mercury-agent-tls-cert
+#         - op: add
+#           path: /spec/rules/0/host
+#           value: api.your-domain.example
+#
+# cert-manager creates the `mercury-agent-tls-cert` Secret named there; the
+# base ships no TLS Secret of its own. (It used to ship a `mercury-agent-tls`
+# Secret holding a PLACEHOLDER_CERTIFICATE / PLACEHOLDER_KEY pair, under a
+# name the Ingress never referenced -- dead weight that looked like
+# configuration.)
+#
+# Security response headers are NOT set here. They used to be, through
+# `nginx.ingress.kubernetes.io/configuration-snippet`, which belongs to an
+# annotation group ingress-nginx has disabled by default since v1.9
+# (`allow-snippet-annotations: false`): a default controller's admission
+# webhook REJECTS an Ingress carrying it, so the annotation did not merely
+# fail to apply headers -- it blocked the Ingress from being created at all.
+# The headers now come from the application
+# (`omni_mercury_engine.api.security_headers`), which covers every deployment
+# topology including the ones with no ingress-nginx in front.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,70 +58,25 @@ metadata:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: ingress
   annotations:
-    # Nginx Ingress Controller annotations
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
 
-    # Rate limiting
+    # Edge rate limiting (the application enforces its own limits as well).
     nginx.ingress.kubernetes.io/limit-rps: "100"
     nginx.ingress.kubernetes.io/limit-connections: "50"
 
-    # Security headers
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      add_header X-Frame-Options "SAMEORIGIN" always;
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header X-XSS-Protection "1; mode=block" always;
-      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
-
-    # CORS configuration
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
-
-    # cert-manager for automatic TLS
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Off until an overlay supplies a host and a certificate: redirecting to
+    # HTTPS on an Ingress with no TLS block is an infinite redirect.
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - mercury-agent.example.com
-        - api.mercury-agent.example.com
-      secretName: mercury-agent-tls-cert
   rules:
-    - host: mercury-agent.example.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
-            backend:
-              service:
-                name: mercury-agent-api
-                port:
-                  number: 80
-    - host: api.mercury-agent.example.com
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: mercury-agent-api
-                port:
-                  number: 80
-          - path: /health
-            pathType: Exact
-            backend:
-              service:
-                name: mercury-agent-api
-                port:
-                  number: 80
-          - path: /metrics
-            pathType: Exact
             backend:
               service:
                 name: mercury-agent-api
@@ -110,34 +114,3 @@ spec:
       - http01:
           ingress:
             class: nginx
----
-# AWS ALB Ingress (alternative for AWS)
-# apiVersion: networking.k8s.io/v1
-# kind: Ingress
-# metadata:
-#   name: mercury-agent-alb-ingress
-#   namespace: mercury-agent
-#   annotations:
-#     kubernetes.io/ingress.class: alb
-#     alb.ingress.kubernetes.io/scheme: internet-facing
-#     alb.ingress.kubernetes.io/target-type: ip
-#     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/xxx
-#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-#     alb.ingress.kubernetes.io/ssl-redirect: '443'
-#     alb.ingress.kubernetes.io/healthcheck-path: /health
-#     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
-#     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '10'
-#     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-#     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-# spec:
-#   rules:
-#     - host: mercury-agent.example.com
-#       http:
-#         paths:
-#           - path: /
-#             pathType: Prefix
-#             backend:
-#               service:
-#                 name: mercury-agent-api
-#                 port:
-#                   number: 80

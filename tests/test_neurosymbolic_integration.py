@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
 
@@ -92,7 +93,7 @@ def test_ltn_predict_delegates_to_symbolic_consensus() -> None:
     matches ``SymbolicConstraintModule.predict`` exactly (genuine delegation,
     not a reimplementation).
     """
-    import torch
+    torch = pytest.importorskip("torch")
 
     from omni_mercury_engine.models.neurosymbolic import LogicTensorNetwork
 
@@ -123,7 +124,7 @@ def test_ltn_predict_relocates_scores_to_wrapped_module_device() -> None:
     """
     from unittest.mock import patch
 
-    import torch
+    torch = pytest.importorskip("torch")
 
     from omni_mercury_engine.models.neurosymbolic import LogicTensorNetwork
 

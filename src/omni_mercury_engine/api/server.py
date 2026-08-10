@@ -548,6 +548,20 @@ if _allowed_origins:
     logger.info(f"CORS enabled for origins: {len(_allowed_origins)} configured")
 
 
+# =============================================================================
+# Security Response Headers
+# =============================================================================
+# Registered LAST, which makes it the OUTERMOST middleware (Starlette runs the
+# stack in reverse registration order). Outermost is required for coverage: the
+# rate limiter's 429 and the quota layer's 503 are produced by middleware and
+# never reach a route handler, and a CORS preflight is answered by
+# CORSMiddleware itself -- all three are browser-reachable responses that must
+# still carry the header set.
+from omni_mercury_engine.api.security_headers import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
+
+
 # Enums for API parameters
 class DetectionMethod(StrEnum):
     """Available anomaly detection methods."""

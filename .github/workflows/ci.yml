@@ -1993,6 +1993,171 @@ jobs:
           sphinx-build -b html . _build/html
 
   # ===========================================================================
+  # Stage 8: Deployment Manifests
+  # ===========================================================================
+  manifests:
+    name: Deployment Manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No dependency on code-quality: this validates YAML, not Python, and a
+    # broken manifest should surface immediately rather than behind a lint run.
+    # No trigger condition either -- it is in the ci-success SPINE, so it must
+    # run on every trigger including `schedule` and `workflow_dispatch`.
+
+    steps:
+      - name: Checkout code (attempt 1)
+        id: checkout
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Pause before checkout retry 1 (transient flake stabilisation)
+        if: steps.checkout.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::actions/checkout@v7 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          sleep 15
+
+      - name: Checkout code (attempt 2, runs only on attempt-1 failure)
+        id: checkout2
+        if: steps.checkout.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Pause before checkout retry 2 (extended backoff)
+        if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::actions/checkout@v7 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          sleep 60
+
+      - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
+        if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # No CI lane rendered these manifests before, which is how three of the
+      # four kustomize overlays came to exit 1 on `kustomize build` and how the
+      # Helm chart came to be uninstallable by either documented command
+      # without anyone noticing. Rendering is the only check that catches it.
+      - name: Install kustomize and helm
+        run: |
+          set -euo pipefail
+          curl -fsSL -o kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz"
+          echo "3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7  kustomize.tar.gz" | sha256sum -c -
+          tar -xzf kustomize.tar.gz
+          sudo install -m 0755 kustomize /usr/local/bin/kustomize
+          curl -fsSL -o helm.tar.gz "https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz"
+          echo "11400fecfc07fd6f034863e4e0c4c4445594673fd2a129e701fe41f31170cfa9  helm.tar.gz" | sha256sum -c -
+          tar -xzf helm.tar.gz
+          sudo install -m 0755 linux-amd64/helm /usr/local/bin/helm
+          kustomize version
+          helm version
+
+      - name: Build every kustomize overlay
+        run: |
+          set -euo pipefail
+          for target in k8s/base k8s/overlays/*; do
+            echo "::group::kustomize build ${target}"
+            kustomize build "${target}" > /dev/null
+            echo "::endgroup::"
+          done
+
+      - name: Lint and render the Helm chart
+        run: |
+          set -euo pipefail
+          helm lint ./helm/mercury-agent
+          # No `-f` renders the chart exactly as `helm install mercury-agent
+          # ./helm/mercury-agent` would -- the command the README publishes.
+          helm template mercury-agent ./helm/mercury-agent > /dev/null
+          for values in helm/mercury-agent/values-*.yaml; do
+            echo "::group::helm template -f ${values}"
+            helm template mercury-agent ./helm/mercury-agent -f "${values}" > /dev/null
+            echo "::endgroup::"
+          done
+
+      - name: Assert the rendered manifests carry the required configuration
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import subprocess
+          import sys
+
+          import yaml
+
+          DEAD_KEYS = {
+              "OMNI_LOG_LEVEL", "OMNI_CACHE_DIR", "OMNI_DATA_DIR", "OMNI_MODEL_DIR",
+              "OMNI_API_HOST", "OMNI_API_PORT", "OMNI_API_WORKERS", "OMNI_API_TIMEOUT",
+              "OMNI_ENABLE_METRICS", "OMNI_ENABLE_TRACING", "OMNI_ENABLE_PROFILING",
+              "OMNI_DEFAULT_SENSITIVITY", "OMNI_MAX_BATCH_SIZE", "OMNI_DETECTION_TIMEOUT",
+              "OMNI_ETHICS_ENABLED", "OMNI_ETHICS_STRICT_MODE",
+          }
+
+          def render(cmd):
+              out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+              return [d for d in yaml.safe_load_all(out) if d]
+
+          def app_config(docs):
+              for doc in docs:
+                  if doc.get("kind") == "ConfigMap" and "mercury-agent-config" in doc["metadata"]["name"]:
+                      return doc["data"]
+              raise AssertionError("no mercury-agent-config ConfigMap rendered")
+
+          failures = []
+
+          for overlay, expected_env in (
+              ("k8s/overlays/development", "development"),
+              ("k8s/overlays/staging", "production"),
+              ("k8s/overlays/production", "production"),
+          ):
+              docs = render(["kustomize", "build", overlay])
+              data = app_config(docs)
+              if data.get("MERCURY_ENV") != expected_env:
+                  failures.append(f"{overlay}: MERCURY_ENV={data.get('MERCURY_ENV')!r}, expected {expected_env!r}")
+              if not data.get("MERCURY_KEYSTORE_PATH"):
+                  failures.append(f"{overlay}: MERCURY_KEYSTORE_PATH unset -- every store falls back to per-process memory")
+              dead = sorted(DEAD_KEYS & set(data))
+              if dead:
+                  failures.append(f"{overlay}: config keys no code reads: {dead}")
+              for doc in docs:
+                  if doc.get("kind") == "Secret":
+                      shipped = sorted((doc.get("data") or {}) | (doc.get("stringData") or {}))
+                      if shipped:
+                          failures.append(f"{overlay}: Secret {doc['metadata']['name']} ships key material: {shipped}")
+                  if doc.get("kind") == "Ingress":
+                      hosts = [r.get("host") for r in doc["spec"].get("rules", []) if r.get("host")]
+                      bad = [h for h in hosts if "example.com" in h or h.endswith(".local")]
+                      if bad:
+                          failures.append(f"{overlay}: Ingress serves unroutable placeholder hosts: {bad}")
+                      annotations = doc["metadata"].get("annotations") or {}
+                      if any("configuration-snippet" in k for k in annotations):
+                          failures.append(
+                              f"{overlay}: Ingress uses configuration-snippet, which ingress-nginx "
+                              "rejects by default since v1.9"
+                          )
+
+          for values, expected_env in (
+              ("helm/mercury-agent/values-development.yaml", "development"),
+              ("helm/mercury-agent/values-staging.yaml", "production"),
+              ("helm/mercury-agent/values-production.yaml", "production"),
+          ):
+              docs = render(["helm", "template", "mercury-agent", "./helm/mercury-agent", "-f", values])
+              data = app_config(docs)
+              if data.get("MERCURY_ENV") != expected_env:
+                  failures.append(f"{values}: MERCURY_ENV={data.get('MERCURY_ENV')!r}, expected {expected_env!r}")
+              if not data.get("MERCURY_KEYSTORE_PATH"):
+                  failures.append(f"{values}: MERCURY_KEYSTORE_PATH unset")
+              dead = sorted(DEAD_KEYS & set(data))
+              if dead:
+                  failures.append(f"{values}: config keys no code reads: {dead}")
+
+          if failures:
+              for line in failures:
+                  print(f"::error::{line}")
+              sys.exit(1)
+          print("Rendered manifests carry the required configuration.")
+          PYTHON
+
+  # ===========================================================================
   # Final Status Check
   # ===========================================================================
   ci-success:
@@ -2012,6 +2177,7 @@ jobs:
       - performance-benchmark
       - docker-build
       - docs-build
+      - manifests
     if: always()
 
     steps:
@@ -2051,8 +2217,9 @@ jobs:
             [ml-tests]="${{ needs.ml-tests.result }}"
             [docker-build]="${{ needs.docker-build.result }}"
             [docs-build]="${{ needs.docs-build.result }}"
+            [manifests]="${{ needs.manifests.result }}"
           )
-          SPINE="code-quality workflow-hardening type-checking core-tests neuro-symbolic-tests integration-tests ethics-audit"
+          SPINE="code-quality workflow-hardening type-checking core-tests neuro-symbolic-tests integration-tests ethics-audit manifests"
           CONDITIONAL="security-scan performance-benchmark ml-tests docker-build docs-build"
 
           fail=0
