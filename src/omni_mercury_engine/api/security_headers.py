@@ -116,19 +116,23 @@ FRONTEND_CSP = (
     "form-action 'self'"
 )
 
-#: The one CDN FastAPI's bundled viewers load from.
+#: The one CDN FastAPI's bundled viewers load their bundles from.
 _DOCS_CDN = "https://cdn.jsdelivr.net"
+
+#: Origin of the default favicon FastAPI writes into both viewers' markup.
+_DOCS_FAVICON_ORIGIN = "https://fastapi.tiangolo.com"
 
 #: Policy for ``/docs`` and ``/redoc`` only. Widened exactly as far as
 #: FastAPI's own generated markup requires and no further: the inline
 #: bootstrap script/style FastAPI writes into the page, the jsDelivr bundles,
-#: the ReDoc ``blob:`` web worker, and the ``data:``/HTTPS favicons the
-#: viewers reference. Framing, plugins and ``<base>`` stay forbidden.
+#: the ReDoc ``blob:`` web worker, and the default favicon. Both third-party
+#: origins are named explicitly rather than allowed as a blanket ``https:``.
+#: Framing, plugins and ``<base>`` stay forbidden.
 DOCS_CSP = (
     "default-src 'self'; "
     f"script-src 'self' 'unsafe-inline' {_DOCS_CDN}; "
     f"style-src 'self' 'unsafe-inline' {_DOCS_CDN}; "
-    "img-src 'self' data: https:; "
+    f"img-src 'self' data: {_DOCS_CDN} {_DOCS_FAVICON_ORIGIN}; "
     f"font-src 'self' {_DOCS_CDN}; "
     "connect-src 'self'; "
     "worker-src 'self' blob:; "

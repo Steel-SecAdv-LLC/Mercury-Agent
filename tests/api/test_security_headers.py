@@ -110,6 +110,41 @@ class TestPolicySelection:
         assert "object-src 'none'" in DOCS_CSP
         assert "base-uri 'none'" in DOCS_CSP
 
+    def test_widened_policy_names_its_third_party_origins(self) -> None:
+        """No blanket scheme sources: every remote origin is spelled out."""
+        for directive in DOCS_CSP.split("; "):
+            name, _, sources = directive.partition(" ")
+            assert "https:" not in sources.split(), f"{name} allows any HTTPS origin"
+            assert "*" not in sources.split(), f"{name} allows any origin"
+        assert "https://cdn.jsdelivr.net" in DOCS_CSP
+
+    def test_only_the_docs_policy_carries_a_third_party_origin(self) -> None:
+        for policy in (API_CSP, FRONTEND_CSP):
+            assert "http" not in policy
+
+    @pytest.mark.parametrize("path", ["/docs", "/redoc"])
+    def test_policy_covers_every_origin_the_real_viewer_references(self, path: str) -> None:
+        """Checked against the markup FastAPI actually generates, not a guess.
+
+        A FastAPI upgrade that adds an origin to either viewer would otherwise
+        render it broken behind this policy with nothing failing. The shipped
+        ``/redoc`` route is registered by hand with ``with_google_fonts=False``
+        precisely so ``fonts.googleapis.com`` never enters this set.
+        """
+        from omni_mercury_engine.api.server import app as real_app
+
+        with TestClient(real_app) as real_client:
+            response = real_client.get(path)
+        assert response.status_code == 200
+        origins = {
+            "/".join(url.split("/", 3)[:3])
+            for url in re.findall(r'(?:src|href)="([^"]+)"', response.text)
+            if url.startswith("http")
+        }
+        assert origins, f"{path} referenced no remote asset -- has the viewer changed?"
+        for origin in origins:
+            assert origin in DOCS_CSP, f"{path} loads {origin}, which the policy does not allow"
+
     def test_no_other_path_can_reach_the_docs_policy(self, client: TestClient) -> None:
         for path in ("/health", "/", "/login", "/dashboard", "/static/mercury.css"):
             assert client.get(path).headers["content-security-policy"] != DOCS_CSP
