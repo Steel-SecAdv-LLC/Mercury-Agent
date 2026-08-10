@@ -425,25 +425,29 @@ class RateLimiter:
             identifier: Unique identifier to check
 
         Returns:
-            Current rate limit status
+            Current rate limit status. Read-only: no token is consumed and no
+            bucket state is written, so the projection here uses exactly the
+            same fractional refill arithmetic as
+            :meth:`_check_token_bucket`. Truncating the refill (as this used
+            to) would report a client as exhausted while ``check`` would have
+            granted it, and vice versa.
         """
         now = time.time()
 
         if self.algorithm == RateLimitAlgorithm.TOKEN_BUCKET:
             bucket = self.backend.get(identifier)
             if bucket is not None:
-                last_time, tokens = bucket
-                elapsed = now - last_time
+                last_time, stored = bucket
+                elapsed = max(0.0, now - last_time)
                 refill_rate = self.requests_per_minute / 60.0
-                new_tokens = int(elapsed * refill_rate)
-                tokens = min(self.burst_size, tokens + new_tokens)
+                tokens = min(float(self.burst_size), float(stored) + elapsed * refill_rate)
             else:
-                tokens = self.burst_size
+                tokens = float(self.burst_size)
 
             return RateLimitInfo(
-                allowed=tokens > 0,
+                allowed=tokens >= 1.0,
                 limit=self.requests_per_minute,
-                remaining=tokens,
+                remaining=int(tokens),
                 reset_at=int(now) + 60,
             )
         else:

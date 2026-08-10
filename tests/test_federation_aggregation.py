@@ -20,6 +20,8 @@ Two defects are pinned here:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
@@ -31,6 +33,9 @@ from omni_mercury_engine.federation.aggregator import (
     _spd_inverse,
 )
 from omni_mercury_engine.federation.node import FederatedNode
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.federation.statistics import FittedStatistics
 
 _N_FEATURES = 4
 _PER_NODE = 400
@@ -44,7 +49,9 @@ def _split_population(gap: float, seed: int = 7) -> tuple[np.ndarray, np.ndarray
     return a, b, np.vstack([a, b])
 
 
-def _aggregate(a: np.ndarray, b: np.ndarray) -> tuple[object, object, object]:
+def _aggregate(
+    a: np.ndarray, b: np.ndarray
+) -> tuple[FittedStatistics, FittedStatistics, FittedStatistics]:
     node_a = FederatedNode("node_a")
     node_a.fit(a)
     node_b = FederatedNode("node_b")
@@ -82,6 +89,7 @@ class TestPooledPrecision:
         node_a, node_b, full = _split_population(gap)
         central = MercuryAnomalyDetector()
         central.fit(full)
+        assert central._ig_cov_inv is not None
 
         aggregated, stats_a, stats_b = _aggregate(node_a, node_b)
         plain_average = 0.5 * stats_a.ig_cov_inv + 0.5 * stats_b.ig_cov_inv
@@ -99,6 +107,7 @@ class TestPooledPrecision:
             node_a, node_b, full = _split_population(gap)
             central = MercuryAnomalyDetector()
             central.fit(full)
+            assert central._ig_cov_inv is not None
             _, stats_a, stats_b = _aggregate(node_a, node_b)
             plain = 0.5 * stats_a.ig_cov_inv + 0.5 * stats_b.ig_cov_inv
             errors.append(_relative_error(plain, central._ig_cov_inv))

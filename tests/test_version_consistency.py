@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -28,7 +29,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
 
 
-def _pyproject() -> dict:
+def _pyproject() -> dict[str, Any]:
     with _PYPROJECT.open("rb") as handle:
         return tomllib.load(handle)
 

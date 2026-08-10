@@ -23,6 +23,22 @@
 services:
   mercury-agent:
     environment:
+      # --- runtime mode ----------------------------------------------------
+      # This overlay IS the public deployment, so it runs in production mode.
+      # It did not before: the base compose file pins
+      # MERCURY_AGENT_ENV=development and nothing here overrode it, so the
+      # public platform ran with the built-in API-key hash salt, the localhost
+      # CORS allowlist, and the production JWT branch unreachable.
+      #
+      # Production mode is fail-closed by design: API-key hashing REQUIRES
+      # API_KEY_HASH_SALT, and JWT_SECRET_KEY must be real key material (an
+      # empty or placeholder value is refused). Both are emitted by
+      # `python scripts/generate_secret_key.py --all >> .env`, which the
+      # runbook at the top of this file already tells you to run once on first
+      # boot. If you are upgrading an existing deployment that never ran it,
+      # run it now -- every API key you issued was hashed under a salt that is
+      # published in this repository and should be reissued.
+      MERCURY_ENV: ${MERCURY_ENV:-production}
       # --- durable platform state (named volume below) --------------------
       MERCURY_KEYSTORE_PATH: /var/lib/mercury/mercury.db
       MERCURY_AUDIT_LOG_DIR: /var/lib/mercury/audit
