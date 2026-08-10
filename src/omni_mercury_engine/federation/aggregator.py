@@ -151,7 +151,8 @@ def _pool_precision(
         ``(pooled_precision, pooled_covariance)``.
     """
     global_mean_64 = np.asarray(global_mean, dtype=np.float64)
-    pooled_cov = np.zeros_like(_spd_inverse(precisions[0]))
+    n_features = int(np.asarray(precisions[0]).shape[0])
+    pooled_cov = np.zeros((n_features, n_features), dtype=np.float64)
     for precision, mean, weight in zip(precisions, means, weights):
         within = _spd_inverse(precision)
         deviation = np.asarray(mean, dtype=np.float64) - global_mean_64

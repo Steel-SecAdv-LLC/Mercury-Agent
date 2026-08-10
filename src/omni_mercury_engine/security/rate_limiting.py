@@ -101,7 +101,7 @@ class InMemoryBackend:
     def set(self, key: str, last_time: float, tokens: float, ttl: int) -> None:
         """Set."""
         with self._lock:
-            self._cleanup_if_needed()
+            self._cleanup_if_needed(last_time)
             self._buckets[key] = (last_time, float(tokens))
 
     def delete(self, key: str) -> None:
@@ -134,7 +134,7 @@ class InMemoryBackend:
             balance *after* the spend (or the unspendable balance on deny).
         """
         with self._lock:
-            self._cleanup_if_needed()
+            self._cleanup_if_needed(now)
             state = self._buckets.get(key)
             if state is None:
                 tokens = float(burst)
@@ -148,9 +148,20 @@ class InMemoryBackend:
             self._buckets[key] = (now, tokens)
         return allowed, tokens
 
-    def _cleanup_if_needed(self) -> None:
-        """Remove stale entries to prevent memory exhaustion."""
-        now = time.time()
+    def _cleanup_if_needed(self, now: float | None = None) -> None:
+        """Remove stale entries to prevent memory exhaustion.
+
+        Args:
+            now: The clock the caller is writing bucket timestamps from.
+                Staleness is judged against the same clock that produced
+                ``last_time``; reading ``time.time()`` here while the caller
+                stamps buckets from an injected clock would let a test's
+                virtual time make every live bucket look stale (or the
+                reverse). Defaults to wall time for callers that keep no
+                clock of their own.
+        """
+        if now is None:
+            now = time.time()
         if now - self._last_cleanup < 60:
             return
 

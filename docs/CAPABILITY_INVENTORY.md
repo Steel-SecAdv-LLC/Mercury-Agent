@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,811
-- **Capability-bearing classes:** 1,847 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,812
+- **Capability-bearing classes:** 1,848 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,057 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,058 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1057 |
+| Other capability classes | 1058 |
 | Support types (config / result / enum / error) | 964 |
 | Detection | 171 |
 | Neural models & layers | 158 |
@@ -155,7 +155,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 148 classes (51 capability)
+### `api/` — 149 classes (52 capability)
 
 **Adapters & backends**
 
@@ -212,6 +212,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `RateLimitMiddleware` (`api.server`) — Token bucket rate limiting middleware.
 - `RequestRateLimiter` (`api.auth`) — Request-aware rate limiter wrapper.
 - `SecretSealer` (`api.secret_sealer`) — Seals/opens short account secrets with AAD-bound at-rest encryption.
+- `SecurityHeadersMiddleware` (`api.security_headers`) — Attach the security header set to every response.
 - `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
 - `SmtpMailer` (`api.mailer`) — Mailer that delivers over SMTP using environment-supplied credentials.
 - `SqliteCounterStore` (`api.rate_limit_store`) — Durable, cross-worker counter store on the shared SQLite file.
@@ -1487,7 +1488,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Other capability classes**
 
-- `DifferentialPrivacy` (`federation.privacy`) — Apply differential privacy noise to fitted statistics.
+- `DifferentialPrivacy` (`federation.privacy`) — Apply a joint (epsilon, delta)-DP Gaussian release to fitted statistics.
 - `FederatedNode` (`federation.node`) — A federated Mercury node that trains locally and exports statistics.
 - `FittedStatistics` (`federation.statistics`) — Container for a fitted MercuryAnomalyDetector's complete state.
 
