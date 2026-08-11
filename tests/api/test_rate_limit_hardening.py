@@ -31,7 +31,7 @@ from omni_mercury_engine.api.rate_limit_store import (
     SqliteCounterStore,
     SqliteRateLimitBackend,
 )
-from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.rate_limiting import RateLimiter, RateLimitInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -120,6 +120,182 @@ class TestSqliteBucketBackend:
         assert backend.get("stale") is None
         assert backend.get("fresh") is not None
         backend.close()
+
+
+class TestDeliveredRate:
+    """The limiter must deliver the *configured* rate, on every backend.
+
+    Regression cover for the truncating in-memory refill: the fallback path
+    used to add ``int(elapsed * refill_rate)`` tokens while unconditionally
+    advancing ``last_time`` to ``now``, so every call that arrived before a
+    whole token had accrued threw away the elapsed time that produced the
+    fraction. Any client polling faster than ``rpm / 60`` was permanently
+    starved after its opening burst, delivering ~2 req/min against a
+    configured 100 — while the SQLite backend, whose ``consume_token``
+    always refilled fractionally, delivered the full 100 from the same
+    configuration. The two backends must be indistinguishable in rate.
+    """
+
+    #: 100 rpm, 20-token burst — the shipped ``RateLimiter`` defaults.
+    _RPM = 100
+    _BURST = 20
+
+    @staticmethod
+    def _drive(
+        limiter: RateLimiter,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        offered_per_second: float,
+        duration_s: float,
+        start: float = 1_700_000_000.0,
+    ) -> int:
+        """Offer requests at a fixed rate over an injected clock; count grants.
+
+        ``RateLimiter`` reads ``time.time()`` from its own module namespace,
+        so patching it there drives the whole refill computation from a
+        deterministic virtual clock — no sleeping, no wall-clock flake.
+        """
+        clock = {"now": start}
+        monkeypatch.setattr(
+            "omni_mercury_engine.security.rate_limiting.time.time",
+            lambda: clock["now"],
+        )
+        step = 1.0 / offered_per_second
+        granted = 0
+        offered = int(duration_s * offered_per_second)
+        for _ in range(offered):
+            if limiter.check("client").allowed:
+                granted += 1
+            clock["now"] += step
+        return granted
+
+    @pytest.mark.parametrize("offered_per_second", [10.0, 5.0, 1.0])
+    def test_in_memory_delivers_configured_rate(
+        self, monkeypatch: pytest.MonkeyPatch, offered_per_second: float
+    ) -> None:
+        """However fast the client polls, it gets ~rpm requests per minute."""
+        limiter = RateLimiter(requests_per_minute=self._RPM, burst_size=self._BURST)
+        duration_s = 600.0
+        granted = self._drive(
+            limiter,
+            monkeypatch,
+            offered_per_second=offered_per_second,
+            duration_s=duration_s,
+        )
+        # Ideal service is the offered load, capped by what the bucket can
+        # release: the opening burst plus one token per refill period.
+        offered = duration_s * offered_per_second
+        expected = min(offered, self._BURST + self._RPM / 60.0 * duration_s)
+        assert granted == pytest.approx(expected, abs=2.0), (
+            f"offered {offered_per_second}/s for {duration_s}s: granted {granted}, "
+            f"expected ~{expected:.0f} ({granted / (duration_s / 60):.1f}/min "
+            f"vs configured {self._RPM}/min)"
+        )
+
+    @pytest.mark.parametrize("offered_per_second", [10.0, 5.0, 1.0])
+    def test_backends_agree_on_delivered_rate(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        offered_per_second: float,
+    ) -> None:
+        """In-memory and SQLite grant the same count from the same config."""
+        duration_s = 600.0
+        in_memory = RateLimiter(requests_per_minute=self._RPM, burst_size=self._BURST)
+        memory_granted = self._drive(
+            in_memory,
+            monkeypatch,
+            offered_per_second=offered_per_second,
+            duration_s=duration_s,
+        )
+
+        backend = SqliteRateLimitBackend(tmp_path / "rl.db")
+        try:
+            sqlite_limiter = RateLimiter(
+                requests_per_minute=self._RPM, burst_size=self._BURST, backend=backend
+            )
+            sqlite_granted = self._drive(
+                sqlite_limiter,
+                monkeypatch,
+                offered_per_second=offered_per_second,
+                duration_s=duration_s,
+            )
+        finally:
+            backend.close()
+
+        assert memory_granted == sqlite_granted
+
+    def test_denied_retry_after_reflects_partial_refill(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Retry-After is the wait for the *shortfall*, not a flat 60/rpm."""
+        clock = {"now": 1_700_000_000.0}
+        monkeypatch.setattr(
+            "omni_mercury_engine.security.rate_limiting.time.time",
+            lambda: clock["now"],
+        )
+        # 60 rpm => 1 token/s. Drain the burst, then wait 0.75s.
+        limiter = RateLimiter(requests_per_minute=60, burst_size=2)
+        assert limiter.check("c").allowed
+        assert limiter.check("c").allowed
+        clock["now"] += 0.75
+        info = limiter.check("c")
+        assert info.allowed is False
+        assert info.retry_after == pytest.approx(0.25, abs=1e-6)
+
+    def test_retry_after_header_never_tells_a_client_to_retry_now(self) -> None:
+        """``Retry-After: 0`` is an invitation to a hot retry loop.
+
+        The header is whole seconds (RFC 9110 delay-seconds), and the value
+        was truncated with ``int()``. At the shipped 100 rpm default the wait
+        for the next token is 0.6s, so *every* 429 the limiter produced
+        advertised ``Retry-After: 0`` -- a conforming client reads that as
+        "retry immediately" against the limiter that just denied it. Present
+        on ``main`` as well; the fractional refill only varied the value.
+        """
+        for wait in (0.0, 0.05, 0.2, 0.6, 0.999):
+            info = RateLimitInfo(
+                allowed=False, limit=100, remaining=0, reset_at=0, retry_after=wait
+            )
+            assert info.to_headers()["Retry-After"] == "1", wait
+
+    def test_retry_after_header_rounds_up_never_down(self) -> None:
+        """Under-stating the wait is the failure mode; over-stating costs one poll."""
+        for wait, expected in ((1.0, "1"), (1.01, "2"), (1.5, "2"), (59.1, "60")):
+            info = RateLimitInfo(
+                allowed=False, limit=100, remaining=0, reset_at=0, retry_after=wait
+            )
+            assert info.to_headers()["Retry-After"] == expected, wait
+
+    def test_retry_after_absent_when_allowed(self) -> None:
+        info = RateLimitInfo(allowed=True, limit=100, remaining=5, reset_at=0)
+        assert "Retry-After" not in info.to_headers()
+
+    def test_shipped_defaults_emit_a_usable_retry_after(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end on 100 rpm / burst 20 -- the configuration that shipped."""
+        clock = {"now": 1_700_000_000.0}
+        monkeypatch.setattr(
+            "omni_mercury_engine.security.rate_limiting.time.time",
+            lambda: clock["now"],
+        )
+        limiter = RateLimiter(requests_per_minute=self._RPM, burst_size=self._BURST)
+        for _ in range(self._BURST):
+            assert limiter.check("client").allowed
+        denied = limiter.check("client")
+        assert denied.allowed is False
+        assert int(denied.to_headers()["Retry-After"]) >= 1
+
+    def test_fractional_balance_survives_the_store(self) -> None:
+        """A sub-token balance round-trips through the backend unrounded."""
+        from omni_mercury_engine.security.rate_limiting import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.set("k", 1_700_000_000.0, 0.4, 300)
+        state = backend.get("k")
+        assert state is not None
+        assert state[1] == pytest.approx(0.4)
 
 
 class TestCounterStores:

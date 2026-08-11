@@ -92,6 +92,10 @@ configMapGenerator:
   - name: mercury-agent-config
     behavior: merge
     literals:
-      - OMNI_LOG_LEVEL=INFO
-      - OMNI_ENABLE_PROFILING=false
-      - OMNI_API_WORKERS=2
+      # Staging runs in production mode so the fail-closed guards
+      # (API_KEY_HASH_SALT required, no localhost CORS allowlist, production
+      # JWT key resolution) are exercised before production sees them.
+      - MERCURY_ENV=production
+      - OMNI_STRICT_VALIDATION=true
+      - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE=300
+      - OMNI_RATE_LIMIT_BURST=60

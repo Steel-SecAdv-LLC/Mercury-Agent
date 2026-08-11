@@ -1,4 +1,7 @@
 {{- if .Values.api.ingress.enabled }}
+{{- if not .Values.api.ingress.hosts }}
+{{- fail "api.ingress.enabled is true but api.ingress.hosts is empty. An Ingress with no rules routes nothing. Supply at least one entry, e.g.\n  --set-json 'api.ingress.hosts=[{\"host\":\"api.your-domain.example\",\"paths\":[{\"path\":\"/\",\"pathType\":\"Prefix\"}]}]'\nOmit \"host\" from an entry to match any Host header." }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -26,7 +29,15 @@ spec:
   {{- end }}
   rules:
     {{- range .Values.api.ingress.hosts }}
-    - host: {{ .host | quote }}
+    {{- /* A rule with no `host` matches every Host header -- the correct
+           default for a cluster whose external name is not known at package
+           time, and better than the reserved documentation domain this chart
+           used to ship. Emitting `host: ""` would instead produce an invalid
+           Ingress, so the key is omitted entirely when unset. */}}
+    -
+      {{- with .host }}
+      host: {{ . | quote }}
+      {{- end }}
       http:
         paths:
           {{- range .paths }}

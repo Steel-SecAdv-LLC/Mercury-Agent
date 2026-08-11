@@ -100,9 +100,14 @@ api:
     enabled: false
     className: nginx
     annotations: {}
+    # A host-less rule matches any Host header, so the chart serves through
+    # whatever name (or bare load-balancer address) the cluster answers on
+    # with no editing. Supply `host:` per entry to pin a name -- and note that
+    # `templates/ingress.yaml` refuses to render an enabled Ingress with an
+    # EMPTY `hosts` list, so a missing hostname is a loud failure rather than
+    # a rule-less Ingress that silently routes nothing.
     hosts:
-      - host: mercury-agent.local
-        paths:
+      - paths:
           - path: /
             pathType: Prefix
     tls: []
@@ -235,22 +240,70 @@ engine:
 # ============================================================================
 config:
   # Application configuration (ConfigMap)
+  # Application configuration (ConfigMap). Every key below is read by
+  # shipped code. Eleven keys that used to live here -- OMNI_LOG_LEVEL,
+  # OMNI_CACHE_DIR, OMNI_DATA_DIR, OMNI_MODEL_DIR, OMNI_API_HOST,
+  # OMNI_API_PORT, OMNI_API_WORKERS, OMNI_ENABLE_METRICS, OMNI_ENABLE_TRACING,
+  # OMNI_ETHICS_ENABLED, OMNI_ETHICS_STRICT_MODE -- have zero readers anywhere
+  # in src/: the API's bind address and port come from the container CMD's
+  # uvicorn arguments, and the rest name knobs that do not exist. They are
+  # gone; each key here is annotated with the module that reads it.
   app:
-    OMNI_LOG_LEVEL: "INFO"
-    OMNI_CACHE_DIR: "/app/cache"
-    OMNI_DATA_DIR: "/app/data"
-    OMNI_MODEL_DIR: "/app/models"
-    OMNI_API_HOST: "0.0.0.0"
-    OMNI_API_PORT: "8000"
-    OMNI_API_WORKERS: "4"
+    # --- Runtime mode ------------------------------------------------------
+    # omni_mercury_engine._env.get_mercury_env(). Unset -- which is what every
+    # k8s and Helm path shipped before -- means "development": the API-key
+    # hash salt stays at its hard-coded default, CORS installs the localhost
+    # allowlist, and the production JWT branch is unreachable. Set it to
+    # "production" (values-production.yaml and values-staging.yaml do) to arm
+    # the fail-closed guards.
+    MERCURY_ENV: "development"
+
+    # --- Durable platform state -------------------------------------------
+    # api/key_store.py, api/rate_limit_store.py, api/quota_store.py and the
+    # identity/usage stores all key off MERCURY_KEYSTORE_PATH. Unset, every
+    # one falls back to per-process memory: with replicaCount 3 and the HPA
+    # scaling to 20, an account registered on one replica cannot log in on
+    # another, API keys and quota counters die on restart, and the global
+    # rate limit multiplies by the replica count.
+    #
+    # The path sits on the `persistence.data` PVC (ReadWriteMany, mounted at
+    # /app/data). STORAGE REQUIREMENT: that storage class must provide working
+    # POSIX advisory locks and shared-memory mapping, because the store runs
+    # SQLite in WAL mode -- CephFS, Longhorn RWX and AWS EFS (NFSv4.1)
+    # qualify, plain NFSv3 does not.
+    MERCURY_KEYSTORE_PATH: "/app/data/mercury.db"
+    MERCURY_AUDIT_LOG_DIR: "/app/data/audit"
+
+    # --- Reverse proxy -----------------------------------------------------
+    # api/client_ip.resolve_client_ip() and api/security_headers. One trusted
+    # hop: the ingress controller. Without it the rate limiter keys every
+    # request on the controller's pod IP (one bucket for the whole internet)
+    # and HSTS is never emitted behind TLS termination. Set to "0" when no
+    # proxy fronts the Service.
+    MERCURY_TRUSTED_PROXY_HOPS: "1"
+
+    # --- Request validation limits (api/server.py APIRequestValidator) -----
+    OMNI_MAX_DATA_POINTS: "100000"
+    OMNI_MAX_FEATURES: "1000"
+    OMNI_MAX_STRING_LENGTH: "256"
+    OMNI_MAX_NAN_RATIO: "0.1"
+    OMNI_MAX_INF_RATIO: "0.01"
+    OMNI_STRICT_VALIDATION: "false"
+
+    # --- Global rate limiter (api/server.py RateLimitMiddleware) -----------
+    OMNI_RATE_LIMIT_ENABLED: "true"
+    OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: "100"
+    OMNI_RATE_LIMIT_BURST: "20"
+
+    # --- Detector numerics (detectors/detection_config.py) -----------------
+    OMNI_DETECTOR_NAN_POLICY: "neutral"
+
+    # --- Numeric-library threading -----------------------------------------
     OMP_NUM_THREADS: "4"
-    OMNI_ENABLE_METRICS: "true"
-    OMNI_ENABLE_TRACING: "true"
-    OMNI_ETHICS_ENABLED: "true"
-    OMNI_ETHICS_STRICT_MODE: "true"
+
     # Streaming worker settings (consumed by the engine's `stream` worker).
     # STREAMING_BACKEND defaults to the in-process "memory" backend; no shipped
-    # values file overrides it — set it to "kafka" here (and provide
+    # values file overrides it -- set it to "kafka" here (and provide
     # KAFKA_BOOTSTRAP_SERVERS) to run the engine against a real broker.
     STREAMING_BACKEND: "memory"
     MERCURY_STREAM_INPUT_TOPIC: "mercury-detections"
@@ -272,9 +325,17 @@ config:
     # The chart also accepts the pre-1.8 values key ``config.secrets.JWT_SECRET``
     # and renders it into the ``JWT_SECRET_KEY`` secret/env that the app reads;
     # prefer setting ``JWT_SECRET_KEY`` here directly.
+    #
+    # A value here must be real key material: ``api/auth.py`` rejects an empty,
+    # whitespace-only, placeholder ("CHANGE_ME...", "changeme", "secret", ...)
+    # or low-entropy key outright rather than signing with it. Generate with
+    # ``openssl rand -hex 32``.
     JWT_SECRET_KEY: ""
-    # Required in production when API-key auth is used: ``api/auth.py`` raises if
-    # the built-in default salt is left in place. Rendered into the app env.
+    # Required whenever API-key auth is used with ``MERCURY_ENV=production``:
+    # ``APIKeyStore.hash_key`` raises rather than hashing every key under the
+    # built-in default salt. That guard only fires in production mode, which
+    # no chart path used to select -- ``config.app.MERCURY_ENV`` above is what
+    # arms it. Generate with ``openssl rand -hex 32``.
     API_KEY_HASH_SALT: ""
     # Recommended in production: shared HMAC key that signs cache entries
     # (read as ``MERCURY_CACHE_SECRET`` by the cache layer).
@@ -337,29 +398,46 @@ metrics:
     rules: []
 
 # ============================================================================
-# Dependencies Configuration
+# Monitoring and cache integration
 # ============================================================================
-prometheus:
-  enabled: false
-  # Additional Prometheus configuration when enabled
-
-grafana:
-  enabled: false
-  # Additional Grafana configuration when enabled
-  adminPassword: ""
-  dashboards:
-    default:
-      mercury-agent-overview:
-        gnetId: 0
-        revision: 1
-        datasource: Prometheus
-
-redis:
-  enabled: false
-  architecture: standalone
-  auth:
-    enabled: true
-    password: ""
+# This chart declares NO subchart dependencies.
+#
+# It used to declare three (prometheus 30.0.1, grafana ~10.5.15, redis 27.0.15)
+# and carried matching `prometheus:` / `grafana:` / `redis:` value blocks. No
+# template in this chart ever referenced any of them, all three defaulted to
+# disabled -- and Helm requires every declared dependency to be vendored in
+# `charts/` whether or not its condition is met, so `helm install
+# mercury-agent ./helm/mercury-agent` (the command README.md and
+# docs/DEPLOYMENT.md both give) failed outright with "found in Chart.yaml, but
+# missing in charts/ directory". The documented remedy could not fix it
+# either: `helm dependency update` failed on the prometheus pin, which names a
+# version 30.0.1 that does not exist in the prometheus-community index.
+#
+# Monitoring integrates through the Prometheus Operator instead, which is what
+# this chart's own templates actually implement. Set
+# `metrics.serviceMonitor.enabled=true` and `metrics.prometheusRule.enabled=true`
+# (the `metrics:` block above -- both gate on `metrics.enabled`, which defaults
+# to true) and the chart emits a ServiceMonitor and a PrometheusRule for an
+# existing operator to discover:
+#
+#   helm template mercury-agent ./helm/mercury-agent \
+#     --set metrics.serviceMonitor.enabled=true \
+#     --set metrics.prometheusRule.enabled=true
+#
+# `values-staging.yaml` and `values-production.yaml` already turn the
+# ServiceMonitor on. The CI "Deployment Manifests" job renders exactly that
+# command and fails if either object goes missing, so this replacement is a
+# gated property rather than a claim in a comment.
+#
+# This is also the better architecture, not merely the one that renders: a
+# cluster runs ONE monitoring stack (kube-prometheus-stack) and applications
+# contribute ServiceMonitors to it. A subchart would have installed a second,
+# app-scoped Prometheus that scrapes only Mercury and federates with nothing.
+#
+# Grafana dashboards live in `monitoring/grafana` in the repository and are
+# provisioned into that same cluster-wide stack. Redis, when the streaming
+# engine needs it, is addressed by URL through `config.app.REDIS_URL` -- an
+# external release, not a subchart.
 
 # ============================================================================
 # Additional Configuration

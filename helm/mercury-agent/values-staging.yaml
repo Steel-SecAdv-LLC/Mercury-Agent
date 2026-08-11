@@ -26,19 +26,23 @@ api:
     minAvailable: 1
 
   ingress:
-    enabled: true
+    # Off until a hostname is supplied. An externally reachable
+    # Ingress needs a name that resolves, and a chart cannot know it;
+    # the reserved *.example.com hostnames this file used to ship made
+    # it look configured while routing nothing. Enable it together
+    # with `api.ingress.hosts` (and `api.ingress.tls`) -- see the
+    # `hosts:` note below. `templates/ingress.yaml` refuses to render
+    # `enabled: true` with an empty `hosts`, so the two cannot drift
+    # apart.
+    enabled: false
     className: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-staging
-    hosts:
-      - host: mercury-agent.staging.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - hosts:
-          - mercury-agent.staging.example.com
-        secretName: mercury-agent-staging-tls
+    # Supply your own hostname; see values-production.yaml for the
+    # --set-json form. Shipping `mercury-agent.staging.example.com` (a
+    # reserved documentation domain) rendered an Ingress that routed nothing.
+    hosts: []
+    tls: []
 
 engine:
   replicaCount: 1
@@ -62,9 +66,14 @@ engine:
 
 config:
   app:
-    OMNI_LOG_LEVEL: "INFO"
-    OMNI_API_WORKERS: "2"
-    OMNI_ENABLE_PROFILING: "false"
+    # Staging runs in production mode so the fail-closed guards
+    # (API_KEY_HASH_SALT required, no localhost CORS allowlist, production JWT
+    # key resolution) are exercised before production meets them. Replaces
+    # three keys with no reader anywhere in src/.
+    MERCURY_ENV: "production"
+    OMNI_STRICT_VALIDATION: "true"
+    OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: "300"
+    OMNI_RATE_LIMIT_BURST: "60"
 
 persistence:
   data:

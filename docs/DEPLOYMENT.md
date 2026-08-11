@@ -98,6 +98,9 @@ docker run -d \
 
 ### Install
 
+The chart declares no subchart dependencies, so this needs neither
+`helm dependency build` nor network access to a chart repository.
+
 ```bash
 helm install mercury-agent ./helm/mercury-agent \
   --namespace mercury \
@@ -107,6 +110,45 @@ helm install mercury-agent ./helm/mercury-agent \
   --set config.secrets.API_KEY_HASH_SALT="$(openssl rand -hex 32)" \
   --set config.secrets.MERCURY_CACHE_SECRET="$(openssl rand -hex 32)"
 ```
+
+For production use `values-production.yaml`, which sets
+`config.app.MERCURY_ENV=production`. That is what arms the fail-closed
+guards, and it makes two of the values above mandatory rather than advisory:
+
+* `API_KEY_HASH_SALT` — without it `APIKeyStore.hash_key` raises instead of
+  hashing every API key under the salt built into the source.
+* `JWT_SECRET_KEY` — must be real key material. An empty value is treated as
+  unset, and a placeholder or low-entropy value is refused outright. Omit it
+  entirely to derive the signing key through AMA HD key management, in which
+  case set `AMA_MASTER_SEED` (`openssl rand -hex 64`) so the derivation is
+  deterministic across replicas.
+
+The production values leave `api.ingress.enabled=false`: an externally
+reachable Ingress needs a hostname the chart cannot know. Supply one to
+enable it —
+
+```bash
+helm install mercury-agent ./helm/mercury-agent \
+  --namespace mercury --create-namespace \
+  -f helm/mercury-agent/values-production.yaml \
+  --set config.secrets.JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --set config.secrets.API_KEY_HASH_SALT="$(openssl rand -hex 32)" \
+  --set api.ingress.enabled=true \
+  --set-json 'api.ingress.hosts=[{"host":"api.your-domain.example","paths":[{"path":"/","pathType":"Prefix"}]}]' \
+  --set-json 'api.ingress.tls=[{"hosts":["api.your-domain.example"],"secretName":"mercury-agent-prod-tls"}]'
+```
+
+Enabling the Ingress without a host is a render-time error, not a silently
+rule-less Ingress.
+
+### Shared state across replicas
+
+`config.app.MERCURY_KEYSTORE_PATH` points at `/app/data/mercury.db` on the
+ReadWriteMany `persistence.data` claim, so accounts, API keys, sessions, quota
+counters and rate-limit buckets are shared by every replica and survive
+restarts. The claim's storage class must provide working POSIX advisory locks
+and shared-memory mapping — the store runs SQLite in WAL mode. CephFS,
+Longhorn RWX and AWS EFS (NFSv4.1) qualify; plain NFSv3 does not.
 
 ### Upgrade
 

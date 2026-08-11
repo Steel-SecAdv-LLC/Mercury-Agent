@@ -45,27 +45,26 @@ annotations:
     - Implemented HPA and PDB
     - Added monitoring integration
 
-dependencies:
-  # Optional: Prometheus for metrics
-  - name: prometheus
-    version: 30.0.1
-    repository: "https://prometheus-community.github.io/helm-charts"
-    condition: prometheus.enabled
-    tags:
-      - monitoring
-
-  # Optional: Grafana for dashboards
-  - name: grafana
-    version: "~10.5.15"
-    repository: "https://grafana.github.io/helm-charts"
-    condition: grafana.enabled
-    tags:
-      - monitoring
-
-  # Optional: Redis for caching
-  - name: redis
-    version: 27.0.15
-    repository: "https://charts.bitnami.com/bitnami"
-    condition: redis.enabled
-    tags:
-      - cache
+# No subchart dependencies, deliberately.
+#
+# This chart used to declare three optional ones -- prometheus 30.0.1, grafana
+# ~10.5.15, redis 27.0.15 -- all disabled by default and all unreferenced by
+# any template here. Helm's dependency check does not consult a dependency's
+# `condition`: every declared dependency must be present in `charts/` or the
+# chart cannot be rendered or installed at all. So `helm install mercury-agent
+# ./helm/mercury-agent`, the command README.md and docs/DEPLOYMENT.md both
+# publish, failed with:
+#
+#   Error: ... found in Chart.yaml, but missing in charts/ directory:
+#   prometheus, grafana, redis
+#
+# and the standard remedy failed too -- `helm dependency update` cannot resolve
+# prometheus 30.0.1, a version that has never existed in the
+# prometheus-community index (its newest is in the 29.x line). The chart was
+# therefore uninstallable by any documented route.
+#
+# Monitoring is served by the Prometheus Operator integration these templates
+# genuinely implement (templates/servicemonitor.yaml, templates/
+# prometheusrule.yaml); Redis, when the streaming engine needs one, is an
+# external release addressed by URL. See the "Monitoring and cache
+# integration" section of values.yaml.

@@ -92,6 +92,9 @@ configMapGenerator:
   - name: mercury-agent-config
     behavior: merge
     literals:
-      - OMNI_LOG_LEVEL=DEBUG
-      - OMNI_ENABLE_PROFILING=true
-      - OMNI_API_WORKERS=1
+      # Development stays in development mode: the dev CORS allowlist and the
+      # relaxed key guards are what a local cluster wants.
+      - MERCURY_ENV=development
+      - OMNI_STRICT_VALIDATION=false
+      - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE=1000
+      - OMNI_RATE_LIMIT_BURST=200

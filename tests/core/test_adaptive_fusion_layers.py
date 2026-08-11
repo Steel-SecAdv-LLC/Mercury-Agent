@@ -180,7 +180,9 @@ class TestCreateAttentionHeatmap:
         assert "saved_to" not in result
 
     def test_save_path_writes_image_and_records_location(self, tmp_path: pathlib.Path) -> None:
-        import matplotlib
+        # matplotlib is an optional extra ([viz]); a bare import here made
+        # this an ERROR rather than a SKIP on an install without it.
+        matplotlib = pytest.importorskip("matplotlib")
 
         matplotlib.use("Agg", force=True)
         out = tmp_path / "heatmap.png"

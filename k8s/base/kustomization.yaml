@@ -23,8 +23,16 @@ resources:
   - ingress.yaml
 
 configMapGenerator:
+  # The application's environment configuration. Generated (not a plain
+  # resource in configmap.yaml) because every environment overlay merges into
+  # it with `behavior: merge`, and kustomize can only merge into a ConfigMap
+  # that a generator produced.
+  - name: mercury-agent-config
+    behavior: create
+    envs:
+      - config/mercury-agent.env
   - name: mercury-agent-app-info
     literals:
       - app-name=mercury-agent
-      - version=2.0.0
+      - version=2.1.0
       - environment=base

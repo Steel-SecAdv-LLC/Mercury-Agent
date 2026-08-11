@@ -261,7 +261,12 @@ app = FastAPI(
         "url": "https://www.gnu.org/licenses/gpl-3.0.html",
     },
     docs_url="/docs",
-    redoc_url="/redoc",
+    # The bundled ReDoc route is registered by hand below so it can be built
+    # with ``with_google_fonts=False``; FastAPI's default writes a
+    # ``fonts.googleapis.com`` stylesheet link into the page, which would
+    # force a third-party origin into the documentation viewer's
+    # Content-Security-Policy for a purely cosmetic font.
+    redoc_url=None,
     openapi_url="/openapi.json",
     servers=[
         {"url": "http://localhost:8000", "description": "Local development server"},
@@ -546,6 +551,47 @@ if _allowed_origins:
         expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     )
     logger.info(f"CORS enabled for origins: {len(_allowed_origins)} configured")
+
+
+# =============================================================================
+# OpenAPI viewers
+# =============================================================================
+# ReDoc, served without the Google Fonts stylesheet FastAPI's default helper
+# injects. Dropping it removes the only third-party origin the viewer needed
+# beyond the jsDelivr bundle itself, so the documentation
+# Content-Security-Policy in `api/security_headers.py` can name its remote
+# origins exactly instead of allowing a blanket `https:` for styles and fonts.
+# ReDoc falls back to its own font stack, which is what it uses offline anyway.
+from fastapi.openapi.docs import get_redoc_html
+
+# Runtime import, not TYPE_CHECKING: FastAPI resolves a route handler's return
+# annotation with ``get_type_hints`` when the route is registered, so the name
+# must exist at import time even under ``from __future__ import annotations``.
+from fastapi.responses import HTMLResponse  # noqa: TC002 - resolved at route registration
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html() -> HTMLResponse:
+    """Serve the ReDoc viewer for this API's OpenAPI schema."""
+    return get_redoc_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - ReDoc",
+        with_google_fonts=False,
+    )
+
+
+# =============================================================================
+# Security Response Headers
+# =============================================================================
+# Registered LAST, which makes it the OUTERMOST middleware (Starlette runs the
+# stack in reverse registration order). Outermost is required for coverage: the
+# rate limiter's 429 and the quota layer's 503 are produced by middleware and
+# never reach a route handler, and a CORS preflight is answered by
+# CORSMiddleware itself -- all three are browser-reachable responses that must
+# still carry the header set.
+from omni_mercury_engine.api.security_headers import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 
 # Enums for API parameters

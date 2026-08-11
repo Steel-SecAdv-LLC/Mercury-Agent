@@ -796,6 +796,121 @@ class JWTAuth:
     _dev_fallback_key_lock = threading.Lock()
     _warned_about_fallback = False
 
+    #: Minimum length, in characters, for an operator-supplied signing key in
+    #: production. ``openssl rand -hex 32`` -- the command every message here
+    #: recommends -- produces 64.
+    _MIN_PRODUCTION_KEY_CHARS = 32
+
+    #: Minimum number of distinct characters. Catches ``aaaa...``, ``0000...``
+    #: and short repeated patterns that pass a length check while carrying
+    #: almost no entropy.
+    _MIN_PRODUCTION_KEY_ALPHABET = 8
+
+    #: Distinctive placeholder phrases, matched case-insensitively as
+    #: substrings. Every entry is at least eight characters and contains
+    #: letters outside the hex alphabet, so a randomly generated key cannot
+    #: plausibly contain one -- the false-rejection probability for a 64-byte
+    #: url-safe token is below 1e-13 per marker. (A shorter marker such as
+    #: ``"todo"`` would sit around 1e-6 and is deliberately excluded;
+    #: ``tests/api/test_jwt_key_material.py`` pins the minimum length.) The
+    #: first entries are the exact strings ``k8s/base/secret.yaml`` and
+    #: ``.env.example`` shipped.
+    _PLACEHOLDER_MARKERS: tuple[str, ...] = (
+        "change_me",
+        "change-me",
+        "changeme",
+        "your-secure-random-key",
+        "your-secret",
+        "yoursecret",
+        "generate-with-openssl",
+        "placeholder",
+        "replace-this",
+        "insert-key",
+        "example-key",
+        "dummy-key",
+        "notasecret",
+    )
+
+    @classmethod
+    def _validate_configured_key(cls, candidate: str | None) -> str | None:
+        """Normalise and vet an operator-supplied signing key.
+
+        Two failure modes this closes:
+
+        * **The empty string was accepted as a key.** ``secret_key or
+          os.getenv("JWT_SECRET_KEY")`` yields ``""`` when the variable is set
+          but empty, and ``"" is None`` is false -- so the production branch
+          below was skipped and every token in the deployment was signed with
+          the empty string. A Secret with an empty value, a ``.env`` line with
+          nothing after the ``=``, or a failed secret-manager lookup all
+          produce exactly that.
+        * **A shipped placeholder was accepted as a key.** The guard only ever
+          checked for *absence*. ``k8s/base/secret.yaml`` shipped
+          ``JWT_SECRET_KEY: "CHANGE_ME_IN_PRODUCTION_USE_SECURE_RANDOM"`` and
+          was in the base kustomization's ``resources:``, so ``kubectl apply -k
+          k8s/base`` installed a signing key that is public in this
+          repository -- and, being present, it satisfied the guard.
+
+        Args:
+            candidate: The raw configured value, or ``None`` if unset.
+
+        Returns:
+            The stripped key, or ``None`` when the value is empty or
+            whitespace-only (treated as unset, so the caller's derivation /
+            dev-fallback path runs instead of signing with a blank key).
+
+        Raises:
+            ValueError: In production only, when the value is a known
+                placeholder, shorter than
+                :data:`_MIN_PRODUCTION_KEY_CHARS`, or built from fewer than
+                :data:`_MIN_PRODUCTION_KEY_ALPHABET` distinct characters.
+                Outside production the same conditions log a warning: a weak
+                key is not a security boundary on a developer's laptop, and
+                raising there would break local runs from ``.env.example``.
+        """
+        if candidate is None:
+            return None
+        key = candidate.strip()
+        if not key:
+            logger.warning(
+                "JWT_SECRET_KEY is set but empty; treating it as unset. An empty "
+                "signing key would let anyone mint tokens. Set a real key "
+                "(`openssl rand -hex 32`) or unset the variable."
+            )
+            return None
+
+        lowered = key.lower()
+        marker = next((m for m in cls._PLACEHOLDER_MARKERS if m in lowered), None)
+        if marker is not None:
+            reason = f"it is a placeholder (contains {marker!r})"
+        elif len(key) < cls._MIN_PRODUCTION_KEY_CHARS:
+            reason = (
+                f"it is {len(key)} characters, below the "
+                f"{cls._MIN_PRODUCTION_KEY_CHARS}-character minimum"
+            )
+        elif len(set(key)) < cls._MIN_PRODUCTION_KEY_ALPHABET:
+            reason = (
+                f"it uses only {len(set(key))} distinct characters, below the "
+                f"{cls._MIN_PRODUCTION_KEY_ALPHABET} minimum"
+            )
+        else:
+            return key
+
+        if _is_production_env():
+            raise ValueError(
+                f"JWT_SECRET_KEY is not usable in production because {reason}. "
+                "Generate a real key with `openssl rand -hex 32` and supply it "
+                "through your secret manager, or unset JWT_SECRET_KEY to derive "
+                "one via AMA HD key management (set AMA_MASTER_SEED so the "
+                "derivation is deterministic fleet-wide)."
+            )
+        logger.warning(
+            "JWT_SECRET_KEY would be rejected in production because %s. "
+            "Accepting it for development only.",
+            reason,
+        )
+        return key
+
     @classmethod
     def _get_dev_fallback_key(cls) -> str:
         """Return this process's ephemeral dev signing key, creating it once.
@@ -844,7 +959,9 @@ class JWTAuth:
             logged; in that case set ``AMA_MASTER_SEED`` or
             ``JWT_SECRET_KEY`` (``openssl rand -hex 32``).
         """
-        self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
+        self.secret_key = self._validate_configured_key(
+            secret_key if secret_key is not None else os.getenv("JWT_SECRET_KEY")
+        )
         self.using_fallback = False
 
         if self.secret_key is None:

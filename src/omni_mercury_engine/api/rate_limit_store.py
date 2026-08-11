@@ -97,8 +97,15 @@ class SqliteRateLimitBackend:
             self._conn.close()
 
     # -- RateLimitBackend protocol surface -------------------------------- #
-    def get(self, key: str) -> tuple[float, int] | None:
-        """Return ``(last_update_time, tokens)`` for ``key``, or ``None``."""
+    def get(self, key: str) -> tuple[float, float] | None:
+        """Return ``(last_update_time, tokens)`` for ``key``, or ``None``.
+
+        ``tokens`` is returned as stored — a float. The column is REAL and
+        :meth:`consume_token` writes fractional balances into it; narrowing to
+        ``int`` here would hand a caller a silently drained bucket (0.97
+        tokens read back as 0) and would break the round-trip the
+        ``get``/``set`` protocol route depends on.
+        """
         with self._lock:
             row = self._conn.execute(
                 "SELECT last_time, tokens FROM rate_buckets WHERE bucket_key = ?",
@@ -106,9 +113,9 @@ class SqliteRateLimitBackend:
             ).fetchone()
         if row is None:
             return None
-        return float(row["last_time"]), int(row["tokens"])
+        return float(row["last_time"]), float(row["tokens"])
 
-    def set(self, key: str, last_time: float, tokens: int, ttl: int) -> None:
+    def set(self, key: str, last_time: float, tokens: float, ttl: int) -> None:
         """Upsert bucket state (``ttl`` is advisory; pruning is time-based)."""
         with self._lock:
             self._conn.execute(

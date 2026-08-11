@@ -24,9 +24,11 @@ api:
   ingress:
     enabled: true
     className: nginx
+    # `.local` is reserved for mDNS and does not resolve through a cluster
+    # ingress; a host-less rule matches whatever Host header the cluster
+    # actually answers on, which is what a dev cluster needs.
     hosts:
-      - host: mercury-agent.dev.local
-        paths:
+      - paths:
           - path: /
             pathType: Prefix
 
@@ -49,9 +51,13 @@ engine:
 
 config:
   app:
-    OMNI_LOG_LEVEL: "DEBUG"
-    OMNI_API_WORKERS: "1"
-    OMNI_ENABLE_PROFILING: "true"
+    # Development mode: the localhost CORS allowlist and the relaxed key
+    # guards are what a local cluster wants. Replaces three keys with no
+    # reader anywhere in src/.
+    MERCURY_ENV: "development"
+    OMNI_STRICT_VALIDATION: "false"
+    OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: "1000"
+    OMNI_RATE_LIMIT_BURST: "200"
 
 persistence:
   data:

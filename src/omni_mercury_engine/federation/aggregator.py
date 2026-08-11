@@ -20,13 +20,40 @@ Aggregation rules (mathematically motivated):
       for similarly-distributed nodes.
 
   Precision matrix (ig_cov_inv):
-    -> Precision-weighted average: sum(n_i * P_i) / sum(n_i).
-      For Gaussian families, this gives the MLE precision of the
-      combined population. This is a known result in Bayesian statistics.
+    -> Pooled in COVARIANCE space, the matrix analogue of the pooled-std
+      rule above:
+        Sigma_i    = P_i^-1
+        Sigma_pool = sum_i w_i * (Sigma_i + (mu_i - mu)(mu_i - mu)^T)
+        P          = Sigma_pool^-1
+      The within-group term carries each node's own spread; the rank-one
+      between-group term carries the spread of the node means around the
+      global mean. Both are required -- exactly as for the scalar variances,
+      and for the same reason.
+
+      Averaging the *precisions* instead (the previous rule, sum(n_i P_i)/n)
+      is not the combined-population MLE and is not a result in Bayesian
+      statistics. It is the posterior-precision update for combining
+      independent Gaussian *likelihoods about one shared parameter*, which is
+      a different problem: there the precisions add because each observation
+      constrains the same mean, whereas here each node describes a different
+      slice of one population. Because the map P -> P^-1 is convex, averaging
+      precisions systematically *understates* the pooled covariance whenever
+      the nodes differ, and it drops the between-group term entirely -- so the
+      global model reports a population tighter than the one it was built
+      from, and every Mahalanobis score computed from it is inflated.
 
   Log-determinant (ig_log_det):
     -> Recomputed from aggregated ig_cov_inv via slogdet.
       Cannot be averaged (log-determinant is not linear).
+
+  Provenance (data_hash):
+    -> A digest over the participating node IDs and the round index. Each
+      node's own ``data_hash`` is a fingerprint of its raw training bytes;
+      concatenating them into the global model (the previous rule)
+      republished every node's fingerprint to every consumer of the global
+      model, which is precisely the information federation exists to keep on
+      the node. Cohort provenance stays verifiable; data fingerprints do not
+      leave.
 
 The aggregator never sees raw data. It only receives FittedStatistics
 objects from FederatedNode instances.
@@ -41,6 +68,7 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import time
 from typing import Any
 
@@ -57,6 +85,98 @@ from omni_mercury_engine.security.sigma_immutable_gate import (
     enforce_dual_ethical_gate,
     get_sigma_immutable_gate,
 )
+
+#: Relative floor applied to the eigenvalues of a symmetric matrix before it
+#: is inverted, expressed as a fraction of that matrix's largest eigenvalue.
+#: Submitted precision matrices are already Tikhonov-regularised by the
+#: detector, but a differentially private release adds unbounded Gaussian
+#: noise to every entry and can push the spectrum negative; flooring keeps the
+#: pooled result positive-definite so the reconstructed detector's Mahalanobis
+#: form stays a metric instead of silently going indefinite.
+_EIGENVALUE_FLOOR_RATIO = 1e-10
+
+#: Absolute floor for a matrix whose whole spectrum is at or below zero.
+_EIGENVALUE_FLOOR_MIN = 1e-12
+
+
+def _spd_inverse(matrix: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Invert a symmetric matrix, flooring its spectrum first.
+
+    Args:
+        matrix: A square matrix, symmetric up to floating-point error.
+
+    Returns:
+        The symmetric positive-definite inverse.
+    """
+    symmetric = 0.5 * (
+        np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
+    )
+    eigenvalues, eigenvectors = np.linalg.eigh(symmetric)
+    floor = max(
+        float(np.max(eigenvalues)) * _EIGENVALUE_FLOOR_RATIO,
+        _EIGENVALUE_FLOOR_MIN,
+    )
+    eigenvalues = np.maximum(eigenvalues, floor)
+    inverse = (eigenvectors / eigenvalues) @ eigenvectors.T
+    return np.asarray(0.5 * (inverse + inverse.T))
+
+
+def _pool_precision(
+    precisions: list[np.ndarray[Any, Any]],
+    means: list[np.ndarray[Any, Any]],
+    global_mean: np.ndarray[Any, Any],
+    weights: np.ndarray[Any, Any],
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Pool per-node precision matrices through covariance space.
+
+    Implements the matrix law of total covariance for the combined
+    population::
+
+        Sigma_pool = E[Sigma_i] + Cov[mu_i]
+                   = sum_i w_i * Sigma_i
+                     + sum_i w_i * (mu_i - mu)(mu_i - mu)^T
+
+    with ``Sigma_i = P_i^-1`` and ``w_i = n_i / n``. The first term is the
+    within-node spread; the second is the between-node spread that a plain
+    average of precisions discards entirely.
+
+    Args:
+        precisions: Per-node precision matrices (``ig_cov_inv``).
+        means: Per-node Gaussian centres (``ig_mean``), aligned with
+            ``precisions``.
+        global_mean: The sample-size-weighted mean of ``means``.
+        weights: Per-node sample-size weights summing to 1.
+
+    Returns:
+        ``(pooled_precision, pooled_covariance)``.
+    """
+    global_mean_64 = np.asarray(global_mean, dtype=np.float64)
+    n_features = int(np.asarray(precisions[0]).shape[0])
+    pooled_cov = np.zeros((n_features, n_features), dtype=np.float64)
+    for precision, mean, weight in zip(precisions, means, weights):
+        within = _spd_inverse(precision)
+        deviation = np.asarray(mean, dtype=np.float64) - global_mean_64
+        between = np.outer(deviation, deviation)
+        pooled_cov = pooled_cov + weight * (within + between)
+    pooled_cov = 0.5 * (pooled_cov + pooled_cov.T)
+    return _spd_inverse(pooled_cov), pooled_cov
+
+
+def _cohort_provenance(node_ids: list[str], round_index: int) -> str:
+    """Digest the participating cohort, carrying no data-derived input.
+
+    Args:
+        node_ids: Identifiers of the nodes whose statistics were merged.
+        round_index: The aggregation round the merge belongs to.
+
+    Returns:
+        A 16-hex-character digest over the sorted node IDs and the round,
+        reproducible by anyone who knows the cohort and round -- and
+        therefore useful for verifying provenance, while revealing nothing
+        about any node's training data.
+    """
+    payload = f"round={round_index};nodes={','.join(sorted(node_ids))}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 class FederatedAggregator:
@@ -221,14 +341,24 @@ class FederatedAggregator:
         global_q1 = wavg([s.q1 for s in subs])
         global_q3 = wavg([s.q3 for s in subs])
 
-        # Aggregate precision matrix (precision-weighted average)
-        global_ig_cov_inv = wavg([s.ig_cov_inv for s in subs])
+        # Aggregate precision by pooling in covariance space (within-group
+        # spread + between-group spread of the node means), then inverting.
+        # This is the matrix form of the pooled_std rule above.
+        global_ig_cov_inv, global_pooled_cov = _pool_precision(
+            [s.ig_cov_inv for s in subs],
+            [s.ig_mean for s in subs],
+            global_ig_mean,
+            weights,
+        )
 
-        # Recompute log-determinant from aggregated precision
-        # ig_cov_inv = Sigma^{-1}, so det(Sigma) = 1/det(ig_cov_inv)
-        # log_det(Sigma) = -log_det(ig_cov_inv)
-        sign, logdet = np.linalg.slogdet(global_ig_cov_inv)
-        global_ig_log_det = float(-logdet) if sign > 0 else 0.0
+        # log_det(Sigma) is read straight off the pooled covariance rather
+        # than negating slogdet of its inverse: the pooled covariance is the
+        # quantity that was actually constructed, and taking the determinant
+        # of the inverse doubles the conditioning error on a near-singular
+        # matrix. ``_pool_precision`` floors the spectrum, so the sign is
+        # positive by construction.
+        sign, logdet = np.linalg.slogdet(global_pooled_cov)
+        global_ig_log_det = float(logdet) if sign > 0 else 0.0
 
         result = FittedStatistics(
             node_id=f"federated_round_{self._round}",
@@ -248,7 +378,7 @@ class FederatedAggregator:
             ig_mean=global_ig_mean,
             ig_cov_inv=global_ig_cov_inv,
             ig_log_det=global_ig_log_det,
-            data_hash=",".join(s.data_hash for s in subs),
+            data_hash=_cohort_provenance([s.node_id for s in subs], self._round),
         )
 
         self._round += 1

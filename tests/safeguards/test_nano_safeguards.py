@@ -72,7 +72,7 @@ class TestHierarchicalMicroScanner:
 
     def test_forward_1d_input(self, scanner: Any) -> None:
         """Test forward pass with 1D input."""
-        import torch
+        torch = pytest.importorskip("torch")
 
         x = torch.randn(64)
         score, features = scanner(x)
@@ -81,7 +81,7 @@ class TestHierarchicalMicroScanner:
 
     def test_forward_2d_input(self, scanner: Any) -> None:
         """Test forward pass with 2D input."""
-        import torch
+        torch = pytest.importorskip("torch")
 
         x = torch.randn(8, 64)
         score, features = scanner(x)

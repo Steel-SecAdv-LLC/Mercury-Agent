@@ -250,8 +250,12 @@ All variables are optional; unset values keep the pre-platform behaviour.
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `MERCURY_ENV` | `development` | Runtime mode. `production` arms the fail-closed guards: `API_KEY_HASH_SALT` becomes mandatory instead of falling back to the built-in default salt, CORS drops the localhost allowlist, and JWT signing keys resolve through the production branch (a placeholder or empty `JWT_SECRET_KEY` is refused). `docker-compose.platform.yml` sets it to `production`. |
 | `MERCURY_KEYSTORE_PATH` | *(unset → in-memory)* | One SQLite file backing all platform state |
 | `MERCURY_TRUSTED_PROXY_HOPS` | `0` | Trailing `X-Forwarded-For` hops your proxy tier appends |
+| `MERCURY_SECURITY_HEADERS` | `true` | Emit the browser security header set (CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Permissions-Policy`) on every response. Set `false` only when a reverse proxy already emits an equivalent set. |
+| `MERCURY_HSTS_MAX_AGE` | `31536000` | `Strict-Transport-Security` max-age, emitted only on requests that arrived over TLS (directly, or via `X-Forwarded-Proto` when `MERCURY_TRUSTED_PROXY_HOPS >= 1`). `0` suppresses the header — the right setting while a certificate is still being provisioned, since HSTS is not revocable inside its own max-age. |
+| `MERCURY_HSTS_INCLUDE_SUBDOMAINS` | `true` | Append `includeSubDomains` to the HSTS value. Turn off when sibling sub-domains are not all HTTPS-capable. |
 | `MERCURY_SMTP_HOST` etc. | *(unset → console)* | SMTP delivery (`_PORT/_USERNAME/_PASSWORD/_FROM/_STARTTLS`) |
 | `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
 | `MERCURY_CONTACT_EMAIL` | `contact@mercuryagent.global` | `List-Unsubscribe` contact |

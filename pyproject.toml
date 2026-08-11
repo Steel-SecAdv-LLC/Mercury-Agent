@@ -1341,8 +1341,23 @@ exclude = [
 # Semantic Release Configuration
 # =============================================================================
 [tool.semantic_release]
+# Both entries must name a variable that is assigned a STRING LITERAL --
+# semantic-release bumps a version by rewriting the quoted value in place, so a
+# target it cannot pattern-match is silently skipped and drifts.
+#
+# The first entry used to be ``src/omni_mercury_engine/__init__.py:__version__``,
+# which is `__version__ = _get_version()` -- a call, not a literal. It could
+# never be rewritten. It also did not need to be: ``__version__`` resolves at
+# import time from installed metadata, then from ``pyproject.toml``, and only
+# then from the hand-maintained literal in ``_version.py``. That literal,
+# ``_FALLBACK_VERSION``, is the one string in the package that a release must
+# move, and it is what this now targets.
+#
+# ``tests/test_version_consistency.py`` pins both properties: every target here
+# is a rewritable literal assignment, and the literal equals
+# ``[project].version``.
 version_variable = [
-    "src/omni_mercury_engine/__init__.py:__version__",
+    "src/omni_mercury_engine/_version.py:_FALLBACK_VERSION",
     "pyproject.toml:version",
 ]
 branch = "main"

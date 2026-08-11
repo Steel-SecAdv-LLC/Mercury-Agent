@@ -483,7 +483,7 @@ class TestDetectorRegistryProperties:
     @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_aggregate_features_no_nans(self, features: np.ndarray[Any, Any]) -> None:
         """Aggregated features should never contain NaN values."""
-        import torch
+        torch = pytest.importorskip("torch")
 
         from omni_mercury_engine.core.detector_registry import (
             DetectorRegistry,

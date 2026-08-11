@@ -451,39 +451,54 @@ class FEMADisasterLoader(DatasetLoader):
             # Generate disaster declaration
             disaster_number = 1000 + i
 
+            # Every sampled scalar below is coerced to a Python ``int`` at the
+            # point of sampling. ``feature_rows`` is declared ``list[list[int]]``
+            # and these are the values that go into it, so the coercion is what
+            # makes that declaration true rather than aspirational.
+            #
+            # It also keeps the module independent of how NumPy's stubs happen
+            # to type ``Generator.choice`` / ``Generator.integers``. Those
+            # returns became ``signedinteger[_32Bit | _64Bit]`` in NumPy 2.5.2,
+            # which turned each of these branch pairs -- one arm a NumPy scalar,
+            # the other already ``int()``-wrapped -- into an assignment-type
+            # conflict, and the whole >=3.12 type-checking matrix went red on a
+            # dependency release with no code change behind it. Coercing at the
+            # boundary, uniformly, is stub-version-proof. Runtime behaviour is
+            # unchanged: the feature matrix is built with ``dtype=np.float32``.
+
             # State selection (weighted towards disaster-prone states)
             if rng.random() < 0.7:
-                state_fips = rng.choice(disaster_prone_states)
+                state_fips = int(rng.choice(disaster_prone_states))
             else:
                 state_fips = int(rng.integers(1, 57))
 
             # Date within year range
-            year = rng.integers(self.year_range[0], self.year_range[1] + 1)
+            year = int(rng.integers(self.year_range[0], self.year_range[1] + 1))
 
             # Seasonal patterns
             if state_fips in [12, 22, 48, 37, 45]:  # Hurricane states
-                month = rng.choice([8, 9, 10], p=[0.3, 0.4, 0.3])
+                month = int(rng.choice([8, 9, 10], p=[0.3, 0.4, 0.3]))
             elif state_fips in [40, 20, 1]:  # Tornado alley
-                month = rng.choice([4, 5, 6], p=[0.3, 0.4, 0.3])
+                month = int(rng.choice([4, 5, 6], p=[0.3, 0.4, 0.3]))
             elif state_fips == 6:  # California
-                month = rng.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
+                month = int(rng.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2]))
             else:
                 month = int(rng.integers(1, 13))
 
-            day = rng.integers(1, 29)
+            day = int(rng.integers(1, 29))
 
             # Incident type based on state
             if state_fips in [12, 22, 48, 37, 45]:
-                incident_code = rng.choice([0, 1, 2])  # Hurricane, Flood, Severe Storm
+                incident_code = int(rng.choice([0, 1, 2]))  # Hurricane, Flood, Severe Storm
             elif state_fips in [40, 20, 1]:
-                incident_code = rng.choice([4, 2])  # Tornado, Severe Storm
+                incident_code = int(rng.choice([4, 2]))  # Tornado, Severe Storm
             elif state_fips == 6:
-                incident_code = rng.choice([3, 5])  # Fire, Earthquake
+                incident_code = int(rng.choice([3, 5]))  # Fire, Earthquake
             else:
                 incident_code = int(rng.integers(0, len(self.INCIDENT_TYPES)))
 
             # Declaration type (DR is most common)
-            decl_code = rng.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
+            decl_code = int(rng.choice([0, 1, 2], p=[0.7, 0.2, 0.1]))
 
             # Designated area (statewide vs county)
             area_code = 1 if rng.random() < 0.3 else 0

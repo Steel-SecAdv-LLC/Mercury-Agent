@@ -1,14 +1,27 @@
 # Mercury Agent Release Workflow
 #
 # Automated release workflow for versioning and publishing.
-# Triggers on version tags (v*) or manual dispatch.
+# Triggers on a semantic-version tag -- with or without a leading `v` -- or on
+# manual dispatch.
+#
+# The trigger used to be the single pattern `v*`, which never matched the
+# release line this repository actually tags. Its four tags are `v1.0.0`,
+# `v1.1`, `v1.7.0` and `2.0.0`: the current 2.x tag carries no `v`, so this
+# workflow has never run for it. Both spellings are accepted now, and the
+# version is parsed with the prefix stripped optionally.
+#
+# The three-component shape is part of the pattern on purpose. A two-component
+# tag such as `v1.1` cannot satisfy the `X.Y.Z` check in "Validate version
+# format" below, so matching it would only ever produce a run that is
+# guaranteed to fail.
 
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+      - '[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:
     inputs:
       version:
@@ -89,7 +102,12 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
             PRERELEASE="${{ github.event.inputs.prerelease }}"
           else
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            # Strip `refs/tags/`, then an OPTIONAL leading `v`. The old form
+            # (`${GITHUB_REF#refs/tags/v}`) removes the prefix only when it is
+            # present in full, so a bare `2.0.0` tag would have produced
+            # VERSION="refs/tags/2.0.0" and failed the format check below.
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
             # Check if version contains pre-release identifiers
             if [[ "$VERSION" =~ (alpha|beta|rc|dev) ]]; then
               PRERELEASE="true"
@@ -186,7 +204,33 @@ jobs:
           MERCURY_REQUIRES_ML: "1"
         run: |
           set -o pipefail
-          pytest tests/ -v --tb=short -x -q --timeout=60 2>&1 | head -100
+          # NOT `pytest ... | head -100`. `head` closes the pipe the moment it
+          # has its 100 lines; pytest then dies of SIGPIPE and the pipeline
+          # exits 141, which `set -o pipefail` propagates as a step failure
+          # regardless of whether a single test failed. The full tree emits
+          # several hundred lines (tests/api alone emits ~50 for 1,298 of
+          # 14,547 tests), so this gate could not have passed even on a
+          # perfectly green run.
+          #
+          # Capturing to a file instead keeps the whole log, bounds what is
+          # echoed into the job output, and lets the step's exit status be
+          # pytest's own.
+          if ! pytest tests/ -v --tb=short -x -q --timeout=60 > pytest-release.log 2>&1; then
+            echo "::error::Release test gate failed. Last 200 lines follow; the"
+            echo "::error::complete log is attached as the pytest-release-log artifact."
+            tail -n 200 pytest-release.log
+            exit 1
+          fi
+          tail -n 20 pytest-release.log
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pytest-release-log
+          path: pytest-release.log
+          retention-days: 14
+          if-no-files-found: ignore
 
   # ============================================================================
   # Build Package

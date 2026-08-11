@@ -866,7 +866,7 @@ class TestFrequencyDomainOracleFeatures:
         ), f"Expected (3, {expected_dim}), got {features.shape}"
 
     def test_feature_dtype_torch(self) -> None:
-        import torch
+        torch = pytest.importorskip("torch")
 
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             FrequencyDomainOracle,
@@ -946,7 +946,7 @@ class TestExtractFeaturesContract:
     """Verify extract_features returns torch.Tensor per BaseDetector."""
 
     def test_returns_torch_tensor(self) -> None:
-        import torch
+        torch = pytest.importorskip("torch")
 
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
@@ -1284,7 +1284,7 @@ class TestSpectralDomainOracleFeatures:
     """Verify feature extraction shape and dtype."""
 
     def test_feature_shape(self) -> None:
-        import torch
+        torch = pytest.importorskip("torch")
 
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,

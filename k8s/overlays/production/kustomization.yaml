@@ -138,7 +138,13 @@ configMapGenerator:
   - name: mercury-agent-config
     behavior: merge
     literals:
-      - OMNI_LOG_LEVEL=WARNING
-      - OMNI_ENABLE_PROFILING=false
-      - OMNI_API_WORKERS=4
-      - OMNI_ETHICS_STRICT_MODE=true
+      # The one setting that arms every production guard in the application:
+      # API_KEY_HASH_SALT becomes mandatory (instead of silently falling back
+      # to the hard-coded default salt), CORS drops the localhost allowlist,
+      # and JWT signing keys resolve through the production branch. Every
+      # deployment path shipped without it before, so every deployment ran in
+      # development mode.
+      - MERCURY_ENV=production
+      - OMNI_STRICT_VALIDATION=true
+      - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE=100
+      - OMNI_RATE_LIMIT_BURST=20
