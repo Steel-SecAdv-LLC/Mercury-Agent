@@ -2094,6 +2094,16 @@ jobs:
           done
           echo "ServiceMonitor + PrometheusRule render."
 
+      # Pinned interpreter, same as every other pip-running job in this
+      # workflow. Without it this job would pip-install into whatever system
+      # python the runner image happens to carry -- the same borrowed-from-the
+      # -image dependency the PyYAML install below exists to remove, just one
+      # level down.
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Install PyYAML for the assertion step
         # The assertion below parses rendered manifests with PyYAML. It is
         # preinstalled on the ubuntu-latest image and the step has passed on
@@ -2109,13 +2119,13 @@ jobs:
         # not raised pip to >= 26.1 (CVE-2026-6357 regression guard), and it
         # caught this step when it was added without one.
         run: |
-          python3 -m pip install --upgrade --quiet --disable-pip-version-check "pip>=26.1"
-          python3 -m pip install --quiet --disable-pip-version-check "pyyaml>=6.0"
+          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install "pyyaml>=6.0"
 
       - name: Assert the rendered manifests carry the required configuration
         run: |
           set -euo pipefail
-          python3 - <<'PYTHON'
+          python - <<'PYTHON'
           import subprocess
           import sys
 
