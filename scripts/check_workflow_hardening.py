@@ -38,10 +38,21 @@ MAPPING_KEY_RE = re.compile(
 # step.  ``[^#\n]*`` before the pattern allows leading shell tokens
 # like ``set -e &&`` while excluding everything past a ``#`` comment
 # (so ``# pip install x`` in a comment is not a false positive).
-PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b")
+PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python3?\s+-m\s+)?pip\s+install\b")
 PIP_UPGRADE_RE = re.compile(
-    r"(?:python\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
+    r"(?:python3?\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
+
+# A job that runs ``pip install`` against the ambient interpreter must first
+# pin that interpreter with ``actions/setup-python`` (any org/fork of the
+# action counts). Without it the job installs into whatever Python the runner
+# image happens to ship, which GitHub bumps without notice -- the same
+# borrowed-from-the-image coupling the pip-floor guard closes, one level down.
+# This check exists because that gap actually shipped: PR #365's ``manifests``
+# job pip-installed with no ``setup-python`` step, and no gate caught it until a
+# human noticed the job was the only one in ci.yml that didn't match the other
+# eleven. The rule is now mechanical.
+SETUP_PYTHON_RE = re.compile(r"uses:\s*[^\s#]*setup-python@")
 
 
 def top_level_indent(text: str) -> int:
@@ -177,6 +188,7 @@ def check_workflow(path: Path) -> list[str]:
             warnings.append(f"{path}: {action}@{ref} is tag-pinned, not SHA-pinned")
 
     errors.extend(_check_pip_cve_2026_6357(path, text))
+    errors.extend(_check_pip_uses_pinned_interpreter(path, text))
     errors.extend(_check_pytest_node_ids(path, text))
 
     for warning in warnings:
@@ -351,6 +363,134 @@ def _check_pip_cve_2026_6357(path: Path, text: str) -> list[str]:
                 f"``pip>=26.1`` upgrade earlier in the same job{job_hint} "
                 "(CVE-2026-6357 regression guard)"
             )
+    return errors
+
+
+def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
+    """Every job that runs a real ``pip install`` must pin its interpreter.
+
+    A job with no ``actions/setup-python`` step installs into whatever Python
+    the runner image ships, chosen by GitHub and bumped without notice. That is
+    the same borrowed-dependency exposure the CVE-2026-6357 pip floor closes,
+    one level down: the floor pins ``pip``, this pins the ``python`` that pip
+    runs under. Both are per-job preconditions that must be established *before*
+    the first ``pip install`` in the job.
+
+    This walk deliberately reuses the exact same line-classification constants
+    as :func:`_check_pip_cve_2026_6357` -- ``PIP_INSTALL_RE`` for what counts as
+    an install, ``HEREDOC_OPEN_RE`` for heredoc bodies, and the
+    ``echo``/``printf`` leading-token rule for documentation lines that merely
+    *write* the string ``pip install`` into a file. The two checks keep
+    separate state machines (this one tracks setup-python presence, that one
+    tracks the pip floor), but a change to what "a real install" means lands in
+    both at once, so they cannot drift apart on the classification that matters.
+
+    Exemptions, each because the interpreter is already pinned by other means:
+
+    * a job that runs no real ``pip install`` (nothing to protect);
+    * a job with a ``container:`` declaration (the container image *is* the
+      pinned interpreter).
+
+    Only a direct ``uses: …setup-python@…`` step in the job satisfies the rule;
+    a local composite action (``uses: ./…``) does not, because this check
+    cannot see inside it and a job's interpreter setup should be explicit at the
+    job level. Verified against every workflow in this repo: the one composite
+    Mercury ships (``build-ama-cryptography``) sets up no Python, and every
+    pip-running job already has its own ``setup-python`` step.
+
+    Returns:
+        At most one error per offending job.
+    """
+    errors: list[str] = []
+    lines = text.splitlines()
+
+    in_jobs_block = False
+    current_job_key: str | None = None
+    job_start_line = 0
+    setup_python_seen = False
+    job_is_container = False
+    flagged = False
+    heredoc_delim: str | None = None
+
+    for lineno, raw in enumerate(lines, start=1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if heredoc_delim is not None:
+            if raw.strip() == heredoc_delim:
+                heredoc_delim = None
+            continue
+
+        match = MAPPING_KEY_RE.match(raw)
+
+        # Top-level key: only ``jobs:`` opens the jobs block; any other resets.
+        if match and len(match.group("indent")) == 0:
+            in_jobs_block = normalize_key(match.group("key")) == "jobs"
+            current_job_key = None
+            setup_python_seen = False
+            job_is_container = False
+            flagged = False
+            continue
+
+        # Job boundary: indent-2 key inside the jobs block. Reset per-job state.
+        if (
+            match
+            and len(match.group("indent")) == 2
+            and in_jobs_block
+            and normalize_key(match.group("key")) != "jobs"
+        ):
+            current_job_key = normalize_key(match.group("key"))
+            job_start_line = lineno
+            setup_python_seen = False
+            job_is_container = False
+            flagged = False
+            continue
+
+        # Job-level ``container:`` (indent 4) pins the interpreter by image.
+        if (
+            match
+            and len(match.group("indent")) == 4
+            and in_jobs_block
+            and normalize_key(match.group("key")) == "container"
+        ):
+            job_is_container = True
+            continue
+
+        scan = raw.split("#", 1)[0]
+
+        if SETUP_PYTHON_RE.search(scan):
+            setup_python_seen = True
+            continue
+
+        heredoc_match = HEREDOC_OPEN_RE.search(scan)
+        if heredoc_match:
+            heredoc_delim = heredoc_match.group("delim")
+            continue
+
+        # Same documentation-line exemption as the CVE walk: ``echo``/``printf``
+        # that write the literal ``pip install`` into a file are not installs.
+        # Strip an inline ``run:`` key first, so the leading token of a
+        # single-line ``run: echo "pip install ..."`` step is ``echo`` and not
+        # ``run:`` (a ``run: |`` block puts the command on its own line, where
+        # this prefix is already absent).
+        command = scan.lstrip()
+        run_inline = re.match(r"run:\s*(.*)", command)
+        if run_inline:
+            command = run_inline.group(1)
+        leading_token = command.split(" ", 1)[0].strip()
+        if leading_token in {"echo", "printf"}:
+            continue
+
+        if PIP_INSTALL_RE.search(scan) and not flagged:
+            if in_jobs_block and current_job_key and not setup_python_seen and not job_is_container:
+                errors.append(
+                    f"{path}:{lineno}: job ``{current_job_key}`` (starting at line "
+                    f"{job_start_line}) runs ``pip install`` without an "
+                    "``actions/setup-python`` step before it, so it installs into the "
+                    "runner image's ambient Python. Add a ``uses: actions/setup-python`` "
+                    "step (or declare a ``container:``)."
+                )
+                flagged = True
+
     return errors
 
 
