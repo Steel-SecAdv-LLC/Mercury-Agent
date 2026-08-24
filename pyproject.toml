@@ -139,7 +139,7 @@ ml = [
     # pinned mypy needs them (verified still needed under 2.3.0).  Bump all
     # three sites together (this [ml] extra, [dev] below, and the two
     # ``.github/workflows/ci.yml`` install lines).
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "types-requests==2.33.0.20260712",
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
@@ -375,9 +375,9 @@ dev = [
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
-    "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "mypy==2.3.1",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
-    "ruff==0.16.0",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
+    "ruff==0.16.4",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
     "flake8==7.3.0",  # PINNED with the CI Code Quality job and the pre-commit hook (parity gate: scripts/check_pinned_tool_versions.py)
     "pre-commit>=3.5.0",
 ]
