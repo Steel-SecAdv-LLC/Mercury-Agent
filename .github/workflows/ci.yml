@@ -1802,7 +1802,7 @@ jobs:
       - name: Set up Docker Buildx (attempt 1)
         id: buildx
         continue-on-error: true
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Pause before Buildx retry 1 (transient registry flake stabilisation)
         if: steps.buildx.outcome == 'failure'
@@ -1815,7 +1815,7 @@ jobs:
         id: buildx2
         if: steps.buildx.outcome == 'failure'
         continue-on-error: true
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Pause before Buildx retry 2 (extended backoff)
         if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
@@ -1826,7 +1826,7 @@ jobs:
 
       - name: Set up Docker Buildx (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Build Docker image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -1916,7 +1916,7 @@ jobs:
 
       - name: Upload Trivy results
         if: always()
-        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
         with:
           sarif_file: 'trivy-results.sarif'
           # Distinct category so the ci.yml blocking PR-gate Trivy run
