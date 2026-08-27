@@ -27,6 +27,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### GCN Kafka MCP server + credential keep-alive (branch `steel/kafka_MCP_setup`)
+
+NASA GCN disables a Kafka client credential that has not connected to a broker
+in 30 days, and a disabled credential cannot be revived. Wiring the GCN broker
+to an MCP client therefore needs a scheduled connection behind it, not just a
+configuration entry.
+
+**Added**
+
+- `.mcp.json` — project-scoped `gcn-kafka` MCP server pointed at
+  `kafka.gcn.nasa.gov:9092` over SASL_SSL/OAUTHBEARER. Every credential
+  reference is a `${VAR}` expansion resolved from the launching shell, so the
+  file carries variable names and no values.
+- `scripts/gcn_kafka_keepalive.py` — makes one authenticated metadata request
+  against the broker (what GCN counts as use) and records it in an owner-only
+  state ledger. A failed probe is classified against the OIDC token endpoint
+  before it is reported, so a network outage (`UNREACH`, exit 2) is never
+  reported as a dead credential (`FAIL`, exit 1). The secret is read from the
+  environment or from a mode-600 file the script refuses to read at any looser
+  mode, is never written to the ledger (a truncated SHA-256 fingerprint of the
+  client id stands in for it), and is stripped from any error text before it is
+  printed.
+- `.github/workflows/gcn-keepalive.yml` — daily keep-alive from repository
+  secrets; a missing secret is reported and skipped, so forks are unaffected,
+  and only a rejected credential fails the job.
+- `deploy/systemd/mercury-gcn-keepalive.{service,timer}` — daily user timer with
+  `Persistent=true`, so a machine that was asleep at the scheduled time still
+  connects at next boot.
+- `configs/mcp/gcn-kafka.env.example`, a `.env.example` section, and
+  `docs/GCN_KAFKA_MCP.md` (setup, verdict/exit-status table, scheduling, and
+  the standing gap: the published `kafka-mcp-server` builds on `kafka-python`,
+  which reaches OAUTHBEARER only through a token provider supplied in code, so
+  the MCP connection is best-effort and the keep-alive is what holds the
+  credential open).
+- `tests/scripts/test_gcn_kafka_keepalive.py` — 32 offline tests covering
+  credential resolution and precedence, the mode-600 refusal, verdict
+  classification, ledger durability, and the guarantee that neither the secret
+  nor the client id reaches stdout or the state file.
+- `.gitignore` now blocks `*.env` anywhere in the tree.
+
+
 ### Deployment renderability, DP soundness, and browser security headers (branch `steel/maint-coverage1`)
 
 Fifteen defects fixed across the deployment manifests, the federated privacy

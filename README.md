@@ -1583,6 +1583,7 @@ mypy src/
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 | [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) | Governed self-improvement rollout gated on label-provenance-clean loaders |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment reference for the served API |
+| [docs/GCN_KAFKA_MCP.md](docs/GCN_KAFKA_MCP.md) | NASA GCN Kafka MCP server setup and the credential keep-alive that stops the 30-day inactivity expiry |
 | [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md) | Free-service account/auth/quota platform: threat model, security controls, configuration, deployment, migration, and acceptance checklist |
 | [docs/DOMAIN_EMAIL_HOSTING_SETUP.md](docs/DOMAIN_EMAIL_HOSTING_SETUP.md) | Public-deployment ground truth: DNS, mailbox, DKIM/DMARC, and measured hosting sizing |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |

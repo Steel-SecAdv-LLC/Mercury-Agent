@@ -1,0 +1,23 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Daily trigger for mercury-gcn-keepalive.service. See that unit for install
+# instructions.
+
+[Unit]
+Description=Daily keep-alive for the NASA GCN Kafka client credential
+
+[Timer]
+OnCalendar=daily
+
+# Spread the connection across the hour rather than joining the 00:00 stampede
+# on GCN's broker.
+RandomizedDelaySec=3h
+
+# A laptop that was asleep at the scheduled time still runs the keep-alive on
+# next boot. This is the whole reason a timer beats a cron entry here: the
+# 30-day clock does not pause while the machine is off.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -104,6 +104,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# Credential files for external brokers (GCN Kafka and friends). The documented
+# home for these is ~/.config/mercury/*.env, outside any checkout -- this catches
+# the copy an operator drops in the working tree by mistake before git does.
+*.env
+# ...except the tracked, value-free Kubernetes config sample.
+!k8s/base/config/*.env
+
 # Spyder project settings
 .spyderproject
 .spyproject
