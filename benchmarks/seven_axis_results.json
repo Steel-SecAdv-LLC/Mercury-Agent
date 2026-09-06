@@ -1,6 +1,6 @@
 {
   "seed": 20260504,
-  "runtime_seconds": 1.3700042380000923,
+  "runtime_seconds": 1.9631041489999461,
   "axes": [
     {
       "name": "Generalization",
@@ -15,9 +15,9 @@
     },
     {
       "name": "Scalability",
-      "score": 0.9367150929123895,
+      "score": 0.9437711468409844,
       "higher_is_better": true,
-      "notes": "Empirical complexity slope d log(t) / d log(n) = 1.063 over N \u2208 [200, 800, 3200].",
+      "notes": "Empirical complexity slope d log(t) / d log(n) = 1.056 over N \u2208 [200, 800, 3200].",
       "raw": {
         "sizes": [
           200,
@@ -25,11 +25,11 @@
           3200
         ],
         "times_seconds": [
-          0.013605943999891679,
-          0.06130182100014281,
-          0.25944857100012086
+          0.01954679599998599,
+          0.08906355099998109,
+          0.3655121760000384
         ],
-        "log_log_slope": 1.0632849070876105
+        "log_log_slope": 1.0562288531590156
       }
     },
     {
