@@ -192,10 +192,21 @@ class TestEWMATimingMonitor:
         assert "op_b" in monitor.stats
         assert "op_c" in monitor.stats
 
-    def test_overhead_estimate(self, monitor: Any) -> None:
-        """Test overhead estimate is reasonable."""
-        overhead = monitor.get_overhead_estimate()
-        assert overhead < 2.0
+    def test_overhead_estimate_is_measured(self, monitor: Any) -> None:
+        """The estimate is measured monitor time over observed operation time.
+
+        It was a hard-coded ``0.5`` that this test "verified" against ``< 2.0``.
+        Now it must be zero before anything is observed, positive after, and
+        fall as the same monitoring work is spread over longer operations.
+        """
+        assert monitor.get_overhead_estimate() == 0.0
+        for _ in range(50):
+            monitor.record_timing("fast_op", 0.01)
+        fast = monitor.get_overhead_estimate()
+        assert fast > 0.0
+        for _ in range(50):
+            monitor.record_timing("slow_op", 1_000_000.0)
+        assert 0.0 < monitor.get_overhead_estimate() < fast
 
     def test_timing_history_limit(self, monitor: Any) -> None:
         """Test timing history respects max limit."""
