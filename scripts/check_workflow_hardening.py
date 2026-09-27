@@ -189,6 +189,7 @@ def check_workflow(path: Path) -> list[str]:
 
     errors.extend(_check_pip_cve_2026_6357(path, text))
     errors.extend(_check_pip_uses_pinned_interpreter(path, text))
+    errors.extend(_check_engine_install_provisions_ama(path, text))
     errors.extend(_check_pytest_node_ids(path, text))
 
     for warning in warnings:
@@ -492,6 +493,129 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
                 flagged = True
 
     return errors
+
+
+# ``omni_mercury_engine`` enforces its PQC gate unconditionally at import time
+# (``_pqc_gate._enforce_pqc_production_gate``): without the native AMA backend
+# every ``import omni_mercury_engine`` raises. A job that editable-installs the
+# engine into its ambient interpreter therefore cannot run any engine code
+# unless it also provisions AMA. This check exists because that gap actually
+# shipped: ``competitive-benchmark.yml`` installed the engine with no AMA build,
+# so its weekly scheduled run failed at the first engine import from
+# 2026-08-09 onward, and no gate noticed for eight consecutive weeks.
+#
+# The installing command must be the job's ambient pip -- a bare ``pip`` or
+# ``python -m pip`` leading token. A pip addressed by path (for example
+# ``/tmp/mercury-audit-env/bin/pip`` in ``security.yml``'s dependency scan)
+# installs into an isolated environment the job's own ``python`` never imports,
+# so it is not an engine consumer and is out of scope.
+ENGINE_EDITABLE_INSTALL_RE = re.compile(
+    r"^(?:python3?\s+-m\s+)?pip\s+install\b.*?\s(?:-e|--editable)(?:=|\s+)[\"']?\.(?:[\"'\[\s/]|$)"
+)
+AMA_COMPOSITE_RE = re.compile(r"uses:\s*\./\.github/actions/build-ama-cryptography\b")
+
+
+class _JobAmaState:
+    """Per-job facts the AMA-provisioning check needs.
+
+    A plain class rather than a ``@dataclass``: the hardening tests load this
+    script with ``importlib.util.spec_from_file_location`` without registering
+    it in ``sys.modules``, which ``dataclasses`` requires to resolve the
+    postponed annotations of this module.
+    """
+
+    __slots__ = ("ama_seen", "install_line", "key")
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        self.install_line: int | None = None
+        self.ama_seen = False
+
+
+def _check_engine_install_provisions_ama(path: Path, text: str) -> list[str]:
+    """Every job that editable-installs the engine must provision AMA.
+
+    The engine's import-time PQC gate makes AMA a hard runtime dependency of
+    ``import omni_mercury_engine``; the repository's single provisioning path is
+    the local ``./.github/actions/build-ama-cryptography`` composite. A job that
+    ``pip install -e .`` s the engine into its ambient interpreter without that
+    step can only fail at its first engine import -- and on a
+    schedule/dispatch-only lane that failure is easy to miss.
+
+    The composite may appear anywhere in the job (every conforming job installs
+    Python dependencies first and builds AMA second, because the build step's
+    engine-import probe needs the engine installed).
+
+    Line classification reuses the pinned-interpreter walk's conventions:
+    comments, heredoc bodies and ``echo``/``printf`` documentation lines are not
+    commands, and an inline ``run:`` prefix is stripped before matching.
+
+    Returns:
+        At most one error per offending job.
+    """
+    jobs: list[_JobAmaState] = []
+    job: _JobAmaState | None = None
+    in_jobs_block = False
+    heredoc_delim: str | None = None
+
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if heredoc_delim is not None:
+            if raw.strip() == heredoc_delim:
+                heredoc_delim = None
+            continue
+
+        match = MAPPING_KEY_RE.match(raw)
+
+        if match and len(match.group("indent")) == 0:
+            in_jobs_block = normalize_key(match.group("key")) == "jobs"
+            job = None
+            continue
+
+        if (
+            match
+            and len(match.group("indent")) == 2
+            and in_jobs_block
+            and normalize_key(match.group("key")) != "jobs"
+        ):
+            job = _JobAmaState(key=normalize_key(match.group("key")))
+            jobs.append(job)
+            continue
+
+        if job is None:
+            continue
+
+        scan = raw.split("#", 1)[0]
+
+        if AMA_COMPOSITE_RE.search(scan):
+            job.ama_seen = True
+            continue
+
+        heredoc_match = HEREDOC_OPEN_RE.search(scan)
+        if heredoc_match:
+            heredoc_delim = heredoc_match.group("delim")
+            continue
+
+        command = scan.strip()
+        run_inline = re.match(r"(?:-\s+)?run:\s*(.*)", command)
+        if run_inline:
+            command = run_inline.group(1)
+        if command.split(" ", 1)[0] in {"echo", "printf"}:
+            continue
+
+        if job.install_line is None and ENGINE_EDITABLE_INSTALL_RE.search(command):
+            job.install_line = lineno
+
+    return [
+        f"{path}:{job.install_line}: job ``{job.key}`` editable-installs "
+        "omni_mercury_engine but never provisions the AMA Cryptography backend, "
+        "so its first engine import fails the import-time PQC gate. Add a "
+        "``uses: ./.github/actions/build-ama-cryptography`` step after the "
+        "dependency install."
+        for job in jobs
+        if job.install_line is not None and not job.ama_seen
+    ]
 
 
 def main() -> int:

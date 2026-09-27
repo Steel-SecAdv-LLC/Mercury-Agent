@@ -86,6 +86,17 @@ jobs:
           pip install -e ".[ml,benchmark]"
           pip install pytest
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # Every step below imports ``omni_mercury_engine``, whose import-time
+        # PQC gate is unconditional: without the native AMA backend the first
+        # import raises. This lane shipped without this step, so every weekly
+        # scheduled run from 2026-08-09 on failed at the prefetch step's engine
+        # import. ``check_workflow_hardening.py`` now fails any job that
+        # editable-installs the engine without it.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v4.0.0
+
       - name: Prefetch ADBench guard datasets
         # The guard subset (8 Classical sets) is all --check needs; --quick
         # additionally pulls 2 embedding sets which competitive_benchmark
