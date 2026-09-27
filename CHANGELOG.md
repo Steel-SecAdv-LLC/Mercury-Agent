@@ -27,6 +27,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refinement pass (branch `steel/version-cov02`): main's three red scheduled lanes, a gate CI never ran, a PQC wrapper that could not succeed, and a fabricated overhead figure
+
+Every item below was reproduced on `main` before it was fixed. Each new gate
+was run against the pre-fix tree and fails there, and each new regression test
+fails when its fix is reverted.
+
+**Fixed — `main`'s red scheduled lanes**
+
+- **Security (Trivy container gate) red since the ncurses acceptance expired
+  on 2026-09-16**, and the vulnerability DB then published five unfixed HIGH
+  findings against Debian 13.7: `util-linux` CVE-2026-76642 / -78408 / -78409
+  / -78410 and `systemd` CVE-2026-16742. The runtime stage's OS layer was
+  rebuilt and scanned with the gate's trivy 0.70.0, which reproduced the CI
+  failure exactly, and every finding was checked against the Debian Security
+  Tracker (all trixie `<no-dsa>`). `mount` is now purged from the image (no
+  reverse dependency; it ships the SUID `mount(8)` entry point of three of the
+  util-linux CVEs). The irreducible remainder — seven CVEs — is accepted in
+  `.trivyignore` to 2026-12-26 with per-entry rationale; CVE-2026-53615 is
+  dropped (fixed in `util-linux 2.41.5-0+deb13u1`) and CVE-2026-54371 dropped
+  (re-scored MEDIUM). The rebuilt layer fails the gate with the old ledger and
+  reports zero unaccepted CRITICAL/HIGH findings with the new one.
+- **Competitive Benchmark red on every weekly run since 2026-08-09**: the lane
+  editable-installed the engine but never built AMA, so the unconditional
+  import-time PQC gate aborted at the first engine import. The lane now uses
+  the `build-ama-cryptography` composite; replayed locally it prefetches 9/9
+  datasets, passes both test steps, completes `--quick`, and the
+  competitive-position guard passes. `scripts/check_workflow_hardening.py`
+  gains a rule that fails any job which editable-installs the engine without
+  that composite (it flags exactly this lane on the old tree; 10 tests).
+- **Phase 3 Governed Self-Improvement red on all 14 `main` runs since it was
+  added (2026-06-22)**: the dormant-revival routing step ran
+  `python research/governed_fusion/phase3_governance.py`, which puts only the
+  script's directory on `sys.path`, so `import research...` failed. The step
+  (and `docs/PHASE3_GOVERNANCE.md`, which documented the same command) now use
+  `python -m research.governed_fusion.phase3_governance`. Replayed end to end:
+  the benchmark and the routing step both exit 0 and record three governed
+  decisions. A test pins the invocation and runs it in a clean interpreter.
+
+**Fixed — correctness**
+
+- `security/pqc_backends.slhdsa_sign_internal` could never return a
+  signature: it checked `addrnd` against the *public-key* length (2n) while
+  FIPS 205 and AMA require n bytes, so a correct 16-byte `addrnd` was refused
+  by Mercury and a 32-byte one by AMA. It had no callers (the KAT-replay path
+  its docstring named does not exist), and AMA 5.0 removes the function it
+  imported, which would have broken `import omni_mercury_engine` at the next
+  pin bump. Removed.
+- `EWMATimingMonitor.get_overhead_estimate()` returned a hard-coded `0.5`
+  documented as an estimate, surfaced as `omni_crypto_monitoring_overhead`,
+  and two tests asserted that constant was below 2.0. It is now measured
+  (monitor time over observed operation time). On native AMA v4.0.0
+  operations the real figure was ~35%; replacing `np.median` with
+  `statistics.median` in the per-record path (bit-identical over 20,000
+  randomised trials, 94 → 22 µs per record) brings it to ~9%, and the class
+  docstring now states that figure instead of "<2%". `record_timing` also
+  refuses NaN, infinite and negative durations: one NaN became the EWMA mean
+  permanently and silently stopped detection for that operation.
+- The seven-axis runner's Scalability axis timed each workload size once;
+  under CPU contention its score spanned 0.49–1.00 across 12 runs, which is
+  the one failure in the baseline full-suite run on `main`
+  (`test_runner_is_deterministic_for_fixed_seed`). It now takes the minimum
+  of five timings per size: the spread under the same load is 0.09 (idle
+  0.14 → 0.07). Only the Scalability row of `docs/BENCHMARKS.md` changed on
+  regeneration.
+- `tests/api/test_detection_gate.py` annotated `TestClient` responses as
+  `httpx.Response`; Starlette ≥ 1.x types them as `httpx2.Response`, so the
+  tests mypy lane failed in any environment with `[api]` installed. A
+  structural `Protocol` now fits both.
+
+**Fixed — claims nothing enforced**
+
+- `CAPABILITY_MATRIX.md` marks the pillar mutation suite **enforced**
+  ("deleting the control fails CI"), but no workflow ran
+  `scripts/mutate_pillar_controls.py`. It now runs in `ci.yml`'s
+  `neuro-symbolic-tests` job right after the pillar suite (7/7 mutations
+  killed, ~80 s).
+- `scripts/doc_lint.py` gains rule 4, *cited tests exist*: every
+  `tests/…py` path and pytest node id in scanned prose and in test-module
+  docstrings must resolve (functions and classes at the level pytest collects
+  them). It found five stale citations in four files — `ARCHITECTURE.md` (two
+  tests that never existed), `docs/DATASOURCES.md` (a method cited without its
+  class), `tests/test_medical_data_sources.py` (a moved file) and
+  `tests/loaders/test_hail_loader.py`, whose live-endpoint test never
+  existed. That test now exists as `tests/loaders/test_hail_loader_network.py`
+  (`@pytest.mark.network`); it also pins the live SPC archive's Vivian 2010
+  window to the offline fixture's 69 reports / 4 significant / 8.0 in.
+- `CONTRIBUTING.md`, `docs/index.md` and `rust_crypto/README.md` said AMA was
+  pinned to v3.3.0; the pin is v4.0.0. The `workflow_version_drift_gate`
+  operator tool now also holds `_pqc_gate._AMA_REQUIRED_VERSION` and every
+  "pinned to" statement in an AMA paragraph to the `pyproject.toml` ref.
+
+**Changed — dependencies (consolidates Dependabot #367 and #371)**
+
+- `ruff` 0.16.0 → 0.16.4 and `mypy` 2.3.0 → 2.3.1 at every parity site
+  (`pyproject.toml` `[ml]`/`[dev]`, both `ci.yml` install lines, both
+  pre-commit revs). #367 changed only `pyproject.toml` and so failed the
+  pin-parity gate. Every CI mypy lane and `ruff` are clean under the new pins.
+- Ten GitHub Actions bumps from #371, SHA-pinned; each new SHA was checked
+  against its upstream release tag with `git ls-remote`.
+
+**Assessed and not taken.** All 55 remote branches were triaged. Every merged
+branch tip equals its PR's final head except two benchmark-only commits;
+every closed-unmerged branch is either already on `main` in a stronger form
+or would regress a later fix (for example #328's BOCPD tail double-count and
+a `1e15` magnitude cap that clips nanosecond timestamps). #307's golden-ratio
+removal was not taken: no stated score contract is violated and its
+replacement literals would move operating points without validation data.
+AMA #394/#407: no AMA tag newer than v4.0.0 exists, so the pin is unchanged;
+#407's reference-integrity and mutation-evidence practices are what rule 4
+and the pillar mutation step bring over.
+
 ### Deployment renderability, DP soundness, and browser security headers (branch `steel/maint-coverage1`)
 
 Fifteen defects fixed across the deployment manifests, the federated privacy
