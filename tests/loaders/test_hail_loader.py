@@ -12,8 +12,8 @@ Fixtures (provenance in tests/fixtures/meteorological/PROVENANCE.json):
   hundredths of an inch) exercises the realtime parser.
 
 All HTTP is patched to serve these recorded bytes; nothing here touches
-the network (the live paths are covered by
-``tests/detectors/test_severe_storm_network.py``).
+the network (the live paths are covered by the ``@pytest.mark.network``
+module ``tests/loaders/test_hail_loader_network.py``).
 """
 
 from __future__ import annotations
