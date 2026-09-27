@@ -6,7 +6,7 @@
 > post-quantum cryptography (PQC) backend. PQC for Mercury Agent
 > flows exclusively through
 > [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
-> (pinned to `v3.3.0` in
+> (pinned to `v4.0.0` in
 > `.github/workflows/pqc-production-check.yml` and the
 > `[pqc]` extra of `pyproject.toml`). See
 > [`SECURITY.md`](../SECURITY.md) §"Post-Quantum Cryptography (PQC)
@@ -18,7 +18,7 @@
 > enable the import-time production gate. This `mercury_crypto`
 > crate is the classical workhorse alongside that PQC backend.
 
-Implemented in Rust with Python bindings using PyO3. Last updated: 2026-07-11.
+Implemented in Rust with Python bindings using PyO3. Last updated: 2026-09-27.
 
 ## Features
 

@@ -231,6 +231,63 @@ def test_workflow_version_drift_gate_skips_templated_ref(tmp_path: Path) -> None
     assert rc == 0
 
 
+def _pinned_repo(tmp_path: Path) -> Path:
+    """A minimal tree whose pyproject and one workflow agree on AMA v4.0.0."""
+    root = tmp_path / "repo"
+    (root / ".github" / "workflows").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        'dependencies = ["ama-cryptography @ git+https://x/AMA.git@v4.0.0"]\n'
+    )
+    (root / ".github" / "workflows" / "ci.yml").write_text(
+        "jobs:\n  b:\n    steps:\n      - uses: ./.github/actions/build-ama-cryptography\n"
+        "        with:\n          ama-ref: v4.0.0\n"
+    )
+    return root
+
+
+def _drift_status(root: Path, tmp_path: Path) -> dict[str, Any]:
+    out = tmp_path / "cert.json"
+    workflow_version_drift_gate.main(["--root", str(root), "--output", str(out)])
+    return _load_cert(out)
+
+
+def test_workflow_version_drift_gate_detects_a_stale_prose_pin(tmp_path: Path) -> None:
+    """A document that still states an old AMA pin fails the gate (the drift that
+    left CONTRIBUTING.md, docs/index.md and rust_crypto/README.md at v3.3.0)."""
+    root = _pinned_repo(tmp_path)
+    (root / "docs").mkdir()
+    (root / "docs" / "index.md").write_text(
+        "# Mercury\n\nAMA Cryptography (pinned to **v3.3.0** in the\n`[pqc]` extra).\n"
+    )
+    cert = _drift_status(root, tmp_path)
+    assert cert["status"] == "fail"
+    assert any("docs/index.md:3" in w and "v3.3.0" in w for w in cert["warnings"])
+
+
+def test_workflow_version_drift_gate_detects_a_stale_runtime_pin(tmp_path: Path) -> None:
+    root = _pinned_repo(tmp_path)
+    gate = root / "src" / "omni_mercury_engine" / "_pqc_gate.py"
+    gate.parent.mkdir(parents=True)
+    gate.write_text('_AMA_REQUIRED_VERSION = "3.3.0"\n')
+    cert = _drift_status(root, tmp_path)
+    assert cert["status"] == "fail"
+    assert any("_pqc_gate.py:1" in w for w in cert["warnings"])
+
+
+def test_workflow_version_drift_gate_accepts_matching_prose_and_runtime(tmp_path: Path) -> None:
+    root = _pinned_repo(tmp_path)
+    gate = root / "src" / "omni_mercury_engine" / "_pqc_gate.py"
+    gate.parent.mkdir(parents=True)
+    gate.write_text('_AMA_REQUIRED_VERSION = "4.0.0"\n')
+    (root / "README.md").write_text("AMA Cryptography (pinned to `v4.0.0`).\n")
+    # Out of scope: a pin in a paragraph that never mentions AMA, and history.
+    (root / "OTHER.md").write_text("Some tool, pinned to `v1.2.3`.\n")
+    (root / "CHANGELOG.md").write_text("AMA was pinned to v3.3.0 in July.\n")
+    cert = _drift_status(root, tmp_path)
+    assert cert["status"] == "ok", cert["warnings"]
+    assert [d["path"] for d in cert["body"]["docs"]] == ["README.md"]
+
+
 def test_config_validator_ok(tmp_path: Path) -> None:
     cfg_dir = tmp_path / "configs"
     cfg_dir.mkdir()

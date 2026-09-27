@@ -15,6 +15,17 @@ default:
 We just hit this manually (AMA v3.3.0 vs v2.0).  A pre-commit / CI
 gate turns the manual check into a structural one.
 
+Two further surfaces restate the pin and are held to the ``pyproject.toml``
+ref by version (a leading ``v`` is not significant there):
+
+* ``src/omni_mercury_engine/_pqc_gate.py`` -- ``_AMA_REQUIRED_VERSION``, the
+  version the import-time PQC gate refuses to run without.
+* Markdown prose -- any paragraph that mentions AMA and says "pinned to
+  ``vX.Y.Z``". ``CHANGELOG.md`` is a historical record and is not scanned.
+  Three documents (CONTRIBUTING.md, docs/index.md, rust_crypto/README.md)
+  still said v3.3.0 two releases after the pin moved to v4.0.0, which is what
+  added this surface.
+
 The scan matches only version-like values (``v4.0.0`` / ``4.0.0``), so a
 templated ``AMA_REF: ${{ inputs.ama-ref }}`` inside the composite action is
 skipped rather than parsed as a bogus ref. And because the workflows migrated
@@ -71,6 +82,19 @@ _WORKFLOW_PATTERN = re.compile(
 # to distinguish "no AMA workflows" from "AMA workflows whose ref no longer
 # parses" -- the latter must fail rather than pass vacuously.
 _BUILD_AMA_MARKER = "build-ama-cryptography"
+# The runtime pin enforced by the import-time PQC gate.
+_RUNTIME_GATE = Path("src") / "omni_mercury_engine" / "_pqc_gate.py"
+_RUNTIME_PATTERN = re.compile(
+    r"^_AMA_REQUIRED_VERSION\s*=\s*['\"](?P<ref>[^'\"]+)['\"]", re.MULTILINE
+)
+# A prose pin statement ("pinned to `v4.0.0`", "pinned to **v4.0.0**"). Only
+# paragraphs that mention AMA are considered, so pins of unrelated tools in the
+# same file are not mistaken for the AMA pin.
+_DOC_PIN_PATTERN = re.compile(r"(?i)\bpinned\s+to\s+[`*]*(?P<ref>v?\d+\.\d+\.\d+)")
+# Markdown that is a historical record (past pins are preserved, not rewritten)
+# or a local dataset cache rather than project documentation.
+_DOC_SKIP_FILES = frozenset({"CHANGELOG.md"})
+_DOC_SKIP_TOP_DIRS = frozenset({"data", "node_modules"})
 
 
 def _scan_pyproject(root: Path) -> dict[str, Any]:
@@ -129,10 +153,58 @@ def _scan_workflows(root: Path) -> tuple[list[dict[str, Any]], bool]:
     return out, builds_ama_seen
 
 
+def _scan_runtime_gate(root: Path) -> dict[str, Any] | None:
+    """Return the import-time gate's required AMA version, if the gate exists."""
+    path = root / _RUNTIME_GATE
+    if not path.is_file():
+        return None
+    text = path.read_text()
+    m = _RUNTIME_PATTERN.search(text)
+    if m is None:
+        return {"path": str(_RUNTIME_GATE), "error": "_AMA_REQUIRED_VERSION not found"}
+    return {
+        "path": str(_RUNTIME_GATE),
+        "line": text.count("\n", 0, m.start()) + 1,
+        "ref": m.group("ref"),
+    }
+
+
+def _scan_docs(root: Path) -> list[dict[str, Any]]:
+    """Return every "pinned to vX.Y.Z" statement in an AMA-mentioning paragraph."""
+    found: list[dict[str, Any]] = []
+    for path in sorted(root.rglob("*.md")):
+        rel = path.relative_to(root)
+        if rel.name in _DOC_SKIP_FILES or rel.parts[0] in _DOC_SKIP_TOP_DIRS:
+            continue
+        if any(part.startswith(".") for part in rel.parts):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for para in re.finditer(r"(?:.+\n?)+", text):
+            if "AMA" not in para.group(0):
+                continue
+            for m in _DOC_PIN_PATTERN.finditer(para.group(0)):
+                offset = para.start() + m.start()
+                found.append(
+                    {
+                        "path": str(rel),
+                        "line": text.count("\n", 0, offset) + 1,
+                        "ref": m.group("ref"),
+                    }
+                )
+    return found
+
+
+def _version(ref: str) -> str:
+    """Compare pins by version: ``v4.0.0`` and ``4.0.0`` name the same release."""
+    return ref[1:] if ref[:1] in {"v", "V"} else ref
+
+
 def _collect(args: argparse.Namespace) -> Certificate:
     root = Path(args.root).resolve()
     pyproject = _scan_pyproject(root)
     workflows, builds_ama_seen = _scan_workflows(root)
+    runtime_gate = _scan_runtime_gate(root)
+    docs = _scan_docs(root)
 
     all_refs: set[str] = set()
     for r in pyproject.get("refs", []):
@@ -149,6 +221,8 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "workflows": workflows,
         "builds_ama_seen": builds_ama_seen,
         "distinct_refs": sorted(all_refs),
+        "runtime_gate": runtime_gate,
+        "docs": docs,
     }
 
     warnings: list[str] = []
@@ -177,6 +251,23 @@ def _collect(args: argparse.Namespace) -> Certificate:
         status = "fail"
     else:
         status = "ok"
+
+    if status == "ok":
+        pinned = _version(next(iter(all_refs)))
+        restated = ([runtime_gate] if runtime_gate is not None else []) + docs
+        stale = [
+            entry for entry in restated if "error" in entry or _version(str(entry["ref"])) != pinned
+        ]
+        for entry in stale:
+            if "error" in entry:
+                warnings.append(f"{entry['path']}: {entry['error']}")
+            else:
+                warnings.append(
+                    f"{entry['path']}:{entry['line']}: states AMA {entry['ref']} but "
+                    f"pyproject.toml pins {pinned}"
+                )
+        if stale:
+            status = "fail"
 
     return Certificate(
         tool="workflow_version_drift_gate",
