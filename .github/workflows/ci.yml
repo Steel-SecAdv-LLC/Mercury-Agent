@@ -1287,6 +1287,22 @@ jobs:
         # touches. The *tests* here are still blocking -- only the coverage
         # number is informational.
 
+      - name: Pillar mutation gate (tests/pillars/ must not be vacuous)
+        # The step above proves the pillar suite passes; this one proves it
+        # can fail. Each of the 7 mutations disables or inverts exactly one
+        # enforced control (harm gate -> always ALLOW, grave-harm axis off,
+        # immutable ledger -> mutable, governor tripwire -> reversible, ...)
+        # and requires the pillar module that claims to observe it to go red.
+        # A survivor, or a mutation whose suite errors instead of failing,
+        # fails the job. CAPABILITY_MATRIX.md marks this row **enforced**
+        # ("deleting the control fails CI"); before this step nothing in CI
+        # ran the script, so a pillar test could have been weakened into a
+        # vacuous pass unnoticed. Measured 2026-09-27: 7/7 killed, ~80 s.
+        env:
+          MERCURY_REQUIRES_ML: "1"
+          AMA_REQUIRE_REAL_PQC: "true"
+        run: python scripts/mutate_pillar_controls.py
+
       - name: Upload neuro-symbolic coverage
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
