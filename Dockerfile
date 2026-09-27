@@ -166,7 +166,7 @@ LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-07-02"
+LABEL security.scan-date="2026-09-27"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
@@ -227,7 +227,18 @@ RUN apt-get update && \
     # trixie status "open", no fixed version) instead of accepting it.
     # Verified post-purge on the trixie base: apt-get update / install /
     # upgrade, dpkg, and `python -c "import gzip"` round-trip all work.
-    apt-get purge -y --allow-remove-essential perl-base adduser gzip && \
+    #
+    # mount (2026-09-27): ELIMINATED. The package ships mount(8)/umount(8)/
+    # losetup/swapon, the privileged entry points of the unfixed util-linux
+    # CVE-2026-76642 / CVE-2026-78409 / CVE-2026-78410 (X-mount.* hooks and
+    # restricted bind mounts; Debian trixie ``<no-dsa>``). It is not
+    # essential, nothing depends on it, and a container never mounts
+    # filesystems itself. The util-linux source family stays in the ledger
+    # (its essential packages remain), but the vulnerable binaries are gone.
+    # Verified on the trixie 13.7 base: apt-get update/install, dpkg --audit,
+    # useradd and the CPython uuid/gzip/ssl/sqlite3/readline/curses modules
+    # all work without it.
+    apt-get purge -y --allow-remove-essential perl-base adduser gzip mount && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
     apt-get clean && \

@@ -26,11 +26,24 @@
 # bookworm, and the perl-base elimination below; re-checked 2026-07-02 after
 # the vulnerability DB published 4 new unfixed CRITICAL/HIGH findings against
 # the 2026-06-30 posture (gzip, libglib2.0-0t64 — both ELIMINATED below, not
-# accepted). The built runtime image carries 4 distinct unfixed CRITICAL/HIGH
-# OS CVEs (0 CRITICAL, 4 HIGH), each cross-checked against the Debian
-# Security Tracker (trixie status "open", no fixed version published) and
-# each linked by either CPython or the base image's own coreutils/tar
-# toolchain.
+# accepted). RE-REVIEWED 2026-09-27 (Debian 13.7) after the scheduled
+# Security run went red on the expired ncurses entry plus five new unfixed
+# HIGH findings (util-linux x4, systemd x1): the runtime stage's OS layer was
+# rebuilt and scanned with trivy 0.70.0, which reproduced the CI failure
+# 1:1, and each finding was cross-checked against the Debian Security
+# Tracker. The built runtime image now carries 7 distinct unfixed
+# CRITICAL/HIGH OS CVEs (0 CRITICAL, 7 HIGH); every one is trixie
+# `<no-dsa>` ("Minor issue", no fixed version published) and each package
+# is a hard dependency of CPython, bash, coreutils/tar or apt/dpkg.
+#
+# DROPPED in the 2026-09-27 re-review (not carried inert):
+#   * CVE-2026-53615 (util-linux libblkid) — FIXED in trixie
+#     2.41.5-0+deb13u1, which the runtime stage's `apt-get upgrade` installs;
+#     the scan no longer reports it.
+#   * CVE-2026-54371 (libattr1) — re-scored HIGH -> MEDIUM by the vendor;
+#     still unfixed in trixie 1:2.5.2-3 but out of scope for the
+#     CRITICAL/HIGH blocking gate. Re-add here, don't silently drop, if a
+#     future re-scoring raises it back to HIGH.
 #
 # ELIMINATED, not accepted (removed from the image rather than waived here):
 #   * perl-base (CVE-2026-8376, CVE-2026-42496 [Critical]; CVE-2026-42497,
@@ -63,41 +76,65 @@
 # fix, but now out of scope for the CRITICAL/HIGH blocking gate. Re-add here,
 # don't silently drop, if a future re-scoring raises them back to HIGH).
 #
-# Common mitigations (all three remaining packages): the container runs as
-# non-root UID 1000 with SUID/SGID bits stripped, and none sits on an
-# untrusted-input path in the shipped API. ncurses (libtinfo6/libncursesw6/
-# ncurses-base/ncurses-bin) is linked by CPython's readline/curses stdlib
-# modules (and libtinfo also backs the shell); libacl1/libattr1 are linked by
-# the base image's own coreutils/tar (ACL/xattr support, `cp --preserve`,
-# `tar --acls`) — so none can be removed without breaking the interpreter or
-# the package-management toolchain `apt-get upgrade` itself depends on.
-# Debian trixie publishes no patched build for any of the three to
-# `apt-get upgrade` to. Each is accepted only as a time-boxed, enumerated,
-# expiring risk — never silenced.
+# Common mitigations (every remaining entry): the container runs as non-root
+# UID 1000 with SUID/SGID bits stripped, and none of the vulnerable code sits
+# on an untrusted-input path in the shipped API. Debian trixie publishes no
+# patched build for any of them to `apt-get upgrade` to. Each is accepted
+# only as a time-boxed, enumerated, expiring risk — never silenced.
 
 # ncurses (libncursesw6 / libtinfo6 / ncurses-base / ncurses-bin
-# 6.5+20250216-2) — Debian trixie status "open", no fix. Buffer overflow in
-# terminal handling only; never exposed to untrusted input in the API
-# container. Linked by CPython's readline/_curses stdlib modules (and libtinfo
-# backs the shell), so it cannot be removed without breaking the interpreter.
-CVE-2025-69720 exp:2026-09-16
+# 6.5+20250216-2) — Debian trixie `<no-dsa>` (Minor issue), fixed only in
+# forky/sid (upstream 6.5-20251213). The overflow is in the infocmp(1)
+# command-line tool (progs/infocmp.c analyze_string), not in the shared
+# libraries; Mercury never runs infocmp. The libraries are linked by bash
+# (libtinfo6) and CPython's readline/_curses stdlib modules, so the package
+# family cannot be removed without breaking the shell and the interpreter.
+# Re-reviewed 2026-09-27 (previous acceptance expired 2026-09-16).
+CVE-2025-69720 exp:2026-12-26
 
-# acl / attr (libacl1 2.3.2-2+b1, libattr1 1:2.5.2-3) — Debian trixie status
-# "open", no upstream fix yet (fixed only in acl >= 2.4.0 / attr >= 2.6.0).
-# Both are local-only symlink-traversal privilege-escalation bugs in the
-# pathname-based ACL/xattr functions (acl_get_file/acl_set_file and
-# getfattr/setfattr) reachable only by a local attacker who already controls
-# a pathname component being traversed by a *privileged* caller of those
-# APIs. Mercury's container runs as non-root UID 1000 with SUID/SGID bits
-# stripped, invokes neither the acl(1)/attr(1) CLIs nor the libacl/libattr
-# APIs directly, and exposes no path where request input reaches a
-# privileged ACL/xattr call. Both packages stay because Debian's coreutils
-# and tar are built against them (ACL/extended-attribute support), and
-# coreutils/tar back `apt-get upgrade` itself in the Dockerfile's
-# runtime-stage patch step — removing them is not viable without breaking
-# the image's own update path.
-CVE-2026-54369 exp:2026-09-28
-CVE-2026-54371 exp:2026-09-28
+# acl (libacl1 2.3.2-2+b1) — Debian trixie `<no-dsa>` ("will be fixed first
+# in unstable, then point release update"); fixed upstream only in acl
+# >= 2.4.0. Local-only symlink-traversal privilege escalation in the
+# pathname-based acl_*_file() functions, reachable only by a local attacker
+# who controls a pathname component traversed by a *privileged* caller.
+# Mercury invokes neither the acl(1) CLIs nor the libacl API, runs non-root,
+# and exposes no path where request input reaches a privileged ACL call.
+# libacl1 stays because Debian's coreutils, sed, tar and passwd are built
+# against it. Re-reviewed 2026-09-27 (previous acceptance expired 2026-09-28).
+CVE-2026-54369 exp:2026-12-26
+
+# systemd (libsystemd0 / libudev1 257.13-1~deb13u1) — CVE-2026-16742,
+# Debian trixie `<no-dsa>` (Minor issue), fixed only in forky/sid. The bug is
+# a local privilege escalation in the systemd-homed daemon (home-record
+# signature verification). systemd-homed is NOT installed: the image carries
+# only the libsystemd0/libudev1 client libraries, which are hard
+# dependencies of coreutils, bsdutils, util-linux, apt/libapt-pkg and
+# libpam-modules, so they cannot be removed. Added 2026-09-27.
+CVE-2026-16742 exp:2026-12-26
+
+# util-linux family (bsdutils, libblkid1, liblastlog2-2, libmount1,
+# libsmartcols1, libuuid1, login, util-linux 2.41.5-0+deb13u1) — four HIGH
+# findings published after the 2026-07-09 review, all Debian trixie
+# `<no-dsa>` (Minor issue), fixed only in forky/sid (2.42.3 / 2.42.4):
+#   * CVE-2026-76642, CVE-2026-78409, CVE-2026-78410 — SUID mount(8)
+#     X-mount.* post-hook / X-mount.subdir / restricted-bind-mount flaws that
+#     let an unprivileged user with an fstab-authorised entry redirect a
+#     privileged mount. The `mount` package (mount/umount/losetup/swapon) is
+#     PURGED from the runtime image as of 2026-09-27 (it has no reverse
+#     dependency and the container never mounts anything), so the vulnerable
+#     entry point is gone; the libmount1 library remains only because
+#     util-linux's own tools link it.
+#   * CVE-2026-78408 — nsenter --join-cgroup leaks a root cgroup.procs fd; it
+#     requires a *privileged operator* to run nsenter against an
+#     attacker-controlled target. The container runs no nsenter and has no
+#     root operator inside it.
+# util-linux and bsdutils are Debian "essential"; libuuid1/libblkid1 back
+# CPython and coreutils, so the family itself is irreducible. Added
+# 2026-09-27.
+CVE-2026-76642 exp:2026-12-26
+CVE-2026-78408 exp:2026-12-26
+CVE-2026-78409 exp:2026-12-26
+CVE-2026-78410 exp:2026-12-26
 
 # Mesa GL stack (CVE-2026-40393): REMOVED, not accepted. It was installed
 # only as OpenCV's libGL dependency, but Mercury uses
@@ -106,19 +143,3 @@ CVE-2026-54371 exp:2026-09-28
 # CVE are gone from the image. The blocking Trivy gate (ignore-unfixed:
 # false) re-verifies this on every build: were the package to reappear,
 # the gate would fail rather than silently pass.
-
-# util-linux family (bsdutils 1:2.41-5, libblkid1, liblastlog2-2, libmount1,
-# libsmartcols1, libuuid1, login, mount, util-linux 2.41-5) —
-# CVE-2026-53615, published 2026-07-09: integer overflow/wraparound in
-# libblkid's MS-DOS partition-table parser (libblkid/src/partitions/dos.c).
-# Debian trixie status "open", no fixed version published (Trivy reports no
-# fix; nothing for the runtime stage's `apt-get upgrade` to pull). The parse
-# path triggers only when a *privileged* caller probes an attacker-crafted
-# block device / disk image with libblkid; Mercury's container runs as
-# non-root UID 1000 with SUID/SGID stripped, never probes block devices, and
-# exposes no path where request input reaches blkid. util-linux and its
-# libraries are Debian "essential" (mount/login back the base image and
-# libuuid/libblkid back CPython + coreutils), so elimination is not viable
-# without breaking the image's own toolchain. Time-boxed acceptance pending
-# an upstream fix; re-review forced at expiry (90-day cadence).
-CVE-2026-53615 exp:2026-10-07
