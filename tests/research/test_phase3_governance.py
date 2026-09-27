@@ -5,6 +5,10 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path as _RuntimePath
 from typing import TYPE_CHECKING
 
 from research.governed_fusion.phase3_governance import (
@@ -334,3 +338,34 @@ def test_phase3_cli_routes_a_dormant_revival_report(tmp_path: Path) -> None:
     assert exit_code == 0
     assert decisions[0]["surface"] == "dormant_revival"
     assert decisions[0]["action"] == Phase3Action.MAINTAIN.value
+
+
+_REPO_ROOT = _RuntimePath(__file__).resolve().parents[2]
+
+
+def test_the_ci_invocation_resolves_from_a_clean_interpreter() -> None:
+    """The recurring-dormant-revival job must be able to import this module.
+
+    Invoked by path (``python research/governed_fusion/phase3_governance.py``)
+    only the script's own directory is on ``sys.path``, ``research`` is not
+    importable, and the step failed on every main run from 2026-06-22 to
+    2026-09-21. The workflow now runs it as a module; this pins both halves.
+    """
+    workflow = (_REPO_ROOT / ".github" / "workflows" / "phase3-governance.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "python -m research.governed_fusion.phase3_governance" in workflow
+    assert "python research/governed_fusion/phase3_governance.py" not in workflow
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    proc = subprocess.run(
+        [sys.executable, "-m", "research.governed_fusion.phase3_governance", "--help"],
+        cwd=_REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "--dormant-revival" in proc.stdout
