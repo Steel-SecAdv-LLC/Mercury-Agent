@@ -79,7 +79,6 @@ from ama_cryptography.pqc_backends import (
     kyber_encapsulate as _ama_kyber_encapsulate,
     slhdsa_sign as _ama_slhdsa_sign,
     slhdsa_sign_deterministic as _ama_slhdsa_sign_deterministic,
-    slhdsa_sign_internal as _ama_slhdsa_sign_internal,
     slhdsa_verify as _ama_slhdsa_verify,
     sphincs_sign as _ama_sphincs_sign,
     sphincs_verify as _ama_sphincs_verify,
@@ -478,40 +477,6 @@ def slhdsa_sign_deterministic(
             f"got {len(secret_key)}"
         )
     return bytes(_ama_slhdsa_sign_deterministic(message, secret_key, ctx, param_set))
-
-
-def slhdsa_sign_internal(
-    message: bytes,
-    secret_key: bytes,
-    addrnd: bytes,
-    param_set: str = "SHAKE-128s",
-) -> bytes:
-    """FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
-
-    Used by the NIST ACVP hedged sigGen KAT replay path: the test harness
-    pre-applies the FIPS 205 §10.2 ctx wrapper to the message and replays
-    the vector's ``additionalRandomness`` bytes as ``addrnd``. Production
-    callers should use ``slhdsa_sign`` (hedged) or ``slhdsa_sign_deterministic``
-    instead — this entry point exists for byte-exact KAT reproduction only.
-    """
-    if not SLHDSA_AVAILABLE:
-        raise RuntimeError("FIPS 205 SLH-DSA not available. Upgrade to ama-cryptography ≥ 3.1.0.")
-    _, sk_len, _ = _slhdsa_param_sizes(param_set)
-    if len(secret_key) != sk_len:
-        raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; "
-            f"got {len(secret_key)}"
-        )
-    n = (
-        SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES
-        if param_set == "SHAKE-128s"
-        else SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES
-    )
-    if len(addrnd) != n:
-        raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} addrnd must be {n} bytes; got {len(addrnd)}"
-        )
-    return bytes(_ama_slhdsa_sign_internal(message, secret_key, addrnd, param_set))
 
 
 def slhdsa_verify(
