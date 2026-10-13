@@ -86,6 +86,17 @@ jobs:
           pip install -e ".[ml,benchmark]"
           pip install pytest
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # Every later step imports ``omni_mercury_engine`` (the prefetch
+        # script, the pytest lanes, and competitive_benchmark itself), and
+        # the package's import-time PQC gate fails closed without the real
+        # native AMA backend -- so AMA must be built before any of them run.
+        # This lane went red when the gate landed (PR #360) because it was
+        # the one engine-importing workflow without this step.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v4.0.0
+
       - name: Prefetch ADBench guard datasets
         # The guard subset (8 Classical sets) is all --check needs; --quick
         # additionally pulls 2 embedding sets which competitive_benchmark

@@ -112,12 +112,12 @@ be evaluated with:
 
 ```bash
 # Route a composite evidence report.
-python research/governed_fusion/phase3_governance.py \
+python -m research.governed_fusion.phase3_governance \
   --report artifacts/phase3_report.json \
   --check
 
 # Route a dormant-module revival benchmark report (closes the measure->route loop).
-python research/governed_fusion/phase3_governance.py \
+python -m research.governed_fusion.phase3_governance \
   --dormant-revival artifacts/dormant_module_revival.json \
   --out artifacts/dormant_module_revival_routing.json
 ```
