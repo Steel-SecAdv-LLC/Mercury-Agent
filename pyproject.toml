@@ -64,7 +64,6 @@ dependencies = [
     "click>=8.1.0",
     "pydantic>=2.13.3",
     "bcrypt>=4.0.1",
-    "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
     "requests>=2.33.1",  # Security: CVE-2026-25645
     # Pin urllib3's floor even though it is transitive via requests: the open-web
@@ -367,6 +366,14 @@ benchmark = [
 
 # Development tools
 dev = [
+    # pyca cryptography is NOT a runtime dependency: AMA Cryptography owns
+    # every production crypto path and crypto/sovereign.py is the
+    # repository-owned emergency tier (tests/test_pyca_import_boundary.py
+    # holds the engine at zero pyca imports). It remains here solely as the
+    # independent test oracle for the sovereign tier's RFC pins and the
+    # legacy-continuity checks. Floor carries the CVE fixes:
+    # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892.
+    "cryptography>=46.0.7",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",

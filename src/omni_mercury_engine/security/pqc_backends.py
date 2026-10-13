@@ -47,6 +47,7 @@ References:
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -57,6 +58,10 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # AMA Cryptography — sole PQC backend
 # ---------------------------------------------------------------------------
+from ama_cryptography.exceptions import (
+    CryptoModuleError as _AmaCryptoModuleError,
+    NativeBackendUnavailableError as _AmaNativeBackendUnavailableError,
+)
 from ama_cryptography.pqc_backends import (
     _ED25519_NATIVE_AVAILABLE as _AMA_ED25519,
     DILITHIUM_AVAILABLE as _AMA_DILITHIUM,
@@ -105,6 +110,8 @@ SLHDSA_SHAKE_128S_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SIG_BYTES)
 SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_PK_BYTES)
 SLHDSA_SHA2_256F_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SK_BYTES)
 SLHDSA_SHA2_256F_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SIG_BYTES)
+
+logger = logging.getLogger(__name__)
 
 #: Classical Ed25519, served by the same AMA native library as the PQC
 #: algorithms (RFC 8032; AMA v5.0.0 adds canonical-encoding rejection and a
@@ -658,6 +665,19 @@ def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     public-key length, preserving the boolean verifier contract Mercury's
     callers rely on (a malformed input is a failed verification, never a
     crash in a verification path).
+
+    **Emergency availability**: if AMA fails at *runtime* with an
+    infrastructure error (``NativeBackendUnavailableError`` /
+    ``CryptoModuleError`` — e.g. a FIPS error-state lockout mid-process),
+    verification degrades to Mercury's sovereign stdlib verifier
+    (:mod:`omni_mercury_engine.crypto.sovereign`, RFC-8032-strict and
+    RFC-vector pinned) with a CRITICAL log, so read paths — corpus
+    signature checks, Raft envelope verification, certificate audits —
+    stay alive. The degrade applies to verification only: ``ed25519_sign``
+    and every other signing surface stays fail-closed, because signing in
+    pure Python would leak the secret through timing. A verification
+    *verdict* (``False`` / a ``ValueError`` length refusal) never triggers
+    the fallback — a forgery does not get a second verifier.
     """
     if not ED25519_AVAILABLE:
         raise RuntimeError("Ed25519 not available in AMA Cryptography.")
@@ -665,6 +685,17 @@ def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
         return bool(_ama_native_ed25519_verify(signature, message, public_key))
     except ValueError:
         return False
+    except (_AmaNativeBackendUnavailableError, _AmaCryptoModuleError) as exc:
+        from omni_mercury_engine.crypto import sovereign as _sovereign
+
+        logger.critical(
+            "AMA Cryptography failed at runtime during Ed25519 verification "
+            "(%s: %s); verifying with Mercury's sovereign stdlib verifier. "
+            "Signing remains unavailable until AMA is restored.",
+            type(exc).__name__,
+            exc,
+        )
+        return _sovereign.ed25519_verify(message, signature, public_key)
 
 
 def get_pqc_capabilities() -> dict[str, Any]:

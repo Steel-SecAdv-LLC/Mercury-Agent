@@ -2,16 +2,37 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Cryptographic Operations Module.
 
-P3: PyO3-based high-performance cryptographic operations.
+Tiered, sovereign crypto for Mercury's lightweight layer. Every tier is
+either repository-owned or Mercury's mandatory AMA backend — no third-party
+crypto library sits on this path (pyca ``cryptography`` is benchmark-only,
+enforced by ``tests/test_pyca_import_boundary.py``):
 
-This module provides a Python interface to Rust cryptographic primitives,
-offering significant performance improvements over pure Python implementations.
+1. **rust** — the PyO3 ``mercury_crypto`` extension (repository-owned,
+   fastest; built with ``cd rust_crypto && maturin develop``).
+2. **ama-native** — AMA Cryptography's native C backend. AMA is mandatory
+   at engine import (``_pqc_gate``), so inside a running engine this tier
+   is always present and FIPS-gated.
+3. **sovereign-python** — Mercury's own stdlib-only emergency
+   implementations (:mod:`omni_mercury_engine.crypto.sovereign`):
+   ChaCha20-Poly1305 (RFC 8439) and HKDF-SHA256 (RFC 5869), RFC-vector
+   pinned. AES-GCM deliberately has no pure-Python tier (S-box timing);
+   requesting it with both native tiers down fails loudly rather than
+   silently switching algorithms.
+
+The AEAD wire format is ``ciphertext || 16-byte tag`` on every tier, so
+data sealed by one tier opens under any other (same algorithm).
+
+A runtime AMA infrastructure failure (``NativeBackendUnavailableError`` /
+``CryptoModuleError`` — e.g. a FIPS error-state lockout) latches this
+module into the sovereign tier with a single CRITICAL log; an
+authentication failure (tampered ciphertext) is never a degrade trigger
+and always raises ``ValueError``.
 
 Features:
 - AEAD encryption (AES-GCM, ChaCha20-Poly1305)
 - Cryptographic hashing (BLAKE3, SHA-256, SHA-3)
-- Key derivation (Argon2id)
-- Secure random generation
+- Key derivation (Argon2id, HKDF-SHA256)
+- Secure random generation (AMA health-tested DRBG when active)
 - Constant-time operations
 
 Usage:
@@ -38,7 +59,9 @@ from omni_mercury_engine._version import get_version as _get_version
 
 logger = logging.getLogger(__name__)
 
-# Try to import Rust bindings, fall back to pure Python
+from omni_mercury_engine.crypto import sovereign as _sovereign
+
+# Tier 1: Rust bindings (repository-owned, fastest when built).
 _RUST_AVAILABLE = False
 _rust_crypto: Any = None
 
@@ -49,22 +72,62 @@ try:
     _RUST_AVAILABLE = True
     logger.info("Rust crypto bindings loaded successfully")
 except ImportError:
-    logger.warning(
-        "Rust crypto bindings not available, falling back to the pyca "
-        "`cryptography` package (OpenSSL-backed native code, not pure Python). "
-        "For better performance, build the Rust extension: cd rust_crypto && maturin develop"
+    logger.info(
+        "Rust crypto bindings not built; using the AMA native tier. "
+        "For maximum throughput build the Rust extension: "
+        "cd rust_crypto && maturin develop"
     )
 
-# Pure Python fallback imports
+# Tier 2: AMA Cryptography's native backend. Mandatory at engine import
+# (the PQC gate), so inside a running engine these imports succeed; the
+# guard exists for exotic standalone imports of this module.
+_AMA_AVAILABLE = False
+_ama_exceptions: tuple[type[BaseException], ...] = ()
 try:
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
-    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    from ama_cryptography.exceptions import (
+        CryptoModuleError as _AmaCryptoModuleError,
+        NativeBackendUnavailableError as _AmaNativeUnavailableError,
+    )
+    from ama_cryptography.pqc_backends import (
+        native_aes256_gcm_decrypt as _ama_aes_decrypt,
+        native_aes256_gcm_encrypt as _ama_aes_encrypt,
+        native_chacha20poly1305_decrypt as _ama_chacha_decrypt,
+        native_chacha20poly1305_encrypt as _ama_chacha_encrypt,
+        native_hkdf_sha256 as _ama_hkdf_sha256,
+    )
+    from ama_cryptography.secure_memory import secure_random_bytes as _ama_random_bytes
 
-    _PYTHON_CRYPTO_AVAILABLE = True
-except ImportError:
-    _PYTHON_CRYPTO_AVAILABLE = False
-    logger.warning("cryptography package not available")
+    _ama_exceptions = (_AmaNativeUnavailableError, _AmaCryptoModuleError)
+    _AMA_AVAILABLE = True
+except ImportError:  # pragma: no cover - engine import already requires AMA
+    logger.warning("AMA Cryptography not importable; sovereign tier is primary")
+
+# Tier 3: Mercury's own stdlib-only emergency implementations are always
+# available (see crypto/sovereign.py). This flag latches True on the first
+# AMA *infrastructure* failure so the module degrades once, loudly, instead
+# of hammering a locked-out backend on every call.
+_AMA_RUNTIME_FAILED = False
+
+
+def _ama_degrade(operation: str, exc: BaseException) -> None:
+    """Latch the sovereign tier after an AMA runtime infrastructure failure."""
+    global _AMA_RUNTIME_FAILED
+    if not _AMA_RUNTIME_FAILED:
+        _AMA_RUNTIME_FAILED = True
+        logger.critical(
+            "AMA Cryptography failed at runtime during %s (%s: %s); this "
+            "process has degraded to Mercury's sovereign emergency crypto "
+            "tier (ChaCha20-Poly1305 / HKDF-SHA256, verify-only signatures). "
+            "AES-GCM and signing are unavailable until AMA is restored.",
+            operation,
+            type(exc).__name__,
+            exc,
+        )
+
+
+def _ama_active() -> bool:
+    return _AMA_AVAILABLE and not _AMA_RUNTIME_FAILED
+
 
 try:
     import hashlib
@@ -92,13 +155,18 @@ __version__ = _get_version()
 
 
 def get_crypto_backend() -> str:
-    """Return the active cryptographic backend."""
+    """Return the active cryptographic backend tier.
+
+    ``"rust"`` (repository-owned extension), ``"ama-native"`` (AMA's C
+    backend — the in-engine default), or ``"sovereign-python"`` (Mercury's
+    stdlib-only emergency tier; also reported after a runtime AMA
+    infrastructure failure latches the degrade).
+    """
     if _RUST_AVAILABLE:
         return "rust"
-    elif _PYTHON_CRYPTO_AVAILABLE:
-        return "python-cryptography"
-    else:
-        return "hashlib-only"
+    if _ama_active():
+        return "ama-native"
+    return "sovereign-python"
 
 
 def is_rust_available() -> bool:
@@ -204,17 +272,26 @@ def encrypt(
             ciphertext = bytes(_rust_crypto.py_chacha_encrypt(plaintext, key, nonce, aad))
         return ciphertext, nonce
 
-    # Python fallback
-    if _PYTHON_CRYPTO_AVAILABLE:
-        cipher: AESGCM | ChaCha20Poly1305
-        if algorithm == "aes-gcm":
-            cipher = AESGCM(key)
-        else:
-            cipher = ChaCha20Poly1305(key)
-        ciphertext = cipher.encrypt(nonce, plaintext, aad)
-        return ciphertext, nonce
+    if _ama_active():
+        try:
+            if algorithm == "aes-gcm":
+                ct, tag = _ama_aes_encrypt(key, nonce, plaintext, aad)
+            else:
+                ct, tag = _ama_chacha_encrypt(key, nonce, plaintext, aad)
+            return bytes(ct) + bytes(tag), nonce
+        except _ama_exceptions as exc:
+            _ama_degrade("encrypt", exc)
 
-    raise RuntimeError("No encryption backend available")
+    # Sovereign emergency tier: ChaCha20-Poly1305 only — AES-GCM has no
+    # safe pure-Python implementation (S-box cache timing), and silently
+    # swapping algorithms would betray the caller's stored-data format.
+    if algorithm == "aes-gcm":
+        raise RuntimeError(
+            "AES-GCM requires the Rust or AMA native backend; the sovereign "
+            "emergency tier serves ChaCha20-Poly1305 only. Pass "
+            "algorithm='chacha20-poly1305' or restore a native backend."
+        )
+    return _sovereign.chacha20poly1305_encrypt(key, nonce, plaintext, aad), nonce
 
 
 def decrypt(
@@ -255,19 +332,32 @@ def decrypt(
         except RuntimeError as e:
             raise ValueError(f"Decryption failed: {e}") from e
 
-    # Python fallback
-    if _PYTHON_CRYPTO_AVAILABLE:
+    if _ama_active():
+        if len(ciphertext) < 16:
+            raise ValueError("Decryption failed: ciphertext shorter than the 16-byte tag")
+        ct, tag = ciphertext[:-16], ciphertext[-16:]
         try:
-            cipher_dec: AESGCM | ChaCha20Poly1305
             if algorithm == "aes-gcm":
-                cipher_dec = AESGCM(key)
-            else:
-                cipher_dec = ChaCha20Poly1305(key)
-            return cipher_dec.decrypt(nonce, ciphertext, aad)
-        except Exception as e:
+                return bytes(_ama_aes_decrypt(key, nonce, ct, tag, aad))
+            return bytes(_ama_chacha_decrypt(key, nonce, ct, tag, aad))
+        except _ama_exceptions as exc:
+            # Infrastructure failure, not an authentication verdict: latch
+            # the degrade and let the sovereign tier give the real verdict
+            # below (ChaCha only).
+            _ama_degrade("decrypt", exc)
+        except (ValueError, RuntimeError) as e:
+            # AMA reports a tag mismatch as ValueError (AES-GCM) or a bare
+            # RuntimeError (ChaCha). An authentication failure must NEVER
+            # trigger a backend fallback — a forgery does not get a second
+            # verifier — so it normalises to the layer's ValueError contract.
             raise ValueError(f"Decryption failed: {e}") from e
 
-    raise RuntimeError("No decryption backend available")
+    if algorithm == "aes-gcm":
+        raise RuntimeError(
+            "AES-GCM requires the Rust or AMA native backend; the sovereign "
+            "emergency tier serves ChaCha20-Poly1305 only."
+        )
+    return _sovereign.chacha20poly1305_decrypt(key, nonce, ciphertext, aad)
 
 
 # =============================================================================
@@ -348,25 +438,21 @@ def derive_key_pair(
         enc_key, auth_key = _rust_crypto.py_derive_key_pair(master_secret, salt, info)
         return bytes(enc_key), bytes(auth_key)
 
-    # Python fallback
-    if _PYTHON_CRYPTO_AVAILABLE:
-        enc_key = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            info=info + b"-enc",
-        ).derive(master_secret)
+    # HKDF-SHA256 is deterministic by specification (RFC 5869), so the AMA
+    # and sovereign tiers produce byte-identical keys — previously-derived
+    # key material keeps working whichever tier serves the call.
+    if _ama_active():
+        try:
+            enc_key = bytes(_ama_hkdf_sha256(master_secret, 32, salt, info + b"-enc"))
+            auth_key = bytes(_ama_hkdf_sha256(master_secret, 32, salt, info + b"-auth"))
+            return enc_key, auth_key
+        except _ama_exceptions as exc:
+            _ama_degrade("derive_key_pair", exc)
 
-        auth_key = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            info=info + b"-auth",
-        ).derive(master_secret)
-
-        return enc_key, auth_key
-
-    raise RuntimeError("No HKDF backend available")
+    return (
+        _sovereign.hkdf_sha256(master_secret, 32, salt, info + b"-enc"),
+        _sovereign.hkdf_sha256(master_secret, 32, salt, info + b"-auth"),
+    )
 
 
 # =============================================================================
@@ -385,6 +471,15 @@ def secure_random(length: int) -> bytes:
     """
     if _RUST_AVAILABLE:
         return bytes(_rust_crypto.py_secure_random(length))
+
+    if _ama_active():
+        try:
+            # AMA's draw runs under its FIPS 140-3 health tests (continuous
+            # repeated-output check, error-state gating) — strictly stronger
+            # than a bare urandom read.
+            return bytes(_ama_random_bytes(length))
+        except _ama_exceptions as exc:
+            _ama_degrade("secure_random", exc)
 
     return secrets.token_bytes(length)
 

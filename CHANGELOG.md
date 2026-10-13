@@ -93,6 +93,34 @@ lightweight layer's AEAD/KDF fallback, now the one bounded PyCA surface
 Validated: 1,487 tests across the security, tools, distributed and
 integrations suites pass on the migrated tree.
 
+**Sovereignty — Mercury gains its own emergency crypto tier; pyca exits the engine entirely.**
+AMA is mandatory at import, but a backend can still fail at *runtime* (AMA
+v5's FIPS error state inhibits output on every surface once tripped), and
+the only fallback in the tree was a third-party one: the crypto/ layer's
+pyca AEAD/KDF tier. Mercury now carries `crypto/sovereign.py` — handwritten,
+stdlib-only, repository-owned implementations of exactly what an emergency
+needs: ChaCha20-Poly1305 (RFC 8439), HKDF-SHA256 (RFC 5869), and
+**verify-only** Ed25519 (RFC 8032, strict: non-canonical encodings and
+`s >= L` rejected, matching AMA v5). Every primitive is pinned to its RFC's
+own vectors and cross-checked against AMA and the pyca oracle
+(`tests/crypto/test_sovereign_backup.py`, 30 tests). The crypto/ layer
+re-tiers to rust -> ama-native -> sovereign-python with governed
+degradation: only an AMA infrastructure exception latches the sovereign
+tier (one CRITICAL log); an authentication failure is a verdict, never a
+degrade trigger; AES-GCM refuses loudly under degradation instead of
+silently switching algorithms (pure-Python AES is a cache-timing hazard);
+`ed25519_verify` degrades to the sovereign verifier so read paths stay
+alive while signing stays fail-closed (pure-Python signing would leak the
+secret through timing — fail-safe reads, fail-closed writes). Continuity is
+proven, not assumed: the `ciphertext || tag` format and deterministic HKDF
+make all tiers byte-interoperable, and legacy pyca-sealed ciphertexts and
+pyca-derived keys verify unchanged in tests. `secure_random` now draws
+through AMA's FIPS 140-3 health-tested DRBG when active. With that, pyca
+`cryptography` has **zero imports in the engine**: the boundary guard
+tightens to an empty allow-list and the package moves from core
+dependencies to the dev extra (test oracle only) — production installs and
+images no longer carry it.
+
 **Benchmark isolation made executable for PyOD.**
 scikit-learn's boundary has an AST-level guard
 (`tests/test_no_sklearn_in_src.py`); PyOD's — documented in pyproject as
