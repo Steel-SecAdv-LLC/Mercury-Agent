@@ -390,9 +390,28 @@ class HybridSignatureProvider:
         """Verify hybrid signature.
 
         Returns (classical_valid, pqc_valid).
+
+        The classical half fails closed: when the verifier supplies a
+        classical public key it is demanding both halves, so a hybrid
+        signature whose ``classical_signature`` is absent — stripped in
+        transit, or produced without the classical secret — verifies
+        ``classical_valid=False``, never vacuously ``True``. Reporting a
+        stripped signature as classically valid would let a PQC-only forgery
+        pass a verifier that asked for the hybrid guarantee, defeating the
+        reason a hybrid exists (each half protects against the other's
+        algorithm breaking). Passing ``classical_public=None`` is the one
+        explicit opt-out: the verifier has no classical key, so only the PQC
+        half is meaningful and ``classical_valid`` reports ``True``.
         """
-        classical_valid = True
-        if self.classical_provider and classical_public and hybrid_sig.classical_signature:
+        if classical_public is None:
+            # Explicit opt-out: no classical key to verify against.
+            classical_valid = True
+        elif self.classical_provider is None or not hybrid_sig.classical_signature:
+            # Fail closed: a classical key was supplied, but the classical
+            # half cannot be verified (unavailable provider, empty key, or a
+            # missing/stripped classical signature).
+            classical_valid = False
+        else:
             classical_valid = self.classical_provider.verify(
                 message, hybrid_sig.classical_signature, classical_public
             )

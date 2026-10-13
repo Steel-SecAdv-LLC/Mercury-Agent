@@ -58,6 +58,31 @@ wheel>=0.48.0, cmake>=4.4.4 (the ci.yml audit-venv floors, previously
   `bytearray` shared secret (upstream glance row 24) equal to its `bytes`
   image.
 
+**Security — hybrid signature stripping fails closed.**
+`HybridSignatureProvider.verify` initialised `classical_valid = True` and only
+overwrote it when a classical signature was *present*, so a hybrid whose
+Ed25519 half was stripped in transit reported `classical_valid=True` to a
+verifier that supplied the classical public key — a PQC-only forgery would
+pass the full hybrid check, defeating the reason a hybrid exists (each half
+protects against the other's algorithm breaking). Supplying a classical
+public key now demands a verifiable classical half (absent provider, empty
+key or missing signature verify False); `classical_public=None` remains the
+one explicit opt-out. Both directions pinned in
+`tests/security/test_crypto_api.py`.
+
+**Benchmark isolation made executable for PyOD.**
+scikit-learn's boundary has an AST-level guard
+(`tests/test_no_sklearn_in_src.py`); PyOD's — documented in pyproject as
+"only the comparison lane imports pyod, lazily" — was documentation only,
+and PyOD wraps sklearn estimators, so a PyOD import in production would pull
+sklearn into an operational path without ever spelling "sklearn".
+`tests/test_pyod_isolation_guard.py` reuses the sklearn guard's detector
+(static + dynamic import forms) to confine PyOD to `benchmarks/`,
+`src/omni_mercury_engine/comparison/` and that lane's tests, and separately
+forbids any production module from importing
+`omni_mercury_engine.comparison` at all, with non-vacuity pins on both
+allow-rules.
+
 Separately, three scheduled lanes that were red on `main` are fixed at root
 cause (reproduced before each fix): `competitive-benchmark.yml` was the one
 engine-importing workflow without the AMA build step, so the PR-#360
