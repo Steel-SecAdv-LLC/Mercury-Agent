@@ -245,7 +245,7 @@ jobs:
           "
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: benchmark-results-${{ github.sha }}
           path: benchmarks/mercury_benchmark_results.json
@@ -425,7 +425,7 @@ jobs:
 
       - name: Upload empirical results (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: empirical-results-${{ github.sha }}
           path: benchmarks/empirical_benchmark_results.json
@@ -446,7 +446,7 @@ jobs:
             --json benchmarks/seven_axis_results.json
 
       - name: Upload seven-axis results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: seven-axis-results-${{ github.sha }}
           path: benchmarks/seven_axis_results.json
@@ -519,7 +519,7 @@ jobs:
 
     steps:
       - name: Download current benchmark results
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: benchmark-results-${{ github.sha }}
           path: current
