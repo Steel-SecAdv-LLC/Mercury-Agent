@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Post-Quantum Cryptography Backends.
 
-AMA Cryptography v4.0.0 is the sole PQC implementation.  The git ref is
+AMA Cryptography v5.0.0 is the sole PQC implementation.  The git ref is
 pinned in ``pyproject.toml [project.optional-dependencies].pqc`` and in
 the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
 ``.github/workflows/pqc-production-check.yml`` -- bump those in
@@ -11,8 +11,8 @@ lock-step when upgrading.
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
 SIMULATION), then a soft-import / hard-call stub bridge for AMA-less dev
 lanes.  Mercury now fails closed at module import: if
-``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v4.0.0
-FIPS 204/205 symbols are missing, this module does not load.  AMA v4.0.0
+``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v5.0.0
+FIPS 204/205 symbols are missing, this module does not load.  AMA v5.0.0
 carries its own native C backend — it *is* the implementation.  Retaining
 weaker fallbacks only widened the attack surface.
 
@@ -20,7 +20,7 @@ The v3.x surface adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and
 FIPS 205 SLH-DSA-SHAKE-128s.  The ``native_hmac_sha256`` /
 ``native_hmac_sha256_2`` Python bindings consumed by
 ``omni_mercury_engine.security.native_jwt`` for HS256 / HS512 JOSE
-signing were introduced in v3.2.0 and are retained in the pinned v4.0.0.
+signing were introduced in v3.2.0 and are retained in the pinned v5.0.0.
 
 SECURITY NOTICE
 ===============
@@ -78,8 +78,8 @@ from ama_cryptography.pqc_backends import (
     kyber_decapsulate as _ama_kyber_decapsulate,
     kyber_encapsulate as _ama_kyber_encapsulate,
     slhdsa_sign as _ama_slhdsa_sign,
+    slhdsa_sign_addrnd as _ama_slhdsa_sign_addrnd,
     slhdsa_sign_deterministic as _ama_slhdsa_sign_deterministic,
-    slhdsa_sign_internal as _ama_slhdsa_sign_internal,
     slhdsa_verify as _ama_slhdsa_verify,
     sphincs_sign as _ama_sphincs_sign,
     sphincs_verify as _ama_sphincs_verify,
@@ -480,19 +480,25 @@ def slhdsa_sign_deterministic(
     return bytes(_ama_slhdsa_sign_deterministic(message, secret_key, ctx, param_set))
 
 
-def slhdsa_sign_internal(
+def slhdsa_sign_addrnd(
     message: bytes,
     secret_key: bytes,
     addrnd: bytes,
+    ctx: bytes = b"",
     param_set: str = "SHAKE-128s",
 ) -> bytes:
-    """FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
+    """FIPS 205 §10.2 hedged SLH-DSA sign with caller-supplied ``addrnd``.
 
-    Used by the NIST ACVP hedged sigGen KAT replay path: the test harness
-    pre-applies the FIPS 205 §10.2 ctx wrapper to the message and replays
-    the vector's ``additionalRandomness`` bytes as ``addrnd``. Production
-    callers should use ``slhdsa_sign`` (hedged) or ``slhdsa_sign_deterministic``
-    instead — this entry point exists for byte-exact KAT reproduction only.
+    Replaces the former ``slhdsa_sign_internal`` wrapper: AMA v5.0.0 removed
+    the §9.2 internal interface from its shipped surface (FIPS 205 §9 forbids
+    exposing the internal functions to applications other than for testing;
+    upstream INVARIANT-50) and exposed ``slhdsa_sign_addrnd`` instead, which
+    applies the ``M' = 0x00 || len(ctx) || ctx || M`` wrapper itself. The NIST
+    ACVP hedged sigGen replay therefore passes the vector's raw message and
+    ``additionalRandomness`` straight through — no pre-wrapping, so the ctx
+    wrapper (the thing a wrapper defect would live in) is inside the vector.
+    Production callers should use ``slhdsa_sign`` (hedged with RBG randomness)
+    or ``slhdsa_sign_deterministic`` instead.
     """
     if not SLHDSA_AVAILABLE:
         raise RuntimeError("FIPS 205 SLH-DSA not available. Upgrade to ama-cryptography ≥ 3.1.0.")
@@ -511,7 +517,7 @@ def slhdsa_sign_internal(
         raise ValueError(
             f"FIPS 205 SLH-DSA-{param_set} addrnd must be {n} bytes; got {len(addrnd)}"
         )
-    return bytes(_ama_slhdsa_sign_internal(message, secret_key, addrnd, param_set))
+    return bytes(_ama_slhdsa_sign_addrnd(message, secret_key, addrnd, ctx, param_set))
 
 
 def slhdsa_verify(

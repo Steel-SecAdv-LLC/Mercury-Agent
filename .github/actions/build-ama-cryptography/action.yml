@@ -13,7 +13,7 @@ inputs:
       AMA Cryptography git tag/ref to build. Pin to an immutable tag (not a
       moving branch) so KAT reproducibility has a stable anchor.
     required: false
-    default: v4.0.0
+    default: v5.0.0
 
 runs:
   using: composite
@@ -49,13 +49,15 @@ runs:
     - name: Install AMA Cryptography PEP 517 build-system floors
       # AMA's ``setup.py`` preflight enforces the supply-chain floors declared
       # in its ``pyproject.toml [build-system].requires``:
-      #   setuptools>=83.0.0  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5, raised to
-      #                          83.0.0 by AMA v4.0.0, whose preflight reports
-      #                          ``AttributeError(install_layout) on bdist_wheel``
-      #                          on anything older (verified against 79.0.1).
-      #   wheel>=0.47.0       — GHSA-8rrh-rw8j-w5fx
-      #   cmake>=4.4.0        — Dependabot supply-chain floor (the PyPI cmake
-      #                          shim's ``__version__`` is what setup.py's
+      #   setuptools>=84.0.0  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5 (fixed at
+      #                          70.0.0 / 78.1.1); AMA v5.0.0 pins the floor at
+      #                          84.0.0 (its latest baseline) and its preflight
+      #                          reports ``AttributeError(install_layout) on
+      #                          bdist_wheel`` on Debian-patched 68.x.
+      #   wheel>=0.48.0       — GHSA-8rrh-rw8j-w5fx, raised to 0.48.0 by AMA
+      #                          v5.0.0's preflight.
+      #   cmake>=4.4.4        — AMA v5.0.0's ``_BUILD_REQS`` floor (the PyPI
+      #                          cmake shim's ``__version__`` is what setup.py's
       #                          ``_check_cmake_version`` reads; the system
       #                          apt cmake is older and trips the preflight).
       # ``pip install --no-build-isolation`` below skips PEP 517 build-env
@@ -65,9 +67,9 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade \
-          "setuptools>=83.0.0" \
-          "wheel>=0.47.0" \
-          "cmake>=4.4.0"
+          "setuptools>=84.0.0" \
+          "wheel>=0.48.0" \
+          "cmake>=4.4.4"
 
     - name: Build AMA Cryptography native C library
       shell: bash

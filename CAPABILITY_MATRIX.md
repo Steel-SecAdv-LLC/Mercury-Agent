@@ -83,7 +83,7 @@ assertion that upstream bytes arrived and the synthetic fallback did not run.
 | ADBench (`cardio`) | **live** | 1831 × 21, 176 positive |
 
 End-to-end on live data: 400 real USGS seismicity records → `OmniMercuryEngine`
-(decision layer on by default, AMA-Cryptography 4.0.0 with real PQC required) →
+(decision layer on by default, AMA-Cryptography 5.0.0 with real PQC required) →
 `detect()` returns a verdict; the **same live-configured engine** then refuses a
 weapons-uplift request with `check="harm_uplift"` and still analyses a SQL
 injection payload. Repro:

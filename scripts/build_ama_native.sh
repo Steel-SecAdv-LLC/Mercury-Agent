@@ -24,22 +24,22 @@
 # at runtime (``ama_cryptography._find_native_library`` searches there first).
 #
 # Environment overrides:
-#   AMA_REF        git tag/ref to build (default: v4.0.0)
+#   AMA_REF        git tag/ref to build (default: v5.0.0)
 #   AMA_REPO       repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
 #   AMA_BUILD_DIR  scratch checkout/build directory (default: /tmp/ama-cryptography)
 set -euo pipefail
 
-AMA_REF="${AMA_REF:-v4.0.0}"
+AMA_REF="${AMA_REF:-v5.0.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
 
 echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 
 # PEP 517 build-system floors AMA's setup.py enforces when installing with
-# --no-build-isolation: setuptools>=83.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
-# raised from 78.1.1 by AMA v4.0.0 — anything older fails its preflight with
-# ``AttributeError(install_layout) on bdist_wheel``), wheel>=0.47.0
-# (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.4.0 shim whose __version__ AMA's
+# --no-build-isolation: setuptools>=84.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
+# raised to 84.0.0 by AMA v5.0.0 — anything older fails its preflight with
+# ``AttributeError(install_layout) on bdist_wheel``), wheel>=0.48.0
+# (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.4.4 shim whose __version__ AMA's
 # _check_cmake_version reads. AMA_NO_CYTHON short-circuits the Cython/numpy
 # floor, so those are intentionally absent.
 #
@@ -48,7 +48,7 @@ echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 # what CI builds with, this script is what the Dockerfile and the session setup
 # build with, and a floor raised in only one of them yields an image that fails
 # AMA's preflight on exactly the lanes CI does not cover.
-python -m pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
+python -m pip install --upgrade "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
 
 rm -rf "${AMA_BUILD_DIR}"
 git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"

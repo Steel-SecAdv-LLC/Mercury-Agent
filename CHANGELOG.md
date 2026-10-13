@@ -27,6 +27,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### AMA Cryptography v5.0.0 migration + three red CI lanes fixed at root (branch `steel/version-cov3`)
+
+The pinned PQC backend moves v4.0.0 → v5.0.0 in lockstep across every pin
+site (pyproject `[pqc]` git ref, `_pqc_gate._AMA_REQUIRED_VERSION`/`_RELEASE`,
+the `build-ama-cryptography` composite action and all 28 workflow `ama-ref`
+inputs, `Dockerfile` `ARG AMA_REF`, `scripts/build_ama_native.sh`,
+`scripts/mercury_session_setup.sh`, `gf_env.sh`, and the version-pin tests),
+validated against a real v5.0.0 native build: 1174 passed / 0 failed across
+`tests/security/`, the startup-gate, enum-compatibility, integrations and
+secret-sealing suites, with `workflow_version_drift_gate` clean. Build
+toolchain floors rise with AMA's own preflight: setuptools>=84.0.0,
+wheel>=0.48.0, cmake>=4.4.4 (the ci.yml audit-venv floors, previously
+78.1.1/0.47.0/4.3.2, now match). Two v5 breaking changes land in Mercury:
+
+- **`slhdsa_sign_internal` → `slhdsa_sign_addrnd`.** AMA v5 removed the
+  FIPS 205 §9.2 internal interface from its shipped surface (§9 forbids
+  exposing it; upstream INVARIANT-50) and exposed the §10.2 hedged
+  `slhdsa_sign_addrnd` instead, which applies the `M'` ctx wrapper itself.
+  Mercury's wrapper (no in-repo consumers) migrates to the same name and
+  contract.
+- **σ_Immutable corpus re-signed under v5.** AMA v4's Python layer signed
+  ML-DSA through the raw internal interface (`ama_ml_dsa_sign`); v5 routes
+  `dilithium_sign`/`dilithium_verify` through the FIPS 204 ctx interface
+  (`M' = 0x00 || len(ctx) || ctx || M`, empty ctx), so the v4-era committed
+  ML-DSA-65 corpus signature could no longer verify. The corpus is re-signed
+  with `tools.corpus_resigner` (ephemeral keys; manifest trust is the git
+  commit, unchanged) and both mandatory signatures verify under v5. The
+  Kyber real-AMA test now pins v5's stronger secret contract: a wipeable
+  `bytearray` shared secret (upstream glance row 24) equal to its `bytes`
+  image.
+
+Separately, three scheduled lanes that were red on `main` are fixed at root
+cause (reproduced before each fix): `competitive-benchmark.yml` was the one
+engine-importing workflow without the AMA build step, so the PR-#360
+import-time PQC gate failed its first `import omni_mercury_engine`;
+`phase3-governance.yml` invoked `phase3_governance.py` by file path, which
+drops the repo root from `sys.path` and breaks its own
+`research.governed_fusion.*` imports (now `-m`, matching the lane's other
+steps; docs updated); and `scripts/verify_data_credentials.py` classified an
+HTTP 200 with a non-JSON body (NASA DONKI, 2026-10-12) as a credential FAIL
+although no provider in the lane signals a rejected key that way — it now
+lands on UNREACH via `_parse_200_body()` with the preview redacted, while a
+parseable-but-wrong-shape body stays FAIL, both directions pinned by new
+offline tests.
+
 ### Deployment renderability, DP soundness, and browser security headers (branch `steel/maint-coverage1`)
 
 Fifteen defects fixed across the deployment manifests, the federated privacy

@@ -5,7 +5,7 @@
 The CI workflows that collect this file
 (``.github/workflows/pqc-production-check.yml::verify-real-pqc`` and
 ``.github/workflows/ci.yml::ml-tests``) both build AMA Cryptography
-v3.1.0 from source before invoking pytest, so the tests below exercise
+v5.0.0 from source before invoking pytest, so the tests below exercise
 the real native cryptographic primitives every run.
 
 What this file proves on every CI run
@@ -115,9 +115,15 @@ class TestKyberRoundTripAgainstNativeLib:
         # property of a KEM.
         decapsulated_ss = kyber_decapsulate(encap.ciphertext, kp.secret_key)
         assert decapsulated_ss == encap.shared_secret
-        # Sanity-check the shape: ML-KEM-1024 yields a 32-byte SS.
-        assert isinstance(encap.shared_secret, bytes)
+        # Sanity-check the shape: ML-KEM-1024 yields a 32-byte SS. AMA v5.0.0
+        # (glance row 24) returns every minted secret as a *wipeable*
+        # ``bytearray`` — the caller owns the only copy and can zero it
+        # (upstream INVARIANT-6) — where v4 returned an unwipeable ``bytes``.
+        # Pin the stronger contract: wipeable, correct length, and equal to
+        # its ``bytes`` image (so every API that took ``bytes`` still works).
+        assert isinstance(encap.shared_secret, bytearray)
         assert len(encap.shared_secret) == 32
+        assert encap.shared_secret == bytes(encap.shared_secret)
 
 
 class TestSphincsRoundTripAgainstNativeLib:
