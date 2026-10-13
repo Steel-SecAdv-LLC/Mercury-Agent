@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,812
-- **Capability-bearing classes:** 1,848 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,813
+- **Capability-bearing classes:** 1,849 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,058 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,059 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1058 |
+| Other capability classes | 1059 |
 | Support types (config / result / enum / error) | 964 |
 | Detection | 171 |
 | Neural models & layers | 158 |
@@ -2453,7 +2453,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 161 classes (92 capability)
+### `security/` — 162 classes (93 capability)
 
 **Adapters & backends**
 
@@ -2526,7 +2526,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `DilithiumKeyPair` (`security.pqc_backends`) — ML-DSA-65 (Dilithium) key pair.
 - `ELINTProcessor` (`security.int_sources`) — Electronic Intelligence (ELINT) Processor.
 - `EMSECCountermeasureGenerator` (`security.tempest_detection`) — Generate EMSEC countermeasures and mitigation strategies.
-- `Ed25519Provider` (`security.crypto_api`) — Ed25519 classical signature provider.
+- `Ed25519KeyPair` (`security.pqc_backends`) — Ed25519 key pair. ``secret_key`` is the 32-byte RFC 8032 seed.
+- `Ed25519Provider` (`security.crypto_api`) — Ed25519 classical signature provider — delegates to AMA's native backend.
 - `EncapsulatedSecret` (`security.crypto_api`) — Key encapsulation result.
 - `EncryptedTrafficFingerprinter` (`security.traffic_analysis`) — Encrypted traffic fingerprinting (JA3/JA4-style analysis).
 - `FININTProcessor` (`security.int_sources`) — Financial Intelligence (FININT) Processor.
