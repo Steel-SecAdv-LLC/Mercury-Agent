@@ -50,7 +50,8 @@ try:
     logger.info("Rust crypto bindings loaded successfully")
 except ImportError:
     logger.warning(
-        "Rust crypto bindings not available, falling back to pure Python. "
+        "Rust crypto bindings not available, falling back to the pyca "
+        "`cryptography` package (OpenSSL-backed native code, not pure Python). "
         "For better performance, build the Rust extension: cd rust_crypto && maturin develop"
     )
 

@@ -3,18 +3,23 @@
 """Guardrail: the pyca ``cryptography`` library stays inside its boundary.
 
 Dependency sovereignty for the crypto layer. AMA Cryptography owns the
-post-quantum path (ML-DSA-65 / Kyber-1024 / SPHINCS+). The third-party
-``cryptography`` (pyca) package is *intentional but bounded*: it supplies the
-classical Ed25519 half of the hybrid signature, AEAD/KDF primitives, and the
-Known-Answer-Test (KAT) validation harnesses. That split is correct — but only
-as long as pyca cannot quietly leak into modules it has no business in, which is
-exactly how a PQC path silently degrades to classical-only crypto.
+production path end to end: the post-quantum algorithms (ML-DSA-65 /
+Kyber-1024 / SPHINCS+ / SLH-DSA), the JOSE HMAC routing, and — since the AMA
+v5.0.0 pin — the classical Ed25519 half as well (``security/pqc_backends``
+wraps AMA's native RFC 8032 backend; signing, σ_Immutable corpus
+verification, tool certificates and the KAT harness all route through it).
+The third-party ``cryptography`` (pyca) package remains *intentional but
+bounded* in exactly one place: ``crypto/`` — the lightweight tiered layer
+whose AEAD/KDF fallback it supplies when the optional Rust backend is not
+built. That boundary is correct — but only as long as pyca cannot quietly
+leak into modules it has no business in, which is exactly how an AMA-owned
+path silently degrades to third-party crypto.
 
 This guard fails loudly if any ``src/omni_mercury_engine`` module imports
-``cryptography`` from **outside** the allowlisted crypto/security/tools surface.
-It is the crypto-layer sibling of ``tests/test_no_sklearn_in_src.py``: lock the
-verified boundary so a future change cannot move pyca onto an AMA-owned path
-without this test going red.
+``cryptography`` from **outside** the allowlisted ``crypto/`` surface.
+It is the crypto-layer sibling of ``tests/test_no_sklearn_in_src.py``: lock
+the verified boundary so a future change cannot move pyca onto an AMA-owned
+path without this test going red.
 """
 
 from __future__ import annotations
@@ -26,12 +31,14 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _REPO / "src" / "omni_mercury_engine"
 
-# Package-relative prefixes permitted to import pyca ``cryptography``. These are
-# the modules that legitimately own classical-hybrid crypto + KAT validation:
-#   crypto/    -- classical Ed25519 hybrid half, AEAD/KDF primitives
-#   security/  -- crypto_api surface that composes AMA + classical
-#   tools/     -- standalone KAT runners / PQC capability probes
-_ALLOWED_PREFIXES: tuple[str, ...] = ("crypto/", "security/", "tools/")
+# Package-relative prefixes permitted to import pyca ``cryptography``.
+# Tightened from ("crypto/", "security/", "tools/") when the AMA v5.0.0 pin
+# moved Ed25519 onto AMA's native backend: security/ and tools/ no longer
+# import pyca at all, and keeping dead allowances open is how a boundary
+# erodes.
+#   crypto/ -- the tiered lightweight layer's AEAD/KDF fallback (Rust backend
+#              primary; pyca fallback when it is not built)
+_ALLOWED_PREFIXES: tuple[str, ...] = ("crypto/",)
 
 
 def _src_python_files() -> list[Path]:
@@ -69,14 +76,14 @@ def _is_allowed(path: Path) -> bool:
     return _rel(path).startswith(_ALLOWED_PREFIXES)
 
 
-def test_pyca_cryptography_confined_to_crypto_security_tools() -> None:
-    """No engine module outside crypto/security/tools may import pyca cryptography."""
+def test_pyca_cryptography_confined_to_crypto_layer() -> None:
+    """No engine module outside crypto/ may import pyca cryptography."""
     offenders = sorted(
         _rel(p) for p in _src_python_files() if _imports_pyca_cryptography(p) and not _is_allowed(p)
     )
     assert not offenders, (
-        "pyca `cryptography` must stay inside the crypto/security/tools boundary "
-        "(AMA owns the PQC path). Move the primitive behind the AMA/crypto API, or "
+        "pyca `cryptography` must stay inside the crypto/ boundary "
+        "(AMA owns the production crypto path). Move the primitive behind the AMA API, or "
         "justify and extend _ALLOWED_PREFIXES. Offending modules:\n  " + "\n  ".join(offenders)
     )
 

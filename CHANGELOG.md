@@ -70,6 +70,29 @@ key or missing signature verify False); `classical_public=None` remains the
 one explicit opt-out. Both directions pinned in
 `tests/security/test_crypto_api.py`.
 
+**Sovereignty — classical Ed25519 moves onto AMA's native backend.**
+Mercury's docs have long said AMA is the sole production crypto backend, but
+`Ed25519Provider` — behind Raft wire authentication, σ_Immutable corpus
+verification, `MercuryCrypto` classical/hybrid signing, tool certificates
+and release bundles — ran on PyCA `cryptography`. With the v5.0.0 pin the
+provider, `tools/_base` certificate signing, the standalone KAT runner and
+the PQC capability probe all route through new `security.pqc_backends`
+wrappers (`generate_ed25519_keypair` / `ed25519_keypair_from_seed` /
+`ed25519_sign` / `ed25519_verify`) over AMA's hardened native Ed25519
+(canonical-encoding rejection, FIPS 140-3 pairwise consistency test at
+keygen, health-tested CSPRNG seeding). The key contract is unchanged
+(32-byte RFC 8032 seed; `sign` also takes AMA's 64-byte form), and RFC 8032
+determinism makes the move invisible to persisted data: the byte-exact
+RFC 8032 KATs now run through the AMA-backed provider, a new interop test
+pins PyCA-era signatures verifying under AMA and vice versa, and the
+committed corpus manifest verifies unchanged. With security/ and tools/
+PyCA-free, `tests/test_pyca_import_boundary.py` tightens its allow-list
+from (`crypto/`, `security/`, `tools/`) to `crypto/` alone — the tiered
+lightweight layer's AEAD/KDF fallback, now the one bounded PyCA surface
+(and its fallback log message no longer mislabels that path "pure Python").
+Validated: 1,487 tests across the security, tools, distributed and
+integrations suites pass on the migrated tree.
+
 **Benchmark isolation made executable for PyOD.**
 scikit-learn's boundary has an AST-level guard
 (`tests/test_no_sklearn_in_src.py`); PyOD's — documented in pyproject as

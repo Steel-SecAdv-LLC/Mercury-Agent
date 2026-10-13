@@ -8,9 +8,9 @@ This file pins three contracts:
 
 1. **Ed25519 RFC 8032 vectors.**  The Ed25519 surface used by
    ``crypto_api.Ed25519Provider`` and the native TCP transport must
-   reproduce RFC 8032 §7.1 test vectors bit-for-bit.  These vectors
-   run unconditionally because they only depend on stdlib
-   ``cryptography`` which is a hard install requirement.
+   reproduce RFC 8032 §7.1 test vectors bit-for-bit.  Since the AMA
+   v5.0.0 pin the provider runs on AMA's native backend, so these
+   vectors run unconditionally — AMA is mandatory at engine import.
 2. **ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trip.**  AMA's PQC backend
    is mandatory; missing AMA/PQC fails module import rather than skipping.
    The keygen + sign/verify and keygen + encapsulate/decapsulate round-trips
@@ -90,8 +90,9 @@ def test_ed25519_rfc8032_kat(vector: dict[str, bytes]) -> None:
 
     # The KAT is a deterministic-signature contract: signing the
     # vector's message with the vector's secret key MUST produce the
-    # exact signature bytes from RFC 8032.  Stdlib ``cryptography``'s
-    # Ed25519 implementation is deterministic (per RFC 8032).
+    # exact signature bytes from RFC 8032.  Ed25519 signing is
+    # deterministic (per RFC 8032), so any conformant backend — AMA's
+    # native implementation included — must reproduce them exactly.
     sig = provider.sign(vector["message"], vector["secret_key"])
     assert sig == vector["signature"]
 

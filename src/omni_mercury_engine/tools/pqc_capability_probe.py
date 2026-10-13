@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import secrets
 import time
 from typing import Any
 
@@ -190,18 +189,23 @@ def _probe_native_hmac_sha256_2() -> None:
 
 
 def _probe_ed25519_classical() -> None:
-    """Verify classical Ed25519 round-trip.
+    """Verify classical Ed25519 round-trip through the production path.
 
-    Ed25519 is mandatory and uses ``cryptography``, not AMA — but
-    operators want a single report.  We still surface it as ``real``
-    so the certificate is end-to-end.
+    Ed25519 is mandatory and, like every production primitive, served by
+    AMA's native backend via ``security.pqc_backends`` — the probe
+    round-trips the same wrappers production signing uses, so the
+    certificate is end-to-end.
     """
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from omni_mercury_engine.security.pqc_backends import (
+        ed25519_sign,
+        ed25519_verify,
+        generate_ed25519_keypair,
+    )
 
-    sk = Ed25519PrivateKey.from_private_bytes(secrets.token_bytes(32))
-    pk = sk.public_key()
-    sig = sk.sign(b"mercury-agent pqc capability probe")
-    pk.verify(sig, b"mercury-agent pqc capability probe")  # raises on failure
+    kp = generate_ed25519_keypair()
+    sig = ed25519_sign(b"mercury-agent pqc capability probe", kp.secret_key)
+    if not ed25519_verify(b"mercury-agent pqc capability probe", sig, kp.public_key):
+        raise RuntimeError("Ed25519 round-trip verification failed")
 
 
 _PROBES: dict[str, Any] = {

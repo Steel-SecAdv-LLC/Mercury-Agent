@@ -58,7 +58,11 @@ from typing import Any
 # AMA Cryptography — sole PQC backend
 # ---------------------------------------------------------------------------
 from ama_cryptography.pqc_backends import (
+    _ED25519_NATIVE_AVAILABLE as _AMA_ED25519,
     DILITHIUM_AVAILABLE as _AMA_DILITHIUM,
+    ED25519_PUBLIC_KEY_BYTES as _AMA_ED25519_PK_BYTES,
+    ED25519_SECRET_KEY_BYTES as _AMA_ED25519_SK_BYTES,
+    ED25519_SIGNATURE_BYTES as _AMA_ED25519_SIG_BYTES,
     KYBER_AVAILABLE as _AMA_KYBER,
     SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_PK_BYTES,
     SLHDSA_SHA2_256F_SECRET_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_SK_BYTES,
@@ -77,6 +81,10 @@ from ama_cryptography.pqc_backends import (
     generate_sphincs_keypair as _ama_generate_sphincs_keypair,
     kyber_decapsulate as _ama_kyber_decapsulate,
     kyber_encapsulate as _ama_kyber_encapsulate,
+    native_ed25519_keypair as _ama_native_ed25519_keypair,
+    native_ed25519_keypair_from_seed as _ama_native_ed25519_keypair_from_seed,
+    native_ed25519_sign as _ama_native_ed25519_sign,
+    native_ed25519_verify as _ama_native_ed25519_verify,
     slhdsa_sign as _ama_slhdsa_sign,
     slhdsa_sign_addrnd as _ama_slhdsa_sign_addrnd,
     slhdsa_sign_deterministic as _ama_slhdsa_sign_deterministic,
@@ -97,6 +105,20 @@ SLHDSA_SHAKE_128S_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SIG_BYTES)
 SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_PK_BYTES)
 SLHDSA_SHA2_256F_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SK_BYTES)
 SLHDSA_SHA2_256F_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SIG_BYTES)
+
+#: Classical Ed25519, served by the same AMA native library as the PQC
+#: algorithms (RFC 8032; AMA v5.0.0 adds canonical-encoding rejection and a
+#: FIPS 140-3 pairwise consistency test at keygen). Mercury's classical
+#: signature half runs on this backend — PyCA ``cryptography`` is not on the
+#: production signing path. The private-flag import mirrors ``ama_hmac``'s
+#: established precedent for AMA's per-primitive native flags.
+ED25519_AVAILABLE = bool(_AMA_ED25519)
+#: Mercury persists/transmits Ed25519 secrets as the 32-byte RFC 8032 seed;
+#: AMA's working form is the 64-byte ``seed || public_key``.
+ED25519_SEED_BYTES: int = 32
+ED25519_PUBLIC_KEY_BYTES: int = int(_AMA_ED25519_PK_BYTES)
+ED25519_SECRET_KEY_BYTES: int = int(_AMA_ED25519_SK_BYTES)
+ED25519_SIGNATURE_BYTES: int = int(_AMA_ED25519_SIG_BYTES)
 
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
@@ -138,6 +160,15 @@ class DilithiumKeyPair:
     public_key: bytes
     secret_key: bytes
     algorithm: str = "ML-DSA-65"
+
+
+@dataclass
+class Ed25519KeyPair:
+    """Ed25519 key pair. ``secret_key`` is the 32-byte RFC 8032 seed."""
+
+    public_key: bytes
+    secret_key: bytes
+    algorithm: str = "Ed25519"
 
 
 @dataclass
@@ -544,6 +575,98 @@ def slhdsa_verify(
     return bool(_ama_slhdsa_verify(message, signature, public_key, ctx, param_set))
 
 
+def generate_ed25519_keypair() -> Ed25519KeyPair:
+    """Generate an Ed25519 key pair via AMA Cryptography's native backend.
+
+    RFC 8032 Ed25519 served by the same native library as the PQC
+    algorithms; AMA runs its FIPS 140-3 pairwise consistency test before the
+    keypair is released (upstream INVARIANT-41). The returned ``secret_key``
+    is the 32-byte RFC 8032 *seed* — the format Mercury has always persisted
+    and exposed for Ed25519 — not AMA's 64-byte ``seed || public_key``
+    working form; :func:`ed25519_sign` accepts either and derives the native
+    form from a seed on demand.
+    """
+    if not ED25519_AVAILABLE:
+        raise RuntimeError(
+            "Ed25519 not available in AMA Cryptography. "
+            "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
+        )
+    public_key, native_secret = _ama_native_ed25519_keypair()
+    try:
+        # Defensive copy of the seed half — same decoupling convention as the
+        # other keypair wrappers (AMA owns and wipes its working buffer).
+        seed = bytes(native_secret[:ED25519_SEED_BYTES])
+    finally:
+        native_secret[:] = bytes(len(native_secret))
+    return Ed25519KeyPair(public_key=bytes(public_key), secret_key=seed)
+
+
+def ed25519_keypair_from_seed(seed: bytes) -> Ed25519KeyPair:
+    """Derive the Ed25519 key pair for a 32-byte RFC 8032 seed (deterministic).
+
+    Used wherever an operator supplies a persisted seed and the public key
+    must be recovered (e.g. tool certificate signing). AMA runs its pairwise
+    consistency test before the keypair is released.
+
+    Raises:
+        RuntimeError: If the native backend is unavailable.
+        ValueError: If ``seed`` is not exactly 32 bytes.
+    """
+    if not ED25519_AVAILABLE:
+        raise RuntimeError("Ed25519 not available in AMA Cryptography.")
+    public_key, native_secret = _ama_native_ed25519_keypair_from_seed(seed)
+    native_secret[:] = bytes(len(native_secret))
+    return Ed25519KeyPair(public_key=bytes(public_key), secret_key=bytes(seed))
+
+
+def ed25519_sign(message: bytes, secret_key: bytes) -> bytes:
+    """Sign ``message`` with Ed25519 via AMA Cryptography (RFC 8032).
+
+    Ed25519 signing is deterministic, so signatures are byte-identical
+    across conformant implementations — keys and signatures produced by the
+    previous PyCA-backed provider interoperate unchanged.
+
+    Args:
+        message: Data to sign.
+        secret_key: Either Mercury's persisted 32-byte RFC 8032 seed or
+            AMA's 64-byte ``seed || public_key`` form. A seed costs one
+            deterministic re-derivation (including AMA's pairwise
+            consistency test, well under a millisecond) per call.
+
+    Returns:
+        The 64-byte Ed25519 signature.
+
+    Raises:
+        RuntimeError: If the native backend is unavailable or signing fails.
+        ValueError: If ``secret_key`` is neither 32 nor 64 bytes.
+    """
+    if not ED25519_AVAILABLE:
+        raise RuntimeError("Ed25519 not available in AMA Cryptography.")
+    if len(secret_key) == ED25519_SEED_BYTES:
+        _, native_secret = _ama_native_ed25519_keypair_from_seed(secret_key)
+        try:
+            return bytes(_ama_native_ed25519_sign(message, native_secret))
+        finally:
+            native_secret[:] = bytes(len(native_secret))
+    return bytes(_ama_native_ed25519_sign(message, secret_key))
+
+
+def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
+    """Verify an Ed25519 signature via AMA Cryptography (RFC 8032).
+
+    Returns ``False`` — rather than raising — for a malformed signature or
+    public-key length, preserving the boolean verifier contract Mercury's
+    callers rely on (a malformed input is a failed verification, never a
+    crash in a verification path).
+    """
+    if not ED25519_AVAILABLE:
+        raise RuntimeError("Ed25519 not available in AMA Cryptography.")
+    try:
+        return bool(_ama_native_ed25519_verify(signature, message, public_key))
+    except ValueError:
+        return False
+
+
 def get_pqc_capabilities() -> dict[str, Any]:
     """Get current PQC capabilities from AMA Cryptography.
 
@@ -697,18 +820,24 @@ __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
     "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
+    "ED25519_AVAILABLE",
     "KYBER_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "CryptoAuditTrail",
     "CryptoOperation",
     "DilithiumKeyPair",
+    "Ed25519KeyPair",
     "KyberEncapsulation",
     "KyberKeyPair",
     "PQCBackend",
     "SphincsKeyPair",
     "dilithium_sign",
     "dilithium_verify",
+    "ed25519_keypair_from_seed",
+    "ed25519_sign",
+    "ed25519_verify",
     "generate_dilithium_keypair",
+    "generate_ed25519_keypair",
     "generate_kyber_keypair",
     "generate_sphincs_keypair",
     "get_active_backend",
