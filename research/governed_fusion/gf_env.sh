@@ -22,7 +22,16 @@ GF_REPO_ROOT="$(cd "$(dirname "${_gf_src}")/../.." && pwd)"
 # AMA cryptography native backend location.
 AMA_HOME="${AMA_HOME:-/tmp/ama-cryptography}"
 
-export PYTHONPATH="${GF_REPO_ROOT}:${GF_REPO_ROOT}/src:${AMA_HOME}${PYTHONPATH:+:${PYTHONPATH}}"
+# NB: ${AMA_HOME} itself must NOT go on PYTHONPATH. The composite pip-installs
+# the ama_cryptography package, and that installed copy is the sanctioned
+# import: its integrity artifact was generated against the .so the wheel was
+# linked to, so the AMA_CRYPTO_LIB_PATH override below verifies and loads.
+# Importing from the source checkout instead fails closed under AMA >= 5.0.0:
+# the checkout carries the release's *signed* INTEGRITY_NATIVE_DIGEST_HEX,
+# which a locally built libama_cryptography.so can never match, so the FIPS
+# 140-3 POST refuses to initialise (observed on the Leakage-split gate lane
+# after the v4.0.0 -> v5.0.0 pin bump).
+export PYTHONPATH="${GF_REPO_ROOT}:${GF_REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 export AMA_CRYPTO_LIB_PATH="${AMA_HOME}/build/lib/libama_cryptography.so"
 export LD_LIBRARY_PATH="${AMA_HOME}/build/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
