@@ -3,9 +3,10 @@
 Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
-> `benchmarks/mercury_benchmark_results.json` run — **66 successful /
-> 75 attempted**, Mean ROC-AUC **0.8544**, Median **0.9095**, Mean
-> Oracle F1 **0.6433** (53 genuine-label datasets; regenerated on
+> `benchmarks/mercury_benchmark_results.json` run — **67 successful /
+> 76 attempted**, Mean ROC-AUC **0.8546**, Median **0.9052**, Mean
+> Oracle F1 **0.6430** (54 genuine-label datasets, now including the
+> expert-annotated `DTU_AIS_Abnormal` maritime set; regenerated on
 > `steel/version-cov4` with the kNN density stream and its minimum-
 > reference gate) — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
@@ -566,7 +567,7 @@ seeded input and must never be quoted as skill.
 
 | Blocking lane | Data | Provenance | Reads as |
 |---|---|---|---|
-| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 53 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 6 real domain) | **real, external labels** | skill claim |
+| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 54 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 7 real domain, incl. expert-annotated `DTU_AIS_Abnormal`) | **real, external labels** | skill claim |
 | `anomaly_regression_guard` | 8 ADBench sets, sha256-pinned, downloaded per run | **real, external labels** | skill regression floor |
 | `ci/hazard-regression` — solar row | 83 windows of measured SWPC/GOES data, cached in-repo | **real, measured** | real-data floor |
 | `ci/hazard-regression` — other 6 domains | 124 constructed scenarios (seeded, physics-shaped, disclosed per-row in `docs/HAZARD_REGRESSION.md`) | constructed | behavior pin — **not** skill |

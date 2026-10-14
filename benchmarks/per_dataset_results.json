@@ -1,23 +1,23 @@
 {
   "run_metadata": {
-    "run_id": "289ba87a25b4-20261014T154956",
-    "timestamp": "2026-10-14T15:49:56.880125+00:00",
-    "git_sha": "289ba87a25b449484dd972bf7df8955c7cae4cba",
+    "run_id": "5569e8397f15-20261014T200603",
+    "timestamp": "2026-10-14T20:06:03.781096+00:00",
+    "git_sha": "5569e8397f1592483e887fb0daea1afded93cc9b",
     "branch": "steel/version-cov4",
     "python_version": "3.13.16",
     "detector": "MercuryAnomalyDetector"
   },
   "summary": {
-    "total_datasets": 75,
-    "successful": 66,
+    "total_datasets": 76,
+    "successful": 67,
     "failed": 9,
     "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
-    "n_genuine_labeled": 53,
-    "mean_auc": 0.8543911647685686,
-    "median_auc": 0.9094820654202924,
-    "std_auc": 0.14739983406012147,
-    "mean_oracle_f1": 0.6432985886264213,
-    "median_oracle_f1": 0.7200000000000001,
+    "n_genuine_labeled": 54,
+    "mean_auc": 0.8545517823863549,
+    "median_auc": 0.9052260139366795,
+    "std_auc": 0.14603332453404885,
+    "mean_oracle_f1": 0.6429597258740801,
+    "median_oracle_f1": 0.7073827328348063,
     "unsupervised_eval": {
       "n_datasets": 13,
       "dataset_names": [
@@ -40,12 +40,12 @@
       "note": "Labels manufactured by thresholding a detector-like score/feature; excluded from headline AUC as circular. Use for unsupervised eval only."
     },
     "deleak_delta": {
-      "median_auc_all_datasets": 0.9237491113874459,
-      "median_auc_genuine_only": 0.9094820654202924,
-      "median_auc_delta": -0.014267045967153447,
-      "mean_auc_all_datasets": 0.8698913861061325,
-      "mean_auc_genuine_only": 0.8543911647685686,
-      "mean_auc_delta": -0.015500221337563902
+      "median_auc_all_datasets": 0.9198386028803179,
+      "median_auc_genuine_only": 0.9052260139366795,
+      "median_auc_delta": -0.014612588943638483,
+      "mean_auc_all_datasets": 0.8697894925243846,
+      "mean_auc_genuine_only": 0.8545517823863549,
+      "mean_auc_delta": -0.01523771013802977
     }
   },
   "domain_summary": {
@@ -291,6 +291,28 @@
         "best_component_auc": 1.0
       }
     },
+    "maritime": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.8630645161290322,
+        "median_auc": 0.8630645161290322,
+        "std_auc": 0.0,
+        "mean_f1": 0.6250000000000001,
+        "mean_precision": 0.6521739130434783,
+        "mean_recall": 0.6,
+        "component_mean_aucs": {
+          "resonance": 0.7877419354838711,
+          "kinematic": 0.6195161290322582,
+          "info_geometry": 0.8229032258064516
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8229032258064516
+      }
+    },
     "general": {
       "n_datasets": 1,
       "n_measured": 1,
@@ -336,8 +358,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1194.0123939999694,
-      "score_ms": 394.8836659999415,
+      "fit_ms": 463.10188100051164,
+      "score_ms": 370.6571479997365,
       "error": null
     },
     "ADBench-02": {
@@ -361,8 +383,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 99.76096499997311,
-      "score_ms": 41.537532999996074,
+      "fit_ms": 118.99441700006719,
+      "score_ms": 54.868064999936905,
       "error": null
     },
     "ADBench-03": {
@@ -386,8 +408,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 4863.637449999942,
-      "score_ms": 2356.625638999958,
+      "fit_ms": 4608.257976999994,
+      "score_ms": 2159.9751719995766,
       "error": null
     },
     "ADBench-04": {
@@ -411,8 +433,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 33.4097389999215,
-      "score_ms": 6.2751680000019405,
+      "fit_ms": 38.519843999893055,
+      "score_ms": 5.519291999917186,
       "error": null
     },
     "ADBench-05": {
@@ -436,8 +458,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1714.62942200003,
-      "score_ms": 2009.8688809999885,
+      "fit_ms": 1697.30718000028,
+      "score_ms": 2244.4994650004446,
       "error": null
     },
     "ADBench-06": {
@@ -461,8 +483,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 75.62514400001419,
-      "score_ms": 17.076115999998365,
+      "fit_ms": 65.99197400009871,
+      "score_ms": 18.128136999621347,
       "error": null
     },
     "ADBench-07": {
@@ -486,8 +508,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 62.25404199994955,
-      "score_ms": 20.329152000044814,
+      "fit_ms": 61.91436300014175,
+      "score_ms": 20.09345199985546,
       "error": null
     },
     "ADBench-08": {
@@ -511,8 +533,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 491.30790300000626,
-      "score_ms": 379.3459759999678,
+      "fit_ms": 598.8107810007932,
+      "score_ms": 511.2168579998979,
       "error": null
     },
     "ADBench-09": {
@@ -536,8 +558,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 26298.587161,
-      "score_ms": 18502.961587999947,
+      "fit_ms": 23715.386685999874,
+      "score_ms": 18441.889575999994,
       "error": null
     },
     "ADBench-10": {
@@ -561,8 +583,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 207.9081759999326,
-      "score_ms": 179.79961499997898,
+      "fit_ms": 171.91722600000503,
+      "score_ms": 132.8986119997353,
       "error": null
     },
     "ADBench-11": {
@@ -586,8 +608,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 144.00465899996107,
-      "score_ms": 86.51324599998134,
+      "fit_ms": 123.96641500072292,
+      "score_ms": 54.23462299950188,
       "error": null
     },
     "ADBench-12": {
@@ -611,8 +633,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 51.10274000003301,
-      "score_ms": 17.95924800001103,
+      "fit_ms": 62.68468300004315,
+      "score_ms": 22.766776000025857,
       "error": null
     },
     "ADBench-13": {
@@ -636,8 +658,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 677.2739900000033,
-      "score_ms": 629.5495430000528,
+      "fit_ms": 658.2555390004927,
+      "score_ms": 650.5774360002761,
       "error": null
     },
     "ADBench-14": {
@@ -661,8 +683,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 29.24015899998267,
-      "score_ms": 4.780066999956034,
+      "fit_ms": 21.356891999857908,
+      "score_ms": 5.088437999802409,
       "error": null
     },
     "ADBench-15": {
@@ -686,8 +708,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 20.305885999960083,
-      "score_ms": 2.0712809999849924,
+      "fit_ms": 18.305399999917427,
+      "score_ms": 2.2862940004415577,
       "error": null
     },
     "ADBench-16": {
@@ -711,8 +733,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 102.25391799997396,
-      "score_ms": 43.1757110000035,
+      "fit_ms": 80.88789700013876,
+      "score_ms": 37.192015999607975,
       "error": null
     },
     "ADBench-17": {
@@ -736,8 +758,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 18995.996622999995,
-      "score_ms": 7323.9857209999855,
+      "fit_ms": 21877.469963000294,
+      "score_ms": 7356.802645999778,
       "error": null
     },
     "ADBench-18": {
@@ -761,8 +783,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 170.97540299994307,
-      "score_ms": 17.48856499989415,
+      "fit_ms": 75.14182900013111,
+      "score_ms": 10.802069999954256,
       "error": null
     },
     "ADBench-19": {
@@ -786,8 +808,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 257.1011689999523,
-      "score_ms": 126.68925100001616,
+      "fit_ms": 361.75650600034714,
+      "score_ms": 133.15854200027388,
       "error": null
     },
     "ADBench-20": {
@@ -811,8 +833,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 116.30406899996615,
-      "score_ms": 20.75099000001046,
+      "fit_ms": 108.90634399947885,
+      "score_ms": 16.32850799978769,
       "error": null
     },
     "ADBench-21": {
@@ -836,8 +858,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 26.88875699993787,
-      "score_ms": 3.653024999948684,
+      "fit_ms": 21.99659200050519,
+      "score_ms": 2.3616629996467964,
       "error": null
     },
     "ADBench-22": {
@@ -861,8 +883,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 196.5004470000622,
-      "score_ms": 144.92130199994335,
+      "fit_ms": 147.94004400027916,
+      "score_ms": 154.06746299959195,
       "error": null
     },
     "ADBench-23": {
@@ -886,8 +908,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 94.8608090000107,
-      "score_ms": 40.98327600001994,
+      "fit_ms": 120.16388299980463,
+      "score_ms": 54.17208400012896,
       "error": null
     },
     "ADBench-24": {
@@ -911,8 +933,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1022.8668040000457,
-      "score_ms": 485.7875129999911,
+      "fit_ms": 1357.5289789996532,
+      "score_ms": 439.7570969995286,
       "error": null
     },
     "ADBench-25": {
@@ -936,8 +958,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1092.716530999951,
-      "score_ms": 243.3887989999448,
+      "fit_ms": 1377.3080749997462,
+      "score_ms": 242.83818200001406,
       "error": null
     },
     "ADBench-26": {
@@ -961,8 +983,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 747.1159899999975,
-      "score_ms": 180.7406739999351,
+      "fit_ms": 491.12848000004306,
+      "score_ms": 128.30816600035178,
       "error": null
     },
     "ADBench-27": {
@@ -986,8 +1008,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 86.04679200004739,
-      "score_ms": 38.14161000002514,
+      "fit_ms": 79.16756699978578,
+      "score_ms": 28.113694000239775,
       "error": null
     },
     "ADBench-28": {
@@ -1011,8 +1033,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 166.22763299994858,
-      "score_ms": 67.34219200006919,
+      "fit_ms": 115.49526199996762,
+      "score_ms": 50.49887199947989,
       "error": null
     },
     "ADBench-29": {
@@ -1036,8 +1058,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 34.27384900010111,
-      "score_ms": 7.882188999928985,
+      "fit_ms": 35.60204499990505,
+      "score_ms": 8.381257999644731,
       "error": null
     },
     "ADBench-30": {
@@ -1061,8 +1083,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 341.1487999999281,
-      "score_ms": 151.4545969999972,
+      "fit_ms": 247.7316790000259,
+      "score_ms": 165.1948220005579,
       "error": null
     },
     "ADBench-31": {
@@ -1086,8 +1108,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 419.48787000001175,
-      "score_ms": 149.6750810000549,
+      "fit_ms": 342.034178999711,
+      "score_ms": 134.25609299974894,
       "error": null
     },
     "ADBench-32": {
@@ -1111,8 +1133,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 192.2585340000751,
-      "score_ms": 98.16122799998084,
+      "fit_ms": 184.86940300044807,
+      "score_ms": 95.71909500027687,
       "error": null
     },
     "ADBench-33": {
@@ -1136,8 +1158,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 79.18862100007118,
-      "score_ms": 49.373013999911564,
+      "fit_ms": 108.07741200005694,
+      "score_ms": 65.57217200042942,
       "error": null
     },
     "ADBench-34": {
@@ -1161,8 +1183,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 82.9968350000172,
-      "score_ms": 46.85940100000607,
+      "fit_ms": 123.83597100051702,
+      "score_ms": 59.127395000359684,
       "error": null
     },
     "ADBench-35": {
@@ -1186,8 +1208,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 177.3932920000334,
-      "score_ms": 96.51685799997267,
+      "fit_ms": 176.09379399982572,
+      "score_ms": 112.25831499996275,
       "error": null
     },
     "ADBench-36": {
@@ -1211,8 +1233,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 4360.702920999984,
-      "score_ms": 1576.700231000018,
+      "fit_ms": 4539.589767000507,
+      "score_ms": 1682.4491120005405,
       "error": null
     },
     "ADBench-37": {
@@ -1236,8 +1258,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 24.954729999990377,
-      "score_ms": 5.793903000039791,
+      "fit_ms": 27.623496999694908,
+      "score_ms": 5.384298000535637,
       "error": null
     },
     "ADBench-38": {
@@ -1261,8 +1283,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 51.94850099996984,
-      "score_ms": 16.437302999975145,
+      "fit_ms": 58.69882200022403,
+      "score_ms": 19.14878099978523,
       "error": null
     },
     "ADBench-39": {
@@ -1286,8 +1308,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 35.89063200001874,
-      "score_ms": 9.128692999979648,
+      "fit_ms": 28.209293000145408,
+      "score_ms": 5.763831999502145,
       "error": null
     },
     "ADBench-40": {
@@ -1311,8 +1333,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 49.540689999957976,
-      "score_ms": 14.164208000011058,
+      "fit_ms": 52.426544999434554,
+      "score_ms": 15.093408999746316,
       "error": null
     },
     "ADBench-41": {
@@ -1336,8 +1358,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 159.84483800002636,
-      "score_ms": 71.18494400003783,
+      "fit_ms": 158.12011500020162,
+      "score_ms": 62.54237200028001,
       "error": null
     },
     "ADBench-42": {
@@ -1361,8 +1383,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 26.1995079999906,
-      "score_ms": 5.795000000034634,
+      "fit_ms": 27.823478999380313,
+      "score_ms": 5.556348000027356,
       "error": null
     },
     "ADBench-43": {
@@ -1386,8 +1408,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 47.67277100006595,
-      "score_ms": 11.16445900004237,
+      "fit_ms": 39.93977499976609,
+      "score_ms": 7.380175000434974,
       "error": null
     },
     "ADBench-44": {
@@ -1411,8 +1433,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 78.24689400001716,
-      "score_ms": 25.377142000024833,
+      "fit_ms": 56.01558200032741,
+      "score_ms": 20.496264999565028,
       "error": null
     },
     "ADBench-45": {
@@ -1436,8 +1458,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 24.702879000074063,
-      "score_ms": 3.8269649999165267,
+      "fit_ms": 21.11982499991427,
+      "score_ms": 2.656603000104951,
       "error": null
     },
     "ADBench-46": {
@@ -1461,8 +1483,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 30.37205099997209,
-      "score_ms": 3.2477260000405295,
+      "fit_ms": 24.258887000542018,
+      "score_ms": 2.576283000053081,
       "error": null
     },
     "ADBench-47": {
@@ -1486,8 +1508,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 37.605389000077594,
-      "score_ms": 10.745528999905218,
+      "fit_ms": 38.9348090002386,
+      "score_ms": 11.398523999559984,
       "error": null
     },
     "NSL-KDD": {
@@ -1511,8 +1533,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 475.86369800001194,
-      "score_ms": 1007.166600000005,
+      "fit_ms": 342.8987999996025,
+      "score_ms": 833.9580479996584,
       "error": null
     },
     "SMD": {
@@ -1536,8 +1558,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 619.1194340000266,
-      "score_ms": 294.7585599999911,
+      "fit_ms": 502.2425890001614,
+      "score_ms": 360.19525800020347,
       "error": null
     },
     "NAB": {
@@ -1561,8 +1583,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 92.17353099995762,
-      "score_ms": 56.897462000051746,
+      "fit_ms": 111.59827499977837,
+      "score_ms": 64.70412099952227,
       "error": null
     },
     "SMAP": {
@@ -1628,8 +1650,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 519.9288189999152,
-      "score_ms": 313.5800539999991,
+      "fit_ms": 565.2379470002415,
+      "score_ms": 318.41893499949947,
       "error": null
     },
     "CICIDS-2017": {
@@ -1695,8 +1717,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 43.91860099997302,
-      "score_ms": 20.10508499995467,
+      "fit_ms": 50.520659000540036,
+      "score_ms": 14.72629800082359,
       "error": null
     },
     "NOAA_Weather": {
@@ -1720,8 +1742,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 116.92102200004229,
-      "score_ms": 62.8803299999845,
+      "fit_ms": 141.11006199982512,
+      "score_ms": 89.01412999966851,
       "error": null
     },
     "Wildfire": {
@@ -1745,8 +1767,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 122.1604259999367,
-      "score_ms": 78.17148599997381,
+      "fit_ms": 119.86380799953622,
+      "score_ms": 85.20290300020861,
       "error": null
     },
     "USGS_Geochemistry": {
@@ -1791,8 +1813,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 179.0855990000182,
-      "score_ms": 122.50466900002266,
+      "fit_ms": 181.74348200045642,
+      "score_ms": 110.57403700033319,
       "error": null
     },
     "NOAA_StormEvents": {
@@ -1816,8 +1838,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 148.88709499996367,
-      "score_ms": 101.81066799998462,
+      "fit_ms": 144.19606199953705,
+      "score_ms": 114.60255699967092,
       "error": null
     },
     "NOAA_GSOD": {
@@ -1841,8 +1863,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 51.33797099995263,
-      "score_ms": 10.6655579999142,
+      "fit_ms": 49.59178100034478,
+      "score_ms": 13.24464600020292,
       "error": null
     },
     "NOAA_ERDDAP": {
@@ -1866,8 +1888,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 124.03211399998781,
-      "score_ms": 50.84964499997113,
+      "fit_ms": 106.73711599974922,
+      "score_ms": 48.5479339995436,
       "error": null
     },
     "EPA_AirQuality": {
@@ -1891,8 +1913,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 197.73633200009044,
-      "score_ms": 145.64724999991085,
+      "fit_ms": 167.77940900010435,
+      "score_ms": 135.05144200007635,
       "error": null
     },
     "FEMA_Disaster": {
@@ -1916,8 +1938,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 78.59849099997973,
-      "score_ms": 38.94009999999071,
+      "fit_ms": 77.06681000036042,
+      "score_ms": 34.84241200021643,
       "error": null
     },
     "FEMA_HazardMitigation": {
@@ -1962,8 +1984,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 88.4185319999915,
-      "score_ms": 22.640353000042523,
+      "fit_ms": 69.54682099967613,
+      "score_ms": 27.455962999738404,
       "error": null
     },
     "SolarDynamics": {
@@ -1987,8 +2009,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 79.46552399994289,
-      "score_ms": 38.48672100002659,
+      "fit_ms": 80.5109769999035,
+      "score_ms": 42.06275100023049,
       "error": null
     },
     "UCR": {
@@ -2033,8 +2055,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 2118.6031240000602,
-      "score_ms": 794.1626880000285,
+      "fit_ms": 2071.3374880006086,
+      "score_ms": 800.0287529994239,
       "error": null
     },
     "MSDS": {
@@ -2058,8 +2080,33 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 202.2869620000165,
-      "score_ms": 124.4326019999562,
+      "fit_ms": 185.88246899980732,
+      "score_ms": 112.79486500006897,
+      "error": null
+    },
+    "DTU_AIS_Abnormal": {
+      "category": "maritime",
+      "auc": 0.8630645161290322,
+      "f1": 0.6250000000000001,
+      "precision": 0.6521739130434783,
+      "recall": 0.6,
+      "n_total": 521,
+      "n_train": 248,
+      "n_test": 273,
+      "n_features": 22,
+      "anomaly_ratio": 0.04798464491362764,
+      "adaptive_weights": {
+        "resonance": 0.466169005165399,
+        "kinematic": 0.0,
+        "info_geometry": 0.5338309948346011
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 36.94943000027706,
+      "score_ms": 8.688885000083246,
       "error": null
     },
     "ThreatIntel": {
@@ -2083,8 +2130,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 65.12036399999488,
-      "score_ms": 10.010812000018632,
+      "fit_ms": 32.352093000554305,
+      "score_ms": 5.23514399992564,
       "error": null
     },
     "ADRepository": {
@@ -2108,8 +2155,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 229.7454330000619,
-      "score_ms": 94.74467399991227,
+      "fit_ms": 179.4952229993214,
+      "score_ms": 85.30461000009382,
       "error": null
     },
     "SWaT": {
