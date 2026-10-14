@@ -18,7 +18,9 @@ it belongs to is not actually observed, and the control could regress silently.
 
 This complements the σ_Immutable hot-path mutation gate in CI
 (``.github/workflows/mutation-testing.yml``), which measures kill rate over
-``security/sigma_immutable_gate.py``. This one covers the *pillar* controls.
+``security/sigma_immutable_gate.py``. This one covers the *pillar* controls and
+runs on every CI build in the ``neuro-symbolic-tests`` job of
+``.github/workflows/ci.yml``, directly after the pillar suite itself passes.
 
 Usage::
 

@@ -1,6 +1,6 @@
 # Phase 3 Governance: Reflexion, Drift Recalibration, Dormant Revival
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
 
 Phase 3 closes the next governed self-improvement loop **at the point a change
 would take effect**. Reflexion threshold adaptation, drift-/performance-triggered

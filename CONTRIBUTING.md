@@ -5,7 +5,7 @@
 | Property | Value |
 |----------|-------|
 | Document Version | 2.8 |
-| Last Updated | 2026-07-11 |
+| Last Updated | 2026-09-27 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 | Applies to | Mercury Agent v2.1.x |
@@ -119,7 +119,7 @@ Please **DO NOT** submit pull requests that:
   Cryptography the **sole** PQC backend; the import-time gate in
   `_pqc_gate.py` is unconditional — `AMA_REQUIRE_REAL_PQC` is retained
   only for diagnostics and no longer disables the gate. Pinned to
-  `v3.3.0` via the `ama-ref` input in
+  `v4.0.0` via the `ama-ref` input in
   `.github/workflows/pqc-production-check.yml` and
   `pyproject.toml [project.optional-dependencies].pqc`)
 - Restore the `SafeHTTPClient(..., allow_untrusted=True)` kwarg

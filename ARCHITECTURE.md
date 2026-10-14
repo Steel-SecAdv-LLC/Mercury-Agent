@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
 
 ## Overview
 
@@ -959,11 +959,11 @@ pytest tests/ --cov=src/omni_mercury_engine --cov-report=html
 ### Integration Tests
 
 ```bash
-# Full pipeline test
-pytest tests/test_full_pipeline.py -v
+# Cross-module integration suite (what the CI "Integration Tests" job runs)
+pytest tests/integration/ -v --timeout=60
 
-# Test harmonic + biometric integration
-pytest tests/test_harmonic_biometric.py -v
+# End-to-end detection pipeline only
+pytest tests/integration/test_detection_pipeline.py -v
 ```
 
 ### Coverage Posture

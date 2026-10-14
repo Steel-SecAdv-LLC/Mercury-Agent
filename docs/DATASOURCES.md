@@ -1,6 +1,6 @@
 # Mercury-Agent Data Sources
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
 
 Last verified: 2026-07-11 (loader catalog refresh; the per-dataset
 tables below still derive from the legacy 2026-02-15 sweep — the
@@ -432,7 +432,7 @@ window where the attacker can race the validator.  See:
 
 * `src/omni_mercury_engine/security/safe_http.py:138-155` —
   the `getaddrinfo` failure branch.
-* `tests/security/test_safe_http.py::test_unresolvable_host_rejected`
+* `tests/security/test_safe_http.py::TestPrivateNetworkGate::test_unresolvable_host_rejected`
   (line 166) — the regression test that locks the "DNS failure must
   NOT be classified as non-fatal" contract (patches
   `socket.getaddrinfo`, asserts `UnsafeURLError` match="did not resolve").

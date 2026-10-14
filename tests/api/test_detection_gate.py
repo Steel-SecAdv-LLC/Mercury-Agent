@@ -10,7 +10,7 @@ never invoked. These tests pin that a harm-uplift payload is refused with HTTP
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 import pytest
 
@@ -21,9 +21,25 @@ from fastapi.testclient import TestClient
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    import httpx
-
 from omni_mercury_engine.api.server import app
+
+
+class _Response(Protocol):
+    """The part of a ``TestClient`` response these tests read.
+
+    Starlette >= 1.x types ``TestClient`` responses as ``httpx2.Response`` and
+    falls back to ``httpx`` at runtime, so naming either class is wrong under
+    the other; both satisfy this structural type.
+    """
+
+    @property
+    def status_code(self) -> int: ...
+
+    @property
+    def text(self) -> str: ...
+
+    def json(self, **kwargs: Any) -> Any: ...
+
 
 _BENIGN = {"data": [{"value": 1.0}, {"value": 2.0}, {"value": 9.0}], "sensitivity": 0.5}
 # Harm-uplift text carried in a record's string value — the exact shape the gate
@@ -43,7 +59,7 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def _post(client: TestClient, body: Mapping[str, object]) -> httpx.Response:
+def _post(client: TestClient, body: Mapping[str, object]) -> _Response:
     """POST the request, tolerating FastAPI's single-body vs embedded-body forms.
 
     Depending on the FastAPI version a single Pydantic body parameter named
@@ -51,7 +67,7 @@ def _post(client: TestClient, body: Mapping[str, object]) -> httpx.Response:
     Probe the flat form first and fall back to the embedded form on a 422 so this
     regression pins the gate behaviour, not the body-encoding convention.
     """
-    resp: httpx.Response = client.post("/api/v1/detect/neurosymbolic", json=body)
+    resp: _Response = client.post("/api/v1/detect/neurosymbolic", json=body)
     if resp.status_code == 422:
         resp = client.post("/api/v1/detect/neurosymbolic", json={"request": body})
     return resp

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Documentation lint: ban claims the code cannot back, require the mission line.
 
-A repository's prose is part of its interface. This gate holds three rules that
+A repository's prose is part of its interface. This gate holds four rules that
 kept getting broken by hand:
 
 1. **Banned phrases.** Some words assert a status Mercury does not hold (a
@@ -22,6 +22,15 @@ kept getting broken by hand:
    gate exists to catch. (A blanket regex over the word "enforced" in every
    document was tried and discarded: it fired on sixty ordinary sentences and
    would have taught readers to ignore it.)
+4. **Cited tests exist.** Every ``tests/...py`` path a document cites must be a
+   file in this repository, and every pytest node id (``file.py::name`` or
+   ``file.py::Class::name``) must name a function or class that file defines at
+   the level pytest collects it from. Prose that points a reader at a test that
+   was renamed or never written is a claim of coverage nothing backs; five such
+   citations, in four files, had accumulated before this rule existed. Test
+   modules are checked through their docstrings only, so fixture strings that
+   quote a deliberately missing path (as this gate's own tests do) are not
+   prose.
 
 A line ending in ``doc-lint: allow`` is skipped by the banned-phrase rule. It
 exists so a document can *name* a forbidden phrase in order to forbid it —
@@ -42,6 +51,8 @@ prose, not the Python string literals that define it (see ``_is_rule_source``).
 from __future__ import annotations
 
 import argparse
+import ast
+import functools
 import re
 import sys
 from dataclasses import dataclass
@@ -328,6 +339,123 @@ def scan_capability_matrix(text: str) -> list[Violation]:
     return violations
 
 
+#: A cited test file, optionally extended to a pytest node id. The look-behind
+#: keeps a ``tests/`` segment inside a longer path from matching, and every path
+#: component must be a real name, so placeholders such as ``tests/...`` are not.
+_TEST_CITATION_RE = re.compile(
+    r"(?<![\w/.-])(tests/(?:[\w-]+/)*[\w-]+\.py)(?:::(\w+))?(?:::(\w+))?"
+)
+
+
+@functools.cache
+def _collectable_names(test_file: Path) -> dict[str, frozenset[str]]:
+    """Return ``{top-level function or class: its method names}`` for a test file.
+
+    These are the names a pytest node id can address: ``file::name`` resolves
+    against module-level definitions and ``file::Class::name`` against a
+    method of that class. A file that does not parse yields no names, so every
+    node id citing it is reported rather than silently accepted.
+    """
+    try:
+        tree = ast.parse(test_file.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return {}
+    functions = (ast.FunctionDef, ast.AsyncFunctionDef)
+    names: dict[str, frozenset[str]] = {}
+    for node in tree.body:
+        if isinstance(node, functions):
+            names[node.name] = frozenset()
+        elif isinstance(node, ast.ClassDef):
+            # Methods, plus nested classes (``file::Outer::Inner`` is collectable).
+            names[node.name] = frozenset(
+                member.name
+                for member in node.body
+                if isinstance(member, (*functions, ast.ClassDef))
+            )
+    return names
+
+
+def _broken_citation(path: str, name: str | None, member: str | None) -> str | None:
+    """Explain why one citation does not resolve, or return ``None`` if it does."""
+    target = REPO_ROOT / path
+    if not target.is_file():
+        return f"cited test file {path} does not exist"
+    if name is None:
+        return None
+    names = _collectable_names(target)
+    if name not in names:
+        return f"{path} defines no top-level test or class named {name!r}"
+    if member is not None and member not in names[name]:
+        return f"class {name} in {path} defines no method {member!r}"
+    return None
+
+
+def _citation_violations(relative: str, lines: list[tuple[int, str]]) -> list[Violation]:
+    violations: list[Violation] = []
+    for number, line in lines:
+        for match in _TEST_CITATION_RE.finditer(line):
+            reason = _broken_citation(*match.groups())
+            if reason is None:
+                continue
+            violations.append(
+                Violation(
+                    path=relative,
+                    line_number=number,
+                    rule=f"stale test citation: {reason}",
+                    line=line,
+                    guidance=(
+                        "cite the test that actually covers the behaviour (for a "
+                        "method, ``file.py::Class::test_name``), or drop the claim"
+                    ),
+                )
+            )
+    return violations
+
+
+def _scan_test_citations(path: Path, text: str) -> list[Violation]:
+    """Rule 4 over a prose-bearing file: every line is prose."""
+    relative = str(path.relative_to(REPO_ROOT))
+    return _citation_violations(relative, list(enumerate(text.splitlines(), start=1)))
+
+
+def _docstring_lines(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, line)`` for every module, class and function docstring."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    documented = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    lines: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, documented) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            start = first.value.lineno
+            lines.extend(
+                (start + offset, line) for offset, line in enumerate(first.value.value.splitlines())
+            )
+    return lines
+
+
+def iter_test_modules() -> list[Path]:
+    """Return every Python module under ``tests/``, sorted."""
+    root = REPO_ROOT / "tests"
+    if not root.is_dir():
+        return []
+    return sorted(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
+
+
+def scan_test_module_citations(path: Path, text: str) -> list[Violation]:
+    """Rule 4 over a test module: only its docstrings are prose."""
+    relative = str(path.relative_to(REPO_ROOT))
+    return _citation_violations(relative, _docstring_lines(text))
+
+
 def run() -> list[Violation]:
     """Run every rule over every scanned file and return the violations found."""
     violations: list[Violation] = []
@@ -338,6 +466,13 @@ def run() -> list[Violation]:
             continue
         violations.extend(_scan_banned(path, text))
         violations.extend(_scan_mission(path, text))
+        violations.extend(_scan_test_citations(path, text))
+    for path in iter_test_modules():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        violations.extend(scan_test_module_citations(path, text))
     matrix = REPO_ROOT / CAPABILITY_MATRIX
     if matrix.is_file():
         violations.extend(scan_capability_matrix(matrix.read_text(encoding="utf-8")))
@@ -362,6 +497,9 @@ def _print_rules() -> None:
     print("\nMission phrase required in:")
     for document in MISSION_DOCUMENTS:
         print(f"  - {document}")
+    print("\nCited tests must exist:")
+    print("  - every tests/...py path and pytest node id (file::name, file::Class::name)")
+    print("    in scanned prose and in test-module docstrings must resolve")
     print("\nExcluded from the banned-phrase scan:")
     for prefix, reason in EXCLUDED:
         print(f"  - {prefix}: {reason}")

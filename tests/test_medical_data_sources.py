@@ -10,7 +10,7 @@ leaving the test process.  Routing through SafeHTTPClient (rather than
 block, DNS-rebinding pin, and redirect refusal in front of every Dexcom
 / FHIR call; the adapter unit tests focus on the parsing, auth flow,
 and exception-mapping logic - the SafeHTTPClient gates themselves are
-covered by ``tests/test_safe_http.py``.
+covered by ``tests/security/test_safe_http.py``.
 """
 
 from __future__ import annotations
