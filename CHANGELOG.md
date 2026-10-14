@@ -27,7 +27,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Pre-merge end-to-end sweep: every ignored parameter wired to real, tested behavior; quickstart renamed (branch `steel/version-cov4`)
+### Depth round: simulators grounded in measured signal, a real biometric match path, and a true DTP training comparison (branch `steel/version-cov4`)
+
+The previous round made ignored parameters *affect* output; this round makes
+the affected modules consume **real upstream signal** instead of caller-fed
+summaries, and cures the two deepest discovered gaps outright.
+
+**Contact-protocol exploration measures the signal it conditions on.**
+`explore_contact_protocols` now accepts the raw received signal and derives
+`snr` / `bandwidth` / `periodicity` itself with the module's own spectral
+machinery (`_derive_signal_characteristics`: peak-over-median-floor SNR on a
+30 dB scale, occupied-bandwidth fraction, strongest normalised
+autocorrelation peak) — measured values override caller claims and are
+reported with a `derived_from_signal` audit flag. The orchestrator defect
+this fixes: `detect_emergent_life` passed a dict that never contained those
+keys, so the previous conditioning always ran on neutral defaults in the real
+call path. It now passes the signal through. A clean tone and white noise
+separate cleanly (SNR 1.0 vs 0.14, bandwidth 0.004 vs 0.96, periodicity 0.97
+vs 0.10).
+
+**Zero-day simulation consumes the fortress scan's measured findings.**
+`fortress_scan` previously computed hash-integrity and traffic-anomaly
+findings and then discarded them before simulating. The checks now run first
+and feed `simulate_zero_day(..., exposure=...)`, where each state dimension's
+reachability distance is discounted by `1/(1 + exposure)` — observed
+tampering or anomalous traffic makes the simulated surface genuinely easier
+to reach. A tampered hash chain measurably raises the simulated risk for the
+identical system state; zero exposure is bit-identical to the baseline.
+
+**Treatment optimization grounded in the published Framingham instrument.**
+When a patient record carries the Framingham covariates, the risk burden
+comes from the in-repo `FraminghamRiskCalculator` (10-year CVD risk,
+normalised against the conventional 20 % high-risk boundary) instead of the
+generic heuristic; the result reports which model produced it
+(`risk_model: framingham_10yr_cvd | heuristic`), and a record missing any
+core covariate falls back explicitly rather than letting population defaults
+masquerade as patient-specific risk.
+
+**Biometric verification is now real.** `predict({"reference", "test"})`
+silently dropped the test image and returned reference-only analysis while
+the docstring promised a `match_score`. The two-image path now computes a
+genuine embedding cosine match (FaceNet via DeepFace when installed,
+otherwise the deterministic harmonic feature path), reports which backend
+graded it (`verification_note` states that the fallback is appearance-level,
+not identity verification), sets the pipeline anomaly to `1 - match`, and
+refuses with a named reason whenever no measurable embedding exists.
+`detect_biometric` regains `enable_age_progression`: seeded age-progressed
+reference variants (the existing `AgeProgressionEngine`) are matched against
+the test image and the best score is reported as `match_score_age_robust`,
+with an explicit `applied: False` + reason record whenever the progression
+path cannot run. No accuracy claims are made for the progression heuristics.
+
+**A true Difference-Target-Propagation training path, measured against
+backprop.** `OmniFusionModel.compare_head_training_dtp_vs_backprop` A/B-trains
+two identical anomaly-head copies on the model's real frozen-trunk fused
+representations: one by Adam backprop, one by canonical DTP (Lee et al.
+2015 — the only gradient taken is the loss's local gradient at the output
+layer; the hidden target comes from the difference-corrected learned inverse;
+every update is layer-local, with Adam as the local solver, as Lee et al.
+used RMSprop). On a learnable task the DTP arm cuts its loss by ~90 % with no
+error signal crossing layers, and the final DTP-to-backprop loss ratio is
+returned rather than hidden. The `use_dtp` diagnostic from the previous round
+remains the lightweight invertibility instrument.
 
 **Renamed** `examples/maritime_quickstart.py` → `examples/mercury_quickstart.py`
 (it is the product's front door, not a niche demo); README, the Examples

@@ -361,6 +361,60 @@ def _clip01(signal_characteristics: dict[str, Any], key: str, default: float = 0
     return default
 
 
+def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[str, float]:
+    """Measure ``snr`` / ``bandwidth`` / ``periodicity`` in ``[0, 1]`` from a raw signal.
+
+    Uses the module's own spectral machinery (``ResonanceEngine``) so the
+    protocol search is conditioned on what the receiver actually measured,
+    not on caller-supplied summaries:
+
+    - ``snr``: dominant spectral peak over the median noise floor on the
+      mean-removed signal, log-mapped so a flat spectrum (0 dB) gives 0.0 and
+      a >= 30 dB peak gives 1.0.
+    - ``bandwidth``: occupied-bandwidth fraction — the share of positive-
+      frequency bins at or above 10 % of the peak magnitude (a pure tone is
+      near 0, white noise near 1).
+    - ``periodicity``: height of the strongest non-zero-lag peak of the
+      normalised (mean-removed) autocorrelation, clipped to ``[0, 1]``.
+
+    A degenerate input (too short, non-finite, or constant) yields the
+    neutral ``0.5`` for every characteristic, matching the hand-fed default.
+    """
+    x = np.asarray(signal_data, dtype=float).ravel()
+    if x.size < 8 or not np.all(np.isfinite(x)):
+        return {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+    centered = x - float(np.mean(x))
+    energy = float(np.dot(centered, centered))
+    if energy <= 1e-24:
+        return {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+
+    engine = ResonanceEngine(sampling_rate=1.0)
+    _freqs, magnitudes = engine.compute_resonance_spectrum(centered)
+    magnitudes = np.asarray(magnitudes, dtype=float)[1:]  # drop the DC bin
+
+    peak = float(np.max(magnitudes)) if magnitudes.size else 0.0
+    floor = float(np.median(magnitudes)) if magnitudes.size else 0.0
+    ratio = peak / max(floor, 1e-12) if peak > 0.0 else 1.0
+    snr = float(np.clip(np.log10(max(ratio, 1.0)) / 3.0, 0.0, 1.0))  # 30 dB full scale
+
+    bandwidth = float(np.mean(magnitudes >= 0.1 * peak)) if peak > 0.0 else 1.0
+
+    autocorr = np.correlate(centered, centered, mode="full")[centered.size - 1 :] / energy
+    periodicity = 0.0
+    if autocorr.size > 3:
+        interior = autocorr[1:-1]
+        local_max = (interior > autocorr[:-2]) & (interior > autocorr[2:])
+        peaks = interior[local_max]
+        if peaks.size:
+            periodicity = float(np.clip(np.max(peaks), 0.0, 1.0))
+
+    return {
+        "snr": snr,
+        "bandwidth": float(np.clip(bandwidth, 0.0, 1.0)),
+        "periodicity": periodicity,
+    }
+
+
 class MultiverseContactProtocolExplorer:
     """Multiverse-based exploration of contact protocols.
 
@@ -375,22 +429,43 @@ class MultiverseContactProtocolExplorer:
         )
         self.logger = logging.getLogger(__name__)
 
-    def explore_contact_protocols(self, signal_characteristics: dict[str, Any]) -> dict[str, Any]:
+    def explore_contact_protocols(
+        self,
+        signal_characteristics: dict[str, Any] | None = None,
+        signal_data: np.ndarray[Any, Any] | None = None,
+    ) -> dict[str, Any]:
         """Explore potential contact/communication protocols using multiverse.
 
         Args:
-            signal_characteristics: Characteristics of detected signal
+            signal_characteristics: Characteristics of the detected signal.
+                ``snr`` / ``bandwidth`` / ``periodicity`` entries in ``[0, 1]``
+                condition the fitness weights directly when no raw signal is
+                supplied.
+            signal_data: The raw received signal. When given, the three
+                conditioning characteristics are **measured from it** with the
+                module's own spectral machinery (see
+                :func:`_derive_signal_characteristics`) and take precedence
+                over any caller-supplied summary values.
 
         Returns:
-            Optimal contact protocol strategies
+            Optimal contact protocol strategies, including the conditioning
+            actually used and whether it was derived from the signal.
         """
         # Condition the fitness weights on the observed signal: a wider band
         # rewards raw throughput, a noisier channel (low SNR) rewards error
         # correction, and a more periodic (structured) carrier rewards a more
         # universal encoding. A missing characteristic leaves its weight neutral.
-        snr = _clip01(signal_characteristics, "snr")
-        bandwidth = _clip01(signal_characteristics, "bandwidth")
-        periodicity = _clip01(signal_characteristics, "periodicity")
+        signal_characteristics = signal_characteristics or {}
+        if signal_data is not None:
+            derived_from_signal = True
+            characteristics: dict[str, Any] = dict(signal_characteristics)
+            characteristics.update(_derive_signal_characteristics(signal_data))
+        else:
+            derived_from_signal = False
+            characteristics = signal_characteristics
+        snr = _clip01(characteristics, "snr")
+        bandwidth = _clip01(characteristics, "bandwidth")
+        periodicity = _clip01(characteristics, "periodicity")
 
         info_weight = 0.5 + bandwidth
         ecc_weight = 0.5 + (1.0 - snr)
@@ -431,6 +506,12 @@ class MultiverseContactProtocolExplorer:
                 "info_weight": info_weight,
                 "ecc_weight": ecc_weight,
                 "universality_weight": universality_weight,
+                "characteristics": {
+                    "snr": snr,
+                    "bandwidth": bandwidth,
+                    "periodicity": periodicity,
+                },
+                "derived_from_signal": derived_from_signal,
             },
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }
@@ -534,7 +615,11 @@ class EmergentLifeDetector:
                     "Protocol explorer not initialized despite enable_contact_protocols=True"
                 )
             protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr, unused-ignore]
-                {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
+                {
+                    "confidence": result.confidence,
+                    "technosignatures": result.seti_technosignatures,
+                },
+                signal_data=data,
             )
             if protocols is not None:
                 result.contact_protocols = [

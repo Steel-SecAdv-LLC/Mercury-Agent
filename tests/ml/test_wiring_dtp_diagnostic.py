@@ -87,3 +87,48 @@ def test_fusion_dtp_disabled_omits_metric() -> None:
         use_amav=False,
     )
     assert res["dtp_reconstruction"] is None
+
+
+def _learnable_loader() -> list[tuple[dict[str, Tensor], Tensor]]:
+    torch.manual_seed(0)
+    loader = []
+    for _ in range(6):
+        stat = torch.randn(16, 10)
+        temp = torch.randn(16, 32)
+        labels = (stat.mean(dim=1) > 0).float().unsqueeze(1)  # learnable from features
+        loader.append(({"statistical": stat, "temporal": temp}, labels))
+    return loader
+
+
+def test_dtp_training_path_learns_without_backprop_through_layers() -> None:
+    torch.manual_seed(0)
+    model = OmniFusionModel(
+        feature_dims={"statistical": 10, "temporal": 32}, hidden_dim=32, num_heads=2, num_classes=3
+    )
+    trunk_param = next(iter(model.fusion_layer.parameters()))
+    trunk_before = trunk_param.detach().clone()
+    head_param = next(m for m in model.anomaly_head.modules() if isinstance(m, nn.Linear)).weight
+    head_before = head_param.detach().clone()
+
+    res = model.compare_head_training_dtp_vs_backprop(
+        _learnable_loader(), epochs=25, learning_rate=0.02, target_step=1.0
+    )
+
+    dtp = res["dtp_loss_history"]
+    bp = res["backprop_loss_history"]
+    assert len(dtp) == len(bp) == 25
+    # The DTP arm must genuinely learn with layer-local updates only: more
+    # than half the initial loss gone, not a cosmetic wiggle.
+    assert res["dtp_converged"] is True
+    assert dtp[-1] < 0.5 * dtp[0]
+    # Backprop learns too, and the honest gap is reported, finite, and >= 1
+    # on this task (DTP is not claimed to beat backprop).
+    assert bp[-1] < bp[0]
+    import numpy as _np
+
+    assert _np.isfinite(res["dtp_over_backprop_final_ratio"])
+    # The comparison trains head COPIES only: neither the trunk nor the
+    # model's real anomaly head moves.
+    assert torch.equal(next(iter(model.fusion_layer.parameters())).detach(), trunk_before)
+    assert torch.equal(head_param.detach(), head_before)
+    assert "layer-local" in res["mechanism"]

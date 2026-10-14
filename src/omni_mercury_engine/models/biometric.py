@@ -225,7 +225,7 @@ class BiometricAnomalyModel:
         return normalized
 
     def extract_features(
-        self, data: np.ndarray[Any, Any] | dict[str, Any]
+        self, data: str | np.ndarray[Any, Any] | dict[str, Any]
     ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
@@ -265,6 +265,149 @@ class BiometricAnomalyModel:
             return features
         return features
 
+    def _embedding_vector(
+        self, image: str | np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any] | None, str]:
+        """Return a 1-D embedding for one image plus the backend that produced it.
+
+        The backend is ``"deepface"`` when the DeepFace representation ran, and
+        ``"harmonic_fallback"`` for the deterministic harmonic/Fourier feature
+        path. A string path without DeepFace is loaded via OpenCV when
+        available; otherwise ``(None, reason)`` is returned so the caller can
+        fail honestly instead of hashing a filename string into "features".
+        """
+        if isinstance(image, str) and DeepFace is None:
+            try:
+                import cv2
+            except ImportError:
+                return None, "path input needs DeepFace or OpenCV to load the image"
+            loaded = cv2.imread(image)
+            if loaded is None:
+                return None, f"image could not be loaded from path: {image!r}"
+            image = loaded[..., ::-1]  # BGR -> RGB
+        backend = (
+            "deepface"
+            if DeepFace is not None and self._is_image_input(image)
+            else "harmonic_fallback"
+        )
+        features = self.extract_features(image)
+        if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
+            features = features.detach().cpu().numpy()
+        vector = np.asarray(features, dtype=float).ravel()
+        if float(np.linalg.norm(vector)) < 1e-12:
+            return None, "embedding is all zeros (no measurable features for this input)"
+        return vector, backend
+
+    @staticmethod
+    def _cosine_match_score(a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float:
+        """Cosine similarity mapped from ``[-1, 1]`` to a ``[0, 1]`` match score."""
+        cos = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+        return float(np.clip((1.0 + cos) / 2.0, 0.0, 1.0))
+
+    def _predict_match(
+        self,
+        reference: str | np.ndarray[Any, Any],
+        test: str | np.ndarray[Any, Any],
+        enable_age_progression: bool = False,
+    ) -> dict[str, Any]:
+        """Compare a reference and a test image and return a real match score.
+
+        The score is the cosine similarity of the two embeddings mapped to
+        ``[0, 1]``. With DeepFace installed the embeddings are FaceNet
+        representations; otherwise the model's deterministic harmonic/Fourier
+        features are used and the result is appearance-level spectral
+        similarity, **not** identity verification — the ``embedding_backend``
+        and ``verification_note`` fields state which grade was produced.
+
+        With ``enable_age_progression`` and a reference given as an image
+        path, seeded age-progressed variants of the reference are also matched
+        against the test image and the best score is reported as
+        ``match_score_age_robust`` (useful when the two images may be years
+        apart). When the progression backend is unavailable the result says
+        so explicitly instead of silently skipping.
+        """
+        ref_vec, ref_info = self._embedding_vector(reference)
+        test_vec, test_info = self._embedding_vector(test)
+        if ref_vec is None or test_vec is None:
+            reason = ref_info if ref_vec is None else test_info
+            return {
+                "model_type": "biometric",
+                "match_score": None,
+                "anomaly_scores": np.array([0.5], dtype=np.float32),
+                "error": f"match unavailable: {reason}",
+            }
+
+        match_score = self._cosine_match_score(ref_vec, test_vec)
+        backend = ref_info if ref_info == test_info else f"{ref_info}+{test_info}"
+        result: dict[str, Any] = {
+            "model_type": "biometric",
+            "match_score": match_score,
+            # Pipeline-facing anomaly: a poor match is the anomalous outcome.
+            "anomaly_scores": np.array([1.0 - match_score], dtype=np.float32),
+            "embedding_backend": backend,
+            "verification_note": (
+                "FaceNet embedding similarity"
+                if backend == "deepface"
+                else "harmonic-feature similarity (appearance-level, not identity verification)"
+            ),
+        }
+
+        if enable_age_progression:
+            result["age_progression"] = self._age_robust_match(reference, test_vec, match_score)
+            applied = result["age_progression"].get("applied", False)
+            if applied:
+                result["match_score_age_robust"] = result["age_progression"]["best_score"]
+
+        return result
+
+    def _age_robust_match(
+        self,
+        reference: str | np.ndarray[Any, Any],
+        test_vec: np.ndarray[Any, Any],
+        baseline_score: float,
+        age_deltas: tuple[int, ...] = (-10, -5, 5, 10),
+    ) -> dict[str, Any]:
+        """Match seeded age-progressed reference variants against the test embedding.
+
+        Returns an ``applied: False`` record naming the exact blocker when the
+        progression path cannot run (array reference, missing OpenCV, failed
+        face detection) — the caller never receives a silently absent result.
+        """
+        if not isinstance(reference, str):
+            return {
+                "applied": False,
+                "reason": "age progression needs the reference as an image path",
+            }
+        try:
+            from omni_mercury_engine.models.biometric_multimodal import AgeProgressionEngine
+        except ImportError as exc:
+            return {"applied": False, "reason": f"age-progression engine unavailable: {exc}"}
+
+        engine = AgeProgressionEngine(seed=0)  # deterministic perturbations
+        per_delta: dict[str, float] = {}
+        for delta in age_deltas:
+            progressed = engine.progress_age(reference, target_age_delta=delta)
+            if not progressed.success or progressed.progressed_face is None:
+                return {
+                    "applied": False,
+                    "reason": f"age progression failed at delta {delta}: {progressed.message or 'face detection failed'}",
+                }
+            variant_vec, info = self._embedding_vector(progressed.progressed_face)
+            if variant_vec is None:
+                return {"applied": False, "reason": f"progressed-variant embedding failed: {info}"}
+            per_delta[str(delta)] = self._cosine_match_score(variant_vec, test_vec)
+
+        return {
+            "applied": True,
+            "baseline_score": baseline_score,
+            "scores_by_delta": per_delta,
+            "best_score": max(baseline_score, *per_delta.values()),
+            "note": (
+                "heuristic polynomial age filters (seeded, deterministic); "
+                "no validated accuracy claim is made for the progression itself"
+            ),
+        }
+
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict biometric anomalies and quality scores."""
         if data is None:
@@ -278,6 +421,14 @@ class BiometricAnomalyModel:
             }
 
         if isinstance(data, dict):
+            if "reference" in data and "test" in data:
+                # Two-image verification: compute a real reference-vs-test
+                # match instead of silently analysing the reference alone.
+                return self._predict_match(
+                    data["reference"],
+                    data["test"],
+                    enable_age_progression=bool(data.get("enable_age_progression", False)),
+                )
             if "reference" in data:
                 data = data["reference"]
             elif len(data) > 0:

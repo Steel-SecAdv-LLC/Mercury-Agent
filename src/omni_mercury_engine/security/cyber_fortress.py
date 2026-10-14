@@ -201,14 +201,18 @@ class MultiverseZeroDaySimulator(LoggerMixin):
         self,
         system_state: np.ndarray[Any, Any],
         known_vulnerabilities: list[np.ndarray[Any, Any]] | np.ndarray[Any, Any] | None = None,
+        exposure: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
         """Simulate potential zero-day attack surfaces using multiverse exploration.
 
-        The search rewards candidate attack vectors that are both *reachable*
-        from the current system state (low distance) and *novel* with respect
-        to a catalogue of already-known vulnerability signatures (high distance
-        from the nearest known signature). Convergence therefore favors genuinely
-        unexplored surfaces rather than rediscovering catalogued CVEs.
+        The search rewards candidate attack vectors that are *reachable* from
+        the current system state (low distance), *novel* with respect to a
+        catalogue of already-known vulnerability signatures (high distance from
+        the nearest known signature), and — when measured exposure is supplied —
+        concentrated on the parts of the state the scan actually found weak:
+        each state dimension's contribution to the reachability distance is
+        discounted by ``1 / (1 + exposure)``, so measured weakness makes a
+        surface genuinely easier to reach in the simulation.
 
         Args:
             system_state: Current system state vector. Candidate vectors are
@@ -219,6 +223,11 @@ class MultiverseZeroDaySimulator(LoggerMixin):
                 penalised so the search is steered toward novel surfaces. When
                 ``None`` or empty, the search reduces to pure reachability
                 (identical to the un-catalogued behaviour).
+            exposure: Optional nonnegative per-dimension weakness measurements
+                (e.g. from the fortress scan's hash-integrity and traffic
+                findings). Shorter arrays are zero-padded (unmeasured
+                dimensions get no discount); ``None`` means no measured
+                weakness and reproduces the unweighted distance.
 
         Returns:
             Zero-day risk assessment with potential attack vectors. The abstract
@@ -241,9 +250,26 @@ class MultiverseZeroDaySimulator(LoggerMixin):
                 if arr.size:
                     known_list.append(arr)
 
+        exposure_arr: np.ndarray[Any, Any] | None = None
+        if exposure is not None:
+            cleaned = np.clip(
+                np.nan_to_num(np.asarray(exposure, dtype=float).ravel(), nan=0.0), 0.0, None
+            )
+            if cleaned.size and float(np.max(cleaned)) > 0.0:
+                exposure_arr = cleaned
+
         def attack_fitness(attack_vector: np.ndarray[Any, Any]) -> float:
             n = len(attack_vector)
-            reachability = -float(np.linalg.norm(attack_vector - system_state[:n]))
+            diff = attack_vector - system_state[:n]
+            if exposure_arr is not None:
+                e = (
+                    exposure_arr[:n]
+                    if exposure_arr.size >= n
+                    else np.pad(exposure_arr, (0, n - exposure_arr.size))
+                )
+                reachability = -float(np.sqrt(np.sum((diff * diff) / (1.0 + e))))
+            else:
+                reachability = -float(np.linalg.norm(diff))
             novelty_bonus = 0.0
             if known_list:
                 nearest = min(
@@ -277,6 +303,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
             "universes_explored": report["total_universes"],
             "convergence_achieved": report["convergence_achieved"],
             "known_vulnerabilities_considered": len(known_list),
+            "exposure_informed": exposure_arr is not None,
             "recommendations": self._generate_zero_day_recommendations(zero_day_risk),
         }
 
@@ -483,6 +510,13 @@ class CyberFortress(LoggerMixin):
             encrypted_traffic_anomaly=False,
         )
 
+        # The integrity and traffic checks run before the zero-day simulation so
+        # their *measured* findings can condition it: observed tampering or
+        # anomalous traffic is passed in as exposure, which discounts the
+        # simulated reachability distance (a measurably weakened system is
+        # genuinely easier to reach).
+        measured_exposure = 0.0
+
         if (
             self.enable_hash_integrity
             and self.hash_checker is not None
@@ -497,19 +531,7 @@ class CyberFortress(LoggerMixin):
             if not integrity["integrity_verified"]:
                 result.threat_detected = True
                 result.threat_score += 0.3
-
-        if (
-            self.enable_zero_day_sim
-            and self.zero_day_sim is not None
-            and "system_state" in system_data
-        ):
-            zero_day = self.zero_day_sim.simulate_zero_day(system_data["system_state"])
-            result.zero_day_risk = zero_day["zero_day_risk"]
-            result.recommendations.extend(zero_day["recommendations"])
-
-            if zero_day["zero_day_risk"] > 0.5:
-                result.threat_detected = True
-                result.threat_score += zero_day["zero_day_risk"] * 0.4
+                measured_exposure += 1.0
 
         if (
             self.enable_traffic_detection
@@ -523,6 +545,24 @@ class CyberFortress(LoggerMixin):
             if traffic["encrypted_traffic_anomaly"]:
                 result.threat_detected = True
                 result.threat_score += traffic["anomaly_score"] * 0.3
+                measured_exposure += float(np.clip(traffic["anomaly_score"], 0.0, 1.0))
+
+        if (
+            self.enable_zero_day_sim
+            and self.zero_day_sim is not None
+            and "system_state" in system_data
+        ):
+            system_state = np.asarray(system_data["system_state"], dtype=float).ravel()
+            exposure_vector = (
+                np.full(system_state.shape, measured_exposure) if measured_exposure > 0.0 else None
+            )
+            zero_day = self.zero_day_sim.simulate_zero_day(system_state, exposure=exposure_vector)
+            result.zero_day_risk = zero_day["zero_day_risk"]
+            result.recommendations.extend(zero_day["recommendations"])
+
+            if zero_day["zero_day_risk"] > 0.5:
+                result.threat_detected = True
+                result.threat_score += zero_day["zero_day_risk"] * 0.4
 
         if "code_payload" in system_data:
             basic = self.basic_detector.detect_all(system_data["code_payload"])

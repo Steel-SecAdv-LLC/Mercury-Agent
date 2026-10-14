@@ -5719,20 +5719,33 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         reference_image: str | np.ndarray[Any, Any],
         test_image: str | np.ndarray[Any, Any] | None = None,
+        enable_age_progression: bool = False,
     ) -> dict[str, Any]:
         """Perform biometric face matching and analysis.
 
-        This method uses the biometric model to analyze faces and
-        optionally compare a test image against a reference.
+        With a ``test_image``, a real reference-vs-test ``match_score`` is
+        computed from embedding cosine similarity (FaceNet when DeepFace is
+        installed, otherwise the deterministic harmonic feature path — the
+        result's ``embedding_backend`` / ``verification_note`` state which
+        grade was produced). Without one, the reference alone is analysed.
 
         Args:
             reference_image: Reference face image (path or array).
             test_image: Optional test image to match against reference.
+            enable_age_progression: With a ``test_image`` and a path-based
+                reference, also match seeded age-progressed reference variants
+                and report the best score as ``match_score_age_robust`` —
+                for pairs of images that may be years apart. The result's
+                ``age_progression`` record states whether it ran and why not
+                when it could not.
 
         Returns:
             Dictionary with biometric analysis results including:
-                - match_score: Similarity score (if test_image provided)
-                - face_attributes: Detected facial attributes
+                - match_score: Reference-vs-test similarity in [0, 1]
+                  (if test_image provided; ``None`` with an ``error`` reason
+                  when no measurable embedding exists)
+                - match_score_age_robust: Best score across age-progressed
+                  reference variants (when enabled and applicable)
                 - anomaly_scores: Biometric anomaly scores
 
         Example:
@@ -5754,6 +5767,7 @@ class OmniMercuryEngine(LoggerMixin):
                 {
                     "reference": reference_image,
                     "test": test_image,
+                    "enable_age_progression": enable_age_progression,
                 }
             )
         else:

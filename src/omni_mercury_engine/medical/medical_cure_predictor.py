@@ -393,6 +393,59 @@ def _patient_risk_burden(patient_state: dict[str, Any]) -> float:
     return float(np.clip(np.mean(components), 0.0, 1.0))
 
 
+# The core covariates the in-repo Framingham instrument needs for a
+# patient-specific (rather than population-default) estimate.
+_FRAMINGHAM_CORE_KEYS = (
+    "age",
+    "gender",
+    "total_cholesterol_mg_dl",
+    "hdl_cholesterol_mg_dl",
+    "systolic_bp_mmhg",
+)
+
+
+def _framingham_risk_fraction(patient_state: dict[str, Any]) -> float | None:
+    """Score a patient with the real Framingham 10-year CVD instrument.
+
+    When the patient record carries every core Framingham covariate, the
+    published instrument (implemented in
+    :class:`~omni_mercury_engine.medical.cardiology.cardiology_predictor.FraminghamRiskCalculator`)
+    computes the 10-year CVD risk, which is normalised against the 20 %
+    ten-year-risk high-risk boundary (the conventional high-risk category
+    cutoff) so a >= 20 % patient carries the full risk burden of 1.0.
+
+    Returns:
+        The normalised burden in ``[0, 1]``, or ``None`` when any core
+        covariate is missing — the caller then falls back to the generic
+        heuristic instead of letting population defaults masquerade as a
+        patient-specific estimate.
+    """
+    if not isinstance(patient_state, dict):
+        return None
+    if any(patient_state.get(key) is None for key in _FRAMINGHAM_CORE_KEYS):
+        return None
+    if patient_state.get("gender") not in ("male", "female"):
+        return None
+
+    from omni_mercury_engine.medical.cardiology.cardiology_predictor import (
+        FraminghamRiskCalculator,
+    )
+
+    result = FraminghamRiskCalculator().calculate_risk(
+        {
+            "age": patient_state["age"],
+            "gender": patient_state["gender"],
+            "total_cholesterol_mg_dl": patient_state["total_cholesterol_mg_dl"],
+            "hdl_cholesterol_mg_dl": patient_state["hdl_cholesterol_mg_dl"],
+            "systolic_bp_mmhg": patient_state["systolic_bp_mmhg"],
+            "smoker": bool(patient_state.get("smoker", False)),
+            "diabetes": bool(patient_state.get("diabetes", False)),
+        }
+    )
+    risk_fraction = float(result["10_year_cvd_risk_percent"]) / 100.0
+    return float(np.clip(risk_fraction / 0.20, 0.0, 1.0))
+
+
 class TreatmentPathwayOptimizer:
     """Treatment pathway optimization using multiverse exploration.
 
@@ -420,7 +473,15 @@ class TreatmentPathwayOptimizer:
         """
         # Higher patient risk burden weights the safety term more heavily, so
         # the search favours lower-variance (safer) pathways for frail patients.
-        risk_burden = _patient_risk_burden(patient_state)
+        # When the record carries the Framingham covariates, the burden comes
+        # from the real published instrument; otherwise the generic heuristic.
+        framingham_burden = _framingham_risk_fraction(patient_state)
+        if framingham_burden is not None:
+            risk_burden = framingham_burden
+            risk_model = "framingham_10yr_cvd"
+        else:
+            risk_burden = _patient_risk_burden(patient_state)
+            risk_model = "heuristic"
         safety_weight = 0.5 + risk_burden  # 0.5 (robust patient) .. 1.5 (frail)
 
         def treatment_fitness(treatment_vector: np.ndarray[Any, Any]) -> float:
@@ -455,6 +516,7 @@ class TreatmentPathwayOptimizer:
             "treatment_pathways": treatment_pathways,
             "pathways_explored": len(self.multiverse.universes),
             "patient_risk_burden": risk_burden,
+            "risk_model": risk_model,
             "safety_weight": safety_weight,
             "recommendations": self._generate_treatment_recommendations(
                 treatment_pathways, disease_type

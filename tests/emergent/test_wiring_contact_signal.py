@@ -11,10 +11,18 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from omni_mercury_engine.emergent.emergent_life_detector import (
     MultiverseContactProtocolExplorer,
     _clip01,
+    _derive_signal_characteristics,
 )
+
+_RNG = np.random.RandomState(0)
+_T = np.arange(512, dtype=float)
+_SINE = 3.0 * np.sin(2.0 * np.pi * _T / 16.0) + 0.01 * _RNG.randn(512)  # clean, narrow, periodic
+_NOISE = np.random.RandomState(1).randn(512)  # broadband, aperiodic
 
 
 def test_clip01_hand_values() -> None:
@@ -52,3 +60,46 @@ def test_wider_band_prefers_more_throughput() -> None:
     narrow_info = narrow["optimal_protocols"][0]["characteristics"]["information_density"]
     wide_info = wide["optimal_protocols"][0]["characteristics"]["information_density"]
     assert wide_info >= narrow_info
+
+
+def test_derived_characteristics_separate_tone_from_noise() -> None:
+    tone = _derive_signal_characteristics(_SINE)
+    noise = _derive_signal_characteristics(_NOISE)
+    # A clean tone: strong spectral peak, almost no occupied bandwidth,
+    # near-unit autocorrelation peak. White noise: the opposite on all three.
+    assert tone["snr"] > 0.9 > noise["snr"]
+    assert tone["bandwidth"] < 0.05 < noise["bandwidth"]
+    assert tone["periodicity"] > 0.9 > noise["periodicity"]
+
+
+def test_derived_characteristics_degenerate_inputs_are_neutral() -> None:
+    for bad in (np.array([1.0, 2.0]), np.full(64, 7.0), np.array([np.nan] * 32)):
+        assert _derive_signal_characteristics(bad) == {
+            "snr": 0.5,
+            "bandwidth": 0.5,
+            "periodicity": 0.5,
+        }
+
+
+def test_signal_data_drives_conditioning_end_to_end() -> None:
+    clean = MultiverseContactProtocolExplorer(num_universes=30).explore_contact_protocols(
+        signal_data=_SINE
+    )
+    noisy = MultiverseContactProtocolExplorer(num_universes=30).explore_contact_protocols(
+        signal_data=_NOISE
+    )
+    assert clean["signal_conditioning"]["derived_from_signal"] is True
+    assert noisy["signal_conditioning"]["derived_from_signal"] is True
+    # The measured SNR difference must reach the fitness weights: the noisy
+    # channel weights error correction harder than the clean one.
+    assert noisy["signal_conditioning"]["ecc_weight"] > clean["signal_conditioning"]["ecc_weight"]
+    # And the conditioning actually used is reported for audit.
+    assert clean["signal_conditioning"]["characteristics"]["snr"] > 0.9
+
+
+def test_measured_signal_overrides_caller_summary() -> None:
+    # A caller claiming the channel is noisy is overridden by a measured clean tone.
+    out = MultiverseContactProtocolExplorer(num_universes=30).explore_contact_protocols(
+        {"snr": 0.0}, signal_data=_SINE
+    )
+    assert out["signal_conditioning"]["characteristics"]["snr"] > 0.9

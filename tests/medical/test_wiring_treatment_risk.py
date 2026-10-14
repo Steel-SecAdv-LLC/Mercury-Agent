@@ -49,3 +49,59 @@ def test_frailer_patient_gets_safer_top_pathway() -> None:
         high["treatment_pathways"][0]["safety_score"]
         >= low["treatment_pathways"][0]["safety_score"]
     )
+
+
+_FRAMINGHAM_LOW = {
+    "age": 35,
+    "gender": "female",
+    "total_cholesterol_mg_dl": 170.0,
+    "hdl_cholesterol_mg_dl": 70.0,
+    "systolic_bp_mmhg": 110.0,
+    "smoker": False,
+    "diabetes": False,
+}
+_FRAMINGHAM_HIGH = {
+    "age": 72,
+    "gender": "male",
+    "total_cholesterol_mg_dl": 280.0,
+    "hdl_cholesterol_mg_dl": 30.0,
+    "systolic_bp_mmhg": 180.0,
+    "smoker": True,
+    "diabetes": True,
+}
+
+
+def test_framingham_burden_matches_the_real_instrument() -> None:
+    from omni_mercury_engine.medical.cardiology.cardiology_predictor import (
+        FraminghamRiskCalculator,
+    )
+    from omni_mercury_engine.medical.medical_cure_predictor import _framingham_risk_fraction
+
+    calc = FraminghamRiskCalculator()
+    for patient in (_FRAMINGHAM_LOW, _FRAMINGHAM_HIGH):
+        instrument = float(calc.calculate_risk(patient)["10_year_cvd_risk_percent"]) / 100.0
+        expected = min(instrument / 0.20, 1.0)  # 20% ten-year risk = high-risk boundary
+        burden = _framingham_risk_fraction(patient)
+        assert burden is not None
+        assert abs(burden - expected) < 1e-12
+
+
+def test_framingham_requires_all_core_covariates() -> None:
+    from omni_mercury_engine.medical.medical_cure_predictor import _framingham_risk_fraction
+
+    incomplete = dict(_FRAMINGHAM_HIGH)
+    del incomplete["hdl_cholesterol_mg_dl"]
+    assert _framingham_risk_fraction(incomplete) is None  # no default-masquerading
+    unknown_gender = dict(_FRAMINGHAM_HIGH, gender="unspecified")
+    assert _framingham_risk_fraction(unknown_gender) is None
+
+
+def test_optimizer_uses_instrument_when_available_and_reports_it() -> None:
+    low = TreatmentPathwayOptimizer(num_universes=25).optimize_treatment(_FRAMINGHAM_LOW, "cvd")
+    high = TreatmentPathwayOptimizer(num_universes=25).optimize_treatment(_FRAMINGHAM_HIGH, "cvd")
+    assert low["risk_model"] == high["risk_model"] == "framingham_10yr_cvd"
+    assert high["patient_risk_burden"] > low["patient_risk_burden"]
+    assert high["safety_weight"] > low["safety_weight"]
+    # Heuristic records (no Framingham covariates) fall back and say so.
+    heuristic = TreatmentPathwayOptimizer(num_universes=25).optimize_treatment(_LOW, "x")
+    assert heuristic["risk_model"] == "heuristic"
