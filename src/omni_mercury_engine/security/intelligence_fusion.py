@@ -35,14 +35,18 @@ Operational deployment requires security clearance and legal authorization.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 from torch import nn
+
+from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
 class IntelligenceDiscipline(Enum):
@@ -99,8 +103,10 @@ class IntelligenceFusionResult:
 class AllSourceFusionNetwork(nn.Module):
     """Neural network for all-source intelligence fusion.
 
-    Implements multi-head attention across INT disciplines with golden ratio architecture
-    optimization for optimal information synthesis.
+    Implements per-discipline encoders feeding multi-head attention across INT
+    disciplines, with an optional temporal LSTM branch. The network starts
+    untrained; ``IntelligenceFusionEngine`` only routes decisions through it
+    after ``load_trained_weights`` has installed a real checkpoint.
     """
 
     def __init__(
@@ -122,12 +128,16 @@ class AllSourceFusionNetwork(nn.Module):
                 "the per-discipline encoders are built from"
             )
 
-        phi = 1.618
-        hidden_1 = int(input_dim * phi)
-        hidden_2 = int(hidden_1 * phi)
+        # Capacity schedule: expand-then-contract around a fixed 1.618 factor.
+        # The factor is an arbitrary width choice (it carries no optimality
+        # claim); it is kept verbatim so layer shapes — and therefore any
+        # trained state_dict — stay stable across releases.
+        expansion = 1.618
+        hidden_1 = int(input_dim * expansion)
+        hidden_2 = int(hidden_1 * expansion)
         # Round to a (nonzero) multiple of the discipline count so the
         # cross-INT attention's embed_dim stays divisible by its head count.
-        hidden_3 = max(1, round(int(hidden_2 / phi) / num_int_types)) * num_int_types
+        hidden_3 = max(1, round(int(hidden_2 / expansion) / num_int_types)) * num_int_types
 
         encoder_in = input_dim // num_int_types
         encoder_out = hidden_1 // num_int_types
@@ -239,42 +249,54 @@ class IntelligenceFusionEngine:
         self,
         enable_neurosymbolic: bool = True,
         enable_cryptanalysis: bool = True,
-        golden_ratio_weights: bool = True,
     ):
         """Initialize intelligence fusion engine.
 
         Args:
             enable_neurosymbolic: Enable symbolic threat reasoning
             enable_cryptanalysis: Enable pattern-based cryptanalysis
-            golden_ratio_weights: Use φ-optimized fusion weights
         """
         self.logger = logging.getLogger(__name__)
         self.enable_neurosymbolic = enable_neurosymbolic
         self.enable_cryptanalysis = enable_cryptanalysis
-        self.golden_ratio = 1.618 if golden_ratio_weights else 1.0
 
+        # The fusion network starts with random weights.  Decisions route
+        # through it only once ``load_trained_weights`` has installed a real
+        # checkpoint (the same trained-only contract GOSNN enforces); until
+        # then ``fuse_intelligence`` scores from the reported evidence.
         self.fusion_network = AllSourceFusionNetwork(input_dim=128)
+        self._trained = False
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 
         self.int_reliability_scores = self._initialize_reliability_scores()
 
-        self.omni_intelligence_scalars = {
-            "omni_source_credibility": 1.45 * self.golden_ratio,
-            "omni_corroboration_strength": 1.42 * self.golden_ratio,
-            "omni_temporal_correlation": 1.38 * self.golden_ratio,
-            "omni_geospatial_precision": 1.40 * self.golden_ratio,
-            "omni_threat_anticipation": 1.47 * self.golden_ratio,
-            "omni_cryptographic_insight": 1.43 * self.golden_ratio,
-            "omni_human_factor_analysis": 1.36 * self.golden_ratio,
-            "omni_signal_clarity": 1.41 * self.golden_ratio,
-            "omni_financial_tracing": 1.39 * self.golden_ratio,
-            "omni_cyber_attribution": 1.44 * self.golden_ratio,
-        }
-
         self.logger.info(
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
+
+    def load_trained_weights(self, path: str | Path) -> None:
+        """Install a trained ``AllSourceFusionNetwork`` checkpoint.
+
+        Until this has run, the network's outputs are random-initialisation
+        noise and ``fuse_intelligence`` refuses to base decisions on them.
+
+        Args:
+            path: Checkpoint file holding the network ``state_dict`` (either
+                bare, or under a ``"state_dict"`` key).
+
+        Raises:
+            RuntimeError: If the checkpoint's tensor shapes do not match the
+                network (raised by ``load_state_dict``).
+        """
+        checkpoint = safe_torch_load(Path(path), map_location="cpu")
+        state = (
+            checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+        )
+        self.fusion_network.load_state_dict(state)
+        self.fusion_network.eval()
+        self._trained = True
+        self.logger.info("intelligence fusion: loaded trained fusion weights from %s", path)
 
     def _initialize_threat_kb(self) -> dict[str, dict[str, Any]]:
         """Initialize threat pattern knowledge base."""
@@ -365,32 +387,33 @@ class IntelligenceFusionEngine:
         Returns:
             Fused intelligence assessment with threat level
         """
-        int_features = self._extract_int_features(intel_reports)
+        if self._trained:
+            int_features = self._extract_int_features(intel_reports)
 
-        temporal_tensor = None
-        if temporal_context:
-            temporal_tensor = self._process_temporal_context(temporal_context)
+            temporal_tensor = None
+            if temporal_context:
+                temporal_tensor = self._process_temporal_context(temporal_context)
 
-        self.fusion_network.eval()
-        with torch.no_grad():
-            threat_logits, confidence, attention = self.fusion_network(
-                int_features, temporal_tensor
-            )
+            self.fusion_network.eval()
+            with torch.no_grad():
+                threat_logits, confidence, _attention = self.fusion_network(
+                    int_features, temporal_tensor
+                )
 
-        threat_probs = torch.softmax(threat_logits[0], dim=0)
-        threat_class = torch.argmax(threat_probs).item() + 1
+            threat_probs = torch.softmax(threat_logits[0], dim=0)
+            threat_class = int(torch.argmax(threat_probs).item()) + 1
+            confidence_score = float(confidence[0].item())
+            risk_score = confidence_score * (threat_class / 5.0)
+        else:
+            # Untrained network: its logits are initialisation noise, so the
+            # assessment comes from the reported evidence instead (reliability
+            # -weighted threat scores, corroboration-scaled confidence).
+            threat_class, confidence_score, risk_score = self._evidence_assessment(intel_reports)
+
         threat_level_enum = ThreatLevel(threat_class)
-        confidence_score = float(confidence[0].item())
+        threat_detected = threat_level_enum.value >= ThreatLevel.SUBSTANTIAL.value
 
-        risk_score = (
-            confidence_score
-            * self.omni_intelligence_scalars["omni_source_credibility"]
-            * (threat_class / 5.0)
-        )
-
-        threat_detected = risk_score > (0.5 * self.golden_ratio)
-
-        primary_sources, corroborating = self._identify_sources(intel_reports, attention[0].numpy())
+        primary_sources, corroborating = self._identify_sources(intel_reports)
 
         indicators = self._extract_threat_indicators(intel_reports, threat_level_enum)
 
@@ -439,8 +462,9 @@ class IntelligenceFusionEngine:
 
         return result
 
-    def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
-        """Extract features from intelligence reports (O(n) complexity)."""
+    @staticmethod
+    def _require_report_mapping(intel_reports: dict[str, Any]) -> None:
+        """Reject off-modality inputs with a clean, actionable error."""
         if not isinstance(intel_reports, Mapping):
             shape_hint = (
                 f" of shape {intel_reports.shape}" if hasattr(intel_reports, "shape") else ""
@@ -451,6 +475,10 @@ class IntelligenceFusionEngine:
                 "{'open_source': {...}, 'signals': {...}}), got "
                 f"{type(intel_reports).__name__}{shape_hint}."
             )
+
+    def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
+        """Extract features from intelligence reports (O(n) complexity)."""
+        self._require_report_mapping(intel_reports)
 
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
@@ -494,9 +522,49 @@ class IntelligenceFusionEngine:
 
         return torch.tensor(temporal_features, dtype=torch.float32)
 
-    def _identify_sources(
-        self, intel_reports: dict[str, Any], attention_weights: np.ndarray[Any, Any]
-    ) -> tuple[list[str], list[str]]:
+    def _evidence_assessment(self, intel_reports: dict[str, Any]) -> tuple[int, float, float]:
+        """Score the threat from the reported evidence alone.
+
+        This is the decision path while the fusion network is untrained: a
+        reliability-weighted mean of the per-discipline ``threat_score``
+        values, with confidence taken from the reports and scaled by
+        corroboration (a single-source assessment is damped; three or more
+        reporting disciplines carry full weight, matching the three primary
+        sources ``_identify_sources`` surfaces).
+
+        Returns:
+            Tuple of ``(threat_class, confidence_score, risk_score)`` where
+            ``threat_class`` indexes :class:`ThreatLevel` and both scores lie
+            in ``[0.0, 1.0]``.
+        """
+        self._require_report_mapping(intel_reports)
+
+        weighted: list[tuple[float, float]] = []
+        confidences: list[float] = []
+
+        for discipline in IntelligenceDiscipline:
+            report = intel_reports.get(discipline.value)
+            if not isinstance(report, Mapping):
+                continue
+            reliability = self.int_reliability_scores.get(discipline.value, 0.75)
+            if "threat_score" in report:
+                weighted.append((reliability, float(report["threat_score"])))
+            confidences.append(float(report.get("confidence", 0.5)))
+
+        if not weighted:
+            return ThreatLevel.LOW.value, 0.0, 0.0
+
+        total_weight = sum(w for w, _ in weighted)
+        risk_score = sum(w * s for w, s in weighted) / total_weight
+        risk_score = float(min(max(risk_score, 0.0), 1.0))
+
+        corroboration = min(1.0, len(confidences) / 3.0)
+        confidence_score = float(min(max(float(np.mean(confidences)) * corroboration, 0.0), 1.0))
+
+        threat_class = min(len(ThreatLevel), max(1, math.ceil(risk_score * len(ThreatLevel))))
+        return threat_class, confidence_score, risk_score
+
+    def _identify_sources(self, intel_reports: dict[str, Any]) -> tuple[list[str], list[str]]:
         """Identify primary and corroborating intelligence sources."""
         source_scores = []
 
@@ -711,28 +779,3 @@ class IntelligenceFusionEngine:
             "confidence": result.confidence,
             "intel_sources": result.primary_intel_sources,
         }
-
-
-def create_omni_intelligence_scalars() -> dict[str, float]:
-    """Create doctorate-level intelligence scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-intelligence scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_source_credibility": 1.45 * phi,
-        "omni_corroboration_strength": 1.42 * phi,
-        "omni_temporal_correlation": 1.38 * phi,
-        "omni_geospatial_precision": 1.40 * phi,
-        "omni_threat_anticipation": 1.47 * phi,
-        "omni_cryptographic_insight": 1.43 * phi,
-        "omni_human_factor_analysis": 1.36 * phi,
-        "omni_signal_clarity": 1.41 * phi,
-        "omni_financial_tracing": 1.39 * phi,
-        "omni_cyber_attribution": 1.44 * phi,
-        "omni_all_source_synthesis": 1.48 * phi,
-        "omni_counterintelligence": 1.46 * phi,
-        "omni_predictive_analysis": 1.43 * phi,
-    }

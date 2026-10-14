@@ -176,6 +176,72 @@ class TestFeatureWidthContract:
         assert all(str(k["device"]) == str(features.device) for k in pad_kwargs)
 
 
+class TestUntrainedDecisionContract:
+    """Decisions must come from evidence, never from an untrained network.
+
+    Regression: ``fuse_intelligence`` previously thresholded the random
+    -initialisation logits of ``AllSourceFusionNetwork`` (scaled by golden
+    -ratio constants), so ``threat_detected`` was noise. Untrained engines now
+    score from the reported evidence and are therefore deterministic.
+    """
+
+    def test_untrained_decision_is_deterministic_across_engines(self) -> None:
+        """Two engines (different random nets) agree on every decision field."""
+        a = IntelligenceFusionEngine().fuse_intelligence(_sample_reports())
+        b = IntelligenceFusionEngine().fuse_intelligence(_sample_reports())
+
+        assert a.threat_detected == b.threat_detected
+        assert a.threat_level == b.threat_level
+        assert a.risk_score == pytest.approx(b.risk_score)
+        assert a.confidence == pytest.approx(b.confidence)
+
+    def test_high_evidence_detects_and_low_evidence_does_not(self) -> None:
+        """threat_detected tracks the reported threat scores, not noise."""
+        engine = IntelligenceFusionEngine()
+
+        high = engine.fuse_intelligence(_sample_reports())
+        assert high.threat_detected
+        assert high.threat_level in {"SEVERE", "CRITICAL"}
+
+        low = engine.fuse_intelligence({"open_source": {"confidence": 0.9, "threat_score": 0.05}})
+        assert not low.threat_detected
+        assert low.threat_level == "LOW"
+
+    def test_no_evidence_yields_low_and_zero_scores(self) -> None:
+        """An empty / unscored report mapping is LOW with zeroed scores."""
+        result = IntelligenceFusionEngine().fuse_intelligence({})
+
+        assert not result.threat_detected
+        assert result.threat_level == "LOW"
+        assert result.risk_score == 0.0
+        assert result.confidence == 0.0
+
+    def test_single_source_confidence_is_damped(self) -> None:
+        """Corroboration scaling caps single-source confidence at one third."""
+        engine = IntelligenceFusionEngine()
+        result = engine.fuse_intelligence({"open_source": {"confidence": 0.9, "threat_score": 0.8}})
+        assert result.confidence == pytest.approx(0.9 / 3.0)
+
+    def test_load_trained_weights_roundtrip_enables_network_path(self, tmp_path: Any) -> None:
+        """A saved state_dict loads through the safe loader and flips _trained."""
+        import torch
+
+        from omni_mercury_engine.security.intelligence_fusion import AllSourceFusionNetwork
+
+        donor = AllSourceFusionNetwork(input_dim=128)
+        ckpt = tmp_path / "fusion.pt"
+        torch.save(donor.state_dict(), ckpt)
+
+        engine = IntelligenceFusionEngine()
+        assert not engine._trained
+        engine.load_trained_weights(ckpt)
+        assert engine._trained
+
+        result = engine.fuse_intelligence(_sample_reports())
+        assert isinstance(result, IntelligenceFusionResult)
+        assert 0.0 <= result.confidence <= 1.0
+
+
 class TestNetworkDisciplineParameterization:
     """AllSourceFusionNetwork sizing follows the IntelligenceDiscipline enum.
 
