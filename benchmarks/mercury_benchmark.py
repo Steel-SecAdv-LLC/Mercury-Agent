@@ -349,6 +349,10 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("UCR", "academic", "UCRLoader", "ucr_archive", {}),
     ("CWRU_Bearing", "academic", "CWRUBearingLoader", "ucr_archive", {}),
     ("MSDS", "academic", "MSDSLoader", "ucr_archive", {}),
+    # --- Maritime (expert-annotated AIS trajectories; published SOTA
+    # baselines on the same eval set: GeoTrackNet 0.87, RAE 0.86,
+    # contextual detector 0.79 — see datasets/maritime.py) ---
+    ("DTU_AIS_Abnormal", "maritime", "DTUAISLoader", "maritime", {}),
     # --- Security ---
     ("ThreatIntel", "security", "ThreatIntelLoader", "security", {}),
     # --- General ---

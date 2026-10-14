@@ -595,6 +595,7 @@ class TrustedEndpoints:
             "cds.climate.copernicus.eu",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
+            "ndownloader.figshare.com",  # DTU Data labelled AIS set (DOI 10.11583/DTU.21511815)
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
             "cicresearch.ca",  # CICIDS 2017 legacy mirror hostname
             # Weather APIs

@@ -127,6 +127,27 @@ Auth: None (public domain, US Government)
 Loader: `FEMADisasterLoader` in `src/omni_mercury_engine/datasets/disaster.py`
 Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
 
+### DTU AIS Abnormal Behavior (Danish Waters)
+
+Source: `https://ndownloader.figshare.com/articles/21511815/versions/1`
+(DOI 10.11583/DTU.21511815, collection 10.11583/DTU.c.6287841)
+Auth: None. License: CC BY 4.0 — Olesen, K. V., Clemmensen, L. K. H., &
+Christensen, A. N. (2023), Technical University of Denmark.
+Loader: `DTUAISLoader` in `src/omni_mercury_engine/datasets/maritime.py`
+Status: In the mercury_benchmark.py suite (`DTU_AIS_Abnormal`, category
+`maritime`). 521 real AIS trajectories from 2021-12-13 (Danish waters,
+120 s resampling), 25 expert-annotated abnormal (collision, SAR response,
+law enforcement, forced course deviations), served as 22 trajectory-level
+kinematic/geometric features. The only public expert-labelled real-AIS
+anomaly benchmark; published baselines on the identical evaluation set:
+GeoTrackNet 0.87, RAE 0.86, Seq2Seq 0.84, Seq2Seq+attention 0.83,
+RVAE 0.72 (Olesen's DTU thesis, Fig. 6.1) and 0.79 for the contextual
+detector of J. Mar. Sci. Eng. 11(11):2085 (2023). Upstream files are
+pickles: deserialised only through the fail-closed restricted unpickler
+in the loader module (numpy-array reconstruction allowlist), with
+SHA-256 pinned per extracted member; see
+tests/datasets/test_maritime_loader.py::test_malicious_pickle_is_refused.
+
 ### USGS Geochemistry (NURE-HSSR Stream Sediment)
 
 Source: `https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip`

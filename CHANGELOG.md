@@ -27,6 +27,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 67th benchmark dataset: DTU Danish-waters AIS with expert-annotated abnormalities; Mercury at published-SOTA parity (branch `steel/version-cov4`)
+
+**Added — `DTU_AIS_Abnormal`** (`datasets/maritime.py`, category
+`maritime`): the only public, expert-annotated real-AIS anomaly benchmark —
+521 vessel trajectories from Danish waters (2021-12-13, 120 s resampling),
+25 manually labelled abnormal (collision, SAR response, law enforcement,
+forced deviations). CC BY 4.0, DOI 10.11583/DTU.21511815 (Olesen,
+Clemmensen & Christensen, DTU). Trajectories are served as 22 documented
+kinematic/geometric features; `LABEL_SOURCE = "expert_annotated"` keeps it
+in the genuine-label headline pool.
+
+Measured against the published baselines on the identical evaluation set
+(Olesen's DTU thesis Fig. 6.1 and JMSE 11(11):2085): fitting the stock
+`MercuryAnomalyDetector` on the companion June–November unlabelled months
+(106,728 trajectories, benchmark 10k cap, 0.33 s fit) and scoring all 521
+labelled trajectories yields ROC-AUC 0.876 (full-reference variant 0.869,
+95 % bootstrap CI ≈ [0.78, 0.95]) — parity with GeoTrackNet (0.87, the
+field's reference deep model, 50-epoch training) and above RAE 0.86,
+Seq2Seq 0.84/0.83, the contextual detector 0.79 and RVAE 0.72. With only
+25 positives all methods' intervals overlap: the honest claim is parity,
+not superiority. The in-suite row (uniform harness protocol, seed 42)
+reports AUC 0.8631 / oracle-F1 0.6250. The features were written once,
+before any score was seen — no tuning iterations, no label contact.
+
+Security: the upstream files are pickles; the loader deserialises them
+only through a fail-closed restricted unpickler (numpy-array
+reconstruction allowlist — any other global raises) and pins SHA-256 per
+extracted member, since the figshare zip wrapper is generated per request.
+`ndownloader.figshare.com` joins `TrustedEndpoints.TRUSTED_DOMAINS`. Five
+loader tests cover feature physics, label alignment, the digest gate and
+the malicious-pickle refusal.
+
 ### CI wall-clock: cache the shared native build, fix the matrix pip keys, stop the third image rebuild (branch `steel/version-cov4`)
 
 Three structural costs removed without touching any scan scope, severity
