@@ -18,6 +18,34 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Compute AMA native-build cache key
+      # The cmake build of the native PQC library is identical for every job
+      # on the same runner image and architecture (it involves no Python), so
+      # roughly ten jobs per CI run were rebuilding the same shared objects.
+      # Key the cached build tree on everything the artifact depends on: the
+      # immutable AMA tag, OS/arch, the runner image generation (glibc), and
+      # this action file itself (compiler + cmake flags live here).
+      id: cache-key
+      shell: bash
+      env:
+        AMA_REF: ${{ inputs.ama-ref }}
+      run: |
+        echo "key=ama-native-${AMA_REF}-${RUNNER_OS}-$(uname -m)-${ImageOS:-unknown-image}" \
+          >> "$GITHUB_OUTPUT"
+
+    - name: Restore cached AMA native build tree
+      # Security posture: the key is exact-match only (no restore-keys), so a
+      # partial or sibling cache can never be substituted; and the two
+      # verification gates below (native PQC capability probe + engine
+      # import-time gate, which checks AMA's signed native-library digest)
+      # run on hit and miss alike, so a stale or tampered cache entry fails
+      # this action loudly instead of degrading the backend.
+      id: ama-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: /tmp/ama-cryptography
+        key: ${{ steps.cache-key.outputs.key }}-${{ hashFiles('.github/actions/build-ama-cryptography/action.yml') }}
+
     - name: Install build toolchain for AMA Cryptography native library
       shell: bash
       run: |
@@ -72,6 +100,11 @@ runs:
           "cmake>=4.4.4"
 
     - name: Build AMA Cryptography native C library
+      # Skipped on a cache hit: the restored tree holds this exact tag's
+      # checkout plus its compiled build/ output. The toolchain and PEP 517
+      # floor steps above stay unconditional — the Python install below
+      # still needs them either way.
+      if: steps.ama-cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         AMA_REF: ${{ inputs.ama-ref }}

@@ -27,6 +27,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### CI wall-clock: cache the shared native build, fix the matrix pip keys, stop the third image rebuild (branch `steel/version-cov4`)
+
+Three structural costs removed without touching any scan scope, severity
+threshold, blocking exit code or test. The Trivy vulnerability database is
+deliberately NOT cached: scanning against a stale CVE feed is a silent
+security regression, so every scan keeps downloading the current DB.
+
+**AMA native build cached across jobs.** Roughly ten jobs per run rebuilt
+the identical AMA-Cryptography C library (the cmake step involves no
+Python). The composite action now caches the built tree keyed exactly on
+the immutable tag, OS/arch, runner-image generation and the action file
+itself — no `restore-keys` fallback, so a near-miss cache can never be
+substituted — and both verification gates (native PQC capability probe,
+engine import-time gate over AMA's signed library digest) still run on
+every job, cache hit or miss, so a stale or tampered entry fails loudly.
+
+**Matrix pip caches actually cache now.** The `pip-quality`/`pip-types`/
+`pip-core` cache keys omitted the Python version, so the four matrix
+entries raced to save one key: the first finisher won, and the other three
+versions re-downloaded torch on every run while their save was skipped as
+"key exists". The version is now part of each key.
+
+**`security.yml` stops rebuilding the image from scratch.** ci.yml's
+docker-build job already writes the buildx layer cache
+(`cache-to: type=gha,mode=max`) and docker.yml reads it; the container-scan
+job was the one plain `docker build` with no cache — ~10 minutes of
+identical apt + venv layers per run. It now reads the same cache through
+the same pinned buildx/build-push actions. The Trivy steps scan the
+assembled image with a fresh DB either way, so cached layers cannot hide a
+newly published CVE.
+
 ### Adversarial excavation round: 14 findings root-caused across detectors, gates and egress (branch `steel/version-cov4`)
 
 A line-by-line adversarial review of the unified branch, each finding fixed

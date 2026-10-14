@@ -121,9 +121,13 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
-          key: ${{ runner.os }}-pip-quality-${{ hashFiles('pyproject.toml') }}
+          # The Python version is part of the key: without it the four matrix
+          # entries race to save one key, the first finisher wins, and the
+          # other three versions' wheels (torch above all) are re-downloaded
+          # on every run while the save is skipped as "key exists".
+          key: ${{ runner.os }}-pip-quality-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pip-quality-
+            ${{ runner.os }}-pip-quality-py${{ matrix.python-version }}-
 
       - name: Install quality tools
         run: |
@@ -531,9 +535,12 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
-          key: ${{ runner.os }}-pip-types-${{ hashFiles('pyproject.toml') }}
+          # Python version in the key for the same reason as the Code Quality
+          # lane: one shared key across the matrix caches only one version's
+          # wheels and silently skips the save for the rest.
+          key: ${{ runner.os }}-pip-types-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pip-types-
+            ${{ runner.os }}-pip-types-py${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
@@ -1034,9 +1041,12 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
-          key: ${{ runner.os }}-pip-core-${{ hashFiles('pyproject.toml') }}
+          # Python version in the key for the same reason as the Code Quality
+          # lane: one shared key across the matrix caches only one version's
+          # wheels and silently skips the save for the rest.
+          key: ${{ runner.os }}-pip-core-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pip-core-
+            ${{ runner.os }}-pip-core-py${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
