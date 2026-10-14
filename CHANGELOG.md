@@ -48,8 +48,29 @@ field's reference deep model, 50-epoch training) and above RAE 0.86,
 Seq2Seq 0.84/0.83, the contextual detector 0.79 and RVAE 0.72. With only
 25 positives all methods' intervals overlap: the honest claim is parity,
 not superiority. The in-suite row (uniform harness protocol, seed 42)
-reports AUC 0.8631 / oracle-F1 0.6250. The features were written once,
+reports AUC 0.8613 / oracle-F1 0.6000. The features were written once,
 before any score was seen — no tuning iterations, no label contact.
+
+**Fixed — missing-COG policy made explicit (found by the quickstart).**
+30 of the 521 tracks carry NaN course over ground (real AIS: COG not
+broadcast; some tracks entirely). The first cut of the feature extractor
+let those NaNs through, and the benchmark harness's generic validation
+silently median-imputed them (row read 0.8631) while any other consumer
+would impute differently — two callers, two numbers. Course-derived
+features are now computed over finite values only (documented neutral
+0.0 when none exist), the extractor raises on any other non-finite
+feature instead of emitting NaN, and the demo, the harness and a direct
+loader call now agree bit for bit.
+
+**Added — ten-minute quickstart** (`examples/maritime_quickstart.py`,
+README "Ten minutes to one honest number"): clone →
+`pip install -e ".[pqc]"` → one command prints this dataset's ROC-AUC
+next to the published baselines, with the caveats stated. The full
+stranger path was measured in a clean virtualenv on a stock Linux
+container: 121 s total, no environment variables, no manual build steps
+(pip builds the pinned AMA backend itself; the import-time PQC gate
+passes on the wheel's co-located native library). The Examples Parity
+lane runs the demo end to end and pins the exact deterministic AUC.
 
 Security: the upstream files are pickles; the loader deserialises them
 only through a fail-closed restricted unpickler (numpy-array

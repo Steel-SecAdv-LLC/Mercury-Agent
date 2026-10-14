@@ -128,12 +128,26 @@ def _haversine_km(
 def track_features(track: dict[str, Any]) -> np.ndarray[Any, Any]:
     """One trajectory record -> the 22-feature vector of :data:`FEATURE_NAMES`.
 
+    Course over ground can be unavailable in real AIS (30 of the 521 DTU
+    evaluation tracks carry NaN course, some for the whole track), so every
+    course-derived feature is computed over the finite values only:
+    ``course_resultant`` is the mean resultant of the finite courses (0.0 —
+    no directional concentration — when none exist) and the turn features
+    use consecutive finite pairs (0.0 when there are none). This keeps the
+    missing-data policy here, explicit and tested, instead of leaking NaN
+    for a downstream consumer to impute silently.
+
     Args:
         track: Record with ``lat``/``lon``/``speed``/``course``/``timestamp``
             sequences (knots, degrees, epoch seconds; 120 s resampling).
 
     Returns:
-        ``(22,)`` float vector. Single-point tracks yield zero motion terms.
+        ``(22,)`` float vector, all entries finite. Single-point tracks
+        yield zero motion terms.
+
+    Raises:
+        ValueError: a non-finite feature survived (unexpected upstream data
+            such as NaN positions) — fail loudly rather than emit NaN.
     """
     lat = np.asarray(track["lat"], dtype=float)
     lon = np.asarray(track["lon"], dtype=float)
@@ -147,10 +161,20 @@ def track_features(track: dict[str, Any]) -> np.ndarray[Any, Any]:
     dt = np.where(dt > 0, dt, 120.0)
     accel = np.abs(np.diff(speed)) / dt if n > 1 else np.zeros(1)
 
-    rad = np.radians(course)
-    course_resultant = float(np.hypot(np.mean(np.sin(rad)), np.mean(np.cos(rad))))
-    turn = np.abs(np.diff(course)) if n > 1 else np.zeros(1)
-    turn = np.minimum(turn, 360.0 - turn)  # wrap to [0, 180]
+    finite_course = course[np.isfinite(course)]
+    if len(finite_course):
+        rad = np.radians(finite_course)
+        course_resultant = float(np.hypot(np.mean(np.sin(rad)), np.mean(np.cos(rad))))
+    else:
+        course_resultant = 0.0
+    if n > 1:
+        pair_mask = np.isfinite(course[:-1]) & np.isfinite(course[1:])
+        turn = np.abs(course[1:][pair_mask] - course[:-1][pair_mask])
+        turn = np.minimum(turn, 360.0 - turn)  # wrap to [0, 180]
+    else:
+        turn = np.zeros(0)
+    if turn.size == 0:
+        turn = np.zeros(1)
 
     seg_km = _haversine_km(lat[:-1], lon[:-1], lat[1:], lon[1:]) if n > 1 else np.zeros(1)
     path_len = float(seg_km.sum())
@@ -158,7 +182,7 @@ def track_features(track: dict[str, Any]) -> np.ndarray[Any, Any]:
     straightness = net_disp / path_len if path_len > 1e-6 else 1.0
     bbox_diag = float(_haversine_km(lat.min(), lon.min(), lat.max(), lon.max()))
 
-    return np.array(
+    features = np.array(
         [
             duration_h,
             float(n),
@@ -184,6 +208,10 @@ def track_features(track: dict[str, Any]) -> np.ndarray[Any, Any]:
             float(lon.std()),
         ]
     )
+    if not np.all(np.isfinite(features)):
+        bad = [FEATURE_NAMES[i] for i in np.flatnonzero(~np.isfinite(features))]
+        raise ValueError(f"non-finite trajectory features {bad} for mmsi={track.get('mmsi')}")
+    return features
 
 
 class DTUAISLoader(DatasetLoader):

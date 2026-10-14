@@ -791,6 +791,41 @@ emits a provenance-stamped JSON latency/RSS profile (schema
 
 ## Quick Start
 
+### Ten minutes to one honest number
+
+Three commands take you from clone to a measured result on the only public,
+expert-annotated real-AIS anomaly benchmark (521 Danish-waters vessel
+trajectories, 25 labelled abnormal — DTU, CC BY 4.0), next to the published
+state-of-the-art baselines on the identical evaluation set:
+
+```bash
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
+pip install -e ".[pqc]"            # core + native PQC backend, built automatically
+python examples/maritime_quickstart.py
+```
+
+```text
+Mercury ensemble (this run)  ROC-AUC 0.8613   unsupervised, fit in seconds <-- you
+GeoTrackNet (VRNN)           ROC-AUC 0.8700   deep, the field's reference model
+RAE                          ROC-AUC 0.8600   deep recurrent autoencoder
+...
+```
+
+The run is deterministic (seed 42), downloads ~38 MB of digest-pinned real
+AIS data on first use, and reproduces the `DTU_AIS_Abnormal` row of the
+committed benchmark results bit for bit. The published models were trained
+for 50 epochs on months of trajectories; Mercury fits unsupervised in under
+a second on 22 trajectory features. Read the caveats the demo prints — with
+25 positives this is parity with the state of the art, not superiority.
+Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md),
+[docs/DATASOURCES.md](docs/DATASOURCES.md).
+
+Prerequisites: Python ≥ 3.11 and a C compiler (GCC ≥ 12 recommended); the
+PQC build floors (`cmake`, `setuptools`, `wheel`) install themselves inside
+the isolated build. Measured end to end in a clean virtualenv on a stock
+Linux container: 121 s, no environment variables, no manual build steps. If
+the automatic build fails on your platform, use the explicit path below.
+
 <details>
 <summary><strong>Installation</strong></summary>
 

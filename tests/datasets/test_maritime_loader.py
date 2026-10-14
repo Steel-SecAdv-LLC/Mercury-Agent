@@ -68,6 +68,30 @@ def test_load_raw_features_and_label_alignment(tmp_path: Path) -> None:
     assert frac_slow == 1.0
 
 
+def test_nan_course_yields_finite_neutral_features() -> None:
+    """Real AIS tracks can lack COG entirely (30/521 in the DTU set)."""
+    full_nan = _make_track(20)
+    full_nan["course"] = [float("nan")] * 20
+    vec = track_features(full_nan)
+    assert np.all(np.isfinite(vec))
+    named = dict(zip(FEATURE_NAMES, vec.tolist(), strict=True))
+    assert named["course_resultant"] == 0.0
+    assert named["total_turn_deg"] == 0.0
+    partial = _make_track(20)
+    partial["course"] = [float("nan")] * 10 + [90.0] * 10
+    vec2 = track_features(partial)
+    assert np.all(np.isfinite(vec2))
+    named2 = dict(zip(FEATURE_NAMES, vec2.tolist(), strict=True))
+    assert named2["course_resultant"] == pytest.approx(1.0)  # constant finite course
+
+
+def test_nan_positions_fail_loudly() -> None:
+    bad = _make_track(10)
+    bad["lat"] = [float("nan")] * 10
+    with pytest.raises(ValueError, match="non-finite trajectory features"):
+        track_features(bad)
+
+
 def test_track_features_are_physical() -> None:
     vec = track_features(_make_track(40))
     named = dict(zip(FEATURE_NAMES, vec.tolist(), strict=True))
