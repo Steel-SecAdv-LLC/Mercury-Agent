@@ -143,6 +143,14 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "expert_annotated",
         "PhysioNet-derived expert cardiology annotations.",
     ),
+    "maritime.DTUAISLoader": (
+        "expert_annotated",
+        "25/521 AIS trajectories manually labelled abnormal by the DTU "
+        "dataset authors around a verified 2021-12-13 collision (SAR, law "
+        "enforcement, forced deviations); labels are human event annotation, "
+        "independent of the kinematic features Mercury scores. "
+        "DOI 10.11583/DTU.21511815.",
+    ),
     # --- Manufactured / synthetic (statistical) -- excluded from headline -
     "environmental.USGSEarthquakeLoader": (
         "statistical",
