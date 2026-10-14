@@ -1031,9 +1031,96 @@ class DetectorRegistry:
             cat: [] for cat in DetectorCategory
         }
         self._executor: ThreadPoolExecutor | None = None
+        # Opt-in result cache (enable_feature_cache); entries remember whether
+        # the detector returned torch tensors so a hit returns the same type.
+        self._feature_cache: Any = None
+        self._feature_cache_tensor: dict[str, bool] = {}
 
         if auto_discover:
             self.auto_discover_detectors()
+
+    # -- opt-in feature cache ------------------------------------------------
+
+    def enable_feature_cache(
+        self,
+        max_memory_mb: float = 256.0,
+        max_entries: int = 1000,
+        ttl_seconds: float = 0.0,
+    ) -> None:
+        """Cache (features, scores) for repeated identical payloads.
+
+        Only detectors exposing ``feature_cache_token()`` take part: the
+        token must change whenever their fitted state changes, so a refit
+        can never serve stale features, and a detector without one (e.g. a
+        stateful per-tick detector) is never cached. Hits and misses are
+        recorded in ``omni_feature_cache_hits_total`` /
+        ``omni_feature_cache_misses_total``. Storage is lossless.
+        """
+        from omni_mercury_engine.utils.feature_cache import (
+            CacheConfig,
+            MemoryEfficientFeatureCache,
+        )
+
+        self._feature_cache = MemoryEfficientFeatureCache(
+            CacheConfig(max_size=max_entries, max_memory_mb=max_memory_mb, ttl_seconds=ttl_seconds)
+        )
+        self._feature_cache_tensor = {}
+
+    def disable_feature_cache(self) -> None:
+        """Drop the feature cache and its entries."""
+        self._feature_cache = None
+        self._feature_cache_tensor = {}
+
+    def feature_cache_stats(self) -> dict[str, Any] | None:
+        """Cache statistics, or ``None`` when the cache is off."""
+        return None if self._feature_cache is None else self._feature_cache.get_stats()
+
+    def _feature_cache_key(self, name: str, detector: Any, data: Any) -> str | None:
+        """``name|token|sha3(data)`` for a cacheable call, else ``None``."""
+        if self._feature_cache is None or isinstance(data, dict):
+            return None
+        token_fn = getattr(detector, "feature_cache_token", None)
+        if not callable(token_fn):
+            return None
+        token = token_fn()
+        if token is None:
+            return None
+        if torch is not None and isinstance(data, torch.Tensor):
+            arr = data.detach().cpu().numpy()
+        else:
+            arr = np.asarray(data)
+        if arr.dtype == object:
+            return None
+        import hashlib
+
+        digest = hashlib.sha3_256(
+            np.ascontiguousarray(arr).tobytes() + repr((arr.shape, arr.dtype.str)).encode()
+        ).hexdigest()
+        return f"{name}|{token!r}|{digest}"
+
+    def _cached_result(self, key: str) -> tuple[Any, Any] | None:
+        cache = self._feature_cache
+        if cache is None or not cache.contains(f"{key}|f"):
+            return None
+        features = cache.get(f"{key}|f")
+        scores = cache.get(f"{key}|s") if cache.contains(f"{key}|s") else None
+        if features is None:
+            return None
+        if self._feature_cache_tensor.get(key) and torch is not None:
+            features = torch.as_tensor(features)
+        return features, scores
+
+    def _store_result(self, key: str, features: Any, scores: Any) -> None:
+        cache = self._feature_cache
+        if cache is None or features is None:
+            return
+        is_tensor = torch is not None and isinstance(features, torch.Tensor)
+        stored = features.detach().cpu().numpy() if is_tensor else np.asarray(features)
+        if stored.dtype == object or not cache.put(f"{key}|f", stored):
+            return
+        self._feature_cache_tensor[key] = bool(is_tensor)
+        if scores is not None:
+            cache.put(f"{key}|s", np.asarray(scores))
 
     def register(
         self,
@@ -1176,19 +1263,32 @@ class DetectorRegistry:
                 if not fitted and hasattr(detector, "fit") and not isinstance(data, dict):
                     detector.fit(data)
 
-            # Extract features
-            features = None
-            if hasattr(detector, "extract_features"):
-                features = detector.extract_features(data)
+            cache_key = self._feature_cache_key(name, detector, data)
+            cached = self._cached_result(cache_key) if cache_key is not None else None
+            if cached is not None:
+                from omni_mercury_engine.core.metrics import record_cache_hit
 
-            # Get predictions/scores
-            scores = None
-            if hasattr(detector, "predict"):
-                result = detector.predict(data)
-                if isinstance(result, dict):
-                    scores = result.get("anomaly_scores", result.get("scores"))
-                    if scores is not None:
-                        scores = np.atleast_1d(scores)
+                record_cache_hit(name)
+                features, scores = cached
+            else:
+                # Extract features
+                features = None
+                if hasattr(detector, "extract_features"):
+                    features = detector.extract_features(data)
+
+                # Get predictions/scores
+                scores = None
+                if hasattr(detector, "predict"):
+                    result = detector.predict(data)
+                    if isinstance(result, dict):
+                        scores = result.get("anomaly_scores", result.get("scores"))
+                        if scores is not None:
+                            scores = np.atleast_1d(scores)
+                if cache_key is not None:
+                    from omni_mercury_engine.core.metrics import record_cache_miss
+
+                    record_cache_miss(name)
+                    self._store_result(cache_key, features, scores)
 
             execution_time = (time.perf_counter() - start_time) * 1000
 

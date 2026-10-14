@@ -7,6 +7,7 @@ A working anomaly detector that actually trains and detects.
 
 from __future__ import annotations
 
+import itertools
 import logging
 import os
 from typing import Any
@@ -20,6 +21,8 @@ from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 logger = logging.getLogger(__name__)
+
+_FIT_EVENTS = itertools.count(1)
 
 
 class LSTMAutoencoder(nn.Module):
@@ -440,6 +443,11 @@ class LSTMAutoencoderDetector:
         self.seed = seed
         self.device = device
         self._detector: AnomalyDetector | None = None
+        self._fit_event: int = 0
+
+    def feature_cache_token(self) -> tuple[Any, ...] | None:
+        """Unique per fit (process-wide), for the registry's feature cache."""
+        return None if self._detector is None else ("lstm_ae", self._fit_event)
 
     @property
     def is_fitted(self) -> bool:
@@ -468,6 +476,7 @@ class LSTMAutoencoderDetector:
         )
         detector.fit(X, epochs=self.epochs, batch_size=self.batch_size, lr=self.lr, verbose=False)
         self._detector = detector
+        self._fit_event = next(_FIT_EVENTS)
         return self
 
     def extract_features(self, data: Any) -> np.ndarray[Any, Any]:

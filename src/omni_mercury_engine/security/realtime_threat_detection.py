@@ -23,6 +23,7 @@ which a batch-relative percentile threshold can do.
 
 from __future__ import annotations
 
+import itertools
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -34,6 +35,8 @@ from scipy.spatial import cKDTree
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 logger = logging.getLogger(__name__)
+
+_FIT_EVENTS = itertools.count(1)
 
 
 @dataclass
@@ -326,8 +329,15 @@ class RealTimeThreatDetector(LoggerMixin):
             self._ref_p99 = float(np.quantile(ref_ensemble, 0.99))
 
         self._fit_data = np.asarray(X, dtype=float)
+        self._fit_event = next(_FIT_EVENTS)
         self.is_fitted = True
         return self
+
+    def feature_cache_token(self) -> tuple[Any, ...] | None:
+        """Unique per fit (process-wide), for the registry's feature cache."""
+        if not self.is_fitted:
+            return None
+        return ("realtime_threat", getattr(self, "_fit_event", 0), self.contamination)
 
     @staticmethod
     def _raw_score(detector: Any, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:

@@ -25,6 +25,7 @@ References:
 
 from __future__ import annotations
 
+import itertools
 import logging
 from typing import Any
 
@@ -58,6 +59,10 @@ from omni_mercury_engine.core.governed_fusion import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Process-wide fit events: every fit / state restore takes a fresh value, so
+#: a (fit_generation, ...) fingerprint is unique across instances and copies.
+_FIT_EVENTS = itertools.count(1)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -467,7 +472,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._precompute_resonance_profiles(arr)
 
         # --- kNN density stream: reference tree over the training rows ---
-        self._fit_generation += 1
+        self._fit_generation = next(_FIT_EVENTS)
         self._fit_knn_stream(arr)
 
         self._is_fitted = True
@@ -2991,6 +2996,24 @@ class MercuryAnomalyDetector(BaseDetector):
             float(np.trace(cov_inv)) if cov_inv is not None else None,
         )
 
+    def feature_cache_token(self) -> tuple[Any, ...] | None:
+        """Version of everything this detector's features and scores depend on.
+
+        The detector registry's opt-in feature cache keys entries on this
+        token, so any refit, weight change, calibration or flip change
+        invalidates them; the fit generation comes from a process-wide
+        counter, so two instances (or a copy that refits) never share one.
+        ``None`` (unfitted) disables caching.
+        """
+        if not self._is_fitted:
+            return None
+        return (
+            self._knn_state_key(),
+            self._score_flip,
+            self._multiscale_tta_enabled,
+            self._knn_tree is not None,
+        )
+
     def _knn_live_reference(self) -> tuple[float, float] | None:
         """Median/scale of the ensemble part on the fit-time reference sample."""
         key = self._knn_state_key()
@@ -3891,7 +3914,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._restore_oracle_from_ref_stats(
             dict(oracle_ref_stats) if oracle_ref_stats is not None else None
         )
-        self._fit_generation += 1
+        self._fit_generation = next(_FIT_EVENTS)
         self._restore_knn_stream(state.get("knn_stream"))
         self._is_fitted = True
 

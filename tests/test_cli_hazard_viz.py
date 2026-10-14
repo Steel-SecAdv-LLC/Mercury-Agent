@@ -169,3 +169,26 @@ def test_wrong_input_shape_fails_loud(tmp_path: Path) -> None:
     )
     assert cli_result.exit_code != 0
     assert "(sweeps, 64)" in cli_result.output
+
+
+def test_render_interactive_html_from_payload(tmp_path: Path) -> None:
+    """--format html writes a self-contained Plotly page (no CDN, escaped title)."""
+    pytest.importorskip("plotly")
+    from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
+
+    rng = np.random.default_rng(1)
+    result = EarthquakeDetector(  # type: ignore[call-arg, unused-ignore]
+        keep_diagnostics=True
+    ).predict_earthquake(0.02 * rng.normal(size=2048))
+    payload_path = tmp_path / "quake.npz"
+    result.diagnostics.to_npz(payload_path)  # type: ignore[attr-defined, unused-ignore]
+
+    out = tmp_path / "quake.html"
+    cli_result = CliRunner().invoke(
+        main, ["hazard-viz", "-i", str(payload_path), "-f", "html", "-o", str(out)]
+    )
+    assert cli_result.exit_code == 0, cli_result.output
+    page = out.read_text(encoding="utf-8")
+    assert "<script src=" not in page  # plotly.js is inlined, not fetched
+    assert "Plotly.newPlot" in page or "Plotly.react" in page
+    assert "earthquake panel" in page

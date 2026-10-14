@@ -334,8 +334,11 @@ _HAZARD_CHOICES = (
     "-f",
     "fmt",
     default="png",
-    type=click.Choice(["png", "geojson"]),
-    help="Artifact format",
+    type=click.Choice(["png", "geojson", "html"]),
+    help=(
+        "Artifact format: static PNG, GeoJSON hotspots, or a self-contained "
+        "interactive Plotly page (html; needs the [gui] extra)"
+    ),
 )
 @click.option("--output", "-o", required=True, help="Output artifact path")
 @click.option(
@@ -360,7 +363,7 @@ def hazard_viz(
     pixel_size_km: float | None,
     grid_spacing_m: float | None,
 ) -> None:
-    """Render a hazard detector's persisted diagnostics to PNG or GeoJSON.
+    """Render a hazard detector's persisted diagnostics to PNG, GeoJSON or HTML.
 
     Renders the REAL intermediate arrays the hazard detectors compute
     (spectrograms, STA/LTA series, Doppler velocity fields, thermal hotspot
@@ -368,7 +371,8 @@ def hazard_viz(
     diagnostics payload (--input) or by running a detector on raw input
     (--detector + --data). GeoJSON output (wildfire ignition hotspots) needs a
     --geotransform: the detectors work in pixel space and coordinates are
-    never fabricated.
+    never fabricated. HTML output is the interactive Plotly panel for the
+    same payload, with plotly.js inlined (works offline).
     """
     from omni_mercury_engine.detectors.hazard_diagnostics import (
         HazardDiagnostics,
@@ -411,7 +415,20 @@ def hazard_viz(
             raise click.UsageError(str(exc)) from exc
 
     out = Path(output)
-    if fmt == "geojson":
+    if fmt == "html":
+        from omni_mercury_engine.gui.visualization_dashboard import (
+            PLOTLY_AVAILABLE,
+            DashboardBuilder,
+            DashboardConfig,
+        )
+
+        if not PLOTLY_AVAILABLE:
+            raise click.UsageError("--format html needs plotly: pip install 'mercury-agent[gui]'")
+        builder = DashboardBuilder(DashboardConfig(title=f"{diagnostics.hazard} diagnostics"))
+        builder.add_hazard_panel(f"{diagnostics.hazard} panel", diagnostics)
+        builder.export_html(str(out))
+        click.echo(f"Wrote {diagnostics.hazard} interactive HTML to {out}", err=True)
+    elif fmt == "geojson":
         gt: dict[str, float] | None = None
         if geotransform is not None:
             with open(geotransform) as fh:

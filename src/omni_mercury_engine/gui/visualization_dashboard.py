@@ -15,6 +15,7 @@ Enhanced visualization dashboard providing:
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 from dataclasses import dataclass, field
@@ -301,17 +302,28 @@ class AnomalyVisualizer:
         detector_scores: dict[str, NDArray[np.float64]],
         labels: NDArray[np.int64] | None = None,
         title: str = "Detector Performance Comparison",
+        operating_points: dict[str, float] | None = None,
     ) -> go.Figure:
         """Compare multiple detectors' performance.
+
+        ROC curves run over each detector's own scores (any range) and the
+        legend AUROC is :func:`omni_mercury_engine.ml.mercury_ml.roc_auc_score`.
+        Precision / recall / F1 bars are computed at each detector's
+        operating point from *operating_points*; detectors without one use
+        0.5, and the bar label says which cut was used.
 
         Args:
             detector_scores: Dict of detector name to scores
             labels: True labels (optional)
             title: Chart title
+            operating_points: Per-detector decision thresholds (optional)
 
         Returns:
             Plotly figure
         """
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+
+        operating_points = operating_points or {}
         fig = make_subplots(
             rows=2,
             cols=2,
@@ -339,8 +351,7 @@ class AnomalyVisualizer:
         if labels is not None:
             for name, scores in detector_scores.items():
                 fpr, tpr = self._compute_roc(labels, scores)
-                _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined, unused-ignore]
-                auc = _trapz(tpr, fpr)
+                auc = float(roc_auc_score(np.asarray(labels), np.asarray(scores, dtype=float)))
                 fig.add_trace(
                     go.Scatter(x=fpr, y=tpr, name=f"{name} (AUC={auc:.3f})", mode="lines"),
                     row=1,
@@ -379,7 +390,8 @@ class AnomalyVisualizer:
         if labels is not None:
             metrics = []
             for name, scores in detector_scores.items():
-                preds = scores > 0.5
+                cut = float(operating_points.get(name, 0.5))
+                preds = np.asarray(scores) > cut
                 tp = np.sum((preds == 1) & (labels == 1))
                 fp = np.sum((preds == 1) & (labels == 0))
                 fn = np.sum((preds == 0) & (labels == 1))
@@ -388,7 +400,14 @@ class AnomalyVisualizer:
                 f1 = (
                     2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
                 )
-                metrics.append({"name": name, "F1": f1, "Precision": precision, "Recall": recall})
+                metrics.append(
+                    {
+                        "name": f"{name} @{cut:.3g}",
+                        "F1": f1,
+                        "Precision": precision,
+                        "Recall": recall,
+                    }
+                )
 
             for metric_name in ["F1", "Precision", "Recall"]:
                 values = [m[metric_name] for m in metrics]
@@ -413,25 +432,26 @@ class AnomalyVisualizer:
         labels: NDArray[np.int64],
         scores: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """Compute ROC curve points."""
-        thresholds = np.linspace(0, 1, 100)
-        fpr_list = []
-        tpr_list = []
+        """ROC curve points from (0, 0) to (1, 1), FPR ascending.
 
-        for thresh in thresholds:
-            preds = (scores >= thresh).astype(int)
-            tp = np.sum((preds == 1) & (labels == 1))
-            fp = np.sum((preds == 1) & (labels == 0))
-            tn = np.sum((preds == 0) & (labels == 0))
-            fn = np.sum((preds == 0) & (labels == 1))
-
-            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
-            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0
-
-            fpr_list.append(fpr)
-            tpr_list.append(tpr)
-
-        return np.array(fpr_list), np.array(tpr_list)
+        Thresholds are the scores' own distinct values (descending), so the
+        curve is exact for scores on any range; the former fixed
+        ``linspace(0, 1)`` grid ran FPR descending (a perfect detector's
+        trapezoid AUC read -1.0) and flattened scores outside ``[0, 1]``.
+        """
+        y = np.asarray(labels).astype(bool)
+        s = np.asarray(scores, dtype=float)
+        n_pos = int(y.sum())
+        n_neg = int(len(y) - n_pos)
+        order = np.argsort(-s, kind="mergesort")
+        s_sorted, y_sorted = s[order], y[order]
+        tps = np.cumsum(y_sorted)
+        fps = np.cumsum(~y_sorted)
+        # One point per distinct score (last index of each tie run).
+        last = np.r_[np.nonzero(np.diff(s_sorted))[0], len(s_sorted) - 1]
+        tpr = np.r_[0.0, tps[last] / max(n_pos, 1)]
+        fpr = np.r_[0.0, fps[last] / max(n_neg, 1)]
+        return fpr, tpr
 
     def anomaly_scatter_3d(
         self,
@@ -439,6 +459,7 @@ class AnomalyVisualizer:
         scores: NDArray[np.float64],
         anomaly_mask: NDArray[np.bool_] | None = None,
         title: str = "3D Anomaly Visualization",
+        threshold: float = 0.5,
     ) -> go.Figure:
         """Create 3D scatter plot of anomalies.
 
@@ -447,6 +468,7 @@ class AnomalyVisualizer:
             scores: Anomaly scores
             anomaly_mask: Boolean mask for anomalies
             title: Chart title
+            threshold: Cut used for the mask when *anomaly_mask* is not given
 
         Returns:
             Plotly figure
@@ -471,7 +493,7 @@ class AnomalyVisualizer:
             axis_labels = ["Feature 1", "Feature 2", "Feature 3"]
 
         if anomaly_mask is None:
-            anomaly_mask = scores > 0.5
+            anomaly_mask = scores > threshold
 
         # Size based on anomaly status (larger for anomalies)
         sizes = np.where(anomaly_mask, 10, 5)
@@ -1124,6 +1146,7 @@ class DashboardBuilder:
         **kwargs: Any,
     ) -> DashboardBuilder:
         """Add 3D anomaly visualization to dashboard."""
+        kwargs.setdefault("threshold", self.config.anomaly_threshold)
         fig = self.visualizer.anomaly_scatter_3d(
             data,
             scores,
@@ -1152,17 +1175,25 @@ class DashboardBuilder:
         return self._figures
 
     def export_html(self, filepath: str) -> None:
-        """Export dashboard as single HTML file.
+        """Export dashboard as a single self-contained HTML file.
+
+        plotly.js is inlined once (no CDN: the file works offline and in
+        air-gapped deployments; the former ``plotly-latest`` CDN script is
+        frozen at v1.58 and carried no integrity check). The title and
+        panel names are HTML-escaped, and each figure is rendered through
+        Plotly's own ``to_html``, which escapes ``</`` inside the figure
+        JSON.
 
         Args:
             filepath: Output file path
         """
+        title = html.escape(self.config.title)
         html_parts = [
             "<!DOCTYPE html>",
             "<html>",
             "<head>",
-            f"<title>{self.config.title}</title>",
-            '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>',
+            '<meta charset="utf-8">',
+            f"<title>{title}</title>",
             "<style>",
             "body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }",
             ".chart-container { margin: 20px 0; padding: 20px; background: #16213e; border-radius: 10px; }",
@@ -1171,21 +1202,20 @@ class DashboardBuilder:
             "</style>",
             "</head>",
             "<body>",
-            f"<h1>{self.config.title}</h1>",
+            f"<h1>{title}</h1>",
             f"<p>Generated: {datetime.now(UTC).isoformat()}</p>",
         ]
 
-        for name, fig in self._figures.items():
-            div_id = name.replace(" ", "_").lower()
+        for i, (name, fig) in enumerate(self._figures.items()):
             html_parts.extend(
                 [
                     '<div class="chart-container">',
-                    f"<h2>{name}</h2>",
-                    f'<div id="{div_id}"></div>',
-                    "<script>",
-                    f"var data_{div_id} = {fig.to_json()};",
-                    f"Plotly.newPlot('{div_id}', data_{div_id}.data, data_{div_id}.layout);",
-                    "</script>",
+                    f"<h2>{html.escape(name)}</h2>",
+                    fig.to_html(
+                        full_html=False,
+                        include_plotlyjs="inline" if i == 0 else False,
+                        div_id=f"chart_{i}",
+                    ),
                     "</div>",
                 ]
             )
@@ -1197,7 +1227,7 @@ class DashboardBuilder:
             ]
         )
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write("\n".join(html_parts))
 
         logger.info(f"Dashboard exported to {filepath}")
@@ -1218,7 +1248,7 @@ class DashboardBuilder:
             "figures": {name: json.loads(fig.to_json()) for name, fig in self._figures.items()},
         }
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(dashboard_data, f, indent=2)
 
         logger.info(f"Dashboard data exported to {filepath}")
@@ -1263,7 +1293,8 @@ def create_quick_dashboard(
         if data.shape[1] >= 3:
             builder.add_3d_visualization("3D Anomaly View", data, scores)
 
-        # Compute simple feature importance from anomaly correlation
+        # Feature-label association (|Pearson r| with the provided labels).
+        # This describes the labelled data, not what any detector used.
         if labels is not None:
             correlations = np.array(
                 [np.corrcoef(data[:, j], labels)[0, 1] for j in range(data.shape[1])]
@@ -1273,7 +1304,9 @@ def create_quick_dashboard(
             if feature_names is None:
                 feature_names = [f"Feature {i}" for i in range(data.shape[1])]
 
-            builder.add_feature_importance("Feature Importance", feature_names, correlations)
+            builder.add_feature_importance(
+                "Feature-label correlation (|r|)", feature_names, correlations
+            )
 
     return builder
 
