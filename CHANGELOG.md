@@ -27,6 +27,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Adversarial excavation round: 14 findings root-caused across detectors, gates and egress (branch `steel/version-cov4`)
+
+A line-by-line adversarial review of the unified branch, each finding fixed
+with a regression test that fails on the pre-fix code.
+
+**Fixed — drone ensemble was blind for ticks 20–99.** The kNN density
+stream's benchmark-grade minimum (100 reference rows) silently disabled the
+drone's only ensemble decision stream inside the first history window: a
+total motor collapse plus thermal excursion at tick 50 produced zero faults
+while the identical fault at tick 120 was flagged. The minimum is now
+configurable (`knn_stream_min_reference`, clamped at 3) and the drone
+constructs its ensemble at its own `DEFAULT_FIT_MINIMUM` (20) — the regime
+its validation measured (z-gate 8.0). Re-verified: fault at tick 50 and
+tick 25 both detected, 0 false alarms over 200 clean ticks.
+
+**Fixed — three crash paths on operator-shaped input.**
+`IntelligenceFusionEngine` crashed on a non-numeric or non-finite
+`threat_score`/`confidence` in a report (`float()` ValueError in the
+evidence path, `TypeError` in the source-ranking sort); both now drop the
+malformed value instead of the whole decision. The GDPR checklist raised
+`ValueError` out of `check_gdpr_compliance` on timelines like `"30 days"`
+or `"48h"` instead of reporting the right or the Art. 33 notification as
+unmet — malformed evidence now reads as non-compliance, never as a crash.
+The drone `_assess` memo keyed on payload object identity alone, so a
+telemetry loop reusing one dict got the first tick's faults forever; the
+memo now fingerprints state content.
+
+**Fixed — registry feature cache could serve features without scores.**
+The `|f` and `|s` cache entries evict independently, so a features hit
+after the scores companion was evicted silently returned `scores=None`
+for a detector that does produce scores. A hit now requires both entries
+(else it is a miss and an honest recompute), and the tensor-provenance
+side dict — one key per distinct payload, forever — is replaced by a key
+suffix.
+
+**Fixed — workflow-hardening gate missed compound installs.** The
+editable-install regex anchored at line start, so `cd x && pip install -e .`,
+`AMA_NO_CYTHON=1 pip install -e .[ml]` and `python -m pip install -e .`
+all bypassed the AMA-provisioning check; the regex now matches through
+separators, env prefixes and `python -m` indirection.
+
+**Fixed — four latent defects.** `detect_batch` silently stamped the last
+row's verdict onto overflow rows when fusion returned fewer probabilities
+than batch rows (now loudly logged); `doc_lint` verified only two `::`
+segments of a cited pytest node id, accepting typos in the third (now
+resolves to any depth); `merge_prometheus_exposition` misparsed exposition
+lines carrying a trailing timestamp — the real value folded into the
+series key, so repeats of one series survived the merge (now parses the
+label set properly, quoted `}`/spaces/escapes included);
+`ParetoOptimizer` accepted `mutation_rate` but never forwarded it to the
+NSGA-II search.
+
+**Performance — spatial autocorrelation diagnostic was 89–99 % of
+`SpatialAnomalyDetector.detect`.** The 99-permutation Moran's I / Geary's C
+test ran two sparse quadratic forms per shuffle in a Python loop, and the
+kNN graph build looped per point. Both are vectorised — one sparse product
+covers every permutation of both statistics via
+`sum w_ij (z_i - z_j)^2 = (z^2)'r + (z^2)'c - 2 z'Wz` — with bit-identical
+p-values (pinned by a loop-equivalence test). Warm `detect` at 50 k points:
+1.07 s → 0.50 s; the diagnostic alone at 5 k: 0.109 s → 0.034 s.
+
+**Cleaned — duplicated leave-one-out kNN logic and dead state.** The
+self-match-aware kNN averaging lived twice (`statistical.py` and
+`_LocalDensityDetector`); both now call `ml/knn.py:loo_mean_knn_distance`,
+which also clamps `k` to the reference size — previously a reference
+smaller than `k` padded the average with `inf`. `RealTimeThreatDetector`
+kept a full copy of the training data (`_fit_data`) that nothing read.
+
 ### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
 
 `steel/version-cov4` unifies `steel/version-cov3`, `steel/version-cov02` and

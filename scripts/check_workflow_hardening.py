@@ -509,8 +509,15 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
 # ``/tmp/mercury-audit-env/bin/pip`` in ``security.yml``'s dependency scan)
 # installs into an isolated environment the job's own ``python`` never imports,
 # so it is not an engine consumer and is out of scope.
+# The pip invocation may start the line OR follow a shell separator, an
+# opening subshell, or an env-var prefix (``cd x && pip ...``,
+# ``AMA_X=1 pip ...``): anchoring at line start alone let any compound or
+# prefixed editable install bypass the gate entirely. The editable flag is
+# confined to the same command segment (no crossing ``;``, ``&`` or ``|``),
+# so ``pip install foo && rm -e .`` cannot false-positive across commands.
 ENGINE_EDITABLE_INSTALL_RE = re.compile(
-    r"^(?:python3?\s+-m\s+)?pip\s+install\b.*?\s(?:-e|--editable)(?:=|\s+)[\"']?\.(?:[\"'\[\s/]|$)"
+    r"(?:^|[;&|(\s])(?:python3?\s+-m\s+)?pip\s+install\b[^;&|\n]*?"
+    r"\s(?:-e|--editable)(?:=|\s+)[\"']?\.(?:[\"'\[\s/]|$)"
 )
 AMA_COMPOSITE_RE = re.compile(r"uses:\s*\./\.github/actions/build-ama-cryptography\b")
 

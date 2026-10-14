@@ -354,6 +354,23 @@ class MercuryAnomalyDetector(BaseDetector):
         # mean AUROC 0.809 -> 0.837, 14 wins / 4 losses / 6 ties, Wilcoxon
         # p = 0.008. State is set by _fit_knn_stream at fit time.
         self._knn_stream_enabled: bool = bool(self.config.get("knn_stream", True))
+        # Minimum reference rows before the stream fits. The default demands
+        # an order of magnitude more rows than neighbours (see
+        # _KNN_MIN_REFERENCE_FACTOR) because mean-of-k distances only rank
+        # *density* reliably with that much context. A caller whose decision
+        # rule does not depend on ranking quality — e.g. the drone detector,
+        # which gates single-stream excursions at robust z = 8 and validated
+        # that regime fitting from 20-row windows (0 false alarms / 5,600
+        # ticks, every injected fault caught) — may lower it deliberately.
+        self._knn_min_reference: int = max(
+            3,
+            int(
+                self.config.get(
+                    "knn_stream_min_reference",
+                    self._KNN_MIN_REFERENCE_FACTOR * self._KNN_K,
+                )
+            ),
+        )
         self._knn_tree: Any = None
         self._knn_tree_index: np.ndarray[Any, Any] | None = None
         self._knn_center: np.ndarray[Any, Any] | None = None
@@ -2948,13 +2965,12 @@ class MercuryAnomalyDetector(BaseDetector):
                 index = np.unique(np.linspace(0, n - 1, self._KNN_MAX_REFERENCE).astype(int))
             else:
                 index = np.arange(n)
-            minimum = self._KNN_MIN_REFERENCE_FACTOR * self._KNN_K
+            minimum = self._knn_min_reference
             if len(index) < minimum:
                 logger.info(
-                    "fit: kNN density stream off (%d reference rows < %d = %d per neighbour)",
+                    "fit: kNN density stream off (%d reference rows < minimum %d)",
                     len(index),
                     minimum,
-                    self._KNN_MIN_REFERENCE_FACTOR,
                 )
                 return
             center, scale = self._knn_feature_scaling(arr)
@@ -2989,21 +3005,17 @@ class MercuryAnomalyDetector(BaseDetector):
         return center, scale
 
     def _knn_distances(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Mean distance to the ``k`` nearest reference rows.
+        """Mean leave-one-out distance to the ``k`` nearest reference rows.
 
-        A row identical to a reference row is not its own neighbour: when
-        the nearest distance is exactly zero it is dropped and the next
-        ``k`` are used. Scoring a training row therefore reproduces its
-        leave-one-out reference distance (in-sample scoring stays honest),
-        while any row that is not in the reference is unaffected.
+        Standardizes into the reference frame and delegates the
+        self-match-aware averaging to
+        :func:`omni_mercury_engine.ml.knn.loo_mean_knn_distance`.
         """
+        from omni_mercury_engine.ml.knn import loo_mean_knn_distance
+
         assert self._knn_center is not None and self._knn_scale is not None
         z = (np.asarray(data, dtype=np.float64) - self._knn_center) / self._knn_scale
-        k = self._knn_k
-        dist, _ = self._knn_tree.query(z, k=k + 1)
-        dist = np.asarray(dist, dtype=np.float64).reshape(len(z), k + 1)
-        self_match = dist[:, 0] <= 0.0
-        return np.where(self_match, dist[:, 1:].mean(axis=1), dist[:, :k].mean(axis=1))
+        return loo_mean_knn_distance(self._knn_tree, z, self._knn_k)
 
     def _knn_state_key(self) -> tuple[Any, ...]:
         """Fingerprint of everything the ensemble part's scores depend on."""

@@ -364,7 +364,11 @@ class TestRealtimeCalibrationFixes:
         for _ in range(2):
             det.detect_and_adapt(rng.normal(1.5, 1.0, (30, 3)), is_normal=True)
         assert det._ref_threshold != before
-        assert det._fit_data is not None and len(det._fit_data) == 460
+        # Recalibrated on baseline (400) + confirmed-normal feedback (2 x 30):
+        # the reference ensemble carries one training score per row.
+        assert len(det._ref_ensemble_sorted) == 460
+        # The only retained copy of training data is the adaptation baseline.
+        assert not hasattr(det, "_fit_data")
 
     def test_registry_protocol(self) -> None:
         rng = np.random.default_rng(4)

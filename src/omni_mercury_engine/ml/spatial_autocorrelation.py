@@ -104,11 +104,14 @@ def knn_weights(coords: np.ndarray[Any, Any], k: int = 8) -> sparse.csr_matrix:
     k = max(1, min(int(k), n - 1))
     _, idx = cKDTree(pts).query(pts, k=k + 1)
     idx = np.asarray(idx).reshape(n, k + 1)
-    rows, cols = [], []
-    for i in range(n):
-        neighbours = [j for j in idx[i] if j != i][:k]
-        rows.extend([i] * len(neighbours))
-        cols.extend(neighbours)
+    # Keep each point's first k non-self neighbours. With duplicate points the
+    # self index can be crowded out of the query result by other zero-distance
+    # ties, leaving k + 1 non-self candidates; the cumulative-count mask then
+    # drops the last one, exactly as the former per-row Python loop did.
+    non_self = idx != np.arange(n).reshape(-1, 1)
+    keep = non_self & (np.cumsum(non_self, axis=1) <= k)
+    rows = np.repeat(np.arange(n), keep.sum(axis=1))
+    cols = idx[keep]
     data = np.full(len(rows), 1.0 / k)
     return sparse.csr_matrix((data, (rows, cols)), shape=(n, n))
 
@@ -172,12 +175,23 @@ def spatial_autocorrelation(
     pattern = "random"
     if n_permutations > 0:
         rng = np.random.default_rng(seed)
-        perm_i = np.empty(n_permutations)
-        perm_c = np.empty(n_permutations)
-        for b in range(n_permutations):
-            shuffled = rng.permutation(x)
-            perm_i[b] = morans_i(shuffled, weights)
-            perm_c[b] = gearys_c(shuffled, weights)
+        # One sparse product covers every permutation of both statistics:
+        # with z centred, z'Wz gives Moran's I, and the Geary numerator is
+        # sum w_ij (z_i - z_j)^2 = (z^2)'r + (z^2)'c - 2 z'Wz with r/c the
+        # row/column weight sums. Permutations preserve the mean, so the
+        # rows of Z share one centring and one denominator z'z.
+        z = x - x.mean()
+        # (n, B) with one permutation per column: contiguous for the spmm.
+        permuted = np.stack([rng.permutation(z) for _ in range(n_permutations)], axis=1)
+        denom = float(z @ z)
+        s0 = float(weights.sum())
+        row_sums = np.asarray(weights.sum(axis=1)).reshape(-1)
+        col_sums = np.asarray(weights.sum(axis=0)).reshape(-1)
+        quad = np.einsum("nb,nb->b", permuted, weights @ permuted)
+        sum_sq = permuted**2
+        geary_num = row_sums @ sum_sq + col_sums @ sum_sq - 2.0 * quad
+        perm_i = n / s0 * quad / denom
+        perm_c = (n - 1) / (2.0 * s0) * geary_num / denom
         p_high = float((1 + np.sum(perm_i >= observed_i)) / (n_permutations + 1))
         p_low = float((1 + np.sum(perm_i <= observed_i)) / (n_permutations + 1))
         p_c = float((1 + np.sum(perm_c <= observed_c)) / (n_permutations + 1))

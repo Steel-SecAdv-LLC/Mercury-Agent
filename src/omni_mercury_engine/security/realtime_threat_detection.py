@@ -106,24 +106,17 @@ class _LocalDensityDetector:
         self._tree = cKDTree(X)
 
     def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Mean distance to the ``k`` nearest training rows.
+        """Mean leave-one-out distance to the ``k`` nearest training rows.
 
-        A row identical to a training row is not its own neighbour: when the
-        nearest distance is exactly zero it is dropped and the next ``k`` are
-        used. Scoring the training set therefore yields leave-one-out
-        distances -- the in-sample self-match (distance 0) biased the
-        reference low and pushed the kNN false-alarm rate to 0.076 at a 0.05
-        budget.
+        The self-match-aware averaging lives in
+        :func:`omni_mercury_engine.ml.knn.loo_mean_knn_distance`; the
+        in-sample self-match (distance 0) it drops biased the reference low
+        and pushed the kNN false-alarm rate to 0.076 at a 0.05 budget.
         """
+        from omni_mercury_engine.ml.knn import loo_mean_knn_distance
+
         assert self._tree is not None
-        k = max(min(self.n_neighbors, self._tree.n - 1), 1)
-        dists, _ = self._tree.query(X, k=k + 1)
-        dists = np.asarray(dists, dtype=float).reshape(len(X), k + 1)
-        self_match = dists[:, 0] <= 0.0
-        result: np.ndarray[Any, Any] = np.where(
-            self_match, dists[:, 1:].mean(axis=1), dists[:, :k].mean(axis=1)
-        )
-        return result
+        return loo_mean_knn_distance(self._tree, X, self.n_neighbors)
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         scores = self.score_samples(X)
@@ -249,7 +242,6 @@ class RealTimeThreatDetector(LoggerMixin):
         # each detector's standardized TRAINING scores, so agreement is judged
         # against training data, not against the batch being scored.
         self._detector_threshold: dict[str, float] = {}
-        self._fit_data: np.ndarray[Any, Any] | None = None
 
     _MAD_TO_SIGMA = 1.4826  # MAD → σ for a normal distribution.
 
@@ -328,7 +320,6 @@ class RealTimeThreatDetector(LoggerMixin):
             self._ref_p95 = float(np.quantile(ref_ensemble, 0.95))
             self._ref_p99 = float(np.quantile(ref_ensemble, 0.99))
 
-        self._fit_data = np.asarray(X, dtype=float)
         self._fit_event = next(_FIT_EVENTS)
         self.is_fitted = True
         return self

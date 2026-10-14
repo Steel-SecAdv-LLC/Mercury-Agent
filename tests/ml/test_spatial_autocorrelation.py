@@ -73,6 +73,42 @@ def test_too_few_points_are_rejected() -> None:
         knn_weights(np.zeros((2, 2)))
 
 
+def test_vectorised_permutation_test_matches_per_shuffle_loop() -> None:
+    """The one-spmm permutation test must reproduce the per-shuffle loop.
+
+    Guards the identity it relies on: with centred ``z``,
+    ``sum w_ij (z_i - z_j)^2 = (z^2)'r + (z^2)'c - 2 z'Wz``.
+    """
+    rng = np.random.default_rng(3)
+    coords = rng.normal(size=(300, 2))
+    values = rng.normal(size=300) + 0.4 * coords[:, 0]
+    result = spatial_autocorrelation(values, coords, k=6, n_permutations=49, seed=11)
+    assert result is not None
+
+    w = knn_weights(coords, k=6)
+    observed_i, observed_c = morans_i(values, w), gearys_c(values, w)
+    shuffle = np.random.default_rng(11)
+    z = values - values.mean()
+    perm_i = np.empty(49)
+    perm_c = np.empty(49)
+    for b in range(49):
+        shuffled = shuffle.permutation(z)
+        perm_i[b] = morans_i(shuffled, w)
+        perm_c[b] = gearys_c(shuffled, w)
+    assert result.morans_p_clustered == (1 + np.sum(perm_i >= observed_i)) / 50
+    assert result.morans_p_dispersed == (1 + np.sum(perm_i <= observed_i)) / 50
+    assert result.gearys_p_clustered == (1 + np.sum(perm_c <= observed_c)) / 50
+
+
+def test_duplicate_points_keep_k_neighbours_without_self() -> None:
+    """Zero-distance ties can crowd the self index out of the kNN query."""
+    coords = np.vstack([np.zeros((10, 2)), np.random.default_rng(4).normal(size=(50, 2))])
+    w = knn_weights(coords, k=4)
+    np.testing.assert_allclose(np.asarray(w.sum(axis=1)).ravel(), 1.0)
+    assert w.diagonal().sum() == 0.0
+    assert (w.getnnz(axis=1) == 4).all()
+
+
 def test_spatial_detector_reports_clustered_anomalies() -> None:
     rng = np.random.default_rng(2)
     train = rng.uniform(0, 10, (400, 2))

@@ -308,3 +308,15 @@ class TestNonFiniteEvidence:
         assert result.threat_level == "LOW"
         assert result.risk_score == 0.0
         assert result.confidence == 0.0
+
+    def test_non_numeric_strings_are_dropped_not_crashing(self) -> None:
+        """float('high') must drop the field, not raise ValueError."""
+        engine = IntelligenceFusionEngine()
+        result = engine.fuse_intelligence(
+            {
+                "signals": {"confidence": "unknown", "threat_score": "high"},
+                "cyber": {"confidence": 0.8, "threat_score": 0.9},
+            }
+        )
+        assert result.risk_score == pytest.approx(0.9)
+        assert result.threat_detected

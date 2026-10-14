@@ -175,6 +175,14 @@ class TestCitedTestsExist:
         rules = self._scan("tests/pillars/test_candor.py::TestCitedTestsExist::test_gone")
         assert len(rules) == 1 and "test_gone" in rules[0]
 
+    def test_deep_node_ids_resolve_to_any_depth(self) -> None:
+        """Regression: the old regex verified two ``::`` segments and silently
+        accepted whatever followed, so a typo in the third segment passed."""
+        deep = "tests/test_anomaly_detection_module.py::TestEnsembleCoordinator::MockDetector"
+        assert self._scan(f"{deep}::fit") == []
+        rules = self._scan(f"{deep}::fit_gone")
+        assert len(rules) == 1 and "fit_gone" in rules[0]
+
     def test_test_modules_are_checked_through_docstrings_only(self) -> None:
         from scripts.doc_lint import REPO_ROOT, scan_test_module_citations
 

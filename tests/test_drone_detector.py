@@ -708,3 +708,65 @@ class TestRegistryProtocol:
         result = registry.extract_features("drone", np.ones((4, 22)))
         assert result.success
         assert np.asarray(result.features).shape == (16,)
+
+
+class TestEnsembleLiveFromFitMinimum:
+    """The decision stream must be live from the first ensemble fit.
+
+    Regression: the kNN density stream's default minimum (100 reference
+    rows, built for benchmark ranking quality) silently disabled the
+    drone's only ensemble decision stream for every window smaller than
+    100 states, although the ensemble fits from ``DEFAULT_FIT_MINIMUM``
+    (20). A total motor collapse plus thermal excursion at tick 50
+    produced zero faults; the identical fault at tick 120 was flagged.
+    The drone now constructs its ensemble with
+    ``knn_stream_min_reference = DEFAULT_FIT_MINIMUM`` (the regime its
+    own validation measured: z-gate 8.0, 0 false alarms / 5,600 ticks).
+    """
+
+    @staticmethod
+    def _fly(detector: DroneAnomalyDetector, tick: int, *, faulty: bool) -> list[DroneFault]:
+        rng = np.random.default_rng(tick)
+
+        def rpm() -> float:
+            return float(300 + rng.normal(0, 10)) if faulty else float(4000 + rng.normal(0, 30))
+
+        state = _make_state(
+            motors=(rpm(), rpm(), rpm(), rpm()),
+            temperature=95.0 if faulty else float(40 + rng.normal(0, 0.5)),
+        )
+        return detector.detect_faults(state)
+
+    def test_motor_collapse_at_tick_50_is_flagged(self) -> None:
+        detector = DroneAnomalyDetector()
+        for tick in range(50):
+            assert not self._fly(detector, tick, faulty=False)
+        assert self._fly(
+            detector, 50, faulty=True
+        ), "ensemble decision stream dead inside the first history window"
+
+    def test_ensemble_config_lowers_knn_minimum(self) -> None:
+        detector = DroneAnomalyDetector()
+        ensemble = detector._new_ensemble_detector()
+        assert ensemble._knn_min_reference == DroneAnomalyDetector.DEFAULT_FIT_MINIMUM
+
+
+class TestAssessMemoKeysOnContent:
+    """One mutated-in-place payload dict must not pin the first verdict.
+
+    Regression: ``_assess`` memoized on input object identity alone, so a
+    telemetry loop reusing one dict got the first tick's faults forever and
+    no later telemetry was processed.
+    """
+
+    def test_mutated_payload_is_reprocessed(self) -> None:
+        detector = DroneAnomalyDetector()
+        healthy = _make_state()
+        payload = {"shared": "payload-object"}
+
+        first = detector._assess(healthy, payload)
+        assert detector._assess(healthy, payload) == first  # memo hit
+
+        failing = _make_state(motors=(0.0, 0.0, 0.0, 0.0), battery=0.02)
+        verdict = detector._assess(failing, payload)
+        assert verdict, "mutated payload content returned the stale empty verdict"

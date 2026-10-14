@@ -1031,10 +1031,10 @@ class DetectorRegistry:
             cat: [] for cat in DetectorCategory
         }
         self._executor: ThreadPoolExecutor | None = None
-        # Opt-in result cache (enable_feature_cache); entries remember whether
-        # the detector returned torch tensors so a hit returns the same type.
+        # Opt-in result cache (enable_feature_cache); the tensor-vs-ndarray
+        # provenance of a hit is encoded in the cache key itself (|ft / |f),
+        # so the registry keeps no side state that could outlive eviction.
         self._feature_cache: Any = None
-        self._feature_cache_tensor: dict[str, bool] = {}
 
         if auto_discover:
             self.auto_discover_detectors()
@@ -1064,12 +1064,10 @@ class DetectorRegistry:
         self._feature_cache = MemoryEfficientFeatureCache(
             CacheConfig(max_size=max_entries, max_memory_mb=max_memory_mb, ttl_seconds=ttl_seconds)
         )
-        self._feature_cache_tensor = {}
 
     def disable_feature_cache(self) -> None:
         """Drop the feature cache and its entries."""
         self._feature_cache = None
-        self._feature_cache_tensor = {}
 
     def feature_cache_stats(self) -> dict[str, Any] | None:
         """Cache statistics, or ``None`` when the cache is off."""
@@ -1099,16 +1097,30 @@ class DetectorRegistry:
         return f"{name}|{token!r}|{digest}"
 
     def _cached_result(self, key: str) -> tuple[Any, Any] | None:
+        """Coherent cache hit, or ``None``.
+
+        A hit requires the features entry AND its scores companion: the
+        underlying cache evicts entries independently (LRU / memory / TTL),
+        and serving features whose scores entry was evicted would silently
+        strip ``anomaly_scores`` from the result. ``|ft`` marks features
+        stored from a torch tensor (the flag lives in the key, so no side
+        state can outlive or outgrow the cache itself); a zero-length
+        scores array is the sentinel for "this result had no scores".
+        """
         cache = self._feature_cache
-        if cache is None or not cache.contains(f"{key}|f"):
+        if cache is None:
             return None
-        features = cache.get(f"{key}|f")
-        scores = cache.get(f"{key}|s") if cache.contains(f"{key}|s") else None
-        if features is None:
+        tensor_hit = cache.contains(f"{key}|ft")
+        features_key = f"{key}|ft" if tensor_hit else f"{key}|f"
+        if not cache.contains(features_key) or not cache.contains(f"{key}|s"):
             return None
-        if self._feature_cache_tensor.get(key) and torch is not None:
+        features = cache.get(features_key)
+        scores = cache.get(f"{key}|s")
+        if features is None or scores is None:
+            return None
+        if tensor_hit and torch is not None:
             features = torch.as_tensor(features)
-        return features, scores
+        return features, (None if scores.size == 0 else scores)
 
     def _store_result(self, key: str, features: Any, scores: Any) -> None:
         cache = self._feature_cache
@@ -1116,11 +1128,17 @@ class DetectorRegistry:
             return
         is_tensor = torch is not None and isinstance(features, torch.Tensor)
         stored = features.detach().cpu().numpy() if is_tensor else np.asarray(features)
-        if stored.dtype == object or not cache.put(f"{key}|f", stored):
+        if stored.dtype == object:
             return
-        self._feature_cache_tensor[key] = bool(is_tensor)
-        if scores is not None:
-            cache.put(f"{key}|s", np.asarray(scores))
+        scores_arr = np.empty(0, dtype=np.float64) if scores is None else np.asarray(scores)
+        if scores_arr.dtype == object:
+            return
+        features_key = f"{key}|ft" if is_tensor else f"{key}|f"
+        if cache.put(features_key, stored):
+            # If this put fails the lone features entry is unreadable by
+            # design (_cached_result demands both), so it degrades to a
+            # miss instead of a scores-less hit.
+            cache.put(f"{key}|s", scores_arr)
 
     def register(
         self,

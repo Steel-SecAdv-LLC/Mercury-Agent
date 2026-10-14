@@ -166,3 +166,22 @@ def test_stream_requires_ten_reference_rows_per_neighbour() -> None:
 
     exact = StatisticalAnomalyDetector().fit(np.random.default_rng(11).normal(size=(minimum, 4)))
     assert exact._knn_tree is not None
+
+
+def test_min_reference_is_configurable() -> None:
+    """knn_stream_min_reference lowers the gate for excursion-style callers.
+
+    The drone detector's decision stream must exist from its 20-row fit
+    minimum; the config override enables that regime deliberately while the
+    default keeps the measured 10-per-neighbour ranking floor.
+    """
+    rows = np.random.default_rng(12).normal(size=(30, 4))
+
+    assert StatisticalAnomalyDetector().fit(rows)._knn_tree is None
+    lowered = StatisticalAnomalyDetector({"knn_stream_min_reference": 20}).fit(rows)
+    assert lowered._knn_tree is not None
+
+    # The override clamps at 3: degenerate minimums cannot re-enable the
+    # stream below what leave-one-out distances need to exist at all.
+    clamped = StatisticalAnomalyDetector({"knn_stream_min_reference": 0})
+    assert clamped._knn_min_reference == 3

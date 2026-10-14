@@ -155,3 +155,49 @@ class TestRealRepositoryPasses:
     def test_the_competitive_benchmark_lane_specifically_provisions_ama(self) -> None:
         text = (_WORKFLOW_DIR / "competitive-benchmark.yml").read_text(encoding="utf-8")
         assert "uses: ./.github/actions/build-ama-cryptography" in text
+
+
+class TestCompoundAndPrefixedInstallsAreFlagged:
+    """The gate must see pip wherever a new shell command can begin.
+
+    Regression: the install regex was anchored at line start, so a compound
+    (``cd x && pip install -e .``), env-prefixed (``AMA_X=1 pip ...``) or
+    chained (``pip install foo && pip install -e .``) editable install
+    escaped the AMA-provisioning gate entirely — reproducing exactly the
+    eight-weeks-red lane class this check was written to prevent.
+    """
+
+    def test_cd_compound_install_is_flagged(self, tmp_path: Path) -> None:
+        errors = _run(
+            tmp_path,
+            _job("compound", 'cd "$GITHUB_WORKSPACE" && pip install -e ".[ml]"', ama=False),
+        )
+        assert len(errors) == 1 and "``compound``" in errors[0]
+
+    def test_env_prefixed_install_is_flagged(self, tmp_path: Path) -> None:
+        errors = _run(
+            tmp_path, _job("prefixed", "MERCURY_REQUIRES_ML=1 pip install -e .", ama=False)
+        )
+        assert len(errors) == 1 and "``prefixed``" in errors[0]
+
+    def test_chained_second_install_is_flagged(self, tmp_path: Path) -> None:
+        errors = _run(
+            tmp_path,
+            _job("chained", "pip install build && pip install --editable .", ama=False),
+        )
+        assert len(errors) == 1 and "``chained``" in errors[0]
+
+    def test_editable_flag_cannot_cross_command_separators(self, tmp_path: Path) -> None:
+        # ``-e .`` belongs to grep here, not to pip: no flag expected.
+        errors = _run(
+            tmp_path,
+            _job("split", "pip install build && grep -r -e . docs/", ama=False),
+        )
+        assert errors == []
+
+    def test_compound_install_with_ama_passes(self, tmp_path: Path) -> None:
+        errors = _run(
+            tmp_path,
+            _job("ok", 'cd "$GITHUB_WORKSPACE" && pip install -e ".[ml]"', ama=True),
+        )
+        assert errors == []

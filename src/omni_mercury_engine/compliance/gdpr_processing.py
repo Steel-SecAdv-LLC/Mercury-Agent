@@ -30,6 +30,7 @@ controller must hold is declared, not that the declared evidence is true.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -218,6 +219,21 @@ class GDPRComplianceResult:
     assessment_timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
+def _as_finite_number(value: Any) -> float | None:
+    """``float(value)`` when it yields a finite number, else ``None``.
+
+    Context values come straight from operator-supplied JSON
+    (``tools/gdpr_processing_check``). An unparseable or non-finite
+    timeline cannot demonstrate timeliness, so callers treat ``None`` as
+    the obligation being unmet — a fail-closed verdict, never a crash.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _as_utc(value: datetime) -> datetime:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
@@ -337,8 +353,8 @@ class GDPRCompliance:
         for right in self._applicable_rights(context):
             cfg = config.get(right, {}) or {}
             limit = _EXTENDED_DAYS if cfg.get("extension_justified", False) else _ONE_MONTH_DAYS
-            days = cfg.get("response_timeline_days")
-            in_time = days is not None and 0 <= float(days) <= limit
+            days = _as_finite_number(cfg.get("response_timeline_days"))
+            in_time = days is not None and 0 <= days <= limit
             status[right] = bool(cfg.get("mechanism_exists", False)) and in_time
         return status
 
@@ -464,8 +480,8 @@ class GDPRCompliance:
 
         breach = context.get("personal_data_breach", {}) or {}
         if breach.get("occurred", False):
-            hours = breach.get("hours_to_authority_notification")
-            if hours is None or float(hours) > _BREACH_NOTIFICATION_HOURS:
+            hours = _as_finite_number(breach.get("hours_to_authority_notification"))
+            if hours is None or hours > _BREACH_NOTIFICATION_HOURS:
                 violations.append(
                     "GDPR Art. 33: Supervisory authority not notified within 72 hours of "
                     "becoming aware of the breach"

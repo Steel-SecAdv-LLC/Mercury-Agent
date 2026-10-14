@@ -146,3 +146,33 @@ def test_no_personal_data_is_trivially_compliant() -> None:
     assert result.compliant is True
     assert result.legal_basis is None
     assert result.compliance_score == 1.0
+
+
+def test_malformed_timeline_strings_are_unmet_not_crashes() -> None:
+    """Operator JSON with non-numeric timelines yields a fail-closed verdict.
+
+    Regression: ``float("30 days")`` / ``float("48h")`` raised ValueError
+    out of ``check_gdpr_compliance`` instead of reporting the right or the
+    Art. 33 notification as unmet.
+    """
+    gdpr = GDPRCompliance()
+
+    context: dict[str, Any] = {
+        "processes_personal_data": True,
+        "data_subject_rights_config": {
+            "right_to_access": {
+                "mechanism_exists": True,
+                "response_timeline_days": "30 days",
+            }
+        },
+        "personal_data_breach": {
+            "occurred": True,
+            "hours_to_authority_notification": "48h",
+        },
+    }
+    compliant, violations = gdpr.check_gdpr_compliance(context)
+
+    assert not compliant
+    assert any("Art. 33" in v for v in violations)
+    rights = gdpr._check_data_subject_rights(context)
+    assert rights.get("right_to_access") is False

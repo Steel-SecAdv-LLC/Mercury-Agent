@@ -151,3 +151,47 @@ def test_int8_reconstruction_is_within_one_quantum() -> None:
     out = cache.get("k")
     assert out is not None
     np.testing.assert_allclose(out, data, atol=2.0 / 255)
+
+
+class TestCacheCoherency:
+    """A hit must carry both features and scores, or be a miss.
+
+    Regression: the |f and |s entries evict independently, so a hit on
+    features after the scores entry was evicted silently returned
+    scores=None for a detector that does produce scores; and the
+    tensor-provenance side dict grew one key per distinct payload forever.
+    """
+
+    def test_evicted_scores_entry_degrades_to_full_miss(self) -> None:
+        reg = DetectorRegistry()
+        reg.enable_feature_cache()
+        det = _Counting()
+        reg.register("coherent", det)
+        x = np.ones((4, 3))
+
+        first = reg.extract_features("coherent", x)
+        assert first.scores is not None
+        key = reg._feature_cache_key("coherent", det, x)
+        assert key is not None
+        assert reg._cached_result(key) is not None
+
+        # Simulate the scores companion being evicted independently.
+        reg._feature_cache._remove_entry(f"{key}|s")
+        assert (
+            reg._cached_result(key) is None
+        ), "features-only hit must degrade to a miss, not drop the scores"
+        refreshed = reg.extract_features("coherent", x)
+        assert det.calls == 2  # honest recompute
+        assert refreshed.scores is not None
+
+    def test_no_unbounded_side_state(self) -> None:
+        reg = DetectorRegistry()
+        reg.enable_feature_cache(max_entries=4)
+        det = _Counting()
+        reg.register("bounded", det)
+        for i in range(32):
+            reg.extract_features("bounded", np.full((2, 3), float(i)))
+        assert not hasattr(
+            reg, "_feature_cache_tensor"
+        ), "tensor provenance must live in the cache keys, not side state"
+        assert reg.feature_cache_stats() is not None

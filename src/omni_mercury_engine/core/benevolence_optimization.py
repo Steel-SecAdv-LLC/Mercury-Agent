@@ -412,6 +412,7 @@ class ParetoOptimizer:
             self.n_objectives,
             population_size=max(self.population_size, 4),
             n_generations=self.n_generations,
+            mutation_rate=self.mutation_rate,
             crossover_rate=self.crossover_rate,
             seed=self.seed,
             objective_names=names,

@@ -217,6 +217,19 @@ def test_merge_keeps_last_sample_and_single_metadata() -> None:
     assert " 0.2" in merged and " 0.1\n" not in merged
 
 
+def test_merge_dedupes_timestamped_and_space_in_label_samples() -> None:
+    """Regression: ``rpartition(" ")`` took a trailing timestamp as the value,
+    folding the real value into the series key, so repeats of one series
+    survived the merge and the pushgateway rejected the payload."""
+    merged = merge_prometheus_exposition(
+        [
+            'm{path="/a b",expr="x}y"} 0.1 1700000000\n',
+            'm{path="/a b",expr="x}y"} 0.2 1700000060\n',
+        ]
+    )
+    assert merged == 'm{path="/a b",expr="x}y"} 0.2 1700000060\n'
+
+
 async def test_batch_publish_follows_routes() -> None:
     sent: dict[str, list[str]] = {}
 

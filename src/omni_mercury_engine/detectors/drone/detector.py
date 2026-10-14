@@ -536,13 +536,38 @@ class DroneAnomalyDetector:
             return DroneState(**fields)
         return None
 
+    @staticmethod
+    def _state_fingerprint(state: DroneState) -> tuple[Any, ...]:
+        """Content key of the decision-relevant fields of one state.
+
+        The one-tick memo below must key on *content*, not only object
+        identity: a telemetry loop that reuses one dict and mutates its
+        fields in place keeps the same identity across ticks, and an
+        identity-only memo would return the first tick's verdict forever
+        while the new telemetry is never processed.
+        """
+        return (
+            state.timestamp,
+            bytes(np.asarray(state.position, dtype=np.float64).tobytes()),
+            bytes(np.asarray(state.velocity, dtype=np.float64).tobytes()),
+            bytes(np.asarray(state.attitude, dtype=np.float64).tobytes()),
+            bytes(np.asarray(state.motor_speeds, dtype=np.float64).tobytes()),
+            float(state.battery_level),
+            float(state.altitude),
+            int(state.gps_satellites),
+            float(state.signal_strength),
+            float(state.temperature),
+            state.mission_phase,
+        )
+
     def _assess(self, state: DroneState, source: Any) -> list[DroneFault]:
         """Process a tick once; repeated calls with the same input reuse it."""
+        fingerprint = self._state_fingerprint(state)
         cached = getattr(self, "_last_assessment", None)
-        if cached is not None and cached[0] is source:
-            return list(cached[1])
+        if cached is not None and cached[0] is source and cached[1] == fingerprint:
+            return list(cached[2])
         faults = self.detect_faults(state)
-        self._last_assessment = (source, faults)
+        self._last_assessment = (source, fingerprint, faults)
         return list(faults)
 
     def _tick_features(self, state: DroneState, faults: Sequence[DroneFault]) -> list[float]:
@@ -771,6 +796,22 @@ class DroneAnomalyDetector:
             )
         ]
 
+    def _new_ensemble_detector(self) -> MercuryAnomalyDetector:
+        """Ensemble configured for this detector's small rolling windows.
+
+        The decision stream (:attr:`DECISION_STREAM`) must exist from the
+        first fit at :attr:`DEFAULT_FIT_MINIMUM` rows, so the kNN stream's
+        default 100-row minimum (built for benchmark *ranking* quality) is
+        lowered to the fit minimum here. This regime is gated at robust
+        z = :attr:`DEFAULT_Z_GATE` — an extreme-excursion rule, not a
+        ranking — and is the one the drone detector validated: 0 false
+        alarms over 5,600 normal ticks, every injected fault caught,
+        fitting from 20-row windows. Without the override every flight's
+        first 100 ticks had no ensemble fault detection at all (a motor
+        collapse at tick 50 went unflagged; regression-tested).
+        """
+        return MercuryAnomalyDetector({"knn_stream_min_reference": self.DEFAULT_FIT_MINIMUM})
+
     def _ensemble_model(self) -> _EnsembleModel | None:
         """Return the rolling-window ensemble, refitting every ``refit_interval`` ticks."""
         window = self.state_history[-self.history_window :]
@@ -780,7 +821,7 @@ class DroneAnomalyDetector:
         if model is not None and self._tick - model.fitted_at_tick < self.refit_interval:
             return model
         historical = np.asarray([self._extract_features_for_ensemble(s) for s in window])
-        detector = MercuryAnomalyDetector()
+        detector = self._new_ensemble_detector()
         try:
             detector.fit(historical)
             reference = detector.detect(historical)
@@ -858,7 +899,7 @@ class DroneAnomalyDetector:
             if model is not None:
                 result = model.detector.detect(sample)
             else:
-                detector = MercuryAnomalyDetector()
+                detector = self._new_ensemble_detector()
                 detector.fit(historical_features)
                 result = detector.detect(sample)
         except DetectorException as exc:

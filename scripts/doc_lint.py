@@ -57,6 +57,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -342,51 +343,52 @@ def scan_capability_matrix(text: str) -> list[Violation]:
 #: A cited test file, optionally extended to a pytest node id. The look-behind
 #: keeps a ``tests/`` segment inside a longer path from matching, and every path
 #: component must be a real name, so placeholders such as ``tests/...`` are not.
-_TEST_CITATION_RE = re.compile(
-    r"(?<![\w/.-])(tests/(?:[\w-]+/)*[\w-]+\.py)(?:::(\w+))?(?:::(\w+))?"
-)
+_TEST_CITATION_RE = re.compile(r"(?<![\w/.-])(tests/(?:[\w-]+/)*[\w-]+\.py)((?:::\w+)+)?")
+
+
+def _name_tree(body: list[ast.stmt]) -> dict[str, dict[str, Any]]:
+    """Map each collectable name in ``body`` to the tree of names under it."""
+    functions = (ast.FunctionDef, ast.AsyncFunctionDef)
+    names: dict[str, dict[str, Any]] = {}
+    for node in body:
+        if isinstance(node, functions):
+            names[node.name] = {}
+        elif isinstance(node, ast.ClassDef):
+            names[node.name] = _name_tree(node.body)
+    return names
 
 
 @functools.cache
-def _collectable_names(test_file: Path) -> dict[str, frozenset[str]]:
-    """Return ``{top-level function or class: its method names}`` for a test file.
+def _collectable_names(test_file: Path) -> dict[str, dict[str, Any]]:
+    """Return the tree of names a pytest node id can address in a test file.
 
-    These are the names a pytest node id can address: ``file::name`` resolves
-    against module-level definitions and ``file::Class::name`` against a
-    method of that class. A file that does not parse yields no names, so every
-    node id citing it is reported rather than silently accepted.
+    ``file::name`` resolves against module-level definitions, and each further
+    ``::`` segment against the members of the class before it, to any depth
+    (``file::Outer::Inner::test_x`` included). A file that does not parse
+    yields no names, so every node id citing it is reported rather than
+    silently accepted.
     """
     try:
         tree = ast.parse(test_file.read_text(encoding="utf-8"))
     except (OSError, SyntaxError, UnicodeDecodeError):
         return {}
-    functions = (ast.FunctionDef, ast.AsyncFunctionDef)
-    names: dict[str, frozenset[str]] = {}
-    for node in tree.body:
-        if isinstance(node, functions):
-            names[node.name] = frozenset()
-        elif isinstance(node, ast.ClassDef):
-            # Methods, plus nested classes (``file::Outer::Inner`` is collectable).
-            names[node.name] = frozenset(
-                member.name
-                for member in node.body
-                if isinstance(member, (*functions, ast.ClassDef))
-            )
-    return names
+    return _name_tree(tree.body)
 
 
-def _broken_citation(path: str, name: str | None, member: str | None) -> str | None:
+def _broken_citation(path: str, node_id: str | None) -> str | None:
     """Explain why one citation does not resolve, or return ``None`` if it does."""
     target = REPO_ROOT / path
     if not target.is_file():
         return f"cited test file {path} does not exist"
-    if name is None:
+    if node_id is None:
         return None
     names = _collectable_names(target)
-    if name not in names:
-        return f"{path} defines no top-level test or class named {name!r}"
-    if member is not None and member not in names[name]:
-        return f"class {name} in {path} defines no method {member!r}"
+    scope = path
+    for part in node_id.strip(":").split("::"):
+        if part not in names:
+            return f"{scope} defines no collectable test or class named {part!r}"
+        scope = f"{scope}::{part}"
+        names = names[part]
     return None
 
 

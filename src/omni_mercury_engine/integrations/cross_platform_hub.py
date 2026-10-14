@@ -219,13 +219,40 @@ def _prom_label_value(value: Any) -> str:
     return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
+def _series_end(line: str) -> int:
+    r"""Index just past the series (name plus label set) of a sample line.
+
+    The closing ``}`` is found outside quoted label values, where ``}``,
+    spaces and ``\"`` escapes are all legal, so neither ``find("}")`` nor
+    splitting on whitespace can delimit the series.
+    """
+    brace = line.find("{")
+    space = line.find(" ")
+    if brace == -1 or (space != -1 and space < brace):
+        return space if space != -1 else len(line)
+    in_quotes = False
+    escaped = False
+    for index in range(brace + 1, len(line)):
+        char = line[index]
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == '"':
+            in_quotes = not in_quotes
+        elif char == "}" and not in_quotes:
+            return index + 1
+    return len(line)
+
+
 def merge_prometheus_exposition(blocks: list[str]) -> str:
     """Merge per-event exposition blocks into one valid push payload.
 
     Concatenating blocks repeats ``# HELP`` / ``# TYPE`` lines and identical
     series, which the pushgateway rejects. The merge keeps the first
     HELP/TYPE per family, keeps the LAST sample per series (name + label
-    set), and emits every family's samples contiguously.
+    set, ignoring any trailing timestamp), and emits every family's samples
+    contiguously.
     """
     meta: dict[str, list[str]] = {}
     samples: dict[str, dict[str, str]] = {}
@@ -246,7 +273,8 @@ def merge_prometheus_exposition(blocks: list[str]) -> str:
                         samples[family] = {}
                         order.append(family)
                 continue
-            series, _, value = line.rpartition(" ")
+            end = _series_end(line)
+            series, value = line[:end], line[end:].strip()
             family = series.split("{", 1)[0]
             if family not in samples:
                 samples[family] = {}

@@ -463,6 +463,20 @@ class IntelligenceFusionEngine:
         return result
 
     @staticmethod
+    def _finite_or_none(value: Any) -> float | None:
+        """``float(value)`` when it yields a finite number, else ``None``.
+
+        An unusable report field — a non-numeric string, ``None``, NaN or
+        an infinity — is not evidence: it is dropped (the caller logs it)
+        rather than propagated into the decision or allowed to crash it.
+        """
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
+
+    @staticmethod
     def _require_report_mapping(intel_reports: dict[str, Any]) -> None:
         """Reject off-modality inputs with a clean, actionable error."""
         if not isinstance(intel_reports, Mapping):
@@ -530,11 +544,12 @@ class IntelligenceFusionEngine:
         values, with confidence taken from the reports and scaled by
         corroboration (a single-source assessment is damped; three or more
         reporting disciplines carry full weight, matching the three primary
-        sources ``_identify_sources`` surfaces). A non-finite ``threat_score``
-        or ``confidence`` is not evidence: it is dropped with a warning (the
-        same posture as GOSNN's non-finite scalar handling and the timing
-        monitor's ``record_timing``) rather than propagated into the decision
-        or allowed to crash it.
+        sources ``_identify_sources`` surfaces). An unusable ``threat_score``
+        or ``confidence`` — non-numeric, ``None``, NaN or infinite — is not
+        evidence: it is dropped with a warning (the same posture as GOSNN's
+        non-finite scalar handling and the timing monitor's
+        ``record_timing``) rather than propagated into the decision or
+        allowed to crash it.
 
         Returns:
             Tuple of ``(threat_class, confidence_score, risk_score)`` where
@@ -552,20 +567,20 @@ class IntelligenceFusionEngine:
                 continue
             reliability = self.int_reliability_scores.get(discipline.value, 0.75)
             if "threat_score" in report:
-                score = float(report["threat_score"])
-                if math.isfinite(score):
+                score = self._finite_or_none(report["threat_score"])
+                if score is not None:
                     weighted.append((reliability, score))
                 else:
                     self.logger.warning(
-                        "evidence assessment: dropping non-finite threat_score " "from %s",
+                        "evidence assessment: dropping unusable threat_score from %s",
                         discipline.value,
                     )
-            confidence = float(report.get("confidence", 0.5))
-            if math.isfinite(confidence):
+            confidence = self._finite_or_none(report.get("confidence", 0.5))
+            if confidence is not None:
                 confidences.append(confidence)
             else:
                 self.logger.warning(
-                    "evidence assessment: dropping non-finite confidence from %s",
+                    "evidence assessment: dropping unusable confidence from %s",
                     discipline.value,
                 )
 
@@ -595,8 +610,9 @@ class IntelligenceFusionEngine:
 
         for _i, discipline in enumerate(IntelligenceDiscipline):
             if discipline.value in intel_reports:
-                score = intel_reports[discipline.value].get("confidence", 0.0)
-                source_scores.append((discipline.value, score))
+                # Unusable confidences rank last rather than crashing the sort.
+                score = self._finite_or_none(intel_reports[discipline.value].get("confidence", 0.0))
+                source_scores.append((discipline.value, score if score is not None else 0.0))
 
         source_scores.sort(key=lambda x: x[1], reverse=True)
 

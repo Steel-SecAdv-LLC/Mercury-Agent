@@ -4040,6 +4040,14 @@ class OmniMercuryEngine(LoggerMixin):
                     threshold_used = float(
                         batch_result.get("threshold_used", self._get_anomaly_threshold(0.5, probs))
                     )
+                    if len(probs) != len(batch_data):
+                        logger.warning(
+                            "detect_batch: fusion returned %d probabilities for %d rows "
+                            "(batch offset %d); overflow rows reuse the last verdict",
+                            len(probs),
+                            len(batch_data),
+                            start_idx,
+                        )
                     for _i in range(len(batch_data)):
                         row = _i if _i < len(probs) else len(probs) - 1
                         results.append(
