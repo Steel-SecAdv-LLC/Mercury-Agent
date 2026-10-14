@@ -22,17 +22,18 @@ GF_REPO_ROOT="$(cd "$(dirname "${_gf_src}")/../.." && pwd)"
 # AMA cryptography native backend location.
 AMA_HOME="${AMA_HOME:-/tmp/ama-cryptography}"
 
-# NB: ${AMA_HOME} itself must NOT go on PYTHONPATH. The composite pip-installs
-# the ama_cryptography package, and that installed copy is the sanctioned
-# import: its integrity artifact was generated against the .so the wheel was
-# linked to, so the AMA_CRYPTO_LIB_PATH override below verifies and loads.
-# Importing from the source checkout instead fails closed under AMA >= 5.0.0:
-# the checkout carries the release's *signed* INTEGRITY_NATIVE_DIGEST_HEX,
-# which a locally built libama_cryptography.so can never match, so the FIPS
-# 140-3 POST refuses to initialise (observed on the Leakage-split gate lane
-# after the v4.0.0 -> v5.0.0 pin bump).
+# NB: neither ${AMA_HOME} on PYTHONPATH nor an AMA_CRYPTO_LIB_PATH override —
+# the pip-installed ama_cryptography package loading its own shared object is
+# the one configuration AMA >= 5.0.0's signed integrity accepts, and it is
+# exactly how every other engine-importing CI lane runs. Importing from the
+# source checkout fails closed (the checkout carries the release's *signed*
+# INTEGRITY_NATIVE_DIGEST_HEX, which a locally built .so can never match),
+# and pointing AMA_CRYPTO_LIB_PATH at the cmake build tree fails the same
+# way: the wheel's integrity artifact covers the wheel's own .so, not the
+# build-tree object (observed twice on the Leakage-split gate lane after the
+# v4.0.0 -> v5.0.0 pin bump). LD_LIBRARY_PATH stays for the wheel's native
+# linkage; the composite exports the same value job-wide in CI.
 export PYTHONPATH="${GF_REPO_ROOT}:${GF_REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
-export AMA_CRYPTO_LIB_PATH="${AMA_HOME}/build/lib/libama_cryptography.so"
 export LD_LIBRARY_PATH="${AMA_HOME}/build/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 # Real-data discipline.  NB: the loaders/ package does NOT honour this flag (only
