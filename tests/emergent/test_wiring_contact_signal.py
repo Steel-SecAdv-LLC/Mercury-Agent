@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Behavioral tests for the wired ``signal_characteristics`` conditioning of
-contact-protocol exploration.
+"""Behavioral tests for the wired ``signal_characteristics`` conditioning of contact-protocol exploration.
 
 The fitness weights are a hand-computable function of SNR / bandwidth /
 periodicity, and a noisier channel (lower SNR) favours a more

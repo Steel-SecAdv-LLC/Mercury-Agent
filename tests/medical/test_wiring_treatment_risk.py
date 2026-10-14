@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Behavioral tests for the wired ``patient_state`` conditioning of treatment
-pathway optimization.
+"""Behavioral tests for the wired ``patient_state`` conditioning of treatment pathway optimization.
 
 The risk burden is a hand-computable mean of normalised components, and a
 frailer patient weights the safety term more heavily so the top pathway is at
