@@ -233,9 +233,7 @@ class OceanographyPatterns:
 
         return sample_indices, sample_values
 
-    def tidal_pattern_detection(
-        self, time_series: np.ndarray[Any, Any], expected_period: float | None = None
-    ) -> dict[str, float]:
+    def tidal_pattern_detection(self, time_series: np.ndarray[Any, Any]) -> dict[str, float]:
         """Detect periodic patterns analogous to tides.
 
         Inspired by tidal observations recorded by Aristotle and Strabo

@@ -701,7 +701,6 @@ class LearnableGOSNN:
         self,
         scalar_names: list[str],
         target_score: float,
-        actual_score: float,
     ) -> float:
         """Update scalar embeddings based on feedback."""
         if not TORCH_AVAILABLE or self.optimizer is None:

@@ -301,13 +301,12 @@ class TestGaborEnhancer:
         assert enhanced.max() <= 1.0 + 1e-9
         assert np.all(np.isfinite(enhanced))
 
-    def test_enhance_color_and_quality_mask(self) -> None:
+    def test_enhance_color_input(self) -> None:
         img = make_fingerprint(9, 64)
         color = np.stack([img, img, img], axis=2)
         orient = OrientationFieldEstimator(block_size=16).estimate(img)
         freq = RidgeFrequencyEstimator(block_size=16, window_size=32).estimate(img, orient)
-        mask = np.ones_like(orient)
-        enhanced = GaborEnhancer(kernel_size=15).enhance(color, orient, freq, quality_mask=mask)
+        enhanced = GaborEnhancer(kernel_size=15).enhance(color, orient, freq)
         assert enhanced.shape == img.shape
 
     def test_gabor_filter_shape_zero_mean_and_cached(self) -> None:

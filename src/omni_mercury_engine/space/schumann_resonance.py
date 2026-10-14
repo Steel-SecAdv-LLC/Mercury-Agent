@@ -119,6 +119,8 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
             )
         super().__init__()
 
+        self.spectrum_size = spectrum_size
+
         phi = 1.618
 
         self.cnn_encoder = nn.Sequential(
@@ -374,7 +376,12 @@ class SchumannResonanceDetector:
         if self._neural_trained:
             # Trained weights present: use the learned CNN-LSTM classifier.
             spectrum_tensor = (
-                torch.tensor(power_spectrum[:512], dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+                torch.tensor(
+                    power_spectrum[: self.harmonic_analyzer.spectrum_size],
+                    dtype=torch.float32,
+                )
+                .unsqueeze(0)
+                .unsqueeze(0)
             )
             temporal_tensor = None
             if temporal_history and len(temporal_history) > 0:

@@ -197,9 +197,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
             num_universes=num_universes, state_dim=64, convergence_threshold=0.95
         )
 
-    def simulate_zero_day(
-        self, system_state: np.ndarray[Any, Any], known_vulnerabilities: list[str] | None = None
-    ) -> dict[str, Any]:
+    def simulate_zero_day(self, system_state: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Simulate potential zero-day attacks using multiverse exploration.
 
         Args:

@@ -801,7 +801,7 @@ state-of-the-art baselines on the identical evaluation set:
 ```bash
 git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
 pip install -e ".[pqc]"            # core + native PQC backend, built automatically
-python examples/maritime_quickstart.py
+python examples/mercury_quickstart.py
 ```
 
 ```text

@@ -107,7 +107,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
         """
 
-        def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
+        def __init__(self, input_dim: int = 64) -> None:
             """Initialize the instance."""
             super().__init__()
 
@@ -214,7 +214,7 @@ class ABMSDisciplineDetector:
         self.enable_neurosymbolic = enable_neurosymbolic
         self.golden_ratio = 1.618 if golden_ratio_threshold else 1.0
 
-        self.model = MultiSpecialtyNeuralNet(input_dim=64, num_specialties=24)
+        self.model = MultiSpecialtyNeuralNet(input_dim=64)
 
         self.subspecialties = self._initialize_subspecialties()
 

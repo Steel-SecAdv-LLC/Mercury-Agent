@@ -1139,7 +1139,7 @@ class CausalDiscoveryEngine:
         difference = counterfactual_outcome - factual_outcome
 
         # Sensitivity analysis: Rosenbaum bounds
-        robustness = self._sensitivity_analysis(data, int_idx, target_idx, difference)
+        robustness = self._sensitivity_analysis(data, target_idx, difference)
 
         result = CounterfactualResult(
             query=f"What would {target_var} have been if {int_var}={int_value:.3f}?",
@@ -1357,7 +1357,6 @@ class CausalDiscoveryEngine:
     def _sensitivity_analysis(
         self,
         data: np.ndarray[Any, Any],
-        treatment_idx: int,
         outcome_idx: int,
         observed_effect: float,
     ) -> float:

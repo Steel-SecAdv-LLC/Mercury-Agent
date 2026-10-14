@@ -145,7 +145,7 @@ jobs:
           echo "$out"
           echo "$out" | grep -q "PHYSICS-INSPIRED DETECTORS"
 
-      - name: Run maritime_quickstart end-to-end (real DTU AIS download)
+      - name: Run mercury_quickstart end-to-end (real DTU AIS download)
         # The README's ten-minute path: downloads the digest-pinned DTU
         # labelled set (~38 MB from figshare) and must reproduce the
         # committed DTU_AIS_Abnormal benchmark row deterministically.
@@ -153,9 +153,9 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           set -euo pipefail
-          out=$(python examples/maritime_quickstart.py --data-dir ./data)
+          out=$(python examples/mercury_quickstart.py --data-dir ./data)
           echo "$out"
-          echo "$out" | grep -q "MARITIME QUICKSTART COMPLETE"
+          echo "$out" | grep -q "MERCURY QUICKSTART COMPLETE"
           echo "$out" | grep -q "Mercury ensemble (this run)  ROC-AUC 0.8613"
 
   load-tests:

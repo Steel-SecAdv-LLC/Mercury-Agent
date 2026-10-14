@@ -30,7 +30,7 @@ and deserialised through the loader's fail-closed restricted unpickler
 Usage::
 
     pip install -e ".[pqc]"
-    python examples/maritime_quickstart.py [--data-dir ./data]
+    python examples/mercury_quickstart.py [--data-dir ./data]
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     print("=" * 74)
-    print("MERCURY MARITIME QUICKSTART")
+    print("MERCURY QUICKSTART")
     print("Real AIS trajectories, expert-annotated labels, published baselines")
     print("=" * 74)
     print(
@@ -168,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print("\nThis run is deterministic (seed 42) and reproduces the")
     print("DTU_AIS_Abnormal row of benchmarks/mercury_benchmark_results.json.")
-    print("\nMARITIME QUICKSTART COMPLETE")
+    print("\nMERCURY QUICKSTART COMPLETE")
     return 0
 
 

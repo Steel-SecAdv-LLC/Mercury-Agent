@@ -94,9 +94,7 @@ class ECGRhythmAnalyzer(nn.Module):
     and MIT-BIH research.
     """
 
-    def __init__(
-        self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13
-    ) -> None:
+    def __init__(self, num_leads: int = 12, num_classes: int = 13) -> None:
         """Initialize the instance."""
         super().__init__()
 

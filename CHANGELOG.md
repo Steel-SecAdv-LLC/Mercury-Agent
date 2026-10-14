@@ -27,6 +27,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Pre-merge end-to-end sweep: dead API surface cured, one real wiring fix, quickstart renamed (branch `steel/version-cov4`)
+
+**Renamed** `examples/maritime_quickstart.py` → `examples/mercury_quickstart.py`
+(it is the product's front door, not a niche demo); README, the Examples
+Parity lane and its deterministic-AUC pin follow.
+
+**Removed — parameters that promised behavior the code never had.** A
+whole-tree dead-code sweep (vulture, 100 %-confidence findings, each
+verified by hand) found accepted-and-documented parameters that no code
+path ever read. Each is removed so the API states what the implementation
+does: `use_dtp` in `OmniFusionModel.train_with_optimizers` (defaulted
+True, "enable difference target propagation", never read — the DTP class
+is a standalone layer-local trainer that was never integrated; the no-op
+toggle test asserting nothing is deleted with it), `actual_score` in
+`LearnableGOSNN.learn_from_feedback`, `enable_age_progression` in
+`OmniMercuryEngine.detect_biometric`, `quality_mask` in
+`GaborEnhancer.enhance`, `known_vulnerabilities` in
+`ZeroDaySimulator.simulate_zero_day`, `expected_period` in
+`tidal_pattern_detection`, `score_function` / `return_samples` in the
+uncertainty API, `treatment_idx` in the private simplified Rosenbaum
+helper, `num_specialties` in `MultiSpecialtyNeuralNet` (the ABMSBoard
+enum is the single source of truth for the 24 heads) and `input_length`
+in the cardiology ECG net (the conv/LSTM stack is length-agnostic).
+Tests that merely asserted the dead parameters were *accepted* are
+updated to the honest signatures.
+
+**Wired — `SchumannHarmonicAnalyzer.spectrum_size`.** The constructor
+accepted a spectrum size but the detector sliced a hardcoded
+``[:512]``; the analyzer now stores the size and the detector slices by
+it — one source of truth.
+
+Kept deliberately (flagged by the sweep, correct on inspection):
+``__exit__(exc_type, exc_val, exc_tb)`` protocol signatures, the
+``fit(X, y=None)`` interface convention in the cross-domain adapters,
+the requests-adapter override signatures in ``safe_http`` (the pinned
+pool ignores proxies by design — honoring one would defeat SSRF
+pinning), and the ``return; yield`` empty-async-generator idiom.
+
 ### 67th benchmark dataset: DTU Danish-waters AIS with expert-annotated abnormalities; Mercury at published-SOTA parity (branch `steel/version-cov4`)
 
 **Added — `DTU_AIS_Abnormal`** (`datasets/maritime.py`, category
@@ -62,7 +100,7 @@ features are now computed over finite values only (documented neutral
 feature instead of emitting NaN, and the demo, the harness and a direct
 loader call now agree bit for bit.
 
-**Added — ten-minute quickstart** (`examples/maritime_quickstart.py`,
+**Added — ten-minute quickstart** (`examples/mercury_quickstart.py`,
 README "Ten minutes to one honest number"): clone →
 `pip install -e ".[pqc]"` → one command prints this dataset's ROC-AUC
 next to the published baselines, with the caveats stated. The full

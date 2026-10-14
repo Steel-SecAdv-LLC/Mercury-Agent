@@ -914,7 +914,6 @@ class OmniFusionModel(nn.Module):
         learning_rate: float = 0.001,
         lambda_lyapunov: float = 0.25,
         use_synthetic_gradients: bool = True,
-        use_dtp: bool = True,
         use_amav: bool = True,
         use_focal_loss: bool = False,
         focal_alpha: float = 0.75,
@@ -941,7 +940,6 @@ class OmniFusionModel(nn.Module):
             learning_rate: Base learning rate (default: 0.001)
             lambda_lyapunov: Lyapunov stability parameter (default: 0.25)
             use_synthetic_gradients: Enable synthetic gradient prediction
-            use_dtp: Enable difference target propagation
             use_amav: Enable auxiliary max-variance for multi-task
             use_focal_loss: Enable focal loss for severe class imbalance
             focal_alpha: Alpha parameter for focal loss (weight for positive class)

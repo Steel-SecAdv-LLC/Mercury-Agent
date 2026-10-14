@@ -307,7 +307,6 @@ class GaborEnhancer:
         image: np.ndarray[Any, Any],
         orientation: np.ndarray[Any, Any],
         frequency: np.ndarray[Any, Any],
-        quality_mask: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Enhance fingerprint image using Gabor filters.
 

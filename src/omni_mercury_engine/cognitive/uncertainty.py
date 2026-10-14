@@ -388,14 +388,12 @@ class AdaptiveConformalInference:
     def predict_interval(
         self,
         point_prediction: float,
-        score_function: Callable[[float], float] | None = None,
         residual_std: float | None = None,
     ) -> tuple[float, float]:
         """Compute prediction interval.
 
         Args:
             point_prediction: Point estimate
-            score_function: Function to compute nonconformity scores
             residual_std: Standard deviation for simple intervals
 
         Returns:
@@ -594,7 +592,6 @@ class UncertaintyQuantifier:
         prediction_function: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | None = None,
         input_data: np.ndarray[Any, Any] | None = None,
         model: Any = None,
-        return_samples: bool = False,
         ensemble_predictions: np.ndarray[Any, Any] | None = None,
     ) -> UncertaintyEstimate:
         """Estimate uncertainty for a prediction using MC Dropout / an ensemble.
@@ -604,7 +601,6 @@ class UncertaintyQuantifier:
             prediction_function: Function to generate predictions (for MC sampling)
             input_data: Input data for prediction function
             model: PyTorch model (for MC Dropout wrapper)
-            return_samples: Whether to include MC samples in result
             ensemble_predictions: Optional stack of predictions from independent
                 ensemble members / detectors, shape ``(n_members,)`` or
                 ``(n_members, ...)``. When supplied (and no MC path ran), epistemic

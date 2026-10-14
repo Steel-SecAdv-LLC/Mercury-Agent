@@ -5719,7 +5719,6 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         reference_image: str | np.ndarray[Any, Any],
         test_image: str | np.ndarray[Any, Any] | None = None,
-        enable_age_progression: bool = False,
     ) -> dict[str, Any]:
         """Perform biometric face matching and analysis.
 
@@ -5729,7 +5728,6 @@ class OmniMercuryEngine(LoggerMixin):
         Args:
             reference_image: Reference face image (path or array).
             test_image: Optional test image to match against reference.
-            enable_age_progression: Enable age progression estimation.
 
         Returns:
             Dictionary with biometric analysis results including:
