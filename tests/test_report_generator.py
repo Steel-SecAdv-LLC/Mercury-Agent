@@ -516,3 +516,43 @@ class TestReportTLPIntegration:
             strict_sharing=True,
         )
         assert classification.color is TLPColor.AMBER_STRICT
+
+
+class TestReportOutputSafety:
+    """HTML escaping, PDF markup escaping and the text fallback path."""
+
+    def test_report_manager_html_is_escaped(self, tmp_path: Any) -> None:
+        from omni_mercury_engine.utils.report_generator import ReportConfig, ReportManager
+
+        path = tmp_path / "r.html"
+        ReportManager().generate_report(
+            {"note": "<script>alert(1)</script>"},
+            ReportConfig(title="t", report_type="raw", format="html", output_path=str(path)),
+        )
+        text = path.read_text(encoding="utf-8")
+        assert "<script>" not in text
+        assert "&lt;script&gt;" in text
+
+    def test_fallback_path_changes_only_the_extension(self) -> None:
+        from omni_mercury_engine.utils.report_generator import PDFReportGenerator
+
+        assert PDFReportGenerator.fallback_path("/x.pdfs/report.pdf") == "/x.pdfs/report.txt"
+        assert PDFReportGenerator.fallback_path("report") == "report.txt"
+
+    def test_pdf_generate_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="binary"):
+            ReportGenerator().generate({"title": "x"}, format=ReportFormat.PDF)
+
+    def test_pdf_export_escapes_markup_and_carries_watermark(self, tmp_path: Any) -> None:
+        import importlib.util
+
+        gen = ReportGenerator()
+        gen.apply_tlp_classification(anomaly_score=0.95, domain_type="cyber")
+        gen.add_section("Raw", "values a < b & c > d <unclosed")
+        written = gen.export({"title": "T"}, str(tmp_path / "r.pdf"), format=ReportFormat.PDF)
+        if importlib.util.find_spec("reportlab") is None:
+            assert written.endswith(".txt")
+            assert open(written, encoding="utf-8").read().startswith("TLP:RED")
+        else:
+            assert written.endswith(".pdf")
+            assert open(written, "rb").read(4) == b"%PDF"

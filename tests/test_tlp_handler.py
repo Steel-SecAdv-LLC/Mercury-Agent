@@ -347,3 +347,26 @@ def test_classification_is_immutable(handler: TLPHandler) -> None:
 def test_ethical_considerations_is_tuple(handler: TLPHandler) -> None:
     cls = handler.classify_anomaly(0.65, "anomaly", "general")
     assert isinstance(cls.ethical_considerations, tuple)
+
+
+# ---------------------------------------------------------------------------
+# PII escalation covers AMBER *or weaker*
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("score", [0.0, 0.1, 0.4, 0.65])
+def test_pii_escalates_clear_green_and_amber(handler: TLPHandler, score: float) -> None:
+    cls = handler.classify_anomaly(score, "anomaly", "general", {"contains_pii": True})
+    assert cls.color is TLPColor.AMBER_STRICT
+
+
+def test_pii_never_lowers_red(handler: TLPHandler) -> None:
+    cls = handler.classify_anomaly(0.95, "anomaly", "general", {"contains_pii": True})
+    assert cls.color is TLPColor.RED
+
+
+def test_strict_sharing_still_escalates_amber_only(handler: TLPHandler) -> None:
+    green = handler.classify_anomaly(0.4, "anomaly", "general", {"strict_sharing": True})
+    amber = handler.classify_anomaly(0.65, "anomaly", "general", {"strict_sharing": True})
+    assert green.color is TLPColor.GREEN
+    assert amber.color is TLPColor.AMBER_STRICT

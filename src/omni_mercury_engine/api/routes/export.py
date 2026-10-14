@@ -11,6 +11,11 @@ Features:
 - Multiple export formats (JSON, CSV, Parquet)
 - Streaming support for large datasets
 - Scheduled export jobs
+- TLP 2.0 marking on every export: ``X-TLP*`` response headers, a ``tlp``
+  label on every record, and an optional ``tlp_envelope`` metadata block.
+  An export is marked with the most restrictive colour of the records it
+  contains or is derived from; audit logs (IP addresses, user agents and
+  user ids are personal data) are never weaker than TLP:AMBER+STRICT.
 """
 
 from __future__ import annotations
@@ -32,11 +37,16 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.compliance.tlp_handler import (
+    TLPClassification,
+    TLPColor,
+    get_tlp_handler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +60,15 @@ class ExportFormat(StrEnum):
     CSV = "csv"
     JSONL = "jsonl"  # JSON Lines for streaming
     PARQUET = "parquet"
+
+
+class ReportExportFormat(StrEnum):
+    """Formats of the human-readable detection report."""
+
+    HTML = "html"
+    MARKDOWN = "markdown"
+    JSON = "json"
+    PDF = "pdf"
 
 
 class ExportType(StrEnum):
@@ -468,6 +487,88 @@ def _audit_log_to_dict(record: AuditLogRecord) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# TLP 2.0 marking
+# ---------------------------------------------------------------------------
+
+
+def _detection_tlp(record: DetectionRecord) -> TLPClassification:
+    """Classify one detection record (score, method, domain, metadata flags)."""
+    score = float(record.max_score)
+    score = 1.0 if not math.isfinite(score) else min(max(score, 0.0), 1.0)
+    meta = record.metadata or {}
+    return get_tlp_handler().classify_anomaly(
+        anomaly_score=score,
+        anomaly_type=str(meta.get("anomaly_type") or record.method or "detection"),
+        domain=str(meta.get("domain") or "general"),
+        context={
+            "contains_pii": bool(meta.get("contains_pii", False)),
+            "strict_sharing": bool(meta.get("strict_sharing", False)),
+        },
+    )
+
+
+def _audit_log_tlp(record: AuditLogRecord) -> TLPClassification:
+    """Classify one audit-log record: personal data, so AMBER+STRICT or stricter."""
+    del record
+    return get_tlp_handler().classify_anomaly(
+        anomaly_score=0.0,
+        anomaly_type="audit_log",
+        domain="compliance",
+        context={"contains_pii": True},
+    )
+
+
+def _export_tlp(classifications: list[TLPClassification]) -> TLPClassification:
+    """The most restrictive colour among *classifications* (CLEAR when empty)."""
+    if not classifications:
+        return get_tlp_handler().classify_anomaly(0.0, "empty_export", "general")
+    return max(classifications, key=lambda c: c.color.rank)
+
+
+def _tlp_headers(classification: TLPClassification) -> dict[str, str]:
+    """``X-TLP*`` response headers (ASCII-safe) for an export."""
+    meta = get_tlp_handler().get_export_metadata(classification)
+    return {
+        "X-TLP": str(meta["tlp_label"]),
+        "X-TLP-Color": str(meta["tlp_color"]),
+        "X-TLP-Rank": str(meta["tlp_rank"]),
+        "X-TLP-Watermark": str(meta["watermark"]).encode("ascii", "replace").decode("ascii"),
+    }
+
+
+def _with_tlp_label(to_dict: Any, labels: dict[int, str]) -> Any:
+    """Wrap a record serialiser so every record carries its ``tlp`` label."""
+
+    def _serialise(record: Any) -> dict[str, Any]:
+        data: dict[str, Any] = to_dict(record)
+        data["tlp"] = labels.get(id(record), TLPColor.CLEAR.label)
+        return data
+
+    return _serialise
+
+
+async def _stream_enveloped(
+    fmt: ExportFormat,
+    classification: TLPClassification,
+    body: AsyncIterator[bytes],
+) -> AsyncIterator[bytes]:
+    """Prefix (and for JSON, wrap) an export body with the TLP metadata block."""
+    meta = get_tlp_handler().get_export_metadata(classification)
+    if fmt == ExportFormat.JSON:
+        yield b'{"tlp": ' + json.dumps(meta, default=str).encode() + b', "records": '
+        async for chunk in body:
+            yield chunk
+        yield b"}"
+        return
+    if fmt == ExportFormat.JSONL:
+        yield (json.dumps({"tlp": meta}, default=str) + "\n").encode()
+    elif fmt == ExportFormat.CSV:
+        yield ("# " + str(meta["watermark"]) + "\n").encode()
+    async for chunk in body:
+        yield chunk
+
+
 async def _stream_json(records: list[Any], to_dict: Any) -> AsyncIterator[bytes]:
     """Stream records as JSON array."""
     yield b"[\n"
@@ -572,9 +673,12 @@ async def export_detections(
     min_score: float | None = Query(default=None, ge=0.0, description="Minimum anomaly score"),
     limit: int = Query(default=10000, ge=1, le=100000, description="Maximum records"),
     offset: int = Query(default=0, ge=0, description="Pagination offset"),
+    tlp_envelope: bool = Query(
+        default=False, description="Prefix the body with the full TLP 2.0 metadata block"
+    ),
     user: User = Depends(_get_current_user),
 ) -> StreamingResponse:
-    """Export detection records."""
+    """Export detection records (TLP-marked)."""
     store = get_data_store()
 
     is_admin = user.has_permission(Permission.ADMIN)
@@ -607,17 +711,26 @@ async def export_detections(
         ExportFormat.CSV: "csv",
     }
 
+    classifications = [_detection_tlp(r) for r in records]
+    export_tlp = _export_tlp(classifications)
+    to_dict = _with_tlp_label(
+        _detection_to_dict,
+        {id(r): c.color.label for r, c in zip(records, classifications, strict=True)},
+    )
+
     if format == ExportFormat.JSON:
-        stream = _stream_json(records, _detection_to_dict)
+        stream = _stream_json(records, to_dict)
     elif format == ExportFormat.JSONL:
-        stream = _stream_jsonl(records, _detection_to_dict)
+        stream = _stream_jsonl(records, to_dict)
     elif format == ExportFormat.CSV:
-        stream = _stream_csv(records, _detection_to_dict)
+        stream = _stream_csv(records, to_dict)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported format: {format.value}",
         )
+    if tlp_envelope:
+        stream = _stream_enveloped(format, export_tlp, stream)
 
     filename = f"detections_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext_map[format]}"
 
@@ -628,6 +741,7 @@ async def export_detections(
             "Content-Disposition": f"attachment; filename={filename}",
             "X-Total-Records": str(total),
             "X-Returned-Records": str(len(records)),
+            **_tlp_headers(export_tlp),
         },
     )
 
@@ -650,9 +764,12 @@ async def export_audit_logs(
     resource_type: str | None = Query(default=None, description="Filter by resource type"),
     limit: int = Query(default=10000, ge=1, le=100000, description="Maximum records"),
     offset: int = Query(default=0, ge=0, description="Pagination offset"),
+    tlp_envelope: bool = Query(
+        default=False, description="Prefix the body with the full TLP 2.0 metadata block"
+    ),
     user: User = Depends(_get_current_user),
 ) -> StreamingResponse:
-    """Export audit log records."""
+    """Export audit log records (TLP-marked, AMBER+STRICT floor)."""
     store = get_data_store()
 
     is_admin = user.has_permission(Permission.ADMIN)
@@ -685,17 +802,26 @@ async def export_audit_logs(
         ExportFormat.CSV: "csv",
     }
 
+    classifications = [_audit_log_tlp(r) for r in records]
+    export_tlp = _export_tlp(classifications)
+    to_dict = _with_tlp_label(
+        _audit_log_to_dict,
+        {id(r): c.color.label for r, c in zip(records, classifications, strict=True)},
+    )
+
     if format == ExportFormat.JSON:
-        stream = _stream_json(records, _audit_log_to_dict)
+        stream = _stream_json(records, to_dict)
     elif format == ExportFormat.JSONL:
-        stream = _stream_jsonl(records, _audit_log_to_dict)
+        stream = _stream_jsonl(records, to_dict)
     elif format == ExportFormat.CSV:
-        stream = _stream_csv(records, _audit_log_to_dict)
+        stream = _stream_csv(records, to_dict)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported format: {format.value}",
         )
+    if tlp_envelope:
+        stream = _stream_enveloped(format, export_tlp, stream)
 
     filename = f"audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext_map[format]}"
 
@@ -706,6 +832,7 @@ async def export_audit_logs(
             "Content-Disposition": f"attachment; filename={filename}",
             "X-Total-Records": str(total),
             "X-Returned-Records": str(len(records)),
+            **_tlp_headers(export_tlp),
         },
     )
 
@@ -878,6 +1005,7 @@ def _flatten_metrics_to_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
     description="Export system detection metrics (json summary, or tidy csv/jsonl rows).",
 )
 async def export_metrics(
+    response: Response,
     format: ExportFormat = Query(
         default=ExportFormat.JSON,
         description="Export format: json (nested summary), or csv/jsonl (tidy metric,value rows).",
@@ -892,6 +1020,10 @@ async def export_metrics(
     user: User = Depends(_get_current_user),
 ) -> Any:
     """Export system detection metrics in json/csv/jsonl.
+
+    Marked with the most restrictive TLP colour of the detections the
+    metrics are derived from (``X-TLP*`` headers; a ``tlp`` key in the JSON
+    summary and a ``tlp`` metric row in csv/jsonl).
 
     Researchers across Mercury's domains (STEM, medical, meteorological, space, …)
     consume detection metrics in whatever format their analysis stack expects, so
@@ -911,8 +1043,12 @@ async def export_metrics(
     )
 
     summary = _compute_metrics_summary(detections, start_time, end_time, bucket)
+    export_tlp = _export_tlp([_detection_tlp(d) for d in detections])
+    tlp_headers = _tlp_headers(export_tlp)
+    summary["tlp"] = export_tlp.color.label
 
     if format == ExportFormat.JSON:
+        response.headers.update(tlp_headers)
         return summary
 
     rows = _flatten_metrics_to_rows(summary)
@@ -936,5 +1072,130 @@ async def export_metrics(
     return StreamingResponse(
         stream,
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f"attachment; filename={filename}", **tlp_headers},
+    )
+
+
+def _build_detection_report(
+    detections: list[DetectionRecord],
+    export_tlp: TLPClassification,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> tuple[Any, dict[str, Any]]:
+    """Assemble a TLP-marked :class:`ReportGenerator` for *detections*."""
+    from omni_mercury_engine.utils.report_generator import ReportGenerator
+
+    generator = ReportGenerator()
+    generator.apply_tlp_classification(classification=export_tlp)
+
+    by_method: dict[str, list[DetectionRecord]] = {}
+    for record in detections:
+        by_method.setdefault(record.method, []).append(record)
+    generator.add_table(
+        "Detections by method",
+        {
+            "headers": ["method", "detections", "anomalies", "max score"],
+            "rows": [
+                [
+                    method,
+                    len(records),
+                    sum(r.anomaly_count for r in records),
+                    f"{max(r.max_score for r in records):.4f}",
+                ]
+                for method, records in sorted(by_method.items())
+            ],
+        },
+    )
+    labels = {id(r): _detection_tlp(r).color.label for r in detections}
+    top = sorted(detections, key=lambda r: r.max_score, reverse=True)[:20]
+    generator.add_table(
+        "Highest-scoring detections",
+        {
+            "headers": ["timestamp", "method", "anomalies", "max score", "tlp"],
+            "rows": [
+                [
+                    r.timestamp.isoformat(),
+                    r.method,
+                    r.anomaly_count,
+                    f"{r.max_score:.4f}",
+                    labels[id(r)],
+                ]
+                for r in top
+            ],
+        },
+    )
+    window = (
+        f"{start_time.isoformat() if start_time else 'beginning'} to "
+        f"{end_time.isoformat() if end_time else 'now'}"
+    )
+    anomalies = sum(r.anomaly_count for r in detections)
+    data = {
+        "title": "Mercury detection report",
+        "content": (
+            f"{len(detections)} detection requests from {window}; "
+            f"{anomalies} anomalies flagged across {len(by_method)} methods."
+        ),
+    }
+    generator.add_section(
+        "Sharing",
+        f"This report is marked {export_tlp.color.label}: the most restrictive "
+        "classification of the detections it summarises.",
+    )
+    return generator, data
+
+
+@router.get(
+    "/report",
+    summary="Export Detection Report",
+    description=(
+        "Human-readable detection report (html, markdown, json or pdf), marked with "
+        "the most restrictive TLP 2.0 colour of the detections it summarises."
+    ),
+)
+async def export_report(
+    format: ReportExportFormat = Query(default=ReportExportFormat.HTML),
+    start_time: datetime | None = Query(default=None, description="Start of time range"),
+    end_time: datetime | None = Query(default=None, description="End of time range"),
+    user: User = Depends(_get_current_user),
+) -> Response:
+    """Render a TLP-marked detection report through :class:`ReportGenerator`."""
+    from omni_mercury_engine.utils.report_generator import ReportFormat
+
+    store = get_data_store()
+    user_filter = None if user.has_permission(Permission.ADMIN) else user.id
+    detections, _ = await store.query_detections(
+        user_id=user_filter, start_time=start_time, end_time=end_time, limit=100000
+    )
+    export_tlp = _export_tlp([_detection_tlp(d) for d in detections])
+    generator, data = _build_detection_report(detections, export_tlp, start_time, end_time)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    headers = _tlp_headers(export_tlp)
+
+    if format == ReportExportFormat.PDF:
+        import importlib.util
+        import tempfile
+
+        if importlib.util.find_spec("reportlab") is None:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="PDF rendering needs the optional 'reportlab' package; "
+                "use format=html, markdown or json.",
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            target = os.path.join(tmp, "report.pdf")
+            written = generator.export(data, target, ReportFormat.PDF)
+            with open(written, "rb") as fh:
+                body = fh.read()
+        headers["Content-Disposition"] = f"attachment; filename=detection_report_{stamp}.pdf"
+        return Response(content=body, media_type="application/pdf", headers=headers)
+
+    media = {
+        ReportExportFormat.HTML: ("text/html; charset=utf-8", "html", ReportFormat.HTML),
+        ReportExportFormat.MARKDOWN: ("text/markdown; charset=utf-8", "md", ReportFormat.MARKDOWN),
+        ReportExportFormat.JSON: ("application/json", "json", ReportFormat.JSON),
+    }
+    media_type, ext, report_format = media[format]
+    headers["Content-Disposition"] = f"attachment; filename=detection_report_{stamp}.{ext}"
+    return Response(
+        content=generator.generate(data, report_format), media_type=media_type, headers=headers
     )
