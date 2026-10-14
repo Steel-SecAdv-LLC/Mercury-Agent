@@ -438,8 +438,13 @@ def test_aggregator_rejects_dimension_mismatch() -> None:
 
 
 def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
-    """Verify from_statistics produces a working detector."""
-    det = MercuryAnomalyDetector()
+    """Verify from_statistics produces a working detector.
+
+    Federation exports statistics only, never training rows, so the kNN
+    density stream (which needs the rows) is not part of a reconstruction;
+    the exact-equality check runs against a detector fit without it.
+    """
+    det = MercuryAnomalyDetector({"knn_stream": False})
     det.fit(data_a)
 
     # After fit() these statistic attributes are populated; narrow for mypy.
@@ -485,6 +490,8 @@ def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
         rtol=1e-10,
         err_msg="from_statistics detector should produce identical scores",
     )
+    # No raw rows were handed over, so the reconstruction carries no kNN stream.
+    assert recon_result["knn_density_scores"] is None
 
 
 # ---------------------------------------------------------------------------
