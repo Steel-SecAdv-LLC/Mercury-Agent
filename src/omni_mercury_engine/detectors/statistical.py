@@ -31,6 +31,7 @@ from typing import Any
 import numpy as np
 from scipy import (
     linalg as sp_linalg,
+    special as sp_special,
     stats as sp_stats,
 )
 
@@ -360,6 +361,18 @@ class MercuryAnomalyDetector(BaseDetector):
         self._knn_live_stats: tuple[tuple[Any, ...], float, float] | None = None
         self._fit_generation: int = 0
 
+        # Labelled-path component weighting: "simplex" refines the AUC-margin
+        # weights by maximising a smooth pairwise-AUC surrogate of the
+        # weighted ensemble on the probability simplex; "margin" keeps the
+        # margin formula alone.
+        _learning = str(self.config.get("weight_learning", "simplex")).strip().lower()
+        if _learning not in ("simplex", "margin"):
+            raise ValueError(
+                "weight_learning must be 'simplex' or 'margin', got "
+                f"{self.config.get('weight_learning')!r}"
+            )
+        self._weight_learning: str = _learning
+
     # =====================================================================
     # fit()
     # =====================================================================
@@ -530,7 +543,7 @@ class MercuryAnomalyDetector(BaseDetector):
             cal_labels = np.asarray(calibration_labels, dtype=np.int32).ravel()
             if len(cal_labels) == len(arr):
                 # Full labeling: use supervised adaptive weights + threshold
-                self._adaptive_weights = self._compute_adaptive_weights(arr, cal_labels)
+                self._adaptive_weights = self._supervised_weights(arr, cal_labels)
                 self._weight_source = "supervised_calibration"
                 logger.info(
                     "fit: calibration_labels provided (n=%d). "
@@ -660,7 +673,7 @@ class MercuryAnomalyDetector(BaseDetector):
         labels = np.asarray(labels, dtype=np.int32).ravel()
 
         # Compute data-driven component weights before generating scores
-        self._adaptive_weights = self._compute_adaptive_weights(arr, labels)
+        self._adaptive_weights = self._supervised_weights(arr, labels)
 
         import logging as _log_aw
 
@@ -1144,10 +1157,107 @@ class MercuryAnomalyDetector(BaseDetector):
         u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative="greater")
         return float(u_stat / (len(pos) * len(neg)))
 
+    #: Labelled pairs (anomaly, normal) used by the simplex surrogate; more
+    #: pairs than this are subsampled deterministically.
+    _SIMPLEX_MAX_PAIRS: int = 20000
+    #: Minimum labelled anomalies and normals before weights are learned.
+    _SIMPLEX_MIN_PER_CLASS: int = 5
+
+    def _supervised_weights(
+        self,
+        X: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Labelled-path component weights: AUC margins, then simplex refinement.
+
+        The margin weights (:meth:`_compute_adaptive_weights`) are kept when
+        refinement is off, when they fell back to the default (no component
+        carries signal), or when there are too few labels per class.
+        """
+        components = self._component_score_matrix(X)
+        weights = self._compute_adaptive_weights(X, labels, components=components)
+        if self._weight_learning != "simplex" or self._weight_source != "adaptive":
+            return weights
+        learned = self._learn_simplex_weights(components, labels, initial=weights)
+        if learned is None:
+            return weights
+        self._weight_source = "simplex"
+        return learned
+
+    def _component_score_matrix(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Resonance, kinematic and info-geometry scores as an ``(n, 3)`` matrix."""
+        return np.column_stack(
+            [
+                self._compute_resonance_score(X),
+                self._compute_kinematic_score(X),
+                self._compute_info_geometry_score(X),
+            ]
+        ).astype(np.float64)
+
+    def _learn_simplex_weights(
+        self,
+        components: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        *,
+        initial: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any] | None:
+        """Maximise a pairwise-AUC surrogate of ``components @ w`` on the simplex.
+
+        The surrogate is the mean of ``sigmoid((s_pos - s_neg) / tau)`` over
+        (anomaly, normal) pairs, optimised with the Fisher-metric Riemannian
+        Adam of :class:`ConstrainedParameterOptimizer`, so the weights stay
+        on the simplex at every step. Returns ``None`` (keep the margin
+        weights) when there are too few labels per class or the result is
+        not finite.
+        """
+        from omni_mercury_engine.core.riemannian_optimization import (
+            ConstrainedParameterOptimizer,
+        )
+
+        y = np.asarray(labels).ravel()
+        pos = components[y == 1]
+        neg = components[y == 0]
+        if min(len(pos), len(neg)) < self._SIMPLEX_MIN_PER_CLASS:
+            return None
+        n_pairs = len(pos) * len(neg)
+        if n_pairs <= self._SIMPLEX_MAX_PAIRS:
+            ip, ineg = np.divmod(np.arange(n_pairs), len(neg))
+        else:
+            rng = np.random.default_rng(0)
+            ip = rng.integers(0, len(pos), self._SIMPLEX_MAX_PAIRS)
+            ineg = rng.integers(0, len(neg), self._SIMPLEX_MAX_PAIRS)
+        diff = pos[ip] - neg[ineg]
+        tau = 0.05 * float(np.std(components.mean(axis=1))) + 1e-9
+
+        def objective(w: np.ndarray[Any, Any]) -> float:
+            return -float(np.mean(sp_special.expit((diff @ w) / tau)))
+
+        def gradient(w: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            sig = sp_special.expit((diff @ w) / tau)
+            grad: np.ndarray[Any, Any] = -((sig * (1.0 - sig))[:, None] * diff).mean(axis=0)
+            return grad / tau
+
+        try:
+            optimizer = ConstrainedParameterOptimizer(
+                optimizer_type="adam", learning_rate=0.05, max_iter=300
+            )
+            result = optimizer.optimize_simplex_weights(
+                np.asarray(initial, dtype=np.float64), objective, gradient
+            )
+        except Exception as exc:
+            logger.warning("simplex weight learning failed, keeping margin weights: %s", exc)
+            return None
+        w = np.clip(np.asarray(result.x, dtype=np.float64), 0.0, None)
+        if not np.all(np.isfinite(w)) or float(w.sum()) <= 0.0:
+            return None
+        return w / w.sum()
+
     def _compute_adaptive_weights(
         self,
         X: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any],
+        *,
+        components: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Compute per-component ensemble weights proportional to AUC separation.
 
@@ -1161,13 +1271,17 @@ class MercuryAnomalyDetector(BaseDetector):
         Args:
             X: Training data, shape ``(n_samples, n_features)``.
             labels: Binary ground-truth labels.
+            components: Optional precomputed ``(n, 3)`` component scores
+                (:meth:`_component_score_matrix` of ``X``).
 
         Returns:
             Weight array of shape ``(3,)`` summing to 1.
         """
-        resonance_scores = self._compute_resonance_score(X)
-        kinematic_scores = self._compute_kinematic_score(X)
-        infogeo_scores = self._compute_info_geometry_score(X)
+        if components is None:
+            components = self._component_score_matrix(X)
+        resonance_scores = components[:, 0]
+        kinematic_scores = components[:, 1]
+        infogeo_scores = components[:, 2]
 
         aucs = np.array(
             [
@@ -1987,7 +2101,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X_cal = X[cal_indices]
 
         # Compute adaptive weights using labeled subset
-        self._adaptive_weights = self._compute_adaptive_weights(X_cal, cal_labels)
+        self._adaptive_weights = self._supervised_weights(X_cal, cal_labels)
 
         # Score the calibration subset
         detection = self.detect(X_cal)
