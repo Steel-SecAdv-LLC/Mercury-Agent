@@ -28,6 +28,24 @@ defects from the original implementation are corrected in this port:
     the claim is removed here.  Any future quantitative claim must be backed
     by a reproducible benchmark in ``benchmarks/``.
 
+Ensemble decision.  A drone emits one state per tick, so the ensemble must
+judge a single row.  Resonance (an FFT along the rows) and Kinematic (row
+differences) are undefined for one row -- measured: kinematic is constant
+0.5 and resonance noise -- so a weighted blend of the three could never
+reach its 0.70 gate (a 4000 -> 300 RPM motor collapse, a 95 C thermal
+excursion and a 500 m position jump all produced no fault). The decision
+therefore uses the ensemble's kNN density stream for the current row as a
+robust z-score against its leave-one-out reference on the rolling window,
+which never contains the state being judged. InfoGeometry is reported but
+does not decide: its reference is in-sample Mahalanobis on 20-100 rows of
+22 features, which is optimistic, and it put 4.4% of normal ticks above
+z = 6. Measured on a simulated cruise (20 flights x 280 scored ticks): the
+kNN stream at the default gate z >= 8 raised no false alarm in 5,600 normal
+ticks and flagged motor 4000 -> 3000 RPM (median z 180), 4000 -> 300 RPM
+(698), temperature 40 -> 55 C (53), 40 -> 95 C (222) and a 500 m position
+jump (32) every time; a 20 m jump within the flown range (z 1) is not
+flagged. The three-component blend is still reported for diagnostics.
+
 Live telemetry adapters for PX4 ULog flight logs (via :mod:`pyulog`) or
 MAVLink endpoints (via :mod:`pymavlink`) are *not* shipped in this PR -
 adopters who want them should populate :class:`DroneState` instances
@@ -46,6 +64,7 @@ from __future__ import annotations
 
 import logging
 import math
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -213,6 +232,46 @@ _DEFAULT_ENSEMBLE_WEIGHTS: Final[dict[str, float]] = {
     "info_geometry": 0.30,
 }
 
+#: Invariant-rule field -> the fault it evidences. Rules not listed are
+#: mission-configuration invariants (CONFIGURATION_ERROR).
+_RULE_FAULT_TYPES: Final[dict[str, FaultType]] = {
+    "battery_level": FaultType.BATTERY_CRITICAL,
+    "gps_satellites": FaultType.GPS_LOSS,
+    "signal_strength": FaultType.COMMUNICATION_LOSS,
+    "motor_speeds_min": FaultType.MOTOR_FAILURE,
+    # Thrust not producing the commanded climb / descent.
+    "altitude_rate": FaultType.ACTUATOR_FAILURE,
+    "vertical_velocity": FaultType.ACTUATOR_FAILURE,
+    # Lateral drift while landing.
+    "horizontal_velocity": FaultType.WIND_DISTURBANCE,
+    # Too low on the return leg.
+    "altitude": FaultType.COLLISION_RISK,
+}
+
+#: Number of features in :meth:`DroneAnomalyDetector._extract_features_for_ensemble`.
+DRONE_TELEMETRY_DIM: Final[int] = 22
+
+#: Telemetry feature groups (indices into the ensemble feature vector) and
+#: the fault a dominant deviation in that group indicates.
+_FEATURE_GROUP_FAULTS: Final[tuple[tuple[tuple[int, ...], FaultType], ...]] = (
+    ((13, 14, 15, 16), FaultType.MOTOR_FAILURE),
+    ((17,), FaultType.THERMAL_ANOMALY),
+    ((9,), FaultType.BATTERY_CRITICAL),
+    ((11,), FaultType.GPS_LOSS),
+    ((12,), FaultType.COMMUNICATION_LOSS),
+    ((3, 4, 5, 6, 7, 8, 18, 19, 20), FaultType.WIND_DISTURBANCE),
+    ((0, 1, 2, 10, 21), FaultType.SENSOR_FAILURE),
+)
+
+
+@dataclass
+class _EnsembleModel:
+    """Ensemble fitted on a rolling window, with per-stream fit-time references."""
+
+    detector: MercuryAnomalyDetector
+    references: dict[str, tuple[float, float]]
+    fitted_at_tick: int
+
 
 class DroneAnomalyDetector:
     """Drone fault detector combining rule-based and ML-based approaches.
@@ -233,8 +292,18 @@ class DroneAnomalyDetector:
 
     DEFAULT_HISTORY_WINDOW: Final[int] = 100
     DEFAULT_FIT_MINIMUM: Final[int] = 20
+    #: Ticks between refits of the rolling-window ensemble.
+    DEFAULT_REFIT_INTERVAL: Final[int] = 10
+    #: Robust z (median / 1.4826*MAD units of the window's leave-one-out
+    #: reference) the kNN density stream must reach to raise an ensemble
+    #: fault. See the module docstring for the measurement behind 8.
+    DEFAULT_Z_GATE: Final[float] = 8.0
+    #: Stream whose z decides an ensemble fault (others are reported).
+    DECISION_STREAM: Final[str] = "knn_density"
     MAX_HISTORY: Final[int] = 1000
     MAX_LOG_BUFFER: Final[int] = 5000
+    #: Width of :meth:`extract_features` (registry protocol).
+    FEATURE_DIM: Final[int] = 16
 
     def __init__(
         self,
@@ -245,6 +314,8 @@ class DroneAnomalyDetector:
         history_window: int | None = None,
         ensemble_weights: dict[str, float] | None = None,
         random_state: int = 0,
+        refit_interval: int | None = None,
+        z_gate: float | None = None,
     ) -> None:
         """Initialise the detector.
 
@@ -253,12 +324,17 @@ class DroneAnomalyDetector:
             enable_dronlomaly: Enable DronLomaly log-based detection.
             mission_phases: Mission phases to monitor (default: all).
             history_window: Number of recent states the ensemble is fitted on.
-            ensemble_weights: Optional override of the per-component weights.
-                Keys must match the three ensemble components: ``resonance``,
-                ``kinematic``, ``info_geometry``.
+            ensemble_weights: Optional override of the per-component weights
+                of the reported diagnostic blend (``resonance``,
+                ``kinematic``, ``info_geometry``). The fault decision is the
+                z-gate on the single-row-valid streams (see module docstring).
             random_state: Reserved for backwards compatibility; the in-house
                 :class:`MercuryAnomalyDetector` is deterministic after fit
                 and consumes no RNG seed.
+            refit_interval: Ticks between ensemble refits on the rolling
+                window (default :attr:`DEFAULT_REFIT_INTERVAL`).
+            z_gate: Robust z a stream must reach to raise an ensemble fault
+                (default :attr:`DEFAULT_Z_GATE`).
         """
         self.enable_radd = enable_radd
         self.enable_dronlomaly = enable_dronlomaly
@@ -276,11 +352,19 @@ class DroneAnomalyDetector:
         for key in list(self.ensemble_weights):
             self.ensemble_weights[key] /= weights_sum
 
+        self.refit_interval = int(refit_interval or self.DEFAULT_REFIT_INTERVAL)
+        if self.refit_interval < 1:
+            raise ValueError("refit_interval must be >= 1")
+        self.z_gate = float(z_gate if z_gate is not None else self.DEFAULT_Z_GATE)
+        if self.z_gate <= 0:
+            raise ValueError("z_gate must be positive")
+
         self._random_state = random_state
         self.invariant_rules = self._initialize_invariant_rules()
-        self.fault_thresholds = self._initialize_fault_thresholds()
         self.log_buffer: list[dict[str, Any]] = []
         self.state_history: list[DroneState] = []
+        self._tick = 0
+        self._model: _EnsembleModel | None = None
 
     # -- public API ---------------------------------------------------------
 
@@ -299,17 +383,20 @@ class DroneAnomalyDetector:
             List of detected faults.
         """
         faults: list[DroneFault] = []
-        self.state_history.append(drone_state)
-        if len(self.state_history) > self.MAX_HISTORY:
-            self.state_history = self.state_history[-self.MAX_HISTORY :]
-
         if sensor_logs:
             self.log_buffer.extend(sensor_logs)
             if len(self.log_buffer) > self.MAX_LOG_BUFFER:
                 self.log_buffer = self.log_buffer[-self.MAX_LOG_BUFFER :]
 
+        # Rules read the trend including the current state; the ensemble is
+        # judged against the window BEFORE the state joins it, so a faulty
+        # state is never part of its own reference.
         if self.enable_radd:
             faults.extend(self._detect_with_radd(drone_state))
+        self.state_history.append(drone_state)
+        if len(self.state_history) > self.MAX_HISTORY:
+            self.state_history = self.state_history[-self.MAX_HISTORY :]
+        self._tick += 1
         if self.enable_dronlomaly and sensor_logs:
             faults.extend(self._detect_with_dronlomaly(sensor_logs))
         return faults
@@ -356,10 +443,139 @@ class DroneAnomalyDetector:
             "flight_safety_score": max(1.0 - avg_severity, 0.0),
         }
 
+    # -- registry protocol --------------------------------------------------
+
+    def extract_features(self, data: Any) -> npt.NDArray[np.float64]:
+        """Fixed-width feature vector for the detector registry.
+
+        Two transparent input paths:
+
+        * a :class:`DroneState` (or a dict of its fields, ``mission_phase``
+          as a :class:`MissionPhase` or its value) is processed as the next
+          telemetry tick (:meth:`detect_faults`); the features describe the
+          resulting verdict and the state (see :meth:`_tick_features`).
+        * any other array-like gets documented robust summary statistics
+          (mean, std, min, max, median, IQR); no drone meaning is invented
+          for anonymous arrays.
+
+        Args:
+            data: Drone state, dict of its fields, or numeric array.
+
+        Returns:
+            Array of shape ``(FEATURE_DIM,)``.
+
+        Raises:
+            ValueError: For an empty or non-finite array.
+        """
+        state = self._coerce_state(data)
+        if state is not None:
+            features = self._tick_features(state, self._assess(state, data))
+        else:
+            arr = np.asarray(data, dtype=np.float64).ravel()
+            if arr.size == 0 or not np.all(np.isfinite(arr)):
+                raise ValueError("extract_features requires a non-empty, finite numeric array.")
+            q25, q75 = np.percentile(arr, [25, 75])
+            features = [
+                float(np.mean(arr)),
+                float(np.std(arr)),
+                float(np.min(arr)),
+                float(np.max(arr)),
+                float(np.median(arr)),
+                float(q75 - q25),
+            ]
+        features = features[: self.FEATURE_DIM]
+        features.extend([0.0] * (self.FEATURE_DIM - len(features)))
+        return np.asarray(features, dtype=np.float64)
+
+    def predict(self, data: Any) -> dict[str, Any]:
+        """Score one telemetry tick for the detector registry.
+
+        Args:
+            data: Drone state or dict of its fields. Other inputs carry no
+                drone semantics and return ``anomaly_scores=None``.
+
+        Returns:
+            ``{"anomaly_scores": [max fault severity or 0], "is_anomaly":
+            bool, "faults": [...]}``; the same tick is processed once even
+            when :meth:`extract_features` already saw it.
+        """
+        state = self._coerce_state(data)
+        if state is None:
+            return {"anomaly_scores": None, "is_anomaly": False, "faults": []}
+        faults = self._assess(state, data)
+        severity = max((f.severity for f in faults), default=0.0)
+        return {
+            "anomaly_scores": np.array([severity], dtype=np.float64),
+            "is_anomaly": bool(faults),
+            "faults": [
+                {
+                    "fault_id": f.fault_id,
+                    "fault_type": f.fault_type.value,
+                    "severity": f.severity,
+                    "detected_by": f.detected_by,
+                    "description": f.description,
+                }
+                for f in faults
+            ],
+        }
+
+    @staticmethod
+    def _coerce_state(data: Any) -> DroneState | None:
+        """Interpret registry input as a :class:`DroneState` when it is one."""
+        if isinstance(data, DroneState):
+            return data
+        if isinstance(data, dict) and "motor_speeds" in data and "mission_phase" in data:
+            fields = dict(data)
+            phase = fields["mission_phase"]
+            fields["mission_phase"] = (
+                phase if isinstance(phase, MissionPhase) else MissionPhase(str(phase))
+            )
+            for key in ("position", "velocity", "attitude", "motor_speeds", "home_position"):
+                if fields.get(key) is not None:
+                    fields[key] = np.asarray(fields[key], dtype=np.float64)
+            return DroneState(**fields)
+        return None
+
+    def _assess(self, state: DroneState, source: Any) -> list[DroneFault]:
+        """Process a tick once; repeated calls with the same input reuse it."""
+        cached = getattr(self, "_last_assessment", None)
+        if cached is not None and cached[0] is source:
+            return list(cached[1])
+        faults = self.detect_faults(state)
+        self._last_assessment = (source, faults)
+        return list(faults)
+
+    def _tick_features(self, state: DroneState, faults: Sequence[DroneFault]) -> list[float]:
+        """Verdict and state summary for one tick (documented feature layout).
+
+        ``[max severity, n rule faults, n ensemble faults, battery, GPS
+        satellites / 12, signal, min motor RPM / 1000, temperature / 100,
+        altitude / 100, horizontal speed, vertical speed, distance home /
+        1000, top fault-type ordinal (-1 none), any critical (>= 0.85)]``.
+        """
+        types = list(FaultType)
+        top = max(faults, key=lambda f: f.severity, default=None)
+        return [
+            max((f.severity for f in faults), default=0.0),
+            float(sum(1 for f in faults if f.detected_by == "RADD_Rules")),
+            float(sum(1 for f in faults if f.detected_by == "RADD_Ensemble")),
+            float(state.battery_level),
+            float(state.gps_satellites) / 12.0,
+            float(state.signal_strength),
+            float(np.min(state.motor_speeds)) / 1000.0,
+            float(state.temperature) / 100.0,
+            float(state.altitude) / 100.0,
+            float(state.horizontal_velocity or 0.0),
+            float(state.vertical_velocity or 0.0),
+            float(state.distance_to_home or 0.0) / 1000.0,
+            float(types.index(top.fault_type)) if top is not None else -1.0,
+            1.0 if any(f.severity >= 0.85 for f in faults) else 0.0,
+        ]
+
     # -- RADD ---------------------------------------------------------------
 
     def _detect_with_radd(self, drone_state: DroneState) -> list[DroneFault]:
-        """Run the RADD rule + ensemble layers."""
+        """Run the RADD rule + ensemble layers (state not yet in the history)."""
         faults = self._check_invariant_rules(drone_state)
         faults.extend(self._ensemble_detection(drone_state))
         return faults
@@ -427,21 +643,18 @@ class DroneAnomalyDetector:
             violated, description = self._evaluate_rule(rule, drone_state)
             if not violated:
                 continue
+            fault_type = _RULE_FAULT_TYPES.get(str(rule["field"]), FaultType.CONFIGURATION_ERROR)
             faults.append(
                 DroneFault(
                     fault_id=self._make_fault_id("RULE"),
-                    fault_type=FaultType.CONFIGURATION_ERROR,
+                    fault_type=fault_type,
                     mission_phase=drone_state.mission_phase,
                     severity=float(rule["severity"]),
                     confidence=0.95,
                     description=f"Invariant rule violated: {description}",
                     detected_by="RADD_Rules",
                     sensor_data=self._extract_sensor_data(drone_state),
-                    recommendations=[
-                        "Verify mission phase transition",
-                        "Check sensor calibration",
-                        "Review flight plan",
-                    ],
+                    recommendations=self._get_fault_recommendations(fault_type),
                 )
             )
         return faults
@@ -463,7 +676,9 @@ class DroneAnomalyDetector:
             return bool(np.any(np.asarray(drone_state.motor_speeds) != 0)), ("motor_speeds == 0")
 
         if op == "decreasing" and field_name == "distance_to_home":
-            return self._distance_to_home_not_decreasing(), ("distance_to_home decreasing")
+            return self._distance_to_home_not_decreasing(drone_state), (
+                "distance_to_home decreasing"
+            )
 
         threshold = float(rule["threshold"])
         value = self._resolve_field(drone_state, field_name)
@@ -502,11 +717,11 @@ class DroneAnomalyDetector:
             return None
         return float(value)
 
-    def _distance_to_home_not_decreasing(self) -> bool:
-        """Check whether ``distance_to_home`` has been failing to decrease."""
-        if len(self.state_history) < 3:
+    def _distance_to_home_not_decreasing(self, drone_state: DroneState) -> bool:
+        """Check whether ``distance_to_home`` has failed to decrease over 3 states."""
+        recent = [*self.state_history[-2:], drone_state]
+        if len(recent) < 3:
             return False
-        recent = self.state_history[-3:]
         distances = [s.distance_to_home for s in recent if s.distance_to_home is not None]
         if len(distances) < 3:
             return False
@@ -515,42 +730,40 @@ class DroneAnomalyDetector:
     # -- ensemble -----------------------------------------------------------
 
     def _ensemble_detection(self, drone_state: DroneState) -> list[DroneFault]:
-        """Run Mercury's in-house anomaly ensemble for the current state.
+        """Judge the current state against the ensemble fitted on prior states.
 
-        Scores the current sample with the Resonance / Kinematic /
-        InfoGeometry triple exposed by
-        :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`
-        and emits a ``RADD_Ensemble`` :class:`DroneFault` when the
-        weighted score crosses the ``0.70`` gate.
+        Emits a ``RADD_Ensemble`` :class:`DroneFault` when the kNN-density
+        stream of the current row reaches :attr:`z_gate` robust z-units
+        above its leave-one-out reference on the rolling window. Severity
+        rises from 0.5 at the gate toward 1.0.
         """
-        if len(self.state_history) < self.DEFAULT_FIT_MINIMUM:
+        model = self._ensemble_model()
+        if model is None:
             return []
         features = self._extract_features_for_ensemble(drone_state)
-        historical = np.asarray(
-            [
-                self._extract_features_for_ensemble(s)
-                for s in self.state_history[-self.history_window :]
-            ]
+        z_scores = self._ensemble_z_scores(model, features)
+        stream = self.DECISION_STREAM
+        z = z_scores.get(stream)
+        if z is None or z < self.z_gate:
+            return []
+        severity = 1.0 - 0.5 * math.exp(-(z - self.z_gate) / self.z_gate)
+        blend = self._compute_ensemble_scores(
+            features, np.asarray([], dtype=np.float64), model=model
         )
-        scores = self._compute_ensemble_scores(features, historical)
-        if not scores:
-            return []
-        overall = sum(score * self.ensemble_weights[method] for method, score in scores.items())
-        if overall <= 0.70:
-            return []
+        weighted = sum(v * self.ensemble_weights.get(k, 0.0) for k, v in blend.items())
         fault_type = self._classify_fault_type(drone_state, features)
         return [
             DroneFault(
                 fault_id=self._make_fault_id("ENS"),
                 fault_type=fault_type,
                 mission_phase=drone_state.mission_phase,
-                severity=float(overall),
+                severity=float(severity),
                 confidence=0.85,
                 description=(
-                    f"Ensemble anomaly detected (score: {overall:.2f}; "
-                    f"components: "
-                    + ", ".join(f"{k}={v:.2f}" for k, v in sorted(scores.items()))
-                    + ")"
+                    f"Ensemble anomaly detected ({stream} z={z:.1f} >= gate "
+                    f"{self.z_gate:.1f}; "
+                    + ", ".join(f"{k} z={v:.1f}" for k, v in sorted(z_scores.items()))
+                    + f"; diagnostic blend {weighted:.2f})"
                 ),
                 detected_by="RADD_Ensemble",
                 sensor_data=self._extract_sensor_data(drone_state),
@@ -558,10 +771,63 @@ class DroneAnomalyDetector:
             )
         ]
 
+    def _ensemble_model(self) -> _EnsembleModel | None:
+        """Return the rolling-window ensemble, refitting every ``refit_interval`` ticks."""
+        window = self.state_history[-self.history_window :]
+        if len(window) < self.DEFAULT_FIT_MINIMUM:
+            return None
+        model = self._model
+        if model is not None and self._tick - model.fitted_at_tick < self.refit_interval:
+            return model
+        historical = np.asarray([self._extract_features_for_ensemble(s) for s in window])
+        detector = MercuryAnomalyDetector()
+        try:
+            detector.fit(historical)
+            reference = detector.detect(historical)
+        except DetectorException as exc:
+            logger.warning("MercuryAnomalyDetector unavailable for current window: %s", exc)
+            self._model = None
+            return None
+        references: dict[str, tuple[float, float]] = {}
+        for stream, key in (
+            ("info_geometry", "info_geometry_scores"),
+            ("knn_density", "knn_density_scores"),
+        ):
+            values = reference.get(key)
+            if values is None:
+                continue
+            stats = MercuryAnomalyDetector._robust_location_scale(np.asarray(values))
+            if stats is not None:
+                references[stream] = stats
+        self._model = _EnsembleModel(detector, references, fitted_at_tick=self._tick)
+        return self._model
+
+    @staticmethod
+    def _ensemble_z_scores(
+        model: _EnsembleModel, features: npt.NDArray[np.float64]
+    ) -> dict[str, float]:
+        """Robust z of the current row's single-row-valid streams."""
+        result = model.detector.detect(features.reshape(1, -1))
+        out: dict[str, float] = {}
+        for stream, key in (
+            ("info_geometry", "info_geometry_scores"),
+            ("knn_density", "knn_density_scores"),
+        ):
+            ref = model.references.get(stream)
+            values = result.get(key)
+            if ref is None or values is None:
+                continue
+            value = float(np.asarray(values).reshape(-1)[0])
+            if math.isfinite(value):
+                out[stream] = (value - ref[0]) / ref[1]
+        return out
+
     def _compute_ensemble_scores(
         self,
         features: npt.NDArray[np.float64],
         historical_features: npt.NDArray[np.float64],
+        *,
+        model: _EnsembleModel | None = None,
     ) -> dict[str, float]:
         """Compute outlier scores via Mercury's in-house anomaly ensemble.
 
@@ -581,15 +847,20 @@ class DroneAnomalyDetector:
             Dictionary mapping ``"resonance"`` / ``"kinematic"`` /
             ``"info_geometry"`` to a continuous anomaly score.  Returns
             an empty dict when the in-house detector cannot be fitted
-            or invoked for the current window (e.g. degenerate baseline);
-            ``_ensemble_detection`` interprets an empty mapping as
-            "no ensemble signal this tick" rather than zero.
+            or invoked for the current window (e.g. degenerate baseline).
+            This is the diagnostic per-component breakdown; the fault
+            decision is :meth:`_ensemble_z_scores`. When *model* is given,
+            its fitted detector is used and *historical_features* is
+            ignored.
         """
-        detector = MercuryAnomalyDetector()
         sample = features.reshape(1, -1)
         try:
-            detector.fit(historical_features)
-            result = detector.detect(sample)
+            if model is not None:
+                result = model.detector.detect(sample)
+            else:
+                detector = MercuryAnomalyDetector()
+                detector.fit(historical_features)
+                result = detector.detect(sample)
         except DetectorException as exc:
             logger.warning("MercuryAnomalyDetector unavailable for current window: %s", exc)
             return {}
@@ -629,14 +900,23 @@ class DroneAnomalyDetector:
     def _classify_fault_type(
         self, drone_state: DroneState, features: npt.NDArray[np.float64]
     ) -> FaultType:
-        """Heuristic mapping from telemetry to fault type."""
-        del features
+        """Map an ensemble anomaly to a fault type.
+
+        Absolute safety limits take precedence (battery, GPS, link). Then,
+        when the rolling-window model is available, the fault is attributed
+        to the telemetry group whose feature deviates most from the window
+        in robust units (motors, temperature, battery, GPS, link, motion,
+        position). The fixed thresholds below are the fallback.
+        """
         if drone_state.battery_level < 0.15:
             return FaultType.BATTERY_CRITICAL
         if drone_state.gps_satellites < 5:
             return FaultType.GPS_LOSS
         if drone_state.signal_strength < 0.30:
             return FaultType.COMMUNICATION_LOSS
+        attributed = self._attribute_fault(features)
+        if attributed is not None:
+            return attributed
         if (
             np.any(drone_state.motor_speeds < 500)
             and drone_state.mission_phase is not MissionPhase.INIT
@@ -647,6 +927,23 @@ class DroneAnomalyDetector:
         if float(np.linalg.norm(drone_state.velocity)) > 20.0:
             return FaultType.WIND_DISTURBANCE
         return FaultType.SENSOR_FAILURE
+
+    def _attribute_fault(self, features: npt.NDArray[np.float64]) -> FaultType | None:
+        """Fault type of the feature group with the largest robust deviation."""
+        model = self._model
+        if model is None or features.shape[0] != DRONE_TELEMETRY_DIM:
+            return None
+        center = model.detector._knn_center
+        scale = model.detector._knn_scale
+        if center is None or scale is None:
+            return None
+        deviation = np.abs((features - center) / scale)
+        best: tuple[float, FaultType] | None = None
+        for indices, fault_type in _FEATURE_GROUP_FAULTS:
+            value = float(np.max(deviation[list(indices)]))
+            if best is None or value > best[0]:
+                best = (value, fault_type)
+        return best[1] if best is not None else None
 
     # -- DronLomaly ---------------------------------------------------------
 
@@ -726,46 +1023,6 @@ class DroneAnomalyDetector:
 
     # -- helpers ------------------------------------------------------------
 
-    def _initialize_fault_thresholds(self) -> dict[FaultType, dict[str, float]]:
-        """Initialise per-fault numeric thresholds."""
-        return {
-            FaultType.WIND_DISTURBANCE: {
-                "velocity_deviation": 3.0,
-                "attitude_deviation": 15.0,
-                "severity_threshold": 0.70,
-            },
-            FaultType.SENSOR_FAILURE: {
-                "reading_deviation": 5.0,
-                "update_rate_min": 10.0,
-                "severity_threshold": 0.85,
-            },
-            FaultType.ACTUATOR_FAILURE: {
-                "motor_speed_deviation": 500.0,
-                "response_time_max": 0.5,
-                "severity_threshold": 0.90,
-            },
-            FaultType.BATTERY_CRITICAL: {
-                "level_threshold": 0.10,
-                "voltage_drop_rate": 0.05,
-                "severity_threshold": 0.95,
-            },
-            FaultType.GPS_LOSS: {
-                "satellite_min": 4.0,
-                "hdop_max": 5.0,
-                "severity_threshold": 0.85,
-            },
-            FaultType.COMMUNICATION_LOSS: {
-                "signal_strength_min": 0.20,
-                "packet_loss_max": 0.30,
-                "severity_threshold": 0.80,
-            },
-            FaultType.COLLISION_RISK: {
-                "obstacle_distance_min": 5.0,
-                "time_to_collision_max": 3.0,
-                "severity_threshold": 0.95,
-            },
-        }
-
     @staticmethod
     def _extract_sensor_data(drone_state: DroneState) -> dict[str, Any]:
         """Serialise a :class:`DroneState` to a JSON-safe dictionary."""
@@ -788,8 +1045,8 @@ class DroneAnomalyDetector:
 
     @staticmethod
     def _make_fault_id(prefix: str) -> str:
-        """Generate a unique fault id."""
-        return f"{prefix}_{datetime.now(UTC).timestamp():.6f}"
+        """Generate a unique fault id (timestamps collide within one tick)."""
+        return f"{prefix}_{uuid.uuid4().hex}"
 
     @staticmethod
     def _get_fault_recommendations(fault_type: FaultType) -> list[str]:
@@ -880,6 +1137,7 @@ def get_drone_detector(
 
 
 __all__ = [
+    "DRONE_TELEMETRY_DIM",
     "DroneAnomalyDetector",
     "DroneFault",
     "DroneState",

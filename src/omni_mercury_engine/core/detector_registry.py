@@ -103,6 +103,7 @@ class DetectorCategory(Enum):
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
     METEOROLOGICAL = "meteorological"  # Hydro-climate hazards (drought, heatwave, AR, lightning)
+    UAV = "uav"  # Uncrewed aerial vehicle telemetry (RADD rules + Mercury ensemble)
 
 
 class DetectorProtocol(Protocol):
@@ -810,6 +811,16 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "MarineBiodiversityDetector",
         DetectorCategory.MARINE,
         "Marine biodiversity threat detection",
+    ),
+    # -- UAV detectors --------------------------------------------------------
+    DetectorManifestEntry(
+        "drone",
+        "omni_mercury_engine.detectors.drone.detector",
+        "DroneAnomalyDetector",
+        DetectorCategory.UAV,
+        "Drone fault detection: RADD phase invariants + single-row Mercury ensemble",
+        feature_dim=16,
+        tags=["drone", "uav", "telemetry", "radd"],
     ),
     # -- Safeguards -----------------------------------------------------------
     DetectorManifestEntry(
