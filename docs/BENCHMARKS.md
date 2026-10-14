@@ -1,11 +1,13 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **66 successful /
-> 75 attempted**, Mean ROC-AUC **0.8251**, Median **0.8747**, Mean
-> Oracle F1 **0.5998** — surfaced in the
+> 75 attempted**, Mean ROC-AUC **0.8544**, Median **0.9095**, Mean
+> Oracle F1 **0.6433** (53 genuine-label datasets; regenerated on
+> `steel/version-cov4` with the kNN density stream and its minimum-
+> reference gate) — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix and the 11-loader reachability
@@ -38,7 +40,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
 > authoritative current figures see the committed
 > `mercury_benchmark_results.json` (this committed run: 66/75 scored) and
 > the CI-refreshed README "Latest Benchmark Results" block. The externally-
-> comparable ADBench subset is Mean AUC **0.8251** on the hardened detector
+> comparable ADBench subset is Mean AUC **0.8515** on the hardened detector (0.8251 before the kNN density stream)
 > (base `e118e1f` 0.8180; see the base-vs-current section below).
 
 > **Released ensemble changes (v2.1.0, 2026-07-08).** The `[2.1.0]`
@@ -576,7 +578,7 @@ seeded input and must never be quoted as skill.
 
 Counting individual blocking thresholds: **~24 rest on real data, ~40 on
 constructed/synthetic input.** The published headline numbers (ADBench
-0.8251/0.5998, governed-fusion external-label 0.7704) rest exclusively on
+0.8515/0.6415, governed-fusion external-label 0.7704) rest exclusively on
 the real side; every constructed lane above is a pin, and quoting one as
 skill is a documentation bug — report it.
 

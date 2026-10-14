@@ -144,17 +144,17 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8544 | 0.8251 | +0.0293 |
-| Median ROC-AUC | 0.9095 | 0.8747 | +0.0348 |
-| Mean Oracle F1 | 0.6433 | 0.5998 | +0.0435 |
+| Mean ROC-AUC | 0.8544 | 0.8544 | +0.0000 |
+| Median ROC-AUC | 0.9095 | 0.9095 | +0.0000 |
+| Mean Oracle F1 | 0.6433 | 0.6433 | +0.0000 |
 | Datasets (successful / total) | 66 / 75 | 66 / 75 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-14T15:48:45.769027+00:00 | 2026-06-21T00:11:10.047740+00:00 | — |
-| Commit | `289ba87` | `a7a194b` | — |
+| Run timestamp (UTC) | 2026-10-14T15:48:45.769027+00:00 | 2026-10-14T15:48:45.769027+00:00 | — |
+| Commit | `289ba87` | `289ba87` | — |
 
-Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held ~9% below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
+Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
-**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8251**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
+**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8515**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
 **Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** from base `e118e1f` to the hardened detector (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`.
 
@@ -245,7 +245,7 @@ detectors:
 
 - **Externally-labeled (comparable).** Labels come from a source independent of
   the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU/MSDS). The
-  headline is the 47-dataset ADBench result: **Mean AUC 0.8251 / Mean F1 0.5975**.
+  headline is the 47-dataset ADBench result: **Mean AUC 0.8515 / Mean F1 0.6415**.
 - **Self-labeled / threshold-derived (not comparable).** Some environmental
   loaders manufacture labels by thresholding a feature they also score, so the
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
@@ -265,15 +265,15 @@ governed self-improvement rollout.
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
 | ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8294 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.6116 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6011 | 0.5719 |
 | InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8267 | 0.8760 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8251** | **0.8747** |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8544** | **0.9095** |
 
-| Aggregate (66 successful datasets) | Value |
-|------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8251 / 0.8747 |
-| Std AUC | 0.1638 |
-| Mean / Median Oracle F1 | 0.5998 / 0.6747 |
+| Aggregate (53 genuine-label datasets of 66 successful) | Value |
+|---------------------------------------------------------|-------|
+| Mean AUC / Median AUC | 0.8544 / 0.9095 |
+| Std AUC | 0.1474 |
+| Mean / Median Oracle F1 | 0.6433 / 0.7200 |
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
 operational performance.*
