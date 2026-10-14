@@ -493,7 +493,7 @@ class ConfidenceConstants:
     """Confidence classification thresholds."""
 
     # High confidence - definitive classifications
-    # Origin: truth_decipher.py, various classifiers
+    # Origin: various classifiers
     HIGH: float = 0.9
 
     # Medium confidence - probable classifications

@@ -56,8 +56,8 @@ env:
   # modules (see docs/MAINT1_2_COVERAGE_REMEDIATION.md §5).  The 62
   # floor keeps the established "~7-point cushion below measured"
   # policy.  CORE re-measured 2026-07-21 (engineering-pass round) after
-  # adding tests/biometric/ + tests/quantum_computing/ to the core-lane
-  # selection: 40.57% combined stmt+branch (CI-identical invocation,
+  # adding tests/biometric/ + tests/quantum_computing/ (since removed with
+  # its module) to the core-lane selection: 40.57% combined stmt+branch (CI-identical invocation,
   # native AMA, 5,487 passing tests; up from 38.30% pre-expansion), so
   # the floor graduates 30 -> 33, holding the same ~7-point cushion (see
   # docs/ENGINEERING_PASS_REMEDIATION.md §6).
@@ -653,10 +653,10 @@ jobs:
         # * tests/proofs/        -- engineering-pass graduation (this round)
         # * tests/reasoning/     -- engineering-pass graduation (this round)
         # * tests/research/      -- engineering-pass graduation (this round)
-        # * tests/truth_decipher/ -- engineering-pass graduation (this round)
         # * tests/utils/         -- engineering-pass graduation (this round)
         #
         # This round's engineering pass graduated the 14 test directories
+        # (tests/truth_decipher/ was later removed together with its module)
         # that were ALREADY fully annotated (measured 0 strict errors each;
         # 131 files clean in the combined invocation).  The ordered
         # dir-by-dir plan for the remaining relaxed-lane debt (automl 2 ...
@@ -668,7 +668,7 @@ jobs:
             tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
             tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
             tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
-            tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+            tests/proofs/ tests/reasoning/ tests/research/ \
             tests/utils/ \
             --disallow-subclassing-any \
             --show-error-codes \
@@ -1106,7 +1106,6 @@ jobs:
             tests/fairness/ \
             tests/tools/ \
             tests/biometric/ \
-            tests/quantum_computing/ \
             tests/scripts/test_run_ablation.py \
             tests/scripts/test_check_readme_lyapunov.py \
             tests/scripts/test_run_hardware_benchmark.py \

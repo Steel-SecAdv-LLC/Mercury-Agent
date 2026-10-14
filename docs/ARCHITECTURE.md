@@ -209,7 +209,7 @@ AUROC or Brier regression).
 ## Cognitive Module Wiring
 
 ```
-TruthDecipherFramework
+OmniMercuryEngine / narrative engine / agentic operations subagent
     └─ CognitiveOrchestrator.analyze(detection_result, raw_data, context)
         ├─ Step 1: UncertaintyQuantifier    (ALWAYS)
         ├─ Step 2: KnowledgeGraph           (ALWAYS)

@@ -99,7 +99,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
     tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
     tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
-    tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+    tests/proofs/ tests/reasoning/ tests/research/ \
     tests/utils/ \
     --disallow-subclassing-any \
     --show-error-codes \

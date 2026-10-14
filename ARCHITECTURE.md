@@ -1287,7 +1287,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   evaluation, explainability, federated_learning, federation,
   governance, gui, harmonics, infrastructure, integrations, intel,
   loaders, medical, metrics, ml, models, narrative, ocean,
-  quantum_computing, reasoning, resilience, safeguards, scaling,
+  reasoning, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation, verifiers)
 - **~391,000 LOC** in `src/omni_mercury_engine/` (746 source files)
 - **586 test modules** under `tests/`; 8,789 tests collected with the

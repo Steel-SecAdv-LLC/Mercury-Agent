@@ -701,13 +701,6 @@ module = [
     # Observability
     "opentelemetry",
     "opentelemetry.*",
-    # Quantum computing libraries
-    "qiskit",
-    "qiskit.*",
-    "qiskit_aer",
-    "qiskit_aer.*",
-    "qiskit_ibm_runtime",
-    "qiskit_ibm_runtime.*",
     # Machine learning frameworks
     "mamba_ssm",
     "mamba_ssm.*",
@@ -843,7 +836,6 @@ module = [
     "omni_mercury_engine.cognitive.*",
     "omni_mercury_engine.biometric.*",
     "omni_mercury_engine.harmonics.*",
-    "omni_mercury_engine.quantum_computing.*",
     "omni_mercury_engine.medical.*",
     "omni_mercury_engine.emergent.*",
     "omni_mercury_engine.space.*",

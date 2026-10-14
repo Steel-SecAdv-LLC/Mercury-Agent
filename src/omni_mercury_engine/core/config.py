@@ -204,7 +204,7 @@ class ThresholdConfig:
     anomaly_cap: float = 0.95
     """Maximum allowed threshold to prevent over-filtering."""
 
-    # Classification confidence bands (used in truth_decipher, etc.)
+    # Classification confidence bands (used by classifiers)
     confidence_high: float = 0.9
     """High confidence threshold for definitive classifications."""
 

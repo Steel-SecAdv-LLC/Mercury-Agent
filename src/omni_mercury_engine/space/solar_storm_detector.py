@@ -16,7 +16,6 @@ Integrations:
 - Solar X-ray flux monitoring
 - Magnetometer networks
 - Energy grid infrastructure (energy_dams.py)
-- Quantum-resistant cyber systems (quantum_risk_cyber.py)
 - Schumann resonance correlation
 
 Research sources:

@@ -13,7 +13,6 @@ Comprehensive electromagnetic anomaly detection for critical infrastructure:
 - E1/E2/E3 pulse component analysis
 
 Integrations:
-- Quantum-resistant cyber systems (quantum_risk_cyber.py)
 - Solar storm detector integration
 - Energy infrastructure (energy_dams.py)
 - Sensor network monitoring
