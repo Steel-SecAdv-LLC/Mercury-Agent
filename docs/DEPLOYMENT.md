@@ -385,6 +385,14 @@ default registry, so a single scrape target covers both. This requires the
 without it the application metrics no-op and `/metrics` serves only the health
 gauges.
 
+Distributed tracing: the API speaks W3C Trace Context. A valid incoming
+`traceparent` is continued (same trace-id, a new span-id per request; the
+response carries the resulting `traceparent`, and `tracestate` is passed
+through); otherwise a new trace starts. The trace and span ids are in every
+request log line and on SIEM alerts (`trace_id` label), so a gateway trace, a
+Mercury log line and a forwarded alert join on one id. Spans are not exported
+(that needs an OpenTelemetry SDK, which is not a project dependency).
+
 Emitted by the API on every request (via `CorrelationIDMiddleware`):
 `http_requests_total{method,endpoint,status}` and
 `http_request_duration_seconds{method,endpoint}` — the series the

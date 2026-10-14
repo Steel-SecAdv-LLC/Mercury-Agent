@@ -419,6 +419,10 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
     Headers:
         X-Correlation-ID: UUID for request tracing (in/out)
         X-Request-ID: Alias for X-Correlation-ID (in only)
+        traceparent / tracestate: W3C Trace Context (in/out). A valid
+            incoming trace is continued with a new span-id for this
+            request; otherwise a new trace starts. See
+            :mod:`omni_mercury_engine.api.trace_context`.
 
     Usage in downstream code:
         from omni_mercury_engine.api.server import correlation_id_ctx
@@ -439,6 +443,13 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
         # Set context variable for access in handlers
         token = correlation_id_ctx.set(correlation_id)
+        from omni_mercury_engine.api.trace_context import continue_or_start, trace_context_ctx
+
+        trace = continue_or_start(
+            request.headers.get("traceparent"), request.headers.get("tracestate")
+        )
+        trace_token = trace_context_ctx.set(trace)
+        request.state.trace_context = trace
 
         # Add correlation ID to request state for easy access
         request.state.correlation_id = correlation_id
@@ -455,6 +466,9 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             # Add tracing headers to response
             response.headers[self.HEADER_NAME] = correlation_id
             response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
+            response.headers["traceparent"] = trace.traceparent
+            if trace.tracestate:
+                response.headers["tracestate"] = trace.tracestate
 
             # Record Prometheus HTTP metrics (http_requests_total /
             # http_request_duration_seconds) the monitoring stack + API HPA
@@ -478,12 +492,14 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             logger.info(
                 f"Request completed: {request.method} {request.url.path} "
                 f"status={response.status_code} duration={duration_ms:.2f}ms "
-                f"correlation_id={correlation_id}"
+                f"correlation_id={correlation_id} trace_id={trace.trace_id} "
+                f"span_id={trace.span_id}"
             )
 
             return response
         finally:
-            # Reset context variable
+            # Reset context variables
+            trace_context_ctx.reset(trace_token)
             correlation_id_ctx.reset(token)
 
 

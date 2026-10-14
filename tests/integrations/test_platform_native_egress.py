@@ -371,3 +371,21 @@ async def test_record_detection_schedules_alert(monkeypatch: pytest.MonkeyPatch)
     finally:
         alert_egress.reset_alert_egress()
     assert seen == ["flagged"]
+
+
+def test_alert_carries_the_request_trace_id() -> None:
+    from omni_mercury_engine.api.trace_context import continue_or_start, trace_context_ctx
+
+    egress = alert_egress.AlertEgress(
+        alert_egress.load_sink_configs(
+            '[{"name": "x", "platform": "custom", "endpoint": "http://127.0.0.1:9"}]'
+        )
+    )
+    trace = continue_or_start("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+    token = trace_context_ctx.set(trace)
+    try:
+        event, _ = egress.build_event(_record(0.8))
+    finally:
+        trace_context_ctx.reset(token)
+    assert event.labels["trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert "trace_id" not in egress.build_event(_record(0.8))[0].labels

@@ -222,6 +222,12 @@ class AlertEgress:
         domain = (record.metadata or {}).get("domain")
         if domain:
             labels["domain"] = str(domain)
+        from omni_mercury_engine.api.trace_context import current_trace
+
+        trace = current_trace()
+        if trace is not None:
+            # Joins the SIEM alert to the request's W3C trace and log lines.
+            labels["trace_id"] = trace.trace_id
         event = AnomalyEvent(
             event_id=record.detection_id,
             timestamp=datetime.now(UTC),
