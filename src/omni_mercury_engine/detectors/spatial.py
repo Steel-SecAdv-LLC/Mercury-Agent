@@ -7,6 +7,7 @@ Optimized with Numba JIT compilation for performance-critical paths.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -22,6 +23,8 @@ from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+
+logger = logging.getLogger(__name__)
 
 # Numba optimization for distance computation (hot path)
 try:
@@ -149,6 +152,15 @@ class SpatialAnomalyDetector(BaseDetector):
         super().__init__(config)
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
+        # Spatial autocorrelation of the scores (Moran's I / Geary's C with a
+        # permutation test): are the anomalies a regional cluster or
+        # scattered points? Permutations are skipped above
+        # _AUTOCORRELATION_PERMUTATION_LIMIT points (statistics only).
+        self.spatial_autocorrelation_enabled = bool(
+            self.config.get("spatial_autocorrelation", True)
+        )
+        self.autocorrelation_k = int(self.config.get("autocorrelation_k", 8))
+        self.autocorrelation_permutations = int(self.config.get("autocorrelation_permutations", 99))
 
         self.lof = _NativeLOF(n_neighbors=self.n_neighbors)
 
@@ -194,6 +206,10 @@ class SpatialAnomalyDetector(BaseDetector):
                 - detector_type: "spatial"
                 - threshold: Effective threshold (may be calibrated)
                 - calibration_diagnostics: Diagnostics if auto-calibrated
+                - spatial_autocorrelation: Moran's I / Geary's C of the
+                  scores with permutation p-values and a
+                  clustered / dispersed / random verdict (``None`` when
+                  undefined or disabled)
         """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -245,7 +261,37 @@ class SpatialAnomalyDetector(BaseDetector):
             "detector_type": "spatial",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            "spatial_autocorrelation": self._score_autocorrelation(data_np, combined_scores),
         }
+
+    #: Above this many points the permutation test is skipped (statistics only).
+    _AUTOCORRELATION_PERMUTATION_LIMIT = 50_000
+
+    def _score_autocorrelation(
+        self, data: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]
+    ) -> dict[str, Any] | None:
+        """Moran's I / Geary's C of the scores over the points' kNN graph.
+
+        ``None`` when disabled, with fewer than 10 points, or when the
+        scores are constant (the statistics are undefined).
+        """
+        if not self.spatial_autocorrelation_enabled or len(scores) < 10:
+            return None
+        from omni_mercury_engine.ml.spatial_autocorrelation import spatial_autocorrelation
+
+        permutations = (
+            self.autocorrelation_permutations
+            if len(scores) <= self._AUTOCORRELATION_PERMUTATION_LIMIT
+            else 0
+        )
+        try:
+            result = spatial_autocorrelation(
+                scores, data, k=self.autocorrelation_k, n_permutations=permutations
+            )
+        except ValueError as exc:
+            logger.debug("spatial autocorrelation skipped: %s", exc)
+            return None
+        return None if result is None else result.to_dict()
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract spatial features for ML fusion."""
