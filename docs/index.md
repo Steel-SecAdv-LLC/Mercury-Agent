@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-09-27.
+Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-10-14.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an
@@ -23,7 +23,7 @@ attribution to code transferred from its former agent layer.)
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
 - **Sole PQC backend, hard-gated at import.**
-  AMA Cryptography (pinned to **v4.0.0** in
+  AMA Cryptography (pinned to **v5.0.0** in
   `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
   of `pyproject.toml`) is the only
   supported post-quantum backend (PR #144). Since v3.3.0 it also exposes the
