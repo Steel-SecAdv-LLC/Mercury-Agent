@@ -144,12 +144,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8546 | 0.8544 | +0.0002 |
-| Median ROC-AUC | 0.9052 | 0.9095 | -0.0043 |
-| Mean Oracle F1 | 0.6430 | 0.6433 | -0.0003 |
-| Datasets (successful / total) | 67 / 76 | 66 / 75 | +1.0000 |
-| Run timestamp (UTC) | 2026-10-14T20:04:58.109883+00:00 | 2026-10-14T15:48:45.769027+00:00 | — |
-| Commit | `5569e83` | `289ba87` | — |
+| Mean ROC-AUC | 0.8545 | 0.8546 | -0.0000 |
+| Median ROC-AUC | 0.9052 | 0.9052 | +0.0000 |
+| Mean Oracle F1 | 0.6425 | 0.6430 | -0.0005 |
+| Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
+| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:04:58.109883+00:00 | — |
+| Commit | `27d2293` | `5569e83` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -264,16 +264,16 @@ governed self-improvement rollout.
 
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7669 | 0.8086 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6015 | 0.5719 |
-| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8266 | 0.8671 |
-| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8546** | **0.9052** |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8008 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6013 | 0.5719 |
+| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8265 | 0.8671 |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8545** | **0.9052** |
 
 | Aggregate (54 genuine-label datasets of 67 successful) | Value |
 |---------------------------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8546 / 0.9052 |
+| Mean AUC / Median AUC | 0.8545 / 0.9052 |
 | Std AUC | 0.1460 |
-| Mean / Median Oracle F1 | 0.6430 / 0.7074 |
+| Mean / Median Oracle F1 | 0.6425 / 0.7074 |
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
 operational performance.*

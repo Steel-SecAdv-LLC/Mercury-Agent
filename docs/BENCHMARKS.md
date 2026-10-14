@@ -4,8 +4,8 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **67 successful /
-> 76 attempted**, Mean ROC-AUC **0.8546**, Median **0.9052**, Mean
-> Oracle F1 **0.6430** (54 genuine-label datasets, now including the
+> 76 attempted**, Mean ROC-AUC **0.8545**, Median **0.9052**, Mean
+> Oracle F1 **0.6425** (54 genuine-label datasets, now including the
 > expert-annotated `DTU_AIS_Abnormal` maritime set; regenerated on
 > `steel/version-cov4` with the kNN density stream and its minimum-
 > reference gate) — surfaced in the
