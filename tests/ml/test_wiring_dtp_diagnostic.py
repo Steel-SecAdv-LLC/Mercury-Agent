@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
-from torch import nn
+from torch import Tensor, nn
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.optimizers import DifferenceTargetPropagation
@@ -40,7 +40,7 @@ def test_dtp_block_reduces_round_trip_error() -> None:
     assert after < before  # the forward/inverse pair learns to round-trip
 
 
-def _tiny_loader() -> list:
+def _tiny_loader() -> list[tuple[dict[str, Tensor], Tensor]]:
     torch.manual_seed(0)
     return [
         (
@@ -56,7 +56,6 @@ def test_fusion_dtp_metric_present_bounded_and_scale_free() -> None:
     model = OmniFusionModel(
         feature_dims={"statistical": 10, "temporal": 32}, hidden_dim=32, num_heads=2, num_classes=3
     )
-    before = model.anomaly_head[0].weight.detach().clone()
 
     res = model.train_with_optimizers(
         _tiny_loader(),
@@ -72,9 +71,6 @@ def test_fusion_dtp_metric_present_bounded_and_scale_free() -> None:
     assert len(history) == 15 // 5  # one record per log interval
     # Normalized round-trip error: fraction of activation variance not recovered.
     assert all(np.isfinite(v) and 0.0 <= v <= 1.5 for v in history)
-    # The diagnostic clones the layer; it must not have mutated the real weights
-    # outside the main optimizer's control (the forward hook only reads).
-    assert model.anomaly_head[0].weight.shape == before.shape
 
 
 def test_fusion_dtp_disabled_omits_metric() -> None:

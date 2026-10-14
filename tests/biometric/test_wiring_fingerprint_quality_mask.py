@@ -21,7 +21,7 @@ _FREQ = np.full((4, 4), 0.1)
 
 
 def _normalized(img: np.ndarray) -> np.ndarray:
-    return (img - img.min()) / (img.max() - img.min() + 1e-8)
+    return np.asarray((img - img.min()) / (img.max() - img.min() + 1e-8))
 
 
 def test_quality_one_equals_unmasked() -> None:

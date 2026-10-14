@@ -9,6 +9,8 @@ error-correcting top protocol.
 
 from __future__ import annotations
 
+from typing import Any
+
 from omni_mercury_engine.emergent.emergent_life_detector import (
     MultiverseContactProtocolExplorer,
     _clip01,
@@ -22,7 +24,7 @@ def test_clip01_hand_values() -> None:
     assert _clip01({"snr": -2.0}, "snr") == 0.0  # clipped low
 
 
-def _explore(chars: dict) -> dict:
+def _explore(chars: dict[str, Any]) -> dict[str, Any]:
     return MultiverseContactProtocolExplorer(num_universes=30).explore_contact_protocols(chars)
 
 
