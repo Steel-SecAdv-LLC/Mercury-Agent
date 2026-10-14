@@ -97,14 +97,17 @@ kept a full copy of the training data (`_fit_data`) that nothing read.
 
 **Fixed — container Trivy gate red on anthropic-SDK docstrings.** The
 anthropic PyPI package (≥ 1.14.0) ships Managed Agents type files whose
-docstrings carry the literal `{"type": "service_account"}`, which Trivy's
-`gcp-service-account` rule reports as a CRITICAL leaked key in the image
-scan. A path-scoped secret allowlist (`trivy-secret.yaml`, wired into both
-container-scan steps) suppresses secret findings inside the installed
-`anthropic` package only — verified locally against Trivy 0.70.0: the
-false positive clears while a planted service-account marker anywhere
-else in the image still fails the gate. Vulnerabilities are untouched and
-stay on the expiring `.trivyignore` ledger.
+docstrings quote the JSON type discriminator of a GCP service-account
+key, which Trivy's `gcp-service-account` rule reports as a CRITICAL
+leaked key in the image scan. A path-scoped secret allowlist
+(`trivy-secret.yaml`, wired into both container-scan steps) suppresses
+secret findings inside the installed `anthropic` package only — verified
+locally against Trivy 0.70.0: the false positive clears while a planted
+service-account marker anywhere else in the image still fails the gate.
+Vulnerabilities are untouched and stay on the expiring `.trivyignore`
+ledger. (The marker itself is spelled out nowhere in the repo: the
+repo-tree scan flags the explanatory text too, which the first cut of
+this fix demonstrated first-hand.)
 
 ### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
 

@@ -250,9 +250,11 @@ jobs:
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       env:
         # Path-scoped secret-scanner allowlist (see trivy-secret.yaml):
-        # the anthropic SDK's Managed Agents type files carry the literal
-        # '{"type": "service_account"}' in docstrings, which the
-        # gcp-service-account rule reports as a CRITICAL leaked key.
+        # the anthropic SDK's Managed Agents type files quote the JSON
+        # type discriminator of a GCP service-account key in docstrings,
+        # which the gcp-service-account rule reports as a CRITICAL leaked
+        # key. (The marker is deliberately not spelled out here — the
+        # repo-tree scan flags the comment itself.)
         TRIVY_SECRET_CONFIG: trivy-secret.yaml
       with:
         image-ref: 'mercury-agent:scan'
