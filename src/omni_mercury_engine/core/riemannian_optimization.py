@@ -416,10 +416,21 @@ class SPDManifold(Manifold):
 
         d(X, Y) = || logm(X^{-1/2} Y X^{-1/2}) ||_F
 
-        where ||.||_F is the Frobenius norm.
+        where ||.||_F is the Frobenius norm. Computed as
+        ``sqrt(sum(log(lambda_i)^2))`` over the generalised eigenvalues of
+        ``(Y, X)`` -- the eigenvalues of ``X^{-1/2} Y X^{-1/2}`` -- which is
+        the same quantity without three matrix functions (hundreds of times
+        faster at d = 64). Inputs that are not positive definite fall back
+        to the regularised matrix-function path.
         """
         self._validate_shape(x)
         self._validate_shape(y)
+        try:
+            lam = scipy.linalg.eigh(self._sym(y), self._sym(x), eigvals_only=True)
+            if np.all(lam > 0) and np.all(np.isfinite(lam)):
+                return float(np.sqrt(np.sum(np.log(lam) ** 2)))
+        except (np.linalg.LinAlgError, ValueError):
+            pass
         x_sqrt = self._safe_sqrtm(x)
         x_inv_sqrt = self._safe_inv(x_sqrt)
         inner = x_inv_sqrt @ y @ x_inv_sqrt
