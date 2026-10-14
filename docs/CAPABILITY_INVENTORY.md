@@ -7,22 +7,22 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,785
-- **Capability-bearing classes:** 1,833 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,787
+- **Capability-bearing classes:** 1,835 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 46
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,046 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,047 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1046 |
+| Other capability classes | 1047 |
 | Support types (config / result / enum / error) | 952 |
 | Detection | 170 |
 | Neural models & layers | 159 |
 | Engines & orchestration | 103 |
-| Data sources & loaders | 102 |
+| Data sources & loaders | 103 |
 | Training & optimization | 61 |
 | Adapters & backends | 60 |
 | Analysis & scoring | 57 |
@@ -902,7 +902,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `datasets/` — 64 classes (52 capability)
+### `datasets/` — 66 classes (54 capability)
 
 **Data sources & loaders**
 
@@ -914,6 +914,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CopernicusERA5Loader` (`datasets.climate`) — Copernicus Climate Data Store ERA5 Reanalysis Loader.
 - `CopernicusSeaLevelLoader` (`datasets.climate`) — Copernicus Climate Data Store Sea Level Loader.
 - `DSADSLoader` (`datasets.timeseries`) — Daily and Sports Activities Dataset (DSADS) — UCI 256.
+- `DTUAISLoader` (`datasets.maritime`) — DTU Danish-waters labelled AIS abnormality evaluation set.
 - `DatasetLoader` (`datasets.base`) — Abstract base class for dataset loaders.
 - `EPAAirQualityLoader` (`datasets.epa_air`) — EPA Air Quality System daily PM2.5 loader.
 - `EpilepsyLoader` (`datasets.timeseries`) — Bonn single-electrode EEG (Andrzejak et al. 2001) — Epileptic Seizure set.
@@ -961,6 +962,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ShanghaiTechDataset` (`datasets.benchmarks.shanghai_tech`) — Shanghai Tech Campus Video Anomaly Detection Dataset.
 - `UCFCrimeDataset` (`datasets.benchmarks.ucf_crime`) — UCF-Crime Video Anomaly Detection Dataset.
 - `_DynamicSyntheticFlag` (`datasets.exceptions`) — Bool-like flag that reads MERCURY_ALLOW_SYNTHETIC from env dynamically.
+- `_RestrictedUnpickler` (`datasets.maritime`) — Fail-closed unpickler for third-party dataset pickles.
 
 <details><summary>Support types (12)</summary>
 
