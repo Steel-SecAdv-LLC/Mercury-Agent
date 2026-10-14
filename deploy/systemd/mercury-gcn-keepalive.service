@@ -1,0 +1,54 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# One authenticated connection to the GCN Kafka broker, which is what NASA GCN
+# counts as "use" of a client credential. A credential unused for 30 days is
+# disabled permanently (email warning at 21 days), so this runs daily: thirty
+# independent chances to reset the clock before the deadline.
+#
+# Install as a USER unit -- it needs the operator's credentials file, not root:
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/systemd/mercury-gcn-keepalive.* ~/.config/systemd/user/
+#   ${EDITOR:-vi} ~/.config/systemd/user/mercury-gcn-keepalive.service   # fix ExecStart
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now mercury-gcn-keepalive.timer
+#   loginctl enable-linger "$USER"        # so the timer runs while logged out
+#
+# Check on it with:
+#   systemctl --user list-timers mercury-gcn-keepalive.timer
+#   journalctl --user -u mercury-gcn-keepalive.service -n 20
+
+[Unit]
+Description=Keep the NASA GCN Kafka client credential alive
+Documentation=https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/GCN_KAFKA_MCP.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# The credential never appears in this file: the script reads it from an
+# owner-only file (or from the environment, if a secret manager exports it).
+Environment=GCN_KAFKA_CREDENTIALS_FILE=%h/.config/mercury/gcn-kafka.env
+
+# EDIT THIS: absolute path to your checkout, and to the interpreter that has
+# confluent-kafka installed (pip install gcn-kafka).
+ExecStart=/usr/bin/python3 %h/Mercury-Agent/scripts/gcn_kafka_keepalive.py --json
+
+# Exit 2 is UNREACH -- the broker or the network was down, which says nothing
+# about the credential. Treat it as success so a transient outage does not put
+# the unit in a failed state; exit 1 (credential rejected) and exit 3
+# (misconfiguration) still fail loudly, because both need a human.
+SuccessExitStatus=2
+
+# ProtectSystem=full (not strict): /usr, /boot and /etc go read-only while the
+# home directory stays writable, which the state ledger needs. strict would
+# require an explicit ReadWritePaths= for a directory that may not exist yet,
+# and a missing path there fails the unit outright.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

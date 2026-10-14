@@ -1,0 +1,95 @@
+name: GCN Credential Keep-Alive
+
+# ---------------------------------------------------------------------------
+# NASA GCN disables a Kafka client credential that has not connected to a
+# broker in 30 days, and the credential cannot be re-enabled -- a new one has
+# to be issued and every consumer (including the `gcn-kafka` MCP server in
+# .mcp.json) reconfigured.
+#
+# Attaching the MCP server counts as use, but only when someone happens to be
+# working. This workflow is the floor under that: one authenticated metadata
+# request per day from a machine that is always on, so the clock is reset
+# whether or not anybody opened an editor that week.
+#
+# The credential lives in repository secrets and is injected as an env var for
+# the single step that needs it. It is never written to a file, echoed, or
+# committed; the script prints a SHA-256 fingerprint of the client id instead
+# of the id itself and redacts both values from any error text.
+#
+# Failure semantics (mirrors the script's exit status):
+#   exit 0 ALIVE   -- broker accepted the credential; clock reset.
+#   exit 1 FAIL    -- credential rejected. The job fails: someone must issue a
+#                     new credential at https://gcn.nasa.gov/quickstart.
+#   exit 2 UNREACH -- broker/network down. Annotated as a warning, not a
+#                     failure: it says nothing about the credential, and there
+#                     are 29 more scheduled attempts before the deadline.
+#   exit 3 CONFIG  -- no secret configured (e.g. a fork). Skipped, not failed.
+# ---------------------------------------------------------------------------
+
+on:
+  schedule:
+    # 06:41 UTC daily -- off-the-hour, away from the top-of-hour Actions queue
+    # congestion and away from the stampede on GCN's broker at 00:00.
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One keep-alive at a time; no cancel-in-progress, so an operator-triggered
+  # run cannot pre-empt the scheduled one mid-connection.
+  group: gcn-keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    name: Connect to the GCN broker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install the GCN Kafka client
+        run: |
+          pip install --upgrade "pip>=26.1"
+          # gcn-kafka pulls confluent-kafka (librdkafka), which is what carries
+          # the SASL_SSL/OAUTHBEARER OIDC handshake GCN requires. The engine
+          # itself is not needed: the script is stdlib + this one client.
+          pip install gcn-kafka
+
+      - name: Connect and record
+        env:
+          GCN_KAFKA_CLIENT_ID: ${{ secrets.GCN_KAFKA_CLIENT_ID }}
+          GCN_KAFKA_CLIENT_SECRET: ${{ secrets.GCN_KAFKA_CLIENT_SECRET }}
+          # No credentials file exists on a runner; point the resolver at a
+          # path that cannot exist so a missing secret is reported as CONFIG
+          # rather than as a surprise read of somebody's home directory.
+          GCN_KAFKA_CREDENTIALS_FILE: ${{ runner.temp }}/no-such-credentials.env
+          GCN_KAFKA_STATE_FILE: ${{ runner.temp }}/gcn-keepalive-state.json
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${GCN_KAFKA_CLIENT_ID}" ] || [ -z "${GCN_KAFKA_CLIENT_SECRET}" ]; then
+            echo "::notice title=GCN keep-alive::No GCN_KAFKA_CLIENT_ID/SECRET secret configured; nothing to keep alive."
+            exit 0
+          fi
+          python scripts/gcn_kafka_keepalive.py --json --max-age-days 14
+          status=$?
+          case "${status}" in
+            0) echo "::notice title=GCN keep-alive::Broker accepted the credential; 30-day clock reset." ;;
+            2) echo "::warning title=GCN keep-alive::Broker unreachable this run. The credential was not exercised; the next scheduled run will retry." ;;
+            3) echo "::warning title=GCN keep-alive::Configuration problem -- the credential was not exercised." ;;
+            *) echo "::error title=GCN keep-alive::Credential rejected. Issue a new one at https://gcn.nasa.gov/quickstart and update the GCN_KAFKA_CLIENT_ID/GCN_KAFKA_CLIENT_SECRET secrets." ;;
+          esac
+          # UNREACH (2) and CONFIG (3) are reported, not failed: neither is
+          # evidence against the credential. Only a rejection fails the job.
+          if [ "${status}" -eq 1 ]; then exit 1; fi
+          exit 0
