@@ -812,6 +812,25 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MARINE,
         "Marine biodiversity threat detection",
     ),
+    # -- Trained sequence / security ensembles --------------------------------
+    DetectorManifestEntry(
+        "lstm_autoencoder",
+        "omni_mercury_engine.models.lstm_ae",
+        "LSTMAutoencoderDetector",
+        DetectorCategory.MODEL,
+        "Trained LSTM-autoencoder multivariate sequence reconstruction",
+        feature_dim=1,
+        tags=["time-series", "trained", "multivariate", "reconstruction"],
+    ),
+    DetectorManifestEntry(
+        "realtime_threat",
+        "omni_mercury_engine.security.realtime_threat_detection",
+        "RealTimeThreatDetector",
+        DetectorCategory.SECURITY,
+        "Projection + kNN + robust-covariance ensemble, training-calibrated",
+        feature_dim=3,
+        tags=["security", "ensemble", "calibrated"],
+    ),
     # -- UAV detectors --------------------------------------------------------
     DetectorManifestEntry(
         "drone",

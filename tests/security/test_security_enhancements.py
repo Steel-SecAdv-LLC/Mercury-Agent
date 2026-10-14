@@ -317,3 +317,61 @@ class TestAdaptiveThreatDetector:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestRealtimeCalibrationFixes:
+    """Self-match, training-referenced agreement, adaptation recalibration."""
+
+    def test_knn_reference_excludes_self_match(self) -> None:
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(800, 5))
+        det = RealTimeThreatDetector(
+            contamination=0.05, enable_isolation_forest=False, enable_elliptic=False
+        ).fit(X)
+        flags = [
+            len(
+                det.detect_threat(np.random.default_rng(s).normal(size=(2000, 5)))["threat_indices"]
+            )
+            / 2000
+            for s in range(1, 6)
+        ]
+        assert abs(float(np.mean(flags)) - 0.05) < 0.015
+
+    def test_single_normal_sample_is_not_flagged_by_every_detector(self) -> None:
+        rng = np.random.default_rng(1)
+        det = RealTimeThreatDetector(contamination=0.05).fit(rng.normal(size=(800, 4)))
+        agreement = [
+            det.detect_threat(rng.normal(size=(1, 4)))["detector_agreement"][0] for _ in range(200)
+        ]
+        assert float(np.mean(agreement)) < 0.15
+        far = rng.normal(8.0, 1.0, (1, 4))
+        assert det.detect_threat(far)["detector_agreement"][0] == 1.0
+
+    def test_per_sample_threat_levels(self) -> None:
+        rng = np.random.default_rng(2)
+        det = RealTimeThreatDetector(contamination=0.05).fit(rng.normal(size=(500, 3)))
+        batch = np.vstack([rng.normal(size=(5, 3)), rng.normal(10.0, 1.0, (1, 3))])
+        result = det.detect_threat(batch)
+        assert len(result["threat_levels"]) == 6
+        assert result["threat_levels"][-1] == "CRITICAL"
+        assert result["threat_level"] == "CRITICAL"
+
+    def test_adaptation_recalibrates_and_keeps_baseline(self) -> None:
+        rng = np.random.default_rng(3)
+        det = AdaptiveThreatDetector(contamination=0.05, update_frequency=50)
+        det.fit(rng.normal(size=(400, 3)))
+        before = det._ref_threshold
+        for _ in range(2):
+            det.detect_and_adapt(rng.normal(1.5, 1.0, (30, 3)), is_normal=True)
+        assert det._ref_threshold != before
+        assert det._fit_data is not None and len(det._fit_data) == 460
+
+    def test_registry_protocol(self) -> None:
+        rng = np.random.default_rng(4)
+        det = RealTimeThreatDetector()
+        features = det.extract_features(rng.normal(size=(300, 4)))
+        assert det.is_fitted
+        assert features.shape == (300, 3)
+        out = det.predict(rng.normal(size=(10, 4)))
+        assert out["scores"].shape == (10,)
+        assert out["is_anomaly"].dtype == bool

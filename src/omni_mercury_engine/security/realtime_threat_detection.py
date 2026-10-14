@@ -103,12 +103,23 @@ class _LocalDensityDetector:
         self._tree = cKDTree(X)
 
     def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Mean distance to the ``k`` nearest training rows.
+
+        A row identical to a training row is not its own neighbour: when the
+        nearest distance is exactly zero it is dropped and the next ``k`` are
+        used. Scoring the training set therefore yields leave-one-out
+        distances -- the in-sample self-match (distance 0) biased the
+        reference low and pushed the kNN false-alarm rate to 0.076 at a 0.05
+        budget.
+        """
         assert self._tree is not None
-        k = min(self.n_neighbors, self._tree.n)
-        dists, _ = self._tree.query(X, k=max(k, 1))
-        if dists.ndim == 1:
-            dists = dists[:, np.newaxis]
-        result: np.ndarray[Any, Any] = np.mean(dists, axis=1)
+        k = max(min(self.n_neighbors, self._tree.n - 1), 1)
+        dists, _ = self._tree.query(X, k=k + 1)
+        dists = np.asarray(dists, dtype=float).reshape(len(X), k + 1)
+        self_match = dists[:, 0] <= 0.0
+        result: np.ndarray[Any, Any] = np.where(
+            self_match, dists[:, 1:].mean(axis=1), dists[:, :k].mean(axis=1)
+        )
         return result
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -231,6 +242,11 @@ class RealTimeThreatDetector(LoggerMixin):
         self._ref_p90: float = 0.0
         self._ref_p95: float = 0.0
         self._ref_p99: float = 0.0
+        # Per-detector flag thresholds: the (1 - contamination) quantile of
+        # each detector's standardized TRAINING scores, so agreement is judged
+        # against training data, not against the batch being scored.
+        self._detector_threshold: dict[str, float] = {}
+        self._fit_data: np.ndarray[Any, Any] | None = None
 
     _MAD_TO_SIGMA = 1.4826  # MAD → σ for a normal distribution.
 
@@ -294,6 +310,9 @@ class RealTimeThreatDetector(LoggerMixin):
                 scale = float(np.std(s)) or 1.0
             self._detector_center[name] = center
             self._detector_scale[name] = scale
+            self._detector_threshold[name] = float(
+                np.quantile(self._standardize(name, s), 1.0 - self.contamination)
+            )
 
         # Reference distribution of the standardized ensemble on training data.
         if raw_ref:
@@ -306,6 +325,7 @@ class RealTimeThreatDetector(LoggerMixin):
             self._ref_p95 = float(np.quantile(ref_ensemble, 0.95))
             self._ref_p99 = float(np.quantile(ref_ensemble, 0.99))
 
+        self._fit_data = np.asarray(X, dtype=float)
         self.is_fitted = True
         return self
 
@@ -341,8 +361,13 @@ class RealTimeThreatDetector(LoggerMixin):
         Returns:
             Dictionary with per-sample results. In addition to the historical
             keys it exposes ``anomaly_probabilities`` (calibrated [0, 1] via the
-            training empirical CDF) and ``detector_agreement`` (fraction of
-            sub-detectors flagging each sample) for downstream analysis.
+            training empirical CDF), ``detector_agreement`` (fraction of
+            sub-detectors whose standardized score exceeds that detector's own
+            training (1 - contamination) quantile) and per-sample
+            ``threat_levels``. ``individual_predictions`` uses the same
+            training-referenced flags (-1 = outlier); the former batch-relative
+            flags made a single normal sample "flagged" by every detector.
+            ``threat_level`` grades the batch by its most severe sample.
         """
         if not self.is_fitted:
             raise ValueError("Detector must be fitted before detection")
@@ -352,11 +377,12 @@ class RealTimeThreatDetector(LoggerMixin):
 
         for name, detector in self.detectors.items():
             try:
-                if hasattr(detector, "predict"):
-                    predictions[name] = detector.predict(X)
                 raw = self._raw_score(detector, X)
                 if raw is not None:
                     standardized[name] = self._standardize(name, raw)
+                    threshold = self._detector_threshold.get(name)
+                    if threshold is not None:
+                        predictions[name] = np.where(standardized[name] > threshold, -1, 1)
             except Exception as e:
                 self.logger.warning("Failed to predict with %s: %s", name, e)
 
@@ -384,6 +410,7 @@ class RealTimeThreatDetector(LoggerMixin):
 
         threat_indices = np.where(is_threat)[0]
         threat_level = self._calculate_threat_level(ensemble_score)
+        threat_levels = [self._level_for(float(v)) for v in ensemble_score]
 
         return {
             "is_threat": bool(np.any(is_threat)),
@@ -393,8 +420,44 @@ class RealTimeThreatDetector(LoggerMixin):
             "detector_agreement": agreement.tolist(),
             "individual_predictions": {k: v.tolist() for k, v in predictions.items()},
             "threat_level": threat_level,
+            "threat_levels": threat_levels,
             "num_threats": int(np.sum(is_threat)),
             "timestamp": datetime.now().isoformat(),
+        }
+
+    # -- detector-registry protocol --------------------------------------
+
+    def extract_features(self, data: Any) -> np.ndarray[Any, Any]:
+        """Per-sample standardized sub-detector scores ``(n, n_detectors)``.
+
+        Fits on *data* first when unfitted (the registry's auto-fit contract).
+        """
+        X = np.asarray(data, dtype=float)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if not self.is_fitted:
+            self.fit(X)
+        columns = []
+        for name, detector in self.detectors.items():
+            raw = self._raw_score(detector, X)
+            if raw is not None and name in self._detector_center:
+                columns.append(self._standardize(name, raw))
+        return np.column_stack(columns).astype(np.float32)
+
+    def predict(self, data: Any) -> dict[str, Any]:
+        """Registry scores: calibrated anomaly probabilities and decisions."""
+        X = np.asarray(data, dtype=float)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        result = self.detect_threat(X)
+        probs = np.asarray(result["anomaly_probabilities"], dtype=float)
+        flags = np.zeros(len(probs), dtype=bool)
+        flags[result["threat_indices"]] = True
+        return {
+            "scores": probs,
+            "is_anomaly": flags,
+            "ensemble_scores": np.asarray(result["ensemble_scores"], dtype=float),
+            "threat_level": result["threat_level"],
         }
 
     def _anomaly_probability(self, ensemble_score: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -420,18 +483,19 @@ class RealTimeThreatDetector(LoggerMixin):
         flags = np.vstack([np.asarray(p) == -1 for p in predictions.values()])
         return np.asarray(flags.mean(axis=0), dtype=float)
 
-    def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
-        """Grade the batch by its peak standardized ensemble score vs training."""
-        max_score = float(np.max(scores))
-
-        if max_score > self._ref_p99:
+    def _level_for(self, score: float) -> str:
+        """Grade one standardized ensemble score against the training quantiles."""
+        if score > self._ref_p99:
             return "CRITICAL"
-        elif max_score > self._ref_p95:
+        if score > self._ref_p95:
             return "HIGH"
-        elif max_score > self._ref_p90:
+        if score > self._ref_p90:
             return "MEDIUM"
-        else:
-            return "LOW"
+        return "LOW"
+
+    def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
+        """Grade the batch by its most severe sample (peak score vs training)."""
+        return self._level_for(float(np.max(scores)))
 
     def record_threat(
         self, threat_data: np.ndarray[Any, Any], threat_type: str, severity: float
@@ -531,15 +595,28 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
 
         return result
 
+    def fit(self, X: np.ndarray[Any, Any]) -> AdaptiveThreatDetector:
+        """Fit on normal data and remember it as the adaptation baseline."""
+        super().fit(X)
+        self._baseline_data = np.asarray(X, dtype=float)
+        return self
+
     def _update_models(self) -> None:
-        """Update models with new training data."""
+        """Refit on the original baseline plus confirmed-normal feedback.
+
+        A full :meth:`fit` re-derives the standardization stats, per-detector
+        thresholds and the reference threshold from the refitted detectors;
+        refitting only the sub-detectors (as before) left that calibration
+        stale, and fitting on the buffer alone forgot the original training
+        data.
+        """
         if not self.training_buffer:
             return
 
-        X_new = np.vstack(self.training_buffer)
-
-        for name, detector in self.detectors.items():
-            try:
-                detector.fit(X_new)
-            except Exception as e:
-                self.logger.warning("Failed to update %s: %s", name, e)
+        baseline = getattr(self, "_baseline_data", None)
+        parts = [baseline] if baseline is not None else []
+        X_new = np.vstack([*parts, *self.training_buffer])
+        try:
+            RealTimeThreatDetector.fit(self, X_new)
+        except Exception as e:
+            self.logger.warning("Model update failed; keeping previous calibration: %s", e)
