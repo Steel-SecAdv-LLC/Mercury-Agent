@@ -147,3 +147,22 @@ def test_reference_tree_is_capped() -> None:
     det = StatisticalAnomalyDetector().fit(X)
     assert det._knn_tree_index is not None
     assert len(det._knn_tree_index) == StatisticalAnomalyDetector._KNN_MAX_REFERENCE
+
+
+def test_stream_requires_ten_reference_rows_per_neighbour() -> None:
+    """Below 10 x k reference rows the stream must stay off.
+
+    Regression: on ADBench Lymphography (n_train=71) the k=10 neighbourhood
+    spanned a seventh of the whole reference, so the 50/50 fusion diluted the
+    ensemble (AUC 0.9836 -> 0.9343) and failed the anomaly regression guard.
+    """
+    minimum = (
+        StatisticalAnomalyDetector._KNN_MIN_REFERENCE_FACTOR * StatisticalAnomalyDetector._KNN_K
+    )
+
+    small = StatisticalAnomalyDetector().fit(np.random.default_rng(9).normal(size=(minimum - 1, 4)))
+    assert small._knn_tree is None
+    assert small.detect(np.random.default_rng(10).normal(size=(8, 4)))["knn_density_scores"] is None
+
+    exact = StatisticalAnomalyDetector().fit(np.random.default_rng(11).normal(size=(minimum, 4)))
+    assert exact._knn_tree is not None

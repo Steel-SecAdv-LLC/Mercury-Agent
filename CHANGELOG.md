@@ -54,6 +54,23 @@ ever read), the `golden_ratio_weights` kwarg and the dead
 `create_omni_intelligence_scalars()` are removed; `_identify_sources` drops
 an `attention_weights` parameter it always ignored.
 
+**Fixed — kNN density stream diluted the ensemble on small fits (PR #376's
+red anomaly regression guard).** The stream's mean distance to `k = 10`
+neighbours only estimates local density when the reference is an order of
+magnitude larger than `k`; on ADBench Lymphography (n_train = 71) the
+neighbourhood spanned a seventh of the sample and the 50/50 fusion dragged
+AUC 0.9836 → 0.9343 / F1 0.8000 → 0.6667, below the pinned floors. The
+stream now requires `_KNN_MIN_REFERENCE_FACTOR (10) × _KNN_K` reference
+rows and stays off below that, exactly like its existing degenerate-
+reference guard. Measured on the deterministic guard subset (seed 42):
+Lymphography back to 0.9836 / 0.8000 with every stream win intact
+(pendigits 0.8741 → 0.9905, glass 0.7681 → 0.8123, Ionosphere
+0.9414 → 0.9692); the guard reports PASS. A regression test pins the
+boundary on both sides. Also fixed: the two `[no-any-return]` errors (3.11
+numpy stubs) that failed PR #376's Type Checking lane, in
+`tests/ml/test_covariance_and_psi_drift.py` and
+`tests/core/test_registry_feature_cache.py`.
+
 ### Unwired code brought into production; five defective modules removed (branch `steel/version-cov3`)
 
 Every orphaned module (no importer in production, CI, scripts, benchmarks or

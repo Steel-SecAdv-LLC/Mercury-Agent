@@ -30,7 +30,11 @@ class _Counting:
 
     def extract_features(self, data: Any) -> np.ndarray:
         self.calls += 1
-        return np.asarray(data, dtype=float).sum(axis=1, keepdims=True) * self.version
+        # np.asarray: ``.sum()`` types as Any under the Python-3.11 numpy
+        # stubs, failing the tests mypy lane with [no-any-return].
+        return np.asarray(
+            np.asarray(data, dtype=float).sum(axis=1, keepdims=True) * self.version
+        )
 
     def predict(self, data: Any) -> dict[str, Any]:
         return {"scores": np.asarray(data, dtype=float).mean(axis=1)}

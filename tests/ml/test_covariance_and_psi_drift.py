@@ -21,7 +21,9 @@ D = 6
 
 def _corr(rho: float, d: int = D) -> np.ndarray:
     idx = np.arange(d)
-    return rho ** np.abs(idx[:, None] - idx[None, :])
+    # np.asarray: ``float ** ndarray`` types as Any under the Python-3.11
+    # numpy stubs, failing the tests mypy lane with [no-any-return].
+    return np.asarray(rho ** np.abs(idx[:, None] - idx[None, :]))
 
 
 @pytest.fixture(scope="module")
