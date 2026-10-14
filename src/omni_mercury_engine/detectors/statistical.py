@@ -265,6 +265,21 @@ class MercuryAnomalyDetector(BaseDetector):
         # Score flip for ensemble inversion (Task 4, set during fit if auto_validate=True)
         self._score_flip: bool = False
 
+        # Fit-time operating-point reference (sorted ensemble scores of the
+        # training data under the serving pipeline) + the one-class
+        # split-conformal false-alarm budget it is cut at. Anchors the
+        # decision threshold to what NORMAL data scores like, instead of to
+        # the batch being scored -- the batch-relative cut is undefined at
+        # n=1 (single-point streaming) and inverted when a batch is
+        # anomaly-majority (floods / sustained events).
+        self._reference_scores: np.ndarray[Any, Any] | None = None
+        self._reference_alpha: float = (
+            float(config["reference_alpha"])
+            if isinstance(config, dict) and "reference_alpha" in config
+            else 0.05
+        )
+        self._feature_medians: np.ndarray[Any, Any] | None = None
+
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
@@ -387,11 +402,20 @@ class MercuryAnomalyDetector(BaseDetector):
                 "Provide data with at least some finite values."
             )
         if not np.all(finite_mask):
+            dropped = int((~finite_mask).sum())
+            logger.warning(
+                "fit: dropping %d of %d training rows containing non-finite "
+                "values; on temporal data this splices the series across the "
+                "gap (kinematic differences will span missing time)",
+                dropped,
+                len(finite_mask),
+            )
             arr = arr[finite_mask]
 
         # --- Distributional statistics ---
         self.mean = np.mean(arr, axis=0)
         self.std = np.std(arr, axis=0) + 1e-8
+        self._feature_medians = np.median(arr, axis=0)
         self.q1 = np.percentile(arr, 25, axis=0)
         self.q3 = np.percentile(arr, 75, axis=0)
 
@@ -547,6 +571,9 @@ class MercuryAnomalyDetector(BaseDetector):
                     len(cal_labels),
                     len(arr),
                 )
+
+        # --- Operating-point reference distribution (last: weights final) ---
+        self._fit_reference_distribution(arr)
 
         return self
 
@@ -2265,58 +2292,20 @@ class MercuryAnomalyDetector(BaseDetector):
     # detect()
     # =====================================================================
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using the Mercury original ensemble.
+    def _compute_combined_scores(
+        self,
+        data: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], dict[str, Any]]:
+        """Run the full ensemble scoring pipeline on finite ``data``.
 
-        Computes continuous anomaly scores from three independent methods
-        and combines them via weighted average.  Scores are in [0, 1].
-
-        Ensemble composition:
-          - ResonanceScore  (40%): FFT harmonic spectral anomaly
-          - KinematicScore  (30%): Physics-based jerk/curvature
-          - InfoGeometryScore (30%): Fisher Information OOD
-
-        Auto-Calibration:
-            When ``auto_calibrate=True``, the threshold is automatically
-            calibrated from the score distribution.
-
-        Args:
-            data: Input data array or tensor.
-
-        Returns:
-            Dictionary containing:
-              - is_anomaly: Boolean array of anomaly predictions
-              - scores: Combined continuous anomaly scores [0, 1]
-              - z_scores: Raw z-scores per feature
-              - z_score_continuous: Normalized z-score intensity [0, 1]
-              - iqr_scores: Continuous IQR-based scores [0, 1]
-              - resonance_scores: Harmonic anomaly scores [0, 1]
-              - kinematic_scores: Physics dynamics scores [0, 1]
-              - info_geometry_scores: Fisher OOD scores [0, 1]
-              - iqr_flags: Legacy boolean IQR anomalies
-              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
-              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
-              - detector_type: ``"statistical"``
-              - threshold: Effective threshold (may be calibrated)
-              - calibration_diagnostics: Diagnostics if auto-calibrated
-              - ensemble_components: Dict of individual component scores
-
-        Raises:
-            DetectorException: If detector has not been fitted.
+        Shared by :meth:`detect` and the fit-time reference-distribution
+        computation (:meth:`_fit_reference_distribution`), so the scores the
+        operating point is anchored to are produced by exactly the pipeline
+        that serves inference. Returns ``(combined_scores, parts)`` where
+        ``parts`` carries the per-component scores and oracle metadata that
+        :meth:`detect` surfaces in its result dict. No thresholding happens
+        here.
         """
-        if not self._is_fitted:
-            raise DetectorException("Detector must be fitted before detection")
-
-        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-
-        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
-        assert isinstance(data, np.ndarray)
-
-        if data.ndim == 1:
-            data = data.reshape(-1, 1)
-
-        # --- Individual scores ---
         z_scores = self._compute_z_scores(data)
         z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)
         z_score_continuous = np.clip(z_score_intensity, 0, 3.0) / 3.0
@@ -2399,13 +2388,16 @@ class MercuryAnomalyDetector(BaseDetector):
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
-        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
-        # If median score > 0.80, scores are likely inverted (most points shouldn't be anomalous).
-        if len(combined_scores) >= 50:
-            median_score = float(np.median(combined_scores))
-            if median_score > 0.80:
-                combined_scores = 1.0 - combined_scores
-                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
+        # NOTE (operating-point correctness): the former batch-median "ensemble
+        # flip" inverted every score whenever the scored batch's median rose
+        # above 0.80 on the assumption that "most points shouldn't be
+        # anomalous". That assumption is exactly wrong in the situations the
+        # detector exists for -- a sustained event, an attack flood, a drifted
+        # feed -- and was measured flipping a 90%-anomalous batch to AUROC 0.0
+        # (0/90 true anomalies flagged, 10/10 normals flagged). Orientation is
+        # a property of the FITTED ensemble, not of a scored batch: fit-time
+        # inversion detection (``validate()`` -> ``self._score_flip``, applied
+        # below) is the sound mechanism and remains.
 
         # --- Oracle spectral influence ---
         oracle_meta: dict[str, Any] = {"active": False}
@@ -2482,7 +2474,99 @@ class MercuryAnomalyDetector(BaseDetector):
         # Score flip for detected ensemble inversion (Task 4)
         if self._score_flip:
             combined_scores = 1.0 - combined_scores
+        return combined_scores, {
+            "z_scores": z_scores,
+            "z_score_continuous": z_score_continuous,
+            "iqr_scores": iqr_scores,
+            "resonance": resonance,
+            "kinematic": kinematic,
+            "info_geometry": info_geo,
+            "oracle_metadata": oracle_meta,
+        }
 
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+        """Detect anomalies using the Mercury original ensemble.
+
+        Computes continuous anomaly scores from three independent methods
+        and combines them via weighted average.  Scores are in [0, 1].
+
+        Ensemble composition:
+          - ResonanceScore  (40%): FFT harmonic spectral anomaly
+          - KinematicScore  (30%): Physics-based jerk/curvature
+          - InfoGeometryScore (30%): Fisher Information OOD
+
+        Auto-Calibration:
+            When ``auto_calibrate=True``, the threshold is automatically
+            calibrated from the score distribution.
+
+        Args:
+            data: Input data array or tensor.
+
+        Returns:
+            Dictionary containing:
+              - is_anomaly: Boolean array of anomaly predictions
+              - scores: Combined continuous anomaly scores [0, 1]
+              - z_scores: Raw z-scores per feature
+              - z_score_continuous: Normalized z-score intensity [0, 1]
+              - iqr_scores: Continuous IQR-based scores [0, 1]
+              - resonance_scores: Harmonic anomaly scores [0, 1]
+              - kinematic_scores: Physics dynamics scores [0, 1]
+              - info_geometry_scores: Fisher OOD scores [0, 1]
+              - iqr_flags: Legacy boolean IQR anomalies
+              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
+              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
+              - detector_type: ``"statistical"``
+              - threshold: Effective threshold (may be calibrated)
+              - calibration_diagnostics: Diagnostics if auto-calibrated
+              - ensemble_components: Dict of individual component scores
+
+        Raises:
+            DetectorException: If detector has not been fitted.
+        """
+        if not self._is_fitted:
+            raise DetectorException("Detector must be fitted before detection")
+
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
+
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+
+        # --- Non-finite input handling (fail-safe, never fail-blind) ---
+        # A single NaN/Inf cell used to propagate through the kinematic
+        # windows into the combined scores and the batch threshold, turning
+        # the threshold itself NaN and silencing EVERY flag in the batch
+        # (measured: a 50-sigma outlier went unflagged because an unrelated
+        # row carried one NaN). Non-finite cells are imputed with the
+        # fit-time per-feature median (fallback: the fit mean) so the rest
+        # of the batch is scored normally, and the affected rows are
+        # reported in ``nan_rows`` so callers can apply their own policy.
+        data = np.asarray(data, dtype=np.float64)
+        finite_cells = np.isfinite(data)
+        nan_rows = ~finite_cells.all(axis=1)
+        if bool(nan_rows.any()):
+            fill = getattr(self, "_feature_medians", None)
+            if fill is None or np.asarray(fill).shape[0] != data.shape[1]:
+                fill = self.mean
+            data = np.where(finite_cells, data, np.broadcast_to(fill, data.shape))
+            logger.warning(
+                "detect: %d of %d rows contained non-finite values; imputed "
+                "with fit-time feature medians (see result['nan_rows'])",
+                int(nan_rows.sum()),
+                data.shape[0],
+            )
+
+        combined_scores, parts = self._compute_combined_scores(data)
+        z_scores = parts["z_scores"]
+        z_score_continuous = parts["z_score_continuous"]
+        iqr_scores = parts["iqr_scores"]
+        resonance = parts["resonance"]
+        kinematic = parts["kinematic"]
+        info_geo = parts["info_geometry"]
+        oracle_meta = parts["oracle_metadata"]
         # --- Threshold & calibration ---
         # Priority: mondrian conformal > supervised pipeline > auto-calibrate > default
         effective_threshold = self.threshold
@@ -2549,6 +2633,9 @@ class MercuryAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
+            # Rows whose input contained non-finite cells (imputed before
+            # scoring); empty mask on clean batches.
+            "nan_rows": nan_rows,
         }
         if self._info_geometry_certificate_enabled:
             certificate = self._info_geometry_certificate_payload(data, info_geo)
@@ -2604,6 +2691,64 @@ class MercuryAnomalyDetector(BaseDetector):
             "witness_channel": payload["witness_channel"],
         }
 
+    #: Cap on the stored reference distribution. 2048 sorted float64 scores
+    #: (16 KiB) bound the detector state while keeping the conformal quantile
+    #: resolution far finer than any alpha this detector is configured with.
+    _REFERENCE_MAX_SCORES: int = 2048
+
+    def _fit_reference_distribution(self, arr: np.ndarray[Any, Any]) -> None:
+        """Score the training data with the serving pipeline and keep the sorted scores.
+
+        This is the fit-time anchor for the operating point: the stored
+        distribution says what NORMAL data scores like under exactly the
+        ensemble (weights, calibration, fit-time flip) that will serve
+        inference. ``_reference_threshold`` cuts it at a one-class
+        split-conformal quantile, which controls the false-alarm rate on
+        exchangeable normal data regardless of the composition of the batch
+        being scored -- including the n=1 streaming case and anomaly-majority
+        floods, where any batch-relative cut is unsound.
+
+        Best-effort by design: a failure leaves ``_reference_scores`` unset
+        and every consumer falls back to the batch-relative behaviour.
+        """
+        try:
+            sample = arr
+            if len(sample) > self._REFERENCE_MAX_SCORES:
+                idx = np.linspace(0, len(sample) - 1, self._REFERENCE_MAX_SCORES).astype(int)
+                sample = sample[idx]
+            scores, _ = self._compute_combined_scores(np.asarray(sample, dtype=np.float64))
+            scores = np.asarray(scores, dtype=np.float64).reshape(-1)
+            scores = scores[np.isfinite(scores)]
+            if scores.size:
+                self._reference_scores = np.sort(scores)
+                logger.info(
+                    "fit: operating-point reference stored (n=%d, q95=%.4f, max=%.4f)",
+                    scores.size,
+                    float(np.percentile(scores, 95)),
+                    float(scores.max()),
+                )
+        except Exception as exc:
+            self._reference_scores = None
+            logger.warning("fit: reference-distribution computation failed: %s", exc)
+
+    def _reference_threshold(self) -> float | None:
+        """One-class split-conformal cut of the fit-time reference scores.
+
+        With ``n`` reference scores and false-alarm budget ``alpha``, the
+        threshold is the ``ceil((n + 1) * (1 - alpha)) / n`` empirical
+        quantile (Vovk's conservative rank), so under exchangeability a
+        normal point exceeds it with probability at most ``alpha``.
+        ``None`` when no reference exists (legacy restored state), in which
+        case callers keep their historical behaviour.
+        """
+        ref = getattr(self, "_reference_scores", None)
+        if ref is None or len(ref) == 0:
+            return None
+        n = len(ref)
+        k = int(np.ceil((n + 1) * (1.0 - self._reference_alpha)))
+        k = min(max(k, 1), n)
+        return float(ref[k - 1])
+
     # =====================================================================
     # Unsupervised operating-point calibration
     # =====================================================================
@@ -2649,12 +2794,39 @@ class MercuryAnomalyDetector(BaseDetector):
         s = np.asarray(scores, float).reshape(-1)
         n = s.size
         rng = float(np.ptp(s)) if n else 0.0
+        ref_thr = self._reference_threshold()
 
-        # Too few points or no spread to calibrate against: fall back to a
-        # conservative high-quantile cut (or the configured default if empty).
+        # Too few points or no spread to calibrate against. With a fit-time
+        # reference the cut needs nothing from the batch at all; the old
+        # batch-95th-percentile fallback made a single point its OWN
+        # threshold, so single-point streaming could never raise a flag.
         if n < 8 or rng < 1e-9:
+            if ref_thr is not None:
+                return ref_thr, {
+                    "method": "reference_conformal",
+                    "regime": "degenerate",
+                    "alpha": self._reference_alpha,
+                    "threshold": ref_thr,
+                }
             thr = float(np.percentile(s, 95)) if n else float(self.threshold)
             return thr, {"method": "adaptive", "regime": "degenerate", "threshold": thr}
+
+        # Anomalous-bulk guard: when the MEDIAN of the batch already exceeds
+        # what normal training data scores at the conformal cut, the batch
+        # bulk itself is abnormal (sustained event / attack flood / drifted
+        # feed) and every batch-relative statistic below -- Otsu's split, the
+        # MAD tail -- describes the anomaly population, not normality. Anchor
+        # the cut to the training reference instead. On normal-bulk batches
+        # (median below the cut) this branch never fires, so the
+        # benchmark-selected adaptive behaviour is unchanged there.
+        if ref_thr is not None and n >= 8 and float(np.median(s)) > ref_thr:
+            return ref_thr, {
+                "method": "reference_conformal",
+                "regime": "anomalous_bulk",
+                "alpha": self._reference_alpha,
+                "threshold": ref_thr,
+                "flagged_fraction": round(float(np.mean(s > ref_thr)), 4),
+            }
 
         t_otsu = self._otsu_threshold(s)
         valley = self._score_valley_depth(s, t_otsu)
@@ -3309,6 +3481,9 @@ class MercuryAnomalyDetector(BaseDetector):
             "adaptive_weights": _arr(self._adaptive_weights),
             "data_type": self._data_type.value,
             "train_data": _arr(self._train_data),
+            "reference_scores": _arr(self._reference_scores),
+            "reference_alpha": float(self._reference_alpha),
+            "feature_medians": _arr(self._feature_medians),
             "supervised_threshold": (
                 float(self._supervised_threshold)
                 if self._supervised_threshold is not None
@@ -3341,6 +3516,11 @@ class MercuryAnomalyDetector(BaseDetector):
             self._adaptive_weights = weights
         self._data_type = DataCharacteristics(str(state["data_type"]))
         self._train_data = _arr(state["train_data"])
+        # Operating-point reference (absent in legacy states: consumers fall
+        # back to the historical batch-relative behaviour).
+        self._reference_scores = _arr(state.get("reference_scores"))
+        self._reference_alpha = float(state.get("reference_alpha", 0.05))
+        self._feature_medians = _arr(state.get("feature_medians"))
         supervised = state.get("supervised_threshold")
         self._supervised_threshold = float(supervised) if supervised is not None else None
         oracle_ref_stats = state.get("oracle_ref_stats")

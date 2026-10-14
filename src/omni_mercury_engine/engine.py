@@ -4026,13 +4026,27 @@ class OmniMercuryEngine(LoggerMixin):
 
                 if use_fusion and self.mode == "fusion":
                     batch_result = self.detect_with_fusion(batch_data)
-                    # Expand batch result to individual results
+                    # Expand to per-row results from the per-row arrays. The
+                    # scalar keys describe row 0 only; copying them to every
+                    # row gave the whole batch row 0's verdict.
+                    probs = np.asarray(
+                        batch_result.get("anomaly_probs", [batch_result.get("anomaly_prob", 0.0)]),
+                        dtype=np.float64,
+                    ).reshape(-1)
+                    sevs = np.asarray(
+                        batch_result.get("severity_scores", [batch_result.get("severity", 0.0)]),
+                        dtype=np.float64,
+                    ).reshape(-1)
+                    threshold_used = float(
+                        batch_result.get("threshold_used", self._get_anomaly_threshold(0.5, probs))
+                    )
                     for _i in range(len(batch_data)):
+                        row = _i if _i < len(probs) else len(probs) - 1
                         results.append(
                             {
-                                "anomaly_prob": batch_result.get("anomaly_prob", 0.0),
-                                "is_anomaly": batch_result.get("is_anomaly", False),
-                                "severity": batch_result.get("severity", 0.0),
+                                "anomaly_prob": float(probs[row]),
+                                "is_anomaly": bool(probs[row] > threshold_used),
+                                "severity": float(sevs[row] if row < len(sevs) else sevs[-1]),
                                 "mode": "fusion",
                             }
                         )
@@ -5245,11 +5259,26 @@ class OmniMercuryEngine(LoggerMixin):
             fusion_result.get("anomaly_probs", np.array([anomaly_prob_val])),
         )
 
+        anomaly_probs_all = np.asarray(
+            fusion_result.get("anomaly_probs", [anomaly_prob_val]), dtype=np.float64
+        ).reshape(-1)
+        severity_all = np.asarray(
+            fusion_result.get("severity_scores", [severity_val]), dtype=np.float64
+        ).reshape(-1)
+
         result = {
             "anomaly_prob": float(anomaly_prob_val),
             "is_anomaly": bool(float(anomaly_prob_val) > threshold),
             "class_prediction": int(class_pred_val),
             "severity": float(severity_val),
+            # Per-row verdicts for multi-row inputs. The scalar keys above
+            # describe row 0 only (the single-sample serving contract);
+            # batch callers must consume these lists -- detect_batch used
+            # to stamp row 0's verdict onto every row of the batch. Plain
+            # lists keep the result JSON-serialisable for the HTTP surface.
+            "anomaly_probs": anomaly_probs_all.tolist(),
+            "is_anomaly_rows": (anomaly_probs_all > threshold).tolist(),
+            "severity_scores": severity_all.tolist(),
             "detector_importance": fusion_result.get("detector_importance", {}),
             "mode": "fusion",
             "threshold_used": float(threshold),
