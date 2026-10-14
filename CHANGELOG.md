@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
+
+`steel/version-cov4` unifies `steel/version-cov3`, `steel/version-cov02` and
+`steel/kafka_MCP_setup` (their entries follow below) and reconciles their
+seams: the AMA prose pins cov02 wrote against v4.0.0 (`docs/index.md`,
+`CONTRIBUTING.md`, `rust_crypto/README.md`) now state the v5.0.0 pin cov3
+moved to — caught by cov02's own `workflow_version_drift_gate`, which reports
+`ok` on the unified tree — and the two CI-lane fixes both branches made
+independently carry cov3's v5-pinned variants held by cov02's gates.
+
+**Fixed — `IntelligenceFusionEngine` decisions came from an untrained
+network.** `fuse_intelligence` thresholded the random-initialisation logits
+of `AllSourceFusionNetwork`, scaled by golden-ratio constants
+(`confidence × 1.45φ × class/5 > 0.5φ`), so `threat_detected` was noise
+dressed as φ-optimisation. The network now drives decisions only after
+`load_trained_weights` (new; routes through `safe_torch_load`) has installed
+a real checkpoint — the trained-only contract GOSNN already enforces. Until
+then the engine scores from the reported evidence: a reliability-weighted
+mean of per-discipline `threat_score`s, confidence from the reports scaled
+by corroboration (full weight at three reporting disciplines), and
+`threat_detected` at the `SUBSTANTIAL` level of the `ThreatLevel` enum.
+Untrained decisions are deterministic and explainable; five regression tests
+pin the contract. The φ-scaled `omni_intelligence_scalars` dict (one key
+ever read), the `golden_ratio_weights` kwarg and the dead
+`create_omni_intelligence_scalars()` are removed; `_identify_sources` drops
+an `attention_weights` parameter it always ignored.
+
 ### Unwired code brought into production; five defective modules removed (branch `steel/version-cov3`)
 
 Every orphaned module (no importer in production, CI, scripts, benchmarks or
