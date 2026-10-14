@@ -58,7 +58,7 @@ try:
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
-    trace = None
+    trace = None  # type: ignore[assignment, unused-ignore]
 
 
 class AuditAction(Enum):
