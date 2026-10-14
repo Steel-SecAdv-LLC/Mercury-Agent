@@ -54,14 +54,14 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import mercury_benchmark as mb  # noqa: E402
+import mercury_benchmark as mb
 
-from omni_mercury_engine.datasets.adbench import ADBenchLoader  # noqa: E402
-from omni_mercury_engine.datasets.base import DatasetConfig  # noqa: E402
-from omni_mercury_engine.detectors.statistical import (  # noqa: E402
+from omni_mercury_engine.datasets.adbench import ADBenchLoader
+from omni_mercury_engine.datasets.base import DatasetConfig
+from omni_mercury_engine.detectors.statistical import (
     StatisticalAnomalyDetector,
+    logger as _stat_logger,
 )
-from omni_mercury_engine.detectors.statistical import logger as _stat_logger  # noqa: E402
 
 GRID: tuple[float, ...] = (0.3, 0.4, 0.5, 0.6, 0.7)
 SHIPPED_W = 0.5
