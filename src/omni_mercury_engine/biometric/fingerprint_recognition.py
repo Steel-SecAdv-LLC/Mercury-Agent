@@ -307,6 +307,7 @@ class GaborEnhancer:
         image: np.ndarray[Any, Any],
         orientation: np.ndarray[Any, Any],
         frequency: np.ndarray[Any, Any],
+        quality_mask: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Enhance fingerprint image using Gabor filters.
 
@@ -314,16 +315,34 @@ class GaborEnhancer:
             image: Input fingerprint image
             orientation: Local orientation field
             frequency: Local frequency field
-            quality_mask: Optional mask for valid regions
+            quality_mask: Optional per-block quality in ``[0, 1]`` with the
+                same shape as ``orientation``. Each block's output is the
+                quality-weighted blend ``q * filtered + (1 - q) * original``,
+                so low-quality regions keep the (normalised) input instead
+                of Gabor output — the standard guard against hallucinating
+                ridge structure where orientation/frequency estimates are
+                unreliable.
 
         Returns:
             Enhanced fingerprint image
+
+        Raises:
+            ValueError: ``quality_mask`` shape differs from ``orientation``.
         """
         if image.ndim == 3:
             image = np.mean(image, axis=2)
 
         image = image.astype(np.float64)
         image = (image - image.min()) / (image.max() - image.min() + 1e-8)
+
+        if quality_mask is not None:
+            quality_mask = np.asarray(quality_mask, dtype=np.float64)
+            if quality_mask.shape != orientation.shape:
+                raise ValueError(
+                    f"quality_mask shape {quality_mask.shape} must match "
+                    f"orientation field shape {orientation.shape}"
+                )
+            quality_mask = np.clip(quality_mask, 0.0, 1.0)
 
         h, w = image.shape
         enhanced = np.zeros_like(image)
@@ -361,7 +380,12 @@ class GaborEnhancer:
 
                 target_h = min(bh, extracted.shape[0])
                 target_w = min(bw, extracted.shape[1])
-                enhanced[y1 : y1 + target_h, x1 : x1 + target_w] = extracted[:target_h, :target_w]
+                block_out = extracted[:target_h, :target_w]
+                if quality_mask is not None:
+                    q = float(quality_mask[i, j])
+                    original = image[y1 : y1 + target_h, x1 : x1 + target_w]
+                    block_out = q * block_out + (1.0 - q) * original
+                enhanced[y1 : y1 + target_h, x1 : x1 + target_w] = block_out
 
         enhanced = (enhanced - enhanced.min()) / (enhanced.max() - enhanced.min() + 1e-8)
         return enhanced

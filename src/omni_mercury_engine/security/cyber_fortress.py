@@ -197,20 +197,61 @@ class MultiverseZeroDaySimulator(LoggerMixin):
             num_universes=num_universes, state_dim=64, convergence_threshold=0.95
         )
 
-    def simulate_zero_day(self, system_state: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Simulate potential zero-day attacks using multiverse exploration.
+    def simulate_zero_day(
+        self,
+        system_state: np.ndarray[Any, Any],
+        known_vulnerabilities: list[np.ndarray[Any, Any]] | np.ndarray[Any, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Simulate potential zero-day attack surfaces using multiverse exploration.
+
+        The search rewards candidate attack vectors that are both *reachable*
+        from the current system state (low distance) and *novel* with respect
+        to a catalogue of already-known vulnerability signatures (high distance
+        from the nearest known signature). Convergence therefore favors genuinely
+        unexplored surfaces rather than rediscovering catalogued CVEs.
 
         Args:
-            system_state: Current system state vector
-            known_vulnerabilities: List of known CVEs to avoid
+            system_state: Current system state vector. Candidate vectors are
+                scored on their proximity to ``system_state[:len(vector)]``.
+            known_vulnerabilities: Optional signatures of already-catalogued
+                vulnerabilities, as a list of 1-D arrays or a 2-D array (one
+                signature per row). Candidates near any known signature are
+                penalised so the search is steered toward novel surfaces. When
+                ``None`` or empty, the search reduces to pure reachability
+                (identical to the un-catalogued behaviour).
 
         Returns:
-            Zero-day risk assessment with potential attack vectors
+            Zero-day risk assessment with potential attack vectors. The abstract
+            vectors are state-space summaries for triage only; they are not
+            executable exploits.
         """
+        # Cap on the novelty reward so a distant-but-irrelevant candidate cannot
+        # dominate the reachability term; keeps the two signals comparable.
+        novelty_cap = 25.0
+
+        known_list: list[np.ndarray[Any, Any]] = []
+        if known_vulnerabilities is not None:
+            rows: Any = (
+                known_vulnerabilities
+                if isinstance(known_vulnerabilities, (list, tuple))
+                else np.atleast_2d(np.asarray(known_vulnerabilities, dtype=float))
+            )
+            for sig in rows:
+                arr = np.asarray(sig, dtype=float).ravel()
+                if arr.size:
+                    known_list.append(arr)
 
         def attack_fitness(attack_vector: np.ndarray[Any, Any]) -> float:
-            distance = np.linalg.norm(attack_vector - system_state[: len(attack_vector)])
-            return float(-distance + 100.0)
+            n = len(attack_vector)
+            reachability = -float(np.linalg.norm(attack_vector - system_state[:n]))
+            novelty_bonus = 0.0
+            if known_list:
+                nearest = min(
+                    float(np.linalg.norm(attack_vector[: min(n, kv.size)] - kv[: min(n, kv.size)]))
+                    for kv in known_list
+                )
+                novelty_bonus = min(nearest, novelty_cap)
+            return float(reachability + novelty_bonus + 100.0)
 
         converged = self.multiverse.converge_multiverse(attack_fitness)
 
@@ -235,6 +276,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
             "potential_attack_vectors": attack_vectors,
             "universes_explored": report["total_universes"],
             "convergence_achieved": report["convergence_achieved"],
+            "known_vulnerabilities_considered": len(known_list),
             "recommendations": self._generate_zero_day_recommendations(zero_day_risk),
         }
 

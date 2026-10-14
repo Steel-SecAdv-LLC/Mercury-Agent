@@ -915,6 +915,7 @@ class OmniFusionModel(nn.Module):
         lambda_lyapunov: float = 0.25,
         use_synthetic_gradients: bool = True,
         use_amav: bool = True,
+        use_dtp: bool = True,
         use_focal_loss: bool = False,
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
@@ -941,6 +942,15 @@ class OmniFusionModel(nn.Module):
             lambda_lyapunov: Lyapunov stability parameter (default: 0.25)
             use_synthetic_gradients: Enable synthetic gradient prediction
             use_amav: Enable auxiliary max-variance for multi-task
+            use_dtp: Run the Difference-Target-Propagation invertibility
+                diagnostic on a snapshot of the anomaly head's first linear
+                projection. This trains an auxiliary inverse map against real
+                activations captured during training and records, per log
+                interval, the normalized round-trip reconstruction error
+                (fraction of activation variance not recovered; 0.0 is perfect,
+                ~1.0 is no better than the mean). It is a measurement only: it
+                operates on a cloned layer and never mutates the trained
+                model's weights.
             use_focal_loss: Enable focal loss for severe class imbalance
             focal_alpha: Alpha parameter for focal loss (weight for positive class)
             focal_gamma: Gamma parameter for focal loss (focus on hard examples)
@@ -959,6 +969,7 @@ class OmniFusionModel(nn.Module):
         """
         from omni_mercury_engine.ml.optimizers import (
             AuxiliaryMaxVariance,
+            DifferenceTargetPropagation,
             SyntheticGradientPredictor,
             estimate_convergence_rate,
         )
@@ -979,6 +990,33 @@ class OmniFusionModel(nn.Module):
         amav = None
         if use_amav:
             amav = AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
+
+        # DTP invertibility diagnostic. Operates on a *clone* of the anomaly
+        # head's first linear projection so the trained model is never mutated;
+        # a forward hook captures real output activations and the auxiliary
+        # inverse is trained to round-trip them at each log interval.
+        dtp = None
+        dtp_reconstruction: list[float] = []
+        dtp_capture: dict[str, torch.Tensor] = {}
+        dtp_handle = None
+        if use_dtp:
+            diag_linears = [m for m in self.anomaly_head.modules() if isinstance(m, nn.Linear)]
+            if diag_linears:
+                diag_layer = diag_linears[0]
+                # Diagnostic runs on CPU to match the auto-created inverse layer;
+                # load_state_dict copies the live weights cross-device as needed.
+                dtp_forward = nn.Linear(diag_layer.in_features, diag_layer.out_features)
+                dtp_forward.load_state_dict(diag_layer.state_dict())
+                dtp = DifferenceTargetPropagation(forward_layer=dtp_forward)
+
+                def _dtp_hook(
+                    _module: nn.Module,
+                    _inputs: tuple[torch.Tensor, ...],
+                    output: torch.Tensor,
+                ) -> None:
+                    dtp_capture["output"] = output.detach()
+
+                dtp_handle = diag_layer.register_forward_hook(_dtp_hook)
 
         # Initialize focal loss if requested
         focal_loss_fn = None
@@ -1128,6 +1166,27 @@ class OmniFusionModel(nn.Module):
                     f"lyapunov_v={lyapunov_values[-1]:.4f}"
                 )
 
+                if dtp is not None and "output" in dtp_capture:
+                    # Fit the auxiliary inverse to the real captured activations
+                    # and record the *normalized* round-trip error: the fraction
+                    # of activation variance the forward-inverse pair fails to
+                    # recover. Normalizing makes the metric scale-free, so it
+                    # reflects invertibility rather than the (growing) magnitude
+                    # of activations as training proceeds. 0.0 == perfect
+                    # round-trip; ~1.0 == no better than predicting the mean.
+                    y_cpu = dtp_capture["output"].detach().cpu()
+                    y_np = y_cpu.numpy()
+                    for _ in range(20):
+                        dtp.backward_pass(y_np, y_np)
+                    with torch.no_grad():
+                        recon = dtp.forward_layer(dtp.inverse_layer(y_cpu))
+                        num = float(nn.functional.mse_loss(recon, y_cpu).item())
+                        denom = float(y_cpu.var(unbiased=False).item()) + 1e-8
+                        dtp_reconstruction.append(num / denom)
+
+        if dtp_handle is not None:
+            dtp_handle.remove()
+
         import numpy as np
 
         loss_array = np.array(loss_history)
@@ -1166,6 +1225,7 @@ class OmniFusionModel(nn.Module):
                 else None
             ),
             "label_smoothing": label_smoothing,
+            "dtp_reconstruction": dtp_reconstruction if use_dtp else None,
         }
 
 

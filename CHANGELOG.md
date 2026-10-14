@@ -27,36 +27,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Pre-merge end-to-end sweep: dead API surface cured, one real wiring fix, quickstart renamed (branch `steel/version-cov4`)
+### Pre-merge end-to-end sweep: every ignored parameter wired to real, tested behavior; quickstart renamed (branch `steel/version-cov4`)
 
 **Renamed** `examples/maritime_quickstart.py` → `examples/mercury_quickstart.py`
 (it is the product's front door, not a niche demo); README, the Examples
 Parity lane and its deterministic-AUC pin follow.
 
-**Removed — parameters that promised behavior the code never had.** A
-whole-tree dead-code sweep (vulture, 100 %-confidence findings, each
-verified by hand) found accepted-and-documented parameters that no code
-path ever read. Each is removed so the API states what the implementation
-does: `use_dtp` in `OmniFusionModel.train_with_optimizers` (defaulted
-True, "enable difference target propagation", never read — the DTP class
-is a standalone layer-local trainer that was never integrated; the no-op
-toggle test asserting nothing is deleted with it), `actual_score` in
-`LearnableGOSNN.learn_from_feedback`, `enable_age_progression` in
-`OmniMercuryEngine.detect_biometric`, `quality_mask` in
-`GaborEnhancer.enhance`, `known_vulnerabilities` in
-`ZeroDaySimulator.simulate_zero_day`, `expected_period` in
-`tidal_pattern_detection`, `score_function` / `return_samples` in the
-uncertainty API, `treatment_idx` in the private simplified Rosenbaum
-helper, `num_specialties` in `MultiSpecialtyNeuralNet` (the ABMSBoard
-enum is the single source of truth for the 24 heads) and `input_length`
-in the cardiology ECG net (the conv/LSTM stack is length-agnostic).
-Tests that merely asserted the dead parameters were *accepted* are
-updated to the honest signatures.
+**Wired — every accepted-but-ignored parameter now carries real behavior,
+with behavioral tests (hand-computed values and direction/magnitude
+properties, not mere acceptance).** A whole-tree sweep (vulture,
+100 %-confidence findings, each verified by hand) found
+accepted-and-documented parameters that no code path read. Rather than
+strip the API down, each is implemented so the surface does what it says:
 
-**Wired — `SchumannHarmonicAnalyzer.spectrum_size`.** The constructor
-accepted a spectrum size but the detector sliced a hardcoded
-``[:512]``; the analyzer now stores the size and the detector slices by
-it — one source of truth.
+- `score_function` / `return_samples` (uncertainty): the prediction
+  interval becomes the conformal set `{y : s(y) <= q}`, inverted by
+  geometric expansion then bisection (recovers exact asymmetric
+  boundaries a half-width cannot express); the raw MC/ensemble sample
+  stack is attached as a defensive copy when requested.
+- `expected_period` (`tidal_pattern_detection`): closed-form harmonic
+  least squares `a cos + b sin + c` at the known constituent, reporting
+  amplitude / phase / R² / period-deviation (recovers a known sinusoid to
+  R² ≈ 1; an off-frequency fit explains ~none of the variance).
+- `quality_mask` (`GaborEnhancer.enhance`): per-block quality-weighted
+  blend `q*filtered + (1-q)*original` (`q=1` ≡ unmasked, `q=0` ≡ the
+  normalised input — the standard guard against hallucinating ridges).
+- `input_length` (cardiology ECG net): the contracted window every input
+  is resampled to along the time axis, keeping the net's genuine
+  variable-length acceptance while making the pooled timebase consistent;
+  `num_leads` is the structural channel contract.
+- `actual_score` (`LearnableGOSNN.learn_from_feedback`): error-proportional
+  update scaling the loss by `min(1 + |target - actual|, 10)`.
+- `treatment_idx` (causal sensitivity helper): the VanderWeele–Ding
+  E-value with a treatment-conditional pooled outcome SD, capped at 3.0
+  for the consumer's calibrated probability range.
+- `use_dtp` (`OmniFusionModel.train_with_optimizers`): a
+  Difference-Target-Propagation invertibility diagnostic on a clone of the
+  anomaly head's first projection, recording a scale-free normalised
+  round-trip reconstruction error per log interval — a measurement that
+  never mutates the trained model.
+- `known_vulnerabilities` (`simulate_zero_day`): a novelty term that steers
+  the search toward reachable-but-uncatalogued surfaces instead of
+  rediscovering catalogued signatures.
+- `patient_state` (`optimize_treatment`) and `signal_characteristics`
+  (`explore_contact_protocols`): inputs the fitness functions previously
+  ignored now condition them — patient risk burden weights the safety
+  term for frailer patients, and SNR / bandwidth / periodicity weight
+  error-correction / throughput / universality.
+
+**Also wired — `SchumannHarmonicAnalyzer.spectrum_size`** (from the prior
+sweep): the constructor accepted a spectrum size but the detector sliced a
+hardcoded `[:512]`; it now slices by the stored size.
+
+Deliberately still removed: `enable_age_progression` in
+`OmniMercuryEngine.detect_biometric`. The two-image path in
+`BiometricAnomalyModel.predict` does not actually compare reference to
+test (the `test` key is dropped and the `match_score` the docstring
+promises is never produced), so there is no match for age progression to
+improve. Wiring it means building cross-age face verification — a
+capability decision flagged for the maintainer, not defaulted on.
+`num_specialties` in `MultiSpecialtyNeuralNet` also stays removed: the
+ABMSBoard enum is the single source of truth for the 24 heads, so it was a
+correct redundancy removal, not a dead promise.
 
 Kept deliberately (flagged by the sweep, correct on inspection):
 ``__exit__(exc_type, exc_val, exc_tb)`` protocol signatures, the

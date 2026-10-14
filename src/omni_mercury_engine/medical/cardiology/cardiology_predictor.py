@@ -94,9 +94,28 @@ class ECGRhythmAnalyzer(nn.Module):
     and MIT-BIH research.
     """
 
-    def __init__(self, num_leads: int = 12, num_classes: int = 13) -> None:
-        """Initialize the instance."""
+    def __init__(
+        self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13
+    ) -> None:
+        """Initialize the instance.
+
+        Args:
+            input_length: Contracted ECG window length (samples per lead).
+                ``forward`` resamples any input to this length along the time
+                axis, so the conv/pool stack always sees the timebase the net
+                was dimensioned for regardless of the upstream window size.
+            num_leads: ECG leads (input channels).
+            num_classes: Rhythm classes.
+        """
         super().__init__()
+
+        if input_length < 8:
+            raise ValueError(
+                f"input_length {input_length} < 8: three MaxPool1d(2) stages "
+                "leave the LSTM no timesteps"
+            )
+        self.input_length = int(input_length)
+        self.num_leads = int(num_leads)
 
         # Fail-closed: random weights until real trained weights are loaded.
         self.is_fitted: bool = False
@@ -137,12 +156,32 @@ class ECGRhythmAnalyzer(nn.Module):
     def forward(self, ecg_signal: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass for ECG analysis.
 
+        The time axis is resampled to the contracted ``input_length`` so the
+        conv/pool stack always sees the window the net was dimensioned for; the
+        lead (channel) count is structural and must match ``num_leads`` exactly.
+
         Args:
-            ecg_signal: ECG tensor (batch, leads, time_steps)
+            ecg_signal: ECG tensor ``(batch, leads, time_steps)``. ``time_steps``
+                may differ from ``input_length`` (it is resampled); ``leads``
+                must equal ``num_leads``.
 
         Returns:
             Tuple of (rhythm_classification, attention_weights)
+
+        Raises:
+            ValueError: lead count does not match ``num_leads``.
         """
+        if ecg_signal.shape[-2] != self.num_leads:
+            raise ValueError(
+                f"ECG tensor has {ecg_signal.shape[-2]} leads; this net is "
+                f"contracted for {self.num_leads} leads — check upstream montage"
+            )
+        if ecg_signal.shape[-1] != self.input_length:
+            # Normalise any window to the contracted length so the pooled
+            # timebase is consistent (linear interpolation along the time axis).
+            ecg_signal = torch.nn.functional.interpolate(
+                ecg_signal, size=self.input_length, mode="linear", align_corners=False
+            )
         conv_features = self.conv_layers(ecg_signal)
 
         lstm_input = conv_features.permute(0, 2, 1)

@@ -348,6 +348,19 @@ class BioSignalPatternRecognizer:
         return recs
 
 
+def _clip01(signal_characteristics: dict[str, Any], key: str, default: float = 0.5) -> float:
+    """Read a signal characteristic and clip it to ``[0, 1]``.
+
+    Values are expected already normalised to ``[0, 1]``; out-of-range or
+    non-numeric entries are clipped or replaced with ``default`` so a missing
+    characteristic leaves the corresponding fitness weight neutral.
+    """
+    value = signal_characteristics.get(key) if isinstance(signal_characteristics, dict) else None
+    if isinstance(value, (int, float)) and np.isfinite(value):
+        return float(np.clip(value, 0.0, 1.0))
+    return default
+
+
 class MultiverseContactProtocolExplorer:
     """Multiverse-based exploration of contact protocols.
 
@@ -371,11 +384,22 @@ class MultiverseContactProtocolExplorer:
         Returns:
             Optimal contact protocol strategies
         """
+        # Condition the fitness weights on the observed signal: a wider band
+        # rewards raw throughput, a noisier channel (low SNR) rewards error
+        # correction, and a more periodic (structured) carrier rewards a more
+        # universal encoding. A missing characteristic leaves its weight neutral.
+        snr = _clip01(signal_characteristics, "snr")
+        bandwidth = _clip01(signal_characteristics, "bandwidth")
+        periodicity = _clip01(signal_characteristics, "periodicity")
+
+        info_weight = 0.5 + bandwidth
+        ecc_weight = 0.5 + (1.0 - snr)
+        universality_weight = 0.5 + periodicity
 
         def protocol_fitness(protocol_vector: np.ndarray[Any, Any]) -> float:
-            info_transfer = np.mean(protocol_vector[:32])
-            error_correction = np.std(protocol_vector[32:64])
-            universality = -np.var(protocol_vector[64:96])
+            info_transfer = np.mean(protocol_vector[:32]) * info_weight
+            error_correction = np.std(protocol_vector[32:64]) * ecc_weight
+            universality = -np.var(protocol_vector[64:96]) * universality_weight
 
             return float(info_transfer + error_correction + universality)
 
@@ -403,6 +427,11 @@ class MultiverseContactProtocolExplorer:
             "optimal_protocols": protocol_candidates,
             "protocols_explored": len(self.multiverse.universes),
             "convergence_achieved": converged.fitness > 0.9,
+            "signal_conditioning": {
+                "info_weight": info_weight,
+                "ecc_weight": ecc_weight,
+                "universality_weight": universality_weight,
+            },
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }
 
