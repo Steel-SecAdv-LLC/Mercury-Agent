@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img width="959" height="223" alt="Mercury Agent banner" src="https://github.com/user-attachments/assets/0f654715-42fb-4a29-9554-19011e23dc6a" />
+  <img width="957" height="205" alt="image" src="https://github.com/user-attachments/assets/00956c72-ed69-4814-8883-dd0942892737" />
 
 </div>
 
@@ -2506,7 +2506,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
-<img width="91" height="96" alt="Mercury Agent icon" src="https://github.com/user-attachments/assets/4c1d5a43-a547-4c76-8db8-7b045113c906" />
+<img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
 *Last updated: 2026-07-24*
 
