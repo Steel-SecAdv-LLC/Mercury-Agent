@@ -2207,16 +2207,22 @@ from omni_mercury_engine.integrations.cross_platform_hub import (
 )
 
 hub = CrossPlatformHub()
-hub.register_platform(PlatformConfig(
-    platform_type=PlatformType.PROMETHEUS,
-    name="prometheus-main",
-    endpoint="http://prometheus:9090"
+hub.register_platform("soc-splunk", PlatformConfig(
+    platform_type=PlatformType.SPLUNK,       # HEC /services/collector/event
+    name="soc-splunk",
+    endpoint="https://splunk.example.org:8088",
+    auth_type="api_key",                      # sent as "Authorization: Splunk <token>"
+    credentials={"api_key": hec_token},
 ))
-
-# Ingest and correlate across platforms
-await hub.ingest_from_all()
-correlations = hub.correlate_events(window_seconds=300)
+await hub.publish_detection_result(detector.detect(batch), source="security:ids")
+groups = hub.get_correlated_events(time_window_seconds=300, min_correlation=0.8)
 ```
+
+Each platform is spoken natively (Splunk HEC, Datadog `/api/v1/series`,
+Elastic/OpenSearch `_doc`/`_bulk`, a merged Prometheus push, OTLP). The API
+server forwards every anomalous detection automatically when
+`MERCURY_ALERT_SINKS` is set, TLP-gated per sink (see
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#siem--observability-alert-egress)).
 
 </details>
 

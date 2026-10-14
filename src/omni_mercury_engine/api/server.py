@@ -228,6 +228,9 @@ async def _warmup(app_instance: FastAPI) -> None:
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     """ASGI lifespan handler: warmup + maintenance on startup, cleanup on stop.
 
+    On stop, in-flight SIEM alerts (:mod:`omni_mercury_engine.api.alert_egress`)
+    are awaited and the alert sinks closed.
+
     The maintenance task (see :mod:`omni_mercury_engine.api.maintenance`)
     prunes expired sessions/tokens, aged usage-ledger rows, and stale
     rate-limit state, and applies the TOTP sealing migration — once at
@@ -243,6 +246,9 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     finally:
         if maintenance_task is not None:
             maintenance_task.cancel()
+        from omni_mercury_engine.api.alert_egress import shutdown_alert_egress
+
+        await shutdown_alert_egress()
 
 
 # Initialize FastAPI application with comprehensive OpenAPI configuration

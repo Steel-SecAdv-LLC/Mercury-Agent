@@ -303,7 +303,7 @@ async def record_detection(
     sensitivity: float = 0.5,
     metadata: dict[str, Any] | None = None,
 ) -> None:
-    """Record a detection for historical tracking."""
+    """Record a detection for historical tracking and alert egress."""
     store = get_data_store()
 
     data_hash = hashlib.sha3_256(json.dumps(data, default=str).encode()).hexdigest()[:16]
@@ -327,6 +327,12 @@ async def record_detection(
     )
 
     await store.add_detection(record)
+
+    # Fire-and-forget SIEM / observability alert (MERCURY_ALERT_SINKS);
+    # never blocks or fails the detection request.
+    from omni_mercury_engine.api.alert_egress import schedule_alert
+
+    schedule_alert(record)
 
 
 async def record_audit_log(

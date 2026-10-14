@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -70,6 +72,7 @@ class PlatformType(StrEnum):
     INFLUXDB = "influxdb"
     GRAFANA = "grafana"
     OPENSEARCH = "opensearch"
+    OPENTELEMETRY = "opentelemetry"
     CUSTOM = "custom"
 
 
@@ -193,14 +196,82 @@ class AnomalyEvent:
         )
 
 
+_PROM_METRIC_INVALID = re.compile(r"[^a-zA-Z0-9_:]")
+_PROM_LABEL_INVALID = re.compile(r"[^a-zA-Z0-9_]")
+
+
+def _prom_metric_name(name: str) -> str:
+    """Sanitise a Prometheus metric name (``[a-zA-Z_:][a-zA-Z0-9_:]*``)."""
+    cleaned = _PROM_METRIC_INVALID.sub("_", name)
+    return cleaned if cleaned and not cleaned[0].isdigit() else f"_{cleaned}"
+
+
+def _prom_label_name(name: str) -> str:
+    """Sanitise a Prometheus label name (``[a-zA-Z_][a-zA-Z0-9_]*``, no ``__``)."""
+    cleaned = _PROM_LABEL_INVALID.sub("_", name) or "label"
+    while cleaned.startswith("__"):  # the "__" prefix is reserved
+        cleaned = cleaned[1:]
+    return f"_{cleaned}" if cleaned[0].isdigit() else cleaned
+
+
+def _prom_label_value(value: Any) -> str:
+    """Escape a label value per the text exposition format."""
+    return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def merge_prometheus_exposition(blocks: list[str]) -> str:
+    """Merge per-event exposition blocks into one valid push payload.
+
+    Concatenating blocks repeats ``# HELP`` / ``# TYPE`` lines and identical
+    series, which the pushgateway rejects. The merge keeps the first
+    HELP/TYPE per family, keeps the LAST sample per series (name + label
+    set), and emits every family's samples contiguously.
+    """
+    meta: dict[str, list[str]] = {}
+    samples: dict[str, dict[str, str]] = {}
+    order: list[str] = []
+    for block in blocks:
+        for raw in block.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                parts = line.split(None, 3)
+                if len(parts) >= 3 and parts[1] in ("HELP", "TYPE"):
+                    family = parts[2]
+                    kinds = [m.split(None, 2)[1] for m in meta.get(family, [])]
+                    if parts[1] not in kinds:
+                        meta.setdefault(family, []).append(line)
+                    if family not in samples:
+                        samples[family] = {}
+                        order.append(family)
+                continue
+            series, _, value = line.rpartition(" ")
+            family = series.split("{", 1)[0]
+            if family not in samples:
+                samples[family] = {}
+                order.append(family)
+            samples[family][series] = value
+    out: list[str] = []
+    for family in order:
+        out.extend(sorted(meta.get(family, []), key=lambda m: m.split(None, 2)[1] != "HELP"))
+        out.extend(f"{series} {value}" for series, value in samples[family].items())
+    return "\n".join(out) + "\n"
+
+
 class DataTransformer:
     """Transform data between different formats."""
 
     @staticmethod
     def to_prometheus(event: AnomalyEvent) -> str:
-        """Convert anomaly event to Prometheus metrics format."""
+        """Convert anomaly event to Prometheus metrics format.
+
+        Label names are sanitised and values escaped; custom metric names
+        are sanitised. Merge several events with
+        :func:`merge_prometheus_exposition` before pushing.
+        """
         labels = ",".join(
-            f'{k}="{v}"'
+            f'{_prom_label_name(k)}="{_prom_label_value(v)}"'
             for k, v in {
                 "source": event.source,
                 "severity": event.severity,
@@ -223,8 +294,8 @@ class DataTransformer:
 
         # Add custom metrics
         for metric_name, metric_value in event.metrics.items():
-            safe_name = metric_name.replace(".", "_").replace("-", "_")
-            lines.append(f"mercury_{safe_name}{{{labels}}} {metric_value}")
+            safe_name = _prom_metric_name(f"mercury_{metric_name}")
+            lines.append(f"{safe_name}{{{labels}}} {metric_value}")
 
         return "\n".join(lines)
 
@@ -293,11 +364,15 @@ class DataTransformer:
                 "kind": "alert" if event.is_anomaly else "metric",
                 "category": ["anomaly_detection"],
                 "type": ["indicator"],
-                "severity": {"name": event.severity, "score": int(event.score * 100)},
+                # ECS: event.severity is a number (long); the name goes in
+                # mercury.severity so the mapping never conflicts.
+                "severity": round(float(event.score) * 100),
+                "risk_score": float(event.score * 100),
             },
             "source": {"component": event.source},
             "mercury": {
                 "score": event.score,
+                "severity": event.severity,
                 "is_anomaly": event.is_anomaly,
                 "detector_type": event.detector_type,
                 "confidence": event.confidence,
@@ -309,9 +384,16 @@ class DataTransformer:
         }
 
     @staticmethod
-    def to_splunk(event: AnomalyEvent) -> dict[str, Any]:
-        """Convert anomaly event to Splunk HEC format."""
-        return {
+    def to_splunk(
+        event: AnomalyEvent, index: str | None = None, sourcetype: str = "mercury:anomaly"
+    ) -> dict[str, Any]:
+        """Convert anomaly event to Splunk HEC format.
+
+        ``index`` is included only when given: HEC tokens are commonly
+        restricted to specific indexes, and a hard-coded ``main`` is
+        rejected by such tokens.
+        """
+        payload: dict[str, Any] = {
             "time": event.timestamp.timestamp(),
             "event": {
                 "event_id": event.event_id,
@@ -325,10 +407,12 @@ class DataTransformer:
                 **event.metrics,
             },
             "source": event.source,
-            "sourcetype": "mercury:anomaly",
-            "index": "main",
-            "fields": event.labels,
+            "sourcetype": sourcetype,
+            "fields": {k: str(v) for k, v in event.labels.items()},
         }
+        if index:
+            payload["index"] = index
+        return payload
 
     @staticmethod
     def to_datadog(event: AnomalyEvent) -> dict[str, Any]:
@@ -428,13 +512,91 @@ class PlatformAdapter(ABC):
         return self._last_error
 
 
+#: Platform-native ingest paths: (single event, batch, health probe).
+_SPLUNK_PATHS: tuple[str, str, str] = (
+    "/services/collector/event",
+    "/services/collector/event",
+    "/services/collector/health",
+)
+_DATADOG_PATHS: tuple[str, str, str] = ("/api/v1/series", "/api/v1/series", "/api/v1/validate")
+_GENERIC_PATHS: tuple[str, str, str] = ("/api/events", "/api/events/batch", "/health")
+
+
 class HTTPPlatformAdapter(PlatformAdapter):
-    """Generic HTTP-based platform adapter."""
+    """HTTP platform adapter speaking each platform's native ingest API.
+
+    * Splunk: HEC ``/services/collector/event`` with ``Authorization:
+      Splunk <token>``; a batch is newline-separated HEC events in one POST.
+    * Datadog: ``/api/v1/series`` with the ``DD-API-KEY`` header; a batch is
+      one ``series`` list.
+    * Elastic / OpenSearch: ``/<index>/_doc`` (batch: ``/_bulk`` NDJSON,
+      per-item errors counted) with ``Authorization: ApiKey`` or Basic.
+    * Anything else: the generic ``/api/events`` (+ ``/batch``) receiver
+      contract with Bearer auth.
+
+    ``config.metadata`` may set ``index`` (Splunk / Elastic) and
+    ``sourcetype`` (Splunk).
+    """
 
     def __init__(self, config: PlatformConfig):
         """Initialize the instance."""
         super().__init__(config)
         self._session: Any = None
+
+    @property
+    def _is_elastic(self) -> bool:
+        return self.config.platform_type in (PlatformType.ELASTIC, PlatformType.OPENSEARCH)
+
+    def _paths(self) -> tuple[str, str, str]:
+        """(single event, batch, health) paths for the configured platform."""
+        if self.config.platform_type == PlatformType.SPLUNK:
+            return _SPLUNK_PATHS
+        if self.config.platform_type == PlatformType.DATADOG:
+            return _DATADOG_PATHS
+        if self._is_elastic:
+            index = str(self.config.metadata.get("index", "mercury-anomalies"))
+            return (f"/{index}/_doc", "/_bulk", "/")
+        return _GENERIC_PATHS
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Platform-native authentication headers."""
+        creds = self.config.credentials
+        if self.config.auth_type == "basic":
+            import base64
+
+            token = f"{creds.get('username', '')}:{creds.get('password', '')}"
+            return {"Authorization": f"Basic {base64.b64encode(token.encode()).decode()}"}
+        if self.config.auth_type != "api_key":
+            return {}
+        api_key = creds.get("api_key", "")
+        if self.config.platform_type == PlatformType.SPLUNK:
+            return {"Authorization": f"Splunk {api_key}"}
+        if self.config.platform_type == PlatformType.DATADOG:
+            headers = {"DD-API-KEY": api_key}
+            if creds.get("app_key"):
+                headers["DD-APPLICATION-KEY"] = creds["app_key"]
+            return headers
+        if self._is_elastic:
+            return {"Authorization": f"ApiKey {api_key}"}
+        return {"Authorization": f"Bearer {api_key}"}
+
+    def _batch_body(self, events: list[AnomalyEvent]) -> tuple[bytes, str]:
+        """Encode a batch in the platform's native batch format."""
+        if self.config.platform_type == PlatformType.SPLUNK:
+            body = "\n".join(json.dumps(self._transform_event(e), default=str) for e in events)
+            return body.encode(), "application/json"
+        if self.config.platform_type == PlatformType.DATADOG:
+            series = [s for e in events for s in DataTransformer.to_datadog(e)["series"]]
+            return json.dumps({"series": series}, default=str).encode(), "application/json"
+        if self._is_elastic:
+            index = str(self.config.metadata.get("index", "mercury-anomalies"))
+            lines: list[str] = []
+            for e in events:
+                lines.append(json.dumps({"index": {"_index": index}}))
+                lines.append(json.dumps(self._transform_event(e), default=str))
+            return ("\n".join(lines) + "\n").encode(), "application/x-ndjson"
+        payload = {"events": [self._transform_event(e) for e in events]}
+        return json.dumps(payload, default=str).encode(), "application/json"
 
     async def connect(self) -> bool:
         """Establish HTTP session.
@@ -454,19 +616,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
             timeout = aiohttp.ClientTimeout(total=self.config.timeout_seconds)
 
-            headers = dict(self.config.headers)
-
-            # Add authentication headers
-            if self.config.auth_type == "api_key":
-                api_key = self.config.credentials.get("api_key", "")
-                headers["Authorization"] = f"Bearer {api_key}"
-            elif self.config.auth_type == "basic":
-                import base64
-
-                username = self.config.credentials.get("username", "")
-                password = self.config.credentials.get("password", "")
-                encoded = base64.b64encode(f"{username}:{password}".encode()).decode()
-                headers["Authorization"] = f"Basic {encoded}"
+            headers = {**self.config.headers, **self._auth_headers()}
 
             self._session = aiohttp.ClientSession(
                 connector=connector,
@@ -474,9 +624,12 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 headers=headers,
             )
 
-            # Test connection
-            async with self._session.get(f"{self.config.endpoint}/health") as resp:
-                self._connected = resp.status in (200, 404)  # 404 is ok if no health endpoint
+            # Test connection against the platform's own health/validate
+            # endpoint; only the generic receiver may lack one (404).
+            healthy = (200, 404) if self._paths() == _GENERIC_PATHS else (200,)
+            health_path = self._paths()[2]
+            async with self._session.get(f"{self.config.endpoint}{health_path}") as resp:
+                self._connected = resp.status in healthy
 
         except ImportError:
             # This adapter's only transport IS aiohttp — there is no fallback.
@@ -511,11 +664,16 @@ class HTTPPlatformAdapter(PlatformAdapter):
             await self.connect()
 
         try:
-            data = self._transform_event(event)
+            if self.config.platform_type == PlatformType.DATADOG:
+                body, content_type = self._batch_body([event])
+            else:
+                body = json.dumps(self._transform_event(event), default=str).encode()
+                content_type = "application/json"
 
             async with self._session.post(
-                f"{self.config.endpoint}/api/events",
-                json=data,
+                f"{self.config.endpoint}{self._paths()[0]}",
+                data=body,
+                headers={"Content-Type": content_type},
             ) as resp:
                 return resp.status in (200, 201, 202)
 
@@ -530,16 +688,25 @@ class HTTPPlatformAdapter(PlatformAdapter):
         if not self._session:
             await self.connect()
 
+        if not events:
+            return 0
         try:
-            data = [self._transform_event(e) for e in events]
+            body, content_type = self._batch_body(events)
 
             async with self._session.post(
-                f"{self.config.endpoint}/api/events/batch",
-                json={"events": data},
+                f"{self.config.endpoint}{self._paths()[1]}",
+                data=body,
+                headers={"Content-Type": content_type},
             ) as resp:
-                if resp.status in (200, 201, 202):
-                    return len(events)
-                return 0
+                if resp.status not in (200, 201, 202):
+                    return 0
+                if self._is_elastic:
+                    # _bulk answers 200 even when items fail; count successes.
+                    result = await resp.json()
+                    items = result.get("items", [])
+                    failed = sum(1 for item in items if next(iter(item.values())).get("error"))
+                    return len(events) - failed
+                return len(events)
 
         except Exception as e:
             self._last_error = str(e)
@@ -571,10 +738,14 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
     def _transform_event(self, event: AnomalyEvent) -> dict[str, Any]:
         """Transform event based on platform type."""
-        if self.config.platform_type == PlatformType.ELASTIC:
+        if self._is_elastic:
             return DataTransformer.to_elastic(event)
         elif self.config.platform_type == PlatformType.SPLUNK:
-            return DataTransformer.to_splunk(event)
+            index = self.config.metadata.get("index")
+            sourcetype = str(self.config.metadata.get("sourcetype", "mercury:anomaly"))
+            return DataTransformer.to_splunk(
+                event, index=str(index) if index else None, sourcetype=sourcetype
+            )
         elif self.config.platform_type == PlatformType.DATADOG:
             return DataTransformer.to_datadog(event)
         else:
@@ -654,14 +825,14 @@ class PrometheusAdapter(PlatformAdapter):
         try:
             import aiohttp
 
-            payload = "\n".join(self._metrics_buffer) + "\n"
+            payload = merge_prometheus_exposition(self._metrics_buffer)
 
             async with (
                 aiohttp.ClientSession() as session,
                 session.post(
                     f"{self.config.endpoint}/metrics/job/mercury_agent",
                     data=payload.encode(),
-                    headers={"Content-Type": "text/plain"},
+                    headers={"Content-Type": "text/plain; version=0.0.4"},
                 ) as resp,
             ):
                 success = resp.status in (200, 202)
@@ -670,9 +841,10 @@ class PrometheusAdapter(PlatformAdapter):
                 return success
 
         except ImportError:
-            logger.warning("aiohttp not installed")
-            self._metrics_buffer.clear()
-            return True
+            # Nothing was pushed: keep the metrics and report the failure
+            # (clearing them and returning True masked data loss as success).
+            logger.error("aiohttp not installed; Prometheus metrics were not pushed")
+            return False
         except Exception as e:
             self._last_error = str(e)
             logger.error(f"Failed to push metrics: {e}")
@@ -870,6 +1042,8 @@ class CrossPlatformHub:
             adapter = adapter_class(config)
         elif config.platform_type == PlatformType.PROMETHEUS:
             adapter = PrometheusAdapter(config)
+        elif config.platform_type == PlatformType.OPENTELEMETRY:
+            adapter = OpenTelemetryAdapter(config)
         elif config.protocol == ProtocolType.REST:
             adapter = HTTPPlatformAdapter(config)
         else:
@@ -938,28 +1112,28 @@ class CrossPlatformHub:
             # Publish to all if no routes defined
             target_platforms = list(self._adapters.keys())
 
-        results = {}
-        tasks = []
-
-        for platform_name in target_platforms:
-            adapter = self._adapters.get(platform_name)
-            if adapter:
-                tasks.append((platform_name, adapter.send_event(event)))
+        results: dict[str, bool] = {}
+        names = [name for name in target_platforms if name in self._adapters]
 
         from omni_mercury_engine.datasets.exceptions import OfflineModeError
 
-        for platform_name, task in tasks:
-            try:
-                results[platform_name] = await task
-            except OfflineModeError as e:
+        # Platforms are independent: send concurrently, isolate failures.
+        outcomes = await asyncio.gather(
+            *(self._adapters[name].send_event(event) for name in names),
+            return_exceptions=True,
+        )
+        for platform_name, outcome in zip(names, outcomes, strict=True):
+            if isinstance(outcome, OfflineModeError):
                 # Per-platform isolation is the hub's contract, but the
                 # air-gap refusal is recorded as such -- never as a generic
                 # publish failure.
-                logger.warning("Publish to %s suppressed: %s", platform_name, e)
+                logger.warning("Publish to %s suppressed: %s", platform_name, outcome)
                 results[platform_name] = False
-            except Exception as e:
-                logger.error(f"Failed to publish to {platform_name}: {e}")
+            elif isinstance(outcome, BaseException):
+                logger.error(f"Failed to publish to {platform_name}: {outcome}")
                 results[platform_name] = False
+            else:
+                results[platform_name] = bool(outcome)
 
         # Store for correlation
         if self.enable_correlation:
@@ -979,30 +1153,37 @@ class CrossPlatformHub:
 
         Args:
             events: List of anomaly events
-            platforms: Target platforms
+            platforms: Target platforms. ``None`` applies the routing rules
+                per event (as :meth:`publish_event` does), falling back to
+                every platform for an event no route matches.
 
         Returns:
             Dictionary of platform -> successful count
         """
-        target_platforms = platforms or list(self._adapters.keys())
-
-        results = {}
+        per_platform: dict[str, list[AnomalyEvent]] = {}
+        for event in events:
+            targets = platforms or self._match_routes(event.source) or list(self._adapters)
+            for name in targets:
+                if name in self._adapters:
+                    per_platform.setdefault(name, []).append(event)
 
         from omni_mercury_engine.datasets.exceptions import OfflineModeError
 
-        for platform_name in target_platforms:
-            adapter = self._adapters.get(platform_name)
-            if adapter:
-                try:
-                    count = await adapter.send_batch(events)
-                    results[platform_name] = count
-                except OfflineModeError as e:
-                    logger.warning("Batch publish to %s suppressed: %s", platform_name, e)
-                    results[platform_name] = 0
-                except Exception as e:
-                    logger.error(f"Failed batch publish to {platform_name}: {e}")
-                    results[platform_name] = 0
-
+        names = list(per_platform)
+        outcomes = await asyncio.gather(
+            *(self._adapters[name].send_batch(per_platform[name]) for name in names),
+            return_exceptions=True,
+        )
+        results: dict[str, int] = {}
+        for platform_name, outcome in zip(names, outcomes, strict=True):
+            if isinstance(outcome, OfflineModeError):
+                logger.warning("Batch publish to %s suppressed: %s", platform_name, outcome)
+                results[platform_name] = 0
+            elif isinstance(outcome, BaseException):
+                logger.error(f"Failed batch publish to {platform_name}: {outcome}")
+                results[platform_name] = 0
+            else:
+                results[platform_name] = int(outcome)
         return results
 
     async def publish_detection_result(
@@ -1072,39 +1253,48 @@ class CrossPlatformHub:
     ) -> list[list[AnomalyEvent]]:
         """Find correlated anomaly events within time window.
 
+        Two events correlate when they fall within ``time_window_seconds``
+        of each other AND the Jaccard similarity of their attribute sets
+        (source, detector type, severity, and every label / dimension
+        key=value) reaches ``min_correlation``. Each event joins the first
+        open group whose most recent member it correlates with.
+
         Args:
             time_window_seconds: Time window for correlation
-            min_correlation: Minimum correlation score
+            min_correlation: Minimum attribute similarity in ``[0, 1]``
 
         Returns:
-            List of correlated event groups
+            List of correlated event groups (two or more events each)
         """
         if not self._event_buffer:
             return []
 
-        # Group events by time proximity
+        def _attributes(event: AnomalyEvent) -> set[str]:
+            items = {
+                f"source={event.source}",
+                f"detector={event.detector_type}",
+                f"severity={event.severity}",
+            }
+            items.update(f"label:{k}={v}" for k, v in event.labels.items())
+            items.update(f"dim:{k}={v}" for k, v in event.dimensions.items())
+            return items
+
+        def _similarity(a: AnomalyEvent, b: AnomalyEvent) -> float:
+            sa, sb = _attributes(a), _attributes(b)
+            return len(sa & sb) / len(sa | sb)
+
         groups: list[list[AnomalyEvent]] = []
-        current_group: list[AnomalyEvent] = []
-
-        sorted_events = sorted(self._event_buffer, key=lambda e: e.timestamp)
-
-        for event in sorted_events:
-            if not current_group:
-                current_group.append(event)
+        for event in sorted(self._event_buffer, key=lambda e: e.timestamp):
+            for group in groups:
+                last = group[-1]
+                within = (event.timestamp - last.timestamp).total_seconds() <= time_window_seconds
+                if within and _similarity(event, last) >= min_correlation:
+                    group.append(event)
+                    break
             else:
-                time_diff = (event.timestamp - current_group[-1].timestamp).total_seconds()
+                groups.append([event])
 
-                if time_diff <= time_window_seconds:
-                    current_group.append(event)
-                else:
-                    if len(current_group) > 1:
-                        groups.append(current_group)
-                    current_group = [event]
-
-        if len(current_group) > 1:
-            groups.append(current_group)
-
-        return groups
+        return [group for group in groups if len(group) > 1]
 
     def get_platform_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all registered platforms."""
@@ -1135,12 +1325,9 @@ def create_default_hub() -> CrossPlatformHub:
     Returns:
         Configured CrossPlatformHub instance
     """
-    hub = CrossPlatformHub()
-
-    # Add default route (all events to all platforms)
-    hub.add_route("*", [])
-
-    return hub
+    # No routes: publish_event / publish_batch send every event to every
+    # registered platform until routes are added.
+    return CrossPlatformHub()
 
 
 # Exports
@@ -1157,4 +1344,5 @@ __all__ = [
     "PrometheusAdapter",
     "ProtocolType",
     "create_default_hub",
+    "merge_prometheus_exposition",
 ]

@@ -417,6 +417,28 @@ Recording/alerting rules live in `monitoring/prometheus/prometheus-rules.yaml`; 
 | `mercury_benevolence_floor` / `mercury_sigma_band_*` | drift from configured values | Gate configuration drift (exporter tool) |
 | `process_resident_memory_bytes` | > 4 GiB | Memory leak indicator |
 
+### SIEM / observability alert egress
+
+Set `MERCURY_ALERT_SINKS` to forward every detection that flagged an anomaly
+(fire-and-forget; a sink failure never fails the request) to Splunk HEC,
+Datadog, Elastic / OpenSearch, a Prometheus pushgateway, an OTLP collector or
+a generic HTTP receiver:
+
+```bash
+export SPLUNK_HEC_TOKEN=...   # secrets come from env vars, never the JSON
+export MERCURY_ALERT_SINKS='[
+  {"name": "soc", "platform": "splunk", "endpoint": "https://splunk:8088",
+   "auth_type": "api_key", "credentials_env": {"api_key": "SPLUNK_HEC_TOKEN"},
+   "index": "security", "max_tlp": "AMBER+STRICT", "min_score": 0.5}
+]'
+```
+
+Each alert carries the detection's TLP 2.0 colour (the export API's
+classification) and no user identifier. A sink receives only alerts at or
+below its `max_tlp` (default `AMBER+STRICT`, so `TLP:RED` is never forwarded
+automatically). Under `MERCURY_OFFLINE` non-loopback sinks are refused before
+any socket opens. A malformed value is logged once and disables egress.
+
 ---
 
 ## Secrets Management
