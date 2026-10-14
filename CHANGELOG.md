@@ -66,7 +66,25 @@ reference guard. Measured on the deterministic guard subset (seed 42):
 Lymphography back to 0.9836 / 0.8000 with every stream win intact
 (pendigits 0.8741 → 0.9905, glass 0.7681 → 0.8123, Ionosphere
 0.9414 → 0.9692); the guard reports PASS. A regression test pins the
-boundary on both sides. Also fixed: the two `[no-any-return]` errors (3.11
+boundary on both sides. The evidence path also drops non-finite report
+fields fail-honest (a caller-supplied NaN `threat_score` previously
+crashed `fuse_intelligence`; two regression tests).
+
+**Measured — headline benchmark regenerated on the unified detector.**
+The committed headline predated the kNN density stream entirely (its
+glass/pendigits values are the stream-off figures), so it understated the
+shipped detector. Regenerated on this branch's tree (75 attempted / 66
+reproducible / 53 genuine-label headline): mean ROC-AUC 0.8251 → 0.8544
+(+0.0293), median 0.8747 → 0.9095 (+0.0348), mean oracle F1
+0.5998 → 0.6433 (+0.0435). Per-dataset audit: the four sub-100-train sets
+the new gate turns the stream off for are flat-to-up (Lymphography exactly
+reproduces its committed 0.9836/0.8000); the largest gains are
+ADBench-19 +0.19, ADBench-33 +0.19, NAB +0.17, ADRepository +0.16,
+pendigits +0.13; the only >0.02 declines are on two manufactured-label
+datasets excluded from the headline. ADBench-46/47 remain the known
+sub-0.5 stragglers (both marginally improved). README "Latest Benchmark
+Results" synced via `scripts/update_readme_benchmarks.py`;
+`check_benchmark_integrity` and the anomaly regression guard both pass. Also fixed: the two `[no-any-return]` errors (3.11
 numpy stubs) that failed PR #376's Type Checking lane, in
 `tests/ml/test_covariance_and_psi_drift.py` and
 `tests/core/test_registry_feature_cache.py`.
