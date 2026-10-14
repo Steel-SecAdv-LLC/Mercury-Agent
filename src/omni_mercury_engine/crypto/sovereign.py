@@ -114,9 +114,7 @@ def _chacha20_xor(key: bytes, nonce: bytes, data: bytes, initial_counter: int) -
     for block_index in range(0, len(data), 64):
         keystream = _chacha20_block(key, initial_counter + block_index // 64, nonce)
         chunk = data[block_index : block_index + 64]
-        out[block_index : block_index + len(chunk)] = bytes(
-            x ^ y for x, y in zip(chunk, keystream)
-        )
+        out[block_index : block_index + len(chunk)] = bytes(x ^ y for x, y in zip(chunk, keystream))
     return bytes(out)
 
 
@@ -284,7 +282,7 @@ def _point_encode(point: _Point) -> bytes:
     x, y, z, _ = point
     z_inv = pow(z, _P - 2, _P)
     x, y = (x * z_inv) % _P, (y * z_inv) % _P
-    return ((y | ((x & 1) << 255)).to_bytes(32, "little"))
+    return (y | ((x & 1) << 255)).to_bytes(32, "little")
 
 
 def _point_decode(encoded: bytes) -> _Point | None:
@@ -341,9 +339,10 @@ def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     s = int.from_bytes(signature[32:], "little")
     if s >= _L:
         return False
-    k = int.from_bytes(
-        hashlib.sha512(signature[:32] + public_key + message).digest(), "little"
-    ) % _L
+    k = (
+        int.from_bytes(hashlib.sha512(signature[:32] + public_key + message).digest(), "little")
+        % _L
+    )
     left = _scalar_mult(s, _BASE)
     right = _edwards_add(r_point, _scalar_mult(k, a_point))
     return _point_encode(left) == _point_encode(right)

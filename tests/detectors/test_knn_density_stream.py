@@ -108,6 +108,7 @@ def test_live_reference_tracks_weight_changes() -> None:
     det._adaptive_weights = np.array([0.2, 0.2, 0.6])
     det.detect(test)
     assert det._knn_live_stats[0] != key_before
+    assert det._train_data is not None
     expected = det._robust_location_scale(det._ensemble_base_scores(det._train_data)[0])
     assert expected is not None
     assert det._knn_live_stats[1:] == pytest.approx(expected)

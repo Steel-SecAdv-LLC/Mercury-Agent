@@ -54,10 +54,7 @@ from omni_mercury_engine.compliance.tlp_handler import TLPColor
 
 if TYPE_CHECKING:
     from omni_mercury_engine.api.routes.export import DetectionRecord
-    from omni_mercury_engine.integrations.cross_platform_hub import (
-        AnomalyEvent,
-        CrossPlatformHub,
-    )
+    from omni_mercury_engine.integrations.cross_platform_hub import AnomalyEvent
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +175,7 @@ class AlertEgress:
         )
 
         self.sinks = list(sinks)
-        self.hub: CrossPlatformHub = CrossPlatformHub(enable_correlation=False)
+        self.hub = CrossPlatformHub(enable_correlation=False)
         for sink in self.sinks:
             credentials = {
                 key: os.environ.get(env_name, "") for key, env_name in sink.credentials_env.items()

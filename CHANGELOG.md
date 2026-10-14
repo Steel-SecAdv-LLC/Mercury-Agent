@@ -27,6 +27,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Unwired code brought into production; five defective modules removed (branch `steel/version-cov3`)
+
+Every orphaned module (no importer in production, CI, scripts, benchmarks or
+research) was read and vetted. What carried real value is now wired, fixed and
+measured; five modules whose output was wrong or fabricated are removed.
+
+**Removed:** `security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
+signs with, as quantum-vulnerable; scored SIKE/Rainbow as post-quantum),
+`truth_decipher` (hard-coded "true" ethics inputs; every case recorded as a
+success), `security/counterintelligence` (synthesised intelligence reports and
+casualty figures), `security/hive_firewall` (a false-positive report made it
+block *more*), `quantum_computing` (VQE fit discarded the data; chance AUROC).
+
+**Detection**
+- `StatisticalAnomalyDetector` fuses a kNN density stream (fit-time
+  referenced, single-row valid, leave-one-out reference): 24 ADBench sets x 3
+  seeds, mean AUROC 0.809 -> 0.837 (14 W / 3 L, Wilcoxon p = 0.004); held-out
+  false alarms 0.126 -> 0.084. `knn_stream=False` restores the old ensemble.
+- Labelled-path component weights are refined on the probability simplex
+  (Riemannian Adam): AUROC 0.764 -> 0.777 (p = 0.008), AP 0.385 -> 0.408.
+- Drone detector: a working single-row decision (the 0.70 blend gate was
+  unreachable; motor collapse, thermal and position faults produced no fault).
+  0 false alarms in 5,600 simulated ticks. Faults are attributed to the most
+  deviant telemetry group, rules are typed by field, and the detector is
+  registered (`drone`, new category `UAV`).
+- Registered: `lstm_autoencoder` (trained multivariate reconstruction; AUROC
+  0.851 vs 0.785 for the statistical tier, 0.94 on frequency changes) and
+  `realtime_threat` (kNN self-match fixed: false alarms 0.076 -> 0.051 at a
+  0.05 budget; training-referenced agreement).
+- `EnsembleDriftDetector` adds a covariance-structure test (SPD distance,
+  leave-window-out null). It catches correlation changes with unchanged
+  marginals in 100% of windows (0-2% before) at 0-2% false alarms. PSI uses
+  quantile bins plus a chi-squared gate: drift-free false alarms
+  100%/100%/52% -> 2%/1%/0% on 50/200/500-row windows.
+
+**Operations and compliance**
+- TLP 2.0 marking on every export (headers, per-record label, optional
+  envelope; audit logs AMBER+STRICT or stricter) and a TLP-marked report
+  endpoint. `contains_pii` now escalates AMBER *or weaker*.
+- SIEM / observability alert egress (`MERCURY_ALERT_SINKS`): Splunk HEC,
+  Datadog, Elastic/OpenSearch, Prometheus and OTLP spoken natively, gated per
+  sink by TLP colour.
+- W3C Trace Context propagation; trace ids on request logs and alerts.
+- GDPR Arts. 5-49 processing checklist (`compliance.gdpr_processing`) and the
+  `gdpr_processing_check` tool.
+- Fairness `POST_PROCESSING` via NSGA-II (equalized-odds gap 0.239 -> 0.015
+  on held-out data at lower error); a generic NSGA-II engine; spatial
+  autocorrelation (Moran's I / Geary's C with permutation tests) on
+  `SpatialAnomalyDetector` output.
+- `mercury-agent hazard-viz --format html` (self-contained Plotly page).
+- Opt-in registry feature cache, feeding the previously uncalled cache-hit
+  metrics.
+
+**Defects fixed along the way:** the flagship route could not serialise
+per-row arrays; `BetaCalibration` tied every score outside its fit range; the
+info-geometry OOD test scored the batch mean against a per-row threshold and
+refit its reference on the batch it scored; TranAD's trainer never trained
+`input_projection`; the GUI showed AUC -1.0 for perfect separation; and
+`ReportManager` HTML and reportlab input were unescaped.
+
 ### AMA Cryptography v5.0.0 migration + three red CI lanes fixed at root (branch `steel/version-cov3`)
 
 The pinned PQC backend moves v4.0.0 → v5.0.0 in lockstep across every pin

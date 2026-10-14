@@ -30,14 +30,29 @@ import numpy as np
 # The Art. 5-49 processing checklist lives in the compliance package; it is
 # re-exported here for the EthicalRiskMatrix GDPR hook and existing imports.
 from omni_mercury_engine.compliance.gdpr_processing import (
-    GDPRCompliance as GDPRCompliance,
-    GDPRComplianceResult as GDPRComplianceResult,
-    GDPRComplianceViolation as GDPRComplianceViolation,
-    GDPRLegalBasis as GDPRLegalBasis,
+    GDPRCompliance,
+    GDPRComplianceResult,
+    GDPRComplianceViolation,
+    GDPRLegalBasis,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+__all__ = [
+    "AnomalyOracle",
+    "ComplianceRegime",
+    "ComplianceRule",
+    "EthicalRiskMatrix",
+    "GDPRCompliance",
+    "GDPRComplianceResult",
+    "GDPRComplianceViolation",
+    "GDPRLegalBasis",
+    "HIPAACompliance",
+    "RiskLevel",
+    "RiskScore",
+    "USLawPolling",
+]
 
 
 class RiskLevel(Enum):

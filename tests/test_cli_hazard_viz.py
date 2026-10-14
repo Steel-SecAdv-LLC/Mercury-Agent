@@ -180,8 +180,10 @@ def test_render_interactive_html_from_payload(tmp_path: Path) -> None:
     result = EarthquakeDetector(  # type: ignore[call-arg, unused-ignore]
         keep_diagnostics=True
     ).predict_earthquake(0.02 * rng.normal(size=2048))
+    diagnostics = result.diagnostics  # type: ignore[attr-defined, unused-ignore]
+    assert diagnostics is not None
     payload_path = tmp_path / "quake.npz"
-    result.diagnostics.to_npz(payload_path)  # type: ignore[attr-defined, unused-ignore]
+    diagnostics.to_npz(payload_path)
 
     out = tmp_path / "quake.html"
     cli_result = CliRunner().invoke(

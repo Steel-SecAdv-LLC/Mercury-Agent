@@ -7,24 +7,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,813
-- **Capability-bearing classes:** 1,849 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 47
+- **Total top-level classes:** 2,785
+- **Capability-bearing classes:** 1,833 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 46
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,059 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,046 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1059 |
-| Support types (config / result / enum / error) | 964 |
-| Detection | 171 |
-| Neural models & layers | 158 |
+| Other capability classes | 1046 |
+| Support types (config / result / enum / error) | 952 |
+| Detection | 170 |
+| Neural models & layers | 159 |
 | Engines & orchestration | 103 |
 | Data sources & loaders | 102 |
-| Training & optimization | 62 |
-| Adapters & backends | 62 |
+| Training & optimization | 61 |
+| Adapters & backends | 60 |
 | Analysis & scoring | 57 |
 | Monitoring | 24 |
 | Prediction & forecasting | 21 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 10 classes (7 capability)
+### `(top-level)/` — 8 classes (6 capability)
 
 **Adapters & backends**
 
@@ -52,12 +52,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
 - `ToolSpec` (`mcp_server`) — One MCP tool: its advertised schema and its handler.
-- `TruthDecipherFramework` (`truth_decipher`) — Unified orchestrator for anomaly discovery, identification, ethical evaluation, and resolution.
 - `_FallbackVoice` (`cli`) — Fallback voice for when narrative module unavailable.
 
-<details><summary>Support types (3)</summary>
+<details><summary>Support types (2)</summary>
 
-`MercuryProductionConfigError`, `ToolError`, `TruthDecipherResult`
+`MercuryProductionConfigError`, `ToolError`
 
 </details>
 
@@ -155,7 +154,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 149 classes (52 capability)
+### `api/` — 153 classes (55 capability)
 
 **Adapters & backends**
 
@@ -182,6 +181,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Account` (`api.identity_store`) — A user account.
 - `ActionRateLimiter` (`api.rate_limit_store`) — Named fixed-window throttles over an atomic :class:`CounterStore`.
 - `ActionRule` (`api.rate_limit_store`) — One action's fixed-window ceiling: at most ``max_attempts``/``window``.
+- `AlertEgress` (`api.alert_egress`) — Forward anomalous detections to the configured sinks, TLP-gated.
+- `AlertSink` (`api.alert_egress`) — One configured alert destination.
 - `AnomalyPoint` (`api.server`) — Individual anomaly point information.
 - `AuthAuditor` (`api.auth_audit`) — Records auth events to the secure audit trail (or structured logs).
 - `AuthProvider` (`api.auth`) — Abstract base class for authentication providers.
@@ -220,13 +221,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SqliteKeyStore` (`api.key_store`) — Durable, restart-surviving API-key store backed by stdlib ``sqlite3``.
 - `SqliteQuotaOverrideStore` (`api.quota`) — Durable override store on the shared SQLite file.
 - `SqliteUsageLedger` (`api.usage_ledger`) — Durable usage ledger backed by stdlib ``sqlite3`` (WAL, lock-guarded).
+- `TraceContext` (`api.trace_context`) — The trace this request belongs to.
 - `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (97)</summary>
+<details><summary>Support types (98)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
 
 </details>
 
@@ -556,7 +558,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `compliance/` — 22 classes (13 capability)
+### `compliance/` — 26 classes (16 capability)
 
 **Adapters & backends**
 
@@ -568,6 +570,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Other capability classes**
 
+- `GDPRCompliance` (`compliance.gdpr_processing`) — Assess a processing operation's documented GDPR posture.
+- `GDPRComplianceViolation` (`compliance.gdpr_processing`) — One unmet obligation.
+- `GDPRLegalBasis` (`compliance.gdpr_processing`) — Validated Article 6 lawful basis.
 - `NISTAssessment` (`compliance.nist_csf_integrator`) — Result of a single :class:`NISTFunction` assessment.
 - `NISTCSFIntegrator` (`compliance.nist_csf_integrator`) — NIST CSF 2.0 integrator for risk management and reporting.
 - `NISTCSFReferenceFetcher` (`compliance.nist_csf_integrator`) — Fetch and cache the live NIST CSF 2.0 reference catalogue.
@@ -580,13 +585,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `TLPClassification` (`compliance.tlp_handler`) — Result of a TLP classification decision.
 - `TLPHandler` (`compliance.tlp_handler`) — Automated TLP classification for Mercury Agent outputs.
 
-<details><summary>Support types (9)</summary>
+<details><summary>Support types (10)</summary>
 
-`ComplianceLevel`, `ECFRClientError`, `HazardCategory`, `ImplementationTier`, `NISTCSFReferenceError`, `NISTFunction`, `OSHASector`, `TLPColor`, `TLPValidationError`
+`ComplianceLevel`, `ECFRClientError`, `GDPRComplianceResult`, `HazardCategory`, `ImplementationTier`, `NISTCSFReferenceError`, `NISTFunction`, `OSHASector`, `TLPColor`, `TLPValidationError`
 
 </details>
 
-### `core/` — 362 classes (230 capability)
+### `core/` — 358 classes (227 capability)
 
 **Adapters & backends**
 
@@ -735,9 +740,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `FisherRaoAdaptiveThreshold` (`core.info_geometry`) — Derive and adapt anomaly-detection thresholds from the Fisher metric.
 - `FusionConstants` (`core.centralized_constants`) — Fusion and weighting constants.
 - `FusionInterface` (`core.base`) — Interface specification for fusion-compatible components.
-- `GDPRCompliance` (`core.ethical_risk_matrix`) — GDPR compliance framework with comprehensive validation.
-- `GDPRComplianceViolation` (`core.ethical_risk_matrix`) — Detailed GDPR compliance violation with contextual metadata.
-- `GDPRLegalBasis` (`core.ethical_risk_matrix`) — Legal basis for data processing under GDPR Article 6.
 - `GOSNN3RIntegration` (`core.gosnn_3r_integration`) — Bidirectional integration between GOSNN and 3R mechanism.
 - `GOSNNIntegration` (`core.gosnn_integration`) — Integration layer for GOSNN-based multi-domain anomaly detection.
 - `HIPAACompliance` (`core.ethical_risk_matrix`) — HIPAA compliance hooks for US healthcare data.
@@ -851,9 +853,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Optimizer for OAE weights using scipy.optimize.
 
-<details><summary>Support types (132)</summary>
+<details><summary>Support types (131)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `GDPRComplianceResult`, `HandoffResult`, `IntegrationResult`, `IntegrationState`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyAnomalyDetectionMethod`, `_LegacyEvolutionStrategy`, `_LegacyIssueSeverity`, `_LegacyIssueType`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `IntegrationResult`, `IntegrationState`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyAnomalyDetectionMethod`, `_LegacyEvolutionStrategy`, `_LegacyIssueSeverity`, `_LegacyIssueType`, `_LegacyRefactoringConfig`
 
 </details>
 
@@ -985,7 +987,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 379 classes (261 capability)
+### `detectors/` — 380 classes (262 capability)
 
 **Adapters & backends**
 
@@ -1158,6 +1160,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `TemporalConvBlock` (`detectors.advanced.multi_scale_transformer`) — Temporal convolution block for local pattern extraction.
 - `WildfireCNN` (`detectors.geological.wildfire`) — Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
 - `_Denoiser` (`detectors.diffusion_ad`) — MLP that predicts the noise added to a window, conditioned on timestep.
+- `_EnsembleModel` (`detectors.drone.detector`) — Ensemble fitted on a rolling window, with per-stream fit-time references.
 - `_SRCNN` (`detectors.srcnn`) — 1-D CNN mapping a saliency window to its centre-point anomaly logit.
 
 **Other capability classes**
@@ -1623,7 +1626,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Adapters & backends**
 
 - `HTTPClient` (`integrations.http.client`) — HTTP client with resilience patterns.
-- `HTTPPlatformAdapter` (`integrations.cross_platform_hub`) — Generic HTTP-based platform adapter.
+- `HTTPPlatformAdapter` (`integrations.cross_platform_hub`) — HTTP platform adapter speaking each platform's native ingest API.
 - `MercuryGuardianAdapter` (`integrations.mercury_amacrypto`) — Adapter integrating AMA Cryptography PQC with Mercury Agent.
 - `OpenTelemetryAdapter` (`integrations.cross_platform_hub`) — OpenTelemetry collector adapter.
 - `PlatformAdapter` (`integrations.cross_platform_hub`) — Abstract base class for platform adapters.
@@ -1854,7 +1857,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `ml/` — 304 classes (241 capability)
+### `ml/` — 309 classes (246 capability)
 
 **Adapters & backends**
 
@@ -1885,6 +1888,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `BiasDetector` (`ml.bias_detection`) — ML Bias Detection using Fairlearn metrics.
 - `ChiSquaredDriftDetector` (`ml.drift`) — Chi-squared test based drift detector for categorical features.
+- `CovarianceDriftDetector` (`ml.drift`) — Covariance-structure drift via the affine-invariant SPD distance.
 - `Detector` (`ml.ensemble_coordinator`) — Protocol for anomaly detectors.
 - `EnsembleDriftDetector` (`ml.drift`) — Ensemble drift detector combining multiple methods.
 - `KolmogorovSmirnovDriftDetector` (`ml.drift`) — Kolmogorov-Smirnov test based drift detector.
@@ -2046,6 +2050,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `PCA` (`ml.mercury_ml`) — Principal Component Analysis via truncated SVD.
 - `ParallelExecutor` (`ml.__init__`) — Lazy-loaded ParallelExecutor wrapper.
 - `ParallelExecutor` (`ml.optimization`) — Parallel executor for benchmark loops, backed by ``concurrent.futures``.
+- `ParetoFront` (`ml.multi_objective`) — The non-dominated set returned by :meth:`NSGA2Optimizer.optimize`.
+- `ParetoSolution` (`ml.multi_objective`) — One evaluated individual.
 - `PassiveAggressiveOnlineLearner` (`ml.online_learning`) — Passive-Aggressive online learner.
 - `PipelineContext` (`ml.hazard_training.common`) — Runtime options threaded through every pipeline stage.
 - `PlannedDay` (`ml.hazard_training.volcanic_eruption`) — One planned (volcano, day) sample with its chosen station-channel.
@@ -2072,6 +2078,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SchumannDataset` (`ml.hazard_training.schumann_harmonics`) — Hour-level dataset: detector-parity spectra plus derived labels.
 - `SeismicDataset` (`ml.hazard_training.seismic_wave`) — Training-side dataset: precomputed spectrograms for train and val.
 - `SiameseNetworkNumpy` (`ml.few_shot_learning`) — NumPy implementation of Siamese Networks.
+- `SpatialAutocorrelation` (`ml.spatial_autocorrelation`) — Moran's I / Geary's C with one-sided permutation p-values.
 - `SpectrogramGroup` (`ml.hazard_training.seismic_wave`) — One same-shape batch group of spectrograms with aligned labels.
 - `SphericalHarmonicDecomposer` (`ml.harmonic_encoder`) — Spherical harmonic decomposition for 3D surface analysis Provides rotation-invariant feature.
 - `SplitPerformance` (`ml.concept_drift_evaluation`) — Performance metrics for a single temporal split.
@@ -2123,6 +2130,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MercuryHarmonicOptimizer` (`ml.training`) — Mercury optimizer with harmonic oscillator variant.
 - `MercuryMomentumOptimizer` (`ml.training`) — Mercury optimizer with momentum variant.
 - `MercuryOptimizer` (`ml.training`) — Base Mercury optimizer with state evolution dynamics.
+- `NSGA2Optimizer` (`ml.multi_objective`) — Elitist non-dominated sorting genetic algorithm (NSGA-II).
 - `ThreeRAnomalyTrainer` (`ml.training`) — PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
@@ -2133,7 +2141,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `models/` — 141 classes (104 capability)
+### `models/` — 142 classes (105 capability)
 
 **Adapters & backends**
 
@@ -2167,6 +2175,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `AnomalyDetector` (`models.lstm_ae`) — Complete anomaly detection pipeline using LSTM-Autoencoder.
 - `ChemistryAnomalyDetector` (`models.chemistry`) — Chemistry Discipline Anomaly Detector.
+- `LSTMAutoencoderDetector` (`models.lstm_ae`) — Detector-registry adapter for the LSTM-autoencoder.
 - `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector using STUMPY.
 - `ParapsychologyDetector` (`models.parapsychology`) — REG statistical-deviation detector (parapsychology-research tooling).
 - `TextLogAnomalyDetector` (`models.foundation.llm_adapter`) — Specialized detector for text and log anomalies.
@@ -2332,44 +2341,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `quantum_computing/` — 27 classes (18 capability)
-
-**Adapters & backends**
-
-- `IBMQuantumBackend` (`quantum_computing.executor`) — IBM Quantum hardware backend.
-- `SimulatorBackend` (`quantum_computing.executor`) — Local quantum simulator backend.
-
-**Detection**
-
-- `QAOAAnomalyDetector` (`quantum_computing.hybrid`) — Quantum Approximate Optimization Algorithm for anomaly detection.
-- `QuantumAnomalyDetector` (`quantum_computing.detector`) — Quantum-enhanced anomaly detection.
-- `VQEAnomalyDetector` (`quantum_computing.hybrid`) — Variational Quantum Eigensolver for anomaly detection.
-
-**Other capability classes**
-
-- `AnomalyEncodingCircuit` (`quantum_computing.circuits`) — Encode classical data into quantum states for anomaly detection.
-- `BatchExecutor` (`quantum_computing.executor`) — Execute multiple circuits in batches for efficiency.
-- `ErrorMitigationCircuit` (`quantum_computing.circuits`) — Error mitigation techniques for NISQ devices.
-- `QuantumCircuitBuilder` (`quantum_computing.circuits`) — Build quantum circuits for anomaly detection.
-- `QuantumExecutor` (`quantum_computing.executor`) — Unified quantum execution interface.
-- `QuantumFeatureMap` (`quantum_computing.circuits`) — Quantum feature map for kernel-based learning.
-- `QuantumJob` (`quantum_computing.executor`) — Manages a quantum job submitted for execution.
-- `QuantumKernel` (`quantum_computing.hybrid`) — Quantum kernel for kernel-based machine learning.
-- `QuantumResourceEstimate` (`quantum_computing.detector`) — Estimate of quantum resources required.
-- `SimulatedQuantumCircuit` (`quantum_computing.circuits`) — Simulated quantum circuit for when Qiskit is not available.
-- `VariationalCircuit` (`quantum_computing.circuits`) — Variational quantum circuit for trainable quantum models.
-
-**Training & optimization**
-
-- `ClassicalOptimizer` (`quantum_computing.hybrid`) — Classical optimizer for variational parameter updates.
-- `HybridOptimizer` (`quantum_computing.hybrid`) — Hybrid quantum-classical optimizer.
-
-<details><summary>Support types (9)</summary>
-
-`BackendConfig`, `BackendType`, `CircuitMetadata`, `EncodingType`, `ExecutionResult`, `JobStatus`, `OptimizationResult`, `QuantumDetectionResult`, `VariationalAnsatz`
-
-</details>
-
 ### `reasoning/` — 10 classes (8 capability)
 
 **Adapters & backends**
@@ -2453,7 +2424,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 162 classes (93 capability)
+### `security/` — 152 classes (86 capability)
 
 **Adapters & backends**
 
@@ -2534,8 +2505,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `GEOINTProcessor` (`security.int_sources`) — Geospatial Intelligence (GEOINT) Processor.
 - `HFModelPolicy` (`security.model_policy`) — Static policy gate for HuggingFace model / dataset loads.
 - `HUMINTProcessor` (`security.int_sources`) — Human Intelligence (HUMINT) Processor.
-- `HiveFirewall` (`security.hive_firewall`) — HCIS-inspired hive-structured firewall.
-- `HiveNode` (`security.hive_firewall`) — Individual node in hive firewall.
 - `HybridSignature` (`security.crypto_api`) — Hybrid signature combining classical and post-quantum.
 - `HybridSignatureProvider` (`security.crypto_api`) — Hybrid signature provider combining classical and post-quantum.
 - `IMINTProcessor` (`security.int_sources`) — Imagery Intelligence (IMINT) Processor.
@@ -2552,13 +2521,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MeteorologicalProcessor` (`security.int_sources`) — Meteorological Intelligence Processor.
 - `NarrativeAnalysis` (`security.psyop`) — Analysis of a narrative or message.
 - `OSINTProcessor` (`security.int_sources`) — Open Source Intelligence (OSINT) Processor.
-- `OverwatchNexus` (`security.counterintelligence`) — Overwatch Nexus and Response Engine for Ethical Counterintelligence.
 - `PIIMasker` (`security.secure_audit_logging`) — Masks Personally Identifiable Information in audit logs.
 - `PQCProductionWarning` (`security.pqc_guards`) — Public exception type for PQC-availability warnings.
-- `PostQuantumMigrationPlanner` (`security.quantum_risk_cyber`) — Post-quantum cryptography migration planning system.
 - `QuantumResistantEncryption` (`security.encryption`) — Post-quantum hybrid encryption: ML-KEM-1024 + AES-256-GCM (via AMA).
-- `QuantumRiskCyber` (`security.quantum_risk_cyber`) — Quantum cybersecurity risk management system.
-- `QuantumThreat` (`security.quantum_risk_cyber`) — Represents a quantum cybersecurity threat.
 - `RateLimiter` (`security.rate_limiting`) — Unified rate limiter with token bucket and sliding window algorithms.
 - `ResonanceHashIntegrityChecker` (`security.cyber_fortress`) — Novel hash integrity checking using resonance amplification.
 - `SIGINTProcessor` (`security.int_sources`) — Signals Intelligence (SIGINT) Processor.
@@ -2572,7 +2537,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SphincsKeyPair` (`security.pqc_backends`) — SPHINCS+-256f key pair.
 - `SphincsProvider` (`security.crypto_api`) — SPHINCS+ hash-based signature provider — delegates to AMA.
 - `TargetAudienceProfile` (`security.psyop`) — Profile of a target audience for PSYOP analysis.
-- `ThreatBlocking` (`security.hive_firewall`) — Threat blocking decision with reasoning.
 - `ThreatSignature` (`security.realtime_threat_detection`) — Threat signature with metadata.
 - `TrafficAnalysisProcessor` (`security.int_sources`) — Traffic Analysis Processor.
 - `TrustedEndpoints` (`security.input_validation`) — Hardcoded trusted API endpoints for external data sources with secure URL opening.
@@ -2581,9 +2545,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (69)</summary>
+<details><summary>Support types (66)</summary>
 
-`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CryptoSystem`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `OverwatchNexusResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
+`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
 
 </details>
 

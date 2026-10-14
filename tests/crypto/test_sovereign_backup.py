@@ -24,14 +24,11 @@ Three contracts under test:
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING
+from typing import Any
 
 import pytest
 
 from omni_mercury_engine.crypto import sovereign
-
-if TYPE_CHECKING:
-    pass
 
 # =============================================================================
 # 1. RFC vector pins
@@ -70,7 +67,7 @@ class TestRfc8439Aead:
     def test_any_tampered_byte_is_rejected_before_plaintext(self, flip_at: int) -> None:
         blob = bytearray(_RFC8439_CIPHERTEXT + _RFC8439_TAG)
         blob[flip_at] ^= 0x01
-        with pytest.raises(ValueError, match="Decryption failed|tag"):
+        with pytest.raises(ValueError, match=r"Decryption failed|tag"):
             sovereign.chacha20poly1305_decrypt(
                 _RFC8439_KEY, _RFC8439_NONCE, bytes(blob), _RFC8439_AAD
             )
@@ -240,6 +237,7 @@ class TestCrossTierInterop:
 
     def test_hkdf_identical_across_tiers_and_legacy(self) -> None:
         from ama_cryptography.pqc_backends import native_hkdf_sha256
+
         from omni_mercury_engine import crypto
 
         ms, salt, info = b"master", b"salt", b"ctx"
@@ -280,7 +278,7 @@ def fresh_crypto(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-de
 
 class TestDegradeGovernance:
     def test_infrastructure_failure_latches_sovereign_tier(
-        self, fresh_crypto, monkeypatch: pytest.MonkeyPatch
+        self, fresh_crypto: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from ama_cryptography.exceptions import NativeBackendUnavailableError
 
@@ -308,12 +306,12 @@ class TestDegradeGovernance:
         tampered = ct[:-1] + bytes([ct[-1] ^ 1])
         with pytest.raises(ValueError, match="Decryption failed"):
             fresh_crypto.decrypt(tampered, key, nonce)
-        assert fresh_crypto.get_crypto_backend() == "ama-native", (
-            "a tag mismatch must never trip the sovereign degrade latch"
-        )
+        assert (
+            fresh_crypto.get_crypto_backend() == "ama-native"
+        ), "a tag mismatch must never trip the sovereign degrade latch"
 
     def test_aes_gcm_refuses_rather_than_switching_algorithms(
-        self, fresh_crypto, monkeypatch: pytest.MonkeyPatch
+        self, fresh_crypto: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         if fresh_crypto.is_rust_available():
             pytest.skip("rust tier serves AES-GCM regardless of AMA state")
@@ -324,15 +322,13 @@ class TestDegradeGovernance:
             fresh_crypto.decrypt(b"c" * 32, b"k" * 32, b"n" * 12, algorithm="aes-gcm")
 
     def test_degraded_chacha_round_trip_stays_available(
-        self, fresh_crypto, monkeypatch: pytest.MonkeyPatch
+        self, fresh_crypto: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(fresh_crypto, "_AMA_RUNTIME_FAILED", True)
         monkeypatch.setattr(fresh_crypto, "_RUST_AVAILABLE", False)
         key = b"k" * 32
         ct, nonce = fresh_crypto.encrypt(b"still alive", key, algorithm="chacha20-poly1305")
-        assert (
-            fresh_crypto.decrypt(ct, key, nonce, algorithm="chacha20-poly1305") == b"still alive"
-        )
+        assert fresh_crypto.decrypt(ct, key, nonce, algorithm="chacha20-poly1305") == b"still alive"
         ek, ak = fresh_crypto.derive_key_pair(b"m", b"s", b"i")
         assert len(ek) == len(ak) == 32
         assert len(fresh_crypto.secure_random(24)) == 24
@@ -341,6 +337,7 @@ class TestDegradeGovernance:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from ama_cryptography.exceptions import NativeBackendUnavailableError
+
         from omni_mercury_engine.security import pqc_backends as pb
 
         kp = pb.generate_ed25519_keypair()

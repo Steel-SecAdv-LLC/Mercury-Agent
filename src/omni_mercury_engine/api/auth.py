@@ -465,11 +465,14 @@ class AuthKeyManager:
         if index is None:
             index = self._key_index.get(purpose, 0)
 
-        result: bytes = self._hd.derive_key(
-            purpose=purpose_id,
-            account=0,
-            change=0,
-            index=index,
+        # AMA v5 returns a bytearray; callers expect immutable bytes.
+        result: bytes = bytes(
+            self._hd.derive_key(
+                purpose=purpose_id,
+                account=0,
+                change=0,
+                index=index,
+            )
         )
         return result
 
