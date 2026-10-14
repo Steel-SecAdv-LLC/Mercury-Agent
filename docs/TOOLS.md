@@ -112,6 +112,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | Tool | What it proves |
 | --- | --- |
 | ``config_validator`` | Schema-validates every ``configs/*.yaml`` against a documented contract. |
+| ``gdpr_processing_check`` | GDPR Arts. 5-49 checklist for one processing operation (``--context ctx.json``): each unmet obligation with article, severity, remediation and the evidence an auditor would request; per-right Art. 12(3) status. ``ok`` only when nothing is unmet. |
 | ``helm_values_linter`` | Validates ``helm/mercury-agent/values.yaml`` for resource limits, security contexts, network policies, image pinning. |
 | ``image_surface_auditor`` | Audits the runtime image / Dockerfile for non-root user, no dev tools, no apt cache, correct entrypoint, correct AMA ``LD_LIBRARY_PATH``. |
 | ``workflow_version_drift_gate`` | Verifies ``pyproject.toml @ AMA_REF``, ``ci.yml AMA_REF``, ``pqc-production-check.yml AMA_REF`` all reference the same git tag. |
