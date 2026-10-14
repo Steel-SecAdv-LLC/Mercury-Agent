@@ -271,3 +271,40 @@ class TestNetworkDisciplineParameterization:
 
         with pytest.raises(ValueError, match="IntelligenceDiscipline"):
             AllSourceFusionNetwork(input_dim=128, num_int_types=5)
+
+
+class TestNonFiniteEvidence:
+    """Non-finite report fields are dropped, never propagated or crashing.
+
+    Regression: a caller-supplied NaN ``threat_score`` reached
+    ``math.ceil(nan * 5)`` in the evidence path and raised ``ValueError``;
+    a NaN ``confidence`` made the mean NaN and poisoned ``confidence``.
+    """
+
+    def test_nan_threat_score_is_dropped_not_crashing(self) -> None:
+        engine = IntelligenceFusionEngine()
+        result = engine.fuse_intelligence(
+            {
+                "open_source": {"confidence": 0.9, "threat_score": float("nan")},
+                "cyber": {"confidence": 0.8, "threat_score": 0.9},
+            }
+        )
+        # Only the finite score counts; both finite confidences count.
+        assert result.risk_score == pytest.approx(0.9)
+        assert 0.0 <= result.confidence <= 1.0
+        assert result.threat_detected
+
+    def test_all_non_finite_reports_degrade_to_low(self) -> None:
+        engine = IntelligenceFusionEngine()
+        result = engine.fuse_intelligence(
+            {
+                "open_source": {
+                    "confidence": float("inf"),
+                    "threat_score": float("-inf"),
+                }
+            }
+        )
+        assert not result.threat_detected
+        assert result.threat_level == "LOW"
+        assert result.risk_score == 0.0
+        assert result.confidence == 0.0

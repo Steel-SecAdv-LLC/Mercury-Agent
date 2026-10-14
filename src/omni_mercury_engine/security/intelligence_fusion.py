@@ -530,7 +530,11 @@ class IntelligenceFusionEngine:
         values, with confidence taken from the reports and scaled by
         corroboration (a single-source assessment is damped; three or more
         reporting disciplines carry full weight, matching the three primary
-        sources ``_identify_sources`` surfaces).
+        sources ``_identify_sources`` surfaces). A non-finite ``threat_score``
+        or ``confidence`` is not evidence: it is dropped with a warning (the
+        same posture as GOSNN's non-finite scalar handling and the timing
+        monitor's ``record_timing``) rather than propagated into the decision
+        or allowed to crash it.
 
         Returns:
             Tuple of ``(threat_class, confidence_score, risk_score)`` where
@@ -548,8 +552,22 @@ class IntelligenceFusionEngine:
                 continue
             reliability = self.int_reliability_scores.get(discipline.value, 0.75)
             if "threat_score" in report:
-                weighted.append((reliability, float(report["threat_score"])))
-            confidences.append(float(report.get("confidence", 0.5)))
+                score = float(report["threat_score"])
+                if math.isfinite(score):
+                    weighted.append((reliability, score))
+                else:
+                    self.logger.warning(
+                        "evidence assessment: dropping non-finite threat_score " "from %s",
+                        discipline.value,
+                    )
+            confidence = float(report.get("confidence", 0.5))
+            if math.isfinite(confidence):
+                confidences.append(confidence)
+            else:
+                self.logger.warning(
+                    "evidence assessment: dropping non-finite confidence from %s",
+                    discipline.value,
+                )
 
         if not weighted:
             return ThreatLevel.LOW.value, 0.0, 0.0
@@ -558,8 +576,15 @@ class IntelligenceFusionEngine:
         risk_score = sum(w * s for w, s in weighted) / total_weight
         risk_score = float(min(max(risk_score, 0.0), 1.0))
 
-        corroboration = min(1.0, len(confidences) / 3.0)
-        confidence_score = float(min(max(float(np.mean(confidences)) * corroboration, 0.0), 1.0))
+        if confidences:
+            corroboration = min(1.0, len(confidences) / 3.0)
+            confidence_score = float(
+                min(max(float(np.mean(confidences)) * corroboration, 0.0), 1.0)
+            )
+        else:
+            # Threat scores with no finite confidence anywhere: the risk is
+            # reportable but nothing supports asserting confidence in it.
+            confidence_score = 0.0
 
         threat_class = min(len(ThreatLevel), max(1, math.ceil(risk_score * len(ThreatLevel))))
         return threat_class, confidence_score, risk_score
