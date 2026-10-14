@@ -248,6 +248,12 @@ jobs:
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      env:
+        # Path-scoped secret-scanner allowlist (see trivy-secret.yaml):
+        # the anthropic SDK's Managed Agents type files carry the literal
+        # '{"type": "service_account"}' in docstrings, which the
+        # gcp-service-account rule reports as a CRITICAL leaked key.
+        TRIVY_SECRET_CONFIG: trivy-secret.yaml
       with:
         image-ref: 'mercury-agent:scan'
         format: 'sarif'
@@ -284,6 +290,9 @@ jobs:
       # the table form is the gate that makes such findings visible
       # in the PR review UI rather than only after merge.
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      env:
+        # Same path-scoped secret allowlist as the SARIF run above.
+        TRIVY_SECRET_CONFIG: trivy-secret.yaml
       with:
         image-ref: 'mercury-agent:scan'
         format: 'table'

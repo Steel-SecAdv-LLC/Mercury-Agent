@@ -95,6 +95,17 @@ which also clamps `k` to the reference size — previously a reference
 smaller than `k` padded the average with `inf`. `RealTimeThreatDetector`
 kept a full copy of the training data (`_fit_data`) that nothing read.
 
+**Fixed — container Trivy gate red on anthropic-SDK docstrings.** The
+anthropic PyPI package (≥ 1.14.0) ships Managed Agents type files whose
+docstrings carry the literal `{"type": "service_account"}`, which Trivy's
+`gcp-service-account` rule reports as a CRITICAL leaked key in the image
+scan. A path-scoped secret allowlist (`trivy-secret.yaml`, wired into both
+container-scan steps) suppresses secret findings inside the installed
+`anthropic` package only — verified locally against Trivy 0.70.0: the
+false positive clears while a planted service-account marker anywhere
+else in the image still fails the gate. Vulnerabilities are untouched and
+stay on the expiring `.trivyignore` ledger.
+
 ### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
 
 `steel/version-cov4` unifies `steel/version-cov3`, `steel/version-cov02` and
