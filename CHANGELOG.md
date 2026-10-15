@@ -29,6 +29,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Review round: gates that measure instead of trust (branch `steel/version-cov4`)
 
+**Added — `security/quantum_risk_cyber.py`, rebuilt as a quantum-risk engine.**
+The module removed in `740da10a` matched algorithms by substring. It rated
+ML-DSA as CRITICAL because "DSA" appeared in it, scored Kyber+Dilithium 0.0
+because of mixed case, and used one fixed ten-year timeline.
+
+The rebuild:
+- **Classification.** Names, OIDs and CycloneDX 1.6 CBOM entries are matched
+  by exact token against a registry:
+  - FIPS 203/204/205, draft FIPS 206, the HQC selection and SP 800-208
+    LMS/XMSS;
+  - SP 800-57 strength bands;
+  - pre-standard Kyber, Dilithium and SPHINCS+ names, which are flagged;
+  - broken SIKE, Rainbow, SHA-1, 3DES and RC4.
+- **Hybrids and composites.** These are as strong as their strongest part.
+- **Composite names.** A hash in `ecdsa-with-SHA256` cannot upgrade the
+  signature.
+- **Deadlines.** NIST IR 8547 dates follow the strength band. CNSA 2.0
+  deadlines and approvals apply per category.
+- **Mosca's `x + y > z`.** It uses a caller-supplied CRQC point or curve, with
+  no default, and treats confidentiality (harvest now, decrypt later)
+  separately from authenticity.
+- **CBOM checks.** Quantum-security levels claimed in a CBOM are checked
+  against the standard.
+- **Urgency order.** Assets are prioritised by a stated rule, not a score.
+
+Mercury's own cryptography is audited by the same rules, and a test pins
+each declared use to its source file. The audit found that the sovereign
+emergency tier verifies Ed25519 (Shor-vulnerable). It also listed what
+CNSA 2.0 would require Mercury to change.
+
+There are 72 tests. A 17-mutant pass over the decision logic kills all 17
+after one gap was closed: password-hashing KDFs are outside CNSA 2.0 scope.
+
 **Fixed — `IntelligenceFusionEngine.load_trained_weights` admitted any
 shape-matching state dict.** A freshly initialised network has matching
 shapes, so random weights were enough to move threat decisions off

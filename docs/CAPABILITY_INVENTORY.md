@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,783
-- **Capability-bearing classes:** 1,835 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,790
+- **Capability-bearing classes:** 1,841 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 85 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,052 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,058 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1052 |
-| Support types (config / result / enum / error) | 948 |
+| Other capability classes | 1058 |
+| Support types (config / result / enum / error) | 949 |
 | Detection | 168 |
 | Neural models & layers | 158 |
 | Data sources & loaders | 103 |
@@ -2418,7 +2418,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 153 classes (87 capability)
+### `security/` — 160 classes (93 capability)
 
 **Adapters & backends**
 
@@ -2479,12 +2479,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Other capability classes**
 
+- `AlgorithmProfile` (`security.quantum_risk_cyber`) — Registry facts about one algorithm (or hybrid) as classified.
+- `AssetAssessment` (`security.quantum_risk_cyber`) — The quantum-risk assessment of one asset.
 - `Baseline` (`security.sigma_immutable_corpus`) — The harvested intact-config reference the corpus is built around.
+- `CBOMEntry` (`security.quantum_risk_cyber`) — One CycloneDX cryptographic-asset algorithm, classified.
 - `COMINTProcessor` (`security.int_sources`) — Communications Intelligence (COMINT) Processor.
+- `CRQCAssumption` (`security.quantum_risk_cyber`) — The caller's assumption about when a CRQC arrives, in years from now.
 - `CYBINTProcessor` (`security.int_sources`) — Cyber Intelligence (CYBINT) Processor.
 - `CYBINTSubProcessor` (`security.cybint_subprocessor`) — Comprehensive CYBINT sub-processor for detailed cyber threat analysis.
 - `CorpusBundle` (`security.sigma_immutable_corpus`) — Materialised corpus + provenance metadata.
 - `CryptanalysisProcessor` (`security.int_sources`) — Cryptanalysis Processor.
+- `CryptoAsset` (`security.quantum_risk_cyber`) — A system or data flow and the cryptography that protects it.
 - `CryptoAuditTrail` (`security.pqc_backends`) — Cryptographic audit trail for PQC operations.
 - `CryptoOperation` (`security.pqc_backends`) — Audit record for cryptographic operations.
 - `CyberFortress` (`security.cyber_fortress`) — Unified Cyber Fortress for proactive threat elimination.
@@ -2513,6 +2518,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MASINTProcessor` (`security.int_sources`) — Measurement & Signature Intelligence (MASINT) Processor.
 - `MLDSAProvider` (`security.crypto_api`) — ML-DSA-65 (Dilithium) post-quantum signature provider — delegates to AMA.
 - `MercuryCrypto` (`security.crypto_api`) — Unified cryptographic interface for Mercury Agent.
+- `MercuryCryptoUse` (`security.quantum_risk_cyber`) — One of Mercury's own cryptographic uses, pinned to its source file.
 - `MeteorologicalProcessor` (`security.int_sources`) — Meteorological Intelligence Processor.
 - `NarrativeAnalysis` (`security.psyop`) — Analysis of a narrative or message.
 - `OSINTProcessor` (`security.int_sources`) — Open Source Intelligence (OSINT) Processor.
@@ -2540,9 +2546,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (66)</summary>
+<details><summary>Support types (67)</summary>
 
-`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
+`APTGroup`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `MASINTAnalysisResult`, `MalwareFamily`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `QuantumStatus`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `SecurityLevel`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`
 
 </details>
 

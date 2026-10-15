@@ -165,6 +165,43 @@ SlhDsaKeyPair` declarations).
 - [CRYSTALS-Kyber (pre-FIPS reference)](https://pq-crystals.org/kyber/)
 - [SPHINCS+ (pre-FIPS reference)](https://sphincs.org/)
 
+### Quantum-Risk Assessment (`security/quantum_risk_cyber.py`)
+
+The module assesses any cryptographic inventory, and Mercury's own, against
+published standards and caller-stated assumptions. It never uses invented
+probabilities.
+
+- **Classification.** Algorithm names, OIDs and CycloneDX CBOM entries are
+  matched by exact token only:
+  - FIPS 203/204/205, draft FIPS 206 and SP 800-208;
+  - SP 800-57 strength bands;
+  - pre-standard Kyber, Dilithium and SPHINCS+ names, which are flagged;
+  - broken algorithms (SIKE, Rainbow, SHA-1, 3DES, RC4).
+
+  Unrecognised names are reported as `unknown`, never guessed.
+- **Deadlines.**
+  - NIST IR 8547 (initial public draft): Shor-vulnerable algorithms at the
+    112-bit level are deprecated after 2030, and all strengths are disallowed
+    after 2035.
+  - CNSA 2.0 "exclusively use by" dates are applied per category.
+- **Exposure.** Mosca's inequality `x + y > z`:
+  - `z` (years until a cryptographically relevant quantum computer) is the
+    caller's assumption, given as a value or a probability curve. Without
+    one, the report states the arrival time below which the asset is exposed.
+  - Harvest-now-decrypt-later applies to confidentiality.
+  - Signatures are at risk only while they must stay trusted.
+- **Self-audit** (`python -m omni_mercury_engine.security.quantum_risk_cyber`)
+  covers Mercury's own uses, each pinned by a test to its source file. Current
+  findings:
+  - The sovereign emergency tier verifies **Ed25519**, which is
+    Shor-vulnerable (NIST disallowance 2035).
+  - Under CNSA 2.0, these would change:
+    - ML-DSA-65 → ML-DSA-87;
+    - HMAC-SHA-256 → HMAC-SHA-384;
+    - ChaCha20-Poly1305 and SHA3-256 are not in the suite.
+  - Hybrid encryption (ML-KEM-1024 + AES-256-GCM) and sealed secrets
+    (AES-256-GCM) already comply.
+
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
