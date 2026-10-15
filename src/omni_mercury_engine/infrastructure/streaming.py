@@ -39,6 +39,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from omni_mercury_engine.core.metrics import (
+    record_inference_error,
+    set_detection_queue_depth,
+    time_detection,
+)
 from omni_mercury_engine.core.types import CircuitState
 
 if TYPE_CHECKING:
@@ -308,6 +313,16 @@ class StreamConsumer(ABC):
         """
         pass
 
+    async def lag(self) -> int | None:
+        """Backlog of this consumer group on the subscribed topics.
+
+        Group-wide (every worker in the group reports the same total), so
+        scaling decisions aggregate it with ``max`` across workers. Returns
+        ``None`` when the backend cannot report it; the base class knows no
+        backend, so it always does.
+        """
+        return None
+
 
 # =============================================================================
 # In-Memory Implementation (for testing)
@@ -566,6 +581,13 @@ class InMemoryStreamConsumer(StreamConsumer):
     async def commit(self, message: StreamMessage) -> None:
         """Commit offset (handled automatically for in-memory)."""
         pass
+
+    async def lag(self) -> int | None:
+        """Unread entries on the subscribed topics (offsets advance on read)."""
+        return sum(
+            max(0, len(self.broker.get_messages(topic)) - self._offsets.get(topic, 0))
+            for topic in self._subscribed_topics
+        )
 
 
 # =============================================================================
@@ -877,6 +899,40 @@ class KafkaStreamConsumer(StreamConsumer):
             await self._consumer.commit({tp: message.offset + 1})
         except Exception as e:
             logger.error(f"Kafka commit failed: {e}")
+
+    async def lag(self) -> int | None:
+        """Log-end offset minus committed offset, over every partition of the topics.
+
+        Covers all partitions of the subscribed topics -- not only this
+        worker's assignment -- so the figure is group-wide and does not fall
+        to zero while a rebalance has the assignment empty. A partition with
+        no committed offset counts from its beginning offset (the
+        ``auto_offset_reset="earliest"`` start point), and a committed offset
+        that retention has already deleted past is clamped to the beginning.
+        """
+        if not self._consumer:
+            return None
+        try:
+            from aiokafka import TopicPartition
+
+            partitions = [
+                TopicPartition(topic, partition)
+                for topic in sorted(self._consumer.subscription())
+                for partition in sorted(self._consumer.partitions_for_topic(topic) or ())
+            ]
+            if not partitions:
+                return None
+            end = await self._consumer.end_offsets(partitions)
+            begin = await self._consumer.beginning_offsets(partitions)
+            total = 0
+            for tp in partitions:
+                committed = await self._consumer.committed(tp)
+                start = begin[tp] if committed is None else max(committed, begin[tp])
+                total += max(0, end[tp] - start)
+            return total
+        except Exception as e:
+            logger.warning(f"Kafka consumer lag query failed: {e}")
+            return None
 
 
 # =============================================================================
@@ -1192,6 +1248,30 @@ class RedisStreamConsumer(StreamConsumer):
         except Exception as e:
             logger.error(f"Redis ack failed: {e}")
 
+    async def lag(self) -> int | None:
+        """Undelivered plus delivered-but-unacknowledged entries for this group.
+
+        Read from ``XINFO GROUPS``: ``lag`` (entries not yet delivered to the
+        group; Redis 7.0+) plus ``pending`` (delivered, not yet XACKed).
+        ``None`` when the server predates 7.0, cannot determine the lag (it
+        reports ``nil`` after some XDEL/XTRIM histories), or the group is
+        missing.
+        """
+        if not self._redis or not self._subscribed_topics:
+            return None
+        try:
+            total = 0
+            for topic in self._subscribed_topics:
+                groups = await self._redis.xinfo_groups(topic)
+                entry = next((g for g in groups if g.get("name") == self.group_id), None)
+                if entry is None or entry.get("lag") is None:
+                    return None
+                total += int(entry["lag"]) + int(entry.get("pending") or 0)
+            return total
+        except Exception as e:
+            logger.warning(f"Redis consumer lag query failed: {e}")
+            return None
+
 
 # =============================================================================
 # Factory Classes
@@ -1399,10 +1479,11 @@ class StreamingAnomalyPipeline:
                 "max": 0.0,
                 "avg": 0.0,
             },
-            # Queue and backpressure metrics
-            "queue_depth": 0,
-            "backpressure_events": 0,
-            "consumer_lag": 0,
+            # Consumer-group backlog, refreshed by ``refresh_backlog`` (None
+            # until the first query, or when the backend cannot report it).
+            # The worker has no in-process queue, so the two are equal.
+            "queue_depth": None,
+            "consumer_lag": None,
             # Score distribution for anomaly analysis
             "score_distribution": {
                 "min": 1.0,
@@ -1426,6 +1507,14 @@ class StreamingAnomalyPipeline:
         # Rolling window for percentile calculations
         self._latency_window: list[float] = []
         self._max_latency_window_size = 1000
+
+        # Backlog is queried from the broker at most this often (a lag query
+        # is a network round-trip on Kafka/Redis). 10 s keeps the gauge
+        # fresher than the HPA's 15 s sync period.
+        self.backlog_refresh_interval_s = 10.0
+        self._last_backlog_refresh: float | None = None
+        # Pause after a consume cycle that delivered nothing (see _run).
+        self.idle_backoff_s = 0.1
 
         # Statistical detector state for adaptive thresholding
         self._detector_state: dict[str, Any] = {
@@ -1625,16 +1714,56 @@ class StreamingAnomalyPipeline:
         )
         return False
 
+    async def refresh_backlog(self, *, force: bool = False) -> int | None:
+        """Query the consumer-group backlog and publish it.
+
+        Updates ``queue_depth`` / ``consumer_lag`` in :meth:`get_stats` and the
+        ``omni_detection_queue_depth`` gauge. Rate-limited to
+        ``backlog_refresh_interval_s`` unless ``force``; returns the depth
+        (``None`` when the backend cannot report it, or when rate-limited).
+        The worker reads straight from the broker into the detector, so there
+        is no in-process queue: queue depth *is* the consumer backlog.
+        """
+        now = time.monotonic()
+        if (
+            not force
+            and self._last_backlog_refresh is not None
+            and now - self._last_backlog_refresh < self.backlog_refresh_interval_s
+        ):
+            return None
+        self._last_backlog_refresh = now
+        try:
+            depth = await self._consumer.lag()
+        except Exception as e:  # a third-party consumer's lag() must not stop the worker
+            logger.warning(f"Consumer backlog query failed: {e}")
+            depth = None
+        self._stats["queue_depth"] = depth
+        self._stats["consumer_lag"] = depth
+        set_detection_queue_depth(depth)
+        return depth
+
+    def _detect(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Score one message, feeding the omni_detection_* series."""
+        try:
+            with time_detection("stream"):
+                return self.detector(value)
+        except Exception:
+            record_inference_error("stream")
+            raise
+
     async def _run(self) -> None:
         """Main processing loop with comprehensive observability."""
         while self._running:
             try:
+                await self.refresh_backlog()
+                cycle_messages = 0
                 async for message in self._consumer.consume(timeout_ms=1000):
+                    cycle_messages += 1
                     process_start = time.perf_counter()
                     try:
                         # Apply anomaly detection with timing
                         detection_start = time.perf_counter()
-                        result = self.detector(message.value)
+                        result = self._detect(message.value)
                         detection_end = time.perf_counter()
 
                         # Update core metrics
@@ -1707,6 +1836,14 @@ class StreamingAnomalyPipeline:
                         logger.error(f"Key error in detection: {e}")
                         self._stats["errors"] += 1
                         self._stats["error_breakdown"]["detection_errors"] += 1
+
+                if cycle_messages == 0:
+                    # The Kafka/Redis consumers return from consume() at once,
+                    # without awaiting, while their circuit breaker is open. With
+                    # no suspension point this loop never yielded: it pinned a
+                    # core and starved the event loop -- stop() and the SIGTERM
+                    # handler included -- until the breaker half-opened.
+                    await asyncio.sleep(self.idle_backoff_s)
 
             except asyncio.CancelledError:
                 break

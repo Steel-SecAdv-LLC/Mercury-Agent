@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -1261,7 +1262,7 @@ class EarthquakeDetector:
             # 2-D trace slice) used to produce. Unlike the hazard feature
             # lanes there is no physics fallback for a non-waveform input --
             # every path below needs a 1-D trace.
-            raise ValueError(
+            raise InputModalityError(
                 "predict_earthquake expects a seismic waveform shaped "
                 f"[seq_len] or [batch, seq_len]; got ndim={seismic_data.ndim} "
                 f"(shape {seismic_data.shape})"

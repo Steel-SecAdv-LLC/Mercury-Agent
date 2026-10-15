@@ -1843,10 +1843,10 @@ def stream(
     def _start_metrics_server(pipeline: Any) -> Any:
         """Serve live pipeline stats as Prometheus exposition on ``metrics_port``.
 
-        Hand-rolls the text exposition with the stdlib (matching
-        ``api/health.py``'s ``/metrics`` endpoint) so the worker needs no extra
-        runtime dependency. Returns the server (for shutdown) or ``None`` when
-        metrics are disabled.
+        Hand-rolls the pipeline counters with the stdlib and appends the
+        ``prometheus_client`` default registry when it is installed (matching
+        ``api/health.py``'s ``/metrics`` endpoint). Returns the server (for
+        shutdown) or ``None`` when metrics are disabled.
         """
         if not metrics_port or metrics_port <= 0:
             return None
@@ -1889,6 +1889,8 @@ def stream(
             ),
         )
 
+        from omni_mercury_engine.core.metrics import render_exposition
+
         def _exposition() -> bytes:
             stats = pipeline.get_stats()
             lines: list[str] = []
@@ -1896,7 +1898,14 @@ def stream(
                 lines.append(f"# HELP {metric_name} {help_text}")
                 lines.append(f"# TYPE {metric_name} {prom_type}")
                 lines.append(f"{metric_name} {float(stats.get(stats_key, 0.0) or 0.0)}")
-            return ("\n".join(lines) + "\n").encode()
+            body = ("\n".join(lines) + "\n").encode()
+            # Append the prometheus_client default registry (omni_detection_*,
+            # omni_model_inference_errors_total, omni_detection_queue_depth, ...)
+            # so the worker exports the series the alert rules and the engine
+            # HPA query -- the same composition api/health.py serves. No-op
+            # when prometheus_client is not installed.
+            rendered = render_exposition()
+            return body + rendered[0] if rendered is not None else body
 
         class _MetricsHandler(http.server.BaseHTTPRequestHandler):
             def do_GET(self) -> None:

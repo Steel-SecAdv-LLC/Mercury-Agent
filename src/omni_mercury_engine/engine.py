@@ -120,9 +120,17 @@ from omni_mercury_engine.core.equation_profiles import (
     components_from_score_channels,
     score_runtime_equation_profile,
 )
-from omni_mercury_engine.core.exceptions import OmniAnomalyException
+from omni_mercury_engine.core.exceptions import InputModalityError, OmniAnomalyException
 from omni_mercury_engine.core.global_omni_scalar_network import (
     get_global_scalar_network,
+)
+from omni_mercury_engine.core.metrics import (
+    record_component_declined,
+    record_inference_error,
+    time_detection,
+    time_feature_extraction,
+    time_fusion_inference,
+    update_model_metrics,
 )
 
 # ---------------------------------------------------------------------------
@@ -2205,8 +2213,71 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_features, labels_tensor, val_indices, raw_inputs_dev
             )
             metrics.update(cal_metrics)
+        if n_val > 0:
+            metrics.update(
+                self._record_fusion_validation_quality(
+                    detector_features, labels_tensor, val_indices, raw_inputs_dev
+                )
+            )
 
         return metrics
+
+    def _fusion_validation_probs(
+        self,
+        detector_features: dict[str, torch.Tensor],
+        labels_tensor: torch.Tensor,
+        val_indices: torch.Tensor,
+        raw_inputs_dev: torch.Tensor | None = None,
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Raw (uncalibrated) fusion probabilities and labels on the validation split."""
+        device = next(self.fusion_model.parameters()).device
+        self.fusion_model.eval()
+        with torch.no_grad():
+            val_feats = {
+                name: feat[val_indices].to(device) for name, feat in detector_features.items()
+            }
+            if self._domain_encoder is not None and raw_inputs_dev is not None:
+                val_feats["differentiable_domain"] = self._domain_encoder(
+                    raw_inputs_dev[val_indices]
+                )
+            val_probs = (
+                self.fusion_model(val_feats)["anomaly_probs"].detach().cpu().numpy().reshape(-1)
+            )
+        val_labels = labels_tensor[val_indices].cpu().numpy().reshape(-1).astype(int)
+        return val_probs, val_labels
+
+    def _record_fusion_validation_quality(
+        self,
+        detector_features: dict[str, torch.Tensor],
+        labels_tensor: torch.Tensor,
+        val_indices: torch.Tensor,
+        raw_inputs_dev: torch.Tensor | None = None,
+    ) -> dict[str, Any]:
+        """Measure the served decision on the validation split and publish it.
+
+        Scores the split exactly as ``detect_with_fusion`` serves: calibrated
+        probabilities, the engine's own threshold rule
+        (:meth:`_get_anomaly_threshold`) and its strict ``>`` comparison. Sets
+        ``omni_model_roc_auc`` / ``omni_model_f1_score`` with
+        ``dataset="fit_validation"``. The split also selected the
+        early-stopping epoch, so both figures are optimistic for unseen data.
+
+        Returns ``val_roc_auc`` / ``val_f1`` (``None`` on a single-class split,
+        where ROC-AUC is undefined and nothing is published).
+        """
+        from omni_mercury_engine.ml.mercury_ml import f1_score, roc_auc_score
+
+        raw_probs, val_labels = self._fusion_validation_probs(
+            detector_features, labels_tensor, val_indices, raw_inputs_dev
+        )
+        if len(np.unique(val_labels)) < 2:
+            return {"val_roc_auc": None, "val_f1": None}
+        served = np.asarray(self._apply_fusion_calibration(raw_probs), dtype=np.float64)
+        threshold = self._get_anomaly_threshold(float(served[0]), served)
+        roc_auc = float(roc_auc_score(val_labels, served))
+        f1 = float(f1_score(val_labels, (served > threshold).astype(int)))
+        update_model_metrics(__version__, "fit_validation", roc_auc=roc_auc, f1_score=f1)
+        return {"val_roc_auc": roc_auc, "val_f1": f1}
 
     def _fit_fusion_temperature(
         self,
@@ -2223,20 +2294,9 @@ class OmniMercuryEngine(LoggerMixin):
         """
         from omni_mercury_engine.core.calibration import TemperatureScaling, compute_ece
 
-        device = next(self.fusion_model.parameters()).device
-        self.fusion_model.eval()
-        with torch.no_grad():
-            val_feats = {
-                name: feat[val_indices].to(device) for name, feat in detector_features.items()
-            }
-            if self._domain_encoder is not None and raw_inputs_dev is not None:
-                val_feats["differentiable_domain"] = self._domain_encoder(
-                    raw_inputs_dev[val_indices]
-                )
-            val_probs = (
-                self.fusion_model(val_feats)["anomaly_probs"].detach().cpu().numpy().reshape(-1)
-            )
-        val_labels = labels_tensor[val_indices].cpu().numpy().reshape(-1).astype(int)
+        val_probs, val_labels = self._fusion_validation_probs(
+            detector_features, labels_tensor, val_indices, raw_inputs_dev
+        )
 
         if len(np.unique(val_labels)) < 2:
             logger.warning("Skipping temperature calibration: validation split is single-class")
@@ -2661,6 +2721,23 @@ class OmniMercuryEngine(LoggerMixin):
             return features
         selected = {k: v for k, v in features.items() if k in groups}
         return selected or features
+
+    def _timed_fusion_predict(self, features: dict[str, torch.Tensor]) -> dict[str, Any]:
+        """Run the fusion head on the trained groups, timed and error-counted.
+
+        Feeds ``omni_fusion_inference_duration_seconds`` and, on failure,
+        ``omni_model_inference_errors_total{model_name="fusion"}`` before
+        re-raising, so the serving paths share one instrumented call.
+        """
+        try:
+            with time_fusion_inference(type(self.fusion_model).__name__):
+                result: dict[str, Any] = self.fusion_inference.predict(
+                    self._restrict_to_trained_groups(features), return_attention=True
+                )
+        except Exception:
+            record_inference_error("fusion")
+            raise
+        return result
 
     def _apply_fusion_calibration(self, probs: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply the fitted post-hoc temperature calibration to a probability array.
@@ -3962,7 +4039,15 @@ class OmniMercuryEngine(LoggerMixin):
 
                 if isinstance(data, dict):
                     continue
-                results[detector_name] = detector.detect(data)
+                try:
+                    with time_detection(detector_name):
+                        results[detector_name] = detector.detect(data)
+                except InputModalityError:
+                    record_component_declined(detector_name)
+                    raise
+                except Exception:
+                    record_inference_error(detector_name)
+                    raise
 
         return {
             "detectors": results,
@@ -4697,8 +4782,10 @@ class OmniMercuryEngine(LoggerMixin):
                     reset_state = getattr(det, "reset_state", None)
                     if callable(reset_state):
                         reset_state()
-                    features = det.extract_features(d)
-                    result = det.detect(d)
+                    with time_feature_extraction(name):
+                        features = det.extract_features(d)
+                    with time_detection(name):
+                        result = det.detect(d)
                     return features, result
 
                 # The feature cache keys on array/tensor bytes. Dict inputs were
@@ -4736,6 +4823,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # Exception``; catching it here keeps the inference path's
                 # graceful-skip contract symmetric so one incompatible detector
                 # cannot crash detect_with_fusion.
+                if isinstance(e, InputModalityError):
+                    record_component_declined(name)
+                else:
+                    record_inference_error(name)
                 logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
@@ -4775,8 +4866,10 @@ class OmniMercuryEngine(LoggerMixin):
                     reset_state = getattr(mdl, "reset_state", None)
                     if callable(reset_state):
                         reset_state()
-                    features = mdl.extract_features(d)
-                    prediction = mdl.predict(d)
+                    with time_feature_extraction(name):
+                        features = mdl.extract_features(d)
+                    with time_detection(name):
+                        prediction = mdl.predict(d)
                     return features, prediction
 
                 # Dict inputs were keyed by a constant placeholder, so distinct
@@ -4807,6 +4900,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # component exception) means "this model cannot process the
                 # input" and must degrade gracefully, matching this method's
                 # documented contract, rather than propagating out of inference.
+                if isinstance(e, InputModalityError):
+                    record_component_declined(name)
+                else:
+                    record_inference_error(name)
                 logger.debug(f"Model {name} feature extraction failed: {e}")
                 continue
 
@@ -5231,10 +5328,7 @@ class OmniMercuryEngine(LoggerMixin):
                     },
                 ) from exc
 
-        fusion_result = self.fusion_inference.predict(
-            self._restrict_to_trained_groups(all_features),
-            return_attention=True,
-        )
+        fusion_result = self._timed_fusion_predict(all_features)
 
         # Calibrate at the production decision boundary, in-place into the
         # result dict, so every downstream consumer (anomaly_prob, the
@@ -5660,9 +5754,7 @@ class OmniMercuryEngine(LoggerMixin):
             mod_features, mod_scores = self._extract_model_features(data)
             all_features = {**det_features, **mod_features}
 
-            fusion_output = self.fusion_inference.predict(
-                self._restrict_to_trained_groups(all_features), return_attention=True
-            )
+            fusion_output = self._timed_fusion_predict(all_features)
             all_probs = fusion_output.get("anomaly_probs", np.array([anomaly_prob]))
             if isinstance(all_probs, torch.Tensor):
                 all_probs = all_probs.cpu().numpy()

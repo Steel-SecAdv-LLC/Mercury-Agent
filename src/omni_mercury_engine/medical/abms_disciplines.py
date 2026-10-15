@@ -35,6 +35,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+
 if TYPE_CHECKING:
     import torch
     from torch import nn
@@ -600,7 +602,7 @@ class ABMSDisciplineDetector:
         """Extract numerical features from patient clinical data (O(n) complexity)."""
         if not isinstance(patient_data, Mapping):
             shape_hint = f" of shape {patient_data.shape}" if hasattr(patient_data, "shape") else ""
-            raise ValueError(
+            raise InputModalityError(
                 "ABMSDisciplineDetector expects a patient-record mapping "
                 "(dict with 'vitals'/'labs'/'symptoms'/'history' keys), got "
                 f"{type(patient_data).__name__}{shape_hint}. "

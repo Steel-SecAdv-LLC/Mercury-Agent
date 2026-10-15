@@ -46,6 +46,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Fusion weights replace evidence scoring only on measured merit: at least
@@ -570,7 +571,7 @@ class IntelligenceFusionEngine:
             shape_hint = (
                 f" of shape {intel_reports.shape}" if hasattr(intel_reports, "shape") else ""
             )
-            raise ValueError(
+            raise InputModalityError(
                 "IntelligenceFusionEngine expects a multi-INT report mapping "
                 "(dict keyed by discipline, e.g. "
                 "{'open_source': {...}, 'signals': {...}}), got "

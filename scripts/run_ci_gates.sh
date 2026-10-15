@@ -127,6 +127,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/generate_anomaly_panel.py \
     scripts/run_sigma_mutation_gate.py \
     scripts/check_benchmark_integrity.py \
+    scripts/render_prometheus_rules.py \
     scripts/check_torch_load_safety.py \
     scripts/ci_gate_watchdog.py \
     --show-error-codes

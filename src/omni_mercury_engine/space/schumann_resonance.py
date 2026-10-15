@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.fft import fft, fftfreq
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.data_sources.live_ingestion import (
     LiveDataError,
     fetch_live_datapoints,
@@ -634,7 +635,7 @@ class SchumannResonanceDetector:
         # (if degenerate) ELF sample as off-modality input.
         signal = np.atleast_1d(np.squeeze(np.asarray(elf_signal, dtype=np.float64)))
         if signal.ndim != 1:
-            raise ValueError(
+            raise InputModalityError(
                 "SchumannResonanceDetector expects a 1-D ELF time series "
                 f"(single channel, sampled at {self.sampling_rate:g} Hz); got "
                 f"shape {np.asarray(elf_signal).shape}. Pass one ELF channel."

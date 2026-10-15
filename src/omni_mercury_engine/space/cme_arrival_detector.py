@@ -45,6 +45,8 @@ from datetime import UTC, datetime, timedelta
 from itertools import product
 from typing import Any
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+
 logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
@@ -471,7 +473,7 @@ class CMEArrivalDetector:
                 if shape is not None
                 else type(kinematics).__name__
             )
-            raise ValueError(
+            raise InputModalityError(
                 "CMEArrivalDetector expects a CMEKinematics dataclass "
                 "(speed_km_s, latitude_deg, longitude_deg, half_angle_deg, "
                 f"time_21_5 at 21.5 Rs); got {received}. Build one from a "
