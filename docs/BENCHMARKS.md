@@ -39,7 +39,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 > it: ROC-AUC 0.75 / F1 0.55), preserved here for the auditable
 > trajectory — it is **not** the current committed run. For the
 > authoritative current figures see the committed
-> `mercury_benchmark_results.json` (this committed run: 66/75 scored) and
+> `mercury_benchmark_results.json` (this committed run: 67/76 scored) and
 > the CI-refreshed README "Latest Benchmark Results" block. The externally-
 > comparable ADBench subset is Mean AUC **0.8515** on the hardened detector (0.8251 before the kNN density stream)
 > (base `e118e1f` 0.8180; see the base-vs-current section below).

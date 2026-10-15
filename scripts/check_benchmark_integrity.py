@@ -34,7 +34,11 @@ fabricated:
    per-dataset rows fails here.
 3. **README parity**: the numbers rendered in the README benchmark
    block (Mean/Median ROC-AUC, Mean Oracle F1, successful/total,
-   run timestamp, commit) must match the JSON they were generated from.
+   run timestamp, commit) must match the JSON they were generated from,
+   and the per-domain block must equal a fresh render from the JSON.
+4. **No stale dataset counts in prose**: every "N of M attempted" or
+   "N successful / M attempted" claim in the README and ``docs/`` must
+   state the committed run's counts.
 
 The gate fails closed: a missing file, a malformed block, or any
 mismatch exits non-zero with a specific diagnostic. It runs as a
@@ -51,6 +55,7 @@ no ML/native install to run.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import math
 import re
@@ -74,6 +79,21 @@ _RECOMPUTE_REL_TOL = 1e-9
 
 _START_MARKER = "<!-- BENCHMARK:START -->"
 _END_MARKER = "<!-- BENCHMARK:END -->"
+
+#: Prose forms of the headline dataset count, e.g. "66 of 75 attempted",
+#: "66 successful / 75 attempted", "66 reproducible datasets (of 75
+#: attempted", "66/75 scored", "75 datasets attempted / 66 successful".
+#: Claims may wrap across lines, inside blockquotes and markdown emphasis.
+_GAP = r"[\s>*]+"
+_COUNT_CLAIMS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        rf"\b(?P<ok>\d+){_GAP}(?:successful{_GAP}/|of){_GAP}(?P<total>\d+){_GAP}attempted",
+        rf"\b(?P<ok>\d+){_GAP}reproducible[^()]{{0,40}}\(of{_GAP}(?P<total>\d+){_GAP}attempted",
+        r"\b(?P<ok>\d+)/(?P<total>\d+)\**\s+(?:scored|successful|attempted)",
+        rf"\b(?P<total>\d+){_GAP}datasets{_GAP}attempted\s*/\s*(?P<ok>\d+){_GAP}successful",
+    )
+)
 
 
 class IntegrityError(Exception):
@@ -231,7 +251,45 @@ def _check_readme(
     return errors
 
 
-def check(results_path: Path, readme_path: Path) -> list[str]:
+def _check_readme_domains(readme_path: Path, data: dict[str, Any]) -> list[str]:
+    """Confirm the README per-domain block equals a fresh render from the JSON."""
+    # Load the sibling generator by path: ``scripts/`` is not a package, and
+    # this gate runs both as a script and imported from the test suite.
+    spec = importlib.util.spec_from_file_location(
+        "_update_readme_benchmarks", Path(__file__).with_name("update_readme_benchmarks.py")
+    )
+    if spec is None or spec.loader is None:
+        raise IntegrityError("cannot load scripts/update_readme_benchmarks.py")
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    expected = generator.render_domain_block(data)
+    if expected not in readme_path.read_text(encoding="utf-8"):
+        return [
+            f"README per-domain block ({generator.DOMAINS_START_MARKER}) is missing or "
+            "differs from a fresh render of the results JSON"
+        ]
+    return []
+
+
+def _check_prose_counts(paths: list[Path], summary: dict[str, Any]) -> list[str]:
+    """Flag any prose dataset-count claim that is not the committed run's."""
+    expected = (int(summary["successful"]), int(summary["total_datasets"]))
+    errors: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for pattern in _COUNT_CLAIMS:
+            for match in pattern.finditer(text):
+                claimed = (int(match["ok"]), int(match["total"]))
+                if claimed != expected:
+                    lineno = text.count("\n", 0, match.start()) + 1
+                    errors.append(
+                        f"{path}:{lineno} claims {claimed[0]} of {claimed[1]} datasets; "
+                        f"the committed run is {expected[0]} of {expected[1]}"
+                    )
+    return errors
+
+
+def check(results_path: Path, readme_path: Path, docs_dir: Path | None = None) -> list[str]:
     """Run every integrity check; return the list of violations (empty = clean)."""
     data = _load_results(results_path)
     summary = data["summary"]
@@ -241,6 +299,9 @@ def check(results_path: Path, readme_path: Path) -> list[str]:
     errors += _check_structural(summary, per_dataset)
     errors += _check_recomputed_headline(summary, per_dataset)
     errors += _check_readme(readme_path, summary, metadata)
+    errors += _check_readme_domains(readme_path, data)
+    prose = [readme_path] + (sorted(docs_dir.rglob("*.md")) if docs_dir else [])
+    errors += _check_prose_counts(prose, summary)
     return errors
 
 
@@ -259,10 +320,16 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("README.md"),
         help="Path to README.md carrying the benchmark block.",
     )
+    parser.add_argument(
+        "--docs",
+        type=Path,
+        default=Path("docs"),
+        help="Directory of Markdown docs checked for stale dataset counts.",
+    )
     args = parser.parse_args(argv)
 
     try:
-        violations = check(args.results, args.readme)
+        violations = check(args.results, args.readme, args.docs)
     except IntegrityError as exc:
         print(f"ERROR: benchmark integrity gate could not run: {exc}", file=sys.stderr)
         return 2

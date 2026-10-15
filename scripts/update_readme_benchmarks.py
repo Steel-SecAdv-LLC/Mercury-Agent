@@ -1,6 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-r"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->`` block in ``README.md`` from the current and previous ``benchmarks/mercury_benchmark_results.json``.
+r"""Regenerate the README's benchmark blocks from ``benchmarks/mercury_benchmark_results.json``.
+
+Two marker blocks are rewritten: ``<!-- BENCHMARK:START -->`` … ``END``
+(headline, current vs previous run) and ``<!-- BENCHMARK-DOMAINS:START -->``
+… ``END`` (per-domain means over the genuinely labelled datasets).
 
 This script is invoked by ``.github/workflows/benchmark.yml`` after every
 benchmark run on ``main`` so the live-data results are auto-committed and
@@ -27,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +39,15 @@ from typing import Any, cast
 
 START_MARKER = "<!-- BENCHMARK:START -->"
 END_MARKER = "<!-- BENCHMARK:END -->"
+DOMAINS_START_MARKER = "<!-- BENCHMARK-DOMAINS:START -->"
+DOMAINS_END_MARKER = "<!-- BENCHMARK-DOMAINS:END -->"
+
+#: Label sources that count as independent of the scored signal; the same
+#: policy as ``summary.headline_label_policy``. ``statistical`` labels are
+#: manufactured by thresholding a scored feature and are excluded.
+GENUINE_LABEL_SOURCES = frozenset({"ground_truth", "expert_annotated"})
+
+_DOMAIN_LABELS = {"adbench": "ADBench", "timeseries": "Time series"}
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -197,20 +211,73 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 {END_MARKER}"""
 
 
-def update_readme(readme_path: Path, new_block: str) -> bool:
-    """Replace the marker block in *readme_path*.  Returns ``True`` if changed."""
+def render_domain_block(current: dict[str, Any]) -> str:
+    """Render per-domain means over successful, genuinely labelled datasets.
+
+    Domains are the records' ``category``, largest first; small domains list
+    their datasets by name. Mean oracle F1 is taken over the records that
+    carry one.
+    """
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for record in current.get("per_dataset") or []:
+        if (
+            record.get("error") in (None, "", False)
+            and record.get("label_source") in GENUINE_LABEL_SOURCES
+            and isinstance(record.get("ensemble_auc"), (int, float))
+        ):
+            groups.setdefault(str(record.get("category") or "uncategorised"), []).append(record)
+
+    rows: list[str] = []
+    for category in sorted(groups, key=lambda c: (-len(groups[c]), c)):
+        records = groups[category]
+        label = _DOMAIN_LABELS.get(category, category.replace("_", " ").capitalize())
+        if len(records) <= 3:
+            label += " (" + ", ".join(str(r.get("name")) for r in records) + ")"
+        f1 = [r["oracle_f1"] for r in records if isinstance(r.get("oracle_f1"), (int, float))]
+        rows.append(
+            f"| {label} | {len(records)} | "
+            f"{statistics.mean(r['ensemble_auc'] for r in records):.4f} | "
+            f"{_fmt(statistics.mean(f1) if f1 else None)} |"
+        )
+    n_datasets = sum(len(records) for records in groups.values())
+    n_adbench = len(groups.get("adbench", []))
+    comparable = (
+        f"; the comparable figure is the\n{n_adbench}-dataset ADBench row" if n_adbench else ""
+    )
+    table = "\n".join(rows)
+    return f"""{DOMAINS_START_MARKER}
+| Domain | Datasets | Mean AUC | Mean oracle F1 |
+|--------|----------|----------|----------------|
+{table}
+
+*Generated from `benchmarks/mercury_benchmark_results.json` by
+`scripts/update_readme_benchmarks.py`: the {n_datasets} successful datasets whose
+labels are `ground_truth` or `expert_annotated`. Threshold-derived
+(`statistical`) labels are excluded as circular. Domains of one to three
+datasets are easy to separate at that size{comparable}.*
+{DOMAINS_END_MARKER}"""
+
+
+def update_readme(
+    readme_path: Path,
+    new_block: str,
+    start_marker: str = START_MARKER,
+    end_marker: str = END_MARKER,
+) -> bool:
+    """Replace one marker block in *readme_path*.  Returns ``True`` if changed."""
     text = readme_path.read_text(encoding="utf-8")
     pattern = re.compile(
-        re.escape(START_MARKER) + r".*?" + re.escape(END_MARKER),
+        re.escape(start_marker) + r".*?" + re.escape(end_marker),
         flags=re.DOTALL,
     )
     if not pattern.search(text):
         msg = (
-            f"could not find '{START_MARKER}' … '{END_MARKER}' markers in "
+            f"could not find '{start_marker}' … '{end_marker}' markers in "
             f"{readme_path}; aborting"
         )
         raise SystemExit(msg)
-    new_text = pattern.sub(new_block, text)
+    # A callable replacement: the block is literal text, never a regex template.
+    new_text = pattern.sub(lambda _match: new_block, text)
     if new_text == text:
         return False
     readme_path.write_text(new_text, encoding="utf-8")
@@ -250,6 +317,9 @@ def main(argv: list[str] | None = None) -> int:
 
     block = render_block(current, previous, commit_sha=args.commit_sha)
     changed = update_readme(args.readme, block)
+    changed |= update_readme(
+        args.readme, render_domain_block(current), DOMAINS_START_MARKER, DOMAINS_END_MARKER
+    )
     print("README updated." if changed else "README already up-to-date.")
     return 0
 

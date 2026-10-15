@@ -46,6 +46,30 @@ and 6:0 admitted. A hand-run mutation pass over the gate (ten mutants:
 significance replaced by accuracy, tail off-by-one, α, size and label
 checks, non-strict shape loading, decision takeover) kills all ten.
 
+**Fixed — stale benchmark figures across the README and docs.** The
+committed run is 67 of 76 datasets (Mean AUC 0.8545, Median 0.9052, Mean
+oracle F1 0.6425; ADBench 0.8515 / 0.6415). Ten prose claims in the README
+and five docs still quoted the earlier 66-of-75 run at 0.8251. The README's
+hand-typed "comparable domain" table was also wrong: it had the old ADBench
+row, and it listed three threshold-labelled datasets (ThreatIntel,
+NASA_Exoplanet, SolarDynamics) as independently labelled. That table is now
+a generated block (`<!-- BENCHMARK-DOMAINS -->`) rendered from the results
+JSON by `scripts/update_readme_benchmarks.py`, so `benchmark.yml` refreshes
+it with the headline. `scripts/check_benchmark_integrity.py` now also fails
+when that block differs from a fresh render, and when any README or `docs/`
+prose states a dataset count other than the committed run's ("N of M
+attempted", "N successful / M attempted", "N/M scored" and similar, across
+line breaks and blockquotes). The README's "6 datasets below 0.50 AUC"
+caveat is now 2. `docs/conf.py` declared the docs "Released under MIT"; the
+project is GPL-3.0-or-later.
+
+**Removed — four documents that were one-off logs or self-declared stale.**
+`DOMAIN_PERFORMANCE.md` (an "older illustrative snapshot" whose role the
+generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
+`WS_F_VERIFICATION.md` (single-PR verification logs; the latter cited AMA
+3.3 against the v5.0.0 pin), and `REPOSITORY_REFINEMENT_AUDIT.md` (a branch
+audit log with no references). Git history keeps all four.
+
 **Changed — the lattice group is not computed where the fit switched it
 off.** For an aperiodic domain the lattice features carried zero weight but
 were still computed for every image. They are now skipped after fit (and

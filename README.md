@@ -237,14 +237,15 @@ hyperparameter tuning.
 
 ### Methodology and comparability
 
-`MercuryAnomalyDetector` was run untuned over **66 of 75 attempted real-world
-datasets** across 12 domains (the 9 failures were unreachable external sources,
+`MercuryAnomalyDetector` was run untuned over **67 of 76 attempted real-world
+datasets** across 13 domains (the 9 failures were unreachable external sources,
 tracked by a two-lane reachability harness, `.github/workflows/dataset-reachability.yml`).
 Results fall into two regimes, and **only the first is comparable** to published
 detectors:
 
 - **Externally-labeled (comparable).** Labels come from a source independent of
-  the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU/MSDS). The
+  the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU, ADRepository,
+  DTU AIS). The
   headline is the 47-dataset ADBench result: **Mean AUC 0.8515 / Mean F1 0.6415**.
 - **Self-labeled / threshold-derived (not comparable).** Some environmental
   loaders manufacture labels by thresholding a feature they also score, so the
@@ -283,19 +284,24 @@ operational performance.*
 These rows use labels independent of the scored features — the numbers to line up
 against other detectors.
 
-| Domain | Datasets | Mean AUC | Mean F1 |
-|--------|----------|----------|---------|
-| **ADBench** | 47 | **0.8251** | **0.5975** |
-| Industrial (BATADAL) | 1 | 0.9114 | 0.5545 |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | 0.7423 |
-| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 |
-| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 |
-| General (ADRepository) | 1 | 0.7086 | 0.3468 |
-| Academic (CWRU, MSDS)† | 2 | 1.0000 | 1.0000 |
+<!-- BENCHMARK-DOMAINS:START -->
+| Domain | Datasets | Mean AUC | Mean oracle F1 |
+|--------|----------|----------|----------------|
+| ADBench | 47 | 0.8515 | 0.6415 |
+| Time series (SMD, NAB) | 2 | 0.7558 | 0.4580 |
+| Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
+| General (ADRepository) | 1 | 0.8657 | 0.5150 |
+| Industrial (BATADAL) | 1 | 0.9095 | 0.5548 |
+| Maritime (DTU_AIS_Abnormal) | 1 | 0.8613 | 0.6000 |
+| Security (NSL-KDD) | 1 | 0.9750 | 0.9567 |
 
-*† Academic/General rows are genuinely labeled but tiny; the 1.0000 AUC reflects
-easy separability at that size, not headline accuracy. The representative
-comparable figure is the 47-dataset ADBench row.*
+*Generated from `benchmarks/mercury_benchmark_results.json` by
+`scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
+labels are `ground_truth` or `expert_annotated`. Threshold-derived
+(`statistical`) labels are excluded as circular. Domains of one to three
+datasets are easy to separate at that size; the comparable figure is the
+47-dataset ADBench row.*
+<!-- BENCHMARK-DOMAINS:END -->
 
 ### Competitive positioning (ADBench, one identical unsupervised protocol)
 
@@ -367,14 +373,14 @@ into a headline.
 diverse and need adaptive profiling, or no labeled anomaly data is available.
 **Prefer alternatives when** labeled data exists (use a supervised classifier) or
 memory is tightly constrained. Caveats, stated plainly: KinematicScore is
-near-random on shuffled tabular data (mean AUC 0.60); 6 datasets fall below 0.50
+near-random on shuffled tabular data (mean AUC 0.60); 2 datasets fall below 0.50
 AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 
 ### Visual proof
 
 The benchmark panels below are generated from the current committed
-`mercury_benchmark_results.json` run (2026-06-21; Mean AUC 0.8251 over 66
-successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
+`mercury_benchmark_results.json` run (2026-10-14; Mean AUC 0.8545 over the 54
+genuinely labelled of 67 successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
 calibration panel comes from the MD-011/MD-005 calibration-validation run
 (52 datasets).
 
@@ -651,7 +657,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
-| Benchmark Coverage | 66 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8251** / Median **0.8747** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8251** |
+| Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
@@ -676,7 +682,7 @@ See `examples/decision_abstention_response_demo.py` and
 - **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Core anomaly detection is benchmarked on **66 reproducible real-world datasets** (of 75 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on **67 reproducible real-world datasets** (of 76 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 
@@ -1627,7 +1633,6 @@ mypy src/
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Python API quick reference (detector ensemble, compliance, medical, drone, profiling) |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
-| [docs/DOMAIN_PERFORMANCE.md](docs/DOMAIN_PERFORMANCE.md) | Per-domain precision/recall analysis |
 | [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
@@ -2530,7 +2535,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **67 reproducible real datasets** (of 76 attempted; canonical Mean ROC-AUC **0.8545** / Median **0.9052** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8515**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

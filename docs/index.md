@@ -43,13 +43,13 @@ attribution to code transferred from its former agent layer.)
   boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full
   contract.
 - **Committed benchmark run.** The README headline is the committed
-  `mercury_benchmark_results.json` run — **66 successful / 75
-  attempted**, Mean AUC **0.8251**, Median **0.8747**, Mean Oracle
-  F1 **0.5998** (2026-06-21) — surfaced in the README "Latest
+  `mercury_benchmark_results.json` run — **67 successful / 76
+  attempted**, Mean AUC **0.8545**, Median **0.9052**, Mean Oracle
+  F1 **0.6425** (2026-10-14) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
-  Externally-comparable subset: ADBench Mean AUC 0.8251.
+  Externally-comparable subset: ADBench Mean AUC 0.8515.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data
@@ -120,7 +120,6 @@ HAZARD_VISUALIZATION
 :caption: Benchmarks & data
 
 BENCHMARKS
-DOMAIN_PERFORMANCE
 DATASOURCES
 LIVE_DATA_SOURCES
 LIVE_DATA_VALIDATION
@@ -170,7 +169,6 @@ VISION
 EQUATION_RESEARCH_PROTOCOL
 SCHUMANN_PREREGISTRATION
 PARAPSYCH_PREREGISTRATION
-WS_F_VERIFICATION
 ```
 
 ```{toctree}
@@ -200,7 +198,6 @@ drone/SETUP
 
 ROADMAP
 MIGRATION-1.6-to-1.7
-PR335_AI_ALERT_REMEDIATION
 ```
 
 ## See also
