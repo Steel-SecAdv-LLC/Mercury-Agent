@@ -162,8 +162,12 @@ class SETICosmicSignalAnalyzer:
         if len(signal_data) < 10:
             return {"detected": False, "period": 0.0}
 
-        autocorr = np.correlate(signal_data, signal_data, mode="full")
-        autocorr = autocorr[len(autocorr) // 2 :]
+        # Zero-padded Wiener-Khinchin linear autocorrelation (O(n log n));
+        # cosmic-signal captures are long, and the direct form is O(n^2).
+        n_sig = len(signal_data)
+        padded = np.zeros(2 * n_sig)
+        padded[:n_sig] = signal_data
+        autocorr = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_sig]
 
         peaks = []
         for i in range(1, len(autocorr) - 1):
@@ -361,7 +365,7 @@ def _clip01(signal_characteristics: dict[str, Any], key: str, default: float = 0
     return default
 
 
-def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[str, float]:
+def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[str, float] | None:
     """Measure ``snr`` / ``bandwidth`` / ``periodicity`` in ``[0, 1]`` from a raw signal.
 
     Uses the module's own spectral machinery (``ResonanceEngine``) so the
@@ -377,19 +381,20 @@ def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[st
     - ``periodicity``: height of the strongest non-zero-lag peak of the
       normalised (mean-removed) autocorrelation, clipped to ``[0, 1]``.
 
-    A degenerate input (too short, non-finite, or constant) yields the
-    neutral ``0.5`` for every characteristic, matching the hand-fed default.
+    A degenerate input (too short, non-finite, or constant) is unmeasurable:
+    ``None`` is returned so the caller can keep any characteristics it already
+    holds instead of having them overwritten by placeholders.
     Convention note: the shared spectrum helper keeps only ``frequencies >= 0``
     and the FFT convention places the Nyquist bin at a negative frequency, so
     an exact-Nyquist tone contributes no measured peak.
     """
     x = np.asarray(signal_data, dtype=float).ravel()
     if x.size < 8 or not np.all(np.isfinite(x)):
-        return {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+        return None
     centered = x - float(np.mean(x))
     energy = float(np.dot(centered, centered))
     if energy <= 1e-24:
-        return {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+        return None
 
     engine = ResonanceEngine(sampling_rate=1.0)
     _freqs, magnitudes = engine.compute_resonance_spectrum(centered)
@@ -467,11 +472,15 @@ class MultiverseContactProtocolExplorer:
         # correction, and a more periodic (structured) carrier rewards a more
         # universal encoding. A missing characteristic leaves its weight neutral.
         signal_characteristics = signal_characteristics or {}
-        if signal_data is not None:
+        measured = _derive_signal_characteristics(signal_data) if signal_data is not None else None
+        signal_unmeasurable = signal_data is not None and measured is None
+        if measured is not None:
             derived_from_signal = True
             characteristics: dict[str, Any] = dict(signal_characteristics)
-            characteristics.update(_derive_signal_characteristics(signal_data))
+            characteristics.update(measured)
         else:
+            # An unmeasurable signal must not overwrite genuine caller-supplied
+            # characteristics with placeholders labelled as measurements.
             derived_from_signal = False
             characteristics = signal_characteristics
         snr = _clip01(characteristics, "snr")
@@ -523,6 +532,7 @@ class MultiverseContactProtocolExplorer:
                     "periodicity": periodicity,
                 },
                 "derived_from_signal": derived_from_signal,
+                "signal_unmeasurable": signal_unmeasurable,
             },
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }

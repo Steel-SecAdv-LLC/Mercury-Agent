@@ -209,10 +209,13 @@ class MultiverseZeroDaySimulator(LoggerMixin):
         the current system state (low distance), *novel* with respect to a
         catalogue of already-known vulnerability signatures (high distance from
         the nearest known signature), and — when measured exposure is supplied —
-        concentrated on the parts of the state the scan actually found weak:
-        each state dimension's contribution to the reachability distance is
-        discounted by ``1 / (1 + exposure)``, so measured weakness makes a
-        surface genuinely easier to reach in the simulation.
+        easier to reach where weakness was measured: each state dimension's
+        contribution to the reachability distance is discounted by
+        ``1 / (1 + exposure)``. A caller with localized measurements gets
+        genuine per-dimension steering; the fortress scan's own findings are
+        scalar-grade (chain- and flow-level), so it supplies a uniform
+        exposure that raises the simulated risk without claiming to know
+        *which* dimension is weak.
 
         Args:
             system_state: Current system state vector. Candidate vectors are
@@ -258,7 +261,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
             if cleaned.size and float(np.max(cleaned)) > 0.0:
                 exposure_arr = cleaned
 
-        def attack_fitness(attack_vector: np.ndarray[Any, Any]) -> float:
+        def _reachability(attack_vector: np.ndarray[Any, Any]) -> float:
             n = len(attack_vector)
             diff = attack_vector - system_state[:n]
             if exposure_arr is not None:
@@ -267,23 +270,36 @@ class MultiverseZeroDaySimulator(LoggerMixin):
                     if exposure_arr.size >= n
                     else np.pad(exposure_arr, (0, n - exposure_arr.size))
                 )
-                reachability = -float(np.sqrt(np.sum((diff * diff) / (1.0 + e))))
-            else:
-                reachability = -float(np.linalg.norm(diff))
-            novelty_bonus = 0.0
-            if known_list:
-                nearest = min(
-                    float(np.linalg.norm(attack_vector[: min(n, kv.size)] - kv[: min(n, kv.size)]))
-                    for kv in known_list
-                )
-                novelty_bonus = min(nearest, novelty_cap)
-            return float(reachability + novelty_bonus + 100.0)
+                return -float(np.sqrt(np.sum((diff * diff) / (1.0 + e))))
+            return -float(np.linalg.norm(diff))
+
+        def _novelty_bonus(attack_vector: np.ndarray[Any, Any]) -> float:
+            if not known_list:
+                return 0.0
+            n = len(attack_vector)
+            nearest = min(
+                float(np.linalg.norm(attack_vector[: min(n, kv.size)] - kv[: min(n, kv.size)]))
+                for kv in known_list
+            )
+            return min(nearest, novelty_cap)
+
+        def attack_fitness(attack_vector: np.ndarray[Any, Any]) -> float:
+            # Novelty steers which candidates win the search; it must not
+            # inflate the 0..1 risk scale, which is computed from
+            # reachability alone below.
+            return float(_reachability(attack_vector) + _novelty_bonus(attack_vector) + 100.0)
 
         converged = self.multiverse.converge_multiverse(attack_fitness)
 
         report = self.multiverse.get_multiverse_report()
 
-        zero_day_risk = float(min(converged.fitness / 100.0, 1.0))
+        # Risk is reachability-only (0 = unreachable at distance >= 100,
+        # 1 = a candidate sits on the system state): the novelty term steers
+        # the search toward uncatalogued surfaces but a catalogue must not
+        # inflate the reported risk of the same system.
+        zero_day_risk = float(
+            min(max(_reachability(converged.state_vector) + 100.0, 0.0) / 100.0, 1.0)
+        )
 
         sorted_universes = sorted(
             self.multiverse.universes.values(), key=lambda u: u.fitness, reverse=True
@@ -512,9 +528,9 @@ class CyberFortress(LoggerMixin):
 
         # The integrity and traffic checks run before the zero-day simulation so
         # their *measured* findings can condition it: observed tampering or
-        # anomalous traffic is passed in as exposure, which discounts the
-        # simulated reachability distance (a measurably weakened system is
-        # genuinely easier to reach).
+        # anomalous traffic is passed in as a uniform (scalar-grade) exposure,
+        # which discounts the simulated reachability distance — the scan knows
+        # the system is weakened, not which dimension is.
         measured_exposure = 0.0
 
         if (

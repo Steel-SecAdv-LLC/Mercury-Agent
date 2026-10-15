@@ -653,10 +653,19 @@ class TestFingerprintRecognizer:
     def test_compute_overall_quality_blend(self) -> None:
         recognizer = FingerprintRecognizer(liveness_required=False)
         quality = np.full((4, 4), 0.5)
-        # 0.6 * mean_quality + 0.4 * min(1, count/30); count>=30 saturates the term.
-        val = recognizer._compute_overall_quality(quality, minutiae_count=30)
+
+        def minutia(q: float) -> Minutia:
+            return Minutia(x=10, y=10, orientation=0.0, type=MinutiaeType.RIDGE_ENDING, quality=q)
+
+        # 0.6 * mean_quality + 0.4 * min(1, sum(per-minutia quality)/30):
+        # thirty full-confidence minutiae saturate the term...
+        val = recognizer._compute_overall_quality(quality, [minutia(1.0)] * 30)
         assert val == pytest.approx(0.6 * 0.5 + 0.4 * 1.0)
-        val2 = recognizer._compute_overall_quality(quality, minutiae_count=0)
+        # ...but thirty half-confidence detections only count as fifteen, so
+        # spurious minutiae in unreliable regions cannot inflate the score.
+        val_weighted = recognizer._compute_overall_quality(quality, [minutia(0.5)] * 30)
+        assert val_weighted == pytest.approx(0.6 * 0.5 + 0.4 * (15.0 / 30.0))
+        val2 = recognizer._compute_overall_quality(quality, [])
         assert val2 == pytest.approx(0.6 * 0.5)
 
     def test_verify_without_liveness_returns_none(self) -> None:

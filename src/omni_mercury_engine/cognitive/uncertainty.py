@@ -685,6 +685,7 @@ class UncertaintyQuantifier:
 
         # === MC DROPOUT / ENSEMBLE SAMPLING ===
         mc_predictions = None
+        samples_drawn = False  # True only when a genuine multi-draw path ran
 
         if model is not None and TORCH_AVAILABLE:
             # Use MC Dropout wrapper for PyTorch models, threading our
@@ -712,6 +713,7 @@ class UncertaintyQuantifier:
                 _mean_pred, _epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
                     input_tensor, n_samples=self.n_monte_carlo
                 )
+                samples_drawn = True
                 self._stats["mc_samples_total"] += self.n_monte_carlo
             except Exception as e:
                 logger.warning(f"MC Dropout failed: {e}, falling back to standard estimation")
@@ -722,6 +724,7 @@ class UncertaintyQuantifier:
             mc_predictions = self._monte_carlo_sampling(
                 prediction_function, input_data, self.n_monte_carlo
             )
+            samples_drawn = True
             self._stats["mc_samples_total"] += self.n_monte_carlo
 
         if mc_predictions is None and ensemble_predictions is not None:
@@ -732,6 +735,7 @@ class UncertaintyQuantifier:
                 ens = ens.reshape(-1, 1)
             if ens.shape[0] > 1:
                 mc_predictions = ens
+                samples_drawn = True
 
         if mc_predictions is None:
             mc_predictions = predictions
@@ -865,8 +869,11 @@ class UncertaintyQuantifier:
             aleatoric_measured=aleatoric_measured,
             confidence_calibrated=confidence_calibrated,
             sample_values=(
+                # Only genuinely drawn samples are attached: a multi-row batch
+                # of caller predictions is NOT a sample stack, and labeling it
+                # as one would fabricate an ensemble that never ran.
                 np.array(mc_predictions, copy=True)
-                if return_samples and mc_predictions.shape[0] > 1
+                if return_samples and samples_drawn and mc_predictions.shape[0] > 1
                 else None
             ),
         )

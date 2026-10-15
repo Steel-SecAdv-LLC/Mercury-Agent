@@ -305,27 +305,61 @@ class BiometricAnomalyModel:
     def _embedding_vector(
         self, image: str | np.ndarray[Any, Any]
     ) -> tuple[np.ndarray[Any, Any] | None, str]:
-        """Return a 1-D embedding for one image plus the backend that produced it.
+        """Return a 1-D embedding for one image plus the backend that ACTUALLY ran.
 
-        The backend is ``"deepface"`` when the DeepFace representation ran, and
-        ``"harmonic_fallback"`` for the deterministic harmonic/Fourier feature
-        path. A string path without DeepFace is loaded via OpenCV when
-        available; otherwise ``(None, reason)`` is returned so the caller can
-        fail honestly instead of hashing a filename string into "features".
+        The backend label is decided by what produced the vector, not by what
+        was available: ``"deepface"`` only when the DeepFace representation
+        succeeded, ``"harmonic_fallback"`` whenever the deterministic
+        harmonic/Fourier path produced it (including after a DeepFace failure).
+        One embedding (the first) is used when a backend returns several, and
+        the label says so — a multi-face image never concatenates into an
+        incomparable vector. ``(None, reason)`` names every unmeasurable case.
         """
         try:
             image = self._resolve_image_path(image)
         except ValueError as exc:
             return None, str(exc)
-        backend = (
-            "deepface"
-            if DeepFace is not None and self._is_image_input(image)
-            else "harmonic_fallback"
-        )
-        features = self.extract_features(image)
-        if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
-        vector = np.asarray(features, dtype=float).ravel()
+
+        features: np.ndarray[Any, Any] | None = None
+        backend = "harmonic_fallback"
+        if DeepFace is not None and self._is_image_input(image):
+            try:
+                represented = DeepFace.represent(
+                    image, model_name=self.model_name, enforce_detection=False
+                )
+                if isinstance(represented, list) and represented:
+                    features = np.array([r["embedding"] for r in represented], dtype=np.float32)
+                    backend = "deepface"
+            except Exception as exc:
+                logger.debug("DeepFace representation failed, using harmonic fallback: %s", exc)
+        elif DeepFace is None and self._is_image_input(image):
+            _warn_simulated_biometric_fallback()
+
+        if features is None:
+            try:
+                array = np.asarray(image)
+                if self._is_image_input(array):
+                    # One image (or one per batch item) is ONE sample: flatten
+                    # the pixels so the harmonic features describe the whole
+                    # image, never each pixel row as a separate "embedding".
+                    array = (
+                        array.reshape(1, -1)
+                        if array.ndim == 3
+                        else array.reshape(array.shape[0], -1)
+                    )
+                features = np.asarray(self._extract_harmonic_features(array))
+            except ValueError as exc:
+                return None, str(exc)
+
+        normalized = self._normalize_embedding_size(features)
+        if TORCH_AVAILABLE and isinstance(normalized, torch.Tensor):
+            normalized = normalized.detach().cpu().numpy()
+        matrix = np.asarray(normalized, dtype=float)
+        if matrix.ndim == 1:
+            matrix = matrix.reshape(1, -1)
+        if matrix.shape[0] > 1:
+            backend += f" (first of {matrix.shape[0]} embeddings)"
+        vector = matrix[0]
         if float(np.linalg.norm(vector)) < 1e-12:
             return None, "embedding is all zeros (no measurable features for this input)"
         return vector, backend

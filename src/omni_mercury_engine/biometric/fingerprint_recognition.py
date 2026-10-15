@@ -619,6 +619,10 @@ class MinutiaeExtractor:
 
                 if quality_map[qi, qj] < self._quality_threshold:
                     continue
+                # Record the measured local quality: every downstream
+                # confidence weighting is impossible while quality is the
+                # constructed default of 1.0.
+                m.quality = float(quality_map[qi, qj])
 
             filtered.append(m)
 
@@ -968,13 +972,18 @@ class FingerprintRecognizer:
 
         orientation = self._orientation_estimator.estimate(gray)
         frequency = self._frequency_estimator.estimate(gray, orientation)
-        enhanced = self._enhancer.enhance(gray, orientation, frequency)
 
+        # The quality map is computed BEFORE enhancement and passed in, so the
+        # anti-hallucination blend (low-quality blocks keep the input instead
+        # of Gabor output) runs in the real recognition path, not only when a
+        # caller supplies a mask by hand.
         quality_map = self._compute_quality_map(gray, orientation)
+        enhanced = self._enhancer.enhance(gray, orientation, frequency, quality_mask=quality_map)
+
         minutiae = self._minutiae_extractor.extract(enhanced, orientation, quality_map)
 
         singularities = self._detect_singularities(orientation)
-        overall_quality = self._compute_overall_quality(quality_map, len(minutiae))
+        overall_quality = self._compute_overall_quality(quality_map, minutiae)
 
         return FingerprintFeatures(
             minutiae=minutiae,
@@ -1131,10 +1140,18 @@ class FingerprintRecognizer:
     def _compute_overall_quality(
         self,
         quality_map: np.ndarray[Any, Any],
-        minutiae_count: int,
+        minutiae: list[Minutia],
     ) -> float:
-        """Compute overall fingerprint quality."""
+        """Compute overall fingerprint quality.
+
+        The minutiae factor is confidence-weighted: each minutia contributes
+        its measured local quality, so spurious detections in unreliable
+        regions cannot inflate the score the way a raw count did (twenty
+        noise-crossings on a near-flat image are not evidence of a good
+        print).
+        """
         avg_quality = np.mean(quality_map)
-        minutiae_factor = min(1.0, minutiae_count / 30.0)
+        effective_minutiae = float(sum(m.quality for m in minutiae))
+        minutiae_factor = min(1.0, effective_minutiae / 30.0)
 
         return float(0.6 * avg_quality + 0.4 * minutiae_factor)

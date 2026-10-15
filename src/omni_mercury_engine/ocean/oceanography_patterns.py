@@ -264,8 +264,13 @@ class OceanographyPatterns:
         Raises:
             ValueError: ``expected_period`` outside ``(2, n / 2]``.
         """
-        acf = np.correlate(time_series, time_series, mode="full")
-        acf = acf[len(acf) // 2 :]
+        # Linear autocorrelation via zero-padded Wiener-Khinchin: O(n log n)
+        # where np.correlate's direct form is O(n^2) — tide-gauge records are
+        # long time series. Equal to the direct form to floating point.
+        n_acf = len(time_series)
+        padded = np.zeros(2 * n_acf)
+        padded[:n_acf] = time_series
+        acf = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_acf]
         acf = acf / acf[0]
 
         peaks = []

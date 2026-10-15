@@ -26,6 +26,12 @@ _SINE = 3.0 * np.sin(2.0 * np.pi * _T / 16.0) + 0.01 * _RNG.randn(512)  # clean,
 _NOISE = np.random.RandomState(1).randn(512)  # broadband, aperiodic
 
 
+def _must_measure(signal: np.ndarray) -> dict[str, float]:
+    measured = _derive_signal_characteristics(signal)
+    assert measured is not None  # the signal under test is measurable
+    return measured
+
+
 def test_clip01_hand_values() -> None:
     assert _clip01({}, "snr") == 0.5  # missing -> neutral default
     assert _clip01({"snr": 0.3}, "snr") == 0.3
@@ -64,8 +70,8 @@ def test_wider_band_prefers_more_throughput() -> None:
 
 
 def test_derived_characteristics_separate_tone_from_noise() -> None:
-    tone = _derive_signal_characteristics(_SINE)
-    noise = _derive_signal_characteristics(_NOISE)
+    tone = _must_measure(_SINE)
+    noise = _must_measure(_NOISE)
     # A clean tone: strong spectral peak, almost no occupied bandwidth,
     # near-unit autocorrelation peak. White noise: the opposite on all three.
     assert tone["snr"] > 0.9 > noise["snr"]
@@ -73,13 +79,23 @@ def test_derived_characteristics_separate_tone_from_noise() -> None:
     assert tone["periodicity"] > 0.9 > noise["periodicity"]
 
 
-def test_derived_characteristics_degenerate_inputs_are_neutral() -> None:
+def test_derived_characteristics_degenerate_inputs_are_unmeasurable() -> None:
+    # Too short, constant, and non-finite signals cannot be measured; None
+    # (not a placeholder record) lets callers keep what they already know.
     for bad in (np.array([1.0, 2.0]), np.full(64, 7.0), np.array([np.nan] * 32)):
-        assert _derive_signal_characteristics(bad) == {
-            "snr": 0.5,
-            "bandwidth": 0.5,
-            "periodicity": 0.5,
-        }
+        assert _derive_signal_characteristics(bad) is None
+
+
+def test_degenerate_signal_preserves_caller_measurements() -> None:
+    out = MultiverseContactProtocolExplorer(num_universes=30).explore_contact_protocols(
+        {"snr": 0.95, "bandwidth": 0.2}, signal_data=np.full(64, 7.0)
+    )
+    conditioning = out["signal_conditioning"]
+    assert conditioning["derived_from_signal"] is False
+    assert conditioning["signal_unmeasurable"] is True
+    # The caller's genuine measurements drive the weights, not 0.5 placeholders.
+    assert conditioning["characteristics"]["snr"] == 0.95
+    assert conditioning["characteristics"]["bandwidth"] == 0.2
 
 
 def test_signal_data_drives_conditioning_end_to_end() -> None:
@@ -111,7 +127,7 @@ def test_measured_snr_decreases_monotonically_with_noise() -> None:
     carrier = 3.0 * np.sin(2.0 * np.pi * t / 16.0)
     noise = np.random.RandomState(2).randn(512)
     snrs = [
-        _derive_signal_characteristics(carrier + amplitude * noise)["snr"]
+        _must_measure(carrier + amplitude * noise)["snr"]
         for amplitude in (0.0, 0.3, 1.0, 3.0, 10.0)
     ]
     # More injected noise can never read as a cleaner channel.
@@ -126,8 +142,7 @@ def test_shortest_valid_signal_is_measured_not_defaulted() -> None:
     # only frequencies >= 0 and the fftfreq convention places the Nyquist bin
     # at a negative frequency — a documented edge of the module convention.)
     eight = np.array([1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0])
-    out = _derive_signal_characteristics(eight)
-    assert out != {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+    out = _must_measure(eight)
     assert out["snr"] > 0.5  # a representable pure tone reads as clean
 
 
@@ -149,7 +164,7 @@ def test_long_capture_is_tractable_and_correctly_characterized() -> None:
     # must be measurable, not a quadratic-time hang.
     t = np.arange(1_000_000, dtype=float)
     signal = np.sin(2.0 * np.pi * t / 500.0) + 0.1 * np.random.RandomState(1).randn(t.size)
-    out = _derive_signal_characteristics(signal)
+    out = _must_measure(signal)
     assert out["snr"] > 0.9
     assert out["bandwidth"] < 0.01
     assert out["periodicity"] > 0.9

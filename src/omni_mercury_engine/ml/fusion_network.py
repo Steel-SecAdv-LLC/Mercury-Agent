@@ -942,15 +942,16 @@ class OmniFusionModel(nn.Module):
             lambda_lyapunov: Lyapunov stability parameter (default: 0.25)
             use_synthetic_gradients: Enable synthetic gradient prediction
             use_amav: Enable auxiliary max-variance for multi-task
-            use_dtp: Run the Difference-Target-Propagation invertibility
-                diagnostic on a snapshot of the anomaly head's first linear
-                projection. This trains an auxiliary inverse map against real
-                activations captured during training and records, per log
-                interval, the normalized round-trip reconstruction error
-                (fraction of activation variance not recovered; 0.0 is perfect,
-                ~1.0 is no better than the mean). It is a measurement only: it
-                operates on a cloned layer and never mutates the trained
-                model's weights.
+            use_dtp: Run the invertibility diagnostic on the anomaly head's
+                first linear projection. Each log interval, a clone is
+                re-synced to the layer's current trained weights and ONLY an
+                auxiliary inverse map is refit against real captured
+                activations; the recorded value is the normalized round-trip
+                reconstruction error of the layer as trained at that moment
+                (fraction of activation variance not recovered; 0.0 is
+                perfect, ~1.0 is no better than the mean). It is a measurement
+                only: the clone's forward weights never train and the model's
+                weights are never mutated.
             use_focal_loss: Enable focal loss for severe class imbalance
             focal_alpha: Alpha parameter for focal loss (weight for positive class)
             focal_gamma: Gamma parameter for focal loss (focus on hard examples)
@@ -1167,17 +1168,24 @@ class OmniFusionModel(nn.Module):
                 )
 
                 if dtp is not None and "output" in dtp_capture:
-                    # Fit the auxiliary inverse to the real captured activations
-                    # and record the *normalized* round-trip error: the fraction
-                    # of activation variance the forward-inverse pair fails to
-                    # recover. Normalizing makes the metric scale-free, so it
-                    # reflects invertibility rather than the (growing) magnitude
-                    # of activations as training proceeds. 0.0 == perfect
-                    # round-trip; ~1.0 == no better than predicting the mean.
+                    # Re-sync the clone to the layer AS TRAINED RIGHT NOW and
+                    # refit ONLY the inverse against it, then record the
+                    # normalized round-trip error (fraction of activation
+                    # variance not recovered; scale-free). Keeping the forward
+                    # clone frozen at the live weights makes this a measurement
+                    # of the actual projection's invertibility — training the
+                    # clone too would measure a co-adapting autoencoder that
+                    # trends to zero for almost any layer.
+                    dtp.forward_layer.load_state_dict(diag_layer.state_dict())
                     y_cpu = dtp_capture["output"].detach().cpu()
-                    y_np = y_cpu.numpy()
                     for _ in range(20):
-                        dtp.backward_pass(y_np, y_np)
+                        dtp.optimizer_forward.zero_grad()
+                        dtp.optimizer_inverse.zero_grad()
+                        refit_loss = nn.functional.mse_loss(
+                            dtp.forward_layer(dtp.inverse_layer(y_cpu)), y_cpu
+                        )
+                        refit_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                        dtp.optimizer_inverse.step()  # the forward clone never steps
                     with torch.no_grad():
                         recon = dtp.forward_layer(dtp.inverse_layer(y_cpu))
                         num = float(nn.functional.mse_loss(recon, y_cpu).item())

@@ -27,6 +27,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Final adversarial review: eleven findings triaged, nine fixed, every claim re-tested (branch `steel/version-cov4`)
+
+A hostile machine review of this branch's full diff produced eleven findings;
+each was verified against a traced failure path before acting. Nine were real
+and are fixed; one was a docstring overclaim (corrected to the truth); one —
+re-inserting previously-removed parameters could mis-bind positional callers —
+was verified against every in-repo call site (all keyword or default calls;
+the restored order matches the pre-branch API) and needed no change.
+
+- **Biometric match robustness:** one embedding (the first, labelled when
+  several exist) per image, so multi-face or ragged inputs can never crash the
+  cosine with incomparable vector lengths; the backend label is decided by
+  what *actually produced* the vector, never by what was installed (a DeepFace
+  failure that fell back to harmonic features used to be labelled "FaceNet");
+  non-numeric inputs return the error-dict contract instead of raising; a
+  single image is one harmonic sample (whole-image features, not one
+  "embedding" per pixel row).
+- **Zero-day risk honesty:** the novelty term steers which candidates win the
+  search but no longer inflates the reported 0-1 risk, which is computed from
+  reachability alone — supplying a CVE catalogue cannot raise the same
+  system's risk score by up to 0.25 any more.
+- **DTP diagnostic validity:** each interval re-syncs the clone to the live
+  layer and refits ONLY the inverse, so the recorded value measures the
+  trained projection's invertibility — not a co-adapting autoencoder that
+  trends to zero for any layer.
+- **Degenerate-signal honesty:** an unmeasurable signal (too short, constant,
+  non-finite) returns ``None`` and the explorer keeps caller-supplied
+  characteristics, reporting ``signal_unmeasurable`` instead of overwriting
+  real measurements with 0.5 placeholders flagged as "derived".
+- **Uncertainty sample honesty:** ``sample_values`` attaches only genuinely
+  drawn MC/ensemble stacks; a multi-row batch of caller predictions is no
+  longer returned as if it were samples.
+- **Fingerprint quality chain wired end-to-end:** the recognizer computes its
+  quality map *before* enhancement and passes it in, so the anti-hallucination
+  blend runs in the real recognition path; each minutia now records its
+  measured local quality (previously hardcoded 1.0); and the overall-quality
+  minutiae factor is confidence-weighted, so spurious detections in unreliable
+  regions cannot inflate quality (twenty noise-crossings on a near-flat image
+  no longer read as a good print).
+- **O(n log n) autocorrelation everywhere long inputs live:** the tidal
+  detector and the SETI repeating-pattern detector now use the same
+  zero-padded Wiener–Khinchin transform as the contact-protocol derivation
+  (equal to the direct form at machine epsilon; a one-million-sample capture
+  measures in under a second instead of ~10^12 operations).
+- Also: the documented biometric "path or array" contract is now real (paths
+  load to pixels at every entry; previously a path string became a 0-d array
+  no backend could process), and exposure docstrings state plainly that the
+  fortress scan's own findings are scalar-grade while per-dimension steering
+  is available to callers with localized measurements.
+
 ### Depth round: simulators grounded in measured signal, a real biometric match path, and a true DTP training comparison (branch `steel/version-cov4`)
 
 The previous round made ignored parameters *affect* output; this round makes
