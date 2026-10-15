@@ -127,6 +127,34 @@ class BiometricAnomalyModel:
                 return True
         return False
 
+    @staticmethod
+    def _resolve_image_path(data: Any) -> Any:
+        """Load a path string into an RGB pixel array; pass everything else through.
+
+        Every downstream branch needs pixels (DeepFace calls here receive the
+        ndarray-coerced input, and the harmonic fallback is numeric-only), but
+        the old ``np.array(path_string)`` coercion produced a 0-d string array
+        no branch could process — the documented "path or array" contract
+        never actually worked for paths.
+
+        Raises:
+            ValueError: the path cannot be loaded (missing OpenCV, unreadable
+                or nonexistent file), naming the exact blocker.
+        """
+        if not isinstance(data, str):
+            return data
+        try:
+            import cv2
+        except ImportError as exc:
+            raise ValueError(
+                f"image path {data!r} needs OpenCV to load; install opencv-python "
+                "or pass a pixel array"
+            ) from exc
+        loaded = cv2.imread(data)
+        if loaded is None:
+            raise ValueError(f"image could not be loaded from path: {data!r}")
+        return loaded[..., ::-1]  # BGR -> RGB
+
     def _extract_harmonic_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features using harmonic decomposition and Fourier analysis."""
         if not isinstance(data, np.ndarray):
@@ -238,6 +266,8 @@ class BiometricAnomalyModel:
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
+        data = self._resolve_image_path(data)
+
         image_input = self._is_image_input(data)
 
         if not isinstance(data, np.ndarray):
@@ -283,20 +313,10 @@ class BiometricAnomalyModel:
         available; otherwise ``(None, reason)`` is returned so the caller can
         fail honestly instead of hashing a filename string into "features".
         """
-        if isinstance(image, str):
-            # Always resolve a path to pixels HERE so every environment runs
-            # the identical branch: with DeepFace installed, a raw string used
-            # to flow into extract_features, which converts it to a 0-d numpy
-            # string array that neither DeepFace nor the harmonic fallback can
-            # process (IndexError deep in the fallback).
-            try:
-                import cv2
-            except ImportError:
-                return None, "path input needs OpenCV to load the image"
-            loaded = cv2.imread(image)
-            if loaded is None:
-                return None, f"image could not be loaded from path: {image!r}"
-            image = loaded[..., ::-1]  # BGR -> RGB
+        try:
+            image = self._resolve_image_path(image)
+        except ValueError as exc:
+            return None, str(exc)
         backend = (
             "deepface"
             if DeepFace is not None and self._is_image_input(image)
@@ -447,6 +467,16 @@ class BiometricAnomalyModel:
                 data = next(iter(data.values()))
             else:
                 data = np.array([])
+
+        if isinstance(data, str):
+            try:
+                data = self._resolve_image_path(data)
+            except ValueError as exc:
+                return {
+                    "model_type": "biometric",
+                    "anomaly_scores": np.array([0.5], dtype=np.float32),
+                    "error": str(exc),
+                }
 
         image_input = self._is_image_input(data)
 

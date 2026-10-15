@@ -402,7 +402,15 @@ def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[st
 
     bandwidth = float(np.mean(magnitudes >= 0.1 * peak)) if peak > 0.0 else 1.0
 
-    autocorr = np.correlate(centered, centered, mode="full")[centered.size - 1 :] / energy
+    # Linear autocorrelation via zero-padded Wiener-Khinchin: O(n log n),
+    # where np.correlate's direct form is O(n^2) — it matters because this
+    # module's stated input is telescope/receiver time series, which can be
+    # long captures. Zero-padding to 2n makes the circular transform equal to
+    # the linear autocorrelation (to floating point).
+    n_samples = centered.size
+    padded = np.zeros(2 * n_samples)
+    padded[:n_samples] = centered
+    autocorr = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_samples] / energy
     periodicity = 0.0
     if autocorr.size > 3:
         interior = autocorr[1:-1]

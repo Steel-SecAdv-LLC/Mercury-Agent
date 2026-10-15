@@ -129,3 +129,27 @@ def test_shortest_valid_signal_is_measured_not_defaulted() -> None:
     out = _derive_signal_characteristics(eight)
     assert out != {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
     assert out["snr"] > 0.5  # a representable pure tone reads as clean
+
+
+def test_fft_autocorrelation_equals_the_direct_form() -> None:
+    # The O(n log n) Wiener-Khinchin autocorrelation must be the same
+    # measurement as the O(n^2) direct form it replaced, to floating point.
+    x = np.random.RandomState(0).randn(1024)
+    centered = x - x.mean()
+    energy = float(centered @ centered)
+    direct = np.correlate(centered, centered, mode="full")[centered.size - 1 :] / energy
+    padded = np.zeros(2048)
+    padded[:1024] = centered
+    fast = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:1024] / energy
+    assert float(np.max(np.abs(direct - fast))) < 1e-12
+
+
+def test_long_capture_is_tractable_and_correctly_characterized() -> None:
+    # A one-million-sample receiver capture (the module's stated input class)
+    # must be measurable, not a quadratic-time hang.
+    t = np.arange(1_000_000, dtype=float)
+    signal = np.sin(2.0 * np.pi * t / 500.0) + 0.1 * np.random.RandomState(1).randn(t.size)
+    out = _derive_signal_characteristics(signal)
+    assert out["snr"] > 0.9
+    assert out["bandwidth"] < 0.01
+    assert out["periodicity"] > 0.9

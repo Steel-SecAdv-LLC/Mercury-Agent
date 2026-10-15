@@ -156,16 +156,16 @@ strip the API down, each is implemented so the surface does what it says:
 sweep): the constructor accepted a spectrum size but the detector sliced a
 hardcoded `[:512]`; it now slices by the stored size.
 
-Deliberately still removed: `enable_age_progression` in
-`OmniMercuryEngine.detect_biometric`. The two-image path in
-`BiometricAnomalyModel.predict` does not actually compare reference to
-test (the `test` key is dropped and the `match_score` the docstring
-promises is never produced), so there is no match for age progression to
-improve. Wiring it means building cross-age face verification — a
-capability decision flagged for the maintainer, not defaulted on.
-`num_specialties` in `MultiSpecialtyNeuralNet` also stays removed: the
-ABMSBoard enum is the single source of truth for the 24 heads, so it was a
-correct redundancy removal, not a dead promise.
+`enable_age_progression` in `OmniMercuryEngine.detect_biometric` was
+deferred in this round — the two-image path in
+`BiometricAnomalyModel.predict` did not actually compare reference to test
+(the `test` key was dropped and the promised `match_score` never produced),
+so there was no match for age progression to improve — and was then **built
+for real in the depth round above**: a genuine embedding match plus
+age-robust matching over seeded progressed variants. `num_specialties` in
+`MultiSpecialtyNeuralNet` stays removed: the ABMSBoard enum is the single
+source of truth for the 24 heads, so it was a correct redundancy removal,
+not a dead promise.
 
 Kept deliberately (flagged by the sweep, correct on inspection):
 ``__exit__(exc_type, exc_val, exc_tb)`` protocol signatures, the

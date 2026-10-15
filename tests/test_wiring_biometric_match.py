@@ -114,3 +114,36 @@ def test_match_handles_grayscale_and_float_images() -> None:
     for image in (gray, floaty):
         result = model.predict({"reference": image, "test": image.copy()})
         assert result["match_score"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_single_image_path_input_finally_works(tmp_path: Path) -> None:
+    # The documented "path or array" contract never worked for paths: the old
+    # np.array(path) coercion produced a 0-d string array that DeepFace
+    # errored on and the harmonic fallback crashed on. A path now loads to
+    # pixels and analyses like an array.
+    cv2 = pytest.importorskip("cv2")
+    path = str(tmp_path / "ref.png")
+    cv2.imwrite(path, _NOISE_IMG[..., ::-1])
+    model = BiometricAnomalyModel()
+
+    result = model.predict({"reference": path})
+    assert result["model_type"] == "biometric"
+    assert "error" not in result
+    assert "anomaly_scores" in result
+
+    # extract_features honours the same contract (its annotation says str).
+    features = np.asarray(model.extract_features(path))
+    assert features.shape[-1] == 128
+    assert float(np.linalg.norm(features)) > 0.0
+
+    # And a path-loaded image embeds identically to its pixel array.
+    direct = model.predict({"reference": path, "test": _NOISE_IMG})
+    assert direct["match_score"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_unloadable_path_returns_error_dict_not_exception(tmp_path: Path) -> None:
+    pytest.importorskip("cv2")
+    missing = str(tmp_path / "does_not_exist.png")
+    result = BiometricAnomalyModel().predict({"reference": missing})
+    assert "error" in result
+    assert "does_not_exist.png" in result["error"]
