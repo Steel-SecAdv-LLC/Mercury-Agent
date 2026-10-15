@@ -27,6 +27,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Visual anomaly analysis, a FINDOYOU evidence bridge, and a durable self-model (branch `steel/version-cov4`)
+
+`BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
+interpretable image-anomaly capability, and the FINDOYOU ↔ Mercury ↔ AMA trio
+gets a signed evidence contract. See [`docs/VISION.md`](docs/VISION.md) and
+[`docs/TRIO_INTEGRATION.md`](docs/TRIO_INTEGRATION.md).
+
+- **`omni_mercury_engine.vision` (new).** It learns normal appearance from
+  defect-free images and uses no pretrained weights.
+  - **Input:** any image type becomes one canonical form, or is refused with a
+    stated reason.
+  - **Features:** 31 named patch features per scale across 9 groups, all exactly
+    invariant to a global gain.
+  - **Normal model:** a PatchCore-style coreset kNN plus a Ledoit-Wolf
+    Mahalanobis model.
+  - **Decision:** split-conformal, with `recalibrate()` for a new session.
+  - **Localisation:** hysteresis with half-maximum extents.
+  - **Classification:** self-supervised prototypes of seven physical types per
+    polarity, simulated on the user's own normals, with an open-set bound.
+  - **Environment:** an envelope check that withholds the decision when capture
+    conditions fall outside it.
+  - **Forensics, kept separate from the conformal decision:** noise
+    inconsistency, JPEG grid phase, copy-move and moiré.
+  - **Operation:** batch and streaming modes, and `save`/`load` (npz, no pickle).
+- **Lattice symmetry for periodic textures.** Each image's two shortest
+  translation vectors are found to sub-pixel precision, and every pixel is
+  compared with its neighbours one period away.
+  - The comparison runs on log-luminance minus an edge-preserving separable
+    median. A lighting step is therefore not a break: the residual offset beside
+    a 0.8 log-unit step is 0.005, against 0.27 for a half-resolution median.
+  - Border and corner comparisons report "no evidence" rather than a false break.
+    Before this fix, every top-scoring *normal* MVTec grid image peaked at a
+    corner at +350σ.
+  - The analyser decides from its normal data whether a domain has a lattice at
+    all, and switches the group off for aperiodic textures. The measured
+    separation: grid 0.05, carpet 0.22–0.27, leather/wood 0.66–0.73, tile 0.83;
+    threshold 0.4.
+- **`AgeProgressionEngine`.**
+  - Geometry: cardioidal-strain craniofacial growth (Todd et al., 1980) with
+    cubic resampling, applied only to children, on a stated, unfitted schedule.
+  - Texture: a deterministic DoG mid-band model that injects no noise.
+  - `assess_progression` flags SSIM, noise and lost-detail failures.
+- **`BiometricAnomalyModel.predict`.**
+  - Image input gets the visual analysis after `fit_normal()`.
+  - Without a fitted model it runs environment, forensic and presentation-attack
+    screening.
+  - Face attributes are reported only as far as DeepFace measured them. The
+    fabricated `age=25` and 0.5 confidences are gone.
+- **FINDOYOU evidence bridge** (`integrations/findoyou_bridge.py`). Each packet
+  carries:
+  - identity, age-robust match, progression audit and sighting-integrity
+    findings in the shared three-state wire values;
+  - SHA3-256 image digests;
+  - an ML-DSA-65 signature through AMA, verified against a pinned producer key.
+
+  Every FINDOYOU import of Mercury resolves on this branch.
+- **Self-model** (`self_model.py`).
+  - Mercury's identity, probed capabilities, safeguards, measured performance
+    and derived limitations.
+  - Kept in a SHA3-256 hash-chained, optionally ML-DSA-65-signed ledger, with
+    `diff_snapshots` and a CLI.
+- **Reproducible benchmarks.**
+  - `benchmarks/mvtec_visual_benchmark.py`: real MVTec AD textures, downloaded
+    at run time under a pinned manifest.
+  - `benchmarks/vision_synthetic_heldout.py`: exact-ground-truth classification
+    on held-out images and independent injectors.
+- **Also fixed:** a line-length formatting regression from the terminology
+  rename in `essential_workers.py`.
+
 ### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard (branch `steel/version-cov4`)
 
 Two injected framings are replaced everywhere they occurred. A mission

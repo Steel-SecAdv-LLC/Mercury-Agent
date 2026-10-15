@@ -103,6 +103,103 @@ class BiometricAnomalyModel:
         self.harmonic_decomposer = HarmonicDecomposer()
         self.fourier_analyzer = FourierAnalyzer()
         self.target_embedding_size = 128
+        self.visual_analyzer: Any = None
+
+    def fit_normal(self, images: list[Any], config: Any = None) -> BiometricAnomalyModel:
+        """Learn the normal appearance of genuine captures for visual anomaly analysis.
+
+        Fits a :class:`~omni_mercury_engine.vision.VisualAnomalyAnalyzer` on
+        ``images`` (paths or arrays of genuine, well-captured biometric images
+        from the deployment's capture conditions — for example aligned face
+        crops from one enrolment station). Afterwards :meth:`predict` on a
+        single image returns a calibrated, localised, classified and explained
+        visual anomaly analysis.
+
+        Args:
+            images: Normal images (at least 4).
+            config: Optional :class:`~omni_mercury_engine.vision.AnalyzerConfig`.
+
+        Returns:
+            ``self``.
+        """
+        from omni_mercury_engine.vision import AnalyzerConfig, VisualAnomalyAnalyzer
+
+        analyzer = VisualAnomalyAnalyzer(config or AnalyzerConfig())
+        self.visual_analyzer = analyzer.fit([self._resolve_image_path(img) for img in images])
+        return self
+
+    def _visual_assessment(self, image: Any) -> dict[str, Any]:
+        """Visual anomaly analysis of one image (calibrated when a normal model is fitted).
+
+        With a fitted normal model the full report is returned and the
+        pipeline-facing score is ``1 - p_value`` of the conformal content
+        decision (neutral 0.5 when the decision is withheld). Without one, no
+        content verdict is invented: capture conditions and forensic
+        screening are reported, with presentation-attack cues (screen-replay
+        moiré / print halftone peaks, spliced noise levels) flagged at stated
+        absolute thresholds.
+        """
+        analyzer = self.visual_analyzer
+        if analyzer is not None and analyzer.is_fitted:
+            report = analyzer.analyze(image)
+            if report.is_anomalous is None or report.p_value is None:
+                score = 0.5
+            else:
+                score = 1.0 - float(report.p_value)
+            return {
+                "anomaly_scores": np.array([score], dtype=np.float32),
+                "anomaly_score_basis": "1 - conformal p-value of the visual anomaly analysis",
+                "visual_analysis": report.to_dict(),
+            }
+
+        from omni_mercury_engine.vision.forensics import (
+            jpeg_grid_analysis,
+            noise_inconsistency,
+            periodic_artifact_analysis,
+        )
+        from omni_mercury_engine.vision.imaging import assess_environment, to_canonical
+
+        try:
+            canonical = to_canonical(image)
+        except ValueError as exc:
+            return {
+                "anomaly_scores": np.array([0.5], dtype=np.float32),
+                "anomaly_score_basis": "unavailable",
+                "visual_analysis": {"state": "unavailable", "reason": str(exc)},
+            }
+        forensics = {
+            "noise_inconsistency": noise_inconsistency(canonical.luminance),
+            "jpeg_grid": jpeg_grid_analysis(canonical.luminance),
+            "periodic_artifacts": periodic_artifact_analysis(canonical.luminance),
+        }
+        cues = []
+        if forensics["periodic_artifacts"]["peak_excess"] > 3.5:
+            cues.append(
+                "isolated spectral peaks (excess "
+                f"{forensics['periodic_artifacts']['peak_excess']:.1f} > 3.5): "
+                "screen-replay moire or print halftone"
+            )
+        if forensics["noise_inconsistency"]["max_abs_z"] > 6.0:
+            cues.append(
+                "sensor-noise level inconsistent across the image "
+                f"(|z| {forensics['noise_inconsistency']['max_abs_z']:.1f} > 6): splice or retouch"
+            )
+        if forensics["jpeg_grid"]["grid_misaligned"]:
+            cues.append("JPEG grid at a non-zero phase: cropped or recompressed after editing")
+        return {
+            "anomaly_scores": np.array([0.5], dtype=np.float32),
+            "anomaly_score_basis": "unavailable (no normal model fitted)",
+            "visual_analysis": {
+                "state": "unavailable",
+                "reason": "no normal model fitted: call fit_normal(normal_images) for a "
+                "calibrated content anomaly analysis",
+                "environment": assess_environment(canonical).to_dict(),
+                "forensics": forensics,
+                "presentation_attack_cues": cues,
+                "cue_thresholds": "absolute screening values, uncalibrated for this domain",
+                "provenance": canonical.provenance.to_dict(),
+            },
+        }
 
     @staticmethod
     def _is_image_input(data: object) -> bool:
@@ -475,14 +572,23 @@ class BiometricAnomalyModel:
         }
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """Predict biometric anomalies and quality scores."""
+        """Analyse biometric input: a verification pair, one image, or a tabular feature matrix.
+
+        * ``{"reference": ..., "test": ...}`` — reference-vs-test match
+          (:meth:`_predict_match`), optionally age-robust.
+        * One image (path or pixel array) — visual anomaly analysis
+          (:meth:`_visual_assessment`: calibrated, localised, classified and
+          explained once :meth:`fit_normal` has run; capture-condition and
+          forensic screening otherwise), plus face attributes **only when
+          DeepFace measured them** (``attributes_measured``).
+        * A tabular matrix (the fusion pipeline's route) — the harmonic
+          spectral-deviation score; no face attributes are claimed for it.
+        """
         if data is None:
             return {
                 "model_type": "biometric",
                 "anomaly_scores": np.array([0.5], dtype=np.float32),
-                "age": 25,
-                "gender_confidence": 0.5,
-                "emotion_confidence": 0.5,
+                "attributes_measured": False,
                 "error": "No input data provided",
             }
 
@@ -517,49 +623,42 @@ class BiometricAnomalyModel:
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
-        if DeepFace is not None and image_input:
-            try:
-                result = DeepFace.analyze(
-                    data, actions=["age", "gender", "emotion"], enforce_detection=False
-                )
+        if image_input:
+            result: dict[str, Any] = {"model_type": "biometric"}
+            result.update(self._visual_assessment(data))
+            result["attributes_measured"] = False
+            if DeepFace is not None:
+                try:
+                    analysis = DeepFace.analyze(
+                        data, actions=["age", "gender", "emotion"], enforce_detection=False
+                    )
+                    if isinstance(analysis, list) and len(analysis) > 0:
+                        analysis = analysis[0]
+                    gender = analysis.get("gender", {})
+                    emotion = analysis.get("emotion", {})
+                    if "age" in analysis:
+                        result["age"] = analysis["age"]
+                    if gender:
+                        result["gender_confidence"] = float(max(gender.values()))
+                    if emotion:
+                        result["emotion_confidence"] = float(max(emotion.values()))
+                    result["attributes_measured"] = any(
+                        key in result for key in ("age", "gender_confidence", "emotion_confidence")
+                    )
+                except Exception as e:
+                    logger.warning("DeepFace biometric analysis failed: %s", e)
+                    result["error"] = f"Analysis failed: {e}"
+            return result
 
-                if isinstance(result, list) and len(result) > 0:
-                    result = result[0]
+        features = self.extract_features(data)
+        if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
+            features = features.detach().cpu().numpy()
 
-                age = result.get("age", 25)
-                gender = result.get("gender", {})
-                emotion = result.get("emotion", {})
+        anomaly_score = np.mean(np.abs(features - 0.5))  # type: ignore[assignment, unused-ignore]
 
-                gender_confidence = max(gender.values()) if gender else 0.5
-                emotion_confidence = max(emotion.values()) if emotion else 0.5
-
-                anomaly_score = 1.0 - (gender_confidence + emotion_confidence) / 2.0
-
-                return {
-                    "model_type": "biometric",
-                    "anomaly_scores": np.array([anomaly_score], dtype=np.float32),
-                    "age": age,
-                    "gender_confidence": float(gender_confidence),
-                    "emotion_confidence": float(emotion_confidence),
-                }
-            except Exception as e:
-                logger.warning("DeepFace biometric analysis failed: %s", e)
-                return {
-                    "model_type": "biometric",
-                    "anomaly_scores": np.array([0.5], dtype=np.float32),
-                    "error": f"Analysis failed: {e}",
-                }
-        else:
-            features = self.extract_features(data)
-            if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
-                features = features.detach().cpu().numpy()
-
-            anomaly_score = np.mean(np.abs(features - 0.5))  # type: ignore[assignment, unused-ignore]
-
-            return {
-                "model_type": "biometric",
-                "anomaly_scores": np.array([anomaly_score], dtype=np.float32),
-                "age": 25,
-                "gender_confidence": 0.5,
-                "emotion_confidence": 0.5,
-            }
+        return {
+            "model_type": "biometric",
+            "anomaly_scores": np.array([anomaly_score], dtype=np.float32),
+            "anomaly_score_basis": "harmonic spectral deviation (tabular route; not a visual anomaly score)",
+            "attributes_measured": False,
+        }

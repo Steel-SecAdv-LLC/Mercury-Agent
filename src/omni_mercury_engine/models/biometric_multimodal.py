@@ -145,6 +145,114 @@ class AgeProgressionResult:
     progressed_embedding: np.ndarray[Any, Any] | None = None
     quantum_factor: float = 1.2
     message: str = ""
+    # How the progression was produced: the geometric growth model actually
+    # applied (or why none was), and the texture model used.
+    geometric_model: dict[str, Any] | None = None
+    texture_model: str | None = None
+
+
+#: Time constant (years) of the assumed craniofacial growth schedule
+#: ``g(age) = 1 - exp(-age / tau)``: 95% of facial growth complete by ~18.
+#: A stated modelling assumption, not a fit to anthropometric data.
+CRANIOFACIAL_GROWTH_TAU_YEARS = 6.0
+
+#: Cardioidal strain parameter spanning infancy to adulthood under the schedule.
+CRANIOFACIAL_K_RANGE = 0.25
+
+
+def craniofacial_growth_fraction(age: float) -> float:
+    """Fraction of craniofacial growth completed by ``age`` under the stated schedule."""
+    return float(1.0 - np.exp(-max(age, 0.0) / CRANIOFACIAL_GROWTH_TAU_YEARS))
+
+
+def cardioidal_strain(
+    face: np.ndarray[Any, Any],
+    k: float,
+    origin: tuple[float, float] = (0.42, 0.5),
+) -> np.ndarray[Any, Any]:
+    """Apply the cardioidal-strain growth transform to an aligned face crop.
+
+    The revised cardioidal strain (Todd, Mark, Shaw & Pittenger, 1980; Mark &
+    Todd, 1983) models craniofacial growth as a radial deformation about a
+    point near the centre of the head: in polar coordinates ``(R, theta)``
+    with ``theta`` measured from the upward vertical, ``R' = R (1 + k (1 -
+    cos theta))``. The crown (theta = 0) does not move while the lower face
+    (theta near pi) elongates by up to ``1 + 2k`` — the characteristic change
+    from a child's to an adult's facial proportions. ``k > 0`` ages the face
+    forward, ``k < 0`` rejuvenates it.
+
+    Args:
+        face: ``(H, W)`` or ``(H, W, C)`` aligned face crop.
+        k: Strain parameter (the difference between target and source levels).
+        origin: Strain origin as ``(y, x)`` fractions of the crop (default: on
+            the vertical midline, 42% from the top — the head centre in a
+            standard face crop).
+
+    Returns:
+        The warped face, same shape and dtype.
+    """
+    from scipy import ndimage
+
+    image = np.asarray(face)
+    height, width = image.shape[:2]
+    oy, ox = origin[0] * height, origin[1] * width
+    yy, xx = np.indices((height, width), dtype=np.float64)
+    dy, dx = yy - oy, xx - ox
+    radius = np.hypot(dy, dx)
+    cos_theta = np.where(radius > 0, -dy / np.maximum(radius, 1e-9), 1.0)
+    # Inverse map: an output pixel at radius R' samples the source at R' / s.
+    stretch = 1.0 + k * (1.0 - cos_theta)
+    src_y = oy + dy / stretch
+    src_x = ox + dx / stretch
+    work = image.astype(np.float64)
+    # Cubic resampling: bilinear interpolation acts as a low-pass filter and
+    # visibly softens skin detail (measured by assess_progression's
+    # sharpness ratio); ringing overshoot is clipped to the input's range.
+    if work.ndim == 2:
+        warped = ndimage.map_coordinates(work, [src_y, src_x], order=3, mode="nearest")
+    else:
+        warped = np.stack(
+            [
+                ndimage.map_coordinates(work[..., c], [src_y, src_x], order=3, mode="nearest")
+                for c in range(work.shape[2])
+            ],
+            axis=-1,
+        )
+    warped = np.clip(warped, float(work.min()), float(work.max()))
+    if np.issubdtype(image.dtype, np.integer):
+        return np.round(warped).astype(image.dtype)
+    return warped.astype(image.dtype)
+
+
+def structural_similarity(a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float:
+    """Mean SSIM (Wang, Bovik, Sheikh & Simoncelli, 2004) of two images' luminance.
+
+    Gaussian-windowed (sigma 1.5) with the standard constants for a ``[0, 1]``
+    dynamic range; colour images are compared on Rec. 709 luma.
+    """
+    from scipy import ndimage
+
+    def _luma(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        arr = np.asarray(x, dtype=np.float64)
+        if np.issubdtype(np.asarray(x).dtype, np.integer):
+            arr = arr / 255.0
+        if arr.ndim == 3 and arr.shape[2] >= 3:
+            arr = arr[..., :3] @ np.array([0.2126, 0.7152, 0.0722])
+        elif arr.ndim == 3:
+            arr = arr[..., 0]
+        return arr
+
+    x, y = _luma(a), _luma(b)
+    c1, c2 = 0.01**2, 0.03**2
+    mu_x = ndimage.gaussian_filter(x, 1.5)
+    mu_y = ndimage.gaussian_filter(y, 1.5)
+    sxx = ndimage.gaussian_filter(x * x, 1.5) - mu_x**2
+    syy = ndimage.gaussian_filter(y * y, 1.5) - mu_y**2
+    sxy = ndimage.gaussian_filter(x * y, 1.5) - mu_x * mu_y
+    ssim_map = ((2 * mu_x * mu_y + c1) * (2 * sxy + c2)) / (
+        (mu_x**2 + mu_y**2 + c1) * (sxx + syy + c2)
+    )
+    return float(ssim_map.mean())
 
 
 class BiometricFusion:
@@ -479,13 +587,23 @@ class MultimodalBiometricEngine:
 
 
 class AgeProgressionEngine:
-    """Heuristic age-progression engine.
+    """Age-progression engine: published growth geometry, deterministic texture, audited output.
 
-    Applies seeded, deterministic polynomial brightness/contrast filters with
-    wrinkle-noise (aging) or smoothing (rejuvenation) to a detected face.
-    These are visual heuristics: no validated accuracy claim is made for
-    them, and the reported embedding similarity is ``None`` whenever no real
-    embedding backend is available.
+    * **Geometry** — for juvenile age spans with a known source age, the
+      cardioidal-strain craniofacial growth model (:func:`cardioidal_strain`)
+      reshapes the face as it grows; adults get no geometric change.
+    * **Texture** — the default ``"detail"`` model amplifies (aging) or
+      attenuates (rejuvenation) the face's own skin-fold band
+      deterministically; the seeded ``"legacy_noise"`` brightness/contrast/
+      noise filter (:meth:`apply_polynomial_age_filter`) remains available.
+    * **Audit** — :meth:`assess_progression` measures structural similarity,
+      injected noise and lost detail, and can run the visual anomaly analyser
+      on the output.
+
+    The growth schedule and texture model are stated heuristics: no validated
+    accuracy claim is made for the progression itself, and the reported
+    embedding similarity is ``None`` whenever no real embedding backend is
+    available.
 
     Example:
         engine = AgeProgressionEngine()
@@ -669,12 +787,150 @@ class AgeProgressionEngine:
             logger.error(f"Age filter error: {e}")
             return face
 
-    def progress_age(self, image_path: str, target_age_delta: int) -> AgeProgressionResult:
-        """Perform age progression on image.
+    def apply_detail_age_filter(
+        self, face: np.ndarray[Any, Any], age_delta: int
+    ) -> np.ndarray[Any, Any]:
+        """Deterministic skin-texture aging that works on detail the face already has.
+
+        Aging amplifies the face's own *mid-frequency* band (difference of
+        Gaussians, sigma 1 to 3 — the scale of skin folds and creases), with a
+        gain growing with the years and capped, and applies a mild tonal
+        change; rejuvenation attenuates that band and slightly lifts tone. The
+        finest band, where sensor noise lives, is left untouched, and no noise
+        is added — the same face always yields the same result and nothing
+        synthetic is passed off as wrinkles. A visual heuristic: no validated
+        accuracy claim is made for it.
+
+        Args:
+            face: Aligned face (``uint8`` or float in ``[0, 1]``).
+            age_delta: Years to progress (+forward, -backward).
+
+        Returns:
+            The progressed face, same dtype.
+        """
+        from scipy import ndimage
+
+        image = np.asarray(face)
+        scale = 255.0 if np.issubdtype(image.dtype, np.integer) else 1.0
+        work = image.astype(np.float64) / scale
+
+        def _blur(sigma: float) -> np.ndarray[Any, Any]:
+            return np.asarray(
+                ndimage.gaussian_filter(work, (sigma, sigma, 0) if work.ndim == 3 else sigma)
+            )
+
+        band = _blur(1.0) - _blur(3.0)
+        years = float(abs(age_delta))
+        if age_delta > 0:
+            gain = 1.0 + min(0.06 * years, 1.5)
+            tone = 1.0 - min(0.008 * years, 0.2)
+        else:
+            gain = max(1.0 - 0.06 * years, 0.2)
+            tone = 1.0 + min(0.006 * years, 0.12)
+        out = np.clip((work + (gain - 1.0) * band) * tone, 0.0, 1.0)
+        if scale != 1.0:
+            return np.round(out * scale).astype(image.dtype)
+        return out.astype(image.dtype)
+
+    def progress_face(
+        self,
+        face: np.ndarray[Any, Any],
+        target_age_delta: int,
+        source_age: float | None = None,
+        texture_model: str = "detail",
+    ) -> AgeProgressionResult:
+        """Progress an already-aligned face crop by ``target_age_delta`` years.
+
+        Two stages, each reported in the result:
+
+        * **Geometry** — when ``source_age`` is given and the age span overlaps
+          the growth years, the cardioidal-strain craniofacial growth model is
+          applied with ``k = K_RANGE * (g(target) - g(source))`` under the
+          stated growth schedule (:func:`craniofacial_growth_fraction`). Adult
+          faces get no geometric change (the model's growth has saturated);
+          without ``source_age`` none is applied and the result says why.
+        * **Texture** — ``"detail"`` (deterministic, default) or
+          ``"legacy_noise"`` (the seeded brightness/contrast/noise filter).
+
+        Args:
+            face: Aligned face crop (``uint8`` or float in ``[0, 1]``).
+            target_age_delta: Years to progress (+forward, -backward).
+            source_age: Age of the person in ``face``, if known.
+            texture_model: ``"detail"`` or ``"legacy_noise"``.
+
+        Returns:
+            The progression result with its geometric and texture provenance.
+        """
+        if texture_model not in ("detail", "legacy_noise"):
+            raise ValueError("texture_model must be 'detail' or 'legacy_noise'")
+        geometric: dict[str, Any]
+        progressed = np.asarray(face)
+        if source_age is None:
+            geometric = {"applied": False, "reason": "source_age not provided"}
+        else:
+            target_age = max(source_age + target_age_delta, 0.0)
+            k = CRANIOFACIAL_K_RANGE * (
+                craniofacial_growth_fraction(target_age) - craniofacial_growth_fraction(source_age)
+            )
+            if abs(k) < 1e-3:
+                geometric = {
+                    "applied": False,
+                    "reason": "no craniofacial growth across this age span under the model",
+                    "k": k,
+                }
+            else:
+                progressed = cardioidal_strain(progressed, k)
+                geometric = {
+                    "applied": True,
+                    "model": "cardioidal strain (Todd, Mark, Shaw & Pittenger, 1980)",
+                    "k": round(k, 5),
+                    "source_age": source_age,
+                    "target_age": target_age,
+                    "schedule": f"g(age) = 1 - exp(-age / {CRANIOFACIAL_GROWTH_TAU_YEARS:g}) "
+                    "(stated assumption, not fitted to anthropometric data)",
+                }
+        if texture_model == "detail":
+            progressed = self.apply_detail_age_filter(progressed, target_age_delta)
+        else:
+            progressed = self.apply_polynomial_age_filter(progressed, target_age_delta)
+
+        original_embedding = self.extract_facenet_embedding(np.asarray(face))
+        progressed_embedding = self.extract_facenet_embedding(progressed)
+        # Similarity is a measurement: report it only when both embeddings
+        # came from a real backend.
+        similarity = (
+            self._compute_similarity(original_embedding, progressed_embedding)
+            if original_embedding is not None and progressed_embedding is not None
+            else None
+        )
+        return AgeProgressionResult(
+            success=True,
+            original_face=np.asarray(face),
+            progressed_face=progressed,
+            age_delta=target_age_delta,
+            similarity=similarity,
+            original_embedding=original_embedding,
+            progressed_embedding=progressed_embedding,
+            quantum_factor=self.quantum_factor,
+            geometric_model=geometric,
+            texture_model=texture_model,
+        )
+
+    def progress_age(
+        self,
+        image_path: str,
+        target_age_delta: int,
+        source_age: float | None = None,
+        texture_model: str = "detail",
+    ) -> AgeProgressionResult:
+        """Detect and align the face in ``image_path``, then :meth:`progress_face` it.
 
         Args:
             image_path: Path to input image
             target_age_delta: Years to progress (+forward, -backward)
+            source_age: Age of the person in the image, if known (enables the
+                craniofacial growth model for juvenile spans).
+            texture_model: ``"detail"`` (default) or ``"legacy_noise"``.
 
         Returns:
             AgeProgressionResult with progressed image and metadata
@@ -683,35 +939,70 @@ class AgeProgressionEngine:
             face = self.detect_and_align_face(image_path)
             if face is None:
                 return AgeProgressionResult(success=False, message="Face detection failed")
-
-            original_embedding = self.extract_facenet_embedding(face)
-
-            progressed_face = self.apply_polynomial_age_filter(face, target_age_delta)
-
-            progressed_embedding = self.extract_facenet_embedding(progressed_face)
-
-            # Similarity is a measurement: report it only when both
-            # embeddings came from a real backend.
-            similarity = (
-                self._compute_similarity(original_embedding, progressed_embedding)
-                if original_embedding is not None and progressed_embedding is not None
-                else None
+            return self.progress_face(
+                face, target_age_delta, source_age=source_age, texture_model=texture_model
             )
-
-            return AgeProgressionResult(
-                success=True,
-                original_face=face,
-                progressed_face=progressed_face,
-                age_delta=target_age_delta,
-                similarity=similarity,
-                original_embedding=original_embedding,
-                progressed_embedding=progressed_embedding,
-                quantum_factor=self.quantum_factor,
-            )
-
         except Exception as e:
             logger.error(f"Age progression error: {e}")
             return AgeProgressionResult(success=False, message=str(e))
+
+    @staticmethod
+    def assess_progression(
+        result: AgeProgressionResult, analyzer: Any | None = None
+    ) -> dict[str, Any]:
+        """Quality-control a progression: how faithful and how clean is the output?
+
+        Measures, on the original vs. progressed face:
+
+        * ``structural_similarity`` — mean SSIM (identity-bearing structure kept);
+        * ``noise_ratio`` — texture-robust noise estimate, progressed / original
+          (above 1.5 means the progression injected noise);
+        * ``sharpness_ratio`` — median-tile Laplacian variance ratio (below 0.5
+          means detail was destroyed).
+
+        With a fitted :class:`~omni_mercury_engine.vision.VisualAnomalyAnalyzer`
+        (for example one fitted on genuine faces from the same capture
+        conditions), the progressed face is also analysed for localised
+        artefacts. Thresholds are screening values, stated in the output.
+
+        Returns:
+            A JSON-safe dictionary of the measurements and flags.
+        """
+        if not result.success or result.original_face is None or result.progressed_face is None:
+            return {"assessed": False, "reason": result.message or "progression did not succeed"}
+        from omni_mercury_engine.vision.imaging import assess_environment, to_canonical
+
+        original = to_canonical(result.original_face)
+        progressed = to_canonical(result.progressed_face)
+        env_o, env_p = assess_environment(original), assess_environment(progressed)
+        noise_ratio = env_p.noise_sigma / max(env_o.noise_sigma, 1e-6)
+        sharpness_ratio = env_p.sharpness / max(env_o.sharpness, 1e-12)
+        ssim = structural_similarity(result.original_face, result.progressed_face)
+        flags = []
+        if noise_ratio > 1.5:
+            flags.append("noise_injected")
+        if sharpness_ratio < 0.5:
+            flags.append("detail_lost")
+        if ssim < 0.6:
+            flags.append("structure_not_preserved")
+        report: dict[str, Any] = {
+            "assessed": True,
+            "structural_similarity": round(ssim, 4),
+            "noise_ratio": round(float(noise_ratio), 3),
+            "sharpness_ratio": round(float(sharpness_ratio), 3),
+            "flags": flags,
+            "thresholds": {
+                "noise_ratio": 1.5,
+                "sharpness_ratio": 0.5,
+                "structural_similarity": 0.6,
+            },
+            "geometric_model": result.geometric_model,
+            "texture_model": result.texture_model,
+        }
+        if analyzer is not None:
+            visual = analyzer.analyze(result.progressed_face)
+            report["visual_analysis"] = visual.to_dict()
+        return report
 
     def create_age_timeline(
         self,

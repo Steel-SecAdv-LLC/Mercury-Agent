@@ -229,7 +229,9 @@ class EssentialWorkersMonitor:
         base_priority = category_priorities.get(category, 0.75)
         capacity_factor = 1.0 if current_capacity >= 0.80 else (1.0 + (0.80 - current_capacity))
 
-        return min(1.0, base_priority * capacity_factor * self.ethical_scalars["civilization_first"])
+        return min(
+            1.0, base_priority * capacity_factor * self.ethical_scalars["civilization_first"]
+        )
 
     def _generate_workforce_recommendations(
         self, category: str, capacity: float, absenteeism_high: bool, skill_shortage: bool

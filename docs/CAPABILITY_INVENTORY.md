@@ -7,26 +7,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,787
-- **Capability-bearing classes:** 1,835 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 46
+- **Total top-level classes:** 2,802
+- **Capability-bearing classes:** 1,846 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,047 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,056 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1047 |
-| Support types (config / result / enum / error) | 952 |
+| Other capability classes | 1056 |
+| Support types (config / result / enum / error) | 956 |
 | Detection | 170 |
 | Neural models & layers | 159 |
 | Engines & orchestration | 103 |
 | Data sources & loaders | 103 |
 | Training & optimization | 61 |
 | Adapters & backends | 60 |
-| Analysis & scoring | 57 |
-| Monitoring | 24 |
+| Analysis & scoring | 58 |
+| Monitoring | 25 |
 | Prediction & forecasting | 21 |
 | Ethics & governance | 13 |
 | Solvers & scorers | 9 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 8 classes (6 capability)
+### `(top-level)/` — 11 classes (9 capability)
 
 **Adapters & backends**
 
@@ -50,7 +50,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Other capability classes**
 
+- `CapabilitySpec` (`self_model`) — A capability Mercury claims, and what it needs to run.
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
+- `SelfModelLedger` (`self_model`) — Append-only, hash-chained (and optionally ML-DSA-65-signed) self-model history.
+- `SelfModelSnapshot` (`self_model`) — One self-model snapshot: a JSON-safe body and its canonical digest.
 - `ToolSpec` (`mcp_server`) — One MCP tool: its advertised schema and its handler.
 - `_FallbackVoice` (`cli`) — Fallback voice for when narrative module unavailable.
 
@@ -1623,7 +1626,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `integrations/` — 65 classes (35 capability)
+### `integrations/` — 66 classes (36 capability)
 
 **Adapters & backends**
 
@@ -1661,6 +1664,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `FallbackRegistry` (`integrations.routing.fallback`) — Registry of fallback chains.
 - `FinancialService` (`integrations.stubs.financial`) — Production-ready financial data service with multiple API backends.
 - `FinancialServiceStub` (`integrations.stubs.financial`) — Stub implementation of financial data service.
+- `FindoyouEvidenceBridge` (`integrations.findoyou_bridge`) — Produce and verify signed missing-person image evidence for FINDOYOU.
 - `HTTPCircuitBreaker` (`integrations.http.client`) — Circuit breaker for HTTP requests.
 - `HistoricalBar` (`integrations.stubs.financial`) — Historical price bar (OHLCV).
 - `RedisCache` (`integrations.stubs.cache`) — Production-ready Redis cache client.
@@ -2185,7 +2189,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Engines & orchestration**
 
-- `AgeProgressionEngine` (`models.biometric_multimodal`) — Heuristic age-progression engine.
+- `AgeProgressionEngine` (`models.biometric_multimodal`) — Age-progression engine: published growth geometry, deterministic texture, audited output.
 - `FallbackLLMChain` (`models.foundation.ollama_adapter`) — Graceful fallback chain for LLM operations.
 - `MultimodalBiometricEngine` (`models.biometric_multimodal`) — Advanced biometric processing engine with neural-symbolic fusion.
 - `MultiverseOmniEngine` (`models.multiverse`) — Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
@@ -2720,6 +2724,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <details><summary>Support types (2)</summary>
 
 `Status`, `ThreeState`
+
+</details>
+
+### `vision/` — 11 classes (7 capability)
+
+**Analysis & scoring**
+
+- `VisualAnomalyAnalyzer` (`vision.analyzer`) — Learn the normal appearance of a domain; detect, localise, classify and explain deviations.
+
+**Monitoring**
+
+- `StreamingVisualMonitor` (`vision.analyzer`) — Real-time wrapper: frame-to-frame persistence and latency accounting.
+
+**Other capability classes**
+
+- `AnomalyRegion` (`vision.analyzer`) — One localised anomaly.
+- `CanonicalImage` (`vision.imaging`) — Float32 pixels in ``[0, 1]`` plus luminance, an invalid-pixel mask and provenance.
+- `ImageProvenance` (`vision.imaging`) — How an input became a canonical image: every mapping applied, stated.
+- `PatchFeatures` (`vision.features`) — Interpretable features for every patch of one image.
+- `PatchGrid` (`vision.features`) — Top-left coordinates of the square patches covering an image.
+
+<details><summary>Support types (4)</summary>
+
+`AnalyzerConfig`, `EnvironmentReport`, `StreamEvent`, `VisualAnomalyReport`
 
 </details>
 

@@ -160,6 +160,8 @@ DORMANCY_LEDGER
 
 SUBAGENT_PANTHEON
 capability_vs_vision_matrix
+VISION
+TRIO_INTEGRATION
 ```
 
 ```{toctree}
