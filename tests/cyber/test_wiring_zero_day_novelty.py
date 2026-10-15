@@ -79,3 +79,22 @@ def test_fortress_scan_feeds_measured_tampering_into_simulation() -> None:
     # The integrity finding is real measured exposure: the identical system
     # state must simulate as higher zero-day risk after observed tampering.
     assert tampered.zero_day_risk > clean.zero_day_risk
+
+
+def test_short_exposure_is_zero_padded_for_unmeasured_dimensions() -> None:
+    short = np.full(16, 2.0)  # only the first 16 of 64 dimensions measured
+    out = MultiverseZeroDaySimulator(num_universes=20).simulate_zero_day(_STATE, exposure=short)
+    baseline = MultiverseZeroDaySimulator(num_universes=20).simulate_zero_day(_STATE)
+    assert out["exposure_informed"] is True
+    # Partial measured weakness still discounts distance -> risk >= baseline.
+    assert out["zero_day_risk"] >= baseline["zero_day_risk"]
+
+
+def test_nan_and_negative_exposure_are_cleaned_not_propagated() -> None:
+    dirty = np.full(64, np.nan)
+    dirty[:8] = -5.0  # negatives clip to zero, NaNs clean to zero
+    out = MultiverseZeroDaySimulator(num_universes=20).simulate_zero_day(_STATE, exposure=dirty)
+    baseline = MultiverseZeroDaySimulator(num_universes=20).simulate_zero_day(_STATE)
+    assert np.isfinite(out["zero_day_risk"])
+    assert out["zero_day_risk"] == baseline["zero_day_risk"]  # nothing real measured
+    assert out["exposure_informed"] is False

@@ -9,6 +9,7 @@ error-correcting top protocol.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 import numpy as np
@@ -103,3 +104,28 @@ def test_measured_signal_overrides_caller_summary() -> None:
         {"snr": 0.0}, signal_data=_SINE
     )
     assert out["signal_conditioning"]["characteristics"]["snr"] > 0.9
+
+
+def test_measured_snr_decreases_monotonically_with_noise() -> None:
+    t = np.arange(512, dtype=float)
+    carrier = 3.0 * np.sin(2.0 * np.pi * t / 16.0)
+    noise = np.random.RandomState(2).randn(512)
+    snrs = [
+        _derive_signal_characteristics(carrier + amplitude * noise)["snr"]
+        for amplitude in (0.0, 0.3, 1.0, 3.0, 10.0)
+    ]
+    # More injected noise can never read as a cleaner channel.
+    assert all(earlier >= later for earlier, later in itertools.pairwise(snrs))
+    assert snrs[0] == 1.0  # noiseless tone saturates the 30 dB scale
+    assert snrs[-1] < 0.5  # noise-dominated signal reads as noisy
+
+
+def test_shortest_valid_signal_is_measured_not_defaulted() -> None:
+    # Period-4 tone: the shortest representable strong tone. (An exact-Nyquist
+    # alternation would be invisible here: the shared spectrum helper keeps
+    # only frequencies >= 0 and the fftfreq convention places the Nyquist bin
+    # at a negative frequency — a documented edge of the module convention.)
+    eight = np.array([1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0])
+    out = _derive_signal_characteristics(eight)
+    assert out != {"snr": 0.5, "bandwidth": 0.5, "periodicity": 0.5}
+    assert out["snr"] > 0.5  # a representable pure tone reads as clean

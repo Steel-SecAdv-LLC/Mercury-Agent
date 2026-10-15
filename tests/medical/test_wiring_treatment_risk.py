@@ -105,3 +105,19 @@ def test_optimizer_uses_instrument_when_available_and_reports_it() -> None:
     # Heuristic records (no Framingham covariates) fall back and say so.
     heuristic = TreatmentPathwayOptimizer(num_universes=25).optimize_treatment(_LOW, "x")
     assert heuristic["risk_model"] == "heuristic"
+
+
+def test_instrument_risk_at_or_above_high_risk_boundary_saturates_burden() -> None:
+    from omni_mercury_engine.medical.cardiology.cardiology_predictor import (
+        FraminghamRiskCalculator,
+    )
+    from omni_mercury_engine.medical.medical_cure_predictor import _framingham_risk_fraction
+
+    instrument = (
+        float(
+            FraminghamRiskCalculator().calculate_risk(_FRAMINGHAM_HIGH)["10_year_cvd_risk_percent"]
+        )
+        / 100.0
+    )
+    assert instrument >= 0.20  # this patient is in the clinical high-risk category
+    assert _framingham_risk_fraction(_FRAMINGHAM_HIGH) == 1.0  # burden saturates at the boundary

@@ -379,6 +379,9 @@ def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[st
 
     A degenerate input (too short, non-finite, or constant) yields the
     neutral ``0.5`` for every characteristic, matching the hand-fed default.
+    Convention note: the shared spectrum helper keeps only ``frequencies >= 0``
+    and the FFT convention places the Nyquist bin at a negative frequency, so
+    an exact-Nyquist tone contributes no measured peak.
     """
     x = np.asarray(signal_data, dtype=float).ravel()
     if x.size < 8 or not np.all(np.isfinite(x)):

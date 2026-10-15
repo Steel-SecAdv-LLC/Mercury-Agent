@@ -4,15 +4,16 @@
 
 Provides enhanced biometric capabilities including:
 - Neural-symbolic fusion for biometric matching
-- Age progression with quantum variant amplification
+- Heuristic age progression (brightness/contrast/wrinkle-noise filters)
 - Multi-modal biometric analysis (face, attributes, emotions)
 - MZSS (Multi-Zone Similarity Score) computation
 
 Key Features:
 - Transformer-based neural-symbolic fusion (8-head attention)
-- FaceNet/DeepFace integration with graceful fallbacks
-- Polynomial age filters with 10-20% accuracy improvement
-- Quantum variant uncertainty modeling for age estimation
+- FaceNet/DeepFace integration; absent backends fail loudly, never silently
+- Seeded, deterministic polynomial age filters (visual heuristics; no
+  validated accuracy claim is made for them)
+- Discrete Gaussian age-uncertainty kernel (legacy "quantum" naming)
 
 References:
     - FaceNet: A Unified Embedding for Face Recognition (Schroff et al., 2015)
@@ -137,7 +138,9 @@ class AgeProgressionResult:
     original_face: np.ndarray[Any, Any] | None = None
     progressed_face: np.ndarray[Any, Any] | None = None
     age_delta: int = 0
-    similarity: float = 0.0
+    # Embedding similarity between original and progressed face; None when no
+    # real embedding backend was available (never a fabricated number).
+    similarity: float | None = None
     original_embedding: np.ndarray[Any, Any] | None = None
     progressed_embedding: np.ndarray[Any, Any] | None = None
     quantum_factor: float = 1.2
@@ -265,8 +268,11 @@ class MultimodalBiometricEngine:
                 if encodings:
                     return np.array(encodings[0], dtype=np.float32)
 
-            logger.warning("Using simulated embeddings (no biometric library available)")
-            return self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
+            # No embedding backend -> None. process_biometric already handles
+            # None as an honest extraction failure; a random stand-in made the
+            # downstream "similarity" a comparison of noise with noise.
+            logger.warning("No embedding backend available - features not extracted")
+            return None
 
         except Exception as e:
             logger.error(f"Feature extraction error: {e}")
@@ -293,8 +299,8 @@ class MultimodalBiometricEngine:
                 if isinstance(embedding, list) and len(embedding) > 0:
                     return np.array(embedding[0]["embedding"], dtype=np.float32)
 
-            logger.warning("Using simulated embeddings for array input")
-            return self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
+            logger.warning("No embedding backend available for array input")
+            return None
 
         except Exception as e:
             logger.error(f"Array feature extraction error: {e}")
@@ -318,14 +324,14 @@ class MultimodalBiometricEngine:
                 )
                 if isinstance(analysis, list) and len(analysis) > 0:
                     result: dict[str, Any] = analysis[0]
+                    result["measured"] = True
                     return result
 
-            logger.warning("Using simulated attributes (DeepFace not available)")
-            return {
-                "age": 30,
-                "gender": {"Woman": 50, "Man": 50},
-                "emotion": {"neutral": 80, "happy": 20},
-            }
+            # No backend -> no attributes. Fabricated placeholders (age 30,
+            # 50/50 gender) used to flow into age-proximity and inflate the
+            # MZSS match score; an unmeasured record is reported instead.
+            logger.warning("Attributes not measured (DeepFace not available)")
+            return {"measured": False, "reason": "DeepFace not available"}
 
         except Exception as e:
             logger.error(f"Attribute analysis error: {e}")
@@ -396,9 +402,17 @@ class MultimodalBiometricEngine:
         analysis1 = self.analyze_attributes(image1_path)
         analysis2 = self.analyze_attributes(image2_path)
 
-        age_proximity = self._compute_age_proximity(
-            analysis1.get("age", 30), analysis2.get("age", 30)
-        )
+        # Age proximity is a measurement: compute it only when both ages were
+        # actually measured; otherwise use the documented neutral default and
+        # say so, instead of deriving perfect proximity from fabricated ages.
+        age1 = analysis1.get("age")
+        age2 = analysis2.get("age")
+        if isinstance(age1, (int, float)) and isinstance(age2, (int, float)):
+            ages_measured = True
+            age_proximity = self._compute_age_proximity(float(age1), float(age2))
+        else:
+            ages_measured = False
+            age_proximity = 0.9  # compute_mzss's documented neutral default
 
         mzss = self.compute_mzss(similarity, 0.8, age_proximity)
         category = self.categorize_match(mzss)
@@ -412,6 +426,7 @@ class MultimodalBiometricEngine:
             match_category=category,
             metadata={
                 "age_proximity": age_proximity,
+                "age_proximity_measured": ages_measured,
                 "biometric_similarity": similarity,
             },
         )
@@ -430,7 +445,10 @@ class MultimodalBiometricEngine:
         """
         features = self.extract_features(image_path)
         if features is None:
-            features = self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
+            raise ValueError(
+                f"feature extraction failed for {image_path!r}; refusing to fuse "
+                "random stand-in features with symbolic data"
+            )
 
         symbolic_score = symbolic_data.get("csdm", 0.8)
         fused = self.fusion_model.forward(features, symbolic_score)
@@ -461,10 +479,13 @@ class MultimodalBiometricEngine:
 
 
 class AgeProgressionEngine:
-    """Age progression engine with quantum variant amplification.
+    """Heuristic age-progression engine.
 
-    Uses polynomial filters and quantum uncertainty modeling to
-    generate age-progressed facial images with 10-20% accuracy improvement.
+    Applies seeded, deterministic polynomial brightness/contrast filters with
+    wrinkle-noise (aging) or smoothing (rejuvenation) to a detected face.
+    These are visual heuristics: no validated accuracy claim is made for
+    them, and the reported embedding similarity is ``None`` whenever no real
+    embedding backend is available.
 
     Example:
         engine = AgeProgressionEngine()
@@ -480,7 +501,7 @@ class AgeProgressionEngine:
             device: Torch device string ("cpu" / "cuda")
             seed: Optional seed for the per-instance ``Generator`` driving
                 the simulated FaceNet-embedding fallback and the
-                wrinkle / quantum-noise perturbations applied during age
+                wrinkle / noise perturbations applied during age
                 progression. ``None`` (default) uses an OS-seeded
                 ``Generator`` — same effective behavior as before.
         """
@@ -574,11 +595,13 @@ class AgeProgressionEngine:
             face: Aligned face image (160x160)
 
         Returns:
-            512-dim embedding or simulated embedding
+            512-dim FaceNet embedding, or ``None`` when no real embedding
+            backend is available — a random stand-in would make every
+            downstream similarity a fabricated number.
         """
         try:
             if self.facenet is None or not TORCH_AVAILABLE:
-                return self._rng.standard_normal(512).astype(np.float32)
+                return None
 
             face_tensor = torch.from_numpy(face).permute(2, 0, 1).float() / 255.0
             face_tensor = face_tensor.unsqueeze(0).to(self.device)
@@ -595,9 +618,11 @@ class AgeProgressionEngine:
     def apply_polynomial_age_filter(
         self, face: np.ndarray[Any, Any], age_delta: int
     ) -> np.ndarray[Any, Any]:
-        """Apply polynomial filters for age progression.
+        """Apply seeded polynomial brightness/contrast/noise filters.
 
-        Achieves 10-20% accuracy improvement via quantum variant amplification.
+        A visual heuristic (no validated accuracy claim): aging darkens and
+        sharpens contrast and adds wrinkle-scale noise; rejuvenation brightens,
+        softens contrast and smooths.
 
         Args:
             face: Input face image
@@ -634,8 +659,9 @@ class AgeProgressionEngine:
                 aged = cv2.GaussianBlur(aged.astype(np.uint8), (5, 5), 0)
                 aged = aged.astype(float)
 
-            quantum_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
-            aged = aged + quantum_noise
+            # quantum_factor is a legacy-named seeded-noise amplitude.
+            seeded_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
+            aged = aged + seeded_noise
 
             return np.clip(aged, 0, 255).astype(np.uint8)
 
@@ -664,7 +690,13 @@ class AgeProgressionEngine:
 
             progressed_embedding = self.extract_facenet_embedding(progressed_face)
 
-            similarity = self._compute_similarity(original_embedding, progressed_embedding)
+            # Similarity is a measurement: report it only when both
+            # embeddings came from a real backend.
+            similarity = (
+                self._compute_similarity(original_embedding, progressed_embedding)
+                if original_embedding is not None and progressed_embedding is not None
+                else None
+            )
 
             return AgeProgressionResult(
                 success=True,
@@ -729,15 +761,16 @@ class AgeProgressionEngine:
 
 
 class QuantumAgeVariant:
-    """Quantum variant for age progression uncertainty modeling.
+    """Age-uncertainty helpers (legacy "quantum" naming; nothing quantum runs).
 
-    Implements State_t = State_{t-1} ⊗ Q_n where Q_n=1.2
-    for probabilistic age estimation.
+    ``apply_quantum_uncertainty`` is a plain scalar widening factor and
+    ``compute_age_probability_distribution`` is a discrete Gaussian kernel
+    over an age window.
     """
 
     @staticmethod
     def apply_quantum_uncertainty(age_estimate: float, uncertainty: float = 1.2) -> float:
-        """Apply quantum entanglement factor for variable age estimation."""
+        """Widen an age estimate by a scalar factor (legacy-named helper)."""
         return age_estimate * uncertainty
 
     @staticmethod

@@ -2185,7 +2185,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Engines & orchestration**
 
-- `AgeProgressionEngine` (`models.biometric_multimodal`) — Age progression engine with quantum variant amplification.
+- `AgeProgressionEngine` (`models.biometric_multimodal`) — Heuristic age-progression engine.
 - `FallbackLLMChain` (`models.foundation.ollama_adapter`) — Graceful fallback chain for LLM operations.
 - `MultimodalBiometricEngine` (`models.biometric_multimodal`) — Advanced biometric processing engine with neural-symbolic fusion.
 - `MultiverseOmniEngine` (`models.multiverse`) — Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
@@ -2257,7 +2257,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ModelProfile` (`models.foundation.ollama_adapter`) — Profile for a specific model's capabilities.
 - `ProviderFacts` (`models.llm_registry`) — Code-grounded facts about one shipped provider adapter.
 - `PsiPhenomenon` (`models.parapsychology`) — Types of psi phenomena.
-- `QuantumAgeVariant` (`models.biometric_multimodal`) — Quantum variant for age progression uncertainty modeling.
+- `QuantumAgeVariant` (`models.biometric_multimodal`) — Age-uncertainty helpers (legacy "quantum" naming; nothing quantum runs).
 - `QuantumCircuit` (`models.quantum_engine`) — Quantum circuit simulator with state vector representation.
 - `SOTARegistry` (`models.sota.registry`) — Registry for published third-party anomaly detection models.
 - `SimulationModule` (`models.simulation`) — Mathematical simulation for paradoxes, conjectures, and theoretical problems.

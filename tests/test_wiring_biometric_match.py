@@ -96,3 +96,21 @@ def test_harmonic_extractor_refuses_non_numeric_loudly() -> None:
     model = BiometricAnomalyModel()
     with pytest.raises(ValueError, match="numeric array"):
         model._extract_harmonic_features(np.array("some/path.png"))
+
+
+def test_match_is_symmetric_and_deterministic() -> None:
+    model = BiometricAnomalyModel()
+    ab = model.predict({"reference": _GRADIENT_IMG, "test": _NOISE_IMG})["match_score"]
+    ba = model.predict({"reference": _NOISE_IMG, "test": _GRADIENT_IMG})["match_score"]
+    again = model.predict({"reference": _GRADIENT_IMG, "test": _NOISE_IMG})["match_score"]
+    assert ab == pytest.approx(ba, abs=1e-9)  # cosine is symmetric
+    assert ab == again  # same inputs -> identical score, every call
+
+
+def test_match_handles_grayscale_and_float_images() -> None:
+    model = BiometricAnomalyModel()
+    gray = _NOISE_IMG[..., :1]  # (H, W, 1)
+    floaty = _NOISE_IMG.astype(np.float64) / 255.0
+    for image in (gray, floaty):
+        result = model.predict({"reference": image, "test": image.copy()})
+        assert result["match_score"] == pytest.approx(1.0, abs=1e-9)

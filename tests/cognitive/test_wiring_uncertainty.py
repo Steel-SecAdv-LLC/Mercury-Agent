@@ -88,3 +88,16 @@ def test_conformal_empty_set_is_degenerate_point() -> None:
     lo, hi = aci.predict_interval(10.0, score_function=lambda y: 1.0 + abs(y - 10.0))
     assert lo == 10.0
     assert hi == 10.0
+
+
+def test_conformal_quantile_from_mixed_scores_is_hand_computable() -> None:
+    aci = AdaptiveConformalInference(target_coverage=0.9)
+    for score in range(1, 11):  # scores 1..10, all covered
+        aci.update(float(score), covered=True)
+    # alpha only shrinks below its 0.1 start under covered updates, so
+    # ceil((n+1)(1-alpha))/n >= ceil(10.89)/10 > 1 -> clamped to the maximum
+    # order statistic: q == 10.0 exactly.
+    assert aci.get_quantile() == 10.0
+    lo, hi = aci.predict_interval(0.0, score_function=abs)
+    assert abs(lo - (-10.0)) < 1e-6
+    assert abs(hi - 10.0) < 1e-6

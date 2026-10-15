@@ -78,6 +78,22 @@ the test image and the best score is reported as `match_score_age_robust`,
 with an explicit `applied: False` + reason record whenever the progression
 path cannot run. No accuracy claims are made for the progression heuristics.
 
+**Fabrication-class fallbacks removed from the multimodal biometric
+engine.** With no embedding backend installed, `MultimodalBiometricEngine`
+silently substituted *random vectors* for face embeddings (three sites), so
+`match_faces` reported noise-vs-noise cosine as a "similarity";
+`analyze_attributes` invented a 30-year-old neutral face, whose fabricated age
+then computed as *perfect* age proximity and inflated the MZSS match score;
+and `fuse_with_symbolic` fused random stand-in features with symbolic data.
+All now fail honestly: embeddings and attributes report unmeasured
+(`None` / `measured: False`), the match pipeline returns its designed
+extraction-failure result, fusion refuses with a named error, and
+`AgeProgressionResult.similarity` is `None` whenever no real backend measured
+it. The unvalidated "10-20% accuracy improvement via quantum variant
+amplification" claims are replaced with truthful descriptions of the seeded
+polynomial heuristics (which are real and now direction-tested: aging darkens
+and adds wrinkle-scale noise, rejuvenation smooths — deterministic per seed).
+
 **A true Difference-Target-Propagation training path, measured against
 backprop.** `OmniFusionModel.compare_head_training_dtp_vs_backprop` A/B-trains
 two identical anomaly-head copies on the model's real frozen-trunk fused
