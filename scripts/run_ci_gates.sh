@@ -71,6 +71,23 @@ run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
 run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper)" \
   python scripts/check_torch_load_safety.py
 
+# --- Workflow Hardening job (repository script gates) ----------------------
+# actionlint and zizmor need their own toolchains and are not mirrored here.
+run_gate "workflow hardening checks (ci.yml: check_workflow_hardening)" \
+  python scripts/check_workflow_hardening.py
+
+run_gate "suppression hygiene (ci.yml: check_suppression_hygiene)" \
+  python scripts/check_suppression_hygiene.py
+
+run_gate "pinned dev-tool version parity (ci.yml: check_pinned_tool_versions)" \
+  python scripts/check_pinned_tool_versions.py
+
+run_gate "Lyapunov λ documentation drift (ci.yml: check_readme_lyapunov)" \
+  python scripts/check_readme_lyapunov.py
+
+run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --check)" \
+  python scripts/measure_codebase_scale.py --check README.md
+
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
   # Guard the pin before running any lane: a full [all,dev] install can leave
