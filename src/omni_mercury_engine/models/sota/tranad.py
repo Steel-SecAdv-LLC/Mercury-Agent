@@ -84,7 +84,7 @@ class TranADConfig:
         default_factory=lambda: {
             "harm_prevention": 1.50,
             "non_discriminatory": 1.40,
-            "survivor_first": 1.45,
+            "civilization_first": 1.45,
         }
     )
 

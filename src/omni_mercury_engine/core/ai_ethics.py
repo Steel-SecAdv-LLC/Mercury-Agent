@@ -479,8 +479,8 @@ class EthicalAutonomyGovernor:
     ) -> float:
         """Check COMPASSION: Does this minimize harm and prioritize user well-being?
 
-        Evaluates safety features like backups, confirmations, rollback mechanisms, and survivor-
-        first principles for humanitarian applications.
+        Evaluates safety features like backups, confirmations, rollback mechanisms, and
+        civilization-first principles for humanitarian applications.
         """
         score = 0.55  # Slightly elevated base for ethical default
 
@@ -521,7 +521,7 @@ class EthicalAutonomyGovernor:
             score += 0.1
         if any(kw in params_str or kw in context_str for kw in harm_reduction_keywords):
             score += 0.05
-        if context.get("survivor_first", False):
+        if context.get("civilization_first", False):
             score += 0.1
 
         return min(1.0, score)

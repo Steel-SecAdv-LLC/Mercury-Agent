@@ -1199,7 +1199,7 @@ class GlobalOmniScalarNetwork:
             "omnivigilance": 1.20,
             "omnistewardship": 1.25,
             # Operational scalars
-            "survivor_first_principle": 1.35,
+            "civilization_first_principle": 1.35,
             "bias_audit_compliance": 1.25,
         }
 

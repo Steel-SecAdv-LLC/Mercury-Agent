@@ -55,7 +55,7 @@ class EthicalGuardrailSystem:
         }
 
         self.ethical_principles: list[str] = [
-            "survivor_first",
+            "civilization_first",
             "privacy_preserving",
             "consent_required",
             "transparency",

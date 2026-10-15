@@ -27,6 +27,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard (branch `steel/version-cov4`)
+
+Two injected framings are replaced everywhere they occurred. A mission
+phrasing that put one humanitarian deployment slice ahead of the mission is now
+*civilization-first*, and the alternative code-system name is now *Omni Codes*.
+The retired phrasings are not spelled anywhere in the repository, guards
+included.
+
+- **Identifiers renamed:**
+  - the operational scalar `civilization_first_principle` (global scalar network)
+  - `EthicalConfig.omni_civilization_first_protection`
+  - the essential-worker ethical scalar `civilization_first`
+  - the guardrail principle `civilization_first`
+  - the TranAD ethical weight
+  - the `civilization_first` / `civilization_first_ux` context keys read by `ai_ethics` and the ethics subagent
+- **σ_Immutable baseline:** regenerated with the documented
+  `scripts/harvest_sigma_baseline.py` procedure across the four committed
+  domains. The diff is exactly one name at `names[25]` and `anchor_names[22]`.
+  All 127 values, the anchor index sets and σ = 0.9999216795 are unchanged, and
+  the signed corpus is unaffected because its canonical bytes carry no names.
+- **Guards:**
+  - `tests/test_retired_terminology.py` scans every git-tracked text file for
+    both phrasings, in every case and separator form. It also checks that the
+    scan is non-vacuous and that red-team "survivors" and union-find roots do
+    not match.
+  - The doc-lint ban no longer spells its phrase; a new `BannedPhrase.example`
+    keeps the bite self-test honest.
+  - The subagent-roster guard was renamed to
+    `test_omni_codes_is_the_only_code_terminology_in_subsystem`.
+- **A vacuous test made real:** the crisis-monitor prioritisation test used to
+  assert only `isinstance(..., list)`. It now pins the order: life-critical care
+  first, evacuation naming the vulnerable groups actually identified, and
+  reunification last. A new case pins that pandemic containment precedes all
+  other aid.
+
 ### Scoped PQC production gate: AMA-free analytic quickstart, fail-closed agent surfaces (branch `steel/version-cov4`)
 
 Maintainer-directed split of the import-time PQC gate. The quickstart's

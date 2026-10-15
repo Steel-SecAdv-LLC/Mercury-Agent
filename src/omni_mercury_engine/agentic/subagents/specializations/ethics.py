@@ -476,7 +476,8 @@ class AIEthicsEnforcer:
     def _check_wellbeing(self, context: dict[str, Any]) -> bool:
         """Check well-being considerations (trauma-informed, most-affected-first)."""
         return bool(
-            context.get("trauma_informed_design", False) and context.get("survivor_first_ux", False)
+            context.get("trauma_informed_design", False)
+            and context.get("civilization_first_ux", False)
         )
 
     def _check_data_agency(self, context: dict[str, Any]) -> bool:

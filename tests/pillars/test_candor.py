@@ -68,7 +68,12 @@ class TestTheDocLintGateIsRealAndPasses:
         from scripts.doc_lint import BANNED
 
         labels = {banned.label for banned in BANNED}
-        assert labels >= {"survivor-first", "People First", "FIPS-certified", "NIST-validated"}
+        assert labels >= {
+            "retired humanitarian-slice mission framing",
+            "People First",
+            "FIPS-certified",
+            "NIST-validated",
+        }
 
     def test_every_ban_explains_itself_and_offers_a_replacement(self) -> None:
         """A ban with no guidance gets worked around, not obeyed."""
@@ -95,8 +100,7 @@ class TestTheGateHasTeeth:
 
         for banned in BANNED:
             # The phrase the rule bans, written the way prose would write it.
-            probe = banned.label
-            assert re.search(banned.pattern, probe, re.IGNORECASE), banned.label
+            assert re.search(banned.pattern, banned.probe, re.IGNORECASE), banned.label
 
     def test_a_missing_mission_phrase_is_detected(self) -> None:
         from scripts.doc_lint import MISSION_PHRASE

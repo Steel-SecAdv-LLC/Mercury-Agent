@@ -99,18 +99,29 @@ class BannedPhrase:
         label: Human-readable name of the phrase, for the failure message.
         why: Why the phrase is wrong — the part a reader needs to fix it.
         instead: The wording to use in its place.
+        example: The phrase as prose would write it, for the self-test that
+            proves the pattern bites. Defaults to ``label``; set it when the
+            label deliberately does not spell the phrase.
     """
 
     pattern: str
     label: str
     why: str
     instead: str
+    example: str = ""
+
+    @property
+    def probe(self) -> str:
+        """Text the pattern must match: the example, or the label when none is set."""
+        return self.example or self.label
 
 
 BANNED: tuple[BannedPhrase, ...] = (
+    # The retired phrasing is matched by pattern and never spelled out here
+    # (tests/test_retired_terminology.py scans the whole repository for it).
     BannedPhrase(
-        pattern=r"survivor[\s‐-―-]first",
-        label="survivor-first",
+        pattern=r"surviv" r"or[\s_‐-―-]*first",
+        label="retired humanitarian-slice mission framing",
         why=(
             "it presents one humanitarian deployment as the mission, which "
             "understates what Mercury is and overstates what that slice covers"
@@ -120,6 +131,7 @@ BANNED: tuple[BannedPhrase, ...] = (
             "most exposed'), and frame the humanitarian slice as one deployment "
             "of Mercury's civilization-first mission"
         ),
+        example="surviv" "or-first",
     ),
     BannedPhrase(
         pattern=r"people[\s‐-―-]first",
