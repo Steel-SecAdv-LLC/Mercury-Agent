@@ -425,11 +425,32 @@ class SelfModelLedger:
     def verify(self, expected_public_key_hex: str | None = None) -> tuple[bool, str]:
         """Check the whole chain (and signatures against a pinned key, when given).
 
+        Fails closed: an unparseable line or a malformed signature is a broken
+        record, reported with its position, never an exception.
+
+        Args:
+            expected_public_key_hex: Pinned ML-DSA-65 key as hex (either case);
+                when given, every record must carry a valid signature by it.
+
         Returns:
             ``(ok, reason)`` naming the first broken record.
         """
+        pinned = (
+            expected_public_key_hex.strip().lower() if expected_public_key_hex is not None else None
+        )
+        lines = (
+            [line for line in self.path.read_text().splitlines() if line.strip()]
+            if self.path.is_file()
+            else []
+        )
         prev = GENESIS_DIGEST
-        for position, record in enumerate(self.records()):
+        for position, line in enumerate(lines):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                return False, f"record {position}: not valid JSON"
+            if not isinstance(record, dict) or not isinstance(record.get("snapshot"), dict):
+                return False, f"record {position}: not a ledger record"
             if record.get("schema") != LEDGER_SCHEMA:
                 return False, f"record {position}: unsupported schema {record.get('schema')!r}"
             if record.get("index") != position:
@@ -444,17 +465,23 @@ class SelfModelLedger:
             claimed = snapshot.pop("digest", None)
             if hashlib.sha3_256(_canonical(snapshot)).hexdigest() != claimed:
                 return False, f"record {position}: snapshot digest mismatch"
-            if expected_public_key_hex is not None:
+            if pinned is not None:
                 signature = record.get("signature")
-                if not signature or signature.get("public_key_hex") != expected_public_key_hex:
+                if (
+                    not isinstance(signature, dict)
+                    or str(signature.get("public_key_hex", "")).lower() != pinned
+                ):
                     return False, f"record {position}: not signed by the pinned key"
                 from omni_mercury_engine.security.crypto_api import MLDSAProvider
 
-                valid = MLDSAProvider().verify(
-                    digest.encode(),
-                    bytes.fromhex(signature["value_hex"]),
-                    bytes.fromhex(expected_public_key_hex),
-                )
+                try:
+                    valid = MLDSAProvider().verify(
+                        digest.encode(),
+                        bytes.fromhex(signature["value_hex"]),
+                        bytes.fromhex(pinned),
+                    )
+                except (KeyError, TypeError, ValueError) as exc:
+                    return False, f"record {position}: signature could not be checked: {exc}"
                 if not valid:
                     return False, f"record {position}: signature does not verify"
             prev = digest

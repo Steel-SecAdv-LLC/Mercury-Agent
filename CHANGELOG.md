@@ -130,6 +130,16 @@ valid packet. It now compares case-insensitively after trimming. A
 non-positive `years_elapsed` now reports its value instead of "not
 provided".
 
+**Fixed — the self-model ledger's `verify` raised instead of failing
+closed.** A corrupted line or malformed signature hex raised an exception
+out of `SelfModelLedger.verify`. Each is now reported as a broken record
+with its position. The pinned key is compared case-insensitively, as in the
+bridge. A 12-mutant pass first killed 7. The existing tamper tests only
+asserted that something failed, so with five redundant checks no single
+check was ever observed. New tests play a forger who recomputes every digest
+except the one a given check guards (schema, index, chain link, record
+digest, snapshot digest) and pin each reason. All 12 mutants now die.
+
 ### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,

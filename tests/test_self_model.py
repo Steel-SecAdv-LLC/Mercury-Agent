@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -121,6 +122,54 @@ class TestLedger:
         assert not ok
         assert "record" in reason
 
+    @staticmethod
+    def _reseal(record: dict[str, Any], *, snapshot: bool, chain: bool) -> None:
+        """Recompute the digests a forger can recompute without the signing key."""
+        if snapshot:
+            body = {k: v for k, v in record["snapshot"].items() if k != "digest"}
+            record["snapshot"]["digest"] = hashlib.sha3_256(self_model._canonical(body)).hexdigest()
+        if chain:
+            unsigned = {k: v for k, v in record.items() if k not in ("record_digest", "signature")}
+            record["record_digest"] = hashlib.sha3_256(self_model._canonical(unsigned)).hexdigest()
+
+    @pytest.mark.parametrize(
+        ("forge", "snapshot", "chain", "reason"),
+        [
+            # Each forgery recomputes every digest except the one check it must trip.
+            (lambda r: r.update(schema="other/v9"), True, True, "unsupported schema"),
+            (lambda r: r.update(index=5), True, True, "index 5 out of order"),
+            (lambda r: r.update(prev_digest="ab" * 32), True, True, "does not chain"),
+            (
+                lambda r: r["snapshot"]["identity"].update(mission="other"),
+                True,
+                False,
+                "contents altered after recording",
+            ),
+            (
+                lambda r: r["snapshot"]["identity"].update(mission="other"),
+                False,
+                True,
+                "snapshot digest mismatch",
+            ),
+        ],
+    )
+    def test_each_check_catches_the_forgery_only_it_can_see(
+        self, tmp_path: Path, forge: Any, snapshot: bool, chain: bool, reason: str
+    ) -> None:
+        path = tmp_path / "self.jsonl"
+        ledger = SelfModelLedger(path)
+        for day in ("15", "16"):
+            ledger.append(build_self_model(f"2026-10-{day}T00:00:00+00:00"))
+        lines = path.read_text().splitlines()
+        record = json.loads(lines[1])
+        forge(record)
+        self._reseal(record, snapshot=snapshot, chain=chain)
+        lines[1] = json.dumps(record, sort_keys=True)
+        path.write_text("\n".join(lines) + "\n")
+        ok, why = ledger.verify()
+        assert not ok
+        assert why.startswith("record 1: ") and reason in why
+
     def test_a_broken_chain_is_never_extended(self, tmp_path: Path) -> None:
         path = tmp_path / "self.jsonl"
         ledger = SelfModelLedger(path)
@@ -141,6 +190,54 @@ class TestLedger:
         assert ledger.verify(pair.public_key.hex()) == (True, "valid")
         ok, reason = ledger.verify(other.public_key.hex())
         assert not ok and "pinned key" in reason
+
+    def test_the_pinned_key_matches_in_either_hex_case(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.security.crypto_api import MLDSAProvider
+
+        pair = MLDSAProvider().generate_keypair()
+        ledger = SelfModelLedger(tmp_path / "self.jsonl")
+        ledger.append(build_self_model(STAMP), signing_keypair=(pair.public_key, pair.secret_key))
+        assert ledger.verify(pair.public_key.hex().upper()) == (True, "valid")
+
+    @pytest.mark.parametrize(
+        ("damage", "reason"),
+        [
+            (lambda r: r.pop("signature"), "not signed by the pinned key"),
+            (lambda r: r["signature"].update(value_hex="zz"), "could not be checked"),
+            (lambda r: r["signature"].pop("value_hex"), "could not be checked"),
+            (lambda r: r["signature"].update(value_hex="00" * 3309), "does not verify"),
+        ],
+    )
+    def test_a_damaged_signature_fails_closed_with_its_reason(
+        self, tmp_path: Path, damage: Any, reason: str
+    ) -> None:
+        from omni_mercury_engine.security.crypto_api import MLDSAProvider
+
+        pair = MLDSAProvider().generate_keypair()
+        path = tmp_path / "self.jsonl"
+        ledger = SelfModelLedger(path)
+        ledger.append(build_self_model(STAMP), signing_keypair=(pair.public_key, pair.secret_key))
+        record = json.loads(path.read_text())
+        damage(record)
+        path.write_text(json.dumps(record, sort_keys=True) + "\n")
+        ok, why = ledger.verify(pair.public_key.hex())
+        assert not ok
+        assert why.startswith("record 0: ") and reason in why
+
+    @pytest.mark.parametrize(
+        ("line", "reason"),
+        [("{not json", "not valid JSON"), ("[1, 2]", "not a ledger record")],
+    )
+    def test_a_corrupted_line_is_a_broken_record_not_a_crash(
+        self, tmp_path: Path, line: str, reason: str
+    ) -> None:
+        path = tmp_path / "self.jsonl"
+        ledger = SelfModelLedger(path)
+        ledger.append(build_self_model(STAMP))
+        path.write_text(path.read_text() + line + "\n")
+        assert ledger.verify() == (False, f"record 1: {reason}")
+        with pytest.raises(ValueError, match="broken self-model ledger"):
+            ledger.append(build_self_model(STAMP))
 
     def test_missing_ledger_is_empty_and_valid(self, tmp_path: Path) -> None:
         ledger = SelfModelLedger(tmp_path / "absent.jsonl")
