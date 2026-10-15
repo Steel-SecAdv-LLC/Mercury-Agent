@@ -92,11 +92,13 @@ and none was in an `__all__` or lazy-export map:
 - `create_int_source_registry`, `make_capability`, `operation_for`,
   `maintenance_disabled_for_tests`, `VQAResult`, `IntegratedPhysicsResult`
   and `load_noaa_tsunami_records`;
-- the empty `anomaly/` package and the `enable_ci` flag (nothing read it
-  once counterintelligence was removed).
+- the `enable_ci` flag (nothing read it once counterintelligence was
+  removed).
 
-`Dionysus_XIII` no longer lists the empty `anomaly` package as a bound
-subsystem, which had raised its binding confidence without binding
+The empty `anomaly/` package is kept: it is the documented placeholder for
+future cross-domain fusion, and `tests/test_compat_shims.py` pins it.
+`Dionysus_XIII` no longer lists it as a bound subsystem, though, because
+binding an empty package raised its binding confidence without binding
 anything. The TCP transport's two response serializers are now wired into
 the send path in place of inline `asdict` calls, so the codec is symmetric.
 The `omni_ci_ethical_threshold` / `omni_chaos_lambda_bifurcation` scalars are
