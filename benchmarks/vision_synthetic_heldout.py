@@ -42,9 +42,8 @@ import platform
 import sys
 import time
 from collections import Counter
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import ndimage
@@ -55,6 +54,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 from omni_mercury_engine.vision import AnalyzerConfig, VisualAnomalyAnalyzer
 from omni_mercury_engine.vision.simulation import SIMULATED_TYPES, simulate_anomaly
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 Array = np.ndarray[Any, Any]
 RESULTS_PATH = REPO_ROOT / "benchmarks" / "results" / "vision_synthetic_heldout.json"
@@ -197,8 +199,8 @@ def evaluate_domain(name: str, alpha: float) -> dict[str, Any]:
             "image_auroc": round(
                 float(
                     roc_auc_score(
-                        [0] * len(normal_scores) + [1] * len(reports),
-                        normal_scores + [r.image_score for r in reports],
+                        np.asarray([0] * len(normal_scores) + [1] * len(reports)),
+                        np.asarray(normal_scores + [r.image_score for r in reports]),
                     )
                 ),
                 4,
@@ -257,7 +259,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[{name}] {json.dumps(results[name])}", flush=True)
     payload = {
         "benchmark": "procedural textures with exact masks and types (held-out images and seeds)",
-        "protocol": {"alpha": args.alpha, "image_size": SIZE, "analyzer": "AnalyzerConfig defaults"},
+        "protocol": {
+            "alpha": args.alpha,
+            "image_size": SIZE,
+            "analyzer": "AnalyzerConfig defaults",
+        },
         "environment": {"python": platform.python_version(), "machine": platform.machine()},
         "domains": results,
     }

@@ -48,8 +48,9 @@ run_gate() {
 }
 
 # --- Code Quality job ------------------------------------------------------
-run_gate "black --check (ci.yml: Run Black)" \
-  black --check src/ tests/
+# format.yml checks a superset of ci.yml's black scope; mirror the superset.
+run_gate "black --check (ci.yml: Run Black; format.yml scope)" \
+  black --check src/ tests/ benchmarks/ scripts/ examples/
 
 run_gate "ruff (ci.yml: Run Ruff)" \
   ruff check src/ tests/ scripts/ tools/
