@@ -18,6 +18,7 @@ from omni_mercury_engine.vision import (
     StreamingVisualMonitor,
     VisualAnomalyAnalyzer,
     degrade,
+    features as features_module,
 )
 from omni_mercury_engine.vision.simulation import SIMULATED_TYPES, simulate_anomaly
 
@@ -257,6 +258,38 @@ class TestLatticeRelevance:
         assert loaded.analyze(image).image_score == pytest.approx(
             grain_analyzer.analyze(image).image_score
         )
+
+    def test_an_aperiodic_domain_never_computes_the_lattice_after_fit(
+        self, grain_analyzer: VisualAnomalyAnalyzer, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _refuse(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("lattice computed for a domain fitted as aperiodic")
+
+        monkeypatch.setattr(features_module, "lattice_structure", _refuse)
+        image, _ = inject(_grain(502), "noise", 5)
+        assert grain_analyzer.analyze(image).is_anomalous
+
+    def test_a_periodic_domain_still_computes_it(
+        self, fitted_analyzer: VisualAnomalyAnalyzer, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _refuse(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("computed")
+
+        monkeypatch.setattr(features_module, "lattice_structure", _refuse)
+        with pytest.raises(AssertionError, match="computed"):
+            fitted_analyzer.analyze(woven_surface(1700))
+
+    def test_switched_off_features_take_no_part_in_the_gaussian(
+        self, grain_analyzer: VisualAnomalyAnalyzer
+    ) -> None:
+        off = np.array([g == "lattice" for g in grain_analyzer._groups])
+        precision = grain_analyzer._gauss_precision
+        assert off.any()
+        assert not precision[off].any() and not precision[:, off].any()
+        assert not grain_analyzer._gauss_mean[off].any()
+        # The active block is a proper (positive-definite) precision matrix.
+        active_block = precision[np.ix_(~off, ~off)]
+        assert float(np.linalg.eigvalsh(active_block).min()) > 0.0
 
 
 class TestEvidenceChannelsAndPersistence:

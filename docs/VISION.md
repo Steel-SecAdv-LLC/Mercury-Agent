@@ -73,7 +73,14 @@ does the following:
    lattice.
 
 `lattice_any_axis` and `lattice_both_axes` are the per-pixel max and min
-over the two basis vectors. The tests in
+over the two basis vectors.
+
+**Only where it applies.** At fit time the analyser measures the normal
+images' median patch `lattice_any_axis`. Above 0.4 the domain has no
+lattice worth modelling: the group gets zero weight, it is fitted out of
+the Ledoit-Wolf Gaussians (so it does not shift their shrinkage target),
+and it is no longer computed for any later image. On MVTec this switches
+it off for leather, tile and wood and keeps it for carpet and grid. The tests in
 `tests/vision/test_features_forensics.py::TestLatticeSymmetry` show:
 - a 7.3 × 11 px lattice is recovered to within 0.05 px;
 - a lattice rotated 20° is recovered to within 0.5°;
@@ -110,7 +117,7 @@ pass silently.
 
 ## Measured results
 
-Both benchmarks are committed and seeded, and their outputs live in
+The benchmarks are committed and seeded, and their outputs live in
 `benchmarks/results/`. The figures below are from those files, produced by
 the code in this repository. The texture images are 256 px, and the analyser
 was fitted on 100 defect-free training images per category (60 fit, 37
@@ -182,13 +189,23 @@ simulator. The misses are physically ambiguous cases:
 - structured foreign matter on a weave is typed as a structural change (25 of
   30), which is physically defensible because it breaks the weave's lattice.
 
-### Latency
+### Latency (`benchmarks/vision_latency.py`)
 
-Measured on a 4-core container, single process, 256 px:
+Median per-image `analyze()` time on 40 MVTec test images (256 px), single
+process, on a shared 4-core container. Results are in
+`benchmarks/results/vision_latency.json`. Absolute times move by roughly
+±20% with the host's load; comparisons within one run do not.
 
-| Profile | Median | p95 |
-|---|---|---|
-| Default (two scales) | 240–270 ms | 320–360 ms |
-| `AnalyzerConfig.fast()` (one coarse scale) | 79–83 ms | 93–102 ms |
+| Category | Lattice | Default (two scales) | Default, lattice computed anyway | `AnalyzerConfig.fast()` |
+|---|---|---|---|---|
+| carpet | on | 343 ms | — | 117 ms |
+| grid | on | 288 ms | — | 104 ms |
+| leather | off | 267 ms | 349 ms | 97 ms |
+| tile | off | 295 ms | 342 ms | 95 ms |
+| wood | off | 250 ms | 360 ms | 112 ms |
 
-The fast profile runs at about 12 frames per second.
+Skipping the lattice where the fit switched it off saves 48–110 ms per image
+(14–31%), measured on the same fitted model. The fast profile runs at about
+9–10 frames per second. The `median_latency_ms` fields in the two
+accuracy benchmarks' JSON are incidental (measured while scoring) and not
+the latency reference.

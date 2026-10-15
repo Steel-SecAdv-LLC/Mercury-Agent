@@ -1,0 +1,97 @@
+{
+  "benchmark": "vision_latency",
+  "image_size": 256,
+  "n_fit_images": 60,
+  "environment": {
+    "python": "3.13.16",
+    "machine": "x86_64",
+    "cpu_count": 4
+  },
+  "categories": {
+    "carpet": {
+      "default": {
+        "median_ms": 342.9,
+        "p95_ms": 546.2,
+        "n": 40,
+        "lattice_active": true
+      },
+      "fast": {
+        "median_ms": 116.9,
+        "p95_ms": 154.7,
+        "n": 40,
+        "lattice_active": true
+      }
+    },
+    "grid": {
+      "default": {
+        "median_ms": 287.9,
+        "p95_ms": 485.9,
+        "n": 40,
+        "lattice_active": true
+      },
+      "fast": {
+        "median_ms": 103.9,
+        "p95_ms": 132.2,
+        "n": 40,
+        "lattice_active": true
+      }
+    },
+    "leather": {
+      "default": {
+        "median_ms": 267.0,
+        "p95_ms": 493.8,
+        "n": 40,
+        "lattice_active": false
+      },
+      "default_lattice_computed": {
+        "median_ms": 349.1,
+        "p95_ms": 466.7,
+        "n": 40
+      },
+      "fast": {
+        "median_ms": 96.7,
+        "p95_ms": 118.4,
+        "n": 40,
+        "lattice_active": false
+      }
+    },
+    "tile": {
+      "default": {
+        "median_ms": 294.8,
+        "p95_ms": 435.7,
+        "n": 40,
+        "lattice_active": false
+      },
+      "default_lattice_computed": {
+        "median_ms": 342.3,
+        "p95_ms": 580.5,
+        "n": 40
+      },
+      "fast": {
+        "median_ms": 95.1,
+        "p95_ms": 118.7,
+        "n": 40,
+        "lattice_active": false
+      }
+    },
+    "wood": {
+      "default": {
+        "median_ms": 249.6,
+        "p95_ms": 384.1,
+        "n": 40,
+        "lattice_active": false
+      },
+      "default_lattice_computed": {
+        "median_ms": 359.9,
+        "p95_ms": 615.7,
+        "n": 40
+      },
+      "fast": {
+        "median_ms": 112.4,
+        "p95_ms": 128.1,
+        "n": 40,
+        "lattice_active": false
+      }
+    }
+  }
+}

@@ -11,12 +11,12 @@
   },
   "domains": {
     "woven": {
-      "fit_seconds": 27.7,
+      "fit_seconds": 43.2,
       "n_fit_normals": 40,
       "n_heldout_normals": 60,
       "false_alarm_rate_at_alpha": 0.0333,
       "forensic_false_positive_rate": 0.0,
-      "median_latency_ms": 120.8,
+      "median_latency_ms": 219.5,
       "same_definition_classification": {
         "correct": 139,
         "total": 140,
@@ -116,12 +116,12 @@
       }
     },
     "leather": {
-      "fit_seconds": 26.4,
+      "fit_seconds": 32.2,
       "n_fit_normals": 40,
       "n_heldout_normals": 60,
       "false_alarm_rate_at_alpha": 0.05,
       "forensic_false_positive_rate": 0.0,
-      "median_latency_ms": 133.5,
+      "median_latency_ms": 166.2,
       "same_definition_classification": {
         "correct": 133,
         "total": 140,
@@ -195,16 +195,16 @@
           "pixel_auroc": 0.9994,
           "type_accuracy": 0.2,
           "predicted_types": {
-            "structural_change": 18,
-            "noise_or_sensor_corruption": 6,
-            "foreign_texture_or_object": 6
+            "structural_change": 19,
+            "foreign_texture_or_object": 6,
+            "noise_or_sensor_corruption": 5
           }
         },
         "scratch": {
           "expected_type": "structural_change",
           "detection_rate": 1.0,
           "image_auroc": 1.0,
-          "pixel_auroc": 0.9936,
+          "pixel_auroc": 0.9937,
           "type_accuracy": 1.0,
           "predicted_types": {
             "structural_change": 30

@@ -53,8 +53,8 @@
           "exposure_anomaly": 3
         }
       },
-      "median_latency_ms": 276.9,
-      "fit_seconds": 76.6,
+      "median_latency_ms": 317.0,
+      "fit_seconds": 115.4,
       "recalibrated": {
         "alpha": 0.1,
         "n_recalibration_images": 10,
@@ -104,8 +104,8 @@
           "exposure_anomaly": 2
         }
       },
-      "median_latency_ms": 241.3,
-      "fit_seconds": 113.4,
+      "median_latency_ms": 358.4,
+      "fit_seconds": 155.4,
       "recalibrated": {
         "alpha": 0.1,
         "n_recalibration_images": 10,
@@ -157,8 +157,8 @@
           "color_shift": 1
         }
       },
-      "median_latency_ms": 283.0,
-      "fit_seconds": 72.0,
+      "median_latency_ms": 293.9,
+      "fit_seconds": 95.4,
       "recalibrated": {
         "alpha": 0.1,
         "n_recalibration_images": 10,
@@ -204,8 +204,8 @@
           "structural_change": 2
         }
       },
-      "median_latency_ms": 258.5,
-      "fit_seconds": 72.5,
+      "median_latency_ms": 276.2,
+      "fit_seconds": 97.2,
       "recalibrated": {
         "alpha": 0.1,
         "n_recalibration_images": 10,
@@ -256,8 +256,8 @@
           "exposure_anomaly": 1
         }
       },
-      "median_latency_ms": 268.2,
-      "fit_seconds": 70.4,
+      "median_latency_ms": 274.3,
+      "fit_seconds": 97.2,
       "recalibrated": {
         "alpha": 0.1,
         "n_recalibration_images": 9,

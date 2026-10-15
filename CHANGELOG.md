@@ -46,6 +46,20 @@ and 6:0 admitted. A hand-run mutation pass over the gate (ten mutants:
 significance replaced by accuracy, tail off-by-one, α, size and label
 checks, non-strict shape loading, decision takeover) kills all ten.
 
+**Changed — the lattice group is not computed where the fit switched it
+off.** For an aperiodic domain the lattice features carried zero weight but
+were still computed for every image. They are now skipped after fit (and
+after `load`), with constant maps keeping the feature layout. The Ledoit-Wolf
+Gaussians (global and per-position) are now fitted on the active features
+only, so zeroed dimensions no longer shift the shrinkage target. The new
+`benchmarks/vision_latency.py` times the same fitted model both ways: the
+skip saves 82 ms on leather, 48 ms on tile and 110 ms on wood (14–31% per
+image). MVTec accuracy is unchanged to every reported digit. The held-out
+synthetic benchmark moves by one mistyped leather case and a 0.0001 change
+in one pixel AUROC. Tests pin that an aperiodic domain never calls the
+lattice code after fit, that a periodic one still does, and that
+switched-off dimensions have zero mean and zero precision rows.
+
 ### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
@@ -127,8 +141,9 @@ bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
     0.050 (leather) at α 0.1, with 0 forensic false positives. Typing:
     same-definition 99.3% / 95.0%, cross-generator 85.4% / 77.5% (woven /
     leather).
-  - **Latency** at 256 px on 4 cores: about 240–270 ms median by default,
-    about 80 ms with `AnalyzerConfig.fast()`.
+  - **Latency** at 256 px on a shared 4-core container
+    (`benchmarks/vision_latency.py`): 250–343 ms median by default,
+    95–117 ms with `AnalyzerConfig.fast()`.
 - **Also fixed:**
   - a line-length formatting regression from the terminology rename in
     `essential_workers.py`;

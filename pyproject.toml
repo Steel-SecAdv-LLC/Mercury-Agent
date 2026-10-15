@@ -775,6 +775,7 @@ module = [
     "intel_value_metrics_report",
     "meaning_level_model_double",
     "meaning_level_corpus",
+    "mvtec_visual_benchmark",
     # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
     # and ``hazard_scenarios/generate_scenarios.py`` import these siblings via
     # sys.path manipulation (same first-party-outside-src pattern as above).

@@ -365,7 +365,7 @@ def lattice_residuals(structure: Array, lags: Array) -> Array:
 
 
 def _single_scale_maps(
-    image: CanonicalImage, *, illumination_invariant: bool
+    image: CanonicalImage, *, illumination_invariant: bool, lattice: bool = True
 ) -> tuple[Array, list[str], list[str]]:
     """Per-pixel feature maps at the image's native resolution.
 
@@ -438,10 +438,15 @@ def _single_scale_maps(
     groups.append("edges")
 
     # Per-pixel max/min over the two basis vectors, so the features do not
-    # depend on which basis vector an image happens to list first.
-    structure = lattice_structure(lum)
-    residuals = lattice_residuals(structure, lattice_vectors(structure))
-    maps += [residuals.max(axis=0), residuals.min(axis=0)]
+    # depend on which basis vector an image happens to list first. When the
+    # caller has established the domain is aperiodic the group is not
+    # computed; constant maps keep the feature layout fixed.
+    if lattice:
+        structure = lattice_structure(lum)
+        residuals = lattice_residuals(structure, lattice_vectors(structure))
+        maps += [residuals.max(axis=0), residuals.min(axis=0)]
+    else:
+        maps += [np.zeros_like(lum), np.zeros_like(lum)]
     names += ["lattice_any_axis", "lattice_both_axes"]
     groups += ["lattice"] * 2
 
@@ -521,6 +526,7 @@ def extract_patch_features(
     stride: int = 8,
     scales: tuple[float, ...] = (1.0, 0.5),
     illumination_invariant: bool = True,
+    lattice: bool = True,
 ) -> PatchFeatures:
     """Compute interpretable multi-scale features for every patch of ``image``.
 
@@ -534,6 +540,8 @@ def extract_patch_features(
         illumination_invariant: Use illumination-relative intensity and
             grey-world-balanced colour, so a global lighting change is
             reported by the environment check instead of as content.
+        lattice: Compute the lattice-symmetry group. ``False`` fills it with
+            zeros (same layout) for a domain already known to be aperiodic.
 
     Returns:
         The patch features on the full-resolution grid.
@@ -555,7 +563,7 @@ def extract_patch_features(
         else:
             scaled = _resize_canonical(image, scale)
         maps, map_names, map_groups = _single_scale_maps(
-            scaled, illumination_invariant=illumination_invariant
+            scaled, illumination_invariant=illumination_invariant, lattice=lattice
         )
         s_height, s_width = scaled.shape
         size = min(patch_size, s_height, s_width)

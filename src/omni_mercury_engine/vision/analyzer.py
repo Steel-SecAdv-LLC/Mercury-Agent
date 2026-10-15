@@ -386,6 +386,22 @@ def _ledoit_wolf(x: Array) -> tuple[Array, Array]:
     return mean, precision
 
 
+def _ledoit_wolf_on(x: Array, active: Array) -> tuple[Array, Array]:
+    """Ledoit-Wolf over the ``active`` columns only.
+
+    Switched-off feature groups carry a constant zero z; including them would
+    still shift the shrinkage target (the mean variance) and so the precision
+    of every active feature. Their rows and columns of the returned precision
+    are zero, so they contribute nothing to a Mahalanobis distance.
+    """
+    if active.all():
+        return _ledoit_wolf(x)
+    dim = x.shape[1]
+    mean, precision = np.zeros(dim), np.zeros((dim, dim))
+    mean[active], precision[np.ix_(active, active)] = _ledoit_wolf(x[:, active])
+    return mean, precision
+
+
 def _mahalanobis(x: Array, mean: Array, precision: Array) -> Array:
     centered = x - mean
     return np.asarray(
@@ -456,6 +472,7 @@ class VisualAnomalyAnalyzer:
         self.learned_type_loo_accuracy: float | None = None
         self._lattice_periodicity: float | None = None
         self._lattice_active = False
+        self._skip_lattice = False
 
     # ------------------------------------------------------------------ input
     def _prepare(self, image: Any) -> CanonicalImage:
@@ -487,6 +504,7 @@ class VisualAnomalyAnalyzer:
             stride=cfg.stride,
             scales=cfg.scales,
             illumination_invariant=cfg.illumination_invariant,
+            lattice=not self._skip_lattice,
         )
         fitted_names = getattr(self, "_names", None)
         if fitted_names is not None and feats.names != fitted_names:
@@ -573,6 +591,7 @@ class VisualAnomalyAnalyzer:
         """
         cfg = self.config
         images = [self._prepare(img) for img in normal_images]
+        self._skip_lattice = False
         if calibration_images is None:
             if len(images) < 4:
                 raise ValueError("at least 4 normal images are required (train + calibration)")
@@ -610,14 +629,17 @@ class VisualAnomalyAnalyzer:
         )
         if not self._lattice_active:
             # An infinite scale makes every lattice z exactly 0 in every
-            # downstream model (memory bank, Gaussian, classification).
+            # downstream model (memory bank, Gaussian, classification), and
+            # the group is no longer computed for any later image.
             lattice = np.array([g == "lattice" for g in sample.groups])
             self._scale = np.where(lattice, np.inf, self._scale)
+            self._skip_lattice = True
+        active = np.isfinite(self._scale)
         standardized = _robust_z(stacked, self._median, self._scale)
 
         bank_index = _greedy_coreset(standardized, cfg.max_memory, cfg.seed)
         self._bank = standardized[bank_index]
-        self._gauss_mean, self._gauss_precision = _ledoit_wolf(standardized)
+        self._gauss_mean, self._gauss_precision = _ledoit_wolf_on(standardized, active)
 
         self._positional: tuple[Array, Array] | None = None
         if cfg.positional_model:
@@ -631,7 +653,7 @@ class VisualAnomalyAnalyzer:
             means = np.empty((per_image.shape[1], per_image.shape[2]))
             precisions = np.empty((per_image.shape[1], per_image.shape[2], per_image.shape[2]))
             for p in range(per_image.shape[1]):
-                means[p], precisions[p] = _ledoit_wolf(per_image[:, p, :])
+                means[p], precisions[p] = _ledoit_wolf_on(per_image[:, p, :], active)
             self._positional = (means, precisions)
             self._grid_shape = grid_shape
 
@@ -1513,6 +1535,7 @@ class VisualAnomalyAnalyzer:
         analyzer._calibration_sufficient = bool(meta["calibration_sufficient"])
         analyzer._lattice_periodicity = meta["lattice_periodicity"]
         analyzer._lattice_active = bool(meta["lattice_active"])
+        analyzer._skip_lattice = not analyzer._lattice_active
         analyzer._n_train = int(meta["n_train"])
         analyzer._n_calibration = int(analyzer._calibration_scores.size)
         analyzer.learned_type_loo_accuracy = meta.get("learned_type_loo_accuracy")
