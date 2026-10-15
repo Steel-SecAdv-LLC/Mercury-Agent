@@ -997,25 +997,3 @@ class SchumannResonanceDetector:
             "confidence": result.confidence,
             "fundamental_freq": result.fundamental_freq,
         }
-
-
-def create_omni_resonance_scalars() -> dict[str, float]:
-    """Create doctorate-level Schumann resonance scalars.
-
-    Returns:
-        Dictionary of omni-resonance scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_electromagnetic_harmony": 1.46 * phi,
-        "omni_ionospheric_coherence": 1.42 * phi,
-        "omni_planetary_resonance": 1.44 * phi,
-        "omni_seismic_precursor_detection": 1.48 * phi,
-        "omni_space_weather_correlation": 1.40 * phi,
-        "omni_frequency_stability": 1.38 * phi,
-        "omni_amplitude_sensitivity": 1.43 * phi,
-        "omni_geophysical_cycle_alignment": 1.37 * phi,
-        "omni_waveguide_propagation": 1.39 * phi,
-        "omni_solar_modulation": 1.41 * phi,
-    }

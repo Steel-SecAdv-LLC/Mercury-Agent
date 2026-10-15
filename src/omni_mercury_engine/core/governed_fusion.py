@@ -32,15 +32,6 @@ import numpy as np
 _EPS = 1e-12
 
 
-def precision_sqrt(precision: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Return symmetric PSD ``A`` such that ``A.T @ A ~= precision``."""
-    theta = np.asarray(precision, dtype=np.float64)
-    theta = 0.5 * (theta + theta.T)
-    vals, vecs = np.linalg.eigh(theta)
-    vals = np.clip(vals, 0.0, None)
-    return (vecs * np.sqrt(vals)) @ vecs.T
-
-
 @dataclass(frozen=True)
 class InfoGeometryCertificate:
     """Mahalanobis certified-radius/witness for the info-geometry component.

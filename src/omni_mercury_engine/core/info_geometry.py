@@ -51,23 +51,6 @@ def _regularize(
     return matrix + tikhonov_lambda * np.eye(n, dtype=matrix.dtype)
 
 
-def _safe_cholesky(
-    matrix: np.ndarray[Any, Any],
-    tikhonov_lambda: float = _DEFAULT_TIKHONOV,
-) -> np.ndarray[Any, Any]:
-    """Cholesky decomposition with automatic Tikhonov fallback.
-
-    Returns the lower-triangular factor *L* such that ``L @ L.T == matrix`` (up to regularization).
-    """
-    try:
-        result: np.ndarray[Any, Any] = sp_linalg.cholesky(matrix, lower=True)
-        return result
-    except sp_linalg.LinAlgError:
-        regularized = _regularize(matrix, tikhonov_lambda)
-        result = sp_linalg.cholesky(regularized, lower=True)
-        return result
-
-
 # =========================================================================
 # FisherInformationMatrix
 # =========================================================================

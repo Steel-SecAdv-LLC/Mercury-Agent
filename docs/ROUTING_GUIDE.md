@@ -160,7 +160,7 @@ async def analyze_v1(request):
     return {"version": "v1", "analysis": {}}
 
 # Create API v2 group with different middleware
-api_v2 = RouterGroup("/api/v2", middleware=[auth_middleware, rate_limit_middleware])
+api_v2 = RouterGroup("/api/v2", middleware=[auth_middleware, logging_middleware])
 
 @api_v2.get("/detectors")
 async def list_detectors_v2(request):

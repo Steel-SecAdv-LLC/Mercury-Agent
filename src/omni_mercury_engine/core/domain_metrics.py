@@ -664,26 +664,3 @@ class DomainSpecificMetrics:
         """Compute graph domain metrics."""
         # Use adjacency as spatial weights
         return DomainSpecificMetrics.compute_spatial_metrics(node_scores, adjacency_matrix)
-
-
-def compute_benchmark_metrics(
-    y_true: np.ndarray[Any, Any],
-    y_pred: np.ndarray[Any, Any],
-    y_prob: np.ndarray[Any, Any] | None = None,
-    domain: str = "general",
-    **kwargs: Any,
-) -> ComprehensiveMetrics:
-    """Convenience function to compute metrics for benchmarking.
-
-    Args:
-        y_true: Ground truth labels
-        y_pred: Binary predictions
-        y_prob: Probability predictions
-        domain: Domain type for specialized metrics
-        **kwargs: Additional arguments
-
-    Returns:
-        ComprehensiveMetrics instance
-    """
-    calculator = MetricsCalculator()
-    return calculator.compute_all_metrics(y_true, y_pred, y_prob, **kwargs)

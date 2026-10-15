@@ -14,7 +14,6 @@ Enhancements to base domain detectors:
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -532,60 +531,6 @@ class SpatialAutocorrelation:
         return float(C)
 
 
-class ParallelDetectorExecutor:
-    """Parallel execution of multiple detectors for efficiency.
-
-    Uses ThreadPoolExecutor to run detectors concurrently, reducing latency for multi-detector
-    fusion.
-    """
-
-    def __init__(self, max_workers: int = 4, timeout: float = 30.0):
-        """Initialize parallel executor.
-
-        Args:
-            max_workers: Maximum number of parallel workers
-            timeout: Timeout for each detector (seconds)
-        """
-        self.max_workers = max_workers
-        self.timeout = timeout
-
-    def execute_detectors(
-        self,
-        detectors: dict[str, Any],
-        data: np.ndarray[Any, Any],
-        method: str = "detect",
-    ) -> dict[str, Any]:
-        """Execute multiple detectors in parallel.
-
-        Args:
-            detectors: Dictionary of detector name to detector instance
-            data: Input data
-            method: Method to call on each detector
-
-        Returns:
-            Dictionary of detector name to result
-        """
-        results = {}
-
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {}
-
-            for name, detector in detectors.items():
-                func = getattr(detector, method, None)
-                if func is not None:
-                    futures[executor.submit(func, data)] = name
-
-            for future in as_completed(futures, timeout=self.timeout):
-                name = futures[future]
-                try:
-                    results[name] = future.result()
-                except Exception as e:
-                    logger.warning(f"Detector {name} failed: {e}")
-                    results[name] = {"error": str(e)}
-
-        return results
-
-
 class BaseDomainDetector:
     """Enhanced base detector with adaptive thresholds and domain metrics.
 
@@ -811,24 +756,3 @@ class BaseDomainDetector:
                 pass
 
         return metrics
-
-
-def create_enhanced_detector(
-    detector_class: type,
-    domain: str,
-    config: dict[str, Any] | None = None,
-    **enhancement_kwargs: Any,
-) -> BaseDomainDetector:
-    """Factory function to create enhanced detector.
-
-    Args:
-        detector_class: Base detector class
-        domain: Domain type
-        config: Configuration for base detector
-        **enhancement_kwargs: Additional args for BaseDomainDetector
-
-    Returns:
-        Enhanced detector instance
-    """
-    base_detector = detector_class(config)
-    return BaseDomainDetector(base_detector, domain=domain, **enhancement_kwargs)

@@ -123,41 +123,6 @@ class PhysicsIntegrationConfig:
     threshold: float = 0.5
 
 
-@dataclass
-class IntegratedPhysicsResult:
-    """Complete result from integrated physics detection.
-
-    Attributes:
-        anomaly_score: Combined anomaly score [0, 1]
-        is_anomaly: Boolean anomaly flag
-        spectral_result: Result from spectral vibration detector
-        dynamics_result: Result from acceleration dynamics detector
-        uiux_result: Result from UI/UX anomaly detector
-        fusion_result: 3R OAE fusion result
-        recursion_score: Score from recursion engine
-        resonance_score: Score from resonance engine
-        ethical_scaling: Ethical compliance scaling factor
-        component_scores: Individual detector scores
-        detector_features: Extracted features from all detectors
-        recommendations: Combined recommendations
-        metadata: Additional metadata
-    """
-
-    anomaly_score: float
-    is_anomaly: bool
-    spectral_result: dict[str, Any] | None
-    dynamics_result: dict[str, Any] | None
-    uiux_result: dict[str, Any] | None
-    fusion_result: AnomalyFusionResult | None
-    recursion_score: float
-    resonance_score: float
-    ethical_scaling: float
-    component_scores: dict[str, float]
-    detector_features: torch.Tensor
-    recommendations: list[str]
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
 # =============================================================================
 # GOSNN Integration
 # =============================================================================

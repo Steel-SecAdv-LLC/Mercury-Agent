@@ -29,7 +29,6 @@ import logging
 import os
 import secrets
 import threading
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -222,37 +221,6 @@ class AuthorizationError(Exception):
         """Initialize the instance."""
         super().__init__(message)
         self.required = required
-
-
-class AuthProvider(ABC):
-    """Abstract base class for authentication providers."""
-
-    @abstractmethod
-    async def authenticate(self, credentials: Any) -> User:
-        """Authenticate credentials and return user.
-
-        Args:
-            credentials: Authentication credentials.
-
-        Returns:
-            Authenticated user.
-
-        Raises:
-            AuthenticationError: If authentication fails.
-        """
-        pass
-
-    @abstractmethod
-    async def validate_token(self, token: str) -> User | None:
-        """Validate a token and return user if valid.
-
-        Args:
-            token: Token to validate.
-
-        Returns:
-            User if valid, None otherwise.
-        """
-        pass
 
 
 class APIKeyStore:
@@ -1382,45 +1350,6 @@ def require_role(role: str) -> Callable[..., Any]:
         return wrapper
 
     return decorator
-
-
-async def rate_limit_middleware(
-    request: Request,
-    call_next: Callable[..., Any],
-) -> Any:
-    """Rate limiting middleware.
-
-    Args:
-        request: FastAPI request.
-        call_next: Next middleware/handler.
-
-    Returns:
-        Response.
-    """
-    limiter = get_rate_limiter()
-    user = getattr(request.state, "user", None) if hasattr(request, "state") else None
-
-    allowed, info = limiter.is_allowed(request, user)
-
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Rate limit exceeded",
-            headers={
-                "X-RateLimit-Limit": str(info["limit"]),
-                "X-RateLimit-Remaining": str(info["remaining"]),
-                "X-RateLimit-Reset": str(info["reset"]),
-            },
-        )
-
-    response = await call_next(request)
-
-    # Add rate limit headers
-    response.headers["X-RateLimit-Limit"] = str(info["limit"])
-    response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-    response.headers["X-RateLimit-Reset"] = str(info["reset"])
-
-    return response
 
 
 class AuthConfig(BaseModel):

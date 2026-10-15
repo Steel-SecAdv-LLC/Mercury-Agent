@@ -732,24 +732,3 @@ class GOSNNOptimizer:
             "sigma_immutable_target": self.sigma_immutable,
             "target_overhead_percent": self.target_overhead,
         }
-
-
-def optimize_gosnn(
-    gosnn: Any,
-    X: np.ndarray[Any, Any] | None = None,
-    sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
-    **kwargs: Any,
-) -> OptimizationResult:
-    """Convenience function to optimize GOSNN.
-
-    Args:
-        gosnn: GlobalOmniScalarNetwork instance
-        X: Optional data for profiling
-        sigma_immutable: Ethical threshold
-        **kwargs: Additional arguments
-
-    Returns:
-        OptimizationResult
-    """
-    optimizer = GOSNNOptimizer(sigma_immutable=sigma_immutable, **kwargs)
-    return optimizer.optimize(gosnn, X)

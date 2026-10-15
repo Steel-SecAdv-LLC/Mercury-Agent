@@ -7,24 +7,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,803
-- **Capability-bearing classes:** 1,847 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,783
+- **Capability-bearing classes:** 1,835 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
-- **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,057 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 85 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,052 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1057 |
-| Support types (config / result / enum / error) | 956 |
-| Detection | 170 |
-| Neural models & layers | 159 |
-| Engines & orchestration | 103 |
+| Other capability classes | 1052 |
+| Support types (config / result / enum / error) | 948 |
+| Detection | 168 |
+| Neural models & layers | 158 |
 | Data sources & loaders | 103 |
-| Training & optimization | 61 |
+| Engines & orchestration | 101 |
 | Adapters & backends | 60 |
+| Training & optimization | 59 |
 | Analysis & scoring | 58 |
 | Monitoring | 25 |
 | Prediction & forecasting | 21 |
@@ -63,7 +63,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `agentic/` — 85 classes (56 capability)
+### `agentic/` — 84 classes (55 capability)
 
 **Engines & orchestration**
 
@@ -118,7 +118,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `PlanTrace` (`agentic.orchestration`) — Record of the planner-driven episode execution.
 - `PolicyMetrics` (`agentic.agentic_autonomy`) — Metrics tracking policy performance over time.
 - `ReasoningStep` (`agentic.mercury_a_agent`) — A step in the reasoning chain.
-- `RegulatoryIntelligence` (`agentic.subagents.specializations.compliance`) — Track regulatory changes and updates.
 - `RosterEntry` (`agentic.subagents.roster`) — One pantheon member: identity → real subsystems → one Omni-Code anchor.
 - `Section` (`agentic.capabilities.document_generator`) — One document section: a heading, body text, and optional bullet points.
 - `SubAgentCapability` (`agentic.subagents.base`) — Routing descriptor for a subagent.
@@ -157,7 +156,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 153 classes (55 capability)
+### `api/` — 152 classes (54 capability)
 
 **Adapters & backends**
 
@@ -188,7 +187,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `AlertSink` (`api.alert_egress`) — One configured alert destination.
 - `AnomalyPoint` (`api.server`) — Individual anomaly point information.
 - `AuthAuditor` (`api.auth_audit`) — Records auth events to the secure audit trail (or structured logs).
-- `AuthProvider` (`api.auth`) — Abstract base class for authentication providers.
 - `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, mailer, sealer, and 2FA.
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
@@ -594,7 +592,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 358 classes (227 capability)
+### `core/` — 347 classes (221 capability)
 
 **Adapters & backends**
 
@@ -646,8 +644,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SecurityEngine` (`core.extended_anomaly_engine`) — Security engine.
 - `SymbolicReasoningEngine` (`core.symbolic_reasoning`) — Symbolic reasoning engine for explainable AI.
 - `ThresholdCalibrationPipeline` (`core.calibration_pipeline`) — Threshold auto-calibration pipeline with full provenance tracking.
-- `_LegacyRecursionEngine` (`core.three_r_mechanism`) — Implements recursive self-referential processing for hierarchical feature extraction and.
-- `_LegacyResonanceEngine` (`core.three_r_mechanism`) — Implements frequency-domain signal amplification using Fourier analysis for pattern.
 
 **Ethics & governance**
 
@@ -772,7 +768,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `OmniAvaEquation` (`core.three_r.fusion`) — Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 - `OmniMercury` (`core.extended_anomaly_engine`) — Omni mercury.
 - `OperatingPoint` (`core.decision_curve`) — The single reconciled operating point + the conformal coverage diagnostic.
-- `ParallelDetectorExecutor` (`core.base_domains`) — Parallel execution of multiple detectors for efficiency.
 - `ParetoFront` (`core.benevolence_optimization`) — Collection of Pareto-optimal solutions.
 - `ParetoSolution` (`core.benevolence_optimization`) — A single solution on the Pareto front.
 - `PerformanceMetric` (`core.gosnn_integration`) — Single performance measurement.
@@ -817,14 +812,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `TemporalTrajectory` (`core.learnable_gosnn`) — Temporal trajectory of scalar values.
 - `ThreeRMechanism` (`core.three_r_mechanism`) — Unified Recursion-Resonance-Refactoring mechanism for adaptive.
 - `ThresholdConfidenceInterval` (`core.score_calibration`) — Confidence interval for a calibrated threshold.
-- `ThresholdDefaults` (`core.config`) — Original threshold values preserved for reference.
 - `TrainingMetrics` (`core.code_analysis`) — Metrics for training progress.
 - `TriadicPhiWeighting` (`core.global_omni_scalar_network`) — Triadic phi-weighting layer for harmonic synergy in attention fusion.
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
 - `VietorisRipsFiltration` (`core.topological_analysis`) — Build a Vietoris-Rips simplicial complex and compute persistent homology.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
-- `_LegacyOmniAvaEquation` (`core.three_r_mechanism`) — Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 - `_UnionFind` (`core.topological_analysis`) — Weighted union-find with path compression.
 
 **Prediction & forecasting**
@@ -854,11 +847,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `ParetoOptimizer` (`core.benevolence_optimization`) — Pareto optimization for multi-objective benevolence optimization.
 - `PlattScalingCalibrator` (`core.adaptive_domain_thresholding`) — Platt scaling for probability calibration.
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
-- `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Optimizer for OAE weights using scipy.optimize.
 
-<details><summary>Support types (131)</summary>
+<details><summary>Support types (126)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `IntegrationResult`, `IntegrationState`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyAnomalyDetectionMethod`, `_LegacyEvolutionStrategy`, `_LegacyIssueSeverity`, `_LegacyIssueType`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `IntegrationResult`, `IntegrationState`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`
 
 </details>
 
@@ -992,7 +984,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 380 classes (262 capability)
+### `detectors/` — 376 classes (260 capability)
 
 **Adapters & backends**
 
@@ -1147,7 +1139,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MultiScaleEncoder` (`detectors.advanced.multi_scale_transformer`) — Multi-scale encoder extracting patterns at different temporal resolutions.
 - `MultiScaleTransformerModel` (`detectors.advanced.multi_scale_transformer`) — Multi-Scale Transformer for Time-Series Anomaly Detection.
 - `OCEBottleneck` (`detectors.visual.reverse_distillation`) — One-Class Embedding Bottleneck.
-- `PatchEmbedding` (`detectors.visual.backbone`) — Extract patch-level embeddings from feature maps.
 - `PhononInteractionNetwork` (`detectors.spectral_vibration`) — Neural network modeling phonon-like interactions between frequency modes.
 - `PositionalEncoding` (`detectors.advanced.multi_scale_transformer`) — Sinusoidal positional encoding with learnable scale.
 - `PositionalEncoding2D` (`detectors.visual.cflow`) — 2D positional encoding for spatial conditioning.
@@ -1272,7 +1263,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `FloodPredictionOptimizer` (`detectors.geological.flood_detector`) — Dynamic model optimization engine for flood prediction.
 - `GreyWolfOptimizer` (`detectors.advanced.gwo_ensemble`) — Grey Wolf Optimizer for weight optimization.
 - `MultiModalFusionOptimizer` (`detectors.fusion.multimodal_fusion`) — High-level optimizer for multi-modal anomaly detection fusion.
-- `MultiScaleFeatureAggregator` (`detectors.visual.backbone`) — Aggregate multi-scale features into a unified representation.
 - `RefactoringAdaptiveOptimizer` (`detectors.geological.volcanic`) — 3R Refactoring mechanism for adaptive volcanic model optimization.
 - `_EcdfCalibrator` (`detectors.detection_tier`) — Rank / empirical-CDF calibrator: map a score to ``P(reference <= score)``.
 - `_IdentityCalibrator` (`detectors.detection_tier`) — No-op calibrator (``calibration='none'``): clip into ``[0, 1]`` only.
@@ -1280,9 +1270,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (118)</summary>
+<details><summary>Support types (116)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DerechoResult`, `DetectionConfig`, `DetectorProtocol`, `DomainBandInfo`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DerechoResult`, `DetectionConfig`, `DetectorProtocol`, `DomainBandInfo`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 
@@ -1863,7 +1853,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `ml/` — 309 classes (246 capability)
+### `ml/` — 307 classes (245 capability)
 
 **Adapters & backends**
 
@@ -1898,7 +1888,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Detector` (`ml.ensemble_coordinator`) — Protocol for anomaly detectors.
 - `EnsembleDriftDetector` (`ml.drift`) — Ensemble drift detector combining multiple methods.
 - `KolmogorovSmirnovDriftDetector` (`ml.drift`) — Kolmogorov-Smirnov test based drift detector.
-- `OnlineDriftDetector` (`ml.drift`) — Online drift detection with adaptive windowing.
 - `PopulationStabilityIndexDetector` (`ml.drift`) — Population Stability Index (PSI) based drift detector.
 
 **Engines & orchestration**
@@ -2141,13 +2130,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (63)</summary>
+<details><summary>Support types (62)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `_CachedCallable`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`
 
 </details>
 
-### `models/` — 142 classes (105 capability)
+### `models/` — 141 classes (104 capability)
 
 **Adapters & backends**
 
@@ -2184,7 +2173,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `LSTMAutoencoderDetector` (`models.lstm_ae`) — Detector-registry adapter for the LSTM-autoencoder.
 - `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector using STUMPY.
 - `ParapsychologyDetector` (`models.parapsychology`) — REG statistical-deviation detector (parapsychology-research tooling).
-- `TextLogAnomalyDetector` (`models.foundation.llm_adapter`) — Specialized detector for text and log anomalies.
 - `ZeroShotAnomalyDetector` (`models.foundation.llm_adapter`) — Zero-shot anomaly detector using LLM prompting.
 
 **Engines & orchestration**

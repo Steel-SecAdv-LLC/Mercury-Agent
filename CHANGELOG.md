@@ -70,6 +70,39 @@ generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
 3.3 against the v5.0.0 pin), and `REPOSITORY_REFINEMENT_AUDIT.md` (a branch
 audit log with no references). Git history keeps all four.
 
+**Removed — dead code with no caller anywhere (≈1,950 lines).** Every
+symbol was confirmed to have zero references across `src/`, `tests/`,
+`scripts/`, `benchmarks/`, `examples/`, `docs/`, `research/` and `tools/`,
+and none was in an `__all__` or lazy-export map:
+- the nine `_Legacy*` classes in `core/three_r_mechanism.py` (763 lines;
+  the live copies are in `core/three_r/`);
+- `OnlineDriftDetector`, `TextLogAnomalyDetector`,
+  `optimize_benevolent_detector`, `MultiScaleFeatureAggregator`,
+  `PatchEmbedding`, `ParallelDetectorExecutor`, `create_enhanced_detector`,
+  `create_enhanced_model`, `RegulatoryIntelligence` and
+  `run_baseline_benchmarks`;
+- the five input-free `create_omni_{medical,chemistry,psi,resonance,interstellar}_scalars`
+  constant tables;
+- `add_conformal_to_detector`, `memory_efficient_lru_cache`, `parallel_map`,
+  `get_optimal_batch_size`, `ThresholdDefaults` and `load_configuration`;
+- `AuthProvider` and `rate_limit_middleware` (superseded by the mounted
+  `RateLimitMiddleware`);
+- `_compute_sst_anomaly_proxy`, `optimize_gosnn`, `reliability_pool`,
+  `precision_sqrt`, `_safe_cholesky` and `compute_benchmark_metrics`;
+- `create_int_source_registry`, `make_capability`, `operation_for`,
+  `maintenance_disabled_for_tests`, `VQAResult`, `IntegratedPhysicsResult`
+  and `load_noaa_tsunami_records`;
+- the empty `anomaly/` package and the `enable_ci` flag (nothing read it
+  once counterintelligence was removed).
+
+`Dionysus_XIII` no longer lists the empty `anomaly` package as a bound
+subsystem, which had raised its binding confidence without binding
+anything. The TCP transport's two response serializers are now wired into
+the send path in place of inline `asdict` calls, so the codec is symmetric.
+The `omni_ci_ethical_threshold` / `omni_chaos_lambda_bifurcation` scalars are
+kept for now: the fusion 𝐇 term averages every float `EthicalScalars` field,
+so removing them would move its target (1.2968 → 1.2997).
+
 **Changed — the lattice group is not computed where the fit switched it
 off.** For an aperiodic domain the lattice features carried zero weight but
 were still computed for every image. They are now skipped after fit (and

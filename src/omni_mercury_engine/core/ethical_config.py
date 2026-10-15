@@ -260,7 +260,6 @@ class EngineConfig:
     fusion_mode: str = "hybrid"
     enable_neurosymbolic: bool = True
     enable_multiverse: bool = True
-    enable_ci: bool = False
 
     num_universes: int = 10
     multiverse_state_dim: int = 50

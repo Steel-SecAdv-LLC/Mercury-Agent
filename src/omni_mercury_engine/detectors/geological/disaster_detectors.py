@@ -2432,46 +2432,6 @@ def load_dart_buoy_data(
         return None
 
 
-def load_noaa_tsunami_records(
-    min_year: int = 2000,
-    max_records: int = 1000,
-) -> list[dict[str, Any]] | None:
-    """Load historical tsunami event records from NOAA NGDC.
-
-    Data source: NOAA National Centers for Environmental Information
-    https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
-
-    Args:
-        min_year: Minimum year for historical records
-        max_records: Maximum number of records to fetch
-
-    Returns:
-        List of tsunami event dictionaries or None if API unavailable
-    """
-    circuit_breaker = get_data_loader_breaker("noaa_tsunami")
-
-    def _fetch_tsunami_records() -> list[dict[str, Any]]:
-        data = SafeHTTPClient.get_json(
-            NOAA_TSUNAMI_API_URL,
-            params={"minYear": str(min_year), "maxSize": str(max_records)},
-            headers={"User-Agent": "Mercury-Agent/1.0"},
-            timeout=30,
-        )
-
-        events: list[dict[str, Any]] = data.get("items", [])
-        if not events:
-            raise RuntimeError("NOAA Tsunami API returned no events")
-
-        return events
-
-    try:
-        result: list[dict[str, Any]] = circuit_breaker.call(_fetch_tsunami_records)
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load NOAA tsunami records: {e}. Using synthetic fallback.")
-        return None
-
-
 def load_usgs_earthquake_catalog(
     days_back: int = 365,
     min_magnitude: float = 4.0,

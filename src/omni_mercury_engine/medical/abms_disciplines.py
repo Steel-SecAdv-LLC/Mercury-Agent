@@ -911,33 +911,6 @@ class ABMSDisciplineDetector:
         return results
 
 
-def create_omni_medical_scalars() -> dict[str, float]:
-    """Create doctorate-level medical scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-medical scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_diagnostic_precision": 1.42 * phi,
-        "omni_clinical_judgment": 1.38 * phi,
-        "omni_treatment_efficacy": 1.45 * phi,
-        "omni_patient_safety": 1.50 * phi,
-        "omni_interdisciplinary_coordination": 1.35 * phi,
-        "omni_evidence_based_medicine": 1.40 * phi,
-        "omni_preventive_care": 1.33 * phi,
-        "omni_holistic_assessment": 1.37 * phi,
-        "omni_subspecialty_expertise": 1.44 * phi,
-        "omni_emergency_responsiveness": 1.48 * phi,
-        "omni_chronic_disease_management": 1.36 * phi,
-        "omni_surgical_precision": 1.46 * phi,
-        "omni_pharmaceutical_optimization": 1.39 * phi,
-        "omni_imaging_interpretation": 1.41 * phi,
-        "omni_laboratory_correlation": 1.34 * phi,
-    }
-
-
 ABMSAnomalyDetector = ABMSDisciplineDetector
 
 # Alias for test compatibility - ABMSSpecialty is an alias for ABMSBoard

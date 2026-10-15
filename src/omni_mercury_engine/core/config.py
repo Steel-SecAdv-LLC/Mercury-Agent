@@ -248,35 +248,6 @@ class ThresholdConfig:
     """Threshold for geometric pattern detection in ethical alignment."""
 
 
-class ThresholdDefaults:
-    """Original threshold values preserved for reference.
-
-    WARNING: Changing these affects ethical governance, anomaly detection,
-    and security decisions across the entire system.
-
-    These were the original hardcoded values before centralization.
-    Do NOT change without architectural review.
-    """
-
-    # From ethical_governor.py:129 - Sigma Directive weighted score threshold
-    SIGMA_DIRECTIVE_WEIGHTED_SCORE: float = 0.8
-
-    # From ethical_governor.py:351 - Demographic parity bias detection
-    BIAS_DETECTION_DEMOGRAPHIC_PARITY: float = 0.1
-
-    # From neurosymbolic_hub.py:810 - Default anomaly classification threshold
-    ANOMALY_CLASSIFICATION_DEFAULT: float = 0.5
-
-    # Configured magnitude of the GOSNN omnibenevolence scalar (advisory).
-    OMNIBENEVOLENCE_SCALAR: float = ETHICAL.OMNIBENEVOLENCE_SCALAR
-
-    # From ethical alignment modules - Minimum ethical score
-    ETHICAL_MINIMUM: float = 0.6
-
-    # From pattern detection modules - Geometric pattern threshold
-    PATTERN_DETECTION_GEOMETRIC: float = 0.6
-
-
 @dataclass
 class EngineConfig:
     """Main engine configuration."""
@@ -668,38 +639,3 @@ def get_config_manager() -> ConfigurationManager:
     if _config_manager is None:
         _config_manager = ConfigurationManager()
     return _config_manager
-
-
-def load_configuration(
-    config_files: list[str | Path] | None = None,
-    load_env: bool = True,
-) -> ConfigurationManager:
-    """Load configuration from files and environment.
-
-    Args:
-        config_files: List of configuration file paths
-        load_env: Whether to load from environment variables
-
-    Returns:
-        Configured ConfigurationManager
-    """
-    manager = get_config_manager()
-
-    # Load from default locations if no files specified
-    if config_files is None:
-        config_files = [
-            Path("omni_mercury.yaml"),
-            Path("omni_mercury.toml"),
-            Path("omni_mercury.json"),
-            Path.home() / ".config" / "omni_mercury" / "config.yaml",
-        ]
-
-    for config_file in config_files:
-        path = Path(config_file)
-        if path.exists():
-            manager.load_from_file(path)
-
-    if load_env:
-        manager.load_from_env()
-
-    return manager

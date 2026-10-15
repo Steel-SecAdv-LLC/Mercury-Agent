@@ -689,25 +689,3 @@ class ParapsychologyDetector:
             "p_value": result.p_value,
             "effect_size": result.effect_size,
         }
-
-
-def create_omni_psi_scalars() -> dict[str, float]:
-    """Create doctorate-level parapsychology scalars.
-
-    Returns:
-        Dictionary of omni-psi scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_statistical_rigor": 1.50 * phi,
-        "omni_effect_size_sensitivity": 1.42 * phi,
-        "omni_replication_confidence": 1.45 * phi,
-        "omni_consciousness_coherence": 1.44 * phi,
-        "omni_reg_deviation_sensitivity": 1.47 * phi,
-        "omni_information_transfer": 1.40 * phi,
-        "omni_mind_matter_interaction": 1.43 * phi,
-        "omni_presentiment_detection": 1.41 * phi,
-        "omni_field_resonance": 1.39 * phi,
-        "omni_bayesian_evidence": 1.46 * phi,
-    }

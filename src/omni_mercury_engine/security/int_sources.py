@@ -1263,12 +1263,3 @@ class IntelligenceSourceRegistry:
     def get_available_processors(self) -> list[str]:
         """Get list of available INT processors."""
         return list(self.processors.keys())
-
-
-def create_int_source_registry() -> IntelligenceSourceRegistry:
-    """Create intelligence source registry with all processors.
-
-    Returns:
-        Configured IntelligenceSourceRegistry
-    """
-    return IntelligenceSourceRegistry()

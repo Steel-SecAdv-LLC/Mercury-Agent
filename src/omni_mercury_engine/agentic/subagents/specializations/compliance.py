@@ -705,58 +705,6 @@ class ComplianceAutomationAgent:
         return report
 
 
-class RegulatoryIntelligence:
-    """Track regulatory changes and updates.
-
-    Tracks changes in BIPA amendments, CCPA/CPRA updates, state privacy laws,
-    and federal legislation. This is the in-memory ledger only; the original
-    agent's network polling was removed, so changes are recorded explicitly via
-    :meth:`detect_regulatory_change`.
-    """
-
-    def __init__(self) -> None:
-        """Initialize empty tracking and change-history ledgers."""
-        self.tracked_regulations: dict[str, dict[str, Any]] = {}
-        self.change_history: list[dict[str, Any]] = []
-
-    def monitor_regulation(
-        self,
-        regulation_name: str,
-        source_url: str,
-    ) -> None:
-        """Register a regulation to monitor.
-
-        Args:
-            regulation_name: Name of the regulation being tracked.
-            source_url: Reference URL recorded with the tracking entry.
-        """
-        self.tracked_regulations[regulation_name] = {
-            "source_url": source_url,
-            "last_checked": datetime.now().isoformat(),
-            "version": "1.0",
-        }
-
-    def detect_regulatory_change(
-        self,
-        regulation_name: str,
-        change_description: str,
-    ) -> None:
-        """Record a detected regulatory change.
-
-        Args:
-            regulation_name: Name of the regulation that changed.
-            change_description: Human-readable description of the change.
-        """
-        change: dict[str, Any] = {
-            "regulation": regulation_name,
-            "description": change_description,
-            "detected_at": datetime.now().isoformat(),
-            "requires_review": True,
-        }
-
-        self.change_history.append(change)
-
-
 class ComplianceSubAgent(SubAgent):
     """Privacy/biometric compliance evaluation (BIPA/CCPA/CPRA)."""
 
