@@ -107,3 +107,88 @@ pass silently.
     (`attributes_measured`); no age or confidence value is invented.
 - **Tabular inputs:** these keep the harmonic score, labelled through
   `anomaly_score_basis`.
+
+## Measured results
+
+Both benchmarks are committed and seeded, and their outputs live in
+`benchmarks/results/`. The figures below are from those files, produced by
+the code in this repository. The texture images are 256 px, and the analyser
+was fitted on 100 defect-free training images per category (60 fit, 37
+conformal calibration, 3 normalisation).
+
+### MVTec AD textures (real defects, `benchmarks/mvtec_visual_benchmark.py`)
+
+The data are MVTec AD (Bergmann et al., CVPR 2019; CC BY-NC-SA 4.0). They are
+downloaded at run time from the `Voxel51/mvtec-ad` mirror under a pinned
+manifest digest, and nothing is redistributed. No pretrained weights are used.
+
+| Category | Lattice group | Image AUROC | Pixel AUROC | Strict FAR (α 0.05) | Strict detection | Recalibrated FAR (α 0.1) | Recalibrated detection |
+|---|---|---|---|---|---|---|---|
+| carpet | on | 0.965 | 0.982 | 0.429 | 0.989 | 0.056 | 0.888 |
+| grid | on | 0.996 | 0.984 | 0.000 | 0.614 | 0.182 | 0.982 |
+| leather | off | 0.999 | 0.996 | 0.594 | 1.000 | 0.000 | 0.978 |
+| tile | off | 0.999 | 0.975 | 0.000 | 0.929 | 0.000 | 0.976 |
+| wood | off | 0.965 | 0.972 | 0.211 | 0.983 | 0.100 | 0.950 |
+| **mean** | | **0.985** | **0.982** | 0.247 | 0.903 | **0.068** | **0.955** |
+
+The same pipeline without the lattice group (measured during development) is
+the comparison:
+
+| Metric | Without lattice | With lattice |
+|---|---|---|
+| Mean image AUROC | 0.914 | 0.985 |
+| Mean pixel AUROC | 0.958 | 0.982 |
+| Mean recalibrated detection | 0.819 | 0.955 |
+| Mean recalibrated FAR | 0.072 | 0.068 |
+| Grid image AUROC | 0.656 | 0.996 |
+| Grid recalibrated detection | 0.316 | 0.982 |
+| Grid "bent" detected (strict) | 0.00 | 0.83 |
+
+#### Read these honestly
+
+- **The strict false-alarm rate is not controlled at α on MVTec.** The rate
+  measured on MVTec's good *test* images is 0.247 on average, against a
+  target of 0.05. Those test images are measurably shifted from the good
+  *training* images: on carpet they separated at AUROC 0.66 when measured
+  with the pre-lattice features. That breaks the
+  exchangeability the guarantee needs. Recalibrating on 10 good images from
+  the test session brings the false-alarm rate to 0.068 at α 0.1. In
+  deployment, call `recalibrate()` on a few normals from each new capture
+  session. The self-model records this as a stated limitation.
+- **Small-sample rates are coarse.** Grid's recalibrated false-alarm rate is
+  2 images of 11, and strict thresholds come from 37 calibration images (the
+  threshold is the largest of them at α 0.05).
+- **Weakest defect types:**
+  - grid `glue`: 0.09 detected at the strict threshold
+  - grid `broken`: 0.50
+  - tile `glue_strip`: 0.72
+- **Defect typing on real data is coarse.** MVTec's defect names are not the
+  analyser's physical types, so typing is not scored there; see the synthetic
+  benchmark below.
+
+### Held-out synthetic textures (exact types, `benchmarks/vision_synthetic_heldout.py`)
+
+Fit on 40 normals, then evaluated on unseen images and seeds at α 0.1:
+
+| Domain | Held-out FAR (n=60) | Forensic false positives | Same-definition typing | Cross-generator typing | Detection (8 injectors) | Image AUROC (min over injectors) | Pixel AUROC (min) |
+|---|---|---|---|---|---|---|---|
+| woven (periodic) | 0.033 | 0.000 | 99.3% (139/140) | 85.4% (205/240) | 100% | 1.000 | 0.988 |
+| leather (aperiodic) | 0.050 | 0.000 | 95.0% (133/140) | 77.5% (186/240) | 100% | 0.983 | 0.994 |
+
+The cross-generator injectors are written independently of the analyser's
+simulator. The misses are physically ambiguous cases:
+- a flat dark occluder is typed as an exposure anomaly (10 of 30 on woven;
+  all 30 on leather are typed as blur);
+- structured foreign matter on a weave is typed as a structural change (25 of
+  30), which is physically defensible because it breaks the weave's lattice.
+
+### Latency
+
+Measured on a 4-core container, single process, 256 px:
+
+| Profile | Median | p95 |
+|---|---|---|
+| Default (two scales) | 240–270 ms | 320–360 ms |
+| `AnalyzerConfig.fast()` (one coarse scale) | 79–83 ms | 93–102 ms |
+
+The fast profile runs at about 12 frames per second.

@@ -93,8 +93,28 @@ gets a signed evidence contract. See [`docs/VISION.md`](docs/VISION.md) and
     at run time under a pinned manifest.
   - `benchmarks/vision_synthetic_heldout.py`: exact-ground-truth classification
     on held-out images and independent injectors.
-- **Also fixed:** a line-length formatting regression from the terminology
-  rename in `essential_workers.py`.
+- **Measured** (`benchmarks/results/`, produced by the committed code; full
+  tables are in `docs/VISION.md`):
+  - **MVTec AD textures (real defects).** Mean image AUROC 0.985, pixel AUROC
+    0.982. Recalibrated detection is 0.955 at a false-alarm rate of 0.068
+    (α 0.1, 10 session normals).
+  - **Lattice effect.** Without the lattice group, mean image AUROC was 0.914
+    and recalibrated detection 0.819. Grid went from 0.656 to 0.996 image
+    AUROC, and "bent" grid defects from 0.00 to 0.83 detected.
+  - **Not controlled by α:** the strict-protocol false-alarm rate is 0.247 at
+    α 0.05, because MVTec's good test images are shifted from its training
+    images. Recalibrating on session normals restores control.
+  - **Held-out synthetic (exact types).** Detection is 100% for all 8
+    independent injectors in both domains. False alarms are 0.033 (woven) and
+    0.050 (leather) at α 0.1, with 0 forensic false positives. Typing:
+    same-definition 99.3% / 95.0%, cross-generator 85.4% / 77.5% (woven /
+    leather).
+  - **Latency** at 256 px on 4 cores: about 240–270 ms median by default,
+    about 80 ms with `AnalyzerConfig.fast()`.
+- **Also fixed:**
+  - a line-length formatting regression from the terminology rename in
+    `essential_workers.py`;
+  - the local gate mirror now checks black over `format.yml`'s wider scope.
 
 ### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard (branch `steel/version-cov4`)
 

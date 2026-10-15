@@ -1,0 +1,278 @@
+{
+  "benchmark": "MVTec AD textures (Bergmann et al., CVPR 2019), Voxel51/mvtec-ad mirror",
+  "license_note": "data CC BY-NC-SA 4.0; downloaded at run time, not redistributed",
+  "manifest_sha256": "dbbbb94cee2ddec28c1eef318733d07df4d59b9cc066e62e6aeef386c1db281d",
+  "protocol": {
+    "image_size": 256,
+    "train_per_category": 100,
+    "seed": 42,
+    "alpha": 0.05,
+    "analyzer": "VisualAnomalyAnalyzer defaults (handcrafted features, no pretrained weights)"
+  },
+  "environment": {
+    "python": "3.13.16",
+    "machine": "x86_64"
+  },
+  "categories": {
+    "carpet": {
+      "n_train": 60,
+      "n_calibration": 37,
+      "n_test_good": 28,
+      "n_test_defective": 89,
+      "image_auroc": 0.9647,
+      "pixel_auroc": 0.9819,
+      "false_alarm_rate_at_alpha": 0.4286,
+      "detection_rate_at_alpha": 0.9888,
+      "decisions_withheld": 0,
+      "per_defect_detection": {
+        "color": 1.0,
+        "cut": 1.0,
+        "hole": 1.0,
+        "metal_contamination": 0.941,
+        "thread": 1.0
+      },
+      "per_defect_primary_type": {
+        "color": {
+          "exposure_anomaly": 13,
+          "structural_change": 4,
+          "color_shift": 2
+        },
+        "cut": {
+          "structural_change": 15,
+          "foreign_texture_or_object": 2
+        },
+        "hole": {
+          "structural_change": 17
+        },
+        "metal_contamination": {
+          "structural_change": 15,
+          "exposure_anomaly": 1
+        },
+        "thread": {
+          "structural_change": 16,
+          "exposure_anomaly": 3
+        }
+      },
+      "median_latency_ms": 276.9,
+      "fit_seconds": 76.6,
+      "recalibrated": {
+        "alpha": 0.1,
+        "n_recalibration_images": 10,
+        "n_test_good_scored": 18,
+        "false_alarm_rate": 0.0556,
+        "detection_rate": 0.8876
+      }
+    },
+    "grid": {
+      "n_train": 60,
+      "n_calibration": 37,
+      "n_test_good": 21,
+      "n_test_defective": 57,
+      "image_auroc": 0.9958,
+      "pixel_auroc": 0.9839,
+      "false_alarm_rate_at_alpha": 0.0,
+      "detection_rate_at_alpha": 0.614,
+      "decisions_withheld": 0,
+      "per_defect_detection": {
+        "bent": 0.833,
+        "broken": 0.5,
+        "glue": 0.091,
+        "metal_contamination": 0.727,
+        "thread": 0.909
+      },
+      "per_defect_primary_type": {
+        "bent": {
+          "noise_or_sensor_corruption": 6,
+          "structural_change": 4
+        },
+        "broken": {
+          "noise_or_sensor_corruption": 4,
+          "exposure_anomaly": 1,
+          "structural_change": 1
+        },
+        "glue": {
+          "structural_change": 1
+        },
+        "metal_contamination": {
+          "noise_or_sensor_corruption": 5,
+          "structural_change": 2,
+          "exposure_anomaly": 1
+        },
+        "thread": {
+          "noise_or_sensor_corruption": 6,
+          "foreign_texture_or_object": 2,
+          "exposure_anomaly": 2
+        }
+      },
+      "median_latency_ms": 241.3,
+      "fit_seconds": 113.4,
+      "recalibrated": {
+        "alpha": 0.1,
+        "n_recalibration_images": 10,
+        "n_test_good_scored": 11,
+        "false_alarm_rate": 0.1818,
+        "detection_rate": 0.9825
+      }
+    },
+    "leather": {
+      "n_train": 60,
+      "n_calibration": 37,
+      "n_test_good": 32,
+      "n_test_defective": 92,
+      "image_auroc": 0.999,
+      "pixel_auroc": 0.9957,
+      "false_alarm_rate_at_alpha": 0.5938,
+      "detection_rate_at_alpha": 1.0,
+      "decisions_withheld": 0,
+      "per_defect_detection": {
+        "color": 1.0,
+        "cut": 1.0,
+        "fold": 1.0,
+        "glue": 1.0,
+        "poke": 1.0
+      },
+      "per_defect_primary_type": {
+        "color": {
+          "structural_change": 9,
+          "color_shift": 6,
+          "unclassified_deviation": 2
+        },
+        "cut": {
+          "structural_change": 11,
+          "exposure_anomaly": 7,
+          "color_shift": 1
+        },
+        "fold": {
+          "exposure_anomaly": 9,
+          "structural_change": 8
+        },
+        "glue": {
+          "structural_change": 14,
+          "foreign_texture_or_object": 4,
+          "unclassified_deviation": 1
+        },
+        "poke": {
+          "exposure_anomaly": 15,
+          "structural_change": 2,
+          "color_shift": 1
+        }
+      },
+      "median_latency_ms": 283.0,
+      "fit_seconds": 72.0,
+      "recalibrated": {
+        "alpha": 0.1,
+        "n_recalibration_images": 10,
+        "n_test_good_scored": 22,
+        "false_alarm_rate": 0.0,
+        "detection_rate": 0.9783
+      }
+    },
+    "tile": {
+      "n_train": 60,
+      "n_calibration": 37,
+      "n_test_good": 33,
+      "n_test_defective": 84,
+      "image_auroc": 0.9986,
+      "pixel_auroc": 0.9749,
+      "false_alarm_rate_at_alpha": 0.0,
+      "detection_rate_at_alpha": 0.9286,
+      "decisions_withheld": 0,
+      "per_defect_detection": {
+        "crack": 1.0,
+        "glue_strip": 0.722,
+        "gray_stroke": 1.0,
+        "oil": 1.0,
+        "rough": 0.933
+      },
+      "per_defect_primary_type": {
+        "crack": {
+          "structural_change": 17
+        },
+        "glue_strip": {
+          "exposure_anomaly": 11,
+          "blur_or_defocus": 2
+        },
+        "gray_stroke": {
+          "foreign_texture_or_object": 16
+        },
+        "oil": {
+          "color_shift": 18
+        },
+        "rough": {
+          "foreign_texture_or_object": 6,
+          "noise_or_sensor_corruption": 6,
+          "structural_change": 2
+        }
+      },
+      "median_latency_ms": 258.5,
+      "fit_seconds": 72.5,
+      "recalibrated": {
+        "alpha": 0.1,
+        "n_recalibration_images": 10,
+        "n_test_good_scored": 23,
+        "false_alarm_rate": 0.0,
+        "detection_rate": 0.9762
+      }
+    },
+    "wood": {
+      "n_train": 60,
+      "n_calibration": 37,
+      "n_test_good": 19,
+      "n_test_defective": 60,
+      "image_auroc": 0.9649,
+      "pixel_auroc": 0.9721,
+      "false_alarm_rate_at_alpha": 0.2105,
+      "detection_rate_at_alpha": 0.9833,
+      "decisions_withheld": 0,
+      "per_defect_detection": {
+        "color": 1.0,
+        "combined": 1.0,
+        "hole": 1.0,
+        "liquid": 1.0,
+        "scratch": 0.952
+      },
+      "per_defect_primary_type": {
+        "color": {
+          "color_shift": 4,
+          "structural_change": 3,
+          "exposure_anomaly": 1
+        },
+        "combined": {
+          "exposure_anomaly": 6,
+          "structural_change": 4,
+          "color_shift": 1
+        },
+        "hole": {
+          "structural_change": 10
+        },
+        "liquid": {
+          "occlusion_or_missing": 8,
+          "color_shift": 1,
+          "exposure_anomaly": 1
+        },
+        "scratch": {
+          "structural_change": 13,
+          "noise_or_sensor_corruption": 5,
+          "exposure_anomaly": 1
+        }
+      },
+      "median_latency_ms": 268.2,
+      "fit_seconds": 70.4,
+      "recalibrated": {
+        "alpha": 0.1,
+        "n_recalibration_images": 9,
+        "n_test_good_scored": 10,
+        "false_alarm_rate": 0.1,
+        "detection_rate": 0.95
+      }
+    }
+  },
+  "summary": {
+    "mean_image_auroc": 0.9846,
+    "mean_pixel_auroc": 0.9817,
+    "mean_false_alarm_rate_at_alpha": 0.2466,
+    "mean_detection_rate_at_alpha": 0.9029,
+    "recalibrated_mean_false_alarm_rate": 0.0675,
+    "recalibrated_mean_detection_rate": 0.9549
+  }
+}
