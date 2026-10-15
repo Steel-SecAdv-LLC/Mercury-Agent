@@ -393,12 +393,46 @@ request log line and on SIEM alerts (`trace_id` label), so a gateway trace, a
 Mercury log line and a forwarded alert join on one id. Spans are not exported
 (that needs an OpenTelemetry SDK, which is not a project dependency).
 
-Emitted by the API on every request (via `CorrelationIDMiddleware`):
+Emitted by the API on every request, including requests that end in an
+unhandled exception (via `CorrelationIDMiddleware`):
 `http_requests_total{method,endpoint,status}` and
-`http_request_duration_seconds{method,endpoint}` — the series the
-`prometheus-rules.yaml` recording/alerting rules and the API HPA custom metrics
-consume. The detection/model `omni_*` metrics are defined in
-`core.metrics` and surface on `/metrics` as the code paths that record them run.
+`http_request_duration_seconds{method,endpoint}`. The recording and alerting
+rules and the API HPA's custom metrics consume these series. The engine emits
+the detection series on every component call, and the streaming worker emits
+them on every message: `omni_detection_{requests,success}_total`,
+`omni_detection_duration_seconds`, `omni_model_inference_errors_total` and
+`omni_component_declined_total`. A component refusing input of a modality it
+does not process counts as *declined*, never as an error. The streaming worker
+also publishes `omni_detection_queue_depth`, its consumer-group backlog (`-1`
+when the backend cannot report it). `fit_fusion` sets
+`omni_model_roc_auc` / `omni_model_f1_score` from the validation split.
+
+Wiring the series to the rules:
+
+| Deployment | Scrape + labels | Rules | Autoscaling |
+|---|---|---|---|
+| docker compose | `monitoring/prometheus/prometheus.yml` (adds `app`, `service`) | `rules.yml`, rendered from the CRD by `scripts/render_prometheus_rules.py` | — |
+| Kubernetes (`k8s/`) | `monitoring/prometheus/podmonitors.yaml` (adds `app`, `service`, `job`) | `prometheus-rules.yaml` (PrometheusRule) | prometheus-adapter with `monitoring/prometheus/prometheus-adapter-rules.yaml` |
+
+Every rule selects `{app="mercury-agent"}`. A scrape config that does not
+attach that label leaves every alert permanently silent. Without the adapter
+rules, the HPAs' custom metrics are unavailable and Kubernetes never scales
+those deployments down. Each worker reports the backlog group-wide, so the
+adapter aggregates it with `max`.
+
+**Audit trail.** Every finished API request (except probes, docs, unmatched
+paths and 429 rejections) is recorded with:
+- the principal and the route template;
+- path parameters, status and duration;
+- the client IP and the correlation id;
+- query parameter *names*, never their values.
+
+`GET /api/v1/export/audit-logs` serves these entries. With
+`MERCURY_AUDIT_LOG_DIR` set, they also go to the hash-chained audit log
+together with auth events. The chain resumes across restarts. The first
+process to open the directory writes `audit.jsonl`. Any further process, such
+as extra `--workers`, writes its own `audit-<pid>.jsonl`, so each file is one
+verifiable chain.
 
 ### Grafana dashboards
 
@@ -419,6 +453,9 @@ Recording/alerting rules live in `monitoring/prometheus/prometheus-rules.yaml`; 
 | Metric | Alert threshold | Notes |
 |--------|----------------|-------|
 | `omni_detection_requests_total` | — | Detection throughput (rules file) |
+| `omni_detection_success_total` / `omni_detection_requests_total` | < 0.95 for 10 m | Detection success rate; declines excluded (rules file) |
+| `omni_model_inference_errors_total` | > 0.1/s for 5 m | Component, fusion-head or stream-detector failures (rules file) |
+| `omni_detection_queue_depth` | HPA target 50 | Streaming backlog; `-1` = unknown (engine HPA) |
 | `http_request_duration_seconds` | p99 > 2 s | API latency histogram (rules file) |
 | `http_requests_total{status=~"5.."}` ratio | sustained > 0 | API error rate (rules file) |
 | `mercury_gate_fires_total` | unexpected drop to 0 | Ethical-gate activity (exporter tool) |

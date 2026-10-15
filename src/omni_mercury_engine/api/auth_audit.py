@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +43,7 @@ __all__ = [
     "audit_retention_days",
     "build_auth_auditor",
     "prune_rotated_audit_segments",
+    "shared_secure_logger",
 ]
 
 AUDIT_DIR_ENV = "MERCURY_AUDIT_LOG_DIR"
@@ -182,6 +184,40 @@ class AuthAuditor:
             logger.exception("auth audit sink failed for action=%s", action)
 
 
+_shared_loggers: dict[Path, SecureAuditLogger] = {}
+_shared_loggers_lock = threading.Lock()
+
+
+def shared_secure_logger() -> SecureAuditLogger | None:
+    """The process's one tamper-evident sink for ``MERCURY_AUDIT_LOG_DIR``.
+
+    Every auditor in the process (auth events, per-request API audit) must
+    append to the *same* :class:`SecureAuditLogger`: two loggers on one
+    directory would each run their own hash chain, and the second would be
+    pushed onto a per-process file by the directory's writer lock. Returns
+    ``None`` when ``MERCURY_AUDIT_LOG_DIR`` is unset. Rotation settings are
+    read when a directory's logger is first built.
+    """
+    audit_dir = os.getenv(AUDIT_DIR_ENV, "").strip()
+    if not audit_dir:
+        return None
+    key = Path(audit_dir).resolve()
+    with _shared_loggers_lock:
+        secure = _shared_loggers.get(key)
+        if secure is None:
+            from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+
+            secure = SecureAuditLogger(
+                log_dir=key,
+                rotate_size_mb=_positive_float_env(
+                    AUDIT_ROTATE_SIZE_MB_ENV, _DEFAULT_ROTATE_SIZE_MB
+                ),
+                max_rotated_files=_positive_int_env(AUDIT_MAX_FILES_ENV, _DEFAULT_MAX_FILES),
+            )
+            _shared_loggers[key] = secure
+        return secure
+
+
 def build_auth_auditor() -> AuthAuditor:
     """Construct the auditor from the environment.
 
@@ -196,15 +232,4 @@ def build_auth_auditor() -> AuthAuditor:
         An :class:`AuthAuditor` over a :class:`SecureAuditLogger` rooted at
         ``MERCURY_AUDIT_LOG_DIR`` when that is set, else the logging fallback.
     """
-    audit_dir = os.getenv(AUDIT_DIR_ENV, "").strip()
-    if not audit_dir:
-        return AuthAuditor(None)
-    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
-
-    return AuthAuditor(
-        SecureAuditLogger(
-            log_dir=audit_dir,
-            rotate_size_mb=_positive_float_env(AUDIT_ROTATE_SIZE_MB_ENV, _DEFAULT_ROTATE_SIZE_MB),
-            max_rotated_files=_positive_int_env(AUDIT_MAX_FILES_ENV, _DEFAULT_MAX_FILES),
-        )
-    )
+    return AuthAuditor(shared_secure_logger())

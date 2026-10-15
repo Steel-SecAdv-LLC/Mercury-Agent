@@ -28,12 +28,40 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows: no advisory locks, single writer assumed
+    fcntl = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+#: Held (flock, exclusive) by the one process that writes ``audit.jsonl``.
+_PRIMARY_LOCK_NAME = ".audit.lock"
+#: Read this much from the end of a log to find its last record.
+_TAIL_BLOCK = 64 * 1024
+
+
+def _last_line(path: Path) -> bytes:
+    """Return the last non-empty line of ``path`` without reading the whole file."""
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        end = f.tell()
+        buf = b""
+        pos = end
+        while pos > 0:
+            step = min(_TAIL_BLOCK, pos)
+            pos -= step
+            f.seek(pos)
+            buf = f.read(step) + buf
+            stripped = buf.rstrip(b"\n")
+            if b"\n" in stripped:
+                return stripped.rsplit(b"\n", 1)[1]
+        return buf.rstrip(b"\n")
 
 
 class AuditEventSeverity(StrEnum):
@@ -352,6 +380,12 @@ class SecureHashChain:
 
             return event_hash, previous, seq
 
+    def resume(self, previous_hash: str, next_sequence: int) -> None:
+        """Continue an existing chain: link the next event to ``previous_hash``."""
+        with self._lock:
+            self._previous_hash = previous_hash
+            self._sequence_number = next_sequence
+
     def _recompute_event_hash(self, event: AuditEvent) -> str:
         """Recompute an event's HMAC hash from its persisted content.
 
@@ -480,9 +514,26 @@ class SecureAuditLogger:
         self._buffer: list[AuditEvent] = []
         self._buffer_lock = threading.Lock()
 
-        # Current log file
-        self._current_log_path = self.log_dir / "audit.jsonl"
+        # Current log file. One process owns audit.jsonl (an exclusive flock on
+        # .audit.lock, held for the logger's lifetime); a second process on the
+        # same directory -- e.g. `mercury serve --workers 4` -- gets its own
+        # audit-<pid>.jsonl. Two writers interleaving two chains in one file
+        # would make every later verification fail.
+        self._primary_lock: IO[str] | None = self._claim_primary_log()
+        if self._primary_lock is not None or fcntl is None:
+            self._current_log_path = self.log_dir / "audit.jsonl"
+            self._rotated_tag = ""
+        else:
+            self._current_log_path = self.log_dir / f"audit-{os.getpid()}.jsonl"
+            self._rotated_tag = f"_{os.getpid()}"
+            logger.critical(
+                "Another process already writes %s; this process audits to %s so the "
+                "two hash chains stay separate and verifiable.",
+                self.log_dir / "audit.jsonl",
+                self._current_log_path,
+            )
         self._file_lock = threading.Lock()
+        self._resume_chain_from_disk()
 
         # Flush timer
         self._flush_thread: threading.Thread | None = None
@@ -493,6 +544,48 @@ class SecureAuditLogger:
         self._event_hooks: list[Callable[[AuditEvent], None]] = []
 
         logger.info(f"SecureAuditLogger initialized: {self.log_dir}")
+
+    def _claim_primary_log(self) -> IO[str] | None:
+        """Take the directory's writer lock; ``None`` if another process holds it."""
+        if fcntl is None:
+            return None
+        handle = open(self.log_dir / _PRIMARY_LOCK_NAME, "a")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return None
+        return handle
+
+    def _resume_chain_from_disk(self) -> None:
+        """Link the first new event to the last one already on disk.
+
+        The chain used to restart at a fresh genesis on every process start
+        while appending to the same file, so a log that had been through a
+        single restart failed :meth:`verify_log_integrity` exactly as a
+        tampered one does. Resumes from the active log, or -- right after a
+        rotation -- from the newest rotated segment of this writer.
+        """
+        candidates = [self._current_log_path]
+        if not self._current_log_path.exists() or self._current_log_path.stat().st_size == 0:
+            pattern = f"audit_*{self._rotated_tag}.jsonl" if self._rotated_tag else "audit_*.jsonl"
+            rotated = sorted(self.log_dir.glob(pattern), key=lambda q: q.stat().st_mtime)
+            candidates = rotated[-1:]
+        for path in candidates:
+            if not path.exists() or path.stat().st_size == 0:
+                continue
+            try:
+                record = json.loads(_last_line(path))
+                self.hash_chain.resume(
+                    str(record["event_hash"]), int(record["sequence_number"]) + 1
+                )
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                logger.critical(
+                    "Audit log %s does not end in a readable event (%s); new events "
+                    "start a fresh chain and verification will report the break.",
+                    path,
+                    exc,
+                )
 
     def _start_flush_thread(self) -> None:
         """Start background flush thread."""
@@ -739,7 +832,7 @@ class SecureAuditLogger:
     def _rotate_log(self) -> None:
         """Rotate current log file."""
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        rotated_path = self.log_dir / f"audit_{timestamp}.jsonl"
+        rotated_path = self.log_dir / f"audit_{timestamp}{self._rotated_tag}.jsonl"
 
         # Rename current file
         self._current_log_path.rename(rotated_path)
@@ -879,6 +972,10 @@ class SecureAuditLogger:
         if self._flush_thread and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=5.0)
 
+        if self._primary_lock is not None:
+            self._primary_lock.close()  # releases the flock
+            self._primary_lock = None
+
         logger.info("SecureAuditLogger shutdown complete")
 
 
@@ -903,9 +1000,12 @@ def get_audit_logger() -> SecureAuditLogger:
 
 
 def configure_audit_logger(**kwargs: Any) -> SecureAuditLogger:
-    """Configure and return global audit logger."""
+    """Configure and return global audit logger (shutting the previous one down)."""
     global _audit_logger
-    _audit_logger = SecureAuditLogger(**kwargs)
+    with _audit_logger_lock:
+        if _audit_logger is not None:
+            _audit_logger.shutdown()
+        _audit_logger = SecureAuditLogger(**kwargs)
     return _audit_logger
 
 

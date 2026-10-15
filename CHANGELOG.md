@@ -175,6 +175,91 @@ check was ever observed. New tests play a forger who recomputes every digest
 except the one a given check guards (schema, index, chain link, record
 digest, snapshot digest) and pin each reason. All 12 mutants now die.
 
+**Fixed — the monitoring stack was empty end to end.** Five separate breaks
+meant no alert or dashboard could ever show data:
+- **Series never recorded.** The alert rules query `omni_detection_*` and
+  `omni_model_inference_errors_total`, but nothing incremented them. They are
+  now recorded on every component call in the engine's detection, feature and
+  fusion paths, and on every message the streaming worker scores.
+  `omni_model_roc_auc` / `omni_model_f1_score` are set from the fusion head's
+  validation split at the end of each `fit_fusion`, using the served
+  threshold rule. They are labelled `dataset="fit_validation"` because that
+  split also chose the early-stopping epoch.
+- **Declines counted as failures.** On ordinary tabular input, three domain
+  models refuse the input on every call (measured). Counting that as an error
+  would have kept the inference-error alert firing permanently. A new
+  `InputModalityError` (a `ValueError` subclass, so existing handlers are
+  unchanged) marks these refusals at eight sites. They feed
+  `omni_component_declined_total` and nothing else.
+- **The worker never exported them.** The engine worker's `/metrics` served six
+  hand-written counters only. It now appends the `prometheus_client` registry,
+  as the API already did.
+- **The local Prometheus could not start.** `prometheus.yml` loaded the
+  PrometheusRule CRD as a plain rule file (`promtool`: "field apiVersion not
+  found"). `scripts/render_prometheus_rules.py` now renders the CRD's groups
+  to `rules.yml`, and a test fails when the rendered file drifts from the CRD.
+- **No series could match the rules.** Every rule selects
+  `{app="mercury-agent"}`, and no shipped scrape config attached that label.
+  The compose target now attaches it. New PodMonitors
+  (`monitoring/prometheus/podmonitors.yaml`) attach `app`, `service` and `job`
+  in Kubernetes.
+
+**Fixed — the engine autoscaler waited on a metric that did not exist.** The
+engine HPA scales on `omni_detection_queue_depth`. That series was never
+published, and the HPA's selector used `app.kubernetes.io/*` keys, which are
+not legal Prometheus labels. An HPA with an unavailable metric never scales
+down. Consumers now report real consumer-group backlog:
+- Kafka: log-end offset minus committed offset over every partition;
+- Redis: `XINFO GROUPS` lag plus pending (verified against a live Redis 7);
+- in-memory: unread entries.
+
+The worker refreshes the backlog every 10 s. `-1` means the backend could not
+report it. `monitoring/prometheus/prometheus-adapter-rules.yaml` serves the
+backlog with `max` across workers, filters out the `-1`, and defines the API
+HPA's two custom metrics. Tests pin that every series a rule or HPA queries is
+one the code emits.
+
+**Fixed — the streaming worker hung while its broker circuit was open.** With
+the Kafka or Redis circuit breaker open, `consume()` returns at once without
+awaiting. The worker loop then never suspended: it pinned a core and starved
+the event loop, so `stop()` and SIGTERM could not run until the breaker
+half-opened. An empty consume cycle now sleeps 100 ms. A regression test that
+reproduces the hang (it failed before the fix) pins this.
+
+**Fixed — 500s left no trace.** An unhandled route exception never reached the
+metrics code, so `http_requests_total{status="500"}` under-counted exactly the
+failures the error-rate alert exists for. The request middleware now records
+the 500 before the error handler builds the response.
+
+**Fixed — the audit export was always empty.** `record_audit_log` had no
+caller. `api/request_audit.py` now writes one entry per finished API request.
+Each entry carries:
+- the principal (or `anonymous`);
+- the route template;
+- path parameters, status and duration;
+- the proxy-resolved client IP and the correlation id;
+- the *names* of query parameters, never their values or the request body.
+
+The entry goes to the export store, and to the tamper-evident log when
+`MERCURY_AUDIT_LOG_DIR` is set. That log is one logger instance shared with
+the auth auditor. Probes, docs, unmatched paths and 429 rejections are not
+audited, so a rejected flood cannot push real entries out of the window. The
+export store now uses bounded deques. Trimming a list at its 1M cap copied it
+on every append.
+
+**Fixed — the tamper-evident audit log failed verification after any
+restart.** Each process start began a new hash chain in the same
+`audit.jsonl`. After one restart, `verify_log_integrity` reported "Chain
+broken", the same result tampering gives. The chain now resumes from the last
+event on disk (or from the newest rotated segment after a rotation).
+`mercury serve --workers N` used to interleave N chains in one file. An
+exclusive lock now gives the first process `audit.jsonl` and every other
+process its own `audit-<pid>.jsonl`. Both files verify, and forgery is still
+detected after a resume.
+
+A 19-mutant pass over this work killed all 19. The Kafka-lag mutant needs
+`aiokafka`, which CI's full-extras lane installs.
+
 ### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,

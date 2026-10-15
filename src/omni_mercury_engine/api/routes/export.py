@@ -29,6 +29,7 @@ import logging
 import math
 import os
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -156,25 +157,24 @@ class DataStore:
 
     def __init__(self) -> None:
         """Initialize the instance."""
-        self._detections: list[DetectionRecord] = []
-        self._audit_logs: list[AuditLogRecord] = []
+        self._max_records = int(os.getenv("MAX_EXPORT_RECORDS", "1000000"))
+        # Bounded deques: the oldest record falls off in O(1). Re-slicing a
+        # list at the cap copied up to MAX_EXPORT_RECORDS entries on every
+        # append -- now once per API request, since every request is audited.
+        self._detections: deque[DetectionRecord] = deque(maxlen=self._max_records)
+        self._audit_logs: deque[AuditLogRecord] = deque(maxlen=self._max_records)
         self._export_jobs: dict[str, ExportJob] = {}
         self._lock = asyncio.Lock()
-        self._max_records = int(os.getenv("MAX_EXPORT_RECORDS", "1000000"))
 
     async def add_detection(self, record: DetectionRecord) -> None:
         """Add a detection record."""
         async with self._lock:
             self._detections.append(record)
-            if len(self._detections) > self._max_records:
-                self._detections = self._detections[-self._max_records :]
 
     async def add_audit_log(self, record: AuditLogRecord) -> None:
         """Add an audit log record."""
         async with self._lock:
             self._audit_logs.append(record)
-            if len(self._audit_logs) > self._max_records:
-                self._audit_logs = self._audit_logs[-self._max_records :]
 
     async def query_detections(
         self,
@@ -187,7 +187,7 @@ class DataStore:
         offset: int = 0,
     ) -> tuple[list[DetectionRecord], int]:
         """Query detection records with filtering."""
-        records = self._detections.copy()
+        records = list(self._detections)
 
         if user_id:
             records = [r for r in records if r.user_id == user_id]
@@ -220,7 +220,7 @@ class DataStore:
         offset: int = 0,
     ) -> tuple[list[AuditLogRecord], int]:
         """Query audit log records with filtering."""
-        records = self._audit_logs.copy()
+        records = list(self._audit_logs)
 
         if user_id:
             records = [r for r in records if r.user_id == user_id]
@@ -344,8 +344,14 @@ async def record_audit_log(
     response_status: int,
     duration_ms: float,
     metadata: dict[str, Any] | None = None,
+    client_ip: str | None = None,
 ) -> None:
-    """Record an audit log entry."""
+    """Record an audit log entry.
+
+    ``client_ip`` overrides the TCP peer address -- pass the trusted-proxy
+    resolved address (:func:`~omni_mercury_engine.api.client_ip.resolve_client_ip`)
+    so entries behind a load balancer do not all carry the proxy's IP.
+    """
     store = get_data_store()
 
     ip_address = "unknown"
@@ -353,7 +359,9 @@ async def record_audit_log(
     request_method = "unknown"
     request_path = "unknown"
 
-    if hasattr(request, "client") and request.client:
+    if client_ip:
+        ip_address = client_ip
+    elif hasattr(request, "client") and request.client:
         ip_address = request.client.host
     if hasattr(request, "headers"):
         user_agent = request.headers.get("user-agent", "unknown")

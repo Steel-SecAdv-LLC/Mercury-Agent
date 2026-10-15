@@ -404,6 +404,9 @@ app.add_middleware(QuotaMiddleware)  # type: ignore[arg-type, unused-ignore]
 app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 
+from omni_mercury_engine.api.request_audit import audit_request
+
+
 # =============================================================================
 # Correlation ID Middleware (Observability & Distributed Tracing)
 # =============================================================================
@@ -458,7 +461,18 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
         start_time = time.perf_counter()
 
         try:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except Exception:
+                # An unhandled route exception never produced a response here, so
+                # it used to leave no http_requests_total{status="500"} sample and
+                # no audit entry -- the error-rate alert under-counted exactly
+                # the failures it exists for. Record both, then let the server's
+                # error handler build the 500.
+                failed_ms = (time.perf_counter() - start_time) * 1000
+                self._record_metrics(request, 500, failed_ms)
+                await audit_request(request, 500, failed_ms)
+                raise
 
             # Calculate request duration
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -470,23 +484,10 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             if trace.tracestate:
                 response.headers["tracestate"] = trace.tracestate
 
-            # Record Prometheus HTTP metrics (http_requests_total /
-            # http_request_duration_seconds) the monitoring stack + API HPA
-            # consume. Best-effort and fully isolated: a metrics error must never
-            # affect the response. Labels with the matched route template, and
-            # collapses unmatched requests (404s, scanner/probe traffic on
-            # arbitrary paths) to a single "__unmatched__" label — using the raw
-            # URL path there would let external callers explode label cardinality.
-            try:
-                from omni_mercury_engine.core.metrics import record_http_request
-
-                route = request.scope.get("route")
-                endpoint = getattr(route, "path", None) or "__unmatched__"
-                record_http_request(
-                    request.method, endpoint, response.status_code, duration_ms / 1000.0
-                )
-            except Exception:  # pragma: no cover - metrics must never break a request
-                pass
+            self._record_metrics(request, response.status_code, duration_ms)
+            # One audit entry per finished API request (api/request_audit.py);
+            # best-effort, never changes the response.
+            await audit_request(request, response.status_code, duration_ms)
 
             # Log request completion with correlation ID
             logger.info(
@@ -501,6 +502,26 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             # Reset context variables
             trace_context_ctx.reset(trace_token)
             correlation_id_ctx.reset(token)
+
+    @staticmethod
+    def _record_metrics(request: Request, status_code: int, duration_ms: float) -> None:
+        """Record Prometheus HTTP metrics (http_requests_total / _duration_seconds).
+
+        Consumed by the monitoring stack and the API HPA. Best-effort and fully
+        isolated: a metrics error must never affect the response. Labels with
+        the matched route template, and collapses unmatched requests (404s,
+        scanner/probe traffic on arbitrary paths) to a single "__unmatched__"
+        label — using the raw URL path there would let external callers explode
+        label cardinality.
+        """
+        try:
+            from omni_mercury_engine.core.metrics import record_http_request
+
+            route = request.scope.get("route")
+            endpoint = getattr(route, "path", None) or "__unmatched__"
+            record_http_request(request.method, endpoint, status_code, duration_ms / 1000.0)
+        except Exception:  # pragma: no cover - metrics must never break a request
+            pass
 
 
 # Register correlation ID middleware (runs before rate limiting)
