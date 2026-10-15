@@ -132,6 +132,13 @@ class BiometricAnomalyModel:
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
+        if data.ndim == 0 or data.dtype.kind not in "fiub":
+            raise ValueError(
+                "harmonic feature extraction needs a numeric array; got "
+                f"ndim={data.ndim}, dtype={data.dtype} - load image paths into "
+                "pixel arrays before extraction"
+            )
+
         if data.ndim == 3:
             data = data.reshape(data.shape[0], -1)
         elif data.ndim == 1:
@@ -276,11 +283,16 @@ class BiometricAnomalyModel:
         available; otherwise ``(None, reason)`` is returned so the caller can
         fail honestly instead of hashing a filename string into "features".
         """
-        if isinstance(image, str) and DeepFace is None:
+        if isinstance(image, str):
+            # Always resolve a path to pixels HERE so every environment runs
+            # the identical branch: with DeepFace installed, a raw string used
+            # to flow into extract_features, which converts it to a 0-d numpy
+            # string array that neither DeepFace nor the harmonic fallback can
+            # process (IndexError deep in the fallback).
             try:
                 import cv2
             except ImportError:
-                return None, "path input needs DeepFace or OpenCV to load the image"
+                return None, "path input needs OpenCV to load the image"
             loaded = cv2.imread(image)
             if loaded is None:
                 return None, f"image could not be loaded from path: {image!r}"

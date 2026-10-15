@@ -87,3 +87,12 @@ def test_single_image_path_contract_unchanged() -> None:
     assert result["model_type"] == "biometric"
     assert "anomaly_scores" in result
     assert "match_score" not in result  # no match is claimed without a test image
+
+
+def test_harmonic_extractor_refuses_non_numeric_loudly() -> None:
+    # Regression: a raw path string used to reach the harmonic extractor as a
+    # 0-d numpy string array (only in DeepFace-installed environments) and die
+    # with an IndexError deep in reshape. It must refuse with a named reason.
+    model = BiometricAnomalyModel()
+    with pytest.raises(ValueError, match="numeric array"):
+        model._extract_harmonic_features(np.array("some/path.png"))
