@@ -158,7 +158,9 @@ class TestSignatures:
         ("mutate", "reason"),
         [
             (
-                lambda p: p["findings"]["identity_match"].update(state="grounded"),
+                # "undecidable" is never emitted for identity, so this changes the
+                # packet whether or not a face-identity backend grounded it.
+                lambda p: p["findings"]["identity_match"].update(state="undecidable"),
                 "changed after signing",
             ),
             (lambda p: p.update(case_id="case-9999"), "changed after signing"),
