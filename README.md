@@ -800,7 +800,7 @@ state-of-the-art baselines on the identical evaluation set:
 
 ```bash
 git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
-pip install -e ".[pqc]"            # core + native PQC backend, built automatically
+pip install -e .                   # analytic core only — no native PQC build
 python examples/mercury_quickstart.py
 ```
 
@@ -820,24 +820,41 @@ a second on 22 trajectory features. Read the caveats the demo prints — with
 Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md),
 [docs/DATASOURCES.md](docs/DATASOURCES.md).
 
-Prerequisites: Python ≥ 3.11 and a C compiler (GCC ≥ 12 recommended); the
-PQC build floors (`cmake`, `setuptools`, `wheel`) install themselves inside
-the isolated build. Measured end to end in a clean virtualenv on a stock
-Linux container: 121 s, no environment variables, no manual build steps. If
-the automatic build fails on your platform, use the explicit path below.
+Prerequisites: Python ≥ 3.11. The demo runs entirely on the AMA-free
+analytic leaves (dataset loader, statistical detector, metrics) under the
+scoped production gate — no C compiler, no native PQC build. Measured end
+to end in a clean virtualenv with no AMA Cryptography installed at all:
+26 s `pip install -e .`, 51 s total from install to the printed table
+(including the 38 MB first-run download), ROC-AUC 0.8613 reproduced
+exactly. This is a
+deliberate, scoped fast path, not a bypass of the agent's crypto mandate:
+the Mercury *agent* surfaces (engine, CLI, API, crypto, and every AMA-backed
+security export) fail closed at import without the native AMA Cryptography
+backend (`omni_mercury_engine/_pqc_gate.py`; pinned by
+`tests/test_pqc_startup_gate.py::TestScopedGateContract`). To run the full
+agent, install with `pip install -e ".[pqc]"` instead — measured end to end
+in a clean virtualenv on a stock Linux container: 121 s, no environment
+variables, no manual build steps. If that automatic build fails on your
+platform, use the explicit path below.
 
 <details>
 <summary><strong>Installation</strong></summary>
 
 ### Standard Installation
 
-Mercury will not import without the AMA Cryptography **native** PQC backend.
-`import omni_mercury_engine` runs a fail-closed gate that requires ML-DSA-65,
-Kyber-1024 and SPHINCS+ to be loadable from the native C library, and there is
-no development-mode or CI-mode escape hatch (`omni_mercury_engine/_pqc_gate.py`).
-Neither `pip install -e .` nor `pip install -e ".[all]"` pulls it — it lives in
-the `[pqc]` extra and needs a compiled shared object — so the pip step alone
-leaves you with a package that raises on import:
+The Mercury **agent** will not start without the AMA Cryptography **native**
+PQC backend. Importing any agent surface — `omni_mercury_engine.engine` (which
+the CLI and API serve), `omni_mercury_engine.crypto`, the engine's lazy root
+export, or an AMA-backed `security` name such as `MercuryCrypto` — runs a
+fail-closed gate that requires ML-DSA-65, Kyber-1024 and SPHINCS+ to be
+loadable from the native C library, and there is no development-mode or
+CI-mode escape hatch (`omni_mercury_engine/_pqc_gate.py`). Only the
+standalone analytic leaves (dataset loaders, individual detectors, metrics —
+the quickstart path, which cannot decide, serve, sign, or encrypt) import
+without it. Neither `pip install -e .` nor `pip install -e ".[all]"` pulls
+the backend — it lives in the `[pqc]` extra and needs a compiled shared
+object — so the pip step alone leaves you with an agent that raises on
+import:
 
 > `RuntimeError: AMA/PQC is mandatory for Mercury, but the AMA Cryptography
 > Python package is not importable.`

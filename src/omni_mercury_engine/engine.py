@@ -75,6 +75,16 @@ See Also:
 
 from __future__ import annotations
 
+# The Mercury Agent fails closed without the AMA Cryptography native backend:
+# importing this module (directly, via the CLI, or via the API server) refuses
+# unless AMA v5.0.0 with all three PQC algorithms is loadable. The package
+# root stays importable so standalone analytic leaves (datasets, detectors,
+# metrics) can run AMA-less; the agent itself never does.
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
+
 import gc
 import logging
 import threading

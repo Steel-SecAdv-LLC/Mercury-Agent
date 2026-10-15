@@ -29,11 +29,13 @@ attribution to code transferred from its former agent layer.)
   supported post-quantum backend (PR #144). Since v3.3.0 it also exposes the
   native HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings consumed by
   Mercury's `native_jwt` HS256 / HS384 / HS512 signing path (see CHANGELOG
-  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). Package import is
+  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). The agent surfaces are
   hard-gated: `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`
-  runs from `__init__.py`, imports `ama_cryptography.pqc_backends`,
-  and refuses to start unless ML-DSA-65, Kyber-1024, and SPHINCS+
-  are all backed by the native AMA library. `AMA_REQUIRE_REAL_PQC`
+  runs at import of `omni_mercury_engine.engine` / `.crypto` (and on first
+  access to an AMA-backed `security` export), imports
+  `ama_cryptography.pqc_backends`, and refuses to start unless ML-DSA-65,
+  Kyber-1024, and SPHINCS+ are all backed by the native AMA library; the
+  standalone analytic leaves import AMA-free (quickstart path). `AMA_REQUIRE_REAL_PQC`
   is retained only for legacy workflow readability; it no longer
   creates a dev-mode escape hatch.
   `security/pqc_guards.check_pqc_production_readiness()` remains

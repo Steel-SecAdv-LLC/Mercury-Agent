@@ -495,11 +495,13 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
     return errors
 
 
-# ``omni_mercury_engine`` enforces its PQC gate unconditionally at import time
-# (``_pqc_gate._enforce_pqc_production_gate``): without the native AMA backend
-# every ``import omni_mercury_engine`` raises. A job that editable-installs the
-# engine into its ambient interpreter therefore cannot run any engine code
-# unless it also provisions AMA. This check exists because that gap actually
+# ``omni_mercury_engine`` enforces its PQC gate unconditionally at import of
+# every agent surface (``engine`` / ``crypto`` / the AMA-backed ``security``
+# names — ``_pqc_gate._enforce_pqc_production_gate``): without the native AMA
+# backend those imports raise, and only the standalone analytic leaves import
+# AMA-free. A job that editable-installs the engine into its ambient
+# interpreter therefore cannot run agent code (and the test tree exercises
+# agent code) unless it also provisions AMA. This check exists because that gap actually
 # shipped: ``competitive-benchmark.yml`` installed the engine with no AMA build,
 # so its weekly scheduled run failed at the first engine import from
 # 2026-08-09 onward, and no gate noticed for eight consecutive weeks.
@@ -542,8 +544,9 @@ class _JobAmaState:
 def _check_engine_install_provisions_ama(path: Path, text: str) -> list[str]:
     """Every job that editable-installs the engine must provision AMA.
 
-    The engine's import-time PQC gate makes AMA a hard runtime dependency of
-    ``import omni_mercury_engine``; the repository's single provisioning path is
+    The scoped import-time PQC gate makes AMA a hard runtime dependency of the
+    agent surfaces (``omni_mercury_engine.engine`` / ``.crypto``), which CI
+    jobs that install the engine exercise; the repository's single provisioning path is
     the local ``./.github/actions/build-ama-cryptography`` composite. A job that
     ``pip install -e .`` s the engine into its ambient interpreter without that
     step can only fail at its first engine import -- and on a

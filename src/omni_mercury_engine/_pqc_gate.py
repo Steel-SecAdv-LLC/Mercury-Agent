@@ -2,9 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Import-time PQC gate.
 
-AMA is mandatory for Mercury.  ``omni_mercury_engine`` package import refuses
-to proceed unless the AMA Cryptography native C backend is fully loadable;
-there is no development-mode or CI-mode escape hatch.  The
+AMA is mandatory for the Mercury AGENT.  The gate is enforced at import time
+by every agent surface — ``omni_mercury_engine.engine`` (which the CLI and
+API serve) and ``omni_mercury_engine.crypto`` — and refuses to proceed unless
+the AMA Cryptography native C backend is fully loadable; there is no
+development-mode or CI-mode escape hatch on those surfaces.  The package root
+and the standalone analytic leaves (dataset loaders, individual detectors,
+metrics) import without the gate so the consumer quickstart reaches a real
+measured result without a native build; nothing on that path can decide,
+serve, sign, or encrypt.  The
 ``AMA_REQUIRE_REAL_PQC`` / legacy ``AVA_REQUIRE_REAL_PQC`` env vars are retained
 only for diagnostics and compatibility with older workflow comments — they no
 longer disable the gate.

@@ -101,8 +101,9 @@ assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
 print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 
 # Build and install the AMA Cryptography native PQC backend so the runtime image
-# can import omni_mercury_engine (the import-time PQC gate requires ML-DSA-65 +
-# Kyber-1024 + SPHINCS+ native availability — see omni_mercury_engine._pqc_gate).
+# can import the Mercury agent surfaces — omni_mercury_engine.engine / .crypto,
+# whose scoped import-time PQC gate requires ML-DSA-65 + Kyber-1024 + SPHINCS+
+# native availability (see omni_mercury_engine._pqc_gate).
 # The shared object is co-located inside the installed ama_cryptography package
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
@@ -352,11 +353,13 @@ ENV PYTHONUNBUFFERED=1
 # k8s liveness/readiness probes enforce at runtime. This guarantees the shipped
 # image is importable as the final non-root user rather than crash-looping on
 # first start.
-RUN python -c "import omni_mercury_engine; print('engine import OK — native AMA PQC backend verified')"
+RUN python -c "import omni_mercury_engine.engine; print('engine import OK — native AMA PQC backend verified')"
 
-# Health check for container orchestration
+# Health check for container orchestration. Runs the PQC production gate
+# directly: the same fail-closed check the agent surfaces enforce at import,
+# without re-importing the full engine stack on every 30 s probe.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import omni_mercury_engine; print('healthy')" || exit 1
+    CMD python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('healthy')" || exit 1
 
 # Expose the API port
 EXPOSE 8000

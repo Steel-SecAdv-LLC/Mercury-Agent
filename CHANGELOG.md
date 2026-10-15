@@ -27,6 +27,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Scoped PQC production gate: AMA-free analytic quickstart, fail-closed agent surfaces (branch `steel/version-cov4`)
+
+Maintainer-directed split of the import-time PQC gate. The quickstart's
+analytic path may run without AMA for fast, real measured results, but it must
+never amount to launching the Mercury agent minus AMA — so the gate moved from
+the package root to every surface that can decide, serve, sign, or encrypt:
+
+- **Gate relocation:** `_enforce_pqc_production_gate()` now runs at import of
+  `omni_mercury_engine.engine` (the CLI and API serve the engine, so both
+  refuse transitively), `omni_mercury_engine.crypto`, and
+  `security/crypto_api.py` — unchanged fail-closed semantics (all three
+  algorithms native, FIPS POST operational, version pinned to 5.0.0, no
+  escape hatch). The package root and the standalone analytic leaves
+  (dataset loaders, individual detectors, metrics) import AMA-free.
+- **Lazy security package (PEP 562):** `security/__init__.py` resolves all
+  re-exports on first access, extending the existing torch-lazy
+  `IntelligenceFusionEngine` precedent. `__all__` is unchanged; AMA-backed
+  names (`MercuryCrypto`, PQC key material, readiness guards) raise the
+  gate's named refusal at first access, while AMA-free primitives
+  (`SafeHTTPClient`, `RateLimiter`, audit logging, `TrustedEndpoints`)
+  import without a native build.
+- **Contract pinned:** `tests/test_pqc_startup_gate.py::TestScopedGateContract`
+  runs six subprocess cases against a stubbed, algorithm-unavailable AMA —
+  quickstart chain imports, security primitives import, and engine / crypto /
+  root-attribute / `MercuryCrypto` access each refuse naming AMA.
+- **Probes retargeted** (a bare `import omni_mercury_engine` no longer proves
+  the gate): tier0-safety's real-AMA positive/negative probes now import
+  `omni_mercury_engine.crypto`; the Dockerfile smoke test imports
+  `omni_mercury_engine.engine` and the container healthcheck invokes the gate
+  directly; INSTALLATION / DEPLOYMENT / README / runbook wording updated to
+  the scoped contract (including a stale `3.3.0` version in the escalation
+  runbook, corrected to `5.0.0`).
+- **Measured consumer path:** clean virtualenv with no AMA installed —
+  `pip install -e .` in 26 s, install-to-printed-result 51 s including the
+  38 MB first-run dataset download, ROC-AUC 0.8613 reproduced exactly;
+  `examples/mercury_quickstart.py --help` and the full demo verified under
+  both an absent and a stubbed-unavailable AMA.
+
+### Scale drift gate: hysteresis cures rounding-boundary flakiness
+
+The README scale gate's stability property ("a handful of added lines must
+not demand a README rewrite") was asserted of a pure rounding function — an
+impossible property at bucket boundaries, and this branch's source LOC landed
+seven lines below one, turning the full-sweep lanes red over a documentation
+integer. Cured in the design, not the test pin: ``--check`` / ``--update``
+now keep a published, bucket-aligned LOC figure while it is within one
+``LOC_BUCKET`` of the measured count (staleness is bounded by one bucket,
+matching the ``~`` order-of-magnitude contract; a hand-typed exact tally is
+never accepted). The property is pinned deterministically at the boundary
+worst case — not against live-tree state — plus a fire test beyond the
+staleness limit and a freshness-rule unit test.
+
 ### Final adversarial review: eleven findings triaged, nine fixed, every claim re-tested (branch `steel/version-cov4`)
 
 A hostile machine review of this branch's full diff produced eleven findings;

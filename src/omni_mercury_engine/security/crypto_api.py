@@ -27,6 +27,17 @@ References:
 
 from __future__ import annotations
 
+# Agent-surface PQC gate: this module is a facade over AMA Cryptography and
+# cannot function without it. Enforcing the scoped gate here turns the cryptic
+# ``ModuleNotFoundError`` a missing AMA build would raise at the import below
+# into the named, fail-closed refusal with recovery steps (see
+# omni_mercury_engine._pqc_gate). Pinned by
+# tests/test_pqc_startup_gate.py::TestScopedGateContract.
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
+
 import hashlib
 import json
 import logging

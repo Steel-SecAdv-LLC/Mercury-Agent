@@ -195,15 +195,19 @@ build is not misdiagnosed as a failure — see
 **Docker / Kubernetes:** the production image builds this automatically — the
 Dockerfile builder stage runs `scripts/build_ama_native.sh`, the `.so` travels
 into the runtime image with the virtualenv, and a build-time
-`import omni_mercury_engine` smoke test fails the build if the backend is
-missing. No extra steps are required to deploy a PQC-complete image.
+`import omni_mercury_engine.engine` smoke test fails the build if the backend
+is missing. No extra steps are required to deploy a PQC-complete image.
 
-The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
-imported and invoked from `__init__.py`) runs at package import and
-refuses to proceed if the native library is unloadable —
-`import omni_mercury_engine` raises `RuntimeError` before
-any other package state is materialised. There is no stub path and no
-fallback chain to a non-AMA backend.
+The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is
+scoped to the agent surfaces: it runs at import of
+`omni_mercury_engine.engine` (which the CLI and API serve),
+`omni_mercury_engine.crypto`, and every AMA-backed `security` export, and
+refuses to proceed if the native library is unloadable — those imports raise
+`RuntimeError` before any agent state is materialised. There is no stub path
+and no fallback chain to a non-AMA backend. Only the standalone analytic
+leaves (dataset loaders, individual detectors, metrics — the quickstart path,
+which cannot decide, serve, sign, or encrypt) import without AMA; the split
+is pinned by `tests/test_pqc_startup_gate.py::TestScopedGateContract`.
 
 ## Verify Installation
 

@@ -4,9 +4,12 @@
 #
 # Build and install the AMA Cryptography native PQC backend.
 #
-# AMA is Mercury's mandatory, sole crypto core: ``import omni_mercury_engine``
-# refuses to proceed unless ML-DSA-65 (Dilithium), Kyber-1024, and SPHINCS+ are
-# loadable from the native C library (see ``omni_mercury_engine._pqc_gate``).
+# AMA is Mercury's mandatory, sole crypto core: the agent surfaces
+# (``omni_mercury_engine.engine`` — which the CLI and API serve — and
+# ``omni_mercury_engine.crypto``) refuse to import unless ML-DSA-65 (Dilithium),
+# Kyber-1024, and SPHINCS+ are loadable from the native C library (see
+# ``omni_mercury_engine._pqc_gate``; the standalone analytic leaves import
+# AMA-free for the quickstart).
 # Mercury-Agent ships no ``CMakeLists.txt`` of its own; the native library lives
 # in the upstream AMA-Cryptography repository, which this script clones at a
 # pinned, immutable tag and builds.

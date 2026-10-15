@@ -29,8 +29,15 @@ and deserialised through the loader's fail-closed restricted unpickler
 
 Usage::
 
-    pip install -e ".[pqc]"
+    pip install -e .
     python examples/mercury_quickstart.py [--data-dir ./data]
+
+No PQC build is needed for this demo: it runs entirely on the AMA-free
+analytic leaves (dataset loader, statistical detector, metrics) under the
+scoped production gate. The full Mercury *agent* — engine, CLI, API,
+crypto — still requires the native AMA Cryptography backend and refuses
+to import without it (``omni_mercury_engine/_pqc_gate.py``); install it
+with ``pip install -e ".[pqc]"`` or ``bash scripts/build_ama_native.sh``.
 """
 
 from __future__ import annotations

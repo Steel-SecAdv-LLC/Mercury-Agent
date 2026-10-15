@@ -1,8 +1,9 @@
 # Mercury-Agent intelligence-layer CI lanes.
 #
 # Four lanes for the learning + geometry layer (steel/refinement-mercury-intel),
-# each fail-closed and each building the mandatory AMA/PQC backend first (every
-# `import omni_mercury_engine` runs the import-time PQC gate):
+# each fail-closed and each building the mandatory AMA/PQC backend first (the
+# agent surfaces — `omni_mercury_engine.engine` / `.crypto` — run the scoped
+# import-time PQC gate, and these lanes exercise engine code):
 #   * ci/closed-loop-integration -- end-to-end gated retrain staging run + the
 #     OOF/adversarial regression gate (poisoned candidate must be blocked)
 #   * ci/confidence-cascade       -- routing correctness + cost/accuracy report

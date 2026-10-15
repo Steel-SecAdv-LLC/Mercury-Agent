@@ -10,8 +10,8 @@ enforced by ``tests/test_pyca_import_boundary.py``):
 1. **rust** — the PyO3 ``mercury_crypto`` extension (repository-owned,
    fastest; built with ``cd rust_crypto && maturin develop``).
 2. **ama-native** — AMA Cryptography's native C backend. AMA is mandatory
-   at engine import (``_pqc_gate``), so inside a running engine this tier
-   is always present and FIPS-gated.
+   at engine and crypto import (``_pqc_gate``), so inside a running engine
+   this tier is always present and FIPS-gated.
 3. **sovereign-python** — Mercury's own stdlib-only emergency
    implementations (:mod:`omni_mercury_engine.crypto.sovereign`):
    ChaCha20-Poly1305 (RFC 8439) and HKDF-SHA256 (RFC 5869), RFC-vector
@@ -50,6 +50,13 @@ Usage:
 """
 
 from __future__ import annotations
+
+# Crypto is an agent surface: it fails closed without the AMA native backend
+# (same gate as ``omni_mercury_engine.engine``).
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
 
 import logging
 import secrets

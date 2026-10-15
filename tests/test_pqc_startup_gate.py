@@ -8,15 +8,24 @@ This file now pins the universal fail-closed contract: the gate always
 requires a real AMA Cryptography v5.0.0 native build.  The env vars
 ``AMA_REQUIRE_REAL_PQC`` / ``AVA_REQUIRE_REAL_PQC`` are compatibility
 diagnostics only; unset or false values must not disable the gate.
+``TestScopedGateContract`` pins *where* the gate is enforced: every agent
+surface refuses without AMA while the analytic quickstart leaves import
+AMA-free.
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+from typing import TYPE_CHECKING
 
 import ama_cryptography
 import ama_cryptography.pqc_backends as ama_pqc_backends
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from omni_mercury_engine._pqc_gate import (
     _AMA_REQUIRED_VERSION,
@@ -191,3 +200,101 @@ class TestAmaVersionEnforcement:
         # A post/local build of the pinned release must NOT be refused.
         monkeypatch.setattr(ama_cryptography, "__version__", "5.0.0.post1", raising=False)
         _enforce_ama_version()  # must not raise
+
+
+class TestScopedGateContract:
+    """Pins the maintainer-directed scoped contract.
+
+    The standalone analytic leaves (what ``examples/mercury_quickstart.py``
+    imports) must work without AMA so consumers reach a measured result fast;
+    every agent surface (``engine``, ``crypto`` — the CLI/API serve the
+    engine) must refuse without it. Each case runs in a subprocess with an
+    ``ama_cryptography`` stub whose algorithms are unavailable, so the result
+    is independent of the host's real AMA install.
+    """
+
+    @staticmethod
+    def _run_with_unavailable_ama(tmp_path: Path, code: str) -> subprocess.CompletedProcess[str]:
+        stub = tmp_path / "ama_stub" / "ama_cryptography"
+        stub.mkdir(parents=True, exist_ok=True)
+        (stub / "__init__.py").write_text(
+            '__version__ = "5.0.0"\n'
+            "DILITHIUM_AVAILABLE = False\n"
+            "KYBER_AVAILABLE = False\n"
+            "SPHINCS_AVAILABLE = False\n"
+        )
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(stub.parent)
+        # check=False: each test asserts on returncode explicitly — a refusal
+        # (nonzero exit) is the expected outcome for the gated surfaces.
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=240,
+            check=False,
+        )
+
+    def test_quickstart_analytic_chain_imports_without_ama(self, tmp_path: Path) -> None:
+        result = self._run_with_unavailable_ama(
+            tmp_path,
+            "from omni_mercury_engine.datasets.maritime import DTUAISLoader\n"
+            "from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector\n"
+            "from omni_mercury_engine.ml.mercury_ml import roc_auc_score\n"
+            "print('LEAVES_OK')\n",
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+        assert "LEAVES_OK" in result.stdout
+
+    def test_agent_engine_refuses_without_ama(self, tmp_path: Path) -> None:
+        result = self._run_with_unavailable_ama(
+            tmp_path, "import omni_mercury_engine.engine\nprint('MUST_NOT_PRINT')\n"
+        )
+        assert result.returncode != 0
+        assert "MUST_NOT_PRINT" not in result.stdout
+        assert "AMA" in result.stderr  # the refusal names the missing backend
+
+    def test_crypto_surface_refuses_without_ama(self, tmp_path: Path) -> None:
+        result = self._run_with_unavailable_ama(
+            tmp_path, "import omni_mercury_engine.crypto\nprint('MUST_NOT_PRINT')\n"
+        )
+        assert result.returncode != 0
+        assert "MUST_NOT_PRINT" not in result.stdout
+        assert "AMA" in result.stderr
+
+    def test_engine_root_attribute_refuses_without_ama(self, tmp_path: Path) -> None:
+        # Reaching the agent through the lazy root export is gated identically.
+        result = self._run_with_unavailable_ama(
+            tmp_path,
+            "import omni_mercury_engine\n"
+            "omni_mercury_engine.OmniMercuryEngine\n"
+            "print('MUST_NOT_PRINT')\n",
+        )
+        assert result.returncode != 0
+        assert "MUST_NOT_PRINT" not in result.stdout
+
+    def test_security_primitives_import_without_ama(self, tmp_path: Path) -> None:
+        # The AMA-free security primitives the analytic path leans on (safe
+        # HTTP, endpoint validation, rate limiting, audit logging) resolve
+        # through the lazy package without a PQC build.
+        result = self._run_with_unavailable_ama(
+            tmp_path,
+            "from omni_mercury_engine.security import RateLimiter, SafeHTTPClient\n"
+            "from omni_mercury_engine.security import SecureAuditLogger\n"
+            "from omni_mercury_engine.security.input_validation import TrustedEndpoints\n"
+            "print('PRIMITIVES_OK')\n",
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+        assert "PRIMITIVES_OK" in result.stdout
+
+    def test_security_crypto_access_refuses_without_ama(self, tmp_path: Path) -> None:
+        # First *access* to an AMA-backed name fails closed with the gate's
+        # named refusal — lazy resolution defers the gate, never removes it.
+        result = self._run_with_unavailable_ama(
+            tmp_path,
+            "from omni_mercury_engine.security import MercuryCrypto\n" "print('MUST_NOT_PRINT')\n",
+        )
+        assert result.returncode != 0
+        assert "MUST_NOT_PRINT" not in result.stdout
+        assert "AMA" in result.stderr
