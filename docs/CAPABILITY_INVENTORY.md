@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,802
-- **Capability-bearing classes:** 1,846 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,803
+- **Capability-bearing classes:** 1,847 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 87 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,056 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,057 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1056 |
+| Other capability classes | 1057 |
 | Support types (config / result / enum / error) | 956 |
 | Detection | 170 |
 | Neural models & layers | 159 |
@@ -2430,7 +2430,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 152 classes (86 capability)
+### `security/` — 153 classes (87 capability)
 
 **Adapters & backends**
 
@@ -2508,6 +2508,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `EncapsulatedSecret` (`security.crypto_api`) — Key encapsulation result.
 - `EncryptedTrafficFingerprinter` (`security.traffic_analysis`) — Encrypted traffic fingerprinting (JA3/JA4-style analysis).
 - `FININTProcessor` (`security.int_sources`) — Financial Intelligence (FININT) Processor.
+- `FusionMerit` (`security.intelligence_fusion`) — Held-out comparison of candidate fusion weights against evidence scoring.
 - `GEOINTProcessor` (`security.int_sources`) — Geospatial Intelligence (GEOINT) Processor.
 - `HFModelPolicy` (`security.model_policy`) — Static policy gate for HuggingFace model / dataset loads.
 - `HUMINTProcessor` (`security.int_sources`) — Human Intelligence (HUMINT) Processor.

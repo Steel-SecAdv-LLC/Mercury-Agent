@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -47,6 +47,12 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.security.safe_torch import safe_torch_load
+
+# Fusion weights replace evidence scoring only on measured merit: at least
+# this many labelled held-out cases, and a one-sided exact McNemar test on
+# the discordant pairs below this level.
+MIN_HELDOUT_CASES = 30
+MERIT_ALPHA = 0.05
 
 
 class IntelligenceDiscipline(Enum):
@@ -100,13 +106,46 @@ class IntelligenceFusionResult:
     cryptographic_indicators: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class FusionMerit:
+    """Held-out comparison of candidate fusion weights against evidence scoring.
+
+    ``network_only`` and ``evidence_only`` are the discordant pairs (cases
+    exactly one method classified correctly); ``p_value`` is the one-sided
+    exact McNemar probability of at least ``network_only`` network wins among
+    them if both methods were equally accurate.
+    """
+
+    n_cases: int
+    network_accuracy: float
+    evidence_accuracy: float
+    network_only: int
+    evidence_only: int
+    p_value: float
+
+    @property
+    def admitted(self) -> bool:
+        """Whether the network is significantly more accurate than the evidence path."""
+        return self.p_value < MERIT_ALPHA
+
+
+def _mcnemar_one_sided(wins: int, losses: int) -> float:
+    """Exact one-sided McNemar p-value: P(X >= wins), X ~ Binomial(wins + losses, 1/2)."""
+    n = wins + losses
+    if n == 0:
+        return 1.0
+    # Integer arithmetic throughout: exact, and no float overflow at large n.
+    return sum(math.comb(n, k) for k in range(wins, n + 1)) / (1 << n)
+
+
 class AllSourceFusionNetwork(nn.Module):
     """Neural network for all-source intelligence fusion.
 
     Implements per-discipline encoders feeding multi-head attention across INT
     disciplines, with an optional temporal LSTM branch. The network starts
     untrained; ``IntelligenceFusionEngine`` only routes decisions through it
-    after ``load_trained_weights`` has installed a real checkpoint.
+    after ``load_trained_weights`` has measured a checkpoint beating evidence
+    scoring on held-out cases.
     """
 
     def __init__(
@@ -261,11 +300,12 @@ class IntelligenceFusionEngine:
         self.enable_cryptanalysis = enable_cryptanalysis
 
         # The fusion network starts with random weights.  Decisions route
-        # through it only once ``load_trained_weights`` has installed a real
-        # checkpoint (the same trained-only contract GOSNN enforces); until
-        # then ``fuse_intelligence`` scores from the reported evidence.
+        # through it only once ``load_trained_weights`` has measured a
+        # checkpoint beating evidence scoring on held-out cases; until then
+        # ``fuse_intelligence`` scores from the reported evidence.
         self.fusion_network = AllSourceFusionNetwork(input_dim=128)
         self._trained = False
+        self.merit: FusionMerit | None = None
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 
@@ -275,28 +315,88 @@ class IntelligenceFusionEngine:
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
 
-    def load_trained_weights(self, path: str | Path) -> None:
-        """Install a trained ``AllSourceFusionNetwork`` checkpoint.
+    def load_trained_weights(
+        self, path: str | Path, heldout: Sequence[tuple[dict[str, Any], int]]
+    ) -> FusionMerit:
+        """Install fusion weights only if they measurably beat evidence scoring.
 
-        Until this has run, the network's outputs are random-initialisation
-        noise and ``fuse_intelligence`` refuses to base decisions on them.
+        Matching tensor shapes prove nothing: a freshly initialised network
+        has them. The candidate is scored against the evidence path on
+        labelled cases it was not trained on, and replaces it only when it is
+        significantly more accurate (one-sided exact McNemar on the
+        discordant pairs, p < ``MERIT_ALPHA``). On refusal the engine keeps
+        scoring from evidence.
 
         Args:
             path: Checkpoint file holding the network ``state_dict`` (either
                 bare, or under a ``"state_dict"`` key).
+            heldout: At least ``MIN_HELDOUT_CASES`` pairs of
+                ``(intel_reports, true ThreatLevel value)``.
+
+        Returns:
+            The measured merit that admitted the weights (also kept on
+            ``self.merit``).
 
         Raises:
-            RuntimeError: If the checkpoint's tensor shapes do not match the
-                network (raised by ``load_state_dict``).
+            ValueError: Fewer than ``MIN_HELDOUT_CASES`` cases, or a label
+                that is not a ``ThreatLevel`` value.
+            RuntimeError: The checkpoint's tensor shapes do not match the
+                network, or the candidate is not significantly better.
         """
+        cases = list(heldout)
+        if len(cases) < MIN_HELDOUT_CASES:
+            raise ValueError(
+                f"{len(cases)} held-out cases; at least {MIN_HELDOUT_CASES} are needed "
+                "to measure fusion weights against evidence scoring"
+            )
+        labels = np.array([ThreatLevel(label).value for _, label in cases])
+
         checkpoint = safe_torch_load(Path(path), map_location="cpu")
         state = (
             checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
         )
-        self.fusion_network.load_state_dict(state)
-        self.fusion_network.eval()
+        candidate = AllSourceFusionNetwork(input_dim=128)
+        candidate.load_state_dict(state)
+        candidate.eval()
+
+        network_hits = (
+            np.array([self._network_assessment(candidate, reports)[0] for reports, _ in cases])
+            == labels
+        )
+        evidence_hits = (
+            np.array([self._evidence_assessment(reports)[0] for reports, _ in cases]) == labels
+        )
+        network_only = int(np.sum(network_hits & ~evidence_hits))
+        evidence_only = int(np.sum(evidence_hits & ~network_hits))
+        merit = FusionMerit(
+            n_cases=len(cases),
+            network_accuracy=float(network_hits.mean()),
+            evidence_accuracy=float(evidence_hits.mean()),
+            network_only=network_only,
+            evidence_only=evidence_only,
+            p_value=_mcnemar_one_sided(network_only, evidence_only),
+        )
+        if not merit.admitted:
+            raise RuntimeError(
+                f"fusion weights from {path} refused: held-out accuracy "
+                f"{merit.network_accuracy:.3f} vs evidence {merit.evidence_accuracy:.3f} "
+                f"(n={merit.n_cases}, discordant {network_only}:{evidence_only}, "
+                f"one-sided McNemar p={merit.p_value:.3g} >= {MERIT_ALPHA})"
+            )
+
+        self.fusion_network = candidate
         self._trained = True
-        self.logger.info("intelligence fusion: loaded trained fusion weights from %s", path)
+        self.merit = merit
+        self.logger.info(
+            "intelligence fusion: installed weights from %s (held-out accuracy %.3f vs "
+            "evidence %.3f, n=%d, p=%.3g)",
+            path,
+            merit.network_accuracy,
+            merit.evidence_accuracy,
+            merit.n_cases,
+            merit.p_value,
+        )
+        return merit
 
     def _initialize_threat_kb(self) -> dict[str, dict[str, Any]]:
         """Initialize threat pattern knowledge base."""
@@ -388,22 +488,9 @@ class IntelligenceFusionEngine:
             Fused intelligence assessment with threat level
         """
         if self._trained:
-            int_features = self._extract_int_features(intel_reports)
-
-            temporal_tensor = None
-            if temporal_context:
-                temporal_tensor = self._process_temporal_context(temporal_context)
-
-            self.fusion_network.eval()
-            with torch.no_grad():
-                threat_logits, confidence, _attention = self.fusion_network(
-                    int_features, temporal_tensor
-                )
-
-            threat_probs = torch.softmax(threat_logits[0], dim=0)
-            threat_class = int(torch.argmax(threat_probs).item()) + 1
-            confidence_score = float(confidence[0].item())
-            risk_score = confidence_score * (threat_class / 5.0)
+            threat_class, confidence_score, risk_score = self._network_assessment(
+                self.fusion_network, intel_reports, temporal_context
+            )
         else:
             # Untrained network: its logits are initialisation noise, so the
             # assessment comes from the reported evidence instead (reliability
@@ -535,6 +622,29 @@ class IntelligenceFusionEngine:
             temporal_features[0, i, 2] = float(event.get("num_sources", 1)) / 10.0
 
         return torch.tensor(temporal_features, dtype=torch.float32)
+
+    def _network_assessment(
+        self,
+        network: AllSourceFusionNetwork,
+        intel_reports: dict[str, Any],
+        temporal_context: list[dict[str, Any]] | None = None,
+    ) -> tuple[int, float, float]:
+        """Score the threat with a fusion network.
+
+        Returns:
+            Tuple of ``(threat_class, confidence_score, risk_score)``, as
+            :meth:`_evidence_assessment` does.
+        """
+        int_features = self._extract_int_features(intel_reports)
+        temporal_tensor = (
+            self._process_temporal_context(temporal_context) if temporal_context else None
+        )
+        network.eval()
+        with torch.no_grad():
+            threat_logits, confidence, _attention = network(int_features, temporal_tensor)
+        threat_class = int(torch.argmax(threat_logits[0]).item()) + 1
+        confidence_score = float(confidence[0].item())
+        return threat_class, confidence_score, confidence_score * (threat_class / 5.0)
 
     def _evidence_assessment(self, intel_reports: dict[str, Any]) -> tuple[int, float, float]:
         """Score the threat from the reported evidence alone.

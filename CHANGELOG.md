@@ -27,6 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Review round: gates that measure instead of trust (branch `steel/version-cov4`)
+
+**Fixed — `IntelligenceFusionEngine.load_trained_weights` admitted any
+shape-matching state dict.** A freshly initialised network has matching
+shapes, so random weights were enough to move threat decisions off
+evidence scoring and onto noise. The method now takes labelled held-out
+cases (`heldout`, at least `MIN_HELDOUT_CASES` = 30 pairs of
+`(intel_reports, ThreatLevel value)`) and installs the candidate only when
+it is significantly more accurate than evidence scoring: one-sided exact
+McNemar on the discordant pairs, p < `MERIT_ALPHA` = 0.05. Higher accuracy
+alone is not enough (4 wins, 0 losses gives p = 1/16 and is refused). On
+refusal the engine keeps scoring from evidence, and the measured
+`FusionMerit` is returned and kept on `engine.merit`. **Breaking:**
+`heldout` is a new required argument; there are no production callers. The
+tests pin the decision boundary at 4:0 refused, 5:0 admitted, 6:1 refused
+and 6:0 admitted. A hand-run mutation pass over the gate (ten mutants:
+significance replaced by accuracy, tail off-by-one, α, size and label
+checks, non-strict shape loading, decision takeover) kills all ten.
+
 ### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
