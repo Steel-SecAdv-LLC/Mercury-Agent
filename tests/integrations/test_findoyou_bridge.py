@@ -126,6 +126,59 @@ class TestHonesty:
         }
         assert result["findings"]["age_robust_match"]["state"] == "unavailable"
 
+    @pytest.mark.parametrize("years", [0, -2.5])
+    def test_non_positive_elapsed_years_is_unavailable_with_the_value(
+        self, bridge: FindoyouEvidenceBridge, years: float
+    ) -> None:
+        audit = bridge.analyze_case("c", _face(), _face(), years_elapsed=years)["findings"][
+            "progression_audit"
+        ]
+        assert audit == {
+            "state": "unavailable",
+            "reason": f"years_elapsed must be positive (got {years})",
+        }
+
+    def test_fractional_years_are_rounded_once_and_consistently(
+        self, bridge: FindoyouEvidenceBridge
+    ) -> None:
+        audit = bridge.analyze_case("c", _face(), _face(), source_age=6, years_elapsed=7.6)[
+            "findings"
+        ]["progression_audit"]
+        assert audit["years"] == 8
+        assert audit["geometric_model"]["target_age"] == 14
+
+    def test_age_robust_match_carries_the_baseline_it_improves_on(
+        self, packet: dict[str, Any]
+    ) -> None:
+        findings = packet["findings"]
+        robust = findings["age_robust_match"]
+        assert robust["baseline_score"] == findings["identity_match"]["score"]
+        assert robust["reason"].endswith("; reference aged by the progression above")
+
+    @pytest.mark.parametrize(
+        ("screen", "reason"),
+        [
+            (
+                {"visual_analysis": {"reason": "image refused: 1x1 is too small"}},
+                "image refused: 1x1 is too small",
+            ),
+            (ValueError("unreadable image"), "unreadable image"),
+        ],
+    )
+    def test_an_unscreenable_sighting_is_unavailable_not_grounded(
+        self, monkeypatch: pytest.MonkeyPatch, screen: Any, reason: str
+    ) -> None:
+        def fake_assessment(self: Any, image: Any) -> Any:
+            if isinstance(screen, Exception):
+                raise screen
+            return screen
+
+        monkeypatch.setattr(
+            biometric_module.BiometricAnomalyModel, "_visual_assessment", fake_assessment
+        )
+        integrity = FindoyouEvidenceBridge._integrity_finding(_face())
+        assert integrity == {"state": "unavailable", "reason": reason}
+
     def test_recaptured_sighting_is_flagged(self, bridge: FindoyouEvidenceBridge) -> None:
         yy, xx = np.indices((160, 160))
         replay = np.clip(
@@ -166,6 +219,9 @@ class TestSignatures:
             (lambda p: p.update(case_id="case-9999"), "changed after signing"),
             (lambda p: p["signature"].update(value_hex="00" * 3309), "does not verify"),
             (lambda p: p.update(schema="other/v2"), "unsupported schema"),
+            # The signature block is not itself signed, so its algorithm field
+            # is checked explicitly.
+            (lambda p: p["signature"].update(algorithm="Ed25519"), "unsupported signature"),
             (lambda p: p.pop("signature"), "no signature block"),
             (lambda p: p["signature"].update(value_hex="zz"), "could not be checked"),
         ],
@@ -178,6 +234,12 @@ class TestSignatures:
         valid, why = verify_packet(forged, bridge.public_key_hex)
         assert not valid
         assert reason in why
+
+    def test_the_pinned_key_matches_in_either_hex_case(
+        self, bridge: FindoyouEvidenceBridge, packet: dict[str, Any]
+    ) -> None:
+        assert verify_packet(packet, bridge.public_key_hex.upper()) == (True, "valid")
+        assert verify_packet(packet, f"  {bridge.public_key_hex}\n") == (True, "valid")
 
     def test_a_different_producer_key_is_rejected(self, packet: dict[str, Any]) -> None:
         valid, why = verify_packet(packet, FindoyouEvidenceBridge().public_key_hex)

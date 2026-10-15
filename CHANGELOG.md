@@ -60,6 +60,19 @@ in one pixel AUROC. Tests pin that an aperiodic domain never calls the
 lattice code after fit, that a periodic one still does, and that
 switched-off dimensions have zero mean and zero precision rows.
 
+**Fixed — FINDΩYOU™ evidence-bridge gaps found by mutation testing.** A
+14-mutant pass over `integrations/findoyou_bridge.py` first killed 8 of 14.
+The survivors were real test gaps. The unsigned `algorithm` field of the
+signature block was never tampered in a test. Nothing covered
+non-positive `years_elapsed`, fractional-year rounding, the age-robust
+`baseline_score`, or a sighting the screen cannot assess (which must be
+`unavailable`, not grounded). Tests for each now kill all 14. The pass also
+found an interop bug: `verify_packet` compared the pinned key as a
+case-sensitive string, so a key pinned in upper-case hex rejected every
+valid packet. It now compares case-insensitively after trimming. A
+non-positive `years_elapsed` now reports its value instead of "not
+provided".
+
 ### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,

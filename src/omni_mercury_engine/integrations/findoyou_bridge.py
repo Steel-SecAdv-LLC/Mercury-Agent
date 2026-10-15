@@ -150,7 +150,11 @@ class FindoyouEvidenceBridge:
         if years_elapsed is None or years_elapsed <= 0:
             return None, {
                 "state": ThreeState.UNAVAILABLE.value,
-                "reason": "years_elapsed not provided",
+                "reason": (
+                    "years_elapsed not provided"
+                    if years_elapsed is None
+                    else f"years_elapsed must be positive (got {years_elapsed})"
+                ),
             }
         engine = AgeProgressionEngine(seed=0)
         if isinstance(reference, str):
@@ -284,7 +288,8 @@ def verify_packet(packet: dict[str, Any], expected_public_key_hex: str) -> tuple
 
     Args:
         packet: A packet produced by :meth:`FindoyouEvidenceBridge.analyze_case`.
-        expected_public_key_hex: The producer key FINDΩYOU™ has pinned.
+        expected_public_key_hex: The producer key FINDΩYOU™ has pinned, as hex
+            (either case).
 
     Returns:
         ``(valid, reason)``.
@@ -296,14 +301,15 @@ def verify_packet(packet: dict[str, Any], expected_public_key_hex: str) -> tuple
         return False, f"unsupported schema {packet.get('schema')!r}"
     if signature.get("algorithm") != SIGNATURE_ALGORITHM:
         return False, f"unsupported signature algorithm {signature.get('algorithm')!r}"
-    if signature.get("public_key_hex") != expected_public_key_hex:
+    pinned = expected_public_key_hex.strip().lower()
+    if str(signature.get("public_key_hex", "")).lower() != pinned:
         return False, "signed by a key other than the pinned producer key"
     body = _canonical({k: v for k, v in packet.items() if k != "signature"})
     if hashlib.sha3_256(body).hexdigest() != signature.get("signed_digest_sha3_256"):
         return False, "packet contents changed after signing"
     try:
         valid = MLDSAProvider().verify(
-            body, bytes.fromhex(signature["value_hex"]), bytes.fromhex(expected_public_key_hex)
+            body, bytes.fromhex(signature["value_hex"]), bytes.fromhex(pinned)
         )
     except (ValueError, TypeError) as exc:
         return False, f"signature could not be checked: {exc}"
