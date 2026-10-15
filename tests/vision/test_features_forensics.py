@@ -11,7 +11,6 @@ from scipy import ndimage
 from omni_mercury_engine.vision.features import (
     _box_means,
     extract_patch_features,
-    lattice_residual,
     lattice_residuals,
     lattice_structure,
     lattice_vectors,
@@ -134,13 +133,6 @@ class TestLatticeSymmetry:
         angles = np.mod(np.degrees(np.arctan2(vectors[:, 0], vectors[:, 1])), 90.0)
         np.testing.assert_allclose(angles, 20.0, atol=0.5)
         assert abs(float(vectors[0] @ vectors[1])) / float(lengths.prod()) < 0.01
-
-    def test_single_lag_residual_matches_the_batched_form(self) -> None:
-        structure = lattice_structure(_lattice())
-        lags = lattice_vectors(structure)
-        batched = lattice_residuals(structure, lags)
-        for k, lag in enumerate(lags):
-            np.testing.assert_array_equal(lattice_residual(structure, lag), batched[k])
 
     def test_a_clean_lattice_has_no_symmetry_break(self) -> None:
         assert float(np.median(_symmetry_break(_lattice()))) < 0.01

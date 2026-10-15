@@ -364,11 +364,6 @@ def lattice_residuals(structure: Array, lags: Array) -> Array:
     return out
 
 
-def lattice_residual(structure: Array, lag: Array) -> Array:
-    """Return :func:`lattice_residuals` for a single ``(dy, dx)`` lag as an ``(H, W)`` map."""
-    return np.asarray(lattice_residuals(structure, np.asarray(lag, dtype=np.float64)[None])[0])
-
-
 def _single_scale_maps(
     image: CanonicalImage, *, illumination_invariant: bool
 ) -> tuple[Array, list[str], list[str]]:
@@ -594,7 +589,6 @@ __all__ = [
     "PatchFeatures",
     "PatchGrid",
     "extract_patch_features",
-    "lattice_residual",
     "lattice_residuals",
     "lattice_structure",
     "lattice_vectors",

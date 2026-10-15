@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""FINDOYOU bridge: signed, three-state evidence packets for missing-person image analysis.
+"""FINDΩYOU™ bridge: signed, three-state evidence packets for missing-person image analysis.
 
-The trio works as one system: **FINDOYOU** runs missing-person cases,
+The trio works as one system: **FINDΩYOU™** runs missing-person cases,
 **Mercury** analyses the images, and **AMA Cryptography** signs the result so
 the evidence keeps its chain of custody from analysis to case file. This
 module is the Mercury side of that contract.
@@ -27,7 +27,7 @@ missing person with a candidate sighting and returns an
   the most dangerous false lead.
 
 States use the cross-repo :class:`~omni_mercury_engine.verifiers.three_state.ThreeState`
-wire values that FINDOYOU's ``security.three_state`` mirrors. The packet is
+wire values that FINDΩYOU™'s ``security.three_state`` mirrors. The packet is
 serialised canonically (sorted keys, compact separators, ASCII) and signed
 with ML-DSA-65 through AMA; :func:`verify_packet` checks the signature against
 a **pinned** public key, because a key carried inside the packet proves
@@ -90,12 +90,12 @@ def _json_safe(value: Any) -> Any:
 
 
 class FindoyouEvidenceBridge:
-    """Produce and verify signed missing-person image evidence for FINDOYOU.
+    """Produce and verify signed missing-person image evidence for FINDΩYOU™.
 
     Args:
         signing_keypair: ``(public_key, secret_key)`` ML-DSA-65 bytes. When
             omitted an ephemeral key pair is generated; production deployments
-            pass a provisioned key whose public half FINDOYOU pins.
+            pass a provisioned key whose public half FINDΩYOU™ pins.
     """
 
     def __init__(self, signing_keypair: tuple[bytes, bytes] | None = None) -> None:
@@ -109,7 +109,7 @@ class FindoyouEvidenceBridge:
 
     @property
     def public_key_hex(self) -> str:
-        """Return the hex public key FINDOYOU must pin to verify this producer."""
+        """Return the hex public key FINDΩYOU™ must pin to verify this producer."""
         return self._public_key.hex()
 
     # ------------------------------------------------------------- findings
@@ -213,7 +213,7 @@ class FindoyouEvidenceBridge:
         """Analyse a reference / candidate pair and return a signed evidence packet.
 
         Args:
-            case_id: FINDOYOU case identifier (opaque to Mercury).
+            case_id: FINDΩYOU™ case identifier (opaque to Mercury).
             reference: Reference photo of the missing person (path or aligned
                 face array).
             candidate: Candidate sighting (path or array).
@@ -284,7 +284,7 @@ def verify_packet(packet: dict[str, Any], expected_public_key_hex: str) -> tuple
 
     Args:
         packet: A packet produced by :meth:`FindoyouEvidenceBridge.analyze_case`.
-        expected_public_key_hex: The producer key FINDOYOU has pinned.
+        expected_public_key_hex: The producer key FINDΩYOU™ has pinned.
 
     Returns:
         ``(valid, reason)``.

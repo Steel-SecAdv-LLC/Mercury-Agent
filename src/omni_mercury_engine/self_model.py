@@ -113,7 +113,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
     ),
     CapabilitySpec(
         "findoyou_evidence_bridge",
-        "signed three-state missing-person image evidence for FINDOYOU",
+        "signed three-state missing-person image evidence for FINDΩYOU™",
         ("omni_mercury_engine.integrations.findoyou_bridge",),
         requires=("ama_cryptography",),
     ),
@@ -276,7 +276,7 @@ def build_self_model(created_utc: str | None = None) -> SelfModelSnapshot:
             "version": get_version(),
             "mission": "civilization-first",
             "code_system": "Omni Codes",
-            "family": ["FINDOYOU", "Mercury Agent", "AMA Cryptography"],
+            "family": ["FINDΩYOU™", "Mercury Agent", "AMA Cryptography"],
             "honesty_contract": sorted(s.value for s in ThreeState),
         },
         "capabilities": capabilities,

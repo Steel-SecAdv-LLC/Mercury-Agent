@@ -1664,7 +1664,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `FallbackRegistry` (`integrations.routing.fallback`) — Registry of fallback chains.
 - `FinancialService` (`integrations.stubs.financial`) — Production-ready financial data service with multiple API backends.
 - `FinancialServiceStub` (`integrations.stubs.financial`) — Stub implementation of financial data service.
-- `FindoyouEvidenceBridge` (`integrations.findoyou_bridge`) — Produce and verify signed missing-person image evidence for FINDOYOU.
+- `FindoyouEvidenceBridge` (`integrations.findoyou_bridge`) — Produce and verify signed missing-person image evidence for FINDΩYOU™.
 - `HTTPCircuitBreaker` (`integrations.http.client`) — Circuit breaker for HTTP requests.
 - `HistoricalBar` (`integrations.stubs.financial`) — Historical price bar (OHLCV).
 - `RedisCache` (`integrations.stubs.cache`) — Production-ready Redis cache client.

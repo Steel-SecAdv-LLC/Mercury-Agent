@@ -27,12 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Visual anomaly analysis, a FINDOYOU evidence bridge, and a durable self-model (branch `steel/version-cov4`)
+### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
-interpretable image-anomaly capability, and the FINDOYOU ↔ Mercury ↔ AMA trio
-gets a signed evidence contract. See [`docs/VISION.md`](docs/VISION.md) and
-[`docs/TRIO_INTEGRATION.md`](docs/TRIO_INTEGRATION.md).
+interpretable image-anomaly capability, and Mercury gains a signed evidence
+bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
 
 - **`omni_mercury_engine.vision` (new).** It learns normal appearance from
   defect-free images and uses no pretrained weights.
@@ -75,14 +74,14 @@ gets a signed evidence contract. See [`docs/VISION.md`](docs/VISION.md) and
     screening.
   - Face attributes are reported only as far as DeepFace measured them. The
     fabricated `age=25` and 0.5 confidences are gone.
-- **FINDOYOU evidence bridge** (`integrations/findoyou_bridge.py`). Each packet
+- **FINDΩYOU™ evidence bridge** (`integrations/findoyou_bridge.py`). Each packet
   carries:
   - identity, age-robust match, progression audit and sighting-integrity
     findings in the shared three-state wire values;
   - SHA3-256 image digests;
   - an ML-DSA-65 signature through AMA, verified against a pinned producer key.
 
-  Every FINDOYOU import of Mercury resolves on this branch.
+  Every FINDΩYOU™ import of Mercury resolves on this branch.
 - **Self-model** (`self_model.py`).
   - Mercury's identity, probed capabilities, safeguards, measured performance
     and derived limitations.

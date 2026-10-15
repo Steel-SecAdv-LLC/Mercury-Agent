@@ -29,7 +29,7 @@ class TestSnapshot:
         identity = build_self_model(STAMP).body["identity"]
         assert identity["mission"] == "civilization-first"
         assert identity["code_system"] == "Omni Codes"
-        assert identity["family"] == ["FINDOYOU", "Mercury Agent", "AMA Cryptography"]
+        assert identity["family"] == ["FINDΩYOU™", "Mercury Agent", "AMA Cryptography"]
         assert identity["honesty_contract"] == ["grounded", "unavailable", "undecidable"]
 
     def test_snapshot_is_reproducible_for_the_same_installation(self) -> None:

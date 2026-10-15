@@ -7,8 +7,8 @@ measurement, and decisions come with a calibrated false-alarm rate. It uses
 no pretrained weights, so it runs anywhere NumPy, SciPy and OpenCV run.
 
 It backs `BiometricAnomalyModel.predict` (image inputs),
-`AgeProgressionEngine.assess_progression`, and the FINDOYOU evidence bridge
-(see [`TRIO_INTEGRATION.md`](TRIO_INTEGRATION.md)).
+`AgeProgressionEngine.assess_progression`, and the FINDΩYOU™ evidence bridge
+(`integrations/findoyou_bridge.py`).
 
 ## Capability map
 

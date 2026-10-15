@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Contract tests for the FINDOYOU evidence bridge: wire format, three-state honesty, AMA signatures."""
+"""Contract tests for the FINDΩYOU™ evidence bridge: wire format, three-state honesty, AMA signatures."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class TestWireFormat:
     def test_every_finding_uses_the_cross_repo_three_state_wire_values(
         self, packet: dict[str, Any]
     ) -> None:
-        # FINDOYOU's security.three_state mirrors these values member-for-member.
+        # FINDΩYOU™'s security.three_state mirrors these values member-for-member.
         assert sorted(WIRE_STATES) == ["grounded", "unavailable", "undecidable"]
         for finding in packet["findings"].values():
             assert finding["state"] in WIRE_STATES

@@ -18,7 +18,7 @@ where ``A = Theta^{1/2}`` and ``sigma_max(A) = sqrt(lambda_max(Theta))``.  Hence
 within an L2 ball of radius ``|p - p_tau| / sigma_max(A)``.
 
 Attribution: the Mahalanobis-radius construction is adapted as a *blueprint*
-from FINDOYOU certified-radius work; the operating point, threshold inversion,
+from FINDΩYOU™ certified-radius work; the operating point, threshold inversion,
 and the numbers Mercury reports are Mercury's own.
 """
 

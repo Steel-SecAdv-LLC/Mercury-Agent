@@ -158,7 +158,10 @@ def evaluate_category(
         if defective and report.regions:
             types[record["defect"]][report.regions[0].anomaly_type] += 1
         if record["mask"] is not None:
-            mask = cv2.imread(str(record["mask"]), cv2.IMREAD_GRAYSCALE) > 0
+            raw_mask = cv2.imread(str(record["mask"]), cv2.IMREAD_GRAYSCALE)
+            if raw_mask is None:
+                raise ValueError(f"unreadable ground-truth mask: {record['mask']}")
+            mask = np.asarray(raw_mask > 0)
         else:
             mask = np.zeros(report.anomaly_map.shape, dtype=bool)
         pixel_truth.append(mask.ravel())
@@ -196,7 +199,7 @@ def evaluate_category(
         "n_calibration": n_calibration,
         "n_test_good": len(good),
         "n_test_defective": len(anomalous),
-        "image_auroc": round(float(roc_auc_score(labels, scores)), 4),
+        "image_auroc": round(float(roc_auc_score(np.asarray(labels), np.asarray(scores))), 4),
         "pixel_auroc": round(float(roc_auc_score(truth, pixel)), 4),
         "false_alarm_rate_at_alpha": round(float(np.mean(good)), 4) if good else None,
         "detection_rate_at_alpha": round(float(np.mean(anomalous)), 4) if anomalous else None,
