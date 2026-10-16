@@ -38,6 +38,30 @@ if TYPE_CHECKING:
 # still pin the variable to ``"0"`` for an explicitly real-data run.
 os.environ.setdefault("MERCURY_ALLOW_SYNTHETIC", "1")
 
+
+def _bootstrap_source_checkout() -> None:
+    """Make an uninstalled clone testable: ``pytest`` with no ``pip install -e .``.
+
+    Only when the package is not importable (no install of any kind) is
+    ``src/`` put on ``sys.path`` and exported on ``PYTHONPATH``, so the
+    subprocesses a test starts (``python -m omni_mercury_engine...``) import
+    the same tree. An installed package, editable or wheel, is left alone, so
+    a run against an installed wheel still tests the wheel.
+    """
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    if importlib.util.find_spec("omni_mercury_engine") is not None:
+        return
+    src = str(Path(__file__).resolve().parents[1] / "src")
+    sys.path.insert(0, src)
+    inherited = os.environ.get("PYTHONPATH", "")
+    os.environ["PYTHONPATH"] = os.pathsep.join(p for p in (src, inherited) if p)
+
+
+_bootstrap_source_checkout()
+
 import numpy as np
 import pytest
 

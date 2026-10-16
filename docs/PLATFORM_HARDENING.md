@@ -378,7 +378,7 @@ different depths:
 
 1. **Import time.** `omni_mercury_engine.agentic` imports torch while
    loading (via `cognitive.orchestrator` → `utils`); on a core-lane install
-   (`pip install "mercury-agent[api]"`, no `[ml]`) the import itself raises
+   (`pip install -e ".[api]"`, no `[ml]`) the import itself raises
    `ImportError`, so there is no partially-agentic mode to misconfigure.
 2. **Decision time (fail-closed σ gate).** Even with the package importable,
    every orchestrated decision boundary runs the σ_Immutable hard gate. When

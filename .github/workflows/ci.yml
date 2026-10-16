@@ -991,7 +991,10 @@ jobs:
   core-tests:
     name: Core Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 40, not 30: measured on run 38928977672 with the AMA cache hitting,
+    # Python 3.12 took 24.5 min (tests 19.9 min), 82% of the old limit, so
+    # one slow mirror or runner was enough to cancel a passing job.
+    timeout-minutes: 40
     needs: [code-quality]
     strategy:
       matrix:

@@ -103,6 +103,17 @@ _ENV_BOOTSTRAP = "GCN_KAFKA_BOOTSTRAP_SERVERS"
 _ENV_CREDENTIALS_FILE = "GCN_KAFKA_CREDENTIALS_FILE"
 _ENV_STATE_FILE = "GCN_KAFKA_STATE_FILE"
 
+#: Other names the same credential is stored under. ``GCN_CLIENT_*`` is how
+#: GCN's own client examples name the pair, and ``KAFKA_SASL_OAUTHBEARER_*`` is
+#: what the ``gcn-kafka`` MCP server in ``.mcp.json`` reads. A secret store
+#: provisioned for either consumer therefore also feeds this probe, instead of
+#: the keep-alive reporting "no credential" while the MCP server holds one.
+#: The canonical ``GCN_KAFKA_*`` name always wins when several are set.
+_ENV_ALIASES: dict[str, tuple[str, ...]] = {
+    _ENV_CLIENT_ID: ("GCN_CLIENT_ID", "KAFKA_SASL_OAUTHBEARER_CLIENT_ID"),
+    _ENV_CLIENT_SECRET: ("GCN_CLIENT_SECRET", "KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET"),
+}
+
 #: Substrings that mark a librdkafka error as "the broker rejected who you are"
 #: rather than "the broker never answered". librdkafka reports authentication
 #: outcomes as free text, so this classification is heuristic -- which is why a
@@ -245,7 +256,15 @@ def load_credentials(
     from_file = parse_env_file(path)
 
     def resolve(name: str) -> str:
-        return (env.get(name) or from_file.get(name) or "").strip()
+        # Every spelling in the environment before any in the file, so an
+        # injected secret under an alias still beats a stale file entry.
+        names = (name, *_ENV_ALIASES.get(name, ()))
+        for source in (env, from_file):
+            for candidate in names:
+                value = (source.get(candidate) or "").strip()
+                if value:
+                    return value
+        return ""
 
     client_id = resolve(_ENV_CLIENT_ID)
     client_secret = resolve(_ENV_CLIENT_SECRET)

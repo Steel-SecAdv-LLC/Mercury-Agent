@@ -224,7 +224,10 @@ class TestScopedGateContract:
             "SPHINCS_AVAILABLE = False\n"
         )
         env = dict(os.environ)
-        env["PYTHONPATH"] = str(stub.parent)
+        # The stub shadows the real AMA; any inherited entry (an uninstalled
+        # checkout's src/) stays after it so the package itself still imports.
+        inherited = os.environ.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = os.pathsep.join(p for p in (str(stub.parent), inherited) if p)
         # check=False: each test asserts on returncode explicitly — a refusal
         # (nonzero exit) is the expected outcome for the gated surfaces.
         return subprocess.run(

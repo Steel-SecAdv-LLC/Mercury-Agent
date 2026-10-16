@@ -66,7 +66,10 @@ it into the launching shell: `set -a; . ~/.config/mercury/gcn-kafka.env; set +a`
 
 **Repository secrets**, for the scheduled CI keep-alive: add
 `GCN_KAFKA_CLIENT_ID` and `GCN_KAFKA_CLIENT_SECRET` under *Settings → Secrets and
-variables → Actions*.
+variables → Actions*. A pair already stored as `GCN_CLIENT_ID` /
+`GCN_CLIENT_SECRET` is accepted as well; the canonical names win when both
+exist. The keep-alive script also reads the MCP server's own
+`KAFKA_SASL_OAUTHBEARER_CLIENT_ID` / `_SECRET`, so one secret store feeds both.
 
 `.gitignore` blocks `*.env` anywhere in the tree, so a copy dropped in the
 working directory by mistake cannot be committed casually.
@@ -224,9 +227,12 @@ misconfiguration still fail loudly.
 
 **GitHub Actions** — `.github/workflows/gcn-keepalive.yml` runs daily at 06:41
 UTC from a machine that is always on, which is the most reliable of the three.
-It needs the two repository secrets from step 2; without them the job reports
-that nothing is configured and passes, so forks are unaffected. Only a rejected
-credential fails the job.
+It needs the two repository secrets from step 2. In this repository a missing
+secret, a configuration error or a rejected credential **fails** the job, so the
+maintainer is notified while there is still time to act; an unreachable broker
+is a warning, since it says nothing about the credential. Forks without the
+secrets pass with a notice. GitHub only runs `schedule:` triggers from the
+default branch, so the job starts once the workflow is on `main`.
 
 Belt and braces is fine: several schedules connecting the same credential cost
 one metadata request each and remove the single point of failure.

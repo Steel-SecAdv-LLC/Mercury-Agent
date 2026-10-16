@@ -47,23 +47,40 @@ runs:
         key: ${{ steps.cache-key.outputs.key }}-${{ hashFiles('.github/actions/build-ama-cryptography/action.yml') }}
 
     - name: Install build toolchain for AMA Cryptography native library
+      # Only a cache miss compiles anything: on a hit the restored tree already
+      # holds the shared objects, and the Python install below builds a wheel
+      # without a compiler. Measured on CI run 38928977672 (Core Tests 3.13):
+      # the cache HIT, yet this step took 7m15s, because apt fetched
+      # build-essential/cmake/ninja (13.7 MB) from a mirror serving 31.5 kB/s.
+      # That one step, not a cache miss, pushed the job past its limit.
+      #
+      # On a miss the step installs only what the runner image lacks. GitHub's
+      # Ubuntu 24.04 image ships gcc-12, g++-12 and make; cmake comes from the
+      # PyPI shim pinned in the next step (it shadows any apt cmake on PATH).
+      # apt is the fallback for a different image, bounded so a slow mirror
+      # fails in minutes instead of eating the job budget.
+      if: steps.ama-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        # GitHub-hosted runners preinstall Microsoft apt repositories
-        # (packages.microsoft.com: azure-cli + prod) that periodically return
-        # 403 / "no longer signed". They are irrelevant here — the AMA native
-        # library only needs Ubuntu-archive packages — but while present a
-        # Microsoft-side outage makes `apt-get update` exit non-zero and fails
-        # the whole job before any test runs. Drop them so the toolchain
-        # install depends only on what it uses; a genuine failure to reach the
-        # Ubuntu archives or install the packages below still fails loudly.
+        missing=()
+        # The build below calls /usr/bin/gcc-12 and /usr/bin/g++-12 by path.
+        for tool in gcc-12 g++-12; do
+          [ -x "/usr/bin/${tool}" ] || missing+=("${tool}")
+        done
+        command -v make >/dev/null 2>&1 || missing+=(make)
+        if [ "${#missing[@]}" -eq 0 ]; then
+          echo "Toolchain present on the runner image (gcc-12, g++-12, make); no apt install needed."
+          exit 0
+        fi
+        echo "Installing missing toolchain: ${missing[*]}"
+        # Pre-installed Microsoft apt repositories periodically return 403 /
+        # "no longer signed"; the toolchain needs only Ubuntu-archive packages.
         sudo grep -rlZ --include='*.list' --include='*.sources' \
           'packages\.microsoft\.com' /etc/apt/sources.list.d/ 2>/dev/null \
           | sudo xargs -0r rm -f || true
-        # Bounded retry tolerates a transient archive hiccup without masking a
-        # persistent outage (still exits non-zero after the final attempt).
+        apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
         for attempt in 1 2 3; do
-          sudo apt-get update && break
+          sudo timeout 180 apt-get "${apt_opts[@]}" update && break
           if [ "${attempt}" -eq 3 ]; then
             echo "apt-get update failed after ${attempt} attempts" >&2
             exit 1
@@ -71,8 +88,8 @@ runs:
           echo "apt-get update failed (attempt ${attempt}); retrying in 5s" >&2
           sleep 5
         done
-        sudo apt-get install -y --no-install-recommends \
-          build-essential gcc-12 g++-12 cmake ninja-build pkg-config
+        # Each probed tool is also its Ubuntu package name.
+        sudo timeout 600 apt-get "${apt_opts[@]}" install -y --no-install-recommends "${missing[@]}"
 
     - name: Install AMA Cryptography PEP 517 build-system floors
       # AMA's ``setup.py`` preflight enforces the supply-chain floors declared

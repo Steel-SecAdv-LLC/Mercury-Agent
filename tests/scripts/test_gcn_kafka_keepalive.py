@@ -140,6 +140,48 @@ def test_credentials_file_fills_gaps(tmp_path: Path) -> None:
     assert creds.bootstrap_servers == "kafka.gcn.nasa.gov:9092"
 
 
+@pytest.mark.parametrize(
+    ("id_name", "secret_name"),
+    [
+        ("GCN_CLIENT_ID", "GCN_CLIENT_SECRET"),
+        ("KAFKA_SASL_OAUTHBEARER_CLIENT_ID", "KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET"),
+    ],
+)
+def test_alias_names_resolve_the_credential(tmp_path: Path, id_name: str, secret_name: str) -> None:
+    """A store provisioned under GCN's or the MCP server's names still feeds the probe."""
+    creds = keepalive.load_credentials(
+        credentials_file=tmp_path / "absent.env",
+        environ={id_name: _CLIENT_ID, secret_name: _STANDIN},
+    )
+    assert (creds.client_id, creds.client_secret) == (_CLIENT_ID, _STANDIN)
+
+
+def test_canonical_name_wins_over_alias(tmp_path: Path) -> None:
+    creds = keepalive.load_credentials(
+        credentials_file=tmp_path / "absent.env",
+        environ={
+            keepalive._ENV_CLIENT_ID: _CLIENT_ID,
+            "GCN_CLIENT_ID": "alias-id",
+            keepalive._ENV_CLIENT_SECRET: _STANDIN,
+        },
+    )
+    assert creds.client_id == _CLIENT_ID
+
+
+def test_environment_alias_wins_over_canonical_name_in_file(tmp_path: Path) -> None:
+    path = tmp_path / "gcn-kafka.env"
+    path.write_text(
+        f"{keepalive._ENV_CLIENT_ID}=file-id\n{keepalive._ENV_CLIENT_SECRET}=file-secret\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o600)
+    creds = keepalive.load_credentials(
+        credentials_file=path,
+        environ={"GCN_CLIENT_ID": _CLIENT_ID, "GCN_CLIENT_SECRET": _STANDIN},
+    )
+    assert (creds.client_id, creds.client_secret) == (_CLIENT_ID, _STANDIN)
+
+
 def test_missing_credentials_names_both_variables(tmp_path: Path) -> None:
     with pytest.raises(keepalive.ConfigError) as excinfo:
         keepalive.load_credentials(credentials_file=tmp_path / "absent.env", environ={})
