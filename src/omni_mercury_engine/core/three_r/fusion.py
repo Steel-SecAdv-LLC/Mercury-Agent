@@ -341,20 +341,30 @@ class OmniAvaEquation:
         return is_stable, float(estimated_lambda)
 
     def get_dominance_proof(self) -> dict[str, Any]:
-        """Generate mathematical proof of fusion equation dominance over baselines.
+        """Describe the fusion equation as implemented, with its Lyapunov check.
 
         Ported from the legacy OAE implementation so that
         ``ThreeRMechanism.get_dominance_proof`` (which delegates to its
         ``fusion`` instance) resolves on the modern equation instead of
-        raising ``AttributeError``.
+        raising ``AttributeError``. Despite the historical name it is not
+        evidence that the equation dominates any baseline: it makes no
+        performance claim. Measured results live in
+        ``benchmarks/mercury_benchmark_results.json``.
+
+        The legacy version reported the removed ``* η_Ethical^Φ`` factor as part
+        of the equation, presented the NSL-KDD F1 *target* (0.92 against 0.797)
+        as an "improvement_factor", and claimed an unmeasured "10-15%"
+        false-positive reduction. Those keys are gone; ``ethical_scaling`` now
+        states that the factor is not applied.
 
         Returns:
-            Dictionary containing proof elements for MATH_DERIVATIONS.md
+            The equation, its weights and constants, and the Lyapunov stability
+            estimate from :meth:`verify_lyapunov_stability`.
         """
         is_stable, estimated_lambda = self.verify_lyapunov_stability()
 
         return {
-            "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ",
+            "equation": "A = w_R * R(x) + w_H * H(omega) + w_O * O(theta)",
             "equation_name": "Omni-Ava Equation (OAE)",
             "golden_ratio_constant": self.golden_ratio,
             "ethical_compliance_threshold": self.ethical_compliance_threshold,
@@ -365,15 +375,16 @@ class OmniAvaEquation:
                 "estimated_convergence_rate": estimated_lambda,
                 "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.convergence_rate_param}*t)",
             },
-            "baseline_comparison": {
-                "nsl_kdd_f1": 0.797,
-                "target_f1": 0.92,
-                "improvement_factor": 0.92 / 0.797,  # ~1.154 (15.4% improvement)
-            },
             "ethical_scaling": {
-                "eta_ethical_phi": self.ethical_compliance_threshold**self.golden_ratio,
-                "fp_reduction_estimate": "10-15% via stricter ethical gating",
+                "applied": False,
+                "note": (
+                    "η is reported as provenance only. The historical η^Φ multiplier "
+                    "was removed: η is the configured threshold on every production "
+                    "path, so the factor was a constant that enforced nothing "
+                    "(see compute())."
+                ),
             },
+            "performance_claims": None,
             # Backward-compatible keys
             "phi": self.phi,
             "sigma_immutable": self.sigma_immutable,
