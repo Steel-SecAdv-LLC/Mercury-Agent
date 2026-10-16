@@ -1,6 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Spatial anomaly detector for geographic data."""
+"""Spatial anomaly detector for geographic data.
+
+Scores points against the training distribution's geometry: distance from
+the fitted centroid past a quantile radius (computed with a BLAS expansion,
+the fastest formulation measured) and a KDTree-backed Local Outlier Factor,
+with spatial autocorrelation summaries on detection output.
+"""
 
 from __future__ import annotations
 
