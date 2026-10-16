@@ -27,6 +27,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Restoration round: rebuilt capabilities, two ethical-gate failures closed, drift on by default (branch `steel/version-cov4`)
+
+Every removed symbol from `7ab59916`, `740da10a` and `f07b724e` was loaded
+from history and run against live code. The removals were names, wrappers,
+proven duplicates and measurably broken code; three real needs surfaced, and
+in each the removed code did not meet them. This round rebuilds those, fixes
+what the audit found, and wires capabilities that existed but never ran.
+
+**Added — concurrent detector execution with a real deadline
+(`core/parallel_detectors.py`).** It replaces the removed
+`ParallelDetectorExecutor`, which discarded finished results on timeout and
+then waited for the slow detector anyway. Finished results are kept,
+unfinished tasks are reported as timed out, and the call returns at the
+deadline. A hung detector retires the pool so it cannot starve later calls,
+and abandoned threads are capped. Concurrency is opt-in per detector
+(`parallel_safe`); the five defaults declare it after a bit-identical
+concurrent-versus-sequential check. `EngineConfig.num_workers`, previously
+ignored, sizes the pool. 22 tests; 24 mutants, all killed.
+
+**Added — statement verification and a consent-gated Concealed Information
+Test (`truth_decipher.py`).** It replaces a pipeline whose ethics check passed
+every input and whose "resolution" always reported success. It provides
+Bayesian corroboration over independent evidence clusters, contradiction
+detection (Allen's interval algebra, impossible travel), consistency over
+time, the SUE indicator and verifiability proportions, all with intervals and
+none with a verdict about a person. The CIT detects recognition of event
+details, not deception. It runs only with a consent record and abstains when
+the details were public. Under the null it rejected 2.5% of 2000 sessions at
+alpha 0.05, with 93% power at d = 1 over six questions. 221 tests.
+
+**Added — counterintelligence screening of fused reports
+(`security/counterintelligence.py`).** It replaces a wrapper that reported
+SUBSTANTIAL threat on 40/40 inputs with constant casualty figures. It covers
+source reliability (Beta posteriors from Admiralty grades), circular and
+derivative reporting, coordinated-reporting scan statistics (a Mecke-equation
+p-value bound, checked against Monte Carlo), digit-based fabrication screens
+and impossible travel. Wired into `IntelligenceFusionEngine`'s evidence path:
+relayed copies carry no weight and corroboration counts independent origins.
+Outputs are unchanged on reports without those fields (pinned over 200
+random report sets). 180 tests; 62 mutants, all killed.
+
+**Added — adjudication ledger for held-out fusion labels
+(`security/adjudication.py`).** `load_trained_weights` admits weights only on
+held-out merit, but nothing produced labels. The ledger records cases and
+outcomes separately, enforces outcome independence from the reports, keeps
+ratings blind, gates on quadratic-weighted kappa, fixes splits by hash, and
+stores a SHA3 hash chain with optional ML-DSA-65 signatures. 271 tests;
+78 mutants, all killed.
+
+**Added — consent-gated contactless respiration and heart rate
+(`biometric/rf_vital_signs.py`).** These are physiological channels for the
+CIT from Wi-Fi CSI or radar, with no contact sensors, identification or
+imaging, and nothing runs without `consent_confirmed=True`. Every estimate
+reports a rate or abstains with a reason. On held-out real radar recordings
+(Schellenberger et al., Sci Data 2020, CC BY 4.0; not stored in the repo),
+heart rate is within MAE 0.75 bpm of ECG and respiration within 0.10/min of
+impedance. Only about 20% of windows report, so coverage, not accuracy, is the
+limitation. Real Wi-Fi CSI hardware is not validated. 154 tests; 44 mutants,
+all killed.
+
+**Changed — drift detection is on by default.** `enable_drift_detection` had
+no caller, so served engines never tested for drift. When enabled, the first
+inference batch became its own baseline. Now `EngineConfig.drift_detection`
+(default `True`, `MERCURY_DRIFT_DETECTION=0` to disable) tests every
+`detect_with_fusion` batch:
+- Only the rows the model calls normal are tested.
+- They are compared with the training rows the model also calls normal,
+  derived from the fitted spatial detector's training rows after every fit or
+  load. The shipped checkpoint needs no new field.
+- Drift at MEDIUM or above defers the decision.
+
+Filtering the two sides by the same rule matters: a radius-trimmed reference
+flagged 12/12 in-distribution 200-row batches. With the same rule, the
+measured false-defer rate on the shipped checkpoint is 1% for 50-row batches
+and 0% for 200-row batches; +1.0 shifts are detected in 100% of batches.
+Each check costs 25-35 ms. The shipped checkpoint was trained on a synthetic
+mixture, so real data sent to it will usually defer until a model is fitted
+on representative data; see `docs/runbooks/data-drift.md`.
+New series: `omni_drift_checks_total`, `omni_drift_detected_total` and
+`omni_drift_check_duration_seconds`. New alerts: `OmniMercuryDataDrift` and
+`OmniMercuryDriftBaselineMissing`.
+
+**Fixed — drift reporting.**
+- The ensemble reported a sub-test's severity even when the ensemble said "no
+  drift", and the decider deferred on severity alone. Both are fixed.
+- Drift tests compared extra features against reference column 0; a width
+  mismatch now raises `DriftIncomparableError`.
+
+**Fixed — σ_Immutable fail-open above the trained support.** With all 24
+ethical anchors set to 10.0 the gate scored 1.000 and the floor passed.
+ETHICAL registrations outside `[0, 2.0]` are refused atomically, and the floor
+rejects anchors above the ceiling (`check="sigma_immutable_ethical_ceiling"`).
+
+**Fixed — one subagent op could refuse every later detection.** Pan_XXV
+registered its payload into the process-wide GOSNN singleton's ETHICAL group,
+so `{"temperature": 0.2}` became an ethical anchor below the floor. The op now
+scores its payload without registering it.
+
+**Changed — every scalar carries the `omni` prefix.** The two GOSNN defaults
+without it were renamed in place, since σ depends on vector order, not names.
+The baseline was re-harvested: its diff is the two name lists, and σ is
+unchanged at 0.9999216795. The signed corpus has no names and did not change.
+Old names still resolve, and `register_scalars` maps a legacy name to its
+canonical scalar instead of adding a dimension. The neurosymbolic hub's
+counters moved to the metric-only `omni_diag_` channel, where they no longer
+drive σ towards 0. Detector-score scalars, physics scalars and the ethical
+engines' omni-scalar dicts are prefixed too.
+
+**Fixed — the GOSNN latency gate never measured anything.** It imported a
+module that has never existed, and its fallback counted every repeated input
+as a cache hit. It now times `get_enhanced_scalars`, the step every
+detection runs, and claims no cache rate (GOSNN has none).
+
+**Fixed — unmeasured claims.** `three_r` `get_dominance_proof` no longer
+reports an improvement factor and an ethical scaling that the fusion does
+not apply. The MITRE ATT&CK dataset is labelled with its Terms of Use, not
+Apache-2.0.
+
+**Removed — dead engine plumbing.** `_extract_features_parallel`,
+`_get_executor`, `_executor`, `parallel_executor`, `optimization_config` and
+`MAX_WORKERS` had no reader; the new executor supersedes them.
+
+**CI.** `scripts/run_ci_gates.sh` now also runs the capability-inventory,
+doc-lint, neural-coverage, weapons-gate-corpus and Prometheus-render drift
+checks, which previously ran only in CI.
+
 ### Review round: gates that measure instead of trust (branch `steel/version-cov4`)
 
 **Added — `security/quantum_risk_cyber.py`, rebuilt as a quantum-risk engine.**

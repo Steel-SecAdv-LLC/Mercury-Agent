@@ -289,3 +289,31 @@ spec:
             summary: "Model inference errors detected"
             description: "{{ $value }} inference errors per second"
             runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/inference-errors.md"
+
+        # Input drift: the rows the model calls normal no longer match the
+        # training distribution, so its calibration may not hold. Decisions on
+        # those batches are already deferred; this pages a human to refit.
+        - alert: OmniMercuryDataDrift
+          expr: |
+            sum(increase(omni_drift_detected_total{app="mercury-agent",severity=~"MEDIUM|HIGH|CRITICAL"}[30m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Input distribution has drifted from the training data"
+            description: "{{ $value }} drift detections at MEDIUM or above in 30 minutes; decisions on the drifted batches were deferred"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/data-drift.md"
+
+        # Drift checks are running but have nothing to compare against.
+        - alert: OmniMercuryDriftBaselineMissing
+          expr: |
+            sum(increase(omni_drift_checks_total{app="mercury-agent",status="no_baseline"}[30m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Drift detection has no reference distribution"
+            description: "{{ $value }} drift checks in 30 minutes found no training reference: no model was fitted or loaded"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/data-drift.md"

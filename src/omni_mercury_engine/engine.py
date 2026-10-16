@@ -88,7 +88,9 @@ del _pqc_enforce
 import functools
 import gc
 import logging
+import os
 import threading
+import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
@@ -126,6 +128,7 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 )
 from omni_mercury_engine.core.metrics import (
     record_component_declined,
+    record_drift_check,
     record_inference_error,
     time_detection,
     time_feature_extraction,
@@ -183,7 +186,7 @@ from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
 
 # Runtime pipeline modules - always imported (required for core functionality)
-from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
+from omni_mercury_engine.ml.drift import DriftIncomparableError, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
@@ -1426,7 +1429,16 @@ class OmniMercuryEngine(LoggerMixin):
             - fairness_auditor: Bias auditing and fairness assessment
             - llm_detector: Zero-shot LLM-based anomaly detection (optional)
         """
-        self.drift_detector: EnsembleDriftDetector | None = None
+        # Drift detection is ON by default (EngineConfig.drift_detection;
+        # MERCURY_DRIFT_DETECTION=0 disables it). The reference is never an
+        # inference batch: it is set by enable_drift_detection(baseline) or
+        # fit_fusion(X, y), or derived from the fitted spatial detector's
+        # training rows on first use, and invalidated by every fit and load.
+        self.drift_detector: EnsembleDriftDetector | None = (
+            EnsembleDriftDetector(p_value_threshold=0.05) if self._drift_enabled() else None
+        )
+        self._drift_reference: np.ndarray[Any, Any] | None = None
+        self._drift_reference_source: str | None = None
         self.fairness_auditor: FairnessAuditor | None = None
         self.llm_detector: ZeroShotAnomalyDetector | None = None
         self.cognitive_orchestrator: CognitiveOrchestrator | None = None
@@ -1471,7 +1483,6 @@ class OmniMercuryEngine(LoggerMixin):
         # When set via enable_decision_layer(ledger=...), every detection's
         # decision is recorded; None keeps the serve path stateless.
         self.decision_ledger: DecisionLedger | None = None
-        self._baseline_features: np.ndarray[Any, Any] | None = None
 
         logger.debug("Runtime pipeline modules initialized")
 
@@ -2192,6 +2203,7 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active and sym_module is not None:
             sym_module.eval()
         self._fusion_trained = True
+        self._invalidate_drift_reference()
 
         logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
 
@@ -3273,26 +3285,171 @@ class OmniMercuryEngine(LoggerMixin):
         data and incoming detection requests. This is critical for detecting
         when model performance may degrade due to data drift.
 
+        Drift detection is on by default; call this to turn it back on after
+        ``MERCURY_DRIFT_DETECTION=0`` or ``EngineConfig(drift_detection=False)``,
+        or to supply the reference explicitly.
+
         Args:
-            baseline_data: Reference data for drift comparison. If None,
-                the first detection batch will be used as baseline.
+            baseline_data: Reference rows from the training distribution. If
+                None, the reference is derived from the fitted spatial
+                detector's training rows on first use. An inference batch is
+                never adopted as the reference: earlier versions did, which
+                made the first batch its own baseline (the leakage
+                ``require_explicit_fit`` exists to stop).
             feature_names: Optional names for features for detailed reporting.
 
         Example:
             >>> engine = OmniMercuryEngine()
             >>> engine.enable_drift_detection(training_data)
             >>> result = engine.detect_with_fusion(new_data)
-            >>> if result.get("drift_detected"):
+            >>> if result["drift_detection"]["is_drift"]:
             ...     print("Data drift detected!")
         """
-        self.drift_detector = EnsembleDriftDetector(
-            p_value_threshold=0.05,
-        )
+        if self.drift_detector is None:
+            self.drift_detector = EnsembleDriftDetector(p_value_threshold=0.05)
         self._drift_feature_names = feature_names
         if baseline_data is not None:
-            self._baseline_features = baseline_data
-            self.drift_detector.fit(baseline_data)
+            self._set_drift_reference(np.asarray(baseline_data), "enable_drift_detection")
         logger.info("Drift detection enabled")
+
+    def _drift_enabled(self) -> bool:
+        """Whether drift detection is configured on for this engine."""
+        if os.environ.get("MERCURY_DRIFT_DETECTION", "").strip().lower() in ("0", "false", "off"):
+            return False
+        return bool(getattr(self.config, "drift_detection", True))
+
+    def _invalidate_drift_reference(self) -> None:
+        """Forget the drift reference; a fit or load changes the training distribution."""
+        self._drift_reference = None
+        self._drift_reference_source = None
+
+    def _set_drift_reference(self, reference: np.ndarray[Any, Any], source: str) -> bool:
+        """Fit the drift detector on the reference rows the model calls normal.
+
+        Inference tests only the rows the model calls normal, so the reference
+        is filtered by the same rule (``score_fusion`` and the same threshold
+        function). Filtering the two sides differently was measured to raise
+        false drift: a radius-trimmed reference against model-filtered rows
+        flagged 12/12 in-distribution 200-row batches (covariance test).
+
+        Returns:
+            ``False`` when fewer than ``_DRIFT_MIN_ROWS`` usable rows remain.
+        """
+        if self.drift_detector is None:
+            return False
+        ref = np.asarray(reference, dtype=np.float64)
+        if ref.ndim != 2:
+            return False
+        ref = ref[np.isfinite(ref).all(axis=1)]
+        if self._fusion_trained and len(ref) >= self._DRIFT_MIN_ROWS:
+            probs = np.asarray(self.score_fusion(ref), dtype=np.float64).reshape(-1)
+            threshold = self._get_anomaly_threshold(float(probs[0]), probs)
+            ref = ref[probs <= threshold]
+            source = f"{source}:model_normals"
+        if len(ref) < self._DRIFT_MIN_ROWS:
+            return False
+        self.drift_detector.fit(ref)
+        self._drift_reference = ref
+        self._drift_reference_source = source
+        return True
+
+    def _ensure_drift_reference(self) -> bool:
+        """Derive the reference from the training rows if none is set.
+
+        The fitted spatial detector keeps every training row (``lof_points``),
+        so a loaded checkpoint, including the shipped one, needs no extra
+        field. Without it, the 100-row training sample kept for explanations
+        is used. The derivation runs once per fit or load.
+        """
+        if self._drift_reference is not None:
+            return True
+        spatial = self.detectors.get("spatial")
+        exporter = getattr(spatial, "get_fitted_state", None)
+        state = exporter() if callable(exporter) else None
+        if state:
+            return self._set_drift_reference(
+                np.asarray(state["lof_points"], dtype=np.float64), "training_rows"
+            )
+        if self._fusion_background is not None:
+            return self._set_drift_reference(self._fusion_background, "training_sample")
+        return False
+
+    #: Fewest rows a drift test runs on (reference or tested batch).
+    _DRIFT_MIN_ROWS = 20
+
+    def _drift_payload(
+        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any
+    ) -> dict[str, Any] | None:
+        """Test this batch's normal-looking rows for drift against the reference.
+
+        Only the rows the model calls normal are tested, so a batch with a few
+        anomalies is not reported as drifted for containing them. Statuses:
+        ``tested``; ``no_baseline`` (no reference yet); ``incomparable`` (a
+        different number of features); ``insufficient_rows`` (fewer than
+        ``_DRIFT_MIN_ROWS`` normal-looking rows). Only ``tested`` can report
+        drift, so the others never defer a decision.
+        """
+        if self.drift_detector is None:
+            return None
+        started = time.perf_counter()
+        payload: dict[str, Any] = {"is_drift": None, "severity": None, "p_value": None}
+        x = np.asarray(data, dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+        if not self._ensure_drift_reference():
+            payload.update(status="no_baseline", message="no drift reference: fit or load a model")
+        else:
+            assert self._drift_reference is not None
+            payload.update(
+                reference_rows=len(self._drift_reference),
+                reference_source=self._drift_reference_source,
+            )
+            normal = np.ones(len(x), dtype=bool)
+            if is_anomaly_rows is not None:
+                flags = np.asarray(is_anomaly_rows, dtype=bool).reshape(-1)
+                if flags.shape[0] == len(x):
+                    normal = ~flags
+            rows = x[normal & np.isfinite(x).all(axis=1)]
+            payload.update(n_tested=len(rows), inlier_fraction=float(normal.mean()))
+            if x.shape[1] != self._drift_reference.shape[1]:
+                payload.update(
+                    status="incomparable",
+                    message=(
+                        f"input has {x.shape[1]} features; the reference has "
+                        f"{self._drift_reference.shape[1]}"
+                    ),
+                )
+            elif len(rows) < self._DRIFT_MIN_ROWS:
+                payload.update(
+                    status="insufficient_rows",
+                    message=f"{len(rows)} normal-looking rows; at least {self._DRIFT_MIN_ROWS} are tested",
+                )
+            else:
+                try:
+                    found = self.drift_detector.detect(rows)
+                except DriftIncomparableError as exc:  # defensive: widths were checked
+                    payload.update(status="incomparable", message=str(exc))
+                else:
+                    payload.update(
+                        status="tested",
+                        is_drift=bool(found.is_drift),
+                        severity=found.severity.name if found.is_drift else "NONE",
+                        p_value=float(found.p_value),
+                        message=found.message,
+                    )
+                    if found.is_drift:
+                        logger.warning(
+                            "Data drift detected: severity=%s (%s rows tested against %s)",
+                            found.severity.name,
+                            len(rows),
+                            self._drift_reference_source,
+                        )
+        record_drift_check(
+            payload["status"],
+            payload["severity"] if payload["is_drift"] else None,
+            time.perf_counter() - started,
+        )
+        return payload
 
     def enable_fairness_auditing(
         self,
@@ -3866,38 +4023,6 @@ class OmniMercuryEngine(LoggerMixin):
         )
         self.llm_detector = ZeroShotAnomalyDetector(config=llm_config)
         logger.info(f"LLM enhancement enabled with provider={provider}")
-
-    def _check_drift(
-        self,
-        features: np.ndarray[Any, Any],
-    ) -> DriftResult | None:
-        """Check for data drift against baseline.
-
-        Args:
-            features: Current feature data to check for drift.
-
-        Returns:
-            DriftResult if drift detection is enabled, None otherwise.
-        """
-        if self.drift_detector is None:
-            return None
-
-        if self._baseline_features is None:
-            self._baseline_features = features
-            self.drift_detector.fit(features)
-            return None
-
-        try:
-            drift_result = self.drift_detector.detect(features)
-            if drift_result.is_drift:
-                logger.warning(
-                    f"Data drift detected: severity={drift_result.severity.name}, "
-                    f"p_value={drift_result.p_value:.4f}"
-                )
-            return drift_result
-        except Exception as e:
-            logger.error(f"Drift detection error: {e}")
-            return None
 
     def _audit_fairness(
         self,
@@ -5441,22 +5566,17 @@ class OmniMercuryEngine(LoggerMixin):
         if equation_profile_metadata is not None:
             result["equation_profile"] = equation_profile_metadata
 
-        # Runtime Pipeline Integration: Drift Detection
+        # Runtime Pipeline Integration: Drift Detection (on by default)
         if self.drift_detector is not None:
+            drift_input: np.ndarray[Any, Any] | None = None
             if isinstance(data, np.ndarray):
-                drift_result = self._check_drift(data)
+                drift_input = data
             elif isinstance(data, torch.Tensor):
-                drift_result = self._check_drift(data.cpu().numpy())
-            else:
-                drift_result = None
-
-            if drift_result is not None:
-                result["drift_detection"] = {
-                    "is_drift": drift_result.is_drift,
-                    "severity": drift_result.severity.name if drift_result.severity else None,
-                    "p_value": drift_result.p_value,
-                    "message": drift_result.message,
-                }
+                drift_input = data.detach().cpu().numpy()
+            if drift_input is not None:
+                drift_payload = self._drift_payload(drift_input, result.get("is_anomaly_rows"))
+                if drift_payload is not None:
+                    result["drift_detection"] = drift_payload
 
         # Online drift recalibration: feed this batch's calibrated scores to the
         # adaptive conformal threshold so the operating point tracks score drift
@@ -6422,6 +6542,7 @@ class OmniMercuryEngine(LoggerMixin):
             return
 
         checkpoint = safe_torch_load(path, map_location=self.device)
+        self._invalidate_drift_reference()
 
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             feature_dims = checkpoint.get("feature_dims")

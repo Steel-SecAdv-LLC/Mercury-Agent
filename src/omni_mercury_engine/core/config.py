@@ -286,6 +286,17 @@ class EngineConfig:
     Uses percentile-based thresholding when contamination is set.
     """
 
+    drift_detection: bool = True
+    """
+    Test every ``detect_with_fusion`` batch for distribution drift.
+
+    Only the rows the model calls normal are tested, against the training rows
+    the fitted spatial detector holds inside its radius (or the label-0 rows of
+    ``fit_fusion(X, y)``), so anomalies are not mistaken for drift. A detected
+    drift demotes the decision to DEFER. ``MERCURY_DRIFT_DETECTION=0`` turns
+    it off process-wide.
+    """
+
     def __post_init__(self) -> None:
         """Initialize default detector and model configs."""
         if not self.detectors:

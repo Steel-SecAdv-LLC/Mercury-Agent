@@ -77,6 +77,22 @@ class DriftResult:
         }
 
 
+class DriftIncomparableError(ValueError):
+    """The current data has a different number of features than the reference.
+
+    Earlier versions compared each extra feature against reference column 0
+    and reported the result as drift evidence, a comparison with no meaning.
+    """
+
+
+def _require_width(reference: np.ndarray[Any, Any], current: np.ndarray[Any, Any]) -> None:
+    if current.shape[1] != reference.shape[1]:
+        raise DriftIncomparableError(
+            f"current data has {current.shape[1]} features; the reference has "
+            f"{reference.shape[1]}, so the distributions cannot be compared"
+        )
+
+
 class KolmogorovSmirnovDriftDetector:
     """Kolmogorov-Smirnov test based drift detector.
 
@@ -147,12 +163,9 @@ class KolmogorovSmirnovDriftDetector:
         statistics = []
         feature_drifts = {}
 
+        _require_width(self.reference_data, current_data)
         for i in range(n_features):
-            ref_col = (
-                self.reference_data[:, i]
-                if self.reference_data.shape[1] > i
-                else self.reference_data[:, 0]
-            )
+            ref_col = self.reference_data[:, i]
             cur_col = current_data[:, i]
 
             statistic, p_value = stats.ks_2samp(ref_col, cur_col)
@@ -360,14 +373,11 @@ class PopulationStabilityIndexDetector:
         feature_drifts = {}
         n_ref = len(self.reference_data)
 
+        _require_width(self.reference_data, current_data)
         for i in range(n_features):
-            ref_col = (
-                self.reference_data[:, i]
-                if self.reference_data.shape[1] > i
-                else self.reference_data[:, 0]
-            )
+            ref_col = self.reference_data[:, i]
             cur_col = current_data[:, i]
-            edges = self.bin_edges[i] if i < len(self.bin_edges) else self.bin_edges[0]
+            edges = self.bin_edges[i]
 
             psi = self._calculate_psi(ref_col, cur_col, edges)
             psi_values.append(psi)
@@ -505,12 +515,9 @@ class ChiSquaredDriftDetector:
         statistics = []
         feature_drifts = {}
 
+        _require_width(self.reference_data, current_data)
         for i in range(n_features):
-            ref_counts = (
-                self.reference_counts[i]
-                if i < len(self.reference_counts)
-                else self.reference_counts[0]
-            )
+            ref_counts = self.reference_counts[i]
 
             # Get current counts
             cur_unique, cur_counts = np.unique(current_data[:, i], return_counts=True)
@@ -760,7 +767,8 @@ class CovarianceDriftDetector:
                 message=f"Covariance drift test skipped: {skipped}",
             )
         assert self._center is not None and self._projection is not None
-        assert self._reference_cov is not None
+        assert self._reference_cov is not None and self.reference_data is not None
+        _require_width(self.reference_data, cur)
         z = (cur - self._center) @ self._projection
         observed = self._distance(self._reference_cov, self._covariance(z))
         window = self._bucket(len(z))
@@ -896,9 +904,14 @@ class EnsembleDriftDetector:
         covariance_drift = bool(cov_result is not None and cov_result.is_drift)
         is_drift = marginal_drift or covariance_drift
 
-        # Combine severities (take max)
-        severities = [r.severity for r in results]
-        if cov_result is not None:
+        # Severity comes only from the tests that carried the decision. A
+        # voter that rejected alone, outvoted by the others, used to set the
+        # ensemble severity anyway, so "no drift" could arrive with severity
+        # HIGH and the decision layer deferred on it.
+        severities = [DriftSeverity.NONE]
+        if marginal_drift:
+            severities += [r.severity for r in results if r.is_drift]
+        if covariance_drift and cov_result is not None:
             severities.append(cov_result.severity)
         severity_order = [
             DriftSeverity.NONE,

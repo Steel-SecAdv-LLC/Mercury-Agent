@@ -228,6 +228,26 @@ DETECTOR_NONFINITE_CORRECTED = _create_counter(
     ["detector", "policy", "field"],
 )
 
+# Drift detection on the fusion path (``OmniMercuryEngine._drift_payload``).
+DRIFT_CHECKS = _create_counter(
+    "omni_drift_checks_total",
+    "Drift checks by outcome: tested, no_baseline, incomparable, insufficient_rows",
+    ["status"],
+)
+
+DRIFT_DETECTED = _create_counter(
+    "omni_drift_detected_total",
+    "Drift checks that rejected the no-drift hypothesis, by ensemble severity",
+    ["severity"],
+)
+
+DRIFT_CHECK_DURATION = _create_histogram(
+    "omni_drift_check_duration_seconds",
+    "Wall time of one drift check",
+    [],
+    buckets=(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25),
+)
+
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
     "omni_feature_cache_hits_total",
@@ -376,6 +396,20 @@ def record_component_declined(component: str) -> None:
         component: Name of the declining detector or model.
     """
     COMPONENT_DECLINED.labels(component=component).inc()
+
+
+def record_drift_check(status: str, severity: str | None, duration_seconds: float) -> None:
+    """Record one drift check.
+
+    Args:
+        status: How the check ended (``tested``, ``no_baseline``, ...).
+        severity: Ensemble severity name when drift was detected, else ``None``.
+        duration_seconds: Wall time of the check.
+    """
+    DRIFT_CHECKS.labels(status=status).inc()
+    if severity is not None:
+        DRIFT_DETECTED.labels(severity=severity).inc()
+    DRIFT_CHECK_DURATION.observe(duration_seconds)
 
 
 def set_detection_queue_depth(depth: int | None) -> None:
