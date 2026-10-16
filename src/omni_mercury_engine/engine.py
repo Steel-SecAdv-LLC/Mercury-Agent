@@ -85,10 +85,10 @@ from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_e
 _pqc_enforce()
 del _pqc_enforce
 
+import functools
 import gc
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
@@ -131,6 +131,12 @@ from omni_mercury_engine.core.metrics import (
     time_feature_extraction,
     time_fusion_inference,
     update_model_metrics,
+)
+from omni_mercury_engine.core.parallel_detectors import (
+    DetectorTask,
+    OutcomeStatus,
+    ParallelDetectorExecutor,
+    reraise,
 )
 
 # ---------------------------------------------------------------------------
@@ -181,7 +187,6 @@ from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
-from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.ml.symbolic_constraint import (
     SymbolicConstraintModule,
     SymbolicWeight,
@@ -559,6 +564,21 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+def _is_parallel_safe(component: Any, *, stateful_call: bool = False) -> bool:
+    """Whether ``component`` may run on the detector executor's pool.
+
+    Requires ``parallel_safe is True`` — identity, not truthiness, so a mock or
+    a misconfigured attribute never opts a component in by accident. For a
+    ``stateful_call`` (plain ``detect()``, which does not reset transient
+    state) a component whose streaming state is thread-local
+    (``thread_bound_state is True``) must instead run in the caller's thread,
+    so that the caller's own stream advances.
+    """
+    if getattr(component, "parallel_safe", False) is not True:
+        return False
+    return not (stateful_call and getattr(component, "thread_bound_state", False) is True)
+
+
 class FeatureCache:
     """Thread-safe LRU cache for computed features.
 
@@ -894,9 +914,6 @@ class OmniMercuryEngine(LoggerMixin):
     # Default batch size for processing
     DEFAULT_BATCH_SIZE = 32
 
-    # Maximum parallel workers for feature extraction
-    MAX_WORKERS = 4
-
     def __init__(
         self,
         config: EngineConfig | None = None,
@@ -1007,8 +1024,14 @@ class OmniMercuryEngine(LoggerMixin):
         self.feature_cache = FeatureCache(max_size=cache_size)
         self.memory_monitor = MemoryMonitor(threshold_mb=memory_threshold_mb)
 
-        # Thread pool for parallel processing
-        self._executor: ThreadPoolExecutor | None = None
+        # Concurrent detector execution (core/parallel_detectors.py), sized by
+        # EngineConfig.num_workers; 1 runs every detector sequentially. Only
+        # detectors that declare ``parallel_safe = True`` go to the pool, so a
+        # detector that touches process-global state keeps its sequential,
+        # in-order semantics. Fitting is never parallelised.
+        self.detector_executor = ParallelDetectorExecutor(
+            max_workers=max(1, int(self.config.num_workers))
+        )
 
         # Ethical boundary scorer — constructed eagerly at engine init so
         # the first call to ``detect_with_fusion`` cannot race the gate
@@ -1394,15 +1417,13 @@ class OmniMercuryEngine(LoggerMixin):
     def _init_runtime_pipeline(self) -> None:
         """Initialize runtime pipeline integration modules.
 
-        Sets up drift detection, fairness auditing, optimization, and LLM
+        Sets up drift detection, fairness auditing, and LLM
         enhancement components for the detection pipeline. These modules
         provide optional stages that can be enabled via configuration.
 
         Components initialized:
             - drift_detector: Ensemble drift detector for distribution monitoring
             - fairness_auditor: Bias auditing and fairness assessment
-            - optimization_config: Performance optimization settings
-            - parallel_executor: Parallel execution manager
             - llm_detector: Zero-shot LLM-based anomaly detection (optional)
         """
         self.drift_detector: EnsembleDriftDetector | None = None
@@ -1451,18 +1472,6 @@ class OmniMercuryEngine(LoggerMixin):
         # decision is recorded; None keeps the serve path stateless.
         self.decision_ledger: DecisionLedger | None = None
         self._baseline_features: np.ndarray[Any, Any] | None = None
-
-        self.optimization_config = OptimizationConfig(
-            enable_joblib=True,
-            n_jobs=self.MAX_WORKERS,
-            enable_torch_compile=False,
-            enable_memory_tracking=True,
-            memory_threshold_mb=self.memory_monitor.threshold_mb,
-        )
-
-        self.parallel_executor = ParallelExecutor(
-            n_jobs=self.optimization_config.n_jobs,
-        )
 
         logger.debug("Runtime pipeline modules initialized")
 
@@ -3972,16 +3981,6 @@ class OmniMercuryEngine(LoggerMixin):
             logger.error(f"LLM enhancement error: {e}")
             return None
 
-    def _get_executor(self) -> ThreadPoolExecutor:
-        """Get or create thread pool executor.
-
-        Returns:
-            ThreadPoolExecutor for parallel processing.
-        """
-        if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=self.MAX_WORKERS)
-        return self._executor
-
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
@@ -4028,7 +4027,12 @@ class OmniMercuryEngine(LoggerMixin):
 
         results = {}
 
-        for detector_name in detector_types:
+        # Fit sequentially (fits mutate detector state and some seed the
+        # global torch RNG), then run the fitted detectors through the
+        # detector executor. A failure is re-raised after every detector has
+        # finished, as the first failure in ``detector_types`` order.
+        runnable: list[tuple[str, Any]] = []
+        for detector_name in dict.fromkeys(detector_types):
             if detector_name in self.detectors:
                 detector = self.detectors[detector_name]
 
@@ -4039,15 +4043,30 @@ class OmniMercuryEngine(LoggerMixin):
 
                 if isinstance(data, dict):
                     continue
-                try:
-                    with time_detection(detector_name):
-                        results[detector_name] = detector.detect(data)
-                except InputModalityError:
-                    record_component_declined(detector_name)
-                    raise
-                except Exception:
-                    record_inference_error(detector_name)
-                    raise
+                runnable.append((detector_name, detector))
+
+        outcomes = self.detector_executor.run(
+            [
+                DetectorTask(
+                    name,
+                    functools.partial(self._timed_detector_call, name, detector, data),
+                    parallel_safe=_is_parallel_safe(detector, stateful_call=True),
+                )
+                for name, detector in runnable
+            ]
+        )
+        failure = None
+        for outcome in outcomes:
+            if outcome.ok:
+                results[outcome.name] = outcome.value
+                continue
+            if outcome.status is OutcomeStatus.DECLINED:
+                record_component_declined(outcome.name)
+            else:
+                record_inference_error(outcome.name)
+            failure = failure or outcome
+        if failure is not None:
+            reraise(failure)
 
         return {
             "detectors": results,
@@ -4741,10 +4760,14 @@ class OmniMercuryEngine(LoggerMixin):
         detector_scores = {}
         detector_certificates: dict[str, Any] = {}
 
+        # Phase 1 (sequential): fail-loud or legacy auto-fit. Fitting mutates
+        # detector state and some fits seed the global torch RNG under
+        # fork_rng, so it never runs concurrently.
+        runnable: list[tuple[str, Any]] = []
         for name, detector in self.detectors.items():
             # Fail-loud (or legacy auto-fit) on an unfit detector. This runs
-            # OUTSIDE the try below so the fail-loud RuntimeError is not
-            # swallowed by the graceful per-detector skip handler.
+            # OUTSIDE the graceful per-detector skip handler below so the
+            # fail-loud RuntimeError is not swallowed.
             if not detector.is_fitted() and not isinstance(data, dict):
                 if self._require_explicit_fit:
                     raise RuntimeError(
@@ -4768,39 +4791,30 @@ class OmniMercuryEngine(LoggerMixin):
                 self._inference_auto_fit_detectors.add(name)
                 detector.fit(data)
 
+            if isinstance(data, dict) and not detector.is_fitted():
+                continue
+            runnable.append((name, detector))
+
+        # Phase 2: compute. Parallel-safe detectors run concurrently on the
+        # detector executor; the rest run in order in this thread.
+        outcomes = self.detector_executor.run(
+            [
+                DetectorTask(
+                    name,
+                    functools.partial(self._cached_detector_features, name, detector, data),
+                    parallel_safe=_is_parallel_safe(detector),
+                )
+                for name, detector in runnable
+            ]
+        )
+
+        # Phase 3: assemble in detector order under the same graceful-skip
+        # contract as before.
+        for outcome in outcomes:
+            name = outcome.name
             try:
-                if isinstance(data, dict) and not detector.is_fitted():
-                    continue
-
-                def compute_features(det: Any = detector, d: Any = data) -> tuple[Any, ...]:
-                    # Purity: start from clean transient state so the
-                    # features depend only on (fitted state, d) — see
-                    # _reset_transient_detector_state. Runs inside the
-                    # compute so a worker thread resets its *own*
-                    # thread-local state; cache hits skip recomputation
-                    # and stay deterministic by construction.
-                    reset_state = getattr(det, "reset_state", None)
-                    if callable(reset_state):
-                        reset_state()
-                    with time_feature_extraction(name):
-                        features = det.extract_features(d)
-                    with time_detection(name):
-                        result = det.detect(d)
-                    return features, result
-
-                # The feature cache keys on array/tensor bytes. Dict inputs were
-                # keyed by a constant placeholder (np.array([0])), collapsing every
-                # distinct dict payload onto one cache entry so the second and later
-                # dicts received the first payload's stale features. Compute dict
-                # inputs fresh; array/tensor inputs still use the cache.
-                if isinstance(data, dict):
-                    features, result = compute_features()
-                else:
-                    cache_key = self.feature_cache._make_key(data, prefix=f"detector_{name}")
-                    features, result = self.feature_cache.get_or_compute(
-                        cache_key, compute_features
-                    )
-
+                reraise(outcome)
+                features, result = outcome.value
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
@@ -4814,6 +4828,7 @@ class OmniMercuryEngine(LoggerMixin):
                 KeyError,
                 AttributeError,
                 IndexError,
+                TimeoutError,
             ) as e:
                 # OmniAnomalyException (DetectorException/ModelException/...) is a
                 # detector signalling "I cannot process this input" — the same
@@ -4822,15 +4837,58 @@ class OmniMercuryEngine(LoggerMixin):
                 # (_extract_fusion_features) already skips it via ``except
                 # Exception``; catching it here keeps the inference path's
                 # graceful-skip contract symmetric so one incompatible detector
-                # cannot crash detect_with_fusion.
+                # cannot crash detect_with_fusion. A detector that overran the
+                # executor's time budget is skipped the same way.
                 if isinstance(e, InputModalityError):
                     record_component_declined(name)
                 else:
                     record_inference_error(name)
-                logger.debug(f"Detector {name} feature extraction failed: {e}")
+                if isinstance(e, TimeoutError):
+                    logger.warning(f"Detector {name} skipped: {e}")
+                else:
+                    logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
         return detector_features, detector_scores, detector_certificates
+
+    def _timed_detector_call(self, name: str, detector: Any, data: Any) -> dict[str, Any]:
+        """Run ``detector.detect(data)`` under the detection-latency metric."""
+        with time_detection(name):
+            result: dict[str, Any] = detector.detect(data)
+        return result
+
+    def _cached_detector_features(self, name: str, detector: Any, data: Any) -> tuple[Any, Any]:
+        """Compute ``(features, detect_result)`` for one fitted detector, via the cache.
+
+        Thread-safe: the feature cache is lock-protected and each call resets
+        the detector's transient state in the thread doing the work.
+        """
+
+        def compute_features() -> tuple[Any, Any]:
+            # Purity: start from clean transient state so the features
+            # depend only on (fitted state, data) — see
+            # _reset_transient_detector_state. Runs inside the compute so a
+            # worker thread resets its *own* thread-local state; cache hits
+            # skip recomputation and stay deterministic by construction.
+            reset_state = getattr(detector, "reset_state", None)
+            if callable(reset_state):
+                reset_state()
+            with time_feature_extraction(name):
+                features = detector.extract_features(data)
+            with time_detection(name):
+                result = detector.detect(data)
+            return features, result
+
+        # The feature cache keys on array/tensor bytes. Dict inputs were keyed
+        # by a constant placeholder (np.array([0])), collapsing every distinct
+        # dict payload onto one cache entry so the second and later dicts
+        # received the first payload's stale features. Compute dict inputs
+        # fresh; array/tensor inputs still use the cache.
+        if isinstance(data, dict):
+            return compute_features()
+        cache_key = self.feature_cache._make_key(data, prefix=f"detector_{name}")
+        cached: tuple[Any, Any] = self.feature_cache.get_or_compute(cache_key, compute_features)
+        return cached
 
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
@@ -4908,36 +4966,6 @@ class OmniMercuryEngine(LoggerMixin):
                 continue
 
         return model_features, model_scores
-
-    def _extract_features_parallel(
-        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
-    ) -> tuple[Any, ...]:
-        """Extract features from all sources in parallel.
-
-        This method uses thread pool execution to extract features
-        from detectors and models concurrently.
-
-        Args:
-            data: Input data for feature extraction.
-
-        Returns:
-            Tuple of (all_features, all_scores) combining detector
-            and model features.
-        """
-        executor = self._get_executor()
-
-        # Submit parallel tasks
-        detector_future = executor.submit(self._extract_detector_features, data)
-        model_future = executor.submit(self._extract_model_features, data)
-
-        # Collect results
-        det_features, det_scores, _ = detector_future.result()
-        mod_features, mod_scores = model_future.result()
-
-        return (
-            {**det_features, **mod_features},
-            {**det_scores, **mod_scores},
-        )
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_subject)
     def detect_with_fusion(
@@ -6627,8 +6655,9 @@ class OmniMercuryEngine(LoggerMixin):
 
     def __del__(self) -> None:
         """Cleanup resources on deletion."""
-        if self._executor is not None:
-            self._executor.shutdown(wait=False)
+        executor = getattr(self, "detector_executor", None)
+        if executor is not None:
+            executor.shutdown(wait=False)
 
 
 # Legacy alias removed - project renamed to Mercury Agent

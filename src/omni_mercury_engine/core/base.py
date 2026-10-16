@@ -262,6 +262,21 @@ class BaseDetector(ABC):
     REQUIRED_RESULT_KEYS = {"anomaly_score", "is_anomaly"}
     OPTIONAL_RESULT_KEYS = {"severity", "confidence", "uncertainty", "scores", "metadata"}
 
+    #: True when ``extract_features`` and ``detect`` on a fitted instance touch
+    #: no process-global mutable state (the shared random generator, the global
+    #: torch RNG, unlocked module-level caches). Only such detectors are run
+    #: concurrently by the engine (see ``core/parallel_detectors.py``). The
+    #: default is the conservative ``False``: a detector runs sequentially, in
+    #: order, until it is verified and opts in.
+    parallel_safe: bool = False
+
+    #: True when ``detect`` keeps streaming state in thread-local storage, so
+    #: each calling thread owns its own stream. Such a detector is still run
+    #: concurrently on the feature path (which resets transient state first),
+    #: but plain ``detect()`` calls run it in the caller's thread so the
+    #: caller's stream is the one that advances.
+    thread_bound_state: bool = False
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize detector with configuration.
 

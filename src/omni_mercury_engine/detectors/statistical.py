@@ -185,6 +185,10 @@ class MercuryAnomalyDetector(BaseDetector):
        compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
 
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
+
     def __init__(
         self,
         config: dict[str, Any] | None = None,

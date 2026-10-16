@@ -58,9 +58,9 @@ Example:
 
 from __future__ import annotations
 
+import functools
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol
@@ -68,6 +68,11 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 
 from omni_mercury_engine._compat import HAS_TORCH
+from omni_mercury_engine.core.parallel_detectors import (
+    DetectorTask,
+    OutcomeStatus,
+    ParallelDetectorExecutor,
+)
 from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
 from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
@@ -1030,7 +1035,10 @@ class DetectorRegistry:
         self._category_index: dict[DetectorCategory, list[str]] = {
             cat: [] for cat in DetectorCategory
         }
-        self._executor: ThreadPoolExecutor | None = None
+        # Dedicated detector executor: keeps finished results when a detector
+        # overruns ``timeout_seconds``, returns results in request order, and
+        # runs only ``parallel_safe`` detectors concurrently.
+        self._executor: ParallelDetectorExecutor | None = None
         # Opt-in result cache (enable_feature_cache); the tensor-vs-ndarray
         # provenance of a hit is encoded in the cache key itself (|ft / |f),
         # so the registry keeps no side state that could outlive eviction.
@@ -1217,10 +1225,13 @@ class DetectorRegistry:
                 matching.append(name)
         return matching
 
-    def _get_executor(self) -> ThreadPoolExecutor:
+    def _get_executor(self) -> ParallelDetectorExecutor:
         """Get or create thread pool executor."""
         if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=self.max_workers)
+            self._executor = ParallelDetectorExecutor(
+                max_workers=self.max_workers,
+                thread_name_prefix="mercury-registry",
+            )
         return self._executor
 
     def extract_features(
@@ -1374,22 +1385,40 @@ class DetectorRegistry:
         results: dict[str, FeatureExtractionResult] = {}
 
         if parallel and len(names) > 1:
-            executor = self._get_executor()
-            futures = {executor.submit(self.extract_features, name, data): name for name in names}
-
-            for future in as_completed(futures, timeout=self.timeout_seconds):
-                name = futures[future]
-                try:
-                    results[name] = future.result()
-                except Exception as e:
-                    results[name] = FeatureExtractionResult(
-                        detector_name=name,
-                        features=None,
-                        scores=None,
-                        execution_time_ms=0,
-                        success=False,
-                        error=str(e),
+            # The old loop used ``as_completed(..., timeout=...)``: on expiry it
+            # raised TimeoutError out of the loop and lost every result that had
+            # already finished, and it returned results in completion order.
+            outcomes = self._get_executor().run(
+                [
+                    DetectorTask(
+                        name,
+                        functools.partial(self.extract_features, name, data),
+                        parallel_safe=getattr(
+                            self._detectors[name].instance, "parallel_safe", False
+                        )
+                        is True,
                     )
+                    for name in dict.fromkeys(names)
+                ],
+                timeout_s=self.timeout_seconds,
+            )
+            for outcome in outcomes:
+                if outcome.ok:
+                    results[outcome.name] = outcome.value
+                    continue
+                error = (
+                    f"timed out after {self.timeout_seconds:g}s"
+                    if outcome.status is OutcomeStatus.TIMEOUT
+                    else str(outcome.error)
+                )
+                results[outcome.name] = FeatureExtractionResult(
+                    detector_name=outcome.name,
+                    features=None,
+                    scores=None,
+                    execution_time_ms=outcome.duration_s * 1000.0,
+                    success=False,
+                    error=error,
+                )
         else:
             for name in names:
                 results[name] = self.extract_features(name, data)

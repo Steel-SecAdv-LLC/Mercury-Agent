@@ -218,6 +218,12 @@ class SigmaDirectiveDetector(BaseDetector):
         >>> anomalies = result["is_anomaly"]
     """
 
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
+    #: The memory buffer is per calling thread (see ``_get_thread_state``).
+    thread_bound_state = True
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize SigmaDirectiveDetector with configuration.
 
