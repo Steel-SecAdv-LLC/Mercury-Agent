@@ -54,6 +54,7 @@ from omni_mercury_engine.security.counterintelligence import (
     CounterintelligenceAssessment,
     CounterintelligenceAssessor,
 )
+from omni_mercury_engine.security.merit_attempt_log import MeritAttemptLog, log_from_env
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Fusion weights replace evidence scoring only on measured merit: at least
@@ -374,6 +375,7 @@ class IntelligenceFusionEngine:
         enable_neurosymbolic: bool = True,
         enable_cryptanalysis: bool = True,
         counterintelligence: bool = True,
+        merit_log: MeritAttemptLog | str | Path | None = None,
     ):
         """Initialize intelligence fusion engine.
 
@@ -386,6 +388,10 @@ class IntelligenceFusionEngine:
                 disciplines, and flagged reports are down-weighted. Reports
                 without source, provenance, time or location fields pass
                 through unchanged.
+            merit_log: Where merit-test attempts are counted across restarts
+                (:class:`~omni_mercury_engine.security.merit_attempt_log.MeritAttemptLog`
+                or its path). ``None`` uses ``$MERCURY_MERIT_ATTEMPT_LOG`` when
+                set, else counts on this instance only.
         """
         self.logger = logging.getLogger(__name__)
         self.enable_neurosymbolic = enable_neurosymbolic
@@ -399,6 +405,12 @@ class IntelligenceFusionEngine:
         self._trained = False
         self.merit: FusionMerit | None = None
         self._merit_attempts: list[MeritAttempt] = []
+        if merit_log is None:
+            self._merit_log: MeritAttemptLog | None = log_from_env()
+        elif isinstance(merit_log, MeritAttemptLog):
+            self._merit_log = merit_log
+        else:
+            self._merit_log = MeritAttemptLog(merit_log)
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 
@@ -445,10 +457,14 @@ class IntelligenceFusionEngine:
           attempt against the same held-out fingerprint must beat
           :func:`merit_alpha_for_attempt` (``MERIT_ALPHA`` halved per retry),
           bounding the false-admission probability over unlimited retries by
-          ``2 * MERIT_ALPHA``. The count lives on this engine instance only:
-          a new engine, a new process, or a held-out set changed by one case
-          starts from attempt 1. A checkpoint that fails to load is not a
-          merit test and is not counted.
+          ``2 * MERIT_ALPHA``. With a merit log (``merit_log`` or
+          ``$MERCURY_MERIT_ATTEMPT_LOG``) the count survives restarts and is
+          shared by every engine using that log; the attempt is reserved in
+          it before any case is scored, so an interrupted test still counts,
+          and a log that does not verify refuses the weights. Without one the
+          count lives on this engine instance only. A held-out set changed by
+          one case starts from attempt 1 either way. A checkpoint that fails
+          to load is not a merit test and is not counted.
 
         Args:
             path: Checkpoint file holding the network ``state_dict`` (either
@@ -489,6 +505,13 @@ class IntelligenceFusionEngine:
         candidate.load_state_dict(state)
         candidate.eval()
 
+        # The checkpoint is loadable, so this is a merit test: reserve its
+        # attempt number before scoring anything (see MeritAttemptLog).
+        if self._merit_log is not None:
+            attempt = self._merit_log.reserve(fingerprint, path)
+        else:
+            attempt = 1 + sum(a.fingerprint == fingerprint for a in self._merit_attempts)
+
         # Measured as fuse_intelligence decides: the same screen feeds both
         # the network (screened inputs) and the evidence path.
         screens = [self._screen(reports) for reports, _ in cases]
@@ -512,7 +535,6 @@ class IntelligenceFusionEngine:
         )
         network_only = int(np.sum(network_hits & ~evidence_hits))
         evidence_only = int(np.sum(evidence_hits & ~network_hits))
-        attempt = 1 + sum(a.fingerprint == fingerprint for a in self._merit_attempts)
         merit = FusionMerit(
             n_cases=len(cases),
             network_accuracy=float(network_hits.mean()),
@@ -525,6 +547,19 @@ class IntelligenceFusionEngine:
             alpha=merit_alpha_for_attempt(attempt),
         )
         self._merit_attempts.append(MeritAttempt(fingerprint, str(path), merit))
+        if self._merit_log is not None:
+            self._merit_log.record_result(
+                fingerprint,
+                attempt,
+                {
+                    "n_cases": merit.n_cases,
+                    "network_accuracy": merit.network_accuracy,
+                    "evidence_accuracy": merit.evidence_accuracy,
+                    "p_value": merit.p_value,
+                    "alpha": merit.alpha,
+                    "admitted": merit.admitted,
+                },
+            )
         if not merit.admitted:
             raise RuntimeError(
                 f"fusion weights from {path} refused: held-out accuracy "

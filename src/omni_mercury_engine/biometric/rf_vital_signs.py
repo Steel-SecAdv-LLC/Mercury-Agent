@@ -1645,7 +1645,13 @@ class _Prepared:
 
 
 def _require_consent(consent_confirmed: bool | ConsentRecord) -> None:
-    """Refuse unless consent is the literal ``True`` or a record with the right scope.
+    """Refuse unless consent is the literal ``True`` or a live record with the right scope.
+
+    A record whose ``withdrawn_at`` is set never authorises sensing again,
+    the same rule ``truth_decipher.require_consent`` applies to the CIT. The
+    subject and time checks of that function need the caller's subject id and
+    recording time, which these entry points do not take; callers that have
+    them (the API, CLI and MCP surfaces) run ``require_consent`` first.
 
     Raises:
         ConsentRequiredError: The ``truth_decipher`` class, shared by every
@@ -1654,6 +1660,10 @@ def _require_consent(consent_confirmed: bool | ConsentRecord) -> None:
     if consent_confirmed is True:
         return
     if isinstance(consent_confirmed, ConsentRecord):
+        if consent_confirmed.withdrawn_at is not None:
+            raise ConsentRequiredError(
+                "the subject has withdrawn consent to contactless vital-sign sensing"
+            )
         if VITAL_SIGNS_CONSENT_SCOPE in consent_confirmed.scope:
             return
         raise ConsentRequiredError(

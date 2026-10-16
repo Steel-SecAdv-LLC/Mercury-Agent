@@ -137,6 +137,17 @@ def test_withdrawn_consent_never_authorises_scoring() -> None:
         ConsentRecord("s", 5.0, CIT_CONSENT_SCOPE, "x", withdrawn_at=4.0)  # type: ignore[arg-type]
 
 
+def test_require_consent_checks_the_scope_it_is_given() -> None:
+    """Other consent-gated entry points reuse the same subject/time/withdrawal checks."""
+    vitals = "contactless_vital_signs"
+    record = ConsentRecord("subj-01", 0.0, frozenset({vitals}), "examiner-7")
+    assert require_consent(record, "subj-01", 10.0, scope=vitals) is record
+    with pytest.raises(ConsentRequiredError, match=CIT_CONSENT_SCOPE):
+        require_consent(record, "subj-01", 10.0)
+    with pytest.raises(ConsentRequiredError, match="different subject"):
+        require_consent(record, "subj-02", 10.0, scope=vitals)
+
+
 def test_consent_is_checked_before_any_question_is_read() -> None:
     def questions() -> Iterator[CITQuestion]:
         raise AssertionError("questions were read before consent was checked")

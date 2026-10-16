@@ -2516,31 +2516,38 @@ class ConsentRecord:
 
 
 def require_consent(
-    consent: ConsentRecord | None, subject_pseudonym: str, administered_at: float
+    consent: ConsentRecord | None,
+    subject_pseudonym: str,
+    administered_at: float,
+    *,
+    scope: str = CIT_CONSENT_SCOPE,
 ) -> ConsentRecord:
-    """Check that a consent record covers this CIT administration.
+    """Check that a consent record covers this administration.
 
     Args:
         consent: The consent record.
         subject_pseudonym: Pseudonymous id of the examinee.
-        administered_at: When the test was administered.
+        administered_at: When the test (or recording) was administered.
+        scope: The scope the record must include; the CIT's by default.
+            Other consent-gated entry points of the package pass their own
+            (for example ``rf_vital_signs.VITAL_SIGNS_CONSENT_SCOPE``).
 
     Returns:
         The validated record.
 
     Raises:
         ConsentRequiredError: If the record is missing, of the wrong type,
-            for another subject, does not include :data:`CIT_CONSENT_SCOPE`,
-            was obtained after the administration, or has been withdrawn.
+            for another subject, does not include ``scope``, was obtained
+            after the administration, or has been withdrawn.
     """
     if consent is None:
-        raise ConsentRequiredError("a ConsentRecord is required to score a CIT")
+        raise ConsentRequiredError(f"a ConsentRecord with scope {scope!r} is required")
     if not isinstance(consent, ConsentRecord):
         raise ConsentRequiredError("consent must be a ConsentRecord")
     if consent.subject_pseudonym != subject_pseudonym:
         raise ConsentRequiredError("the consent record is for a different subject")
-    if CIT_CONSENT_SCOPE not in consent.scope:
-        raise ConsentRequiredError(f"the consent scope does not include {CIT_CONSENT_SCOPE!r}")
+    if scope not in consent.scope:
+        raise ConsentRequiredError(f"the consent scope does not include {scope!r}")
     if consent.obtained_at > _finite(administered_at, "administered_at"):
         raise ConsentRequiredError("consent was obtained after the test was administered")
     if consent.withdrawn_at is not None:

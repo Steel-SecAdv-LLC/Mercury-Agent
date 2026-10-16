@@ -2183,3 +2183,76 @@ class TestWritersAndCrashes:
         lines = ledger.path.read_text().splitlines(keepends=True)
         ledger.path.write_text("".join(lines[:-1]))
         assert adj.main(["verify", "--ledger", str(ledger.path), "--expected-head", head]) == 1
+
+
+class TestSignedExport:
+    """An export signed at write time is checked on its own, away from the ledger."""
+
+    def _signed(self, tmp_path: Path) -> tuple[Path, dict[str, Any], Any]:
+        pair = mldsa().generate_keypair()
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        document = ledger.export("heldout", out, signing_keypair=(pair.public_key, pair.secret_key))
+        return out, document, pair
+
+    def test_a_signed_export_loads_under_its_pinned_key(self, tmp_path: Path) -> None:
+        out, document, pair = self._signed(tmp_path)
+        assert document["signature"]["algorithm"] == "ML-DSA-65"
+        pairs = load_export(out, expected_public_key_hex=pair.public_key.hex())
+        assert len(pairs) == 30
+
+    def test_an_edited_label_breaks_the_signature_without_the_ledger(self, tmp_path: Path) -> None:
+        out, document, pair = self._signed(tmp_path)
+        document["cases"][0]["label"] = 1 + document["cases"][0]["label"] % 5
+        out.write_text(json.dumps(document))
+        # The unsigned path could only catch this against the ledger; a
+        # signature catches it on a host that holds the file alone, pinned or not.
+        with pytest.raises(ExportRefused, match="altered after it was signed"):
+            load_export(out)
+        with pytest.raises(ExportRefused, match="altered after it was signed"):
+            load_export(out, expected_public_key_hex=pair.public_key.hex())
+
+    def test_a_re_signed_forgery_is_refused_under_the_pinned_key(self, tmp_path: Path) -> None:
+        out, document, pair = self._signed(tmp_path)
+        forger = mldsa().generate_keypair()
+        document["cases"][0]["label"] = 1 + document["cases"][0]["label"] % 5
+        unsigned = {k: v for k, v in document.items() if k != "signature"}
+        document["signature"] = adj._sign_export(unsigned, (forger.public_key, forger.secret_key))
+        out.write_text(json.dumps(document))
+        assert load_export(out)  # self-consistent under the forger's own key
+        with pytest.raises(ExportRefused, match="not signed by the pinned key"):
+            load_export(out, expected_public_key_hex=pair.public_key.hex())
+
+    def test_an_unsigned_export_is_refused_when_a_key_is_pinned(self, tmp_path: Path) -> None:
+        pair = mldsa().generate_keypair()
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        ledger.export("heldout", out)
+        assert len(load_export(out)) == 30  # unsigned stays loadable without a pin
+        with pytest.raises(ExportRefused, match="not signed"):
+            load_export(out, expected_public_key_hex=pair.public_key.hex())
+
+    def test_a_pinned_ledger_pins_its_exports(self, tmp_path: Path) -> None:
+        pair = mldsa().generate_keypair()
+        keys = (pair.public_key, pair.secret_key)
+        path = tmp_path / "l.jsonl"
+        wanted = sorted(set(ids_in("heldout", 30)) | set(ids_in("training", 10)))
+        items: list[Any] = []
+        for i, cid in enumerate(wanted):
+            items += case_items(cid, [1 + i % 5, 1 + i % 5])
+        pinned = AdjudicationLedger(
+            path, policy=AgreementPolicy(n_boot=50), expected_public_key_hex=pair.public_key.hex()
+        )
+        pinned.extend(items, signing_keypair=keys)
+        out = tmp_path / "heldout.json"
+        pinned.export("heldout", out)  # written without a signature
+        with pytest.raises(ExportRefused, match="not signed"):
+            load_export(out, ledger=pinned)
+        pinned.export("heldout", out, signing_keypair=keys)
+        assert load_export(out, ledger=pinned) == pinned.heldout_cases()
+
+    def test_export_without_a_file_returns_the_document(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        document = ledger.export("heldout", None)
+        assert len(document["cases"]) == 30
+        assert not list(tmp_path.glob("*.json"))

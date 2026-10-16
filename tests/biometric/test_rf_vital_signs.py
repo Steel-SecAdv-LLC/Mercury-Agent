@@ -240,6 +240,21 @@ class TestConsent:
         with pytest.raises(ConsentRequiredError):
             track_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
 
+    def test_withdrawn_consent_record_is_refused(self) -> None:
+        """Withdrawal blocks every later scoring, as it does for the CIT."""
+        d, _, _ = chest(30, 15, 70)
+        record = truth_decipher.ConsentRecord(
+            subject_pseudonym="subject-7",
+            obtained_at=0.0,
+            scope=frozenset({VITAL_SIGNS_CONSENT_SCOPE}),
+            obtained_by="examiner-2",
+            withdrawn_at=10.0,
+        )
+        with pytest.raises(ConsentRequiredError, match="withdrawn"):
+            estimate_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
+        with pytest.raises(ConsentRequiredError, match="withdrawn"):
+            track_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
+
 
 # ---------------------------------------------------------------------------
 # Hampel filter

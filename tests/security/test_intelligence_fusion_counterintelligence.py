@@ -474,6 +474,77 @@ def test_retries_on_one_heldout_set_are_recorded_and_alpha_spent(
     assert engine._trained
 
 
+def test_alpha_spending_survives_a_restart_through_the_merit_log(
+    gate_pool: dict[str, Any], tmp_path: Path
+) -> None:
+    """Regression: a new engine (a restarted server) used to start again at attempt 1."""
+    from omni_mercury_engine.security.merit_attempt_log import MeritAttemptLog
+
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]  # p = 1/32
+    log = tmp_path / "merit.jsonl"
+    with pytest.raises(RuntimeError, match="attempt 1"):
+        _engine(merit_log=log).load_trained_weights(gate_pool["zero"], heldout)
+    # Without the log this checkpoint is admitted at alpha (p = 1/32 < 0.05);
+    # with it, the restarted engine faces attempt 2 at alpha / 2 and refuses.
+    restarted = _engine(merit_log=log)
+    with pytest.raises(RuntimeError, match="attempt 2"):
+        restarted.load_trained_weights(gate_pool["checkpoint"], heldout)
+    assert not restarted._trained
+    kinds = [r["entry"]["kind"] for r in MeritAttemptLog(log).records()]
+    assert kinds == ["reservation", "result", "reservation", "result"]
+    assert _engine().load_trained_weights(gate_pool["checkpoint"], heldout).admitted
+
+
+def test_merit_log_from_environment(
+    gate_pool: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "env-merit.jsonl"
+    monkeypatch.setenv("MERCURY_MERIT_ATTEMPT_LOG", str(log))
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]
+    with pytest.raises(RuntimeError, match="attempt 1"):
+        _engine().load_trained_weights(gate_pool["zero"], heldout)
+    assert log.is_file()
+
+
+def test_a_tampered_merit_log_refuses_the_weights(
+    gate_pool: dict[str, Any], tmp_path: Path
+) -> None:
+    """Deleting one reservation from the middle cannot lower the attempt count."""
+    from omni_mercury_engine.security.merit_attempt_log import MeritLogError
+
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]
+    log = tmp_path / "merit.jsonl"
+    with pytest.raises(RuntimeError):
+        _engine(merit_log=log).load_trained_weights(gate_pool["zero"], heldout)
+    with pytest.raises(RuntimeError):
+        _engine(merit_log=log).load_trained_weights(gate_pool["zero"], heldout)
+    lines = log.read_text().splitlines(keepends=True)
+    log.write_text("".join(lines[2:]))  # drop the first attempt
+    engine = _engine(merit_log=log)
+    with pytest.raises(MeritLogError, match="chain breaks"):
+        engine.load_trained_weights(gate_pool["checkpoint"], heldout)
+    assert not engine._trained
+
+
+def test_an_interrupted_test_still_spends_its_attempt(
+    gate_pool: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The attempt is reserved before scoring, so crashing mid-test buys no retry."""
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]
+    log = tmp_path / "merit.jsonl"
+    engine = _engine(merit_log=log)
+
+    def crash(*_args: Any, **_kwargs: Any) -> Any:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(engine, "_trained_assessment", crash)
+    with pytest.raises(KeyboardInterrupt):
+        engine.load_trained_weights(gate_pool["checkpoint"], heldout)
+    monkeypatch.undo()
+    with pytest.raises(RuntimeError, match="attempt 2"):
+        _engine(merit_log=log).load_trained_weights(gate_pool["checkpoint"], heldout)
+
+
 def test_trained_path_defers_when_source_information_moves_reliability() -> None:
     # The network's features use the fixed discipline table; a graded source
     # moves the adjusted reliability, which only the evidence path can apply.

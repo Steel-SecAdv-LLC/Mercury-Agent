@@ -1455,12 +1455,23 @@ class AdjudicationLedger:
                 )
         return cases
 
-    def export(self, split: str, out: str | Path) -> dict[str, Any]:
+    def export(
+        self,
+        split: str,
+        out: str | Path | None,
+        *,
+        signing_keypair: tuple[bytes, bytes] | None = None,
+    ) -> dict[str, Any]:
         """Write one split's labels to a JSON file (see :func:`load_export`).
 
         Args:
             split: ``"heldout"`` or ``"training"``.
-            out: Destination file.
+            out: Destination file, or ``None`` to only return the document.
+            signing_keypair: Optional ML-DSA-65 ``(public_key, secret_key)``.
+                The document then carries a ``signature`` over the SHA3-256 of
+                its canonical form without the signature, so the file can be
+                checked on its own, away from the ledger (:func:`load_export`
+                with ``expected_public_key_hex``).
 
         Returns:
             The document written.
@@ -1492,7 +1503,10 @@ class AdjudicationLedger:
                 if c.split == split and c.eligible
             ],
         }
-        _atomic_write_text(Path(out), json.dumps(document, indent=2, sort_keys=True) + "\n")
+        if signing_keypair is not None:
+            document["signature"] = _sign_export(document, signing_keypair)
+        if out is not None:
+            _atomic_write_text(Path(out), json.dumps(document, indent=2, sort_keys=True) + "\n")
         return document
 
     def stats(self) -> dict[str, Any]:
@@ -1958,20 +1972,70 @@ def _signature_problem(signature: Any, digest: str, pinned: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _sign_export(
+    document: Mapping[str, Any], signing_keypair: tuple[bytes, bytes]
+) -> dict[str, Any]:
+    """Return the ``signature`` block for an export document (which must not carry one)."""
+    from omni_mercury_engine.security.crypto_api import MLDSAProvider
+
+    public_key, secret_key = signing_keypair
+    digest = _digest({k: v for k, v in document.items() if k != "signature"})
+    return {
+        "algorithm": "ML-DSA-65",
+        "public_key_hex": public_key.hex(),
+        "signed_digest": digest,
+        "value_hex": MLDSAProvider().sign(digest.encode(), secret_key).hex(),
+    }
+
+
+def export_signature_problem(
+    document: Mapping[str, Any], expected_public_key_hex: str | None = None
+) -> str | None:
+    """Return why an export's signature is unacceptable, or ``None`` when it is acceptable.
+
+    With ``expected_public_key_hex`` the document must be signed by that key.
+    Without it an unsigned document is acceptable (``None``), but a signature
+    that is present must still verify under the key it names: a signed file
+    edited afterwards is refused either way.
+
+    Args:
+        document: The parsed export.
+        expected_public_key_hex: The ML-DSA-65 key the export is pinned to.
+    """
+    signature = document.get("signature")
+    digest = _digest({k: v for k, v in document.items() if k != "signature"})
+    pinned = expected_public_key_hex.strip().lower() if expected_public_key_hex else None
+    if signature is None:
+        return "the export is not signed" if pinned is not None else None
+    if not isinstance(signature, dict) or signature.get("algorithm") != "ML-DSA-65":
+        return "the export's signature block is malformed"
+    if signature.get("signed_digest") != digest:
+        return "the export was altered after it was signed"
+    key = pinned if pinned is not None else str(signature.get("public_key_hex", "")).lower()
+    return _signature_problem(signature, digest, key)
+
+
 def load_export(
     path: str | Path,
     *,
     split: str = "heldout",
     ledger: AdjudicationLedger | None = None,
+    expected_public_key_hex: str | None = None,
 ) -> list[tuple[dict[str, Any], int]]:
     """Read an export written by :meth:`AdjudicationLedger.export`.
 
-    The file itself is unsigned JSON. Passed ``ledger``, every exported case
-    is re-derived from that ledger at the export's recorded head: the chain
-    (and pinned signatures) must verify and still contain that head, the
-    agreement gate and case minimum must pass there, and the file's cases
-    must equal the ledger's -- an edited label, payload or split is refused.
-    Without ``ledger`` only the file's structure and split are checked.
+    Passed ``ledger``, every exported case is re-derived from that ledger at
+    the export's recorded head: the chain (and pinned signatures) must verify
+    and still contain that head, the agreement gate and case minimum must
+    pass there, and the file's cases must equal the ledger's -- an edited
+    label, payload or split is refused. Without ``ledger`` only the file's
+    structure, split and signature are checked.
+
+    Signatures: an export signed at :meth:`AdjudicationLedger.export` is
+    checked here. With ``expected_public_key_hex`` (or, when it is omitted, a
+    ``ledger`` pinned to a key) the file must be signed by that key, which
+    lets a host that does not hold the ledger trust the file. A signature
+    that does not verify is refused even when no key is pinned.
 
     Args:
         path: The export file.
@@ -1979,6 +2043,7 @@ def load_export(
             of the other split is refused, so training cases can never be
             loaded as held-out cases.
         ledger: The ledger the export claims to come from.
+        expected_public_key_hex: The ML-DSA-65 key the export must be signed by.
 
     Returns:
         ``(intel_reports, label)`` pairs, ready for ``load_trained_weights``.
@@ -1986,7 +2051,8 @@ def load_export(
     Raises:
         ValueError: The file is not an adjudication export of ``split``, or a
             case is malformed.
-        ExportRefused: ``ledger`` does not verify, no longer contains the
+        ExportRefused: The signature is missing (when pinned), altered or
+            invalid; or ``ledger`` does not verify, no longer contains the
             export's head, or disagrees with the file.
     """
     if split not in SPLITS:
@@ -1994,6 +2060,12 @@ def load_export(
     document = _loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("schema") != EXPORT_SCHEMA:
         raise ValueError(f"{path} is not an adjudication export ({EXPORT_SCHEMA})")
+    pinned = expected_public_key_hex
+    if pinned is None and ledger is not None:
+        pinned = ledger.expected_public_key_hex
+    problem = export_signature_problem(document, pinned)
+    if problem is not None:
+        raise ExportRefused(f"{path}: {problem}")
     if document.get("split") != split:
         raise ValueError(
             f"{path} is a {document.get('split')!r} export; {split!r} was expected "
@@ -2212,6 +2284,12 @@ def main(argv: list[str] | None = None) -> int:
     export = commands.add_parser("export", parents=[common], help="export one split's labels")
     export.add_argument("--split", choices=SPLITS, required=True)
     export.add_argument("--out", type=Path, required=True)
+    export.add_argument(
+        "--signing-key",
+        type=Path,
+        default=None,
+        help="ML-DSA-65 key file (mercury.signing-key/v1) to sign the export with",
+    )
     args = parser.parse_args(argv)
     ledger = AdjudicationLedger(
         args.ledger,
@@ -2240,8 +2318,13 @@ def main(argv: list[str] | None = None) -> int:
         summary = ledger.stats()
         print(json.dumps(summary, indent=2))
         return 0 if summary["valid"] else 1
+    signing_keypair = None
+    if args.signing_key is not None:
+        from omni_mercury_engine.security.signing_keys import load_keypair
+
+        signing_keypair = load_keypair(args.signing_key)
     try:
-        document = ledger.export(args.split, args.out)
+        document = ledger.export(args.split, args.out, signing_keypair=signing_keypair)
     except ExportRefused as exc:
         print(json.dumps({"exported": False, "split": args.split, "reason": str(exc)}))
         return 1
@@ -2253,6 +2336,7 @@ def main(argv: list[str] | None = None) -> int:
                 "out": str(args.out),
                 "cases": len(document["cases"]),
                 "ledger_head_digest": document["ledger_head_digest"],
+                "signed": "signature" in document,
             }
         )
     )
@@ -2293,6 +2377,7 @@ __all__ = [
     "assess_agreement",
     "bootstrap_kappa_interval",
     "default_ledger_path",
+    "export_signature_problem",
     "load_export",
     "normalize_source_id",
     "outcome_from_ucdp_row",
