@@ -728,6 +728,7 @@ def test_cit_power_grows_with_the_design() -> None:
 
     small = cit_power(CITDesign(4, 5, 2), {"skin_conductance": 1.0}, sessions=300, seed=1)
     large = cit_power(CITDesign(10, 5, 4), {"skin_conductance": 1.0}, sessions=300, seed=1)
+    assert small.power.estimate is not None and large.power.estimate is not None
     assert large.power.estimate > small.power.estimate
 
 
