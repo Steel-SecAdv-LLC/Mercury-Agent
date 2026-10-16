@@ -392,9 +392,20 @@ class TestRealTime:
         # overlap the defect.
         x0, y0, x1, y1 = report.regions[0].box
         assert mask[y0:y1, x0:x1].any()
-        fast_ms = np.median([fast.analyze(image).timing_ms["total"] for _ in range(3)])
-        full_ms = np.median([fitted_analyzer.analyze(image).timing_ms["total"] for _ in range(3)])
-        assert fast_ms < full_ms
+        # The speed-up comes from doing less work: one coarse pyramid scale and
+        # a sparser patch grid. Assert that, deterministically. Wall-clock
+        # medians of a few calls on a shared CI runner flip under parallel
+        # load since the default profile stopped computing the lattice group
+        # on aperiodic textures (39a7fa9e) and the gap narrowed; latency itself
+        # is measured on an idle machine by benchmarks/vision_latency.py.
+        fitted_analyzer.analyze(image)
+        full = fitted_analyzer._last_features
+        fast_feats = fast._last_features
+        fast_cells = fast_feats.values.shape[0] * fast_feats.values.shape[1]
+        full_cells = full.values.shape[0] * full.values.shape[1]
+        assert set(fast_feats.scales) == {0.5} and len(set(full.scales)) > 1
+        assert fast_cells * fast_feats.values.shape[2] < full_cells * full.values.shape[2]
+        assert fast_cells < full_cells
 
 
 def _roundtrip(analyzer: VisualAnomalyAnalyzer) -> Any:
