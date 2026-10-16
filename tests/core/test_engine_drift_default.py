@@ -89,12 +89,74 @@ def test_a_different_width_is_incomparable_not_drift(shipped: OmniMercuryEngine)
 
 
 def test_an_inference_batch_never_becomes_the_reference() -> None:
-    engine = OmniMercuryEngine(mode="fusion")  # nothing fitted: no training rows
+    # The served configuration (require_explicit_fit=False) auto-fits the
+    # spatial detector on the first batch; its training rows are then that
+    # batch, which must not become the drift reference it is tested against.
+    engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
     batch = _normals(60, seed=41)
     for _ in range(2):
-        payload = engine._drift_payload(batch, None)
-        assert payload is not None and payload["status"] == "no_baseline"
+        result = engine.detect_with_fusion(batch)
+        assert "spatial" in engine._inference_auto_fit_detectors
+        drift = result["drift_detection"]
+        assert drift["status"] == "no_baseline" and drift["is_drift"] is None
     assert engine._drift_reference is None
+    spatial: Any = engine.detectors["spatial"]
+    assert spatial.get_fitted_state()  # the batch was there to take
+
+
+def test_a_failed_reference_derivation_is_not_retried_until_a_fit_or_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = OmniMercuryEngine(mode="fusion")
+    engine._fusion_background = _normals(100, seed=42).astype(np.float64)
+    attempts: list[str] = []
+
+    def too_few_rows(reference: Any, source: str) -> bool:
+        attempts.append(source)  # stands in for score_fusion over every training row
+        return False
+
+    monkeypatch.setattr(engine, "_set_drift_reference", too_few_rows)
+    for _ in range(3):
+        payload = engine._drift_payload(_normals(30, seed=43), None)
+        assert payload is not None and payload["status"] == "no_baseline"
+        assert "fewer than" in payload["message"]
+    assert attempts == ["training_sample"]
+    engine._invalidate_drift_reference()  # what every fit and load does
+    engine._drift_payload(_normals(30, seed=43), None)
+    assert attempts == ["training_sample"] * 2
+
+
+def test_an_explicit_baseline_survives_a_reload(shipped: OmniMercuryEngine) -> None:
+    try:
+        shipped.enable_drift_detection(_normals(400, seed=44))
+        assert shipped._drift_reference_source == "enable_drift_detection:model_normals"
+        shipped.load_default_fusion_checkpoint()
+        assert shipped._drift_reference is None
+        assert shipped._ensure_drift_reference()  # re-filtered by the reloaded model
+        assert shipped._drift_reference_source == "enable_drift_detection:model_normals"
+    finally:
+        shipped._drift_baseline = None
+        shipped._invalidate_drift_reference()
+
+
+def test_a_failing_drift_check_does_not_fail_detection(
+    shipped: OmniMercuryEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert shipped.drift_detector is not None
+
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("drift backend exploded")
+
+    monkeypatch.setattr(shipped.drift_detector, "detect", broken)
+    prometheus = pytest.importorskip("prometheus_client")
+    before = prometheus.REGISTRY.get_sample_value("omni_drift_checks_total", {"status": "error"})
+    result = shipped.detect_with_fusion(_normals(50, seed=45))
+    drift = result["drift_detection"]
+    assert drift["status"] == "error" and drift["is_drift"] is None
+    assert "RuntimeError" in drift["message"] and "exploded" not in drift["message"]
+    assert "anomaly_prob" in result  # the detection itself was returned
+    after = prometheus.REGISTRY.get_sample_value("omni_drift_checks_total", {"status": "error"})
+    assert after == (before or 0.0) + 1.0
 
 
 def test_loading_a_model_invalidates_the_reference(shipped: OmniMercuryEngine) -> None:

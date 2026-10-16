@@ -85,12 +85,25 @@ class DriftIncomparableError(ValueError):
     """
 
 
-def _require_width(reference: np.ndarray[Any, Any], current: np.ndarray[Any, Any]) -> None:
-    if current.shape[1] != reference.shape[1]:
+def _require_n_features(expected: int, current: np.ndarray[Any, Any]) -> None:
+    """Raise unless ``current`` has ``expected`` feature columns.
+
+    Args:
+        expected: Number of raw features the reference was fitted on.
+        current: Current batch ``[n_samples, n_features]``.
+
+    Raises:
+        DriftIncomparableError: When the widths differ.
+    """
+    if current.shape[1] != expected:
         raise DriftIncomparableError(
             f"current data has {current.shape[1]} features; the reference has "
-            f"{reference.shape[1]}, so the distributions cannot be compared"
+            f"{expected}, so the distributions cannot be compared"
         )
+
+
+def _require_width(reference: np.ndarray[Any, Any], current: np.ndarray[Any, Any]) -> None:
+    _require_n_features(reference.shape[1], current)
 
 
 class KolmogorovSmirnovDriftDetector:
@@ -634,6 +647,10 @@ class CovarianceDriftDetector:
         self._projection: np.ndarray[Any, Any] | None = None
         self._reference_cov: np.ndarray[Any, Any] | None = None
         self._null_cache: dict[int, np.ndarray[Any, Any]] = {}
+        # Raw width seen at fit. ``reference_data`` holds the *projected*
+        # reference (constant columns dropped, PCA-truncated to
+        # MAX_DIMENSION), so its width is not the width a batch must have.
+        self._n_features: int | None = None
         self.unavailable_reason: str | None = "not fitted"
 
     @property
@@ -656,6 +673,7 @@ class CovarianceDriftDetector:
             ref = ref.reshape(-1, 1)
         ref = ref[np.isfinite(ref).all(axis=1)]
         self._null_cache = {}
+        self._n_features = int(ref.shape[1])
         self.reference_data = None
         self._projection = None
         self._reference_cov = None
@@ -768,7 +786,8 @@ class CovarianceDriftDetector:
             )
         assert self._center is not None and self._projection is not None
         assert self._reference_cov is not None and self.reference_data is not None
-        _require_width(self.reference_data, cur)
+        assert self._n_features is not None
+        _require_n_features(self._n_features, cur)
         z = (cur - self._center) @ self._projection
         observed = self._distance(self._reference_cov, self._covariance(z))
         window = self._bucket(len(z))

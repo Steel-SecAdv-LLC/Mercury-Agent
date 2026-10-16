@@ -11,6 +11,7 @@ bit-identical to sequential execution.
 
 from __future__ import annotations
 
+import functools
 import threading
 import time
 from typing import Any
@@ -420,3 +421,243 @@ def test_registry_keeps_finished_results_when_one_detector_times_out() -> None:
     assert results["slow"].success is False
     assert "timed out" in (results["slow"].error or "")
     assert elapsed < 1.5
+
+
+# --------------------------------------------------------------------------
+# Deadline coverage, pool-retirement race, timeouts as breaker failures
+# --------------------------------------------------------------------------
+class TestDeadlineCoverage:
+    def test_a_lone_parallel_task_is_still_bounded_by_the_budget(self) -> None:
+        # With fewer than two parallel-safe tasks everything used to run in
+        # the calling thread, so the registry's timeout_seconds did not bind.
+        release = threading.Event()
+        ex = ParallelDetectorExecutor(max_workers=2)
+        try:
+            start = time.monotonic()
+            outcomes = ex.run(
+                [
+                    DetectorTask("hung", lambda: release.wait(5)),
+                    DetectorTask("seq", lambda: "s", parallel_safe=False),
+                ],
+                timeout_s=0.2,
+            )
+            assert time.monotonic() - start < 1.5
+            assert outcomes[0].status is OutcomeStatus.TIMEOUT
+            assert outcomes[1].value == "s"
+        finally:
+            release.set()
+            ex.shutdown(wait=True)
+
+    def test_a_lone_parallel_task_without_budget_runs_inline(self) -> None:
+        main = threading.current_thread().name
+        with ParallelDetectorExecutor(max_workers=2) as ex:
+            outcomes = ex.run([DetectorTask("a", lambda: threading.current_thread().name)])
+        assert outcomes[0].value == main
+
+    def test_sequential_tasks_outlasting_the_budget_are_logged(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with (
+            ParallelDetectorExecutor(max_workers=2) as ex,
+            caplog.at_level("WARNING", logger=parallel_detectors.__name__),
+        ):
+            outcomes = ex.run(
+                [
+                    DetectorTask("p", lambda: "p"),
+                    DetectorTask("seq", _sleeper(0.2, "s"), parallel_safe=False),
+                ],
+                timeout_s=0.05,
+            )
+        assert [o.value for o in outcomes] == ["p", "s"]  # sequential work is not cut
+        assert any("outside the deadline" in r.getMessage() for r in caplog.records)
+
+    def test_a_concurrent_retirement_cannot_break_submission(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The pool was fetched and then submitted to without the lock, so a
+        # retirement in between shut it down and ``submit`` raised
+        # RuntimeError out of run(). The racer retires the pool while the
+        # first task is being submitted; it must wait until all are queued.
+        from concurrent.futures import ThreadPoolExecutor
+
+        ex = ParallelDetectorExecutor(max_workers=2)
+        racers: list[threading.Thread] = []
+
+        class _RacingPool(ThreadPoolExecutor):
+            raced = False
+
+            def submit(self, *args: Any, **kwargs: Any) -> Any:
+                if not self.raced:
+                    self.raced = True
+                    racer = threading.Thread(target=ex._retire_pool, args=(self,))
+                    racer.start()
+                    racer.join(0.3)  # blocked on the pool lock under the fix
+                    racers.append(racer)
+                return super().submit(*args, **kwargs)
+
+        monkeypatch.setattr(parallel_detectors, "ThreadPoolExecutor", _RacingPool)
+        try:
+            outcomes = ex.run([DetectorTask(f"t{i}", functools.partial(int, i)) for i in range(3)])
+            assert [o.value for o in outcomes] == [0, 1, 2]
+            for racer in racers:
+                racer.join(5)
+                assert not racer.is_alive()
+            # The retired pool is gone; the next call gets a fresh one.
+            again = ex.run([DetectorTask("a", lambda: 1), DetectorTask("b", lambda: 2)])
+            assert [o.value for o in again] == [1, 2]
+        finally:
+            ex.shutdown(wait=True)
+
+
+class TestEngineDetectorTimeout:
+    def test_config_budget_reaches_the_executor(self) -> None:
+        from omni_mercury_engine import OmniMercuryEngine
+        from omni_mercury_engine.core.config import EngineConfig
+
+        engine = OmniMercuryEngine(config=EngineConfig(detector_timeout_s=0.5))
+        assert engine.detector_executor.timeout_s == 0.5
+        assert _engine(2).detector_executor.timeout_s is None  # default: no budget
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0])
+    def test_config_rejects_a_non_positive_budget(self, bad: float) -> None:
+        from omni_mercury_engine.core.config import EngineConfig
+
+        with pytest.raises(ValueError, match="detector_timeout_s"):
+            EngineConfig(detector_timeout_s=bad)
+
+    def test_an_overrunning_detector_is_skipped(self) -> None:
+        from omni_mercury_engine import OmniMercuryEngine
+        from omni_mercury_engine.core.config import EngineConfig
+
+        release = threading.Event()
+
+        class _Det:
+            parallel_safe = True
+
+            def __init__(self, hang: bool) -> None:
+                self.hang = hang
+
+            def is_fitted(self) -> bool:
+                return True
+
+            def extract_features(self, data: Any) -> np.ndarray[Any, Any]:
+                if self.hang:
+                    release.wait(5)
+                return np.zeros((len(data), 2), dtype=np.float32)
+
+            def detect(self, data: Any) -> dict[str, Any]:
+                return {"scores": np.zeros(len(data))}
+
+        engine = OmniMercuryEngine(config=EngineConfig(num_workers=2, detector_timeout_s=0.3))
+        detectors: dict[str, Any] = {"hung": _Det(hang=True), "fine": _Det(hang=False)}
+        engine.detectors = detectors
+        try:
+            start = time.monotonic()
+            features, scores, _ = engine._extract_detector_features(
+                np.random.default_rng(0).normal(size=(4, 3)).astype(np.float32)
+            )
+            assert time.monotonic() - start < 2.0
+            assert set(features) == {"fine"} and set(scores) == {"fine"}
+        finally:
+            release.set()
+            engine.detector_executor.shutdown(wait=True)
+
+
+class _HangingDetector:
+    parallel_safe = True
+
+    def __init__(self, release: threading.Event) -> None:
+        self.release = release
+        self.calls = 0
+
+    def is_fitted(self) -> bool:
+        return True
+
+    def extract_features(self, data: Any) -> np.ndarray[Any, Any]:
+        self.calls += 1
+        self.release.wait(10)
+        return np.zeros((len(data), 1))
+
+    def predict(self, data: Any) -> dict[str, Any]:
+        return {"scores": np.zeros(len(data))}
+
+
+class TestRegistryTimeoutAccounting:
+    def test_a_hung_detector_trips_its_breaker_instead_of_saturating_the_pool(self) -> None:
+        # A timeout recorded neither a breaker failure nor error_count, and
+        # the abandoned call later counted as a success, so the hung detector
+        # was relaunched every call, stranding a thread each time until the
+        # executor saturated and the healthy detectors failed too.
+        import uuid
+
+        from omni_mercury_engine.core.detector_registry import DetectorCategory, DetectorRegistry
+        from omni_mercury_engine.resilience import api_circuit_breakers
+        from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
+        from omni_mercury_engine.resilience.circuit_breaker import CircuitState
+
+        tag = uuid.uuid4().hex[:8]
+        hung, healthy = f"hung-{tag}", [f"ok{i}-{tag}" for i in range(2)]
+        release = threading.Event()
+        hanging = _HangingDetector(release)
+        registry = DetectorRegistry(max_workers=2, timeout_seconds=0.25)  # cap: 8 stranded
+        registry.register(hung, hanging, category=DetectorCategory.BASE)
+        for name in healthy:
+            registry.register(name, _SlowDetector(0.0, 2), category=DetectorCategory.BASE)
+        breaker = get_detector_breaker(hung)
+        threshold = breaker.config.failure_threshold
+        try:
+            for _ in range(threshold + 7):  # past the 8-thread cap without the fix
+                results = registry.extract_all_features(np.zeros((3, 2)), parallel=True)
+                for name in healthy:
+                    assert results[name].success, results[name].error
+                assert results[hung].success is False
+            assert breaker.state == CircuitState.OPEN
+            info = registry.get(hung)
+            assert info is not None and info.error_count == threshold
+            assert hanging.calls == threshold  # not relaunched once the breaker opened
+
+            # The abandoned calls now finish: none may count as a success.
+            release.set()
+            executor = registry._get_executor()
+            deadline = time.monotonic() + 10
+            while executor.overrun_running and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert executor.overrun_running == 0
+            assert breaker.get_stats()["total_successes"] == 0
+            assert breaker.state == CircuitState.OPEN
+            assert info.total_invocations == 0 and info.error_count == threshold
+        finally:
+            release.set()
+            for name in (hung, *healthy):
+                api_circuit_breakers._detector_breakers.pop(name, None)
+            if registry._executor is not None:
+                registry._executor.shutdown(wait=True)
+
+    def test_a_call_abandoned_before_it_started_never_runs(self) -> None:
+        from omni_mercury_engine.core.detector_registry import (
+            DetectorCategory,
+            DetectorRegistry,
+            _CallTicket,
+        )
+
+        release = threading.Event()
+        release.set()
+        detector = _HangingDetector(release)
+        registry = DetectorRegistry()
+        registry.register("never-started", detector, category=DetectorCategory.BASE)
+        ticket = _CallTicket()
+        assert ticket.abandon() is False  # nothing ran, so nothing to report
+        result = registry._extract_features("never-started", np.zeros((2, 2)), ticket)
+        assert result.success is False and detector.calls == 0
+
+    def test_ticket_reports_each_call_once(self) -> None:
+        from omni_mercury_engine.core.detector_registry import _CallTicket
+
+        finished = _CallTicket()
+        assert finished.start() and finished.finish()
+        assert finished.abandon() is False  # the worker already reported it
+
+        overran = _CallTicket()
+        assert overran.start()
+        assert overran.abandon() is True  # the caller reports the timeout
+        assert overran.finish() is False  # and the late completion is not reported

@@ -38,10 +38,15 @@ must be shared without pickling.
 Python threads cannot be killed. A task that overruns the deadline keeps
 running in its worker until it finishes; its result is discarded. The outcome
 says so, and the pool keeps serving the remaining workers.
+
+The deadline binds only the pool. A ``parallel_safe=False`` task runs to
+completion in the calling thread, so a budget does not bound it; when such
+tasks alone outlast the budget, a warning is logged.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -54,6 +59,8 @@ from omni_mercury_engine.core.exceptions import InputModalityError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DetectorTask",
@@ -180,14 +187,31 @@ class ParallelDetectorExecutor:
     # ------------------------------------------------------------------
     # Pool lifecycle
     # ------------------------------------------------------------------
-    def _get_pool(self) -> ThreadPoolExecutor:
+    def _current_pool(self) -> ThreadPoolExecutor:
+        """Return the live pool, creating it; the caller holds ``_pool_lock``."""
+        if self._pool is None:
+            self._pool = ThreadPoolExecutor(
+                max_workers=self.max_workers,
+                thread_name_prefix=self._thread_name_prefix,
+            )
+        return self._pool
+
+    def _submit_all(
+        self, tasks: Sequence[DetectorTask], started: dict[str, float]
+    ) -> tuple[ThreadPoolExecutor, dict[Future[TaskOutcome], DetectorTask]]:
+        """Submit ``tasks`` to the live pool atomically with respect to retirement.
+
+        Fetching the pool and submitting to it under one lock acquisition means
+        a concurrent :meth:`_retire_pool` or :meth:`shutdown` either retires
+        the pool before this call sees it (so a fresh pool is used) or after
+        every task is queued (queued work still runs). Fetching and submitting
+        separately let a retirement in between shut the pool down, and
+        ``submit`` then raised ``RuntimeError`` out of :meth:`run`.
+        """
         with self._pool_lock:
-            if self._pool is None:
-                self._pool = ThreadPoolExecutor(
-                    max_workers=self.max_workers,
-                    thread_name_prefix=self._thread_name_prefix,
-                )
-            return self._pool
+            pool = self._current_pool()
+            futures = {pool.submit(self._call_in_worker, t, started): t for t in tasks}
+        return pool, futures
 
     @property
     def overrun_running(self) -> int:
@@ -259,14 +283,18 @@ class ParallelDetectorExecutor:
 
         Parallel-safe tasks run on the pool; the others run sequentially in the
         calling thread while the pool works. A call from one of this executor's
-        own worker threads, a single-worker executor, or a batch with fewer than
-        two parallel-safe tasks runs everything sequentially.
+        own worker threads or a single-worker executor runs everything
+        sequentially, and so does a batch with fewer than two parallel-safe
+        tasks when no budget is set. With a budget, even a single parallel-safe
+        task goes to the pool, because the pool is what enforces the deadline.
 
         Args:
             tasks: The work to do. Task names must be unique.
             timeout_s: Wall-clock budget for this call, overriding the default.
-                Only parallel tasks can time out; sequential ones run to
-                completion in the calling thread.
+                Only parallel-safe tasks run under it and can time out;
+                ``parallel_safe=False`` tasks run to completion in the calling
+                thread, outside the deadline (a warning is logged when they
+                alone outlast it).
 
         Returns:
             Outcomes aligned with ``tasks``.
@@ -284,7 +312,12 @@ class ParallelDetectorExecutor:
         budget = self.timeout_s if timeout_s is None else timeout_s
 
         parallel = [t for t in tasks if t.parallel_safe]
-        if self.max_workers == 1 or len(parallel) < 2 or self._in_worker_thread():
+        # A lone parallel-safe task gains no concurrency from the pool, but
+        # without the pool nothing enforces the budget: the registry's
+        # ``timeout_seconds`` silently stopped binding when only one detector
+        # was parallel-safe.
+        too_few = not parallel or (len(parallel) < 2 and budget is None)
+        if self.max_workers == 1 or too_few or self._in_worker_thread():
             return [self._call(t) for t in tasks]
 
         stranded = self.overrun_running
@@ -304,15 +337,21 @@ class ParallelDetectorExecutor:
 
         deadline = None if budget is None else time.monotonic() + budget
         started: dict[str, float] = {}
-        pool = self._get_pool()
-        futures: dict[Future[TaskOutcome], DetectorTask] = {
-            pool.submit(self._call_in_worker, t, started): t for t in parallel
-        }
+        pool, futures = self._submit_all(parallel, started)
 
-        # The non-parallel tasks run here while the pool works.
+        # The non-parallel tasks run here while the pool works. They are not
+        # bound by the deadline: a thread cannot be interrupted, and these run
+        # in the caller's thread.
         outcomes: dict[str, TaskOutcome] = {
             t.name: self._call(t) for t in tasks if not t.parallel_safe
         }
+        if deadline is not None and outcomes and time.monotonic() > deadline:
+            logger.warning(
+                "Sequential (parallel_safe=False) tasks %s outlasted the %gs budget; "
+                "they run outside the deadline",
+                sorted(outcomes),
+                budget,
+            )
 
         pending = set(futures)
         while pending:

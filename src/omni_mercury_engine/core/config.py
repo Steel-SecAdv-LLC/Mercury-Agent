@@ -290,15 +290,36 @@ class EngineConfig:
     """
     Test every ``detect_with_fusion`` batch for distribution drift.
 
-    Only the rows the model calls normal are tested, against the training rows
-    the fitted spatial detector holds inside its radius (or the label-0 rows of
-    ``fit_fusion(X, y)``), so anomalies are not mistaken for drift. A detected
-    drift demotes the decision to DEFER. ``MERCURY_DRIFT_DETECTION=0`` turns
-    it off process-wide.
+    Only the rows the model calls normal are tested, against a reference
+    filtered by the same rule (``score_fusion`` and the serving threshold), so
+    anomalies are not mistaken for drift. The reference comes from an explicit
+    ``enable_drift_detection(baseline)`` if given, else from every training row
+    the fitted spatial detector keeps, else from the fusion training sample;
+    a detector auto-fit on an inference batch is never used. It is re-derived
+    after every fit and load. A detected drift demotes the decision to DEFER.
+    ``MERCURY_DRIFT_DETECTION=0`` turns it off process-wide.
+    """
+
+    detector_timeout_s: float | None = None
+    """
+    Wall-clock budget (seconds) for the parallel-safe detectors of one fusion pass.
+
+    A detector still running at the deadline is skipped for that pass (its
+    thread finishes on its own; the result is discarded). Detectors that are
+    not ``parallel_safe`` run in the calling thread and are not bounded.
+    ``None`` (default) waits for every detector.
     """
 
     def __post_init__(self) -> None:
-        """Initialize default detector and model configs."""
+        """Validate fields and initialize default detector and model configs.
+
+        Raises:
+            ValueError: ``detector_timeout_s`` is set and not positive.
+        """
+        if self.detector_timeout_s is not None and not self.detector_timeout_s > 0:
+            raise ValueError(
+                f"detector_timeout_s must be positive or None, got {self.detector_timeout_s}"
+            )
         if not self.detectors:
             self.detectors = {
                 "statistical": DetectorConfig(),
@@ -559,6 +580,9 @@ class ConfigurationManager:
             fusion_mode=FusionMode(self.get("fusion_mode", "hybrid")),
             batch_size=int(self.get("batch_size", 32) or 32),
             num_workers=int(self.get("num_workers", 4) or 4),
+            detector_timeout_s=(
+                float(timeout) if (timeout := self.get("detector_timeout_s")) is not None else None
+            ),
             model_path=self.get("model_path"),
             cache_dir=str(self.get("cache_dir", "./cache")),
             log_level=str(self.get("log_level", "INFO")),

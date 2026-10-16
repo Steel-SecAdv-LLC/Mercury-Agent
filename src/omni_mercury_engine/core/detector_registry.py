@@ -58,8 +58,10 @@ Example:
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -82,6 +84,85 @@ else:
     torch = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+
+class _CallTicket:
+    """Agreement between a registry call's worker and its caller on who reports it.
+
+    The executor abandons a call that overruns its budget but cannot stop the
+    thread running it. Before this ticket, the abandoned call was reported as
+    a plain failure result with no circuit-breaker failure and no
+    ``error_count``, and when its thread finally returned, ``breaker.call``
+    counted it as a *success*. A hung detector therefore never tripped its
+    breaker: it was relaunched on every call, each launch stranding a thread,
+    until the executor saturated and every healthy parallel-safe detector
+    failed with ``ExecutorSaturatedError``.
+
+    Exactly one side reports each call: the worker when it finishes first, the
+    caller (as a timeout) when it abandons a started call first. A call
+    abandoned before it started is skipped if its worker ever picks it up.
+    """
+
+    _PENDING, _RUNNING, _FINISHED, _ABANDONED = range(4)
+
+    def __init__(self) -> None:
+        """Create a ticket for a call that has not started."""
+        self._lock = threading.Lock()
+        self._state = self._PENDING
+
+    def start(self) -> bool:
+        """Mark the call running; ``False`` when it was abandoned before starting."""
+        with self._lock:
+            if self._state == self._ABANDONED:
+                return False
+            self._state = self._RUNNING
+            return True
+
+    def finish(self) -> bool:
+        """Mark the call finished; ``False`` when the caller already abandoned it."""
+        with self._lock:
+            if self._state == self._ABANDONED:
+                return False
+            self._state = self._FINISHED
+            return True
+
+    def abandon(self) -> bool:
+        """Abandon the call at the deadline.
+
+        Returns:
+            ``True`` when the call was running (a timeout the caller must
+            report); ``False`` when it had finished (the worker reported it) or
+            never started (nothing ran, so nothing failed).
+        """
+        with self._lock:
+            previous = self._state
+            if previous == self._FINISHED:
+                return False
+            self._state = self._ABANDONED
+            return previous == self._RUNNING
+
+
+def _record_breaker_outcome(breaker: Any, error: Exception | None) -> None:
+    """Feed one call's outcome to ``breaker`` through its public ``call`` API.
+
+    The detector runs outside ``breaker.call`` so that an abandoned call is
+    counted once, as a failure, at the deadline, and its late completion not
+    at all. Replaying the outcome through ``call`` records it exactly as a
+    wrapped call would. A breaker that opened meanwhile (another thread's
+    failures) rejects the replay; the outcome is then dropped, which is what
+    an open breaker does with any call.
+
+    Args:
+        breaker: The detector's circuit breaker.
+        error: The exception the call raised, or ``None`` for a success.
+    """
+
+    def _replay() -> None:
+        if error is not None:
+            raise error
+
+    with contextlib.suppress(Exception):
+        breaker.call(_replay)
 
 
 class DetectorCategory(Enum):
@@ -1252,6 +1333,25 @@ class DetectorRegistry:
         Returns:
             FeatureExtractionResult with features and metadata
         """
+        return self._extract_features(name, data, _CallTicket())
+
+    def _extract_features(
+        self,
+        name: str,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        ticket: _CallTicket,
+    ) -> FeatureExtractionResult:
+        """:meth:`extract_features` under a ticket the caller may abandon at a deadline.
+
+        Args:
+            name: Detector name
+            data: Input data
+            ticket: Shared with the caller; an abandoned call neither updates
+                the breaker nor the detector's statistics when it ends.
+
+        Returns:
+            FeatureExtractionResult with features and metadata
+        """
         if name not in self._detectors:
             return FeatureExtractionResult(
                 detector_name=name,
@@ -1277,10 +1377,19 @@ class DetectorRegistry:
 
         info = self._detectors[name]
         detector = info.instance
+        if not ticket.start():
+            return FeatureExtractionResult(
+                detector_name=name,
+                features=None,
+                scores=None,
+                execution_time_ms=0,
+                success=False,
+                error=f"Detector '{name}' abandoned at the deadline before it started",
+            )
         start_time = time.perf_counter()
 
         def _execute_detector() -> FeatureExtractionResult:
-            """Inner function to execute detector, wrapped by circuit breaker."""
+            """Run the detector; the caller reports the outcome to the breaker."""
             # Try to fit if needed. ``is_fitted`` is a method on the core
             # detector contract (core/base.py), but this registry is a
             # plugin boundary: registered detectors may expose it as a
@@ -1319,32 +1428,24 @@ class DetectorRegistry:
                     record_cache_miss(name)
                     self._store_result(cache_key, features, scores)
 
-            execution_time = (time.perf_counter() - start_time) * 1000
-
-            # Update stats
-            info.last_execution_time_ms = execution_time
-            info.total_invocations += 1
-            info.is_fitted = getattr(detector, "_is_fitted", True)
-
             return FeatureExtractionResult(
                 detector_name=name,
                 features=features,
                 scores=scores,
-                execution_time_ms=execution_time,
+                execution_time_ms=(time.perf_counter() - start_time) * 1000,
                 success=True,
             )
 
         try:
-            result: FeatureExtractionResult = breaker.call(_execute_detector)
-            return result
-
+            result = _execute_detector()
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000
-            info.error_count += 1
-            info.last_execution_time_ms = execution_time
-
+            if ticket.finish():
+                _record_breaker_outcome(breaker, e)
+                info.error_count += 1
+                info.last_execution_time_ms = execution_time
+            # else: abandoned at the deadline, already counted as a timeout.
             logger.debug(f"Feature extraction failed for '{name}': {e}")
-
             return FeatureExtractionResult(
                 detector_name=name,
                 features=None,
@@ -1353,6 +1454,37 @@ class DetectorRegistry:
                 success=False,
                 error=str(e),
             )
+
+        if ticket.finish():
+            _record_breaker_outcome(breaker, None)
+            info.last_execution_time_ms = result.execution_time_ms
+            info.total_invocations += 1
+            info.is_fitted = getattr(detector, "_is_fitted", True)
+        # else: a late completion of a call abandoned (and counted as a
+        # timeout) at the deadline. Its result is discarded by the executor,
+        # and it must not count as a success that resets the breaker.
+        return result
+
+    def _record_timeout(self, name: str, duration_s: float) -> None:
+        """Count a call abandoned at the deadline as a detector failure.
+
+        Args:
+            name: Detector name.
+            duration_s: How long the call had been running at the deadline.
+        """
+        info = self._detectors.get(name)
+        if info is not None:
+            info.error_count += 1
+            info.last_execution_time_ms = duration_s * 1000.0
+        _record_breaker_outcome(
+            get_detector_breaker(name),
+            TimeoutError(f"{name} exceeded the {self.timeout_seconds:g}s detector budget"),
+        )
+        logger.warning(
+            "Detector '%s' timed out after %gs; counted as a circuit-breaker failure",
+            name,
+            self.timeout_seconds,
+        )
 
     def extract_all_features(
         self,
@@ -1388,17 +1520,24 @@ class DetectorRegistry:
             # The old loop used ``as_completed(..., timeout=...)``: on expiry it
             # raised TimeoutError out of the loop and lost every result that had
             # already finished, and it returned results in completion order.
+            #
+            # When the executor is saturated by stranded overrun threads it
+            # refuses parallel work rather than running it in this thread:
+            # here nothing could bound a hung detector, and the caller would
+            # hang with it. Counting timeouts as breaker failures (below) is
+            # what keeps a hung detector from stranding threads until then.
+            tickets = {name: _CallTicket() for name in dict.fromkeys(names)}
             outcomes = self._get_executor().run(
                 [
                     DetectorTask(
                         name,
-                        functools.partial(self.extract_features, name, data),
+                        functools.partial(self._extract_features, name, data, tickets[name]),
                         parallel_safe=getattr(
                             self._detectors[name].instance, "parallel_safe", False
                         )
                         is True,
                     )
-                    for name in dict.fromkeys(names)
+                    for name in tickets
                 ],
                 timeout_s=self.timeout_seconds,
             )
@@ -1406,6 +1545,8 @@ class DetectorRegistry:
                 if outcome.ok:
                     results[outcome.name] = outcome.value
                     continue
+                if outcome.status is OutcomeStatus.TIMEOUT and tickets[outcome.name].abandon():
+                    self._record_timeout(outcome.name, outcome.duration_s)
                 error = (
                     f"timed out after {self.timeout_seconds:g}s"
                     if outcome.status is OutcomeStatus.TIMEOUT

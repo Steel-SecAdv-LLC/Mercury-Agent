@@ -231,7 +231,7 @@ DETECTOR_NONFINITE_CORRECTED = _create_counter(
 # Drift detection on the fusion path (``OmniMercuryEngine._drift_payload``).
 DRIFT_CHECKS = _create_counter(
     "omni_drift_checks_total",
-    "Drift checks by outcome: tested, no_baseline, incomparable, insufficient_rows",
+    "Drift checks by outcome: tested, no_baseline, incomparable, insufficient_rows, error",
     ["status"],
 )
 
@@ -247,6 +247,30 @@ DRIFT_CHECK_DURATION = _create_histogram(
     [],
     buckets=(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25),
 )
+
+#: Every ``status`` label ``_drift_payload`` reports.
+DRIFT_CHECK_STATUSES: tuple[str, ...] = (
+    "tested",
+    "no_baseline",
+    "incomparable",
+    "insufficient_rows",
+    "error",
+)
+
+#: Every ``severity`` label a detected drift carries: the names of
+#: ``ml.drift.DriftSeverity`` except ``NONE`` (not imported here, to keep this
+#: module free of the scipy dependency; a test pins the two together).
+DRIFT_SEVERITIES: tuple[str, ...] = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+# Pre-create every label series at 0. A Prometheus counter child exists only
+# once ``.labels()`` is called, and ``increase()`` needs two samples, so a
+# series born on its first ``.inc()`` reads that first increment as 0: the
+# first drift a pod detected never fired ``OmniMercuryDataDrift``.
+for _status in DRIFT_CHECK_STATUSES:
+    DRIFT_CHECKS.labels(status=_status)
+for _severity in DRIFT_SEVERITIES:
+    DRIFT_DETECTED.labels(severity=_severity)
+del _status, _severity
 
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
