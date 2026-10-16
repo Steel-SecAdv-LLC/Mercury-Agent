@@ -739,7 +739,8 @@ class IntelligenceFusionEngine:
         def weights_of(theta_free: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             theta = theta0.copy()
             theta[free] = theta_free
-            return 1.0 / (1.0 + np.exp(-theta))
+            # asarray: numpy 2.2 stubs (the 3.11 lane) give Any for this expression.
+            return np.asarray(1.0 / (1.0 + np.exp(-theta)), dtype=np.float64)
 
         def risk(w: npt.NDArray[np.float64], idx: npt.NDArray[np.intp]) -> npt.NDArray[np.float64]:
             m = mask[idx] * w

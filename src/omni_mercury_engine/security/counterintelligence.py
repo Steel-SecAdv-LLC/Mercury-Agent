@@ -702,7 +702,8 @@ def _per_source_loss(
     p = (prior_strength / 2.0 + weight * confirmed) / (prior_strength + weight * seen)
     p = np.clip(p, 1e-12, 1.0 - 1e-12)
     loss = -np.where(outcome > 0.5, np.log(p), np.log1p(-p))
-    return np.bincount(source, weights=loss, minlength=n_sources)
+    # asarray: numpy 2.2 stubs (the 3.11 lane) type weighted bincount as integer.
+    return np.asarray(np.bincount(source, weights=loss, minlength=n_sources), dtype=np.float64)
 
 
 def _last_crossing(grid: npt.NDArray[np.float64], excess: npt.NDArray[np.float64]) -> float:
