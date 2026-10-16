@@ -4315,7 +4315,8 @@ class OmniMercuryEngine(LoggerMixin):
                     parallel_safe=_is_parallel_safe(detector, stateful_call=True),
                 )
                 for name, detector in runnable
-            ]
+            ],
+            timeout_s=self._detector_budget(data),
         )
         failure = None
         for outcome in outcomes:
@@ -5059,7 +5060,8 @@ class OmniMercuryEngine(LoggerMixin):
                     parallel_safe=_is_parallel_safe(detector),
                 )
                 for name, detector in runnable
-            ]
+            ],
+            timeout_s=self._detector_budget(data),
         )
 
         # Phase 3: assemble in detector order under the same graceful-skip
@@ -5104,6 +5106,26 @@ class OmniMercuryEngine(LoggerMixin):
                 continue
 
         return detector_features, detector_scores, detector_certificates
+
+    def _detector_budget(self, data: Any) -> float | None:
+        """Wall-clock budget for one detector pass over ``data`` (``None``: unbounded).
+
+        ``EngineConfig.detector_timeout_s`` plus ``detector_timeout_per_row_s``
+        per row of ``data``; a mapping input (multi-modal) counts its largest
+        array's rows.
+        """
+        fixed = getattr(self.config, "detector_timeout_s", None)
+        if fixed is None:
+            return None
+        per_row = getattr(self.config, "detector_timeout_per_row_s", None)
+        if not per_row:
+            return float(fixed)
+        values = data.values() if isinstance(data, dict) else (data,)
+        rows = max(
+            (int(getattr(v, "shape", (len(v),))[0]) for v in values if hasattr(v, "__len__")),
+            default=0,
+        )
+        return float(fixed) + float(per_row) * rows
 
     def _timed_detector_call(self, name: str, detector: Any, data: Any) -> dict[str, Any]:
         """Run ``detector.detect(data)`` under the detection-latency metric."""

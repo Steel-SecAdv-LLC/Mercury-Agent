@@ -300,28 +300,50 @@ class EngineConfig:
     ``MERCURY_DRIFT_DETECTION=0`` turns it off process-wide.
     """
 
-    detector_timeout_s: float | None = 30.0
+    detector_timeout_s: float | None = 5.0
     """
-    Wall-clock budget (seconds) for the parallel-safe detectors of one pass.
+    Fixed part (seconds) of the wall-clock budget for the parallel-safe
+    detectors of one pass; ``detector_timeout_per_row_s`` adds the part that
+    grows with the batch. ``None`` waits for every detector.
 
-    The default, 30 s, is the detector registry's budget too: generous for any
-    single batch, but a hung detector cannot hold a request open. A detector
-    still running at the deadline is skipped in ``detect_with_fusion`` (its
-    thread finishes on its own; the result is discarded) and raises
-    ``TimeoutError`` from ``detect``. Detectors that are not ``parallel_safe``
-    run in the calling thread and are not bounded. ``None`` waits for every
-    detector.
+    Measured, not chosen (``benchmarks/detector_latency.py``,
+    ``benchmarks/results/detector_latency.json``): every served detector is
+    close to linear in the batch, so the budget is
+    ``detector_timeout_s + detector_timeout_per_row_s * rows`` -- 5.2 s for
+    256 rows, 28 s for 32,768, 76 s for 100,000. The previous fixed 30 s (the
+    registry's default) cancelled healthy work: the directive detector alone
+    took 287 s at 32,768 rows before its O(n^2) GSIS term was replaced, and
+    the cap fell on a batch of roughly 12,000 rows. A detector still running
+    at the deadline is skipped in ``detect_with_fusion`` (its thread finishes
+    on its own; the result is discarded) and raises ``TimeoutError`` from
+    ``detect``. Detectors that are not ``parallel_safe`` run in the calling
+    thread and are not bounded.
+    """
+
+    detector_timeout_per_row_s: float | None = 7.1e-4
+    """
+    Per-row part (seconds per batch row) of the detector budget: five times
+    the summed per-row latency of the served detectors measured at 32,768
+    rows (the sequential worst case, so it holds for any worker count, on a
+    host five times slower). ``None`` makes the budget the fixed
+    ``detector_timeout_s`` alone.
     """
 
     def __post_init__(self) -> None:
         """Validate fields and initialize default detector and model configs.
 
         Raises:
-            ValueError: ``detector_timeout_s`` is set and not positive.
+            ValueError: ``detector_timeout_s`` is set and not positive, or
+                ``detector_timeout_per_row_s`` is set and negative.
         """
         if self.detector_timeout_s is not None and not self.detector_timeout_s > 0:
             raise ValueError(
                 f"detector_timeout_s must be positive or None, got {self.detector_timeout_s}"
+            )
+        if self.detector_timeout_per_row_s is not None and not self.detector_timeout_per_row_s >= 0:
+            raise ValueError(
+                "detector_timeout_per_row_s must be non-negative or None, got "
+                f"{self.detector_timeout_per_row_s}"
             )
         if not self.detectors:
             self.detectors = {
@@ -585,7 +607,12 @@ class ConfigurationManager:
             num_workers=int(self.get("num_workers", 4) or 4),
             detector_timeout_s=(
                 float(timeout)
-                if (timeout := self.get("detector_timeout_s", 30.0)) is not None
+                if (timeout := self.get("detector_timeout_s", 5.0)) is not None
+                else None
+            ),
+            detector_timeout_per_row_s=(
+                float(per_row)
+                if (per_row := self.get("detector_timeout_per_row_s", 7.1e-4)) is not None
                 else None
             ),
             model_path=self.get("model_path"),

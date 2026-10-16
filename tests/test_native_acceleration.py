@@ -9,9 +9,10 @@ behavioral change. This module pins that contract:
 * ``DimensionalAnalyzer``: the batched-FFT DB term equals the original
   per-row scalar helpers (which remain shipped) — including the documented
   identically-zero spectral-divergence component.
-* ``SigmaDirectiveDetector``: the strided sliding-window variance and the
-  chunked pairwise-stability scores equal the original Python loops
-  (oracles preserved verbatim in this file).
+* ``SigmaDirectiveDetector``: the strided sliding-window variance equals
+  the original Python loop (oracle preserved verbatim in this file). Its
+  GSIS term was replaced (2026-10-16): the original scored every row 0.8
+  by construction; ``TestGSISDensity`` pins the replacement's behaviour.
 * ``MultiAgentOrchestrator``: the vectorized confidence-weighted consensus
   equals the per-sample ``ConsensusProtocol`` derivation, and the built-in
   runtime spot-check fails closed on any divergence.
@@ -145,29 +146,6 @@ class TestDirectiveVectorization:
         detector = SigmaDirectiveDetector()
         assert detector._detect_micro_anomalies(np.array([1.0, 2.0])) == 0.0
 
-    @pytest.mark.parametrize("seed", SEEDS)
-    @pytest.mark.parametrize("n", [1, 2, 5, 127, 130, 300])
-    def test_gravitational_stability_matches_original_loop(self, seed: int, n: int) -> None:
-        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
-
-        rng = np.random.default_rng(seed)
-        data = rng.normal(0, 1, (n, 6))
-        detector = SigmaDirectiveDetector()
-        produced = detector._gravitational_stability_check(data)
-
-        # Verbatim oracle of the pre-vectorization loop.
-        if n < 2:
-            expected = np.zeros(n)
-        else:
-            expected = np.zeros(n)
-            for i in range(n):
-                distances = np.linalg.norm(data - data[i], axis=1)
-                local_density = np.sum(distances < np.percentile(distances, 20))
-                expected[i] = 1.0 - local_density / n
-            expected = expected * detector.stability_factor
-
-        np.testing.assert_array_equal(produced, expected)
-
 
 # =============================================================================
 # Orchestrator — vectorized consensus vs the real ConsensusProtocol
@@ -290,48 +268,99 @@ class TestSpatialNumbaLaneParity:
         np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-12)
 
 
-@pytest.mark.skipif(_NUMBA_MISSING, reason="performance extra not installed")
-class TestGSISNumbaLaneParity:
-    """The GSIS numba kernel is bit-identical to the numpy broadcast lane."""
+class TestGSISDensity:
+    """GSIS scores density against the fitted baseline, at cost linear in the batch."""
 
-    def test_gsis_numba_lane_is_active(self) -> None:
-        from omni_mercury_engine.detectors import directive
+    @staticmethod
+    def _detector(seed: int = 0, n: int = 2000, d: int = 16) -> Any:
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
-        assert directive.GSIS_NUMBA_AVAILABLE is True
+        detector = SigmaDirectiveDetector()
+        detector.fit(np.random.default_rng(seed).normal(0, 1, (n, d)))
+        return detector
+
+    def test_the_original_form_was_constant(self) -> None:
+        """Regression record: the replaced formula gave every row the same score."""
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, (300, 6))
+        data[:5] += 8.0
+        scores = np.empty(len(data))
+        for i in range(len(data)):
+            distances = np.linalg.norm(data - data[i], axis=1)
+            scores[i] = 1.0 - np.sum(distances < np.percentile(distances, 20)) / len(data)
+        assert np.ptp(scores) == 0.0  # 8-sigma outliers indistinguishable
 
     @pytest.mark.parametrize("seed", SEEDS)
-    @pytest.mark.parametrize("shape", [(57, 3), (200, 7), (300, 21), (150, 130), (90, 1)])
-    def test_gsis_scores_identical_across_lanes(
-        self, seed: int, shape: tuple[int, int], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from omni_mercury_engine.detectors import directive
+    def test_outliers_score_higher_than_inliers(self, seed: int) -> None:
+        detector = self._detector(seed)
+        rng = np.random.default_rng(seed + 100)
+        batch = rng.normal(0, 1, (500, 16))
+        batch[:10] += 1.5
+        scores = detector._gravitational_stability_check(batch)
+        assert scores[:10].min() > np.median(scores[10:])
+        assert 0.4 < float(np.mean(scores[10:])) < 0.6  # typical rows sit mid-distribution
+        assert np.all((scores >= 0.0) & (scores <= 1.0))
 
-        rng = np.random.default_rng(seed)
-        data = rng.normal(0, 1, shape)
-        if seed % 2 == 1:  # duplicate-heavy: ties at the percentile boundary
-            base = rng.normal(0, 1, (max(4, shape[0] // 10), shape[1]))
-            data = base[rng.integers(0, len(base), shape[0])]
-        detector = directive.SigmaDirectiveDetector()
+    def test_unfitted_batch_is_its_own_reference(self) -> None:
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
-        produced_numba = detector._gravitational_stability_check(data)
-        monkeypatch.setattr(directive, "GSIS_NUMBA_AVAILABLE", False)
-        produced_numpy = detector._gravitational_stability_check(data)
+        rng = np.random.default_rng(1)
+        batch = rng.normal(0, 1, (400, 8))
+        batch[:5] += 8.0
+        scores = SigmaDirectiveDetector()._gravitational_stability_check(batch)
+        assert scores[:5].min() > 0.95 > float(np.mean(scores[5:]))
 
-        np.testing.assert_array_equal(produced_numba, produced_numpy)
+    def test_non_finite_rows_score_one_and_leave_others_unchanged(self) -> None:
+        detector = self._detector()
+        batch = np.random.default_rng(2).normal(0, 1, (100, 16))
+        clean = detector._gravitational_stability_check(batch)
+        batch[7, 3] = np.nan
+        dirty = detector._gravitational_stability_check(batch)
+        assert dirty[7] == 1.0
+        np.testing.assert_array_equal(np.delete(dirty, 7), np.delete(clean, 7))
 
-    def test_non_float64_uses_numpy_semantics(self) -> None:
-        """float32 input keeps float32 arithmetic (the numpy lane)."""
-        from omni_mercury_engine.detectors import directive
+    def test_stability_factor_scales_the_score(self) -> None:
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
-        data = np.random.default_rng(3).normal(0, 1, (60, 9)).astype(np.float32)
-        detector = directive.SigmaDirectiveDetector()
-        produced = detector._gravitational_stability_check(data)
-        expected = np.zeros(60)
-        for i in range(60):
-            distances = np.linalg.norm(data - data[i], axis=1)
-            local_density = np.sum(distances < np.percentile(distances, 20))
-            expected[i] = 1.0 - local_density / 60
-        np.testing.assert_array_equal(produced, expected * detector.stability_factor)
+        train = np.random.default_rng(3).normal(0, 1, (300, 4))
+        batch = np.random.default_rng(4).normal(0, 1, (50, 4))
+        plain = SigmaDirectiveDetector().fit(train)._gravitational_stability_check(batch)
+        scaled = SigmaDirectiveDetector({"stability_factor": 1.4}).fit(train)
+        np.testing.assert_allclose(scaled._gravitational_stability_check(batch), plain * 1.4)
+
+    def test_fitted_state_round_trips_the_reference(self) -> None:
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+        detector = self._detector()
+        batch = np.random.default_rng(5).normal(0, 1, (64, 16))
+        restored = SigmaDirectiveDetector()
+        state = detector.get_fitted_state()
+        assert state is not None
+        restored.set_fitted_state(state)
+        np.testing.assert_array_equal(
+            restored._gravitational_stability_check(batch),
+            detector._gravitational_stability_check(batch),
+        )
+        legacy = SigmaDirectiveDetector()
+        legacy.set_fitted_state({"baseline_pattern": state["baseline_pattern"]})
+        assert legacy._gsis_reference is None  # a pre-reference checkpoint still loads
+
+    def test_cost_is_linear_in_the_batch(self) -> None:
+        """At most ~512 reference rows are compared, never all batch pairs."""
+        import time
+
+        detector = self._detector()
+        rng = np.random.default_rng(6)
+        small, large = rng.normal(0, 1, (2048, 16)), rng.normal(0, 1, (16384, 16))
+        detector._gravitational_stability_check(small)  # warm-up
+        t0 = time.perf_counter()
+        detector._gravitational_stability_check(small)
+        t_small = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        detector._gravitational_stability_check(large)
+        t_large = time.perf_counter() - t0
+        # 8x the rows: quadratic would be ~64x; allow generous noise for linear.
+        assert t_large < 30 * max(t_small, 1e-3)
 
 
 # =============================================================================
@@ -465,8 +494,8 @@ class TestIncrementalServingParity:
     @pytest.mark.parametrize("seed", SEEDS)
     @pytest.mark.parametrize("name", AGENTS)
     def test_serve_matches_full_path_duplicate_heavy(self, name: str, seed: int) -> None:
-        """Tied distances exercise the GSIS percentile/count boundaries and
-        the spatial constant-range branch."""
+        """Tied distances exercise the GSIS rank boundaries and the spatial
+        constant-range branch."""
         rng = np.random.default_rng(seed)
         base = rng.normal(0, 1, (6, 7))
         train = base[rng.integers(0, 6, size=80)]  # heavy duplication

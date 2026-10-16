@@ -158,8 +158,8 @@ class SpatialAnomalyDetector(BaseDetector):
         self.contamination = self.config.get("contamination", 0.1)
         # Spatial autocorrelation of the scores (Moran's I / Geary's C with a
         # permutation test): are the anomalies a regional cluster or
-        # scattered points? Permutations are skipped above
-        # _AUTOCORRELATION_PERMUTATION_LIMIT points (statistics only).
+        # scattered points? Above _AUTOCORRELATION_SAMPLE_LIMIT points the
+        # statistics and their permutation test run on an evenly spaced subsample.
         self.spatial_autocorrelation_enabled = bool(
             self.config.get("spatial_autocorrelation", True)
         )
@@ -268,34 +268,47 @@ class SpatialAnomalyDetector(BaseDetector):
             "spatial_autocorrelation": self._score_autocorrelation(data_np, combined_scores),
         }
 
-    #: Above this many points the permutation test is skipped (statistics only).
-    _AUTOCORRELATION_PERMUTATION_LIMIT = 50_000
+    #: Above this many points the statistics are estimated on an evenly spaced
+    #: subsample of this size. The kNN graph of the whole batch costs close to
+    #: O(n^2 * d) once ``d`` is past a few dimensions (a KD-tree degrades to
+    #: brute force): measured 4.8 s of the detector's 5.7 s at 16,384 x 16 and
+    #: about 19 s at 32,768, for a diagnostic that never enters the scores.
+    _AUTOCORRELATION_SAMPLE_LIMIT = 4096
 
     def _score_autocorrelation(
         self, data: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]
     ) -> dict[str, Any] | None:
         """Moran's I / Geary's C of the scores over the points' kNN graph.
 
-        ``None`` when disabled, with fewer than 10 points, or when the
-        scores are constant (the statistics are undefined).
+        Larger batches are estimated on :attr:`_AUTOCORRELATION_SAMPLE_LIMIT`
+        evenly spaced points (``sampled_from`` then gives the batch size): a
+        global statistic estimated at a coarser neighbourhood scale, not the
+        batch's exact value. ``None`` when disabled, with fewer than 10
+        points, or when the scores are constant (the statistics are undefined).
         """
         if not self.spatial_autocorrelation_enabled or len(scores) < 10:
             return None
         from omni_mercury_engine.ml.spatial_autocorrelation import spatial_autocorrelation
 
-        permutations = (
-            self.autocorrelation_permutations
-            if len(scores) <= self._AUTOCORRELATION_PERMUTATION_LIMIT
-            else 0
-        )
+        sampled_from = None
+        if len(scores) > self._AUTOCORRELATION_SAMPLE_LIMIT:
+            sampled_from = len(scores)
+            picked = np.linspace(0, len(scores) - 1, self._AUTOCORRELATION_SAMPLE_LIMIT)
+            index = np.unique(picked.round().astype(np.intp))
+            data, scores = data[index], scores[index]
         try:
             result = spatial_autocorrelation(
-                scores, data, k=self.autocorrelation_k, n_permutations=permutations
+                scores,
+                data,
+                k=self.autocorrelation_k,
+                n_permutations=self.autocorrelation_permutations,
             )
         except ValueError as exc:
             logger.debug("spatial autocorrelation skipped: %s", exc)
             return None
-        return None if result is None else result.to_dict()
+        if result is None:
+            return None
+        return {**result.to_dict(), "sampled_from": sampled_from}
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract spatial features for ML fusion."""

@@ -126,3 +126,19 @@ def test_spatial_autocorrelation_can_be_disabled() -> None:
     rng = np.random.default_rng(3)
     det = SpatialAnomalyDetector({"spatial_autocorrelation": False}).fit(rng.normal(size=(50, 2)))
     assert det.detect(rng.normal(size=(30, 2)))["spatial_autocorrelation"] is None
+
+
+def test_large_batches_estimate_autocorrelation_on_a_bounded_subsample() -> None:
+    """Above the limit the kNN graph uses a subsample (its cost was ~O(n^2 d))."""
+    rng = np.random.default_rng(4)
+    det = SpatialAnomalyDetector().fit(rng.uniform(0, 10, (500, 2)))
+    limit = SpatialAnomalyDetector._AUTOCORRELATION_SAMPLE_LIMIT
+    n = limit * 2 + 50
+    test = np.vstack([rng.uniform(0, 10, (n - 400, 2)), rng.normal(25.0, 0.3, (400, 2))])
+    auto = det.detect(test)["spatial_autocorrelation"]
+    assert auto is not None
+    assert auto["sampled_from"] == n
+    assert auto["n"] <= limit
+    assert auto["pattern"] == "clustered"  # the remote cluster is still found
+    small = det.detect(test[:200])["spatial_autocorrelation"]
+    assert small is None or small["sampled_from"] is None

@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,906
-- **Capability-bearing classes:** 1,919 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,908
+- **Capability-bearing classes:** 1,921 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 48
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,132 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,134 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1132 |
+| Other capability classes | 1134 |
 | Support types (config / result / enum / error) | 987 |
 | Detection | 168 |
 | Neural models & layers | 160 |
@@ -2482,7 +2482,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 201 classes (123 capability)
+### `security/` — 203 classes (125 capability)
 
 **Adapters & backends**
 
@@ -2607,12 +2607,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `NearDuplicatePair` (`security.counterintelligence`) — Two reports whose texts are near duplicates.
 - `OSINTProcessor` (`security.int_sources`) — Open Source Intelligence (OSINT) Processor.
 - `Outcome` (`security.adjudication`) — What happened in a case, when it could first have happened, and who reported it.
+- `OutcomeWeightFit` (`security.counterintelligence`) — Prequential fit of the evidential weight of adjudicated outcomes.
 - `PIIMasker` (`security.secure_audit_logging`) — Masks Personally Identifiable Information in audit logs.
 - `PQCProductionWarning` (`security.pqc_guards`) — Public exception type for PQC-availability warnings.
 - `PairAgreement` (`security.adjudication`) — Agreement of one rater pair on the cases they rated first and second.
 - `QuantumResistantEncryption` (`security.encryption`) — Post-quantum hybrid encryption: ML-KEM-1024 + AES-256-GCM (via AMA).
 - `RateLimiter` (`security.rate_limiting`) — Unified rate limiter with token bucket and sliding window algorithms.
 - `Rating` (`security.adjudication`) — One rater's blind threat level for a case's outcome.
+- `ReliabilityFit` (`security.intelligence_fusion`) — Per-discipline reliabilities learned from adjudicated training cases.
 - `ResonanceHashIntegrityChecker` (`security.cyber_fortress`) — Novel hash integrity checking using resonance amplification.
 - `SIGINTProcessor` (`security.int_sources`) — Signals Intelligence (SIGINT) Processor.
 - `ScanWindow` (`security.counterintelligence`) — The window holding the most distinct sources.

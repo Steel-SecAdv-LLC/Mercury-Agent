@@ -516,9 +516,42 @@ class TestEngineDetectorTimeout:
 
         engine = OmniMercuryEngine(config=EngineConfig(detector_timeout_s=0.5))
         assert engine.detector_executor.timeout_s == 0.5
-        assert _engine(2).detector_executor.timeout_s == 30.0  # default budget
+        assert _engine(2).detector_executor.timeout_s == 5.0  # default fixed part
         unbounded = OmniMercuryEngine(config=EngineConfig(detector_timeout_s=None))
         assert unbounded.detector_executor.timeout_s is None
+        assert unbounded._detector_budget(np.zeros((10_000, 3))) is None
+
+    def test_the_budget_grows_with_the_batch(self) -> None:
+        from omni_mercury_engine import OmniMercuryEngine
+        from omni_mercury_engine.core.config import EngineConfig
+
+        engine = OmniMercuryEngine(
+            config=EngineConfig(detector_timeout_s=5.0, detector_timeout_per_row_s=1e-3)
+        )
+        assert engine._detector_budget(np.zeros((0, 3))) == 5.0
+        assert engine._detector_budget(np.zeros((10_000, 3))) == pytest.approx(15.0)
+        multimodal = {"a": np.zeros((100, 2)), "b": np.zeros((2_000, 4))}
+        assert engine._detector_budget(multimodal) == pytest.approx(7.0)  # largest array
+        fixed = OmniMercuryEngine(
+            config=EngineConfig(detector_timeout_s=5.0, detector_timeout_per_row_s=None)
+        )
+        assert fixed._detector_budget(np.zeros((10_000, 3))) == 5.0
+
+    def test_the_defaults_are_the_committed_measurement(self) -> None:
+        """EngineConfig's budget must be the one benchmarks/detector_latency.py derived."""
+        import json
+        from pathlib import Path
+
+        from omni_mercury_engine.core.config import EngineConfig
+
+        path = Path(__file__).resolve().parents[2] / "benchmarks/results/detector_latency.json"
+        measured = json.loads(path.read_text(encoding="utf-8"))
+        config = EngineConfig()
+        assert config.detector_timeout_s == measured["recommended_timeout_floor_s"]
+        assert config.detector_timeout_per_row_s == measured["recommended_timeout_per_row_s"]
+        # Every served detector measured close to linear; a quadratic one would
+        # outgrow a per-row budget, so the gate fails if one reappears.
+        assert all(fit["b"] < 1.2 for fit in measured["power_law"].values()), measured["power_law"]
 
     @pytest.mark.parametrize("bad", [0.0, -1.0])
     def test_config_rejects_a_non_positive_budget(self, bad: float) -> None:
@@ -526,6 +559,8 @@ class TestEngineDetectorTimeout:
 
         with pytest.raises(ValueError, match="detector_timeout_s"):
             EngineConfig(detector_timeout_s=bad)
+        with pytest.raises(ValueError, match="detector_timeout_per_row_s"):
+            EngineConfig(detector_timeout_per_row_s=-1e-3)
 
     def test_an_overrunning_detector_is_skipped(self) -> None:
         from omni_mercury_engine import OmniMercuryEngine
