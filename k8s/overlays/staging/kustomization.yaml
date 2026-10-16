@@ -12,10 +12,21 @@ commonLabels:
 
 resources:
   - ../../base
+  - ../../../monitoring/prometheus
 
 namePrefix: staging-
 
 patches:
+  # The PrometheusRule's PromQL filters on namespace="mercury-agent"
+  # (production); in this namespace it would alert on production's series.
+  # The Helm chart renders the rules with the release namespace instead.
+  - patch: |-
+      $patch: delete
+      apiVersion: monitoring.coreos.com/v1
+      kind: PrometheusRule
+      metadata:
+        name: mercury-agent-rules
+        namespace: monitoring
   # Moderate replicas for staging
   - patch: |-
       apiVersion: apps/v1

@@ -65,11 +65,22 @@ class TestRenderedRuleFile:
         monkeypatch.setattr(render_rules, "SOURCE", source)
         monkeypatch.setattr(render_rules, "TARGET", target)
         monkeypatch.setattr(render_rules, "HELM_TARGET", tmp_path / "helm" / "prometheusrule.yaml")
+        monkeypatch.setattr(render_rules, "ADAPTER_TARGET", tmp_path / "adapter-values.yaml")
         assert render_rules.main(["--check"]) == 1  # missing
         assert render_rules.main([]) == 0
         assert render_rules.main(["--check"]) == 0
         source.write_text(source.read_text().replace("> 0.05", "> 0.06", 1))
         assert render_rules.main(["--check"]) == 1
+
+    def test_adapter_values_carry_the_adapter_rules(self) -> None:
+        source = yaml.safe_load((PROM_DIR / "prometheus-adapter-rules.yaml").read_text())
+        values = yaml.safe_load((PROM_DIR / "prometheus-adapter-values.yaml").read_text())
+        assert values == {"rules": {"custom": source["rules"], "external": source["externalRules"]}}
+
+    @pytest.mark.parametrize("text", ["[]", "rules: []\nexternalRules: []\n", "rules: {}\n"])
+    def test_malformed_adapter_rules_are_rejected(self, text: str) -> None:
+        with pytest.raises(ValueError, match="prometheus-adapter"):
+            render_rules.render_adapter_values(text)
 
     def test_crd_without_groups_is_rejected(self) -> None:
         with pytest.raises(ValueError, match=r"spec\.groups"):
@@ -186,3 +197,76 @@ class TestEveryQueriedSeriesIsEmitted:
                 assert attached["app"] == "mercury-agent"
                 assert attached["job"] == f"mercury-agent-{attached['service']}"
         assert components == {"api", "engine"}
+
+
+class TestKustomizeMonitoringWiring:
+    """``kubectl apply -k`` installs the monitors and rules the HPAs and alerts need."""
+
+    MONITORING = "../../../monitoring/prometheus"
+
+    @staticmethod
+    def _overlay(name: str) -> dict[str, Any]:
+        path = REPO_ROOT / "k8s" / "overlays" / name / "kustomization.yaml"
+        doc: dict[str, Any] = yaml.safe_load(path.read_text())
+        return doc
+
+    def test_monitoring_directory_lists_the_operator_objects(self) -> None:
+        doc = yaml.safe_load((PROM_DIR / "kustomization.yaml").read_text())
+        assert sorted(doc["resources"]) == ["podmonitors.yaml", "prometheus-rules.yaml"]
+
+    @pytest.mark.parametrize("overlay", ["production", "staging", "distributed"])
+    def test_cluster_overlays_include_monitoring(self, overlay: str) -> None:
+        assert self.MONITORING in self._overlay(overlay)["resources"]
+
+    def test_development_needs_no_prometheus_operator(self) -> None:
+        assert self.MONITORING not in self._overlay("development")["resources"]
+
+    def test_staging_drops_the_production_namespaced_rules(self) -> None:
+        crd = yaml.safe_load((PROM_DIR / "prometheus-rules.yaml").read_text())
+        assert 'namespace="mercury-agent"' in (PROM_DIR / "prometheus-rules.yaml").read_text()
+        deletes = [
+            yaml.safe_load(p["patch"])
+            for p in self._overlay("staging")["patches"]
+            if "$patch: delete" in p.get("patch", "")
+        ]
+        assert {
+            (d["kind"], d["metadata"]["name"], d["metadata"]["namespace"]) for d in deletes
+        } == {(crd["kind"], crd["metadata"]["name"], crd["metadata"]["namespace"])}
+
+    def test_stream_workers_are_scraped_and_scale_on_backlog(self) -> None:
+        docs = [
+            d
+            for d in yaml.safe_load_all(
+                (
+                    REPO_ROOT / "k8s" / "overlays" / "distributed" / "streaming-workers.yaml"
+                ).read_text()
+            )
+            if d
+        ]
+        by_kind = {d["kind"]: d for d in docs}
+        worker = by_kind["Deployment"]["spec"]["template"]
+        monitor = by_kind["PodMonitor"]
+        assert (
+            monitor["spec"]["selector"]["matchLabels"].items()
+            <= worker["metadata"]["labels"].items()
+        )
+        ports = {p["name"] for c in worker["spec"]["containers"] for p in c.get("ports", [])}
+        (endpoint,) = monitor["spec"]["podMetricsEndpoints"]
+        assert endpoint["port"] in ports
+        attached = {r["targetLabel"]: r["replacement"] for r in endpoint["relabelings"]}
+        external = [
+            m["external"]["metric"]
+            for m in by_kind["HorizontalPodAutoscaler"]["spec"]["metrics"]
+            if m["type"] == "External"
+        ]
+        assert external == [
+            {
+                "name": "omni_detection_queue_depth",
+                "selector": {
+                    "matchLabels": {"app": attached["app"], "service": attached["service"]}
+                },
+            }
+        ]
+        policy = by_kind["NetworkPolicy"]["spec"]["ingress"][0]["from"][0]["namespaceSelector"]
+        # The label Kubernetes sets on every namespace; a bare ``name`` label is not set.
+        assert policy == {"matchLabels": {"kubernetes.io/metadata.name": "monitoring"}}

@@ -2092,6 +2092,31 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Assert the overlays install their monitoring
+        # The HPAs' Pods/External metrics and every alert depend on these
+        # objects; an overlay that stops rendering them scales and alerts on
+        # nothing.
+        run: |
+          set -euo pipefail
+          count() { kustomize build "k8s/overlays/$1" | grep -c "^kind: $2$" || true; }
+          for overlay in production staging distributed; do
+            [ "$(count "${overlay}" PodMonitor)" -ge 2 ] \
+              || { echo "::error::${overlay} renders no PodMonitors"; exit 1; }
+          done
+          [ "$(count distributed PodMonitor)" -eq 3 ] \
+            || { echo "::error::distributed must also scrape the stream workers"; exit 1; }
+          for overlay in production distributed; do
+            [ "$(count "${overlay}" PrometheusRule)" -eq 1 ] \
+              || { echo "::error::${overlay} renders no PrometheusRule"; exit 1; }
+          done
+          [ "$(count staging PrometheusRule)" -eq 0 ] \
+            || { echo "::error::staging must not install the production-namespaced rules"; exit 1; }
+          for values in production staging; do
+            helm template mercury-agent ./helm/mercury-agent \
+              -f "helm/mercury-agent/values-${values}.yaml" | grep -q "^kind: PrometheusRule$" \
+              || { echo "::error::Helm ${values} values render no PrometheusRule"; exit 1; }
+          done
+
       - name: Lint and render the Helm chart
         run: |
           set -euo pipefail

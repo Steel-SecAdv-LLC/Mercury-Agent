@@ -58,7 +58,9 @@ def test_reinstall_keeps_the_previous_model(model_dir: Path) -> None:
     target = install_fusion_checkpoint(_Engine(b"model-v2"))
     assert target.read_bytes() == b"model-v2"
     assert (model_dir / PREVIOUS_FUSION_FILENAME).read_bytes() == b"model-v1"
-    assert sorted(p.name for p in model_dir.iterdir()) == sorted(["fusion.pt", PREVIOUS_FUSION_FILENAME])
+    assert sorted(p.name for p in model_dir.iterdir()) == sorted(
+        ["fusion.pt", PREVIOUS_FUSION_FILENAME]
+    )
 
 
 def test_a_failed_save_leaves_the_installed_model_intact(model_dir: Path) -> None:

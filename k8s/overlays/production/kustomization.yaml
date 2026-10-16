@@ -12,6 +12,7 @@ commonLabels:
 
 resources:
   - ../../base
+  - ../../../monitoring/prometheus
 
 namePrefix: prod-
 
