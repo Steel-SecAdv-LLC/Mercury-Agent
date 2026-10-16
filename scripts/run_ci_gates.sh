@@ -88,6 +88,25 @@ run_gate "Lyapunov λ documentation drift (ci.yml: check_readme_lyapunov)" \
 run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --check)" \
   python scripts/measure_codebase_scale.py --check README.md
 
+# --- Other repository drift gates CI runs --------------------------------
+# These ran only in CI (or only inside the pytest lane), so a stale generated
+# file reached a pushed head before anything local flagged it. Each takes a
+# few seconds at most.
+run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
+  python scripts/generate_capability_inventory.py --check
+
+run_gate "documentation lint (ci.yml: doc_lint)" \
+  python scripts/doc_lint.py
+
+run_gate "neural coverage drift (ci.yml: neural_coverage --check)" \
+  python scripts/neural_coverage.py --check
+
+run_gate "weapons-gate corpus drift (ci.yml: ingest_weapons_gate_corpus --check)" \
+  python scripts/ingest_weapons_gate_corpus.py --check
+
+run_gate "Prometheus rule render drift (render_prometheus_rules --check)" \
+  python scripts/render_prometheus_rules.py --check
+
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
   # Guard the pin before running any lane: a full [all,dev] install can leave
