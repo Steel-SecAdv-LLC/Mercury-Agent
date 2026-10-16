@@ -997,6 +997,27 @@ class TestEstimateRadar:
         # the biased residual peak (true rate 66/min) is what the guard withholds
         assert off.heart.rate_bpm == pytest.approx(67.7, abs=0.1)
 
+    def test_bradycardia_below_the_band_is_withheld_not_doubled(self) -> None:
+        """A 44/min heartbeat (fundamental below the 48/min band edge).
+
+        The in-band maximum is then the heartbeat's second harmonic, which
+        used to be reported confidently at double the true rate (observed on
+        the Schellenberger et al. 2020 recordings: a subject resting at 46
+        beats/min was reported at 94). The subharmonic guard withholds it
+        and names the slower candidate.
+        """
+        d, _, _ = chest(40, 13.0, 44.0, seed=3)
+        est = radar_estimate(d)
+        assert est.heart.rate_bpm is None
+        assert est.heart.reason is AbstainReason.HARMONIC_AMBIGUITY
+        assert "subharmonic" in est.heart.detail
+        assert "44/min" in est.heart.detail
+
+    def test_the_subharmonic_guard_spares_an_in_band_heartbeat(self) -> None:
+        d, _, f_h = chest(40, 13.0, 72.0, seed=3)
+        est = radar_estimate(d)
+        assert est.heart.rate_bpm == pytest.approx(truth_bpm(f_h, 0, 40), abs=0.5)
+
     def test_unresolved_fast_fundamental_withholds_heart(self) -> None:
         """Breathing (47/min) above the wide search band: no fundamental, heart withheld."""
         t = np.arange(800) / FS

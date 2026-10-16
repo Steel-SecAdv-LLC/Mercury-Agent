@@ -2167,6 +2167,97 @@ def _screen_heart(
     )
 
 
+def _subharmonic_guard(
+    cols: FloatArray,
+    fs: float,
+    heart: RateEstimate,
+    f_ref: float | None,
+    duration_s: float,
+    cfg: VitalSignConfig,
+) -> RateEstimate:
+    """Withhold a heart rate whose subharmonic below the heart band is stronger.
+
+    A heartbeat slower than the band's low edge (athletic bradycardia below
+    48 beats/min on the default band) leaves its fundamental outside the
+    searched band while its second harmonic lies inside, so the estimate
+    comes out confidently at double the true rate (observed on the
+    Schellenberger et al. 2020 recordings: a subject resting at 46
+    beats/min was reported at 94). The guard measures the unfiltered
+    streams' spectrum at half the reported frequency and withholds when at
+    least as much power lies there as at the reported peak, unless a
+    respiration harmonic accounts for that half frequency.
+
+    Args:
+        cols: Selected streams before heart band-passing, shape ``(T, K)``.
+        fs: Sampling rate (Hz).
+        heart: The estimate after the earlier screens.
+        f_ref: Resolved respiration fundamental (Hz), if any.
+        duration_s: Segment duration (s).
+        cfg: Estimator configuration.
+
+    Returns:
+        ``heart`` unchanged, or the abstention.
+    """
+    f_h = heart.peak_hz
+    if heart.rate_bpm is None or f_h is None:
+        return heart
+    f_half = 0.5 * f_h
+    band_low, band_high = cfg.heart_band_hz
+    if f_half >= band_low:
+        # In band: ``dominant_frequency`` compared the two peaks already.
+        return heart
+    if f_ref is not None and f_ref > 0.0:
+        order = max(1, round(f_half / f_ref))
+        spread = cfg.harmonic_coincidence_fraction + order * cfg.respiration_precision_bins
+        if abs(f_half - order * f_ref) <= spread / duration_s:
+            # The power at the half frequency is the resolved respiration
+            # fundamental's (or a harmonic's) own peak, a known explanation
+            # that does not imply a slower heartbeat.
+            return heart
+    halfwidth = max(cfg.heart_signal_halfwidth_hz, 2.0 / duration_s)
+    low = max(f_half - 2.0 * halfwidth, 0.02)
+    wide = _bandpass(cols, fs, (low, band_high), cfg.filter_order)
+    spectrum = _mean_band_spectrum(wide, fs, (low, band_high), cfg.zero_pad_factor)
+    if spectrum is None:
+        return heart
+    frequencies, power = spectrum
+    # Only a local maximum *at* the half frequency, at least as high as the
+    # reported peak, counts: skirt power and zero-padding ripple from a
+    # respiration harmonic centred elsewhere must not. When a respiration
+    # harmonic truly coincides with the half frequency, the doubled peak
+    # coincides with twice that harmonic, which the harmonic-coincidence
+    # test upstream already withheld. Both powers integrate over the same
+    # narrow window so neither can annex a neighbouring peak.
+    match_hz = max(cfg.respiration_signal_halfwidth_hz, 2.0 / duration_s)
+    peak_region = np.abs(frequencies - f_h) <= match_hz
+    power_peak = float(power[peak_region].sum())
+    if not (peak_region.any() and power_peak > 0.0):
+        return heart
+    peak_height = float(power[peak_region].max())
+    candidates, _ = signal.find_peaks(power)
+    at_half = [
+        j
+        for j in candidates
+        if abs(float(frequencies[j]) - f_half) <= match_hz and float(power[j]) >= peak_height
+    ]
+    if not at_half:
+        return heart
+    centre = float(frequencies[max(at_half, key=lambda j: float(power[j]))])
+    power_half = float(power[np.abs(frequencies - centre) <= match_hz].sum())
+    if power_half < power_peak:
+        return heart
+    return RateEstimate(
+        None,
+        AbstainReason.HARMONIC_AMBIGUITY,
+        f"heart peak {f_h:.3f} Hz has a stronger subharmonic at {f_half:.3f} Hz "
+        f"below the heart band ({power_half / power_peak:.1f}x the peak power); "
+        f"the heartbeat may be at {30.0 * f_h:.0f}/min, outside the configured band",
+        f_h,
+        heart.snr_db,
+        snr_threshold_db=heart.snr_threshold_db,
+    )
+
+
 def _analyse_segment(
     seg: FloatArray, fs: float, cfg: VitalSignConfig
 ) -> tuple[RateEstimate, RateEstimate, IntArray, tuple[float, ...], FloatArray]:
@@ -2294,6 +2385,7 @@ def _analyse_segment(
     )
     heart = _heart_estimate(peak_h, thr_h, f_ref, n_seg / fs, cfg)
     heart = _screen_heart(heart, f_ref, harmonics, unresolved, n_seg / fs, cfg)
+    heart = _subharmonic_guard(x[:, chosen], fs, heart, f_ref, n_seg / fs, cfg)
     return resp, heart, chosen, harmonics, waveform
 
 
