@@ -59,7 +59,7 @@ class TestHazardVisualizePng:
         series = (0.02 * rng.normal(size=2048)).tolist()
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"hazard": "earthquake", "arrays": {"series": series}}},
+            json={"hazard": "earthquake", "arrays": {"series": series}},
         )
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == "image/png"
@@ -69,7 +69,7 @@ class TestHazardVisualizePng:
     def test_wildfire_png_from_raw_thermal(self, client: Any) -> None:
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"hazard": "wildfire", "arrays": _thermal_arrays()}},
+            json={"hazard": "wildfire", "arrays": _thermal_arrays()},
         )
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == "image/png"
@@ -84,7 +84,7 @@ class TestHazardVisualizePng:
         }
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"diagnostics": payload}},
+            json={"diagnostics": payload},
         )
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == "image/png"
@@ -99,7 +99,7 @@ class TestHazardVisualizePng:
         }
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"diagnostics": payload}},
+            json={"diagnostics": payload},
             headers=auth_headers,
         )
         assert response.status_code == 200
@@ -118,12 +118,10 @@ class TestHazardVisualizeGeoJson:
         response = client.post(
             "/api/v1/hazard/visualize",
             json={
-                "request": {
-                    "hazard": "wildfire",
-                    "arrays": _thermal_arrays(),
-                    "format": "geojson",
-                    "geotransform": self.GEOTRANSFORM,
-                }
+                "hazard": "wildfire",
+                "arrays": _thermal_arrays(),
+                "format": "geojson",
+                "geotransform": self.GEOTRANSFORM,
             },
         )
         assert response.status_code == 200, response.text
@@ -142,11 +140,9 @@ class TestHazardVisualizeGeoJson:
         response = client.post(
             "/api/v1/hazard/visualize",
             json={
-                "request": {
-                    "hazard": "wildfire",
-                    "arrays": _thermal_arrays(),
-                    "format": "geojson",
-                }
+                "hazard": "wildfire",
+                "arrays": _thermal_arrays(),
+                "format": "geojson",
             },
         )
         assert response.status_code == 400
@@ -161,11 +157,9 @@ class TestHazardVisualizeGeoJson:
         response = client.post(
             "/api/v1/hazard/visualize",
             json={
-                "request": {
-                    "diagnostics": payload,
-                    "format": "geojson",
-                    "geotransform": self.GEOTRANSFORM,
-                }
+                "diagnostics": payload,
+                "format": "geojson",
+                "geotransform": self.GEOTRANSFORM,
             },
         )
         assert response.status_code == 400
@@ -180,12 +174,12 @@ class TestHazardVisualizeBadInput:
     def test_bad_format_is_422(self, client: Any) -> None:
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"hazard": "meteor", "arrays": {}, "format": "svg"}},
+            json={"hazard": "meteor", "arrays": {}, "format": "svg"},
         )
         assert response.status_code == 422
 
     def test_neither_input_mode_is_400(self, client: Any) -> None:
-        response = client.post("/api/v1/hazard/visualize", json={"request": {}})
+        response = client.post("/api/v1/hazard/visualize", json={})
         assert response.status_code == 400
         assert "diagnostics" in response.json()["detail"]
 
@@ -193,14 +187,12 @@ class TestHazardVisualizeBadInput:
         response = client.post(
             "/api/v1/hazard/visualize",
             json={
-                "request": {
+                "hazard": "meteor",
+                "arrays": {"radar_series": [1.0, 2.0, 3.0]},
+                "diagnostics": {
                     "hazard": "meteor",
-                    "arrays": {"radar_series": [1.0, 2.0, 3.0]},
-                    "diagnostics": {
-                        "hazard": "meteor",
-                        "arrays": {"doppler_shift_profile": [1.0]},
-                    },
-                }
+                    "arrays": {"doppler_shift_profile": [1.0]},
+                },
             },
         )
         assert response.status_code == 400
@@ -209,7 +201,7 @@ class TestHazardVisualizeBadInput:
     def test_unknown_hazard_is_400(self, client: Any) -> None:
         response = client.post(
             "/api/v1/hazard/visualize",
-            json={"request": {"hazard": "sharknado", "arrays": {"series": [1.0, 2.0]}}},
+            json={"hazard": "sharknado", "arrays": {"series": [1.0, 2.0]}},
         )
         assert response.status_code == 400
         assert "unknown hazard" in response.json()["detail"]
@@ -218,10 +210,8 @@ class TestHazardVisualizeBadInput:
         response = client.post(
             "/api/v1/hazard/visualize",
             json={
-                "request": {
-                    "hazard": "tornado",
-                    "arrays": {"radar_sequence": [[1.0, 2.0], [3.0, 4.0]]},
-                }
+                "hazard": "tornado",
+                "arrays": {"radar_sequence": [[1.0, 2.0], [3.0, 4.0]]},
             },
         )
         assert response.status_code == 400

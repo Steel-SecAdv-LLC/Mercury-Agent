@@ -70,17 +70,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastapi import HTTPException, Request, status
-    from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+    from fastapi.security import APIKeyHeader, HTTPBearer
 
     from omni_mercury_engine.api.key_store import KeyStore
 else:
     try:
         from fastapi import HTTPException, Request, status
-        from fastapi.security import (
-            APIKeyHeader,
-            HTTPAuthorizationCredentials,
-            HTTPBearer,
-        )
+        from fastapi.security import APIKeyHeader, HTTPBearer
     except ImportError:
         _FASTAPI_HINT = (
             "FastAPI is required for Mercury's HTTP auth surface; install the "
@@ -90,7 +86,6 @@ else:
         # Annotation-only names (this module uses ``from __future__ import
         # annotations``, so these are never evaluated at runtime).
         Request = Any
-        HTTPAuthorizationCredentials = Any
 
         class _RequiresFastAPI:
             """Fail-closed stand-in for a FastAPI symbol used as a runtime value.
@@ -664,16 +659,16 @@ class APIKeyAuth:
             auto_error=auto_error,
         )
 
-    async def __call__(
-        self,
-        request: Request,
-        api_key: str | None = None,
-    ) -> User | None:
-        """Authenticate request with API key.
+    async def __call__(self, request: Request) -> User | None:
+        """Authenticate request with the API key header.
+
+        The key is read from the header only. The signature used to declare an
+        ``api_key: str | None`` parameter, which FastAPI exposes as a *query*
+        parameter, so ``?api_key=<raw key>`` authenticated too and left the
+        key in access logs, proxy logs and browser history.
 
         Args:
             request: FastAPI request.
-            api_key: API key from header.
 
         Returns:
             Authenticated user.
@@ -681,9 +676,7 @@ class APIKeyAuth:
         Raises:
             HTTPException: If authentication fails.
         """
-        # Get key from header
-        if api_key is None:
-            api_key = request.headers.get(self.header_name)
+        api_key = request.headers.get(self.header_name)
 
         if not api_key:
             if self.auto_error:
@@ -991,16 +984,18 @@ class JWTAuth:
         self.auto_error = auto_error
         self.bearer = HTTPBearer(auto_error=auto_error)
 
-    async def __call__(
-        self,
-        request: Request,
-        credentials: HTTPAuthorizationCredentials | None = None,
-    ) -> User | None:
-        """Authenticate request with JWT token.
+    async def __call__(self, request: Request) -> User | None:
+        """Authenticate request with the ``Authorization: Bearer`` header.
+
+        The signature used to declare ``credentials:
+        HTTPAuthorizationCredentials | None``. That is a pydantic model, so
+        FastAPI read it as a second *request body* field, and every POST route
+        depending on this class had its own body embedded under its parameter
+        name (``{"request": {...}}``) instead of taking the documented flat
+        body. The token now comes from the header only.
 
         Args:
             request: FastAPI request.
-            credentials: Bearer token credentials.
 
         Returns:
             Authenticated user.
@@ -1008,20 +1003,17 @@ class JWTAuth:
         Raises:
             HTTPException: If authentication fails.
         """
-        if credentials is None:
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-            else:
-                if self.auto_error:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Bearer token required",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-                return None
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
         else:
-            token = credentials.credentials
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Bearer token required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return None
 
         # Validate JWT using PyJWT with cryptographic signature verification
         user = await self._validate_jwt(token)

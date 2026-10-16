@@ -345,7 +345,7 @@ class TestAPIKeyAuth:
         auth = APIKeyAuth(auto_error=True)
         request = self._make_request(api_key_header=raw_key)
 
-        user = await auth(request, api_key=raw_key)
+        user = await auth(request)
         assert user is not None
         assert user.id == "test_user_1"
         assert "api_key" in user.metadata.get("auth_method", "")
@@ -360,9 +360,9 @@ class TestAPIKeyAuth:
         store.revoke(api_key.key_id)
 
         auth = APIKeyAuth(auto_error=True)
-        request = self._make_request()
+        request = self._make_request(api_key_header=raw_key)
         with pytest.raises(HTTPException) as exc_info:
-            await auth(request, api_key=raw_key)
+            await auth(request)
         assert exc_info.value.status_code == 401
         assert "revoked" in str(exc_info.value.detail).lower()
 
@@ -379,9 +379,9 @@ class TestAPIKeyAuth:
         api_key.expires_at = datetime.now() - timedelta(hours=1)
 
         auth = APIKeyAuth(auto_error=True)
-        request = self._make_request()
+        request = self._make_request(api_key_header=raw_key)
         with pytest.raises(HTTPException) as exc_info:
-            await auth(request, api_key=raw_key)
+            await auth(request)
         assert exc_info.value.status_code == 401
         assert "expired" in str(exc_info.value.detail).lower()
 

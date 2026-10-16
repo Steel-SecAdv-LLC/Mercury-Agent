@@ -60,16 +60,13 @@ def client() -> TestClient:
 
 
 def _post(client: TestClient, body: Mapping[str, object]) -> _Response:
-    """POST the request, tolerating FastAPI's single-body vs embedded-body forms.
+    """POST the request as the flat body the route's model declares.
 
-    Depending on the FastAPI version a single Pydantic body parameter named
-    ``request`` is either the body itself or embedded under ``{"request": ...}``.
-    Probe the flat form first and fall back to the embedded form on a 422 so this
-    regression pins the gate behaviour, not the body-encoding convention.
+    The body used to be embedded under ``{"request": ...}``. That was not a
+    FastAPI-version difference: ``JWTAuth.__call__`` declared a pydantic
+    ``credentials`` parameter, which FastAPI read as a second body field.
     """
     resp: _Response = client.post("/api/v1/detect/neurosymbolic", json=body)
-    if resp.status_code == 422:
-        resp = client.post("/api/v1/detect/neurosymbolic", json={"request": body})
     return resp
 
 
