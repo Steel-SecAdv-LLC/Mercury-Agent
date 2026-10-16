@@ -328,14 +328,14 @@ def build_cases() -> list[Case]:
             rationale=(
                 "A realistic partial failure: a monitoring/audit subsystem "
                 "collapses (omnivigilance, omniaccountability, "
-                "bias_audit_compliance -> 0.1) and benevolence sags to "
+                "omni_bias_audit_compliance -> 0.1) and benevolence sags to "
                 "0.5 -- what a degraded live component would register."
             ),
             mutate=lambda g: _set(
                 g,
                 omnivigilance=0.1,
                 omniaccountability=0.1,
-                bias_audit_compliance=0.1,
+                omni_bias_audit_compliance=0.1,
                 omnibenevolence=0.5,
             ),
         ),

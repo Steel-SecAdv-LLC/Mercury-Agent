@@ -112,6 +112,13 @@ class EthicalConstants:
     # top.  README "Mathematical Rigor" documents both.
     SIGMA_IMMUTABLE_DEFAULT: float = 0.96
 
+    # Sigma Immutable - Upper end of the trained network's input support.
+    # Origin: scripts/train_sigma_immutable.py samples the operational vector
+    # from U[0, 2]. Above it the network extrapolates (all 24 ethical anchors
+    # at 10.0 scored 1.0), so ETHICAL registrations and the deterministic
+    # floor both refuse values beyond it.
+    SIGMA_TRAINED_SUPPORT_HIGH: float = 2.0
+
     # Sigma Immutable - Trained-network decision threshold (see NOTE above).
     # Origin: scripts/train_sigma_immutable.py ethical-band lower bound.
     # Numerically equal to SIGMA_IMMUTABLE_MEDICAL but semantically distinct:
