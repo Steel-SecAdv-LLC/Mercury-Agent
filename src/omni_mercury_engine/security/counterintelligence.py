@@ -440,12 +440,22 @@ _DEFAULT_CONFIG = CounterintelligenceConfig()
 # --------------------------------------------------------------------------- #
 
 #: Largest evidential weight one adjudicated outcome may carry, in Bernoulli
-#: observations. Declared, not calibrated: it allows an up-weighted outcome
-#: (a formally reviewed adjudication) while keeping any single record from
-#: swamping the prior and the rest of a track record. Without a bound one
+#: observations. Fitted, not chosen: :func:`fit_outcome_weight_cap` on 8,401
+#: PolitiFact rulings of 1,072 speakers (LIAR; Wang, 2017), each predicted
+#: from the same speaker's earlier rulings under this module's default
+#: Beta(1, 1) prior (``prior_strength`` 2). Counting every outcome ``w`` times
+#: predicts worse than ignoring the track record once ``w`` exceeds 3.07
+#: (bootstrap 95% CI over speakers 1.58-5.39); the cap is that interval's
+#: lower bound rounded down to 0.5. The previously declared cap of 10 allowed
+#: weights at which a track record was measurably harmful (log loss 0.759 vs
+#: 0.693 with no history). The loss-minimising weight is 0.33: an ordinary
+#: outcome is worth about a third of an independent observation. LIAR is a
+#: proxy for intelligence sources; refit on your own outcomes with
+#: ``benchmarks/fit_outcome_weight_cap.py --histories``
+#: (``benchmarks/results/outcome_weight_fit.json``). Without a bound, one
 #: outcome of weight 1e308 drove a source's posterior mean -- and the fusion
 #: engine's adjusted reliability -- to 1.0 in a single step.
-MAX_OUTCOME_WEIGHT = 10.0
+MAX_OUTCOME_WEIGHT = 1.5
 
 
 @dataclass(frozen=True)
@@ -624,6 +634,188 @@ def source_posterior(
             np.clip(math.log(alpha / beta), -cfg.log_odds_clip, cfg.log_odds_clip)
         ),
         informative_prior=normalised is not None and cfg.grade_prior_mean[normalised] is not None,
+    )
+
+
+@dataclass(frozen=True)
+class OutcomeWeightFit:
+    """Prequential fit of the evidential weight of adjudicated outcomes.
+
+    Attributes:
+        n_sources: Sources with at least two outcomes (the only ones that
+            contribute a prediction made from their own history).
+        n_outcomes: Outcomes predicted.
+        prior_strength: Beta prior pseudo-count ``alpha + beta`` used.
+        weights: The weight grid evaluated.
+        log_loss: Mean prequential log loss at each grid weight.
+        optimal_weight: The grid weight with the lowest loss: how many
+            Bernoulli observations one ordinary outcome is worth.
+        break_even_weight: The largest weight at which a track record still
+            predicts no worse than no track record (``log_loss(w) <=
+            log_loss(0)``). Above it, counting outcomes makes predictions worse.
+        break_even_ci: Percentile bootstrap interval of ``break_even_weight``
+            over sources (``None`` when ``n_boot`` is 0).
+        confidence: Level of ``break_even_ci``.
+    """
+
+    n_sources: int
+    n_outcomes: int
+    prior_strength: float
+    weights: tuple[float, ...]
+    log_loss: tuple[float, ...]
+    optimal_weight: float
+    break_even_weight: float
+    break_even_ci: tuple[float, float] | None
+    confidence: float
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a JSON-compatible mapping."""
+        return dict(_jsonable(self))
+
+
+def _prequential_terms(
+    histories: Sequence[npt.NDArray[np.float64]],
+) -> tuple[
+    npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.intp]
+]:
+    """Flatten histories into (outcome, confirmed-before, seen-before, source index) arrays."""
+    outcome = np.concatenate(histories)
+    confirmed = np.concatenate([np.concatenate(([0.0], np.cumsum(h)[:-1])) for h in histories])
+    seen = np.concatenate([np.arange(h.size, dtype=np.float64) for h in histories])
+    source = np.concatenate([np.full(h.size, i, dtype=np.intp) for i, h in enumerate(histories)])
+    return outcome, confirmed, seen, source
+
+
+def _per_source_loss(
+    terms: tuple[
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.intp],
+    ],
+    weight: float,
+    prior_strength: float,
+    n_sources: int,
+) -> npt.NDArray[np.float64]:
+    """Summed prequential log loss of each source at one weight."""
+    outcome, confirmed, seen, source = terms
+    p = (prior_strength / 2.0 + weight * confirmed) / (prior_strength + weight * seen)
+    p = np.clip(p, 1e-12, 1.0 - 1e-12)
+    loss = -np.where(outcome > 0.5, np.log(p), np.log1p(-p))
+    return np.bincount(source, weights=loss, minlength=n_sources)
+
+
+def _last_crossing(grid: npt.NDArray[np.float64], excess: npt.NDArray[np.float64]) -> float:
+    """Largest grid point region with ``excess <= 0``, linearly interpolated at its edge."""
+    if excess[-1] <= 0.0:
+        return float(grid[-1])
+    for i in range(grid.size - 1, 0, -1):
+        if excess[i - 1] <= 0.0 < excess[i]:
+            fraction = -excess[i - 1] / (excess[i] - excess[i - 1])
+            return float(grid[i - 1] + fraction * (grid[i] - grid[i - 1]))
+    return 0.0
+
+
+def fit_outcome_weight_cap(
+    histories: Mapping[str, Sequence[bool | SourceOutcome]],
+    *,
+    prior_strength: float = 2.0,
+    weights: Sequence[float] | None = None,
+    n_boot: int = 400,
+    confidence: float = 0.95,
+    seed: int = 0,
+    upper: float = 100.0,
+) -> OutcomeWeightFit:
+    """Fit how much evidential weight an adjudicated outcome deserves, on real outcomes.
+
+    Each source's outcomes, oldest first, are predicted one at a time from
+    that source's earlier outcomes alone under the Beta-Bernoulli update of
+    :func:`source_posterior` with every outcome counted ``w`` times. The mean
+    log loss of those predictions (Dawid's prequential principle) is computed
+    over a grid of ``w``. Two numbers come out:
+
+    * the loss-minimising weight, what one ordinary outcome is worth;
+    * the break-even weight, beyond which counting outcomes predicts worse
+      than ignoring a source's track record. :data:`MAX_OUTCOME_WEIGHT` is the
+      lower bound of its bootstrap interval: no admissible weight makes the
+      track record harmful even at the pessimistic end.
+
+    Sources resample with replacement in the bootstrap, keeping each source's
+    sequence intact (outcomes within a source are not independent).
+
+    Args:
+        histories: Source id to its outcomes, oldest first (bools or
+            :class:`SourceOutcome`; an outcome's own weight is ignored here,
+            since the weight is what is being fitted).
+        prior_strength: Beta prior pseudo-count, as ``CounterintelligenceConfig``.
+        weights: Grid for ``log_loss``; a default geometric grid when ``None``.
+        n_boot: Bootstrap resamples (0 skips the interval).
+        confidence: Interval level.
+        seed: Bootstrap seed.
+        upper: Largest weight searched for the break-even point.
+
+    Returns:
+        The :class:`OutcomeWeightFit`.
+
+    Raises:
+        ValueError: Fewer than two sources with at least two outcomes.
+    """
+    sequences: list[npt.NDArray[np.float64]] = []
+    for outcomes in histories.values():
+        values = [float(o.confirmed if isinstance(o, SourceOutcome) else bool(o)) for o in outcomes]
+        if len(values) >= 2:
+            sequences.append(np.asarray(values, dtype=np.float64))
+    _require(len(sequences) >= 2, "need at least two sources with two or more outcomes")
+    _require(prior_strength > 0.0, "prior_strength must be positive")
+    n = len(sequences)
+    terms = _prequential_terms(sequences)
+    counts = np.bincount(terms[3], minlength=n).astype(np.float64)
+
+    def mean_loss(weight: float) -> float:
+        return float(_per_source_loss(terms, weight, prior_strength, n).sum() / counts.sum())
+
+    grid = tuple(
+        float(w)
+        for w in (
+            weights
+            if weights is not None
+            else (0.0, *np.geomspace(0.05, upper, 25).round(4).tolist())
+        )
+    )
+    losses = tuple(mean_loss(w) for w in grid)
+
+    # Break-even: per-source losses on a fine grid once; each bootstrap draw
+    # is then a weighted sum over sources (multiplicities of the resample).
+    search = np.geomspace(1e-3, upper, 512)
+    table = np.stack([_per_source_loss(terms, float(w), prior_strength, n) for w in search], axis=1)
+    baseline = _per_source_loss(terms, 0.0, prior_strength, n)
+
+    def break_even(multiplicity: npt.NDArray[np.float64]) -> float:
+        total = float(multiplicity @ counts)
+        excess = (multiplicity @ table - multiplicity @ baseline) / total
+        return _last_crossing(search, excess)
+
+    point = break_even(np.ones(n))
+    interval: tuple[float, float] | None = None
+    if n_boot > 0:
+        rng = np.random.default_rng(seed)
+        draws = [
+            break_even(np.bincount(rng.integers(0, n, n), minlength=n).astype(np.float64))
+            for _ in range(n_boot)
+        ]
+        tail = (1.0 - confidence) / 2.0 * 100.0
+        low, high = np.percentile(draws, [tail, 100.0 - tail])
+        interval = (float(low), float(high))
+    return OutcomeWeightFit(
+        n_sources=len(sequences),
+        n_outcomes=int(sum(s.size for s in sequences)),
+        prior_strength=prior_strength,
+        weights=grid,
+        log_loss=losses,
+        optimal_weight=grid[int(np.argmin(losses))],
+        break_even_weight=point,
+        break_even_ci=interval,
+        confidence=confidence,
     )
 
 
@@ -3010,6 +3202,7 @@ __all__ = [
     "IndependenceCluster",
     "MinHasher",
     "NearDuplicatePair",
+    "OutcomeWeightFit",
     "ReportRecord",
     "ScanWindow",
     "ScreenResult",
@@ -3027,6 +3220,7 @@ __all__ = [
     "excess_rounding_test",
     "find_near_duplicates",
     "first_significant_digit",
+    "fit_outcome_weight_cap",
     "impossible_travel",
     "jaccard_similarity",
     "nigrini_conformity",

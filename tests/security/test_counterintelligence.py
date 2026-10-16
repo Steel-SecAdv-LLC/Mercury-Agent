@@ -49,6 +49,7 @@ from omni_mercury_engine.security.counterintelligence import (
     excess_rounding_test,
     find_near_duplicates,
     first_significant_digit,
+    fit_outcome_weight_cap,
     impossible_travel,
     jaccard_similarity,
     nigrini_conformity,
@@ -170,8 +171,8 @@ class TestSourcePosterior:
         assert post.credible_level == 0.9
 
     def test_weighted_outcomes(self) -> None:
-        post = source_posterior("s", "F", [SourceOutcome(True, 0.5), SourceOutcome(False, 2.0)])
-        assert (post.alpha, post.beta) == (1.5, 3.0)
+        post = source_posterior("s", "F", [SourceOutcome(True, 0.5), SourceOutcome(False, 1.5)])
+        assert (post.alpha, post.beta) == (1.5, 2.5)
         assert source_posterior("s", "F", [SourceOutcome(True, 0.0)]).alpha == 1.0
 
     def test_forgetting_discounts_older_evidence_not_the_prior(self) -> None:
@@ -1472,7 +1473,7 @@ class TestAssessor:
         history, notes = AssessmentHistory.coerce(
             {
                 "outcomes": {
-                    "S": [True, {"confirmed": False, "weight": 2}, SourceOutcome(True), "x", {}],
+                    "S": [True, {"confirmed": False, "weight": 1.5}, SourceOutcome(True), "x", {}],
                     "T": 5,
                 },
                 "baseline_rate_per_hour": {"c": 0.5, "d": -1, "e": "fast", "z": 0},
@@ -1481,7 +1482,7 @@ class TestAssessor:
         )
         assert history.outcomes["S"] == (
             SourceOutcome(True),
-            SourceOutcome(False, 2),
+            SourceOutcome(False, 1.5),
             SourceOutcome(True),
         )
         assert "T" not in history.outcomes
@@ -1766,3 +1767,54 @@ else:  # pragma: no cover
         """Placeholder so the skip is visible in the report."""
 
     _ = MappingProxyType
+
+
+class TestOutcomeWeightFit:
+    """fit_outcome_weight_cap recovers known weights and backs MAX_OUTCOME_WEIGHT."""
+
+    @staticmethod
+    def _sources(
+        rng: np.random.Generator, n: int, length: int, regime: int
+    ) -> dict[str, list[bool]]:
+        """Sources whose reliability is redrawn from Beta(1, 1) every ``regime`` outcomes."""
+        out: dict[str, list[bool]] = {}
+        for i in range(n):
+            outcomes: list[bool] = []
+            while len(outcomes) < length:
+                p = rng.beta(1.0, 1.0)
+                outcomes.extend(bool(x) for x in rng.random(regime) < p)
+            out[f"s{i}"] = outcomes[:length]
+        return out
+
+    def test_iid_sources_under_the_true_prior_fit_weight_one(self) -> None:
+        # Exchangeable Bernoulli outcomes with a Beta(1, 1) reliability: the
+        # Beta-Bernoulli predictive is Bayes-optimal at weight 1.
+        histories = self._sources(np.random.default_rng(0), 3000, 12, regime=12)
+        fit = fit_outcome_weight_cap(
+            histories, weights=[0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0], n_boot=0
+        )
+        assert fit.optimal_weight == 1.0
+        assert fit.break_even_weight > 4.0
+
+    def test_drifting_sources_are_worth_less_than_one_observation(self) -> None:
+        histories = self._sources(np.random.default_rng(1), 3000, 12, regime=2)
+        fit = fit_outcome_weight_cap(histories, weights=[0.1, 0.25, 0.5, 1.0, 2.0], n_boot=50)
+        assert fit.optimal_weight < 1.0
+        assert fit.break_even_ci is not None
+        low, high = fit.break_even_ci
+        assert low <= fit.break_even_weight <= high
+
+    def test_too_few_sources_are_refused(self) -> None:
+        with pytest.raises(ValueError, match="two sources"):
+            fit_outcome_weight_cap({"a": [True, False], "b": [True]})
+
+    def test_module_cap_matches_the_committed_fit(self) -> None:
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "benchmarks/results/outcome_weight_fit.json"
+        result = json.loads(path.read_text(encoding="utf-8"))
+        assert result["recommended_max_outcome_weight"] == MAX_OUTCOME_WEIGHT
+        assert result["fit"]["n_outcomes"] == 8401
+        low, _high = result["fit"]["break_even_ci"]
+        assert low >= MAX_OUTCOME_WEIGHT
