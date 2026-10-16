@@ -908,7 +908,10 @@ def fusion_engine() -> IntelligenceFusionEngine:
                 fit = engine.fit_reliability_scores(_ledger().training_cases())
                 status["reliability"] = asdict(fit)
             except Exception as exc:  # keep the declared table; record why
-                status["reliability"] = {"installed": False, "reason": f"{type(exc).__name__}: {exc}"}
+                status["reliability"] = {
+                    "installed": False,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
         if checkpoint:
             try:
                 heldout = _ledger().export_heldout_for_merit_gate()

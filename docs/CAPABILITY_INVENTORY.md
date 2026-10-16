@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,908
-- **Capability-bearing classes:** 1,921 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,912
+- **Capability-bearing classes:** 1,925 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 48
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,134 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,138 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1134 |
+| Other capability classes | 1138 |
 | Support types (config / result / enum / error) | 987 |
 | Detection | 168 |
 | Neural models & layers | 160 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 63 classes (44 capability)
+### `(top-level)/` — 65 classes (46 capability)
 
 **Adapters & backends**
 
@@ -56,6 +56,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Other capability classes**
 
 - `AdaptationIndicator` (`truth_decipher`) — How often a later statement changed to match newly disclosed evidence.
+- `CITDesign` (`truth_decipher`) — A CIT session design: how many questions, items and repetitions.
+- `CITPower` (`truth_decipher`) — Simulated rejection rate of a design under one alternative.
 - `CITQuestion` (`truth_decipher`) — One CIT question: a probe, ``k - 1`` irrelevant items and response amplitudes.
 - `CapabilitySpec` (`self_model`) — A capability Mercury claims, and what it needs to run.
 - `Claim` (`truth_decipher`) — One checkable assertion: ``subject``'s ``predicate`` has ``value``.
@@ -327,7 +329,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `biometric/` — 50 classes (36 capability)
+### `biometric/` — 52 classes (38 capability)
 
 **Biometric & recognition**
 
@@ -358,6 +360,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `FingerprintFeatures` (`biometric.fingerprint_recognition`) — Extracted fingerprint features.
 - `GaborEnhancer` (`biometric.fingerprint_recognition`) — Enhance fingerprint using Gabor filters.
 - `GaborFilter` (`biometric.iris_recognition`) — 2D Gabor filter bank for iris texture analysis.
+- `IQEllipse` (`biometric.radar_iq`) — A fitted I/Q ellipse.
+- `IntervalRule` (`biometric.vital_reference`) — Admissible event intervals for one vital sign.
 - `IrisFeatures` (`biometric.iris_recognition`) — Extracted iris features.
 - `IrisNormalizer` (`biometric.iris_recognition`) — Rubber sheet normalization (Daugman's method).
 - `IrisSegmenter` (`biometric.iris_recognition`) — Iris segmentation using integro-differential operator.

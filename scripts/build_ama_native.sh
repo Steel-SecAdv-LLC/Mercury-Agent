@@ -32,6 +32,24 @@
 #   AMA_BUILD_DIR  scratch checkout/build directory (default: /tmp/ama-cryptography)
 set -euo pipefail
 
+# Preflight: name every missing prerequisite at once instead of failing midway
+# with cmake's or git's own error. cmake itself is pip-installed below.
+missing=""
+command -v git >/dev/null 2>&1 || missing="${missing} git"
+command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 \
+  || command -v clang >/dev/null 2>&1 || missing="${missing} a-C-compiler(gcc/clang)"
+command -v python >/dev/null 2>&1 || missing="${missing} python"
+if [ -n "${missing}" ]; then
+  echo "ERROR: cannot build the AMA native PQC backend; install:${missing}" >&2
+  echo "  Debian/Ubuntu: apt-get install git build-essential" >&2
+  echo "  RHEL/Fedora:   dnf install git gcc gcc-c++ make" >&2
+  echo "  macOS:         xcode-select --install" >&2
+  exit 1
+fi
+
+# Core count without Linux-only nproc (macOS has sysctl; POSIX has getconf).
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+
 AMA_REF="${AMA_REF:-v5.0.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
@@ -63,7 +81,7 @@ cmake -S "${AMA_BUILD_DIR}" -B "${AMA_BUILD_DIR}/build" \
   -DAMA_BUILD_STATIC=OFF \
   -DAMA_BUILD_TESTS=OFF \
   -DAMA_BUILD_EXAMPLES=OFF
-cmake --build "${AMA_BUILD_DIR}/build" -j "$(nproc)"
+cmake --build "${AMA_BUILD_DIR}/build" -j "${JOBS}"
 
 # --no-build-isolation links the wheel against the .so just produced rather than
 # re-running cmake into a transient build env. AMA_NO_CYTHON skips the optional
@@ -80,15 +98,18 @@ cmake --build "${AMA_BUILD_DIR}/build" -j "$(nproc)"
 # without LD_LIBRARY_PATH (survives `COPY --from=builder /opt/venv` into the
 # runtime image, and read-only-rootfs containers).
 AMA_PKG_DIR="$(python -c 'import ama_cryptography, os; print(os.path.dirname(ama_cryptography.__file__))')"
-mapfile -t SO_FILES < <(find "${AMA_BUILD_DIR}/build" -name 'libama_cryptography.so*' -print)
-if [ "${#SO_FILES[@]}" -eq 0 ]; then
-  echo "ERROR: AMA build produced no libama_cryptography.so* under ${AMA_BUILD_DIR}/build" >&2
+# .so on Linux, .dylib on macOS; plain loop instead of mapfile so the script
+# also runs under macOS's stock bash 3.2.
+found=0
+for so in $(find "${AMA_BUILD_DIR}/build" \( -name 'libama_cryptography.so*' -o -name 'libama_cryptography*.dylib' \) -print); do
+  cp -P -p "${so}" "${AMA_PKG_DIR}/"
+  echo "    co-located $(basename "${so}") -> ${AMA_PKG_DIR}/"
+  found=1
+done
+if [ "${found}" -eq 0 ]; then
+  echo "ERROR: AMA build produced no libama_cryptography shared library under ${AMA_BUILD_DIR}/build" >&2
   exit 1
 fi
-for so in "${SO_FILES[@]}"; do
-  cp -a "${so}" "${AMA_PKG_DIR}/"
-  echo "    co-located $(basename "${so}") -> ${AMA_PKG_DIR}/"
-done
 
 # Fail loud unless all three mandatory PQC algorithms load via the native backend
 # (matches the engine's import-time gate and the build-ama-cryptography action).
