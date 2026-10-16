@@ -2738,6 +2738,70 @@ def assess_fusion_status() -> None:
     _run_assessment(service.fusion_status)
 
 
+@assess.command("cit-plan")
+@click.option(
+    "--effect",
+    "effects",
+    multiple=True,
+    required=True,
+    help="Assumed probe shift CHANNEL=SD, e.g. skin_conductance=1.0 (repeatable).",
+)
+@click.option("--target", type=float, default=0.8, show_default=True)
+@click.option("--test", "primary_test", type=click.Choice(["rank", "permutation"]), default="rank")
+@click.option("--alpha", type=float, default=0.05, show_default=True)
+@click.option("--sessions", type=int, default=1000, show_default=True)
+@click.option("--seed", type=int, default=0)
+def assess_cit_plan(
+    effects: tuple[str, ...],
+    target: float,
+    primary_test: str,
+    alpha: float,
+    sessions: int,
+    seed: int,
+) -> None:
+    """Shortest CIT design whose simulated power (Wilson lower bound) reaches --target."""
+    from omni_mercury_engine.truth_decipher import plan_cit_design
+
+    effect_sd: dict[str, float] = {}
+    for item in effects:
+        name, sep, value = item.partition("=")
+        if not sep:
+            raise click.BadParameter(f"{item!r} is not CHANNEL=SD", param_hint="--effect")
+        effect_sd[name.strip()] = float(value)
+    try:
+        chosen, tried = plan_cit_design(
+            effect_sd,
+            target_power=target,
+            primary_test="permutation" if primary_test == "permutation" else "rank",
+            alpha=alpha,
+            sessions=sessions,
+            seed=seed,
+        )
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from exc
+
+    def row(power: Any) -> dict[str, Any]:
+        d = power.design
+        return {
+            "questions": d.questions,
+            "items": d.items,
+            "repetitions": d.repetitions,
+            "presentations": d.presentations,
+            "minutes": round(d.minutes, 1),
+            "power": power.power.estimate,
+            "power_lower_95": power.power.lower,
+        }
+
+    click.echo(
+        json.dumps(
+            {"chosen": None if chosen is None else row(chosen), "tried": [row(t) for t in tried]},
+            indent=2,
+        )
+    )
+    if chosen is None:
+        raise SystemExit(_EXIT_ERROR)
+
+
 @main.group()
 def adjudication() -> None:
     """The adjudication ledger: held-out threat-level labels for the fusion merit gate.

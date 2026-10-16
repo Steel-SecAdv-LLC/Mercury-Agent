@@ -3358,6 +3358,174 @@ def question_from_time_series(
     )
 
 
+# --------------------------------------------------------------------------- #
+# CIT design power analysis.
+# --------------------------------------------------------------------------- #
+#: Shortest inter-stimulus interval the default response windows allow when
+#: all three channels are recorded: the latest window end (10 s) minus the
+#: earliest window start (the 3 s pre-onset heart-rate baseline). Session
+#: length is ``presentations * MIN_ISI_S``.
+MIN_ISI_S = DEFAULT_HR_RESPONSE_WINDOW[1] - DEFAULT_HR_BASELINE_WINDOW[0]
+
+
+@dataclass(frozen=True)
+class CITDesign:
+    """A CIT session design: how many questions, items and repetitions.
+
+    Attributes:
+        questions: Questions per session.
+        items: Items per question, the probe included.
+        repetitions: Presentations of each item.
+    """
+
+    questions: int
+    items: int
+    repetitions: int
+
+    def __post_init__(self) -> None:
+        """Validate the counts."""
+        if self.questions < 1 or self.items < 2 or self.repetitions < 1:
+            raise ValueError("need questions >= 1, items >= 2 and repetitions >= 1")
+
+    @property
+    def presentations(self) -> int:
+        """Stimulus presentations per session."""
+        return self.questions * self.items * self.repetitions
+
+    @property
+    def minutes(self) -> float:
+        """Session length at :data:`MIN_ISI_S` between presentations."""
+        return self.presentations * MIN_ISI_S / 60.0
+
+
+@dataclass(frozen=True)
+class CITPower:
+    """Simulated rejection rate of a design under one alternative."""
+
+    design: CITDesign
+    primary_test: str
+    effect_sd: Mapping[Channel, float]
+    alpha: float
+    power: Proportion
+
+
+def cit_power(
+    design: CITDesign,
+    effect_sd: Mapping[Channel, float] | Mapping[str, float],
+    *,
+    primary_test: PrimaryTest = "rank",
+    alpha: float = DEFAULT_ALPHA,
+    sessions: int = 1000,
+    seed: int = 0,
+    config: CITConfig | None = None,
+) -> CITPower:
+    """Simulate the power of a CIT design with :class:`ConcealedInformationTest` itself.
+
+    Every amplitude is standard normal within subject and channel; the probe
+    is shifted by ``effect_sd[channel]`` standard deviations on every
+    repetition, in the direction :data:`CHANNEL_SIGN` scores as a response.
+    All three channels are recorded; a channel missing from ``effect_sd``
+    carries no effect (pure noise). The rejection rate at ``alpha`` comes with
+    a Wilson interval. ``effect_sd`` all zero gives the type-I error.
+
+    Args:
+        design: The session design.
+        effect_sd: Probe shift per channel, in within-subject SDs.
+        primary_test: ``"rank"`` or ``"permutation"``.
+        alpha: Significance level.
+        sessions: Simulated sessions.
+        seed: Seed for the amplitudes and the permutation test.
+        config: Scoring configuration; ``alpha``, ``primary_test`` and
+            ``seed`` above override its fields.
+
+    Returns:
+        The :class:`CITPower`.
+    """
+    effects = {Channel(k): _finite(v, f"effect of {k!r}") for k, v in effect_sd.items()}
+    base = config or CITConfig()
+    cit = ConcealedInformationTest(replace(base, alpha=alpha, primary_test=primary_test, seed=seed))
+    consent = ConsentRecord("power-simulation", 0.0, frozenset({CIT_CONSENT_SCOPE}), "simulation")
+    rng = np.random.default_rng(seed)
+    labels = tuple(f"irrelevant-{i}" for i in range(1, design.items))
+    rejected = 0
+    for s in range(sessions):
+        questions = []
+        for q in range(design.questions):
+            responses: dict[Channel, tuple[tuple[float, ...], ...]] = {}
+            for channel in Channel:
+                amplitudes = rng.standard_normal((design.repetitions, design.items))
+                amplitudes[:, 0] += CHANNEL_SIGN[channel] * effects.get(channel, 0.0)
+                responses[channel] = tuple(tuple(float(v) for v in row) for row in amplitudes)
+            questions.append(CITQuestion(f"q{q}", "probe", labels, responses))
+        result = cit.run(
+            questions,
+            consent=consent,
+            subject_pseudonym="power-simulation",
+            administered_at=s + 1.0,
+        )
+        p = result.rank_test_p if primary_test == "rank" else result.permutation_p
+        rejected += int(p is not None and p <= alpha)
+    return CITPower(
+        design=design,
+        primary_test=primary_test,
+        effect_sd=MappingProxyType(effects),
+        alpha=alpha,
+        power=wilson_interval(rejected, sessions, 0.95),
+    )
+
+
+def plan_cit_design(
+    effect_sd: Mapping[Channel, float] | Mapping[str, float],
+    *,
+    target_power: float = 0.8,
+    primary_test: PrimaryTest = "rank",
+    alpha: float = DEFAULT_ALPHA,
+    questions: Sequence[int] = (4, 6, 8, 10, 12),
+    items: Sequence[int] = (5, 6),
+    repetitions: Sequence[int] = (2, 3, 4, 5),
+    sessions: int = 1000,
+    seed: int = 0,
+) -> tuple[CITPower | None, tuple[CITPower, ...]]:
+    """The shortest design whose power's Wilson lower bound reaches ``target_power``.
+
+    Designs are tried in order of session length (presentations); the first
+    whose 95% Wilson lower bound on simulated power is at least
+    ``target_power`` is returned, so the guarantee holds with the simulation's
+    own uncertainty taken into account. Every design tried is returned too.
+
+    Args:
+        effect_sd: Assumed probe shift per channel (see :func:`cit_power`).
+        target_power: Required power.
+        primary_test: The test the session will be scored with.
+        alpha: Significance level.
+        questions: Candidate questions per session.
+        items: Candidate items per question.
+        repetitions: Candidate repetitions.
+        sessions: Simulated sessions per design.
+        seed: Simulation seed.
+
+    Returns:
+        ``(chosen, tried)``; ``chosen`` is ``None`` when no candidate reaches
+        the target.
+    """
+    if not 0.0 < target_power < 1.0:
+        raise ValueError("target_power must be in (0, 1)")
+    candidates = sorted(
+        (CITDesign(q, k, r) for q in questions for k in items for r in repetitions),
+        key=lambda d: (d.presentations, d.repetitions, d.items),
+    )
+    tried: list[CITPower] = []
+    for design in candidates:
+        measured = cit_power(
+            design, effect_sd, primary_test=primary_test, alpha=alpha, sessions=sessions, seed=seed
+        )
+        tried.append(measured)
+        lower = measured.power.lower
+        if lower is not None and lower >= target_power:
+            return measured, tuple(tried)
+    return None, tuple(tried)
+
+
 __all__ = [
     "CHANNEL_SIGN",
     "CIT_ASSUMPTIONS",
@@ -3375,6 +3543,7 @@ __all__ = [
     "EARTH_MEAN_RADIUS_KM",
     "FINDING_INDICATED",
     "FINDING_NOT_INDICATED",
+    "MIN_ISI_S",
     "NOT_EVIDENCE_OF_GUILT",
     "SCIENTIFIC_FRAMING",
     "VERIFIER_LIMITATIONS",
@@ -3382,6 +3551,8 @@ __all__ = [
     "AdaptationIndicator",
     "AllenRelation",
     "CITConfig",
+    "CITDesign",
+    "CITPower",
     "CITQuestion",
     "CITQuestionResult",
     "CITResult",
@@ -3433,6 +3604,7 @@ __all__ = [
     "VerifierConfig",
     "allen_relation",
     "assess_verifiability",
+    "cit_power",
     "converse",
     "converse_relations",
     "derive_response_amplitudes",
@@ -3442,6 +3614,7 @@ __all__ = [
     "interval_covered",
     "intervals_concurrent",
     "log_likelihood_ratio",
+    "plan_cit_design",
     "question_from_time_series",
     "rank_sum_distribution",
     "require_consent",

@@ -168,7 +168,9 @@ class TestHazardVisualizeGeoJson:
 
 class TestHazardVisualizeBadInput:
     def test_missing_body_is_422(self, client: Any) -> None:
-        response = client.post("/api/v1/hazard/visualize", json={})
+        # No body at all. ``{}`` is a valid (empty) request now that the body
+        # is the route model itself; test_neither_input_mode_is_400 covers it.
+        response = client.post("/api/v1/hazard/visualize")
         assert response.status_code == 422
 
     def test_bad_format_is_422(self, client: Any) -> None:

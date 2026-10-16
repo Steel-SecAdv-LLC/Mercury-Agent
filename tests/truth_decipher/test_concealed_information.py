@@ -711,3 +711,39 @@ def test_committed_calibration_benchmark_holds_alpha() -> None:
         )
         assert null["wilson_95"][0] <= 0.05, null
         assert null["rate"] <= 0.05 + 0.02, null
+
+
+# --------------------------------------------------------------------------- #
+# Design power analysis.
+# --------------------------------------------------------------------------- #
+def test_cit_power_null_rate_stays_at_or_below_alpha() -> None:
+    from omni_mercury_engine.truth_decipher import CITDesign, cit_power
+
+    null = cit_power(CITDesign(4, 5, 2), {}, sessions=400, seed=3)
+    assert null.power.lower is not None and null.power.lower <= 0.05
+
+
+def test_cit_power_grows_with_the_design() -> None:
+    from omni_mercury_engine.truth_decipher import CITDesign, cit_power
+
+    small = cit_power(CITDesign(4, 5, 2), {"skin_conductance": 1.0}, sessions=300, seed=1)
+    large = cit_power(CITDesign(10, 5, 4), {"skin_conductance": 1.0}, sessions=300, seed=1)
+    assert large.power.estimate > small.power.estimate
+
+
+def test_plan_returns_the_shortest_design_reaching_the_target() -> None:
+    from omni_mercury_engine.truth_decipher import plan_cit_design
+
+    chosen, tried = plan_cit_design(
+        {"skin_conductance": 1.0, "heart_rate": 1.0, "respiration_line_length": 1.0},
+        target_power=0.8,
+        questions=(2, 4, 6),
+        items=(5,),
+        repetitions=(2, 3),
+        sessions=200,
+    )
+    assert chosen is not None and chosen.power.lower is not None
+    assert chosen.power.lower >= 0.8
+    assert chosen is tried[-1]
+    assert all(t.power.lower is None or t.power.lower < 0.8 for t in tried[:-1])
+    assert [t.design.presentations for t in tried] == sorted(t.design.presentations for t in tried)
