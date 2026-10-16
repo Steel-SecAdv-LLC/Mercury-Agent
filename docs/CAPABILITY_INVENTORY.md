@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,896
-- **Capability-bearing classes:** 1,914 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,897
+- **Capability-bearing classes:** 1,915 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,127 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,128 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1127 |
+| Other capability classes | 1128 |
 | Support types (config / result / enum / error) | 982 |
 | Detection | 168 |
 | Neural models & layers | 160 |
@@ -639,7 +639,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 353 classes (224 capability)
+### `core/` — 354 classes (225 capability)
 
 **Adapters & backends**
 
@@ -794,6 +794,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `InfoGeometryCertificate` (`core.governed_fusion`) — Mahalanobis certified-radius/witness for the info-geometry component.
 - `InfrastructureConstants` (`core.centralized_constants`) — Infrastructure domain-specific constants.
 - `InfrastructureFeatureExtractor` (`core.domain_feature_extractors`) — Infrastructure domain feature extractor.
+- `IntelligenceMeritConstants` (`core.centralized_constants`) — Held-out merit gate for intelligence-fusion weights.
 - `IsotonicCalibration` (`core.calibration`) — Isotonic regression calibration (non-parametric).
 - `KnowledgeGraph` (`core.neurosymbolic_hub`) — NetworkX-based knowledge graph for symbolic reasoning.
 - `LearnableGOSNN` (`core.learnable_gosnn`) — Learnable Global Omni-Scalar Network.
