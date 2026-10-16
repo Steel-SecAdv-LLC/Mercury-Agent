@@ -16,13 +16,13 @@ behavioral change. This module pins that contract:
 * ``MultiAgentOrchestrator``: the vectorized confidence-weighted consensus
   equals the per-sample ``ConsensusProtocol`` derivation, and the built-in
   runtime spot-check fails closed on any divergence.
-* ``detectors/spatial`` numba lane (``[performance]`` extra): JIT outputs
-  equal the pure-numpy formulas. Skipped when numba is not installed.
+* ``detectors/spatial`` distance scoring: the BLAS expansion equals the
+  ``np.linalg.norm`` definition, in every environment (the former numba
+  lane was removed 2026-10-16; the expansion is faster and unconditional).
 """
 
 from __future__ import annotations
 
-import importlib.util
 import math
 from typing import Any
 
@@ -227,45 +227,33 @@ class TestConsensusFastPathParity:
 
 
 # =============================================================================
-# Spatial detector numba lane ([performance] extra)
+# Spatial detector distance scoring (BLAS expansion, every environment)
 # =============================================================================
 
-# Class-scoped skip (NOT module-level importorskip): the dimensional /
-# directive / orchestrator parity tests above must run in every
-# environment; only this class needs the [performance] extra.
-_NUMBA_MISSING = importlib.util.find_spec("numba") is None
 
-
-@pytest.mark.skipif(_NUMBA_MISSING, reason="performance extra not installed")
-class TestSpatialNumbaLaneParity:
-    def test_jit_lane_is_active(self) -> None:
-        from omni_mercury_engine.detectors import spatial
-
-        assert spatial.NUMBA_AVAILABLE is True
+class TestSpatialDistanceScoring:
+    """The BLAS distance expansion matches the definition on every host."""
 
     @pytest.mark.parametrize("seed", SEEDS)
-    def test_jit_distances_match_numpy(self, seed: int) -> None:
-        from omni_mercury_engine.detectors.spatial import _compute_distances_jit
+    def test_expanded_distances_match_the_definition(self, seed: int) -> None:
+        from omni_mercury_engine.detectors.spatial import _euclidean_distances
 
         rng = np.random.default_rng(seed)
         data = rng.normal(0, 1, (200, 12))
         center = rng.normal(0, 1, 12)
 
-        produced = _compute_distances_jit(data, center)
+        produced = _euclidean_distances(data, center)
         expected = np.linalg.norm(data - center, axis=1)
         np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-10)
 
-    @pytest.mark.parametrize("seed", SEEDS)
-    def test_jit_distance_scores_match_numpy(self, seed: int) -> None:
-        from omni_mercury_engine.detectors.spatial import _compute_distance_scores_jit
+    def test_a_point_at_the_centre_is_zero(self) -> None:
+        from omni_mercury_engine.detectors.spatial import _euclidean_distances
 
-        rng = np.random.default_rng(seed)
-        distances = np.abs(rng.normal(2, 1, 300))
-        radius = 2.0
-
-        produced = _compute_distance_scores_jit(distances, radius)
-        expected = np.maximum(distances - radius, 0) / (radius + 1e-6)
-        np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-12)
+        center = np.full(8, 1e3)
+        data = np.vstack([center, center + 1.0])
+        produced = _euclidean_distances(data, center)
+        assert produced[0] == 0.0  # the clip absorbs negative rounding
+        assert produced[1] == pytest.approx(np.sqrt(8.0))
 
 
 class TestGSISDensity:

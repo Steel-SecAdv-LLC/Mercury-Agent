@@ -13,22 +13,19 @@ Three properties:
   enforced, which reads as a guarantee and was not one. 85 survives as a
   labelled aspiration in prose, not as a config key pretending to be a gate.
 * **No green-washed lane.** A test file whose skip condition is never satisfied
-  in CI contributes a passing lane and zero evidence. The numba fast-path
-  parity tests were exactly that: gated on the ``performance`` extra, which no
-  CI lane installed. ``[all]`` now includes it.
+  in CI contributes a passing lane and zero evidence. The spatial fast-path
+  parity tests were exactly that while they were gated on the numba
+  ``performance`` extra; the fast path is now unconditional and so are they.
 * **Nothing swallows a red test run.** No pytest step in CI is
   ``continue-on-error``.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import re
 import tomllib
 from pathlib import Path
 from typing import Any
-
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -103,46 +100,33 @@ class TestTheDeclaredFloorIsTheEnforcedFloor:
 
 
 class TestNoGreenWashedLane:
-    def test_the_all_extra_installs_the_numba_fast_path_dependency(self) -> None:
-        """Without this the JIT parity tests skip in every lane and prove nothing."""
-        extras = _pyproject()["project"]["optional-dependencies"]
-        assert "performance" in extras
-        all_spec = " ".join(extras["all"])
-        assert "performance" in all_spec, (
-            "tests/test_native_acceleration.py's numba lane is gated on the "
-            "``performance`` extra; if no CI lane installs it the lane is green "
-            "by skipping, not by passing"
-        )
+    def test_the_spatial_parity_tests_are_unconditional(self) -> None:
+        """The distance parity tests must not hide behind an optional extra."""
+        text = (REPO_ROOT / "tests" / "test_native_acceleration.py").read_text()
+        assert "TestSpatialDistanceScoring" in text
+        assert "skipif" not in text.split("class TestSpatialDistanceScoring")[1].split("class ")[0]
 
     def test_the_full_suite_lane_installs_the_all_extra(self) -> None:
         assert 'pip install -e ".[all,dev]"' in _ci_text()
 
-    def test_the_numba_parity_tests_exist_and_are_collected_by_the_full_lane(self) -> None:
+    def test_the_parity_tests_exist_and_are_collected_by_the_full_lane(self) -> None:
         target = REPO_ROOT / "tests" / "test_native_acceleration.py"
         assert target.is_file()
         # The ml-tests lane runs ``pytest tests/``, i.e. the whole tree.
         assert re.search(r"pytest tests/ \\", _ci_text())
 
-    @pytest.mark.skipif(
-        importlib.util.find_spec("numba") is None,
-        reason="numba is an optional extra; CI's [all,dev] lane installs it",
-    )
-    def test_the_numba_fast_paths_actually_execute_when_numba_is_present(self) -> None:
-        """The lane is only meaningful if the JIT paths run when the extra is in."""
+    def test_the_spatial_fast_path_executes_everywhere(self) -> None:
+        """The distance fast path has no optional lane: same code on every host."""
         import numpy as np
 
         from omni_mercury_engine.detectors import spatial
 
-        assert spatial.NUMBA_AVAILABLE is True, (
-            "numba is importable but the spatial detector did not pick up its "
-            "JIT lane -- the fast path is dead code in this configuration"
-        )
         rng = np.random.default_rng(0)
         data = rng.normal(0, 1, (64, 4))
         detector = spatial.SpatialAnomalyDetector()
         detector.fit(data)
-        # Exercises ``_compute_distance_scores``, which branches into the
-        # JIT kernels when NUMBA_AVAILABLE -- the fast path itself, not a proxy.
+        # Exercises ``_compute_distance_scores``, which runs the BLAS
+        # expansion unconditionally -- the fast path itself, not a proxy.
         scores = np.asarray(detector._compute_distance_scores(data))
         assert scores.shape[0] == 64
         assert np.all(np.isfinite(scores))

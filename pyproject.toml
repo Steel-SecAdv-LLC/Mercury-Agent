@@ -155,16 +155,12 @@ ml = [
     "obspy>=1.4",
 ]
 
-# Native acceleration lane — activates the numba @jit fast paths that are
-# otherwise dormant fallbacks (e.g. detectors/spatial.py distance scoring,
-# which JIT-compiles only when numba is importable). Before this extra
-# existed, numba was referenced by the code and the mypy overrides but was
-# not declarable as a dependency anywhere, so the native lane could never
-# be engaged by install. JIT-vs-numpy parity is pinned by
-# tests/test_native_acceleration.py (skipped when numba is absent).
-performance = [
-    "numba>=0.59",
-]
+# Kept as an empty extra so ``pip install mercury-agent[performance]`` keeps
+# resolving: it used to carry numba for the detectors' @jit lanes, but every
+# former numba kernel is now a plain BLAS formulation that is faster and runs
+# unconditionally (detectors/spatial.py distance scoring, detectors/directive.py
+# GSIS), so there is no optional fast path left to activate.
+performance = []
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
 visual = [
@@ -435,10 +431,8 @@ explainability = [
 # authoritative CSF 2.0 XLSX) — observed as ModuleNotFoundError in the
 # network-marked tests/test_nist_csf_integrator.py live lane.
 all = [
-    # ``performance`` (numba) is in this list on purpose: without it the numba
-    # fast-path parity tests in tests/test_native_acceleration.py skip in every
-    # CI lane, so the JIT paths were shipped with a test suite that never ran
-    # them and still reported green.
+    # ``performance`` is now empty (the numba lanes became unconditional BLAS
+    # code); it stays listed so the composed extra keeps covering it.
     "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
 ]
 
@@ -704,8 +698,6 @@ module = [
     # Machine learning frameworks
     "mamba_ssm",
     "mamba_ssm.*",
-    "numba",
-    "numba.*",
     # torch's compiler backend; probed by _compat.preload_triton_before_tensorflow
     # to pin native LLVM load order ahead of TensorFlow. Ships no py.typed.
     "triton",
@@ -825,7 +817,7 @@ module = [
 ]
 disallow_untyped_decorators = false
 
-# ML modules extend torch.nn.Module and use numba @jit decorators
+# ML modules extend torch.nn.Module (untyped third-party decorators)
 [[tool.mypy.overrides]]
 module = [
     "omni_mercury_engine.ml.*",
