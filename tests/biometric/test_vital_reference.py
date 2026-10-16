@@ -104,9 +104,7 @@ class TestIntervals:
         beats = np.arange(0.0, 14.5, 0.75)  # beats stop 15 s into a 30 s window
         rates = vr.windowed_rates(beats, [0.0], [30.0], vr.HEART_INTERVALS, min_coverage=0.7)
         assert np.isnan(rates[0])
-        rates = vr.windowed_rates(
-            beats, [0.0], [15.0], vr.HEART_INTERVALS, min_coverage=0.7
-        )
+        rates = vr.windowed_rates(beats, [0.0], [15.0], vr.HEART_INTERVALS, min_coverage=0.7)
         assert rates[0] == pytest.approx(80.0, abs=0.1)
 
     def test_rate_is_the_mean_interval_rate(self) -> None:
