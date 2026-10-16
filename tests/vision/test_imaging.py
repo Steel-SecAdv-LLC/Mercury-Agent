@@ -181,3 +181,98 @@ class TestDegradations:
             degrade(woven_surface(0), "fog", 0.5)
         with pytest.raises(ValueError, match="severity"):
             degrade(woven_surface(0), "jpeg", 1.5)
+
+
+class TestPillowFallback:
+    """Image files load without OpenCV (Pillow is a core dependency)."""
+
+    @staticmethod
+    def _without_cv2(monkeypatch: pytest.MonkeyPatch) -> None:
+        import sys
+
+        monkeypatch.setitem(sys.modules, "cv2", None)  # import cv2 -> ImportError
+
+    def test_rgb_png_loads_in_rgb_order(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from PIL import Image
+
+        rgb = (woven_surface(5) * 255).astype(np.uint8)
+        path = tmp_path / "surface.png"
+        Image.fromarray(rgb).save(path)
+        self._without_cv2(monkeypatch)
+        canonical = to_canonical(str(path))
+        np.testing.assert_allclose(canonical.pixels, rgb / 255.0, atol=1e-6)
+
+    def test_sixteen_bit_depth_is_kept(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from PIL import Image
+
+        from omni_mercury_engine.vision.imaging import _load_path
+
+        gray = (np.arange(64 * 64, dtype=np.uint16).reshape(64, 64) * 16).astype(np.uint16)
+        path = tmp_path / "deep.png"
+        Image.fromarray(gray).save(path)
+        self._without_cv2(monkeypatch)
+        loaded = _load_path(str(path))
+        assert loaded.dtype.itemsize >= 2
+        np.testing.assert_array_equal(loaded.astype(np.int64), gray.astype(np.int64))
+
+    def test_palette_and_gray_alpha_map_to_rgb_layouts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from PIL import Image
+
+        from omni_mercury_engine.vision.imaging import _load_path
+
+        rgb = (woven_surface(3) * 255).astype(np.uint8)
+        palette = tmp_path / "palette.png"
+        Image.fromarray(rgb).convert("P").save(palette)
+        gray_alpha = tmp_path / "la.png"
+        Image.fromarray(rgb[..., 0]).convert("LA").save(gray_alpha)
+        self._without_cv2(monkeypatch)
+        assert _load_path(str(palette)).shape[-1] == 3
+        assert _load_path(str(gray_alpha)).shape[-1] == 4
+
+    def test_unreadable_file_is_a_value_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "not-an-image.png"
+        path.write_bytes(b"not an image")
+        self._without_cv2(monkeypatch)
+        with pytest.raises(ValueError, match="could not be loaded"):
+            to_canonical(str(path))
+
+    def test_pillow_and_opencv_decode_the_same_pixels(self, tmp_path: Path) -> None:
+        pytest.importorskip("cv2")
+        from PIL import Image
+
+        from omni_mercury_engine.vision.imaging import _load_path, _load_path_pillow
+
+        rgb = (woven_surface(7) * 255).astype(np.uint8)
+        rgba = np.dstack([rgb, np.full(rgb.shape[:2], 200, np.uint8)])
+        path = tmp_path / "rgba.png"
+        Image.fromarray(rgba).save(path)
+        np.testing.assert_array_equal(_load_path(str(path)), _load_path_pillow(str(path)))
+
+
+def test_jpeg_degradation_works_without_opencv(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    from omni_mercury_engine.vision.imaging import degrade
+
+    image = woven_surface(2)
+    with_cv2 = degrade(image, "jpeg", 0.8) if _has_cv2() else None
+    monkeypatch.setitem(sys.modules, "cv2", None)
+    out = degrade(image, "jpeg", 0.8)
+    assert out.shape == image.shape and np.isfinite(out).all()
+    assert 0.0 < float(np.abs(out - image).mean()) < 0.1  # lossy, but the same picture
+    if with_cv2 is not None:  # two JPEG codecs at one quality: close, not identical
+        assert float(np.abs(out - with_cv2).mean()) < 0.02
+
+
+def _has_cv2() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("cv2") is not None

@@ -104,12 +104,11 @@ class CanonicalImage:
 
 
 def _load_path(path: str) -> Array:
+    """Decode an image file with OpenCV when installed, else Pillow (a core dependency)."""
     try:
         import cv2
-    except ImportError as exc:  # pragma: no cover - opencv is a core dependency
-        raise ValueError(
-            f"image path {path!r} needs OpenCV to load; pass a pixel array instead"
-        ) from exc
+    except ImportError:
+        return _load_path_pillow(path)
     loaded = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     if loaded is None:
         raise ValueError(f"image could not be loaded from path: {path!r}")
@@ -119,6 +118,54 @@ def _load_path(path: str) -> Array:
     elif array.ndim == 3 and array.shape[2] == 4:
         array = array[..., [2, 1, 0, 3]]
     return array
+
+
+def _load_path_pillow(path: str) -> Array:
+    """Decode with Pillow into the layouts the OpenCV path yields (RGB order, bit depth kept)."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(path) as opened:
+            opened.load()
+            image: Image.Image = opened
+            mode = image.mode
+            if mode in ("P", "PA"):
+                has_alpha = "transparency" in image.info or mode == "PA"
+                image = image.convert("RGBA" if has_alpha else "RGB")
+            elif mode == "LA":
+                image = image.convert("RGBA")
+            elif mode == "1":
+                image = image.convert("L")
+            elif mode in ("CMYK", "YCbCr", "LAB", "HSV"):
+                image = image.convert("RGB")
+            array = np.asarray(image)
+    except (OSError, UnidentifiedImageError) as exc:
+        raise ValueError(f"image could not be loaded from path: {path!r} ({exc})") from exc
+    return np.array(array)
+
+
+def _jpeg_round_trip(as_bytes: Array, quality: int) -> Array:
+    """Encode and decode ``(H, W, C)`` uint8 as JPEG (OpenCV when installed, else Pillow)."""
+    plane = as_bytes if as_bytes.shape[2] != 1 else as_bytes[..., 0]
+    try:
+        import cv2
+    except ImportError:
+        import io
+
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.fromarray(plane).save(buffer, format="JPEG", quality=quality)
+        buffer.seek(0)
+        with Image.open(buffer) as decoded_image:
+            return np.array(decoded_image)
+    ok, encoded = cv2.imencode(".jpg", plane, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not ok:  # pragma: no cover - encoder failure
+        raise ValueError("JPEG encoding failed")
+    decoded_raw = cv2.imdecode(encoded, cv2.IMREAD_UNCHANGED)
+    if decoded_raw is None:  # pragma: no cover - decoder failure
+        raise ValueError("JPEG decoding failed")
+    return np.asarray(decoded_raw)
 
 
 def _to_channel_last(array: Array) -> tuple[Array, str]:
@@ -520,21 +567,9 @@ def degrade(
         generator = rng if rng is not None else np.random.default_rng(0)
         out = image + generator.normal(0.0, 0.01 + 0.1 * severity, image.shape)
     elif kind == "jpeg":
-        import cv2
-
         quality = round(95 - 85 * severity)
         as_bytes = np.clip(image * 255.0 + 0.5, 0, 255).astype(np.uint8)
-        ok, encoded = cv2.imencode(
-            ".jpg",
-            as_bytes if as_bytes.shape[2] != 1 else as_bytes[..., 0],
-            [int(cv2.IMWRITE_JPEG_QUALITY), quality],
-        )
-        if not ok:  # pragma: no cover - encoder failure
-            raise ValueError("JPEG encoding failed")
-        decoded_raw = cv2.imdecode(encoded, cv2.IMREAD_UNCHANGED)
-        if decoded_raw is None:  # pragma: no cover - decoder failure
-            raise ValueError("JPEG decoding failed")
-        decoded = decoded_raw.astype(np.float64) / 255.0
+        decoded = _jpeg_round_trip(as_bytes, quality).astype(np.float64) / 255.0
         out = decoded.reshape(image.shape)
     elif kind == "downsample":
         factor = 1.0 + 3.0 * severity
