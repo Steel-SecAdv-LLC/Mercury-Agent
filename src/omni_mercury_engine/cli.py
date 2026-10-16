@@ -528,9 +528,15 @@ def security(payload: str) -> None:
         "semi-supervised consensus labels are derived from detector agreement."
     ),
 )
-@click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
+@click.option("--output", "-o", default=None, help="Model checkpoint output path (.pt)")
+@click.option(
+    "--install",
+    is_flag=True,
+    help="Also install the model as the one the API, MCP server and CLI serve "
+    "($MERCURY_MODEL_DIR/fusion.pt; the replaced model is kept as fusion.previous.pt).",
+)
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
-def train(data: str, labels: str | None, output: str, epochs: int) -> None:
+def train(data: str, labels: str | None, output: str | None, install: bool, epochs: int) -> None:
     r"""Train the fusion model.
 
     Two input modes are supported:
@@ -543,6 +549,8 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     * Pre-extracted feature archive (.npz): trained directly via
       ``train_fusion_model`` (see ``mercury-agent build-features``).
     """
+    if output is None and not install:
+        raise click.UsageError("give --output, --install, or both")
     try:
         engine = _get_engine(mode="fusion")
 
@@ -558,9 +566,17 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
             click.echo(f"Training fusion model on {len(X)} samples from {data} [{mode_str}]...")
             metrics = engine.fit_fusion(X, y, epochs=epochs)
 
-        click.echo(f"Best validation loss: {metrics.get('best_loss', float('nan')):.4f}")
-        engine.save_model(output)
-        click.echo(f"Model saved to {output}")
+        best = float(metrics.get("best_loss", float("nan")))
+        click.echo(f"Best validation loss: {best:.4f}")
+        if not np.isfinite(best):
+            raise ValueError("training produced a non-finite loss; the model is not saved")
+        if output is not None:
+            engine.save_model(output)
+            click.echo(f"Model saved to {output}")
+        if install:
+            from omni_mercury_engine.engine import install_fusion_checkpoint
+
+            click.echo(f"Model installed at {install_fusion_checkpoint(engine)}")
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e

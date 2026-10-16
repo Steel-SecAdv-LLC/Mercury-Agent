@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -37,6 +38,12 @@ if TYPE_CHECKING:
 # ``setdefault`` (not direct assignment) so the CI workflow YAML can
 # still pin the variable to ``"0"`` for an explicitly real-data run.
 os.environ.setdefault("MERCURY_ALLOW_SYNTHETIC", "1")
+
+# An operator's installed fusion model (``mercury-agent train --install``) must
+# not change what the suite serves; this directory never holds one.
+os.environ["MERCURY_MODEL_DIR"] = os.path.join(
+    tempfile.gettempdir(), f"mercury-test-models-{os.getpid()}-absent"
+)
 
 
 def _bootstrap_source_checkout() -> None:
