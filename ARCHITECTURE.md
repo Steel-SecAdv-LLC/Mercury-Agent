@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-16.
 
 ## Overview
 
@@ -788,6 +788,65 @@ Temporal Relevance → Ethical Alignment → Confidence
       ↓
 Action: ESCALATE / BANISH / MAINTAIN / VOID
 ```
+
+### Intelligence Analysis, Verification and Physiological Sensing
+
+These subsystems are library modules: none has an API route, CLI command or
+MCP tool, so the harm-uplift and ethical gates of those surfaces do not wrap
+them, and each enforces its own consent and abstention rules.
+
+```
+intel_reports ──► counterintelligence screen ──► evidence scoring ──► ThreatLevel
+ (per discipline)   reliability (Beta/Admiralty)     bounded scores        │
+                    independence clusters            screened weights      │
+                    coordination / fabrication       evidence_notes        │
+                    impossible travel                                      │
+                                    └──► trained fusion network ──────────┘
+                                         only if admitted by the merit gate,
+                                         only on screened inputs
+
+adjudication ledger ──► held-out (reports, label) pairs ──► merit gate
+  cases, outcomes, blind ratings,          distinct cases, export      one-sided exact McNemar
+  kappa gate, hash split, SHA3 chain,      checked against ledger      vs evidence scoring,
+  optional ML-DSA-65 signatures                                        alpha spent per retry
+```
+
+- **Fusion** (`security/intelligence_fusion.py`): an untrained engine scores
+  from evidence. A report counts only with a finite `threat_score` in [0, 1]
+  and a positive screening weight. The network decides only after
+  `load_trained_weights` admits it on at least `MIN_HELDOUT_CASES` distinct
+  held-out cases, and only on inputs the screen left unchanged.
+- **Counterintelligence screen** (`security/counterintelligence.py`): source
+  reliability, circular and derived reporting, coordinated-reporting scan
+  statistics, digit-based fabrication screens and impossible travel. Default
+  report ids are reserved and cluster representatives are chosen by origin and
+  reliability, so a hostile report cannot displace a genuine one.
+- **Adjudication ledger** (`security/adjudication.py`): the auditable source of
+  held-out labels; `python -m omni_mercury_engine.security.adjudication
+  verify|stats|export|repair`.
+- **Statement verification** (`truth_decipher.py`): Bayesian corroboration
+  over independent evidence clusters (support must cover the claimed
+  interval), Allen-algebra and travel contradictions, consistency over time,
+  SUE and verifiability measures. It never issues a verdict about a person.
+- **Concealed Information Test** (`truth_decipher.py`): measures recognition
+  of event details, not deception; consent-gated (withdrawable) and abstains on
+  public details. Calibration: `benchmarks/cit_calibration.py`.
+- **Contactless vital signs** (`biometric/rf_vital_signs.py`): respiration and
+  heart rate from Wi-Fi CSI or radar, consent-gated, abstaining with a reason.
+  Its ~20 s minimum window does not fit the CIT's per-stimulus windows.
+
+### Engine Concurrency and Drift
+
+- `core/parallel_detectors.py` runs parallel-safe detectors under a real
+  deadline (finished results kept, unfinished ones reported as timed out);
+  `EngineConfig.detector_timeout_s` sets the engine's budget. A timed-out
+  registry detector opens its circuit breaker instead of being relaunched.
+- Drift detection is on by default (`MERCURY_DRIFT_DETECTION=0` disables it).
+  The reference is never an inference batch: an explicit baseline, else the
+  fitted spatial detector's training rows (unless it was auto-fitted on
+  inference data), else the fusion training sample, each filtered to the rows
+  the model calls normal. Drift at MEDIUM or above defers the decision; see
+  `docs/runbooks/data-drift.md`.
 
 ## Subagent Fleet (Greek Pantheon — Internal Delegation Tier)
 

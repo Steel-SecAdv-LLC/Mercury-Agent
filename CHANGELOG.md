@@ -27,6 +27,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
+
+Seven independent reviews covered the roughly 20,000 lines added after the
+third review round (engine concurrency and drift, the fusion decision path and
+counterintelligence screening, the adjudication ledger, statement verification
+and the CIT, contactless vital signs, the API audit trail, and wiring). Every
+finding below was reproduced from the code or by experiment first, and each fix
+comes with tests that fail on the previous code.
+
+**Fixed — intelligence fusion decided from unbounded or unscreened inputs
+(`security/intelligence_fusion.py`, `security/counterintelligence.py`).**
+- One report with `threat_score: 50` forced CRITICAL over every other report,
+  and `-1e6` forced LOW: per-report scores were never bounded. Scores and
+  confidences outside [0, 1] are now excluded and recorded in
+  `evidence_notes`; empty reports no longer count as corroborating sources
+  (a missing confidence was defaulted to 0.5).
+- Once trained weights were admitted, screening no longer reached the
+  decision, and a NaN feature returned LOW. The network now sees only the
+  screened reports, defers to evidence scoring when screening or source grades
+  move a discipline away from the reliability it was trained with, and
+  non-finite values never decide.
+- A hostile report could take over a genuine one by declaring its default
+  `report_id`, or by spoofing its `source_id` with an earlier time. Default ids
+  are reserved, cluster representatives are chosen by origin and reliability
+  before time, and conflicting scores in one cluster raise `CONFLICTING_CLAIMS`.
+- Outcome weights are bounded (`MAX_OUTCOME_WEIGHT = 10`, a chosen cap); a
+  1e308 weight drove adjusted reliability to 1.0 or NaN.
+- Merit gate: exact-duplicate held-out cases count once (five copies of one
+  win used to pass at p = 1/32); attempts are recorded with a held-out
+  fingerprint, and the k-th retry against the same set must beat
+  `alpha * 2^-(k-1)`, which bounds false admission over unlimited retries at
+  `2 * alpha`. The count is per engine instance. List-valued disciplines raise
+  `InputModalityError`; only a missing torch maps the lazy export to `None`.
+
+**Fixed — adjudication ledger provenance and durability
+(`security/adjudication.py`).** A training export loaded silently as held-out
+data; edited exports and records cut from the end of the chain went
+undetected; the same payload could sit in both splits; "Alice" and "alice"
+were two raters; concurrent writers forked the chain; a crash mid-write locked
+the ledger for good. `load_export` now checks the split and, given the ledger,
+re-derives every case at the export's head; `verify(expected_head_digest=)`
+catches truncation; cross-split duplicate payloads are refused; people's ids
+are normalised; writers take a `flock` and append in one write;
+`repair_torn_tail` (CLI `repair`) drops only an unterminated crash fragment;
+exports are atomic and apply the merit gate's distinct-case minimum.
+
+**Fixed — statement verification and the CIT (`truth_decipher.py`).** Two
+one-second sightings inside an eight-hour claim corroborated it (posterior
+0.988): support now requires evidence covering the whole claimed interval
+(overlap still refutes), and untimed evidence does not bear on timed claims. A
+prior already past a threshold can no longer carry a claim across it on its
+own; thresholds compare in log-odds with a 1e-12 tolerance, so a Bayes factor
+of 19 reaches 0.95. The CIT overlap guard now includes the next item's
+pre-onset heart-rate baseline (13 s with the defaults; at 10 s an irrelevant
+item inherited the probe's deceleration). `ConsentRecord.withdrawn_at` blocks
+all further scoring. `benchmarks/cit_calibration.py` replaces two unbacked
+calibration figures with measured ones (see the restoration round below).
+
+**Fixed — engine drift and detector concurrency (`engine.py`, `ml/drift.py`,
+`core/parallel_detectors.py`, `core/detector_registry.py`).** Drift was
+permanently "incomparable" for any model with a constant feature or more than
+64 features (the batch was checked against the projected reference). On the
+served route an auto-fitted detector made the first inference batch its own
+drift reference. A drift error failed the whole detection request. With fewer
+than two parallel-safe tasks the registry timeout was not enforced, and a hung
+detector counted as a success, stranded a thread per call and saturated the
+executor until every healthy detector failed. All fixed; explicit baselines
+survive fits; failed derivations are cached; drift series are pre-created so
+the first detection after a restart alerts. New: `EngineConfig.detector_timeout_s`
+(default `None`) and `MERCURY_FUSION_CHECKPOINT`.
+
+**Fixed — API audit and export (`api/`, `security/secure_audit_logging.py`).**
+A DETECT-only key could export audit logs with IPs and user agents:
+`/export/*` now requires the `export` permission. Anonymous 4xx traffic could
+rotate login evidence out of the hash-chained log: it is counted, not written.
+Session actions were audited as "anonymous". A crash-torn last line made the
+log unverifiable for good; same-second rotations overwrote a segment; workers
+resumed from and pruned each other's segments; `platform audit verify` failed
+whenever the server ran. Alert egress followed redirects with the sink's API
+key and queued deliveries without bound; `tracestate` was echoed unvalidated;
+CSV exports passed spreadsheet formulas through. All fixed.
+
+**Fixed — monitoring that could not fire.** The Helm chart's API metrics port
+targeted 9090, where nothing listens; its alert rules were a hand-kept copy
+with eight alerts on metrics nothing emits and none of the drift alerts.
+`scripts/render_prometheus_rules.py` now generates the Helm `PrometheusRule`
+from the same CRD as compose and the raw manifests; the ServiceMonitor
+attaches the `app`/`service`/`job` labels every rule selects; the ethical-gate
+alerts moved into the CRD.
+
+**Fixed — CI.** Two numpy-typing failures on the Python 3.11 lane (in the
+RF module and its tests), and a phantom-token ethical-gate coverage report
+whose tokens named symbols that do not exist (now guarded by a test).
+
+**Changed — breaking for operators.**
+- Default API keys (`read` + `detect`) get 403 on every `/export/*` route;
+  compliance exports need a key with `export` or an admin principal.
+- Unauthenticated 4xx no longer appear in `/export/audit-logs`.
+- Statement verification no longer counts evidence covering part of a claimed
+  interval as support.
+- `load_export` takes a `split` (default `"heldout"`) and refuses the other.
+
 ### Restoration round: rebuilt capabilities, two ethical-gate failures closed, drift on by default (branch `steel/version-cov4`)
 
 Every removed symbol from `7ab59916`, `740da10a` and `f07b724e` was loaded
