@@ -156,7 +156,7 @@ def radar_phase(displacement: np.ndarray, noise_m: float = 0.0, seed: int = 0) -
     """Wrapped 24 GHz CW radar phase for a displacement series."""
     rng = np.random.default_rng(seed + 2000)
     d = displacement + noise_m * rng.standard_normal(displacement.shape[0])
-    return np.angle(np.exp(1j * 4 * np.pi * d / LAMBDA_24GHZ))
+    return np.asarray(np.angle(np.exp(1j * 4 * np.pi * d / LAMBDA_24GHZ)), dtype=np.float64)
 
 
 def burst(n: int, start_s: float, dur_s: float, pp_m: float = 0.08, fs: float = FS) -> np.ndarray:
@@ -404,7 +404,8 @@ class TestResample:
 
 
 def tone(freq: float, duration_s: float = 40.0, amp: float = 1.0, phase: float = 0.3) -> np.ndarray:
-    return amp * np.sin(2 * np.pi * freq * np.arange(round(duration_s * FS)) / FS + phase)
+    t = np.arange(round(duration_s * FS)) / FS
+    return np.asarray(amp * np.sin(2 * np.pi * freq * t + phase), dtype=np.float64)
 
 
 class TestSpectral:
