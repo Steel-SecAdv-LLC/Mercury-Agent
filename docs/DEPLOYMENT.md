@@ -332,11 +332,15 @@ Structured-vs-text formatting is selected by the logging setup in
 | `MERCURY_CACHE_DIR` | `~/.mercury/cache` | On-disk loader cache path (`loaders/base.py`) |
 | `TORCH_HOME` | `/app/models` | PyTorch model cache (consumed by torch) |
 | `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
+| `MERCURY_FUSION_CHECKPOINT` | bundled `models/default_fusion.pt` | Fusion checkpoint the API, MCP server and `detect`/`explain` serve; write one with `mercury-agent train -o`. A missing path fails like a missing bundled file, never falling back to it |
+| `MERCURY_DRIFT_DETECTION` | on | `0`/`false`/`off` disables input-drift detection (see `docs/runbooks/data-drift.md`) |
+| `MERCURY_ADJUDICATION_PATH` | `~/.mercury/adjudication.jsonl` | Held-out fusion-label ledger (`python -m omni_mercury_engine.security.adjudication`) |
 
 ML availability is determined by the installed extras (`pip install
 mercury-agent[ml]`), not by an environment toggle, and the PQC backend is
-mandatory at import — there is no `OMNI_ML_ENABLED` or
-`OMNI_QUANTUM_ENABLED` switch in the application.
+mandatory for every agent surface (engine, crypto, AMA-backed security
+names) — there is no `OMNI_ML_ENABLED` or `OMNI_QUANTUM_ENABLED` switch in
+the application.
 
 ### Database (optional persistence)
 
@@ -413,6 +417,7 @@ Wiring the series to the rules:
 |---|---|---|---|
 | docker compose | `monitoring/prometheus/prometheus.yml` (adds `app`, `service`) | `rules.yml`, rendered from the CRD by `scripts/render_prometheus_rules.py` | — |
 | Kubernetes (`k8s/`) | `monitoring/prometheus/podmonitors.yaml` (adds `app`, `service`, `job`) | `prometheus-rules.yaml` (PrometheusRule) | prometheus-adapter with `monitoring/prometheus/prometheus-adapter-rules.yaml` |
+| Helm chart | `templates/servicemonitor.yaml` (adds `app`, `service`, `job` from each Service's component label; the API's `metrics` Service port targets its HTTP listener, which serves `/metrics`) | `templates/prometheusrule.yaml`, rendered from the same CRD by `scripts/render_prometheus_rules.py`, plus `metrics.prometheusRule.rules` | prometheus-adapter, as for `k8s/` |
 
 Every rule selects `{app="mercury-agent"}`. A scrape config that does not
 attach that label leaves every alert permanently silent. Without the adapter
@@ -420,19 +425,44 @@ rules, the HPAs' custom metrics are unavailable and Kubernetes never scales
 those deployments down. Each worker reports the backlog group-wide, so the
 adapter aggregates it with `max`.
 
-**Audit trail.** Every finished API request (except probes, docs, unmatched
-paths and 429 rejections) is recorded with:
-- the principal and the route template;
+**Audit trail.** Every finished API request by an identified caller (API
+key, JWT or browser session; except probes, docs, unmatched paths and 429
+rejections) is recorded with:
+- the principal and the route template (never the raw path);
 - path parameters, status and duration;
 - the client IP and the correlation id;
 - query parameter *names*, never their values.
 
-`GET /api/v1/export/audit-logs` serves these entries. With
-`MERCURY_AUDIT_LOG_DIR` set, they also go to the hash-chained audit log
-together with auth events. The chain resumes across restarts. The first
-process to open the directory writes `audit.jsonl`. Any further process, such
-as extra `--workers`, writes its own `audit-<pid>.jsonl`, so each file is one
-verifiable chain.
+Caller-controlled fields are clipped (256 characters for the user agent, path
+and resource; 64 per path parameter or query name; at most 16 query names), so
+a client cannot inflate entries. Unauthenticated 4xx responses are counted (a
+capped tally plus `http_requests_total`) but not written to the audit log:
+anonymous traffic must not be able to rotate login and 2FA evidence out of the
+retained segments. Login failures are still recorded by the auth auditor.
+
+`GET /api/v1/export/audit-logs` serves these entries (the in-memory store
+keeps the newest `MAX_AUDIT_LOG_RECORDS`, 50,000 by default). Every
+`/api/v1/export/*` route requires the `export` permission: default API keys
+carry `read` + `detect` only, so issue a key with `export` (or use an admin
+principal) for compliance exports. CSV exports neutralise cells that a
+spreadsheet would run as a formula.
+
+With `MERCURY_AUDIT_LOG_DIR` set, the entries also go to the hash-chained
+audit log together with auth events:
+- The chain resumes across restarts. A crash that leaves a torn last line is
+  repaired on start: only the bytes after the last newline are cut, logged
+  with their digest and kept as `audit.jsonl.torn-<usec>`.
+- The first process to open the directory writes `audit.jsonl`. Any further
+  process, such as extra `--workers`, writes its own `audit-<pid>.jsonl` and
+  holds `.audit-<pid>.lock`, so each file is one verifiable chain.
+- Rotated segments get microsecond-unique names and are never overwritten.
+  Resume and count-based retention only ever touch a writer's own segments;
+  the time-based sweep also removes a finished worker's log and old torn
+  fragments, never a live writer's active file.
+- `mercury-agent platform audit verify` checks every writer's chain
+  read-only (no lock taken, safe while the server runs); `--file` checks one
+  file. A chain cannot reveal records cut from its very start or end without
+  an external anchor.
 
 ### Grafana dashboards
 
@@ -483,6 +513,11 @@ classification) and no user identifier. A sink receives only alerts at or
 below its `max_tlp` (default `AMBER+STRICT`, so `TLP:RED` is never forwarded
 automatically). Under `MERCURY_OFFLINE` non-loopback sinks are refused before
 any socket opens. A malformed value is logged once and disables egress.
+Sinks never follow HTTP redirects (a redirect could carry the sink's API key
+to another host, past the offline gate), and at most
+`MERCURY_ALERT_MAX_PENDING` deliveries (default 256) are in flight: beyond
+that, new alerts are dropped and counted (`dropped_backpressure` in the egress
+stats) rather than queued without bound behind a slow sink.
 
 ---
 

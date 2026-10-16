@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,898
-- **Capability-bearing classes:** 1,916 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,899
+- **Capability-bearing classes:** 1,917 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,129 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,130 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1129 |
+| Other capability classes | 1130 |
 | Support types (config / result / enum / error) | 982 |
 | Detection | 168 |
 | Neural models & layers | 160 |
@@ -639,7 +639,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 354 classes (225 capability)
+### `core/` — 355 classes (226 capability)
 
 **Adapters & backends**
 
@@ -868,6 +868,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
 - `VietorisRipsFiltration` (`core.topological_analysis`) — Build a Vietoris-Rips simplicial complex and compute persistent homology.
+- `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
 - `_UnionFind` (`core.topological_analysis`) — Weighted union-find with path compression.
 

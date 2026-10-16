@@ -620,12 +620,13 @@ class TestExportRoutes:
     @pytest.fixture
     def auth_headers(self):
         """Create valid API key auth headers."""
-        from omni_mercury_engine.api.auth import get_api_key_store
+        from omni_mercury_engine.api.auth import Permission, get_api_key_store
 
         store = get_api_key_store()
         raw_key, _ = store.create_key(
             name="export_test_key",
             user_id="export_test_user",
+            permissions={Permission.READ, Permission.EXPORT},
         )
         return {"X-API-Key": raw_key}
 

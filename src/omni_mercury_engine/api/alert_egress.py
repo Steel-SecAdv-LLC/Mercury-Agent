@@ -205,6 +205,7 @@ class AlertEgress:
             "withheld_tlp": 0,
             "below_min_score": 0,
             "suppressed_offline": 0,
+            "dropped_backpressure": 0,
         }
 
     def build_event(self, record: DetectionRecord) -> tuple[AnomalyEvent, TLPColor]:
@@ -290,10 +291,27 @@ class AlertEgress:
         await self.hub.disconnect_all()
 
 
+#: Environment variable capping in-flight alert deliveries.
+ALERT_MAX_PENDING_ENV = "MERCURY_ALERT_MAX_PENDING"
+#: Default cap on in-flight alert tasks. Each holds one detection record and
+#: its open sink requests; beyond this a slow or dead SIEM would otherwise
+#: grow the task set without bound under sustained detection traffic.
+DEFAULT_ALERT_MAX_PENDING = 256
+
 _lock = threading.Lock()
 _egress: AlertEgress | None = None
 _configured = False
 _pending: set[asyncio.Task[Any]] = set()
+
+
+def _max_pending() -> int:
+    """The in-flight alert cap (``MERCURY_ALERT_MAX_PENDING``, default 256)."""
+    raw = os.environ.get(ALERT_MAX_PENDING_ENV, "").strip()
+    try:
+        value = int(raw) if raw else DEFAULT_ALERT_MAX_PENDING
+    except ValueError:
+        return DEFAULT_ALERT_MAX_PENDING
+    return value if value > 0 else DEFAULT_ALERT_MAX_PENDING
 
 
 def get_alert_egress() -> AlertEgress | None:
@@ -333,8 +351,13 @@ def schedule_alert(record: DetectionRecord) -> asyncio.Task[Any] | None:
     """Fire-and-forget :meth:`AlertEgress.dispatch` for *record*.
 
     Returns the task (``None`` when egress is off, the record flagged
-    nothing, or no event loop is running). Failures are logged, never
-    raised into the detection request.
+    nothing, no event loop is running, or the in-flight cap is reached).
+    Failures are logged, never raised into the detection request.
+
+    At most ``MERCURY_ALERT_MAX_PENDING`` deliveries are in flight at once:
+    when the sinks fall that far behind, further alerts are dropped (never
+    queued) and counted in ``AlertEgress.stats["dropped_backpressure"]`` so
+    the detection path's memory stays bounded however slow a SIEM is.
     """
     if record.anomaly_count <= 0:
         return None
@@ -344,6 +367,18 @@ def schedule_alert(record: DetectionRecord) -> asyncio.Task[Any] | None:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        return None
+    if len(_pending) >= _max_pending():
+        egress.stats["dropped_backpressure"] += 1
+        dropped = egress.stats["dropped_backpressure"]
+        if dropped & (dropped - 1) == 0:  # log on 1, 2, 4, 8, ... drops
+            logger.warning(
+                "Alert egress backlog full (%d in flight); dropped alert for detection %s "
+                "(%d dropped so far)",
+                len(_pending),
+                record.detection_id,
+                dropped,
+            )
         return None
 
     async def _run() -> None:
@@ -368,7 +403,9 @@ async def shutdown_alert_egress() -> None:
 
 
 __all__ = [
+    "ALERT_MAX_PENDING_ENV",
     "ALERT_SINKS_ENV",
+    "DEFAULT_ALERT_MAX_PENDING",
     "AlertEgress",
     "AlertSink",
     "get_alert_egress",

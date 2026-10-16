@@ -2527,10 +2527,21 @@ def platform_audit() -> None:
     "--file",
     "file_path",
     default=None,
-    help="Verify a specific segment file (defaults to the active audit.jsonl)",
+    help=(
+        "Verify only this segment file (default: every writer's chain in "
+        "MERCURY_AUDIT_LOG_DIR -- rotated segments, then the active log)"
+    ),
 )
 def platform_audit_verify(file_path: str | None) -> None:
     """Verify the audit log's HMAC hash chain; exit 1 on any break.
+
+    Strictly read-only: nothing is opened for writing and the directory's
+    writer lock is not touched, so it is safe to run while the server is
+    writing. Without `--file` every writer's chain is checked -- the primary
+    `audit.jsonl` with its rotated segments, plus any per-process
+    `audit-<pid>.jsonl` chains -- including the links between consecutive
+    segments. Records removed from the very start or end of a chain cannot
+    be detected without an external anchor.
 
     Verification recomputes the chain with the key derived from
     `AMA_MASTER_SEED` — run it with the same environment the server writes
@@ -2539,15 +2550,31 @@ def platform_audit_verify(file_path: str | None) -> None:
     audit_dir = _require_env_path(
         "MERCURY_AUDIT_LOG_DIR", "audit verification reads the deployment's audit directory"
     )
-    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+    from omni_mercury_engine.security.secure_audit_logging import (
+        SecureHashChain,
+        verify_audit_directory,
+        verify_log_file,
+    )
 
-    logger = SecureAuditLogger(log_dir=audit_dir)
-    try:
-        target = Path(file_path) if file_path else None
-        ok, message = logger.verify_log_integrity(target)
-    finally:
-        logger.shutdown()
-    click.echo(json.dumps({"ok": ok, "message": message}, indent=2))
+    payload: dict[str, Any]
+    if file_path:
+        ok, message = verify_log_file(Path(file_path), SecureHashChain())
+        payload = {"ok": ok, "message": message}
+    else:
+        ok, chains = verify_audit_directory(audit_dir)
+        broken = [
+            f"{chain['writer']}: {entry['file']}: {entry['message']}"
+            for chain in chains
+            for entry in chain["files"]
+            if not entry["ok"]
+        ]
+        if ok:
+            total = sum(len(chain["files"]) for chain in chains)
+            message = f"{len(chains)} chain(s), {total} file(s) verified"
+        else:
+            message = "; ".join(broken) or "no audit files found in " + audit_dir
+        payload = {"ok": ok, "message": message, "chains": chains}
+    click.echo(json.dumps(payload, indent=2))
     if not ok:
         raise SystemExit(1)
 

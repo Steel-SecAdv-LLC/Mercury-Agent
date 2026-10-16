@@ -32,11 +32,39 @@ def client() -> TestClient:
 
 @pytest.fixture
 def api_user() -> tuple[str, dict[str, str]]:
-    from omni_mercury_engine.api.auth import get_api_key_store
+    from omni_mercury_engine.api.auth import Permission, get_api_key_store
 
     user_id = f"audit-user-{uuid.uuid4().hex[:8]}"
-    raw_key, _ = get_api_key_store().create_key(name="audit_test_key", user_id=user_id)
+    raw_key, _ = get_api_key_store().create_key(
+        name="audit_test_key",
+        user_id=user_id,
+        permissions={Permission.READ, Permission.EXPORT},
+    )
     return user_id, {"X-API-Key": raw_key}
+
+
+def _bare_request(
+    *,
+    status_path: str = "/api/v1/detect/univariate",
+    path: str | None = None,
+    params: dict[str, str] | None = None,
+    query: bytes = b"",
+    headers: list[tuple[bytes, bytes]] | None = None,
+) -> Any:
+    from starlette.requests import Request
+
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": path or status_path,
+            "headers": headers or [],
+            "query_string": query,
+            "client": ("203.0.113.9", 4000),
+            "route": type("R", (), {"path": status_path})(),
+            "path_params": params or {},
+        }
+    )
 
 
 def _store_entries(user_id: str) -> list[Any]:
@@ -107,39 +135,120 @@ class TestRequestsAreAudited:
             for r in records
         )
 
-    def test_rejected_request_is_audited_as_anonymous(self, client: TestClient) -> None:
+    def test_anonymous_rejection_is_counted_not_audited(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Unauthenticated 4xx never reach the shared hash chain or the window."""
+        from omni_mercury_engine.api.request_audit import anonymous_rejection_counts
         from omni_mercury_engine.api.routes.export import get_data_store
 
+        monkeypatch.setenv(auth_audit.AUDIT_DIR_ENV, str(tmp_path))
+        key = "GET /api/v1/export/detections -> 401"
+        counted = anonymous_rejection_counts().get(key, 0)
         before = len(get_data_store()._audit_logs)
-        response = client.get("/api/v1/export/detections")
-        assert response.status_code in (401, 403)
-        new = list(get_data_store()._audit_logs)[before:]
-        mine = [r for r in new if r.action == "GET /api/v1/export/detections"]
-        assert mine and mine[-1].user_id == "anonymous"
-        assert mine[-1].response_status == response.status_code
+        for _ in range(3):
+            assert client.get("/api/v1/export/detections").status_code == 401
+        new = [
+            r
+            for r in list(get_data_store()._audit_logs)[before:]
+            if r.action == "GET /api/v1/export/detections"
+        ]
+        assert new == []
+        assert anonymous_rejection_counts()[key] == counted + 3
+        secure = auth_audit.shared_secure_logger()
+        assert secure is not None
+        secure.flush()
+        log = tmp_path / "audit.jsonl"
+        assert not log.exists() or "export/detections" not in log.read_text()
+
+    def test_authenticated_denial_is_audited(self, client: TestClient) -> None:
+        """A 403 for a known principal is attributable, so it is recorded."""
+        from omni_mercury_engine.api.auth import Permission, get_api_key_store
+
+        user_id = f"detect-only-{uuid.uuid4().hex[:8]}"
+        raw_key, _ = get_api_key_store().create_key(
+            name="detect_only", user_id=user_id, permissions={Permission.DETECT}
+        )
+        response = client.get("/api/v1/export/audit-logs", headers={"X-API-Key": raw_key})
+        assert response.status_code == 403
+        entries = _store_entries(user_id)
+        assert [e.response_status for e in entries] == [403]
+
+    def test_entry_fields_are_bounded_and_store_the_template(self) -> None:
+        """Raw paths, huge user agents and query floods are clipped."""
+        import asyncio
+
+        from omni_mercury_engine.api.request_audit import (
+            MAX_FIELD_CHARS,
+            MAX_PARAM_CHARS,
+            MAX_QUERY_NAMES,
+            audit_request,
+            set_audit_actor,
+        )
+        from omni_mercury_engine.api.routes.export import get_data_store
+
+        actor = f"bounded-{uuid.uuid4().hex[:8]}"
+        query = "&".join(f"{'q' * 100}{i}=v" for i in range(40)).encode()
+        request = _bare_request(
+            status_path="/api/v1/export/jobs/{job_id}",
+            path="/api/v1/export/jobs/" + "x" * 5000,
+            params={"job_id": "x" * 5000},
+            query=query,
+            headers=[(b"user-agent", b"A" * 10_000)],
+        )
+        set_audit_actor(request, actor, "session")
+        asyncio.run(audit_request(request, 200, 1.0))
+        entry = get_data_store()._audit_logs[-1]
+        assert entry.user_id == actor
+        assert entry.request_path == "/api/v1/export/jobs/{job_id}"
+        assert len(entry.user_agent) == MAX_FIELD_CHARS
+        assert len(entry.resource_id) <= MAX_FIELD_CHARS
+        assert entry.resource_id.startswith("job_id=" + "x" * (MAX_PARAM_CHARS - 3) + "...")
+        names = entry.metadata["query_params"]
+        assert len(names) == MAX_QUERY_NAMES
+        assert all(len(n) <= MAX_PARAM_CHARS for n in names)
+        assert entry.metadata["query_params_dropped"] == 40 - MAX_QUERY_NAMES
+        assert entry.metadata["auth_method"] == "session"
+
+    def test_anonymous_rejection_tally_is_bounded(self) -> None:
+        """Distinct anonymous 404 routes cannot grow the tally without bound."""
+        import asyncio
+
+        from omni_mercury_engine.api import request_audit
+
+        for i in range(request_audit._MAX_REJECTION_KEYS + 50):
+            request = _bare_request(status_path=f"/api/v1/probe-{uuid.uuid4().hex}-{i}")
+            asyncio.run(request_audit.audit_request(request, 404, 1.0))
+        assert len(request_audit.anonymous_rejection_counts()) <= (
+            request_audit._MAX_REJECTION_KEYS + 1
+        )
+
+    def test_audit_window_has_its_own_smaller_bound(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.api.routes import export as export_module
+
+        monkeypatch.delenv("MAX_AUDIT_LOG_RECORDS", raising=False)
+        store = export_module.DataStore()
+        assert store._audit_logs.maxlen == export_module.DEFAULT_MAX_AUDIT_LOG_RECORDS
+        assert store._audit_logs.maxlen < store._detections.maxlen  # type: ignore[operator]
+        monkeypatch.setenv("MAX_AUDIT_LOG_RECORDS", "7")
+        assert export_module.DataStore()._audit_logs.maxlen == 7
+        monkeypatch.setenv("MAX_AUDIT_LOG_RECORDS", "garbage")
+        assert (
+            export_module.DataStore()._audit_logs.maxlen
+            == export_module.DEFAULT_MAX_AUDIT_LOG_RECORDS
+        )
 
     def test_rate_limited_rejections_are_not_audited(self) -> None:
         """A 429 flood must not be able to push real entries out of the window."""
         import asyncio
 
-        from starlette.requests import Request
-
         from omni_mercury_engine.api.request_audit import audit_request
         from omni_mercury_engine.api.routes.export import get_data_store
 
-        def _request() -> Request:
-            return Request(
-                {
-                    "type": "http",
-                    "method": "POST",
-                    "path": "/api/v1/detect/univariate",
-                    "headers": [],
-                    "query_string": b"",
-                    "client": ("203.0.113.9", 4000),
-                    "route": type("R", (), {"path": "/api/v1/detect/univariate"})(),
-                    "path_params": {},
-                }
-            )
+        def _request() -> Any:
+            request = _bare_request()
+            request.state.audit_actor = ("rate-limit-actor", "api_key")
+            return request
 
         store = get_data_store()
         before = len(store._audit_logs)
@@ -211,3 +320,51 @@ def test_unhandled_exception_is_metered_and_audited(client: TestClient) -> None:
         assert [e.response_status for e in entries] == [500]
     finally:
         app.router.routes.remove(route)
+
+
+def test_session_cookie_actions_are_attributed_to_the_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Key creation through a browser session is audited as the account."""
+    from fastapi import FastAPI
+
+    from omni_mercury_engine.api import auth
+    from omni_mercury_engine.api.auth_service import AuthService
+    from omni_mercury_engine.api.identity_store import InMemoryIdentityStore
+    from omni_mercury_engine.api.routes import accounts
+    from omni_mercury_engine.api.routes.export import get_data_store
+    from omni_mercury_engine.api.server import CorrelationIDMiddleware
+
+    class _Mailer:
+        def __init__(self) -> None:
+            self.bodies: list[str] = []
+
+        def send(self, *, to: str, subject: str, body: str, **_: Any) -> None:
+            self.bodies.append(body)
+
+    import re
+
+    monkeypatch.setenv("MERCURY_SESSION_COOKIE_SECURE", "false")
+    monkeypatch.setattr(auth, "_api_key_store", None)
+    mailer = _Mailer()
+    service = AuthService(InMemoryIdentityStore(), mailer)
+    app = FastAPI()
+    app.add_middleware(CorrelationIDMiddleware)
+    app.include_router(accounts.router)
+    app.dependency_overrides[accounts.get_auth_service] = lambda: service
+    email = f"audit-{uuid.uuid4().hex[:6]}@b.com"
+    with TestClient(app) as client:
+        client.post("/api/v1/auth/register", json={"email": email, "password": "a-strong-pw"})
+        match = re.search(r"token=([\w\-]+)", mailer.bodies[-1])
+        assert match is not None
+        client.post("/api/v1/auth/verify-email", json={"token": match.group(1)})
+        login = client.post("/api/v1/auth/login", json={"email": email, "password": "a-strong-pw"})
+        csrf = login.json()["csrf_token"]
+        account_id = client.get("/api/v1/auth/me").json()["id"]
+        created = client.post(
+            "/api/v1/auth/api-keys", json={"name": "k"}, headers={"X-CSRF-Token": csrf}
+        )
+        assert created.status_code == 201
+    entries = [r for r in get_data_store()._audit_logs if r.action == "POST /api/v1/auth/api-keys"]
+    assert entries and entries[-1].user_id == account_id
+    assert entries[-1].metadata["auth_method"] == "session"

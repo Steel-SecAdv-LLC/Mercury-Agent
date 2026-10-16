@@ -148,6 +148,26 @@ class ExportJob:
     expires_at: datetime | None = None
 
 
+#: Default cap of the in-memory per-request audit window. Every entry's
+#: caller-controlled strings are clipped (``request_audit.MAX_FIELD_CHARS``,
+#: 16 query names), which bounds a record at roughly 2-3 KiB of Python objects
+#: in the worst case, so 50,000 entries stay under ~150 MiB even when every
+#: field is maxed out (typically ~1 KiB/entry, ~50 MiB) -- about a day of
+#: traffic at one request every two seconds, and far more than an operator
+#: pages through via ``/export/audit-logs``.
+DEFAULT_MAX_AUDIT_LOG_RECORDS = 50_000
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    """Read a positive int from ``name`` (``default`` on unset/malformed/<=0)."""
+    raw = os.getenv(name, "").strip()
+    try:
+        value = int(raw) if raw else default
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 class DataStore:
     """In-memory data store for demonstration.
 
@@ -156,13 +176,25 @@ class DataStore:
     """
 
     def __init__(self) -> None:
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Detections are capped by ``MAX_EXPORT_RECORDS`` (default 1,000,000).
+        The per-request audit window has its own, much smaller cap,
+        ``MAX_AUDIT_LOG_RECORDS`` (default :data:`DEFAULT_MAX_AUDIT_LOG_RECORDS`):
+        it grows by one entry per API request, so at the old shared 1M cap
+        a busy or abusive client could pin roughly a gigabyte of memory in a
+        store that is only a volatile convenience view -- the durable,
+        tamper-evident trail is ``MERCURY_AUDIT_LOG_DIR``.
+        """
         self._max_records = int(os.getenv("MAX_EXPORT_RECORDS", "1000000"))
+        self._max_audit_records = _positive_int_env(
+            "MAX_AUDIT_LOG_RECORDS", DEFAULT_MAX_AUDIT_LOG_RECORDS
+        )
         # Bounded deques: the oldest record falls off in O(1). Re-slicing a
         # list at the cap copied up to MAX_EXPORT_RECORDS entries on every
         # append -- now once per API request, since every request is audited.
         self._detections: deque[DetectionRecord] = deque(maxlen=self._max_records)
-        self._audit_logs: deque[AuditLogRecord] = deque(maxlen=self._max_records)
+        self._audit_logs: deque[AuditLogRecord] = deque(maxlen=self._max_audit_records)
         self._export_jobs: dict[str, ExportJob] = {}
         self._lock = asyncio.Lock()
 
@@ -345,19 +377,38 @@ async def record_audit_log(
     duration_ms: float,
     metadata: dict[str, Any] | None = None,
     client_ip: str | None = None,
+    request_path: str | None = None,
 ) -> None:
     """Record an audit log entry.
 
-    ``client_ip`` overrides the TCP peer address -- pass the trusted-proxy
-    resolved address (:func:`~omni_mercury_engine.api.client_ip.resolve_client_ip`)
-    so entries behind a load balancer do not all carry the proxy's IP.
+    Args:
+        user_id: The acting principal.
+        action: ``"<METHOD> <route template>"``.
+        resource_type: Resource family the route acts on.
+        resource_id: Path parameters as ``name=value`` pairs.
+        request: The request (peer address, user agent, method, route).
+        response_status: HTTP status returned.
+        duration_ms: Handling time in milliseconds.
+        metadata: Extra structured fields (no secrets, no query values).
+        client_ip: Overrides the TCP peer address -- pass the trusted-proxy
+            resolved address
+            (:func:`~omni_mercury_engine.api.client_ip.resolve_client_ip`) so
+            entries behind a load balancer do not all carry the proxy's IP.
+        request_path: The route *template* to store. When omitted, the
+            matched route's template is used; the raw URL path (which embeds
+            caller-chosen identifiers) is never stored. ``"unknown"`` when
+            no route matched.
+
+    Every caller-controlled string (user agent, path, ids) is clipped to
+    :data:`~omni_mercury_engine.api.request_audit.MAX_FIELD_CHARS`.
     """
+    from omni_mercury_engine.api.request_audit import clip
+
     store = get_data_store()
 
     ip_address = "unknown"
     user_agent = "unknown"
     request_method = "unknown"
-    request_path = "unknown"
 
     if client_ip:
         ip_address = client_ip
@@ -367,20 +418,23 @@ async def record_audit_log(
         user_agent = request.headers.get("user-agent", "unknown")
     if hasattr(request, "method"):
         request_method = request.method
-    if hasattr(request, "url"):
-        request_path = str(request.url.path)
+    if request_path is None:
+        scope = getattr(request, "scope", None)
+        route = scope.get("route") if isinstance(scope, dict) else None
+        template = getattr(route, "path", None)
+        request_path = template if isinstance(template, str) else "unknown"
 
     record = AuditLogRecord(
         log_id=str(uuid.uuid4()),
         timestamp=datetime.now(),
-        user_id=user_id,
-        action=action,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        request_method=request_method,
-        request_path=request_path,
+        user_id=clip(str(user_id)),
+        action=clip(action),
+        resource_type=clip(resource_type),
+        resource_id=clip(resource_id),
+        ip_address=clip(str(ip_address)),
+        user_agent=clip(str(user_agent)),
+        request_method=clip(str(request_method)),
+        request_path=clip(request_path),
         response_status=response_status,
         duration_ms=duration_ms,
         metadata=metadata or {},
@@ -454,13 +508,29 @@ def _get_current_user(
     api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
     jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
 ) -> User:
-    """Get current authenticated user."""
+    """Resolve the caller and require :attr:`Permission.EXPORT`.
+
+    Every export route depends on this, so a credential that may only run
+    detections (the self-service default is ``READ`` + ``DETECT``; a JWT
+    without a ``permissions`` claim gets ``READ``) cannot bulk-export audit
+    logs, detections, metrics or reports. ``ADMIN`` implies ``EXPORT`` via
+    :meth:`User.has_permission`, so operator credentials keep working.
+
+    Raises:
+        HTTPException: 401 without a valid credential; 403 when the
+            credential lacks the ``export`` permission.
+    """
     user = api_key_user or jwt_user
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer, ApiKey"},
+        )
+    if not user.has_permission(Permission.EXPORT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The 'export' permission is required for data export",
         )
     return user
 
@@ -602,8 +672,35 @@ async def _stream_jsonl(records: list[Any], to_dict: Any) -> AsyncIterator[bytes
         yield (json.dumps(data, default=str) + "\n").encode()
 
 
+#: Leading characters that make a spreadsheet treat a cell as a formula
+#: (OWASP "CSV injection"): ``=``, ``+``, ``-``, ``@``, TAB and CR.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: Any) -> Any:
+    """Neutralise a CSV cell that a spreadsheet would evaluate as a formula.
+
+    Audit-log rows carry caller-controlled strings (user agent, path
+    parameters, action names), so an exported CSV opened in Excel / Sheets
+    could otherwise run ``=HYPERLINK(...)``-style payloads. Such cells are
+    prefixed with a single quote; non-string values (numbers, booleans,
+    ``None``) are returned unchanged -- ``csv`` renders a negative float as a
+    plain number, which spreadsheets do not evaluate.
+
+    Args:
+        value: The cell value.
+
+    Returns:
+        The value, quote-prefixed when it is a string starting with a
+        formula trigger.
+    """
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 async def _stream_csv(records: list[Any], to_dict: Any) -> AsyncIterator[bytes]:
-    """Stream records as CSV."""
+    """Stream records as CSV (formula-injection safe, see :func:`_csv_safe`)."""
     if not records:
         yield b""
         return
@@ -613,7 +710,7 @@ async def _stream_csv(records: list[Any], to_dict: Any) -> AsyncIterator[bytes]:
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=headers)
-    writer.writeheader()
+    writer.writerow({key: _csv_safe(key) for key in headers})
     yield output.getvalue().encode()
 
     for record in records:
@@ -623,6 +720,7 @@ async def _stream_csv(records: list[Any], to_dict: Any) -> AsyncIterator[bytes]:
         for key in data:
             if isinstance(data[key], (dict, list)):
                 data[key] = json.dumps(data[key])
+            data[key] = _csv_safe(data[key])
         writer.writerow(data)
         yield output.getvalue().encode()
 

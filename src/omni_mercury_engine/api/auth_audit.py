@@ -99,34 +99,58 @@ def audit_retention_days() -> float:
 def prune_rotated_audit_segments(audit_dir: str | os.PathLike[str], older_than_epoch: float) -> int:
     """Delete rotated audit segments (+ their ``.sha256``) older than a cutoff.
 
-    Only whole *rotated* segments (``audit_*.jsonl``) are removed — never the
-    active ``audit.jsonl``, and never individual lines — so the hash chain of
-    every retained segment stays intact and independently verifiable. Each
-    segment's SHA-256 sidecar is removed alongside it. Failures on one segment
-    are logged and skipped so retention never takes the sweep (or the API)
-    down.
+    Only whole files are removed, never individual lines, so the hash chain of
+    every retained file stays intact and independently verifiable:
+
+    * rotated segments (``audit_*.jsonl``, every writer's) and their SHA-256
+      sidecars;
+    * a finished worker's log (``audit-<pid>.jsonl``), only once its writer no
+      longer runs (its ``.audit-<pid>.lock`` is free, or without one its pid is
+      gone) -- a live worker's active log is never a target however old --
+      together with that stale lock file;
+    * crash fragments a writer set aside on restart (``*.torn-<usec>``).
+
+    The primary's active ``audit.jsonl`` is never removed. Failures on one file
+    are logged and skipped so retention never takes the sweep (or the API) down.
 
     Args:
         audit_dir: The audit log directory.
-        older_than_epoch: UNIX seconds; segments last modified before this are
+        older_than_epoch: UNIX seconds; files last modified before this are
             deleted.
 
     Returns:
-        The number of segment files deleted.
+        The number of log files deleted (sidecars and lock files not counted).
     """
+    from omni_mercury_engine.security.secure_audit_logging import (
+        _WORKER_LOG_RE,
+        _worker_lock_path,
+        _writer_is_live,
+    )
+
     directory = Path(audit_dir)
     if not directory.is_dir():
         return 0
     removed = 0
-    for segment in directory.glob("audit_*.jsonl"):
-        try:
-            if segment.stat().st_mtime >= older_than_epoch:
+    for path in sorted(directory.iterdir()):
+        name = path.name
+        worker = _WORKER_LOG_RE.fullmatch(name)
+        if not (name.startswith("audit_") and name.endswith(".jsonl")) and worker is None:
+            if ".torn-" not in name:
                 continue
-            segment.unlink(missing_ok=True)
-            segment.with_suffix(".sha256").unlink(missing_ok=True)
+        try:
+            if not path.is_file() or path.stat().st_mtime >= older_than_epoch:
+                continue
+            if worker is not None:
+                pid = int(worker.group("pid"))
+                if _writer_is_live(directory, pid):
+                    continue
+                _worker_lock_path(directory, pid).unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
+            if name.endswith(".jsonl"):
+                path.with_suffix(".sha256").unlink(missing_ok=True)
             removed += 1
         except OSError:
-            logger.exception("failed to prune audit segment %s", segment)
+            logger.exception("failed to prune audit file %s", path)
     return removed
 
 

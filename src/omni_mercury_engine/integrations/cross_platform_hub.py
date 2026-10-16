@@ -564,12 +564,19 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
     ``config.metadata`` may set ``index`` (Splunk / Elastic) and
     ``sourcetype`` (Splunk).
+
+    The session carries the platform credential as a default header, so no
+    request follows redirects (``allow_redirects=False``): a 3xx is a failed
+    delivery, never a hop that could replay ``DD-API-KEY`` / ``Authorization``
+    to another host. Session creation is serialised by a lock, so concurrent
+    first sends share one session instead of each opening (and leaking) one.
     """
 
     def __init__(self, config: PlatformConfig):
         """Initialize the instance."""
         super().__init__(config)
         self._session: Any = None
+        self._connect_lock = asyncio.Lock()
 
     @property
     def _is_elastic(self) -> bool:
@@ -634,6 +641,23 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 configured endpoint is not a loopback host.
         """
         _enforce_offline_egress(self.config.endpoint)
+        async with self._connect_lock:
+            return await self._connect_locked()
+
+    async def _ensure_session(self) -> None:
+        """Open the session on first use; concurrent callers open it once."""
+        if self._session is not None:
+            return
+        async with self._connect_lock:
+            if self._session is None:
+                await self._connect_locked()
+
+    async def _connect_locked(self) -> bool:
+        """Open (or reopen) the session and probe health; caller holds the lock."""
+        if self._session is not None:
+            # Reconnect: never orphan the previous session's connector.
+            await self._session.close()
+            self._session = None
         try:
             import aiohttp
 
@@ -656,7 +680,9 @@ class HTTPPlatformAdapter(PlatformAdapter):
             # endpoint; only the generic receiver may lack one (404).
             healthy = (200, 404) if self._paths() == _GENERIC_PATHS else (200,)
             health_path = self._paths()[2]
-            async with self._session.get(f"{self.config.endpoint}{health_path}") as resp:
+            async with self._session.get(
+                f"{self.config.endpoint}{health_path}", allow_redirects=False
+            ) as resp:
                 self._connected = resp.status in healthy
 
         except ImportError:
@@ -678,18 +704,18 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
     async def disconnect(self) -> None:
         """Close HTTP session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
-        self._connected = False
+        async with self._connect_lock:
+            if self._session:
+                await self._session.close()
+                self._session = None
+            self._connected = False
 
     async def send_event(self, event: AnomalyEvent) -> bool:
         """Send single event via HTTP POST."""
         # Gate every send, not just connect(): the flag is dynamic, so a
         # session opened while online must not keep sending air-gapped.
         _enforce_offline_egress(self.config.endpoint)
-        if not self._session:
-            await self.connect()
+        await self._ensure_session()
 
         try:
             if self.config.platform_type == PlatformType.DATADOG:
@@ -702,6 +728,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 f"{self.config.endpoint}{self._paths()[0]}",
                 data=body,
                 headers={"Content-Type": content_type},
+                allow_redirects=False,
             ) as resp:
                 return resp.status in (200, 201, 202)
 
@@ -713,8 +740,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
     async def send_batch(self, events: list[AnomalyEvent]) -> int:
         """Send batch of events."""
         _enforce_offline_egress(self.config.endpoint)
-        if not self._session:
-            await self.connect()
+        await self._ensure_session()
 
         if not events:
             return 0
@@ -725,6 +751,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 f"{self.config.endpoint}{self._paths()[1]}",
                 data=body,
                 headers={"Content-Type": content_type},
+                allow_redirects=False,
             ) as resp:
                 if resp.status not in (200, 201, 202):
                     return 0
@@ -747,13 +774,13 @@ class HTTPPlatformAdapter(PlatformAdapter):
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data via HTTP GET."""
         _enforce_offline_egress(self.config.endpoint)
-        if not self._session:
-            await self.connect()
+        await self._ensure_session()
 
         try:
             async with self._session.get(
                 f"{self.config.endpoint}/api/data",
                 params=query,
+                allow_redirects=False,
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()

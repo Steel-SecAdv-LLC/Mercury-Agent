@@ -262,7 +262,9 @@ expected schema.
 
 ### TLP on the export API
 
-Every `/api/v1/export/*` response is marked:
+Every `/api/v1/export/*` route requires the `export` permission (default
+API keys carry `read` + `detect` only; admin principals hold every
+permission), and every response is marked:
 
 - `X-TLP`, `X-TLP-Color`, `X-TLP-Rank` and `X-TLP-Watermark` headers carry
   the export's colour: the most restrictive colour of the records it

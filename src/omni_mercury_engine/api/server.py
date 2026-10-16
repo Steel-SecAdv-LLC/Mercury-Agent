@@ -448,9 +448,11 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
         token = correlation_id_ctx.set(correlation_id)
         from omni_mercury_engine.api.trace_context import continue_or_start, trace_context_ctx
 
-        trace = continue_or_start(
-            request.headers.get("traceparent"), request.headers.get("tracestate")
-        )
+        # Multiple tracestate headers form one list (RFC 9110 field combining,
+        # W3C Trace Context 3.3.1.1); continue_or_start validates the result
+        # and drops it unless it is well-formed and within the size limits.
+        tracestate = ",".join(request.headers.getlist("tracestate")) or None
+        trace = continue_or_start(request.headers.get("traceparent"), tracestate)
         trace_token = trace_context_ctx.set(trace)
         request.state.trace_context = trace
 
