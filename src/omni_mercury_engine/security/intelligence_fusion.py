@@ -47,6 +47,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.security.counterintelligence import (
+    CounterintelligenceAssessment,
+    CounterintelligenceAssessor,
+)
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Fusion weights replace evidence scoring only on measured merit: at least
@@ -105,6 +109,9 @@ class IntelligenceFusionResult:
 
     neurosymbolic_assessment: dict[str, Any] | None = None
     cryptographic_indicators: dict[str, Any] | None = None
+    # Source-reliability, independence, coordination, fabrication and
+    # impossible-travel screening of the reports (security/counterintelligence.py).
+    counterintelligence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -289,12 +296,19 @@ class IntelligenceFusionEngine:
         self,
         enable_neurosymbolic: bool = True,
         enable_cryptanalysis: bool = True,
+        counterintelligence: bool = True,
     ):
         """Initialize intelligence fusion engine.
 
         Args:
             enable_neurosymbolic: Enable symbolic threat reasoning
             enable_cryptanalysis: Enable pattern-based cryptanalysis
+            counterintelligence: Screen reports before evidence scoring:
+                derivative and circular reports lose their weight,
+                corroboration counts independent origins rather than
+                disciplines, and flagged reports are down-weighted. Reports
+                without source, provenance, time or location fields pass
+                through unchanged.
         """
         self.logger = logging.getLogger(__name__)
         self.enable_neurosymbolic = enable_neurosymbolic
@@ -311,6 +325,10 @@ class IntelligenceFusionEngine:
         self.threat_knowledge_base = self._initialize_threat_kb()
 
         self.int_reliability_scores = self._initialize_reliability_scores()
+
+        self.counterintelligence: CounterintelligenceAssessor | None = (
+            CounterintelligenceAssessor.from_engine(self) if counterintelligence else None
+        )
 
         self.logger.info(
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
@@ -364,8 +382,16 @@ class IntelligenceFusionEngine:
             np.array([self._network_assessment(candidate, reports)[0] for reports, _ in cases])
             == labels
         )
+        # Measured against the evidence path as it actually decides, i.e.
+        # with the same counterintelligence screening fuse_intelligence applies.
         evidence_hits = (
-            np.array([self._evidence_assessment(reports)[0] for reports, _ in cases]) == labels
+            np.array(
+                [
+                    self._evidence_assessment(reports, self._screen(reports))[0]
+                    for reports, _ in cases
+                ]
+            )
+            == labels
         )
         network_only = int(np.sum(network_hits & ~evidence_hits))
         evidence_only = int(np.sum(evidence_hits & ~network_hits))
@@ -466,7 +492,10 @@ class IntelligenceFusionEngine:
         }
 
     def fuse_intelligence(
-        self, intel_reports: dict[str, Any], temporal_context: list[dict[str, Any]] | None = None
+        self,
+        intel_reports: dict[str, Any],
+        temporal_context: list[dict[str, Any]] | None = None,
+        counterintelligence_history: Any = None,
     ) -> IntelligenceFusionResult:
         """Fuse multi-source intelligence for threat assessment.
 
@@ -484,10 +513,14 @@ class IntelligenceFusionEngine:
                 - finint: Financial transactions
                 - cryptanalysis: Encrypted pattern analysis
             temporal_context: Optional historical threat timeline
+            counterintelligence_history: Source track records and baseline
+                reporting rates for the counterintelligence screen (see
+                ``AssessmentHistory.coerce``).
 
         Returns:
             Fused intelligence assessment with threat level
         """
+        ci = self._screen(intel_reports, counterintelligence_history)
         if self._trained:
             threat_class, confidence_score, risk_score = self._network_assessment(
                 self.fusion_network, intel_reports, temporal_context
@@ -496,12 +529,14 @@ class IntelligenceFusionEngine:
             # Untrained network: its logits are initialisation noise, so the
             # assessment comes from the reported evidence instead (reliability
             # -weighted threat scores, corroboration-scaled confidence).
-            threat_class, confidence_score, risk_score = self._evidence_assessment(intel_reports)
+            threat_class, confidence_score, risk_score = self._evidence_assessment(
+                intel_reports, ci
+            )
 
         threat_level_enum = ThreatLevel(threat_class)
         threat_detected = threat_level_enum.value >= ThreatLevel.SUBSTANTIAL.value
 
-        primary_sources, corroborating = self._identify_sources(intel_reports)
+        primary_sources, corroborating = self._identify_sources(intel_reports, ci)
 
         indicators = self._extract_threat_indicators(intel_reports, threat_level_enum)
 
@@ -541,6 +576,7 @@ class IntelligenceFusionEngine:
             collection_priorities=collection_priorities,
             neurosymbolic_assessment=neurosymbolic_assessment,
             cryptographic_indicators=crypto_indicators,
+            counterintelligence=ci.as_dict() if ci is not None else None,
         )
 
         self.logger.info(
@@ -563,6 +599,15 @@ class IntelligenceFusionEngine:
         except (TypeError, ValueError):
             return None
         return number if math.isfinite(number) else None
+
+    def _screen(
+        self, intel_reports: dict[str, Any], history: Any = None
+    ) -> CounterintelligenceAssessment | None:
+        """Run the counterintelligence screen, after the modality check."""
+        self._require_report_mapping(intel_reports)
+        if self.counterintelligence is None:
+            return None
+        return self.counterintelligence.assess(intel_reports, history)
 
     @staticmethod
     def _require_report_mapping(intel_reports: dict[str, Any]) -> None:
@@ -647,7 +692,11 @@ class IntelligenceFusionEngine:
         confidence_score = float(confidence[0].item())
         return threat_class, confidence_score, confidence_score * (threat_class / 5.0)
 
-    def _evidence_assessment(self, intel_reports: dict[str, Any]) -> tuple[int, float, float]:
+    def _evidence_assessment(
+        self,
+        intel_reports: dict[str, Any],
+        ci: CounterintelligenceAssessment | None = None,
+    ) -> tuple[int, float, float]:
         """Score the threat from the reported evidence alone.
 
         This is the decision path while the fusion network is untrained: a
@@ -662,6 +711,16 @@ class IntelligenceFusionEngine:
         ``record_timing``) rather than propagated into the decision or
         allowed to crash it.
 
+        With a counterintelligence assessment ``ci``, each discipline's
+        reliability is the screen's source-adjusted posterior times its weight
+        multiplier; a discipline whose reports are all derivative copies or
+        excluded (multiplier 0) contributes nothing, and corroboration counts
+        independent origins rather than reporting disciplines.
+
+        Args:
+            intel_reports: Reports keyed by discipline.
+            ci: The counterintelligence screen of the same reports, if run.
+
         Returns:
             Tuple of ``(threat_class, confidence_score, risk_score)`` where
             ``threat_class`` indexes :class:`ThreatLevel` and both scores lie
@@ -671,12 +730,20 @@ class IntelligenceFusionEngine:
 
         weighted: list[tuple[float, float]] = []
         confidences: list[float] = []
+        contributing: list[str] = []
 
         for discipline in IntelligenceDiscipline:
             report = intel_reports.get(discipline.value)
             if not isinstance(report, Mapping):
                 continue
             reliability = self.int_reliability_scores.get(discipline.value, 0.75)
+            if ci is not None:
+                adjusted = ci.adjusted_reliability.get(discipline.value)
+                if adjusted is not None:
+                    reliability = adjusted
+                reliability *= ci.fusion_weight_multipliers.get(discipline.value, 1.0)
+                if reliability <= 0.0:
+                    continue  # derivative or excluded: no weight, confidence or corroboration
             if "threat_score" in report:
                 score = self._finite_or_none(report["threat_score"])
                 if score is not None:
@@ -689,21 +756,25 @@ class IntelligenceFusionEngine:
             confidence = self._finite_or_none(report.get("confidence", 0.5))
             if confidence is not None:
                 confidences.append(confidence)
+                contributing.append(discipline.value)
             else:
                 self.logger.warning(
                     "evidence assessment: dropping unusable confidence from %s",
                     discipline.value,
                 )
 
-        if not weighted:
+        total_weight = sum(w for w, _ in weighted)
+        if not weighted or total_weight <= 0.0:
             return ThreatLevel.LOW.value, 0.0, 0.0
 
-        total_weight = sum(w for w, _ in weighted)
         risk_score = sum(w * s for w, s in weighted) / total_weight
         risk_score = float(min(max(risk_score, 0.0), 1.0))
 
         if confidences:
-            corroboration = min(1.0, len(confidences) / 3.0)
+            independent = (
+                ci.independent_corroboration(contributing) if ci is not None else len(confidences)
+            )
+            corroboration = min(1.0, independent / 3.0)
             confidence_score = float(
                 min(max(float(np.mean(confidences)) * corroboration, 0.0), 1.0)
             )
@@ -715,11 +786,21 @@ class IntelligenceFusionEngine:
         threat_class = min(len(ThreatLevel), max(1, math.ceil(risk_score * len(ThreatLevel))))
         return threat_class, confidence_score, risk_score
 
-    def _identify_sources(self, intel_reports: dict[str, Any]) -> tuple[list[str], list[str]]:
-        """Identify primary and corroborating intelligence sources."""
+    def _identify_sources(
+        self,
+        intel_reports: dict[str, Any],
+        ci: CounterintelligenceAssessment | None = None,
+    ) -> tuple[list[str], list[str]]:
+        """Identify primary and corroborating intelligence sources.
+
+        A discipline the counterintelligence screen gave zero weight (all of
+        its reports derivative or excluded) is not listed as a source.
+        """
         source_scores = []
 
         for _i, discipline in enumerate(IntelligenceDiscipline):
+            if ci is not None and ci.fusion_weight_multipliers.get(discipline.value, 1.0) <= 0.0:
+                continue
             if discipline.value in intel_reports:
                 # Unusable confidences rank last rather than crashing the sort.
                 score = self._finite_or_none(intel_reports[discipline.value].get("confidence", 0.0))
