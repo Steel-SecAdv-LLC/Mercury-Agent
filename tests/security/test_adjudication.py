@@ -2038,7 +2038,7 @@ class TestHeldoutMinimumCountsDistinctCases:
         ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=AgreementPolicy(n_boot=50))
         items: list[Any] = []
         for i, cid in enumerate(held):
-            dup = {"intel_reports": payload} if i < 2 else {}  # two identical cases
+            dup: dict[str, Any] = {"intel_reports": payload} if i < 2 else {}  # two identical
             level = 3 if i < 2 else 1 + i % 5
             items += case_items(cid, [level, level], **dup)
         ledger.extend(items)
