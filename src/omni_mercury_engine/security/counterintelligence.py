@@ -341,7 +341,11 @@ class CounterintelligenceConfig:
     to report without down-weighting.
     """
 
-    grade_prior_mean: Mapping[str, float | None] = ADMIRALTY_RELIABILITY_PRIOR_MEAN
+    # A factory, not the proxy itself: before Python 3.12 a mappingproxy is
+    # unhashable, so dataclasses reject it as a mutable default.
+    grade_prior_mean: Mapping[str, float | None] = field(
+        default_factory=lambda: ADMIRALTY_RELIABILITY_PRIOR_MEAN
+    )
     prior_strength: float = 2.0
     forgetting_factor: float = 1.0
     credible_level: float = 0.95

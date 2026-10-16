@@ -190,6 +190,23 @@ class EthicalConstants:
 
 ETHICAL = EthicalConstants()
 
+
+class IntelligenceMeritConstants:
+    """Held-out merit gate for intelligence-fusion weights.
+
+    ``IntelligenceFusionEngine.load_trained_weights`` admits trained weights
+    only with at least ``MIN_HELDOUT_CASES`` labelled held-out cases and a
+    one-sided exact McNemar test below ``MERIT_ALPHA``. Kept here, torch-free,
+    so the adjudication ledger can apply the same minimum without importing
+    the torch-backed fusion module.
+    """
+
+    MIN_HELDOUT_CASES: int = 30
+    MERIT_ALPHA: float = 0.05
+
+
+INTEL_MERIT = IntelligenceMeritConstants()
+
 # ==============================================================================
 # SOFT SIGMOID BENEVOLENCE WEIGHTING (Phase 3)
 #

@@ -289,6 +289,7 @@ class TestRecords:
             AdjudicatorDecision("dana", "c", 3, "  ", T0)
 
     def test_levels_match_the_fusion_threat_levels(self) -> None:
+        pytest.importorskip("torch")
         from omni_mercury_engine.security.intelligence_fusion import ThreatLevel
 
         assert tuple(t.value for t in ThreatLevel) == adj.LEVELS
@@ -479,7 +480,9 @@ class TestBootstrap:
 
 class TestAgreementGate:
     def test_defaults_and_their_sources(self) -> None:
-        from omni_mercury_engine.security.intelligence_fusion import MIN_HELDOUT_CASES
+        from omni_mercury_engine.core.centralized_constants import INTEL_MERIT
+
+        MIN_HELDOUT_CASES = INTEL_MERIT.MIN_HELDOUT_CASES
 
         policy = AgreementPolicy()
         assert policy.kappa_threshold == adj.DEFAULT_KAPPA_THRESHOLD == 0.61
@@ -1369,9 +1372,27 @@ class TestExport:
             ledger.export_heldout_for_merit_gate()
         assert len(ledger.heldout_cases()) == 29  # listing is not the merit-gate export
 
+    def test_without_torch_the_shared_constant_applies(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import builtins
+
+        from omni_mercury_engine.core.centralized_constants import INTEL_MERIT
+
+        real_import = builtins.__import__
+
+        def no_fusion(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "omni_mercury_engine.security.intelligence_fusion":
+                raise ImportError("torch unavailable")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", no_fusion)
+        assert adj._min_heldout_cases() == INTEL_MERIT.MIN_HELDOUT_CASES
+
     def test_the_minimum_is_read_from_intelligence_fusion(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        pytest.importorskip("torch")
         from omni_mercury_engine.security import intelligence_fusion
 
         ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
@@ -1479,7 +1500,7 @@ class TestExport:
             load_export(path)
 
     def test_the_heldout_export_satisfies_load_trained_weights(self, tmp_path: Path) -> None:
-        import torch
+        torch = pytest.importorskip("torch")
 
         from omni_mercury_engine.security.intelligence_fusion import (
             AllSourceFusionNetwork,

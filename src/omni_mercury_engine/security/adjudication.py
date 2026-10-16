@@ -1200,9 +1200,18 @@ class LabelReport:
 
 
 def _min_heldout_cases() -> int:
-    """``MIN_HELDOUT_CASES`` from the fusion module (imported lazily: it pulls in torch)."""
-    from omni_mercury_engine.security.intelligence_fusion import MIN_HELDOUT_CASES
+    """The merit gate's ``MIN_HELDOUT_CASES``.
 
+    Read from the fusion module when it can be imported, so a runtime change
+    to the gate's minimum applies here too; that module needs torch, so
+    without it the shared torch-free constant it is defined from is used.
+    """
+    try:
+        from omni_mercury_engine.security.intelligence_fusion import MIN_HELDOUT_CASES
+    except ImportError:
+        from omni_mercury_engine.core.centralized_constants import INTEL_MERIT
+
+        return INTEL_MERIT.MIN_HELDOUT_CASES
     return MIN_HELDOUT_CASES
 
 

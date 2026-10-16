@@ -107,6 +107,12 @@ run_gate "weapons-gate corpus drift (ci.yml: ingest_weapons_gate_corpus --check)
 run_gate "Prometheus rule render drift (render_prometheus_rules --check)" \
   python scripts/render_prometheus_rules.py --check
 
+# --- pqc-production-check job: tests/security without torch ----------------
+# That lane installs only [dev,api]. scripts/no_torch hides torch the way an
+# absent package does, so torch-dependent imports fail here as they do there.
+run_gate "torch-free security tests (pqc-production-check.yml: pytest tests/security/)" \
+  env PYTHONPATH=scripts/no_torch python -m pytest tests/security/ -q -p no:cacheprovider
+
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
   # Guard the pin before running any lane: a full [all,dev] install can leave

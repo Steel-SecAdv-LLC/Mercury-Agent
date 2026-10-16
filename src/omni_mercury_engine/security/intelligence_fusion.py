@@ -46,6 +46,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.centralized_constants import INTEL_MERIT
 from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.security.counterintelligence import (
     CounterintelligenceAssessment,
@@ -56,8 +57,8 @@ from omni_mercury_engine.security.safe_torch import safe_torch_load
 # Fusion weights replace evidence scoring only on measured merit: at least
 # this many labelled held-out cases, and a one-sided exact McNemar test on
 # the discordant pairs below this level.
-MIN_HELDOUT_CASES = 30
-MERIT_ALPHA = 0.05
+MIN_HELDOUT_CASES = INTEL_MERIT.MIN_HELDOUT_CASES
+MERIT_ALPHA = INTEL_MERIT.MERIT_ALPHA
 
 
 class IntelligenceDiscipline(Enum):
