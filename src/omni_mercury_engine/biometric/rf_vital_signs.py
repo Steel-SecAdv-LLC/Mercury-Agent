@@ -939,7 +939,7 @@ def _periodogram(x: FloatArray, fs: float, zero_pad_factor: int) -> tuple[FloatA
     window = signal.get_window("hann", n, fftbins=True)
     spectrum = np.fft.rfft(x * window[:, None], n=nfft, axis=0)
     power = np.asarray(np.abs(spectrum) ** 2, dtype=np.float64)
-    freqs = np.fft.rfftfreq(nfft, d=1.0 / fs)
+    freqs = np.asarray(np.fft.rfftfreq(nfft, d=1.0 / fs), dtype=np.float64)
     return freqs, power
 
 
