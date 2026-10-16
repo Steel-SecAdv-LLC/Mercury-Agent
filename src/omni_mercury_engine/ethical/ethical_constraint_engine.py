@@ -1023,12 +1023,16 @@ class ImmutableWisdomEngine:
 
         if wisdom_quotient:
             scalars["omni_wisdom_quotient_scalar"] = wisdom_quotient.total_score * 1.3
-            scalars["omni_strategic_intelligence_scalar"] = wisdom_quotient.strategic_intelligence * 1.2
+            scalars["omni_strategic_intelligence_scalar"] = (
+                wisdom_quotient.strategic_intelligence * 1.2
+            )
             scalars["omni_ethical_alignment_scalar"] = wisdom_quotient.ethical_alignment * 1.3
 
         if verification_result:
             scalars["omni_twelve_fold_scalar"] = verification_result.overall_score * 1.25
-            scalars["omni_verification_pass_rate"] = len(verification_result.passed_dimensions) / 12.0
+            scalars["omni_verification_pass_rate"] = (
+                len(verification_result.passed_dimensions) / 12.0
+            )
 
         if geometry_result:
             scalars["omni_geometry_scalar"] = geometry_result.overall_geometry_score * 1.2
