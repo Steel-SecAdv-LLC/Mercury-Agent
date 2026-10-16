@@ -6,7 +6,10 @@ Consent and scope. Contactless sensing of people requires their informed
 consent. Every public entry point that processes a recording of a person
 (``estimate_vital_signs`` and ``track_vital_signs``) takes a mandatory
 keyword ``consent_confirmed`` and raises ``ConsentRequiredError`` unless it is
-exactly ``True``. This module performs no person identification, no
+exactly ``True`` or a ``truth_decipher.ConsentRecord`` whose scope includes
+``VITAL_SIGNS_CONSENT_SCOPE``. ``ConsentRequiredError`` is the class defined
+in ``omni_mercury_engine.truth_decipher`` (re-exported here), so a caller
+that catches it from either module catches every consent refusal. This module performs no person identification, no
 localisation, no imaging and no pose reconstruction. It estimates two rates
 (breaths per minute and beats per minute) for one cooperative, stationary
 subject. Multiple people and moving subjects are out of scope: the estimator
@@ -23,7 +26,11 @@ Method (every step is cited; every default without a citation is declared a
 configurable default with its rationale in ``VitalSignConfig``):
 
 1. Irregular packet times are resampled onto a uniform grid by linear
-   interpolation. Lost samples (non-finite rows, timestamp gaps) in runs no
+   interpolation. The grid is never coarser than the median packet rate (it
+   is the smallest integer multiple of the output rate at or above it), so
+   interference above the output Nyquist frequency is removed by the
+   anti-alias filter of step 4 instead of being folded into the vital-sign
+   bands by the interpolation. Lost samples (non-finite rows, timestamp gaps) in runs no
    longer than ``max_gap_s`` are bridged by interpolation; longer runs are
    marked missing and excluded rather than invented.
 2. Phase sanitisation. Single-antenna CSI phase is unwrapped across
@@ -75,13 +82,25 @@ configurable default with its rationale in ``VitalSignConfig``):
    rate variability; cascaded IIR notches (Tazen et al. 2023; notch design
    of Orfanidis 1996) are the alternative. The rate is the spectral peak, as
    in step 7, withheld when it coincides with any respiration harmonic to
-   within the window's resolution.
+   within the window's resolution. Breathing faster than the respiration
+   band puts its second harmonic in the heart band, so the fundamental used
+   for harmonic removal and the coincidence test is also searched up to just
+   below the heart band and preferred when it lies above the respiration
+   band; when no fundamental passes the SNR test and a band maximum lies on
+   an upper edge, a heart peak at a harmonic of the unresolved frequency
+   range is withheld (``HARMONIC_AMBIGUITY``). A breathing fundamental found
+   above the respiration band also withholds the respiration rate, and a
+   heart peak whose half lies on a suppressed respiration harmonic (the
+   heartbeat's fundamental may have been cancelled with it) is withheld.
 9. Quality is the in-band SNR: the power within a main-lobe-wide region
    around the peak over the remaining in-band power. It is tested against
    ``null_snr_threshold_db``, the level that Gaussian noise alone exceeds
-   with probability ``false_alarm`` for the actual number of averaged
-   streams and segment length (a Beta model whose dof scale was fitted by
-   Monte Carlo to white noise, plus a margin covering 1/f noise). The
+   with probability ``false_alarm`` for the effective number of averaged
+   streams (the participation ratio of their in-band coherence outside the
+   peak region, so noise common to all subcarriers counts once) and the
+   segment length (a Beta
+   model whose dof scale was fitted by Monte Carlo to white noise, plus a
+   margin covering 1/f noise). The
    estimator abstains (``rate_bpm=None`` with an ``AbstainReason``) on low
    SNR, on a peak at the band edge, on a second resolvable non-harmonic
    respiration peak (possible second person), when the spectral and
@@ -97,37 +116,43 @@ quoted as 12 to 20 breaths/min and 60 to 100 beats/min (Kebe et al. 2020);
 the default bands are wider so that bradypnoea, tachypnoea, athletic
 bradycardia and arousal-driven tachycardia stay in range.
 
-Measured validation (no other accuracy claim is made; 30 s windows, defaults).
+Validation. No accuracy claim is made beyond the following.
 
-* Noise only (1000 windows each of white and 1/f Gaussian noise, one radar
-  stream or 30 CSI subcarriers): no heart rate was reported; a respiration
-  rate was reported in 0 of 1000 windows except 6 of 1000 for 1/f CSI noise.
-  A smaller seeded record is kept in
-  ``tests/biometric/test_rf_vital_signs.py::TestSpectral::test_null_threshold_false_alarm_on_white_noise``.
-* Synthetic model (seeded; static multipath plus a body path at 5.32 GHz,
-  24 GHz radar phase; rate variability; 3 s motion bursts in half of the
-  recordings; 400 windows per condition): respiration mean absolute error
-  0.19 to 0.23 breaths/min, none above 5, with 70 to 95 % of windows
-  reported at receiver SNRs of 0 to 30 dB (CSI) and 20 to 400 um noise
-  (radar). Heart rate: radar 0.38 to 0.71 beats/min with 57 to 70 % of
-  windows reported and at most 0.4 % above 5 beats/min; CSI amplitude
-  0.73 beats/min at 30 dB (56 % reported, 0.9 % above 5) and 17 % reported
-  at 20 dB; CSI phase difference 1.04 beats/min at 30 dB (48 % reported,
-  2.1 % above 5); at 10 dB and below heart rate is essentially withheld.
-  The model is the small version in the test module; the benchmark
-  numbers come from its full version, run with the change that added this
-  module.
-* Real radar recordings (Schellenberger et al. 2020; 24 GHz CW, resting
-  scenario, ECG and thoracic impedance references; the I/Q correction and
-  demodulation were done by the validation script, not by this module):
-  on three held-out subjects (176 windows) heart rate was reported in 18 %
-  of windows with a mean absolute error of 0.75 beats/min against ECG
-  (median 0.37, one window above 5) and respiration in 21 % of windows
-  with 0.10 breaths/min against the impedance spectrum. Coverage is low:
-  several subjects breathed at 6 to 8 breaths/min, on the default band
-  edge, and the harmonic-coincidence test withholds half of the heart
-  estimates (disabling it doubled heart coverage on the held-out subjects
-  at a similar error).
+* Reproducible from this repository: the seeded synthetic model and the
+  noise-only checks in ``tests/biometric/test_rf_vital_signs.py`` (a small
+  version of the model described below), including the white-noise
+  false-alarm record
+  ``TestSpectral::test_null_threshold_false_alarm_on_white_noise``, the
+  common-mode-noise false-alarm record
+  ``TestAbstention::test_common_mode_noise_respects_the_false_alarm_rate``
+  and the respiration-harmonic regression
+  ``TestEstimateRadar::test_fast_breathing_harmonic_is_never_reported``.
+* Not reproducible from this repository: the figures below were produced by
+  an out-of-tree validation (a larger version of the synthetic model, and a
+  script that demodulated public radar recordings). Neither the script nor
+  its outputs are in this repository or its history, and they predate later
+  changes to the estimator (the effective-stream noise gate, the wide-band
+  respiration-harmonic search and the timestamp anti-alias grid), so treat
+  them as unverified indications, not as measured properties of this code.
+  Noise only (1000 windows each of white and 1/f Gaussian noise, one radar
+  stream or 30 independent CSI subcarriers): no heart rate reported; a
+  respiration rate in 0 of 1000 windows except 6 of 1000 for 1/f CSI noise.
+  Synthetic model (static multipath plus a body path at 5.32 GHz, 24 GHz
+  radar phase, rate variability, 3 s motion bursts in half of the
+  recordings, 400 windows per condition): respiration mean absolute error
+  0.19 to 0.23 breaths/min with 70 to 95 % of windows reported at receiver
+  SNRs of 0 to 30 dB (CSI) and 20 to 400 um noise (radar); heart rate on
+  radar 0.38 to 0.71 beats/min with 57 to 70 % reported, CSI amplitude
+  0.73 beats/min at 30 dB (56 % reported), CSI phase difference 1.04
+  beats/min at 30 dB (48 % reported), essentially withheld at 10 dB and
+  below. Real radar recordings (Schellenberger et al. 2020; 24 GHz CW,
+  resting scenario; I/Q correction and demodulation done outside this
+  module): on three subjects (176 windows) heart rate reported in 18 % of
+  windows with a mean absolute error of 0.75 beats/min against ECG, and
+  respiration in 21 % with 0.10 breaths/min against thoracic impedance;
+  coverage was low because several subjects breathed at 6 to 8 breaths/min,
+  on the default band edge, and the harmonic-coincidence test withheld
+  half of the heart estimates.
 
 Not validated: real Wi-Fi CSI recordings, multiple antennas on real hardware,
 subjects other than healthy adults at rest, breathing slower than the band
@@ -139,11 +164,21 @@ motion test also flags irregular breathing depth.
 Temporal resolution. A spectral rate estimate averages over its analysis
 window, so a window of ``W`` seconds cannot resolve rate changes faster than
 about ``W``. In 10 s windows respiration is never reported (the SNR test is
-undefined there) and heart rate was reported in only 2 to 10 % of synthetic
-radar windows. Callers that need stimulus-locked responses should use the
+undefined there), and heart rate is withheld whenever its peak lies within
+about 0.13 to 0.18 Hz of a suppressed respiration harmonic
+(``cancellation_guard_bins``), which at ordinary breathing rates covers
+most of the heart band: in the test module's stepped 10 s radar track no
+window is reported. Callers that need stimulus-locked responses should use the
 respiration waveform excerpts (``extract_waveform_excerpt``) and compare
 windowed rates against a pre-stimulus baseline only with ``W`` no longer than
 the interval of interest.
+
+In particular this module cannot, as configured, supply per-stimulus heart
+rates for the Concealed Information Test (CIT) of
+``omni_mercury_engine.truth_decipher``: its shortest analysed segment (``min_clean_s``, default
+20 s, and ``track_vital_signs`` windows no shorter than that) is longer than
+the CIT's default 3 s heart-rate baseline and 10 s response windows, so a
+rate from this module mixes several stimuli and the inter-stimulus interval.
 
 References:
     Adib, F., Mao, H., Kabelac, Z., Katabi, D., Miller, R. C. (2015). Smart
@@ -237,8 +272,11 @@ from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import ArrayLike, NDArray
 from scipy import signal, special
 
+from omni_mercury_engine.truth_decipher import ConsentRecord, ConsentRequiredError
+
 __all__ = [
     "MAD_TO_SIGMA",
+    "VITAL_SIGNS_CONSENT_SCOPE",
     "AbstainReason",
     "ConsentRequiredError",
     "RateEstimate",
@@ -254,6 +292,7 @@ __all__ = [
     "count_cycle_rate",
     "detect_motion",
     "dominant_frequency",
+    "effective_stream_count",
     "estimate_vital_signs",
     "extract_waveform_excerpt",
     "first_principal_component",
@@ -280,9 +319,9 @@ MAD_TO_SIGMA = 1.4826
 
 _EPS = 1e-300
 
-
-class ConsentRequiredError(PermissionError):
-    """Raised when vital-sign estimation is requested without confirmed consent."""
+#: Scope a ``truth_decipher.ConsentRecord`` must include to authorise
+#: contactless vital-sign sensing.
+VITAL_SIGNS_CONSENT_SCOPE = "contactless_vital_signs"
 
 
 class AbstainReason(StrEnum):
@@ -349,7 +388,8 @@ class VitalSignConfig:
             covers a 6 beats/min drift within a window.
         respiration_min_snr_db: Fixed respiration SNR threshold (dB), or
             ``None`` (default) to use ``null_snr_threshold_db`` for the
-            actual number of averaged streams and segment length.
+            effective number of averaged streams
+            (``effective_stream_count``) and the segment length.
         heart_min_snr_db: Same for the heart band.
         false_alarm: Target probability that noise alone passes the SNR
             test when the thresholds come from the null model. Default 0.01.
@@ -402,6 +442,16 @@ class VitalSignConfig:
             the interpolated-peak error measured on noise-free breathing
             waveforms (fundamental plus second harmonic) over 20 to 30 s
             windows (0.07 to 0.11 bins).
+        cancellation_guard_bins: The heart estimate is withheld
+            (``HARMONIC_AMBIGUITY``) when its peak lies within this many DFT
+            bins ``1 / T`` of a respiration harmonic that was suppressed,
+            widened by ``k * respiration_precision_bins / T``. Suppression
+            removes or distorts a heartbeat that close to the harmonic, so
+            the residual peak there is biased rather than absent. Default
+            1.25: on 30 and 40 s radar windows (both suppression modes) a
+            heartbeat exactly on a suppressed harmonic left a residual peak
+            up to 1.13 bins away, and peaks biased by more than 0.5 beats/min
+            lay within 1.2 bins. 0 disables the check.
         motion_frame_s: Frame length of the short-time motion statistics.
             Default 1 s, shorter than one breath at 30 breaths/min.
         motion_threshold: Frame statistic, relative to the recording's
@@ -447,6 +497,7 @@ class VitalSignConfig:
     notch_width_hz: float = 0.1
     harmonic_coincidence_fraction: float = 0.5
     respiration_precision_bins: float = 0.1
+    cancellation_guard_bins: float = 1.25
     motion_frame_s: float = 1.0
     motion_threshold: float = 4.0
     motion_guard_s: float = 1.0
@@ -492,7 +543,11 @@ class VitalSignConfig:
             "min_clean_s",
             "null_dof_scale",
         )
-        for name in ("harmonic_coincidence_fraction", "respiration_precision_bins"):
+        for name in (
+            "harmonic_coincidence_fraction",
+            "respiration_precision_bins",
+            "cancellation_guard_bins",
+        ):
             if not float(getattr(self, name)) >= 0.0:
                 raise ValueError(f"{name} must be non-negative")
         for name in positive:
@@ -932,6 +987,15 @@ def _check_band(band: tuple[float, float], fs: float) -> None:
         raise ValueError(f"band {band} must satisfy 0 < low < high < fs/2 = {fs / 2.0}")
 
 
+def _windowed_spectrum(x: FloatArray, fs: float) -> tuple[FloatArray, NDArray[np.complex128]]:
+    """Hann-windowed DFT of each mean-removed column, without zero padding."""
+    window = signal.get_window("hann", x.shape[0], fftbins=True)
+    centred = x - x.mean(axis=0, keepdims=True)
+    spectrum = np.asarray(np.fft.rfft(centred * window[:, None], axis=0), dtype=np.complex128)
+    freqs = np.asarray(np.fft.rfftfreq(x.shape[0], d=1.0 / fs), dtype=np.float64)
+    return freqs, spectrum
+
+
 def _periodogram(x: FloatArray, fs: float, zero_pad_factor: int) -> tuple[FloatArray, FloatArray]:
     """Hann-windowed, zero-padded periodogram of each column."""
     n = x.shape[0]
@@ -1001,6 +1065,101 @@ def first_principal_component(x: ArrayLike) -> FloatArray:
     return np.asarray(scores, dtype=np.float64)
 
 
+def _mean_band_spectrum(
+    cols: FloatArray, fs: float, band: tuple[float, float], zero_pad_factor: int
+) -> tuple[FloatArray, FloatArray] | None:
+    """In-band frequencies and mean periodogram of columns normalised to unit in-band power.
+
+    Returns ``None`` when the segment is shorter than four samples, the band
+    holds fewer than three bins, or no column has in-band power.
+    """
+    if cols.shape[0] < 4:
+        return None
+    freqs, power = _periodogram(cols, fs, zero_pad_factor)
+    mask = (freqs >= band[0]) & (freqs <= band[1])
+    f_band = freqs[mask]
+    p_band = power[mask]
+    col_power = p_band.sum(axis=0)
+    live = col_power > 0.0
+    if f_band.shape[0] < 3 or not np.any(live):
+        return None
+    return f_band, np.asarray(np.mean(p_band[:, live] / col_power[live], axis=1), dtype=np.float64)
+
+
+def _maximum_on_upper_edge(
+    x: FloatArray, fs: float, band: tuple[float, float], zero_pad_factor: int
+) -> bool:
+    """Whether the in-band maximum of ``dominant_frequency``'s spectrum is the top bin."""
+    spectrum = _mean_band_spectrum(x, fs, band, zero_pad_factor)
+    return spectrum is not None and int(np.argmax(spectrum[1])) == spectrum[1].shape[0] - 1
+
+
+def effective_stream_count(
+    x: ArrayLike,
+    fs: float,
+    band: tuple[float, float],
+    *,
+    exclude_hz: float | None = None,
+    exclude_halfwidth_hz: float = 0.0,
+) -> float:
+    """Effective number of streams with independent in-band noise.
+
+    The SNR null model of ``null_snr_threshold_db`` assumes the averaged
+    streams carry independent noise. Noise common to the streams (shared
+    oscillator or AGC fluctuations, interference seen by every subcarrier)
+    makes their average no less variable than one stream, so the count of
+    streams is replaced by the participation ratio of the eigenvalues
+    ``lambda_i`` of the streams' in-band coherence matrix ``R``,
+    ``(sum lambda_i)^2 / sum lambda_i^2 = K^2 / ||R||_F^2``: ``K`` for
+    uncorrelated streams and 1 when all streams are proportional.
+
+    ``R`` is formed from every second bin of the Hann-windowed DFT (no zero
+    padding) inside ``band``, leaving out the bins within
+    ``exclude_halfwidth_hz`` of ``exclude_hz``: the candidate signal is
+    common to every stream by nature and would otherwise count against the
+    noise it is tested against. The Hann window keeps the signal's leakage
+    out of the remaining bins (sidelobes fall as the cube of the distance,
+    Harris 1978), and Hann bins two apart are nearly uncorrelated for white
+    noise, so the ``n`` bins used are close to independent. Each squared
+    coherence ``r^2`` estimated from ``n`` bins is reduced by its
+    finite-sample bias ``(1 - r^2)^2 / n``, which is ``1 / n`` for
+    uncorrelated streams and vanishes for fully coherent ones.
+
+    Args:
+        x: Samples, shape ``(T,)`` or ``(T, K)`` (band-passed as analysed).
+        fs: Sampling rate (Hz).
+        band: ``(low, high)`` in Hz.
+        exclude_hz: Centre of the signal region to leave out, or ``None``.
+        exclude_halfwidth_hz: Half-width of that region (Hz).
+
+    Returns:
+        The participation ratio, clipped to ``[1, K]``; 1 when fewer than
+        two streams have in-band power or fewer than two bins remain.
+    """
+    cols = _as_columns(x, "x")
+    _check_band(band, fs)
+    n_cols = cols.shape[1]
+    if n_cols < 2 or cols.shape[0] < 4:
+        return 1.0
+    freqs, spectrum = _windowed_spectrum(cols, fs)
+    keep = (freqs >= band[0]) & (freqs <= band[1])
+    if exclude_hz is not None:
+        keep &= np.abs(freqs - exclude_hz) > exclude_halfwidth_hz
+    bins = spectrum[np.flatnonzero(keep)[::2]]
+    power = np.sum(np.abs(bins) ** 2, axis=0)
+    live = power > 0.0
+    k = int(np.count_nonzero(live))
+    n_bins = bins.shape[0]
+    if k < 2 or n_bins < 2:
+        return 1.0
+    unit = bins[:, live] / np.sqrt(power[live])
+    coherence = np.abs(unit.conj().T @ unit) ** 2
+    off = coherence[~np.eye(k, dtype=np.bool_)]
+    off = np.maximum(off - (1.0 - off) ** 2 / n_bins, 0.0)
+    ratio = k * k / (k + float(np.sum(off)))
+    return float(min(max(ratio, 1.0), float(n_cols)))
+
+
 def dominant_frequency(
     x: ArrayLike,
     fs: float,
@@ -1035,17 +1194,10 @@ def dominant_frequency(
     _check_band(band, fs)
     n = cols.shape[0]
     halfwidth = max(float(signal_halfwidth_hz), 2.0 * fs / max(n, 1))
-    if n < 4:
+    spectrum = _mean_band_spectrum(cols, fs, band, zero_pad_factor)
+    if spectrum is None:
         return SpectralPeak(None, math.nan, False, halfwidth)
-    freqs, power = _periodogram(cols, fs, zero_pad_factor)
-    mask = (freqs >= band[0]) & (freqs <= band[1])
-    f_band = freqs[mask]
-    p_band = power[mask]
-    col_power = p_band.sum(axis=0)
-    live = col_power > 0.0
-    if f_band.shape[0] < 3 or not np.any(live):
-        return SpectralPeak(None, math.nan, False, halfwidth)
-    p = np.mean(p_band[:, live] / col_power[live], axis=1)
+    f_band, p = spectrum
     i = int(np.argmax(p))
     if i in (0, p.shape[0] - 1):
         return SpectralPeak(None, math.nan, True, halfwidth)
@@ -1080,7 +1232,7 @@ def dominant_frequency(
 
 
 def null_snr_threshold_db(
-    n_streams: int,
+    n_streams: float,
     n_samples: int,
     fs: float,
     band: tuple[float, float],
@@ -1106,7 +1258,9 @@ def null_snr_threshold_db(
     ``VitalSignConfig``).
 
     Args:
-        n_streams: Number of averaged streams ``K``.
+        n_streams: Number of averaged streams ``K``; may be fractional,
+            e.g. the effective count of ``effective_stream_count`` for
+            streams whose noise is correlated.
         n_samples: Segment length in samples.
         fs: Sampling rate (Hz).
         band: ``(low, high)`` in Hz.
@@ -1140,7 +1294,7 @@ def null_snr_threshold_db(
 
 def _snr_threshold(
     fixed: float | None,
-    n_streams: int,
+    n_streams: float,
     n_samples: int,
     fs: float,
     band: tuple[float, float],
@@ -1490,12 +1644,27 @@ class _Prepared:
     units: str
 
 
-def _require_consent(consent_confirmed: bool) -> None:
-    if consent_confirmed is not True:
+def _require_consent(consent_confirmed: bool | ConsentRecord) -> None:
+    """Refuse unless consent is the literal ``True`` or a record with the right scope.
+
+    Raises:
+        ConsentRequiredError: The ``truth_decipher`` class, shared by every
+            consent-gated entry point of the package.
+    """
+    if consent_confirmed is True:
+        return
+    if isinstance(consent_confirmed, ConsentRecord):
+        if VITAL_SIGNS_CONSENT_SCOPE in consent_confirmed.scope:
+            return
         raise ConsentRequiredError(
             "contactless vital-sign sensing requires the subject's informed consent; "
-            "pass consent_confirmed=True only after it has been obtained"
+            f"the consent record's scope does not include {VITAL_SIGNS_CONSENT_SCOPE!r}"
         )
+    raise ConsentRequiredError(
+        "contactless vital-sign sensing requires the subject's informed consent; "
+        "pass consent_confirmed=True (or a ConsentRecord whose scope includes "
+        f"{VITAL_SIGNS_CONSENT_SCOPE!r}) only after it has been obtained"
+    )
 
 
 def _build_streams(
@@ -1546,7 +1715,7 @@ def _build_streams(
         else:
             clean = centre_wrapped_phase(sanitize_csi_phase(ph, subcarrier_indices))
         parts.append(clean.reshape(ph.shape[0], -1))
-    return np.concatenate(parts, axis=1), "a.u."
+    return np.asarray(np.concatenate(parts, axis=1), dtype=np.float64), "a.u."
 
 
 def _decimate(
@@ -1570,6 +1739,25 @@ def _decimate(
         csum = np.concatenate(([0], np.cumsum(mask.astype(np.intp))))
         mapped.append(np.asarray((csum[hi] - csum[lo]) > 0))
     return out, tuple(mapped), fs * up / down
+
+
+def _interpolation_rate(times: FloatArray, target: float) -> float:
+    """Rate of the interpolation grid for packets at ``times`` and output rate ``target``.
+
+    The smallest integer multiple of ``target`` that is at least the median
+    packet rate (``target`` itself when packets are slower), so that the
+    later decimation is by an exact integer factor. The grid is capped at
+    four samples per packet on average, which only binds for bursty packet
+    trains whose median spacing is far below their mean spacing.
+    """
+    steps = np.diff(times)
+    if steps.shape[0] == 0 or not np.all(np.isfinite(steps)) or not np.all(steps > 0.0):
+        return target  # resample_uniform reports the malformed timestamps
+    median_step = float(np.median(steps))
+    factor = max(1, math.ceil(1.0 / (median_step * target) - 1e-9))
+    duration = float(times[-1] - times[0])
+    cap = max(1, math.floor(4.0 * times.shape[0] / (duration * target)))
+    return target * min(factor, cap)
 
 
 def _prepare(
@@ -1599,10 +1787,18 @@ def _prepare(
     )
     t0 = 0.0
     gap_missing: BoolArray | None = None
+    target = cfg.analysis_fs
     if timestamps_s is not None:
         times = _real_array(timestamps_s, "timestamps_s")
         if times.shape != (streams.shape[0],):
             raise ValueError("timestamps_s must have shape (T,) matching the input")
+        # fs is the uniform output rate (lowered to analysis_fs when that is
+        # smaller). Interpolating straight onto it would fold every component
+        # above fs / 2 into the analysis bands, so the grid runs at least at
+        # the median packet rate, as an integer multiple of the output rate,
+        # and the polyphase FIR of _decimate band-limits it on the way down.
+        target = fs if cfg.analysis_fs is None else min(fs, cfg.analysis_fs)
+        fs = _interpolation_rate(times, target)
         grid, streams, gap_missing = resample_uniform(times, streams, fs, cfg.max_gap_s)
         t0 = float(grid[0])
     finite = np.isfinite(streams)
@@ -1622,7 +1818,7 @@ def _prepare(
         )
     streams = _inpaint(np.where(np.isfinite(streams), streams, 0.0), lost)
     streams, _ = hampel_filter(streams, cfg.hampel_half_width, cfg.hampel_n_sigmas)
-    streams, (missing, lost), fs_a = _decimate(streams, (missing, lost), fs, cfg.analysis_fs)
+    streams, (missing, lost), fs_a = _decimate(streams, (missing, lost), fs, target)
     for band in (cfg.respiration_band_hz, cfg.heart_band_hz):
         _check_band(band, fs_a)
     excursion = cfg.max_radar_excursion_m if units == "m" else None
@@ -1769,6 +1965,195 @@ def _heart_estimate(
     )
 
 
+def _harmonic_reference(
+    x: FloatArray,
+    fs: float,
+    peak_r: SpectralPeak,
+    waveform: FloatArray,
+    cfg: VitalSignConfig,
+) -> tuple[float | None, FloatArray, tuple[tuple[float, float], ...]]:
+    """Respiration fundamental whose harmonics are handled in the heart band.
+
+    Breathing faster than the respiration band (30 breaths/min and above
+    with the default band) puts its second harmonic in the heart band (60 to
+    75 beats/min for 30 to 37 breaths/min), often far stronger than the
+    heartbeat, while the respiration-band spectrum then shows only the
+    filter skirt: a maximum on either band edge, or a spurious interior
+    bump. The fundamental is therefore also searched in a wider band, from
+    the respiration band floor to half a notch width below the heart band.
+    A peak there that lies above the respiration band and passes the
+    null-model SNR test is the fundamental. Otherwise the respiration-band
+    peak is used, as before.
+
+    Where no fundamental is established, the interval it could lie in is
+    returned instead: above the respiration band up to the heart band when
+    the respiration maximum is on its upper edge, and between the top of the
+    wide band and the heart band when the wide-band maximum is on its upper
+    edge (breathing too fast to be resolved below the heart band). A heart
+    peak at a harmonic of that interval is then withheld. A maximum on the
+    lower edge (breathing slower than the band) adds the interval below the
+    band floor, whose handled harmonics stay below the heart band with the
+    default bands.
+
+    Args:
+        x: Detrended selected streams of the segment, shape ``(T, K)``.
+        fs: Sampling rate (Hz).
+        peak_r: Respiration-band peak of ``x``.
+        waveform: Respiration waveform (first principal component).
+        cfg: Estimator configuration.
+
+    Returns:
+        ``(fundamental_hz, reference_waveform, unresolved_hz)``: the
+        fundamental (``None`` when none applies), the waveform its phase is
+        taken from, and the frequency intervals ``(low, high)`` in which an
+        unresolved respiration fundamental could lie (empty when there are
+        none).
+    """
+    resp_low, resp_high = cfg.respiration_band_hz
+    wide = (resp_low, cfg.heart_band_hz[0] - cfg.notch_width_hz / 2.0)
+    ceiling = cfg.heart_band_hz[0] + cfg.notch_width_hz / 2.0
+    upper_edge = peak_r.at_band_edge and _maximum_on_upper_edge(
+        x, fs, cfg.respiration_band_hz, cfg.zero_pad_factor
+    )
+    unresolved: list[tuple[float, float]] = []
+    if wide[1] > resp_high:
+        xw = _bandpass(x, fs, wide, cfg.filter_order)
+        peak_w = dominant_frequency(
+            xw,
+            fs,
+            wide,
+            signal_halfwidth_hz=cfg.respiration_signal_halfwidth_hz,
+            zero_pad_factor=cfg.zero_pad_factor,
+        )
+        threshold = _snr_threshold(
+            cfg.respiration_min_snr_db,
+            effective_stream_count(
+                xw,
+                fs,
+                wide,
+                exclude_hz=peak_w.frequency_hz,
+                exclude_halfwidth_hz=peak_w.halfwidth_hz,
+            ),
+            x.shape[0],
+            fs,
+            wide,
+            cfg.respiration_signal_halfwidth_hz,
+            cfg,
+        )
+        f_w = peak_w.frequency_hz
+        if (
+            f_w is not None
+            and (f_w > resp_high or upper_edge)
+            and _passes(peak_w.snr_db, threshold)
+        ):
+            return f_w, _combine(xw), ()
+        if peak_w.at_band_edge and _maximum_on_upper_edge(xw, fs, wide, cfg.zero_pad_factor):
+            unresolved.append((wide[1], ceiling))
+    if peak_r.frequency_hz is not None:
+        return peak_r.frequency_hz, waveform, tuple(unresolved)
+    if upper_edge:
+        unresolved.append((resp_high, ceiling))
+    elif peak_r.at_band_edge:
+        unresolved.append((0.0, resp_low))
+    return None, waveform, tuple(unresolved)
+
+
+def _unresolved_harmonic(
+    f_hz: float,
+    unresolved: tuple[tuple[float, float], ...],
+    duration_s: float,
+    cfg: VitalSignConfig,
+) -> tuple[int, float, float] | None:
+    """First ``(order, low, high)`` such that ``f_hz`` is a harmonic of ``[low, high]``.
+
+    Orders run from 2 to ``max_harmonic_order``; the interval is widened by
+    the tolerance of the harmonic-coincidence test.
+    """
+    for low, high in unresolved:
+        for order in range(2, cfg.max_harmonic_order + 1):
+            precision = cfg.harmonic_coincidence_fraction + order * cfg.respiration_precision_bins
+            tolerance = precision / duration_s
+            if order * low - tolerance <= f_hz <= order * high + tolerance:
+                return order, low, high
+    return None
+
+
+def _screen_heart(
+    heart: RateEstimate,
+    respiration_hz: float | None,
+    suppressed_hz: tuple[float, ...],
+    unresolved: tuple[tuple[float, float], ...],
+    duration_s: float,
+    cfg: VitalSignConfig,
+) -> RateEstimate:
+    """Withhold a heart estimate that may be a harmonic the earlier tests cannot see.
+
+    Three cases are withheld with ``HARMONIC_AMBIGUITY``: the peak is a
+    harmonic of an unresolved respiration fundamental (see
+    ``_harmonic_reference``); the peak lies within
+    ``(cancellation_guard_bins + k * respiration_precision_bins) / T`` of a
+    suppressed respiration harmonic ``k``, where suppression has removed or
+    shifted the heartbeat and the residual peak is biased; or half its
+    frequency coincides with a suppressed harmonic to within the tolerance
+    of the harmonic-coincidence test, so the heartbeat's fundamental may
+    have been removed together with that harmonic and the peak be the
+    heartbeat's own second harmonic.
+
+    Args:
+        heart: The estimate after the SNR and coincidence tests.
+        respiration_hz: Fundamental whose harmonics were suppressed.
+        suppressed_hz: The suppressed harmonics (empty when none were).
+        unresolved: Intervals of an unresolved respiration fundamental.
+        duration_s: Segment duration (s).
+        cfg: Estimator configuration.
+
+    Returns:
+        ``heart`` unchanged, or the abstention.
+    """
+    f_h = heart.peak_hz
+    if f_h is None or heart.rate_bpm is None:
+        return heart
+    detail = ""
+    hit = _unresolved_harmonic(f_h, unresolved, duration_s, cfg)
+    if hit is not None:
+        order, low, high = hit
+        detail = (
+            f"heart peak {f_h:.3f} Hz may be respiration harmonic {order} of an "
+            f"unresolved fundamental in {low:.2f} to {high:.2f} Hz (respiration "
+            "maximum on a band edge)"
+        )
+    elif respiration_hz is not None:
+        for harmonic in suppressed_hz:
+            order = round(harmonic / respiration_hz)
+            spread = order * cfg.respiration_precision_bins
+            guard = (cfg.cancellation_guard_bins + spread) / duration_s
+            if cfg.cancellation_guard_bins > 0.0 and abs(f_h - harmonic) <= guard:
+                detail = (
+                    f"heart peak {f_h:.3f} Hz lies within {guard:.3f} Hz of suppressed "
+                    f"respiration harmonic {order} x {respiration_hz:.3f} Hz, where "
+                    "suppression biases the residual peak"
+                )
+                break
+            precision = cfg.harmonic_coincidence_fraction + spread
+            if abs(0.5 * f_h - harmonic) <= precision / duration_s:
+                detail = (
+                    f"heart peak {f_h:.3f} Hz may be the second harmonic of a heartbeat at "
+                    f"{0.5 * f_h:.3f} Hz removed with respiration harmonic {order} x "
+                    f"{respiration_hz:.3f} Hz"
+                )
+                break
+    if not detail:
+        return heart
+    return RateEstimate(
+        None,
+        AbstainReason.HARMONIC_AMBIGUITY,
+        detail,
+        f_h,
+        heart.snr_db,
+        snr_threshold_db=heart.snr_threshold_db,
+    )
+
+
 def _analyse_segment(
     seg: FloatArray, fs: float, cfg: VitalSignConfig
 ) -> tuple[RateEstimate, RateEstimate, IntArray, tuple[float, ...], FloatArray]:
@@ -1799,10 +2184,17 @@ def _analyse_segment(
         signal_halfwidth_hz=cfg.respiration_signal_halfwidth_hz,
         zero_pad_factor=cfg.zero_pad_factor,
     )
-    n_seg, n_chosen = seg.shape[0], int(chosen.shape[0])
+    n_seg = seg.shape[0]
+    k_resp = effective_stream_count(
+        xr,
+        fs,
+        cfg.respiration_band_hz,
+        exclude_hz=peak_r.frequency_hz,
+        exclude_halfwidth_hz=peak_r.halfwidth_hz,
+    )
     thr_r = _snr_threshold(
         cfg.respiration_min_snr_db,
-        n_chosen,
+        k_resp,
         n_seg,
         fs,
         cfg.respiration_band_hz,
@@ -1811,7 +2203,7 @@ def _analyse_segment(
     )
     thr_joint = _snr_threshold(
         cfg.respiration_min_snr_db,
-        n_chosen,
+        k_resp,
         n_seg,
         fs,
         cfg.respiration_band_hz,
@@ -1825,23 +2217,37 @@ def _analyse_segment(
             "more than one periodic source in the respiration band; out of scope",
         )
         return resp, heart, chosen, (), waveform
+    f_ref, ref_wave, unresolved = _harmonic_reference(x[:, chosen], fs, peak_r, waveform, cfg)
+    if f_ref is not None and f_ref > cfg.respiration_band_hz[1] and not resp.abstained:
+        # the in-band "peak" is filter skirt or a sidelobe, not the breathing cycle
+        resp = RateEstimate(
+            None,
+            AbstainReason.PEAK_AT_BAND_EDGE,
+            f"breathing fundamental {f_ref:.3f} Hz lies above the respiration band "
+            f"{cfg.respiration_band_hz}; the in-band peak at {resp.peak_hz:.3f} Hz is not "
+            "the breathing cycle",
+            resp.peak_hz,
+            resp.snr_db,
+            resp.count_rate_bpm,
+            resp.snr_threshold_db,
+        )
     harmonics: tuple[float, ...] = ()
-    if peak_r.frequency_hz is not None:
+    if f_ref is not None:
         harmonics = respiration_harmonics(
-            peak_r.frequency_hz,
+            f_ref,
             cfg.heart_band_hz,
             cfg.max_harmonic_order,
             margin_hz=cfg.notch_width_hz / 2.0,
         )
     xh = _bandpass(x[:, chosen], fs, cfg.heart_band_hz, cfg.filter_order)
-    if harmonics and peak_r.frequency_hz is not None:
+    if harmonics and f_ref is not None:
         if cfg.harmonic_suppression == "regression":
-            orders = tuple(round(h / peak_r.frequency_hz) for h in harmonics)
+            orders = tuple(round(h / f_ref) for h in harmonics)
             xh = cancel_respiration_harmonics(
                 xh,
-                waveform,
+                ref_wave,
                 fs,
-                peak_r.frequency_hz,
+                f_ref,
                 orders,
                 cfg.heart_band_hz,
                 poly_degree=min(cfg.harmonic_poly_degree, int(n_seg / fs // 15.0)),
@@ -1860,14 +2266,21 @@ def _analyse_segment(
     )
     thr_h = _snr_threshold(
         cfg.heart_min_snr_db,
-        n_chosen,
+        effective_stream_count(
+            xh,
+            fs,
+            cfg.heart_band_hz,
+            exclude_hz=peak_h.frequency_hz,
+            exclude_halfwidth_hz=peak_h.halfwidth_hz,
+        ),
         n_seg,
         fs,
         cfg.heart_band_hz,
         cfg.heart_signal_halfwidth_hz,
         cfg,
     )
-    heart = _heart_estimate(peak_h, thr_h, peak_r.frequency_hz, n_seg / fs, cfg)
+    heart = _heart_estimate(peak_h, thr_h, f_ref, n_seg / fs, cfg)
+    heart = _screen_heart(heart, f_ref, harmonics, unresolved, n_seg / fs, cfg)
     return resp, heart, chosen, harmonics, waveform
 
 
@@ -1929,7 +2342,7 @@ def _window_estimate(prep: _Prepared, i0: int, i1: int, cfg: VitalSignConfig) ->
 def estimate_vital_signs(
     *,
     fs: float,
-    consent_confirmed: bool,
+    consent_confirmed: bool | ConsentRecord,
     csi_amplitude: ArrayLike | None = None,
     csi_phase: ArrayLike | None = None,
     subcarrier_indices: ArrayLike | None = None,
@@ -1947,10 +2360,14 @@ def estimate_vital_signs(
     clean (motion-free, non-missing) segment is analysed.
 
     Args:
-        fs: Sampling rate of the input (Hz), or the uniform rate to resample
-            to when ``timestamps_s`` is given.
-        consent_confirmed: Must be ``True``: the subject has given informed
-            consent to contactless sensing.
+        fs: Sampling rate of the input (Hz). With ``timestamps_s`` it is the
+            uniform rate the packets are resampled to: they are interpolated
+            onto a grid at least as fast as the median packet rate and then
+            anti-alias filtered down to ``fs`` (or to
+            ``config.analysis_fs`` when that is lower).
+        consent_confirmed: ``True``, or a ``truth_decipher.ConsentRecord``
+            whose scope includes ``VITAL_SIGNS_CONSENT_SCOPE``: the subject
+            has given informed consent to contactless sensing.
         csi_amplitude: CSI amplitude, shape ``(T, S)`` or ``(T, S, A)``.
         csi_phase: CSI phase in radians, shape ``(T, S)`` (sanitised by a
             linear fit) or ``(T, S, A)`` with ``A >= 2`` (antenna
@@ -1966,7 +2383,8 @@ def estimate_vital_signs(
         The estimates; abstentions carry ``rate_bpm=None`` and a reason.
 
     Raises:
-        ConsentRequiredError: If ``consent_confirmed`` is not ``True``.
+        ConsentRequiredError: If ``consent_confirmed`` is neither ``True``
+            nor a ``ConsentRecord`` with ``VITAL_SIGNS_CONSENT_SCOPE``.
         ValueError: On malformed inputs or an inadmissible configuration.
         TypeError: On complex-valued inputs.
     """
@@ -2005,7 +2423,7 @@ def _global_waveform(prep: _Prepared, cfg: VitalSignConfig) -> FloatArray:
 def track_vital_signs(
     *,
     fs: float,
-    consent_confirmed: bool,
+    consent_confirmed: bool | ConsentRecord,
     csi_amplitude: ArrayLike | None = None,
     csi_phase: ArrayLike | None = None,
     subcarrier_indices: ArrayLike | None = None,
@@ -2027,10 +2445,14 @@ def track_vital_signs(
     different times share a scale.
 
     Args:
-        fs: Sampling rate of the input (Hz), or the uniform rate to resample
-            to when ``timestamps_s`` is given.
-        consent_confirmed: Must be ``True``: the subject has given informed
-            consent to contactless sensing.
+        fs: Sampling rate of the input (Hz). With ``timestamps_s`` it is the
+            uniform rate the packets are resampled to: they are interpolated
+            onto a grid at least as fast as the median packet rate and then
+            anti-alias filtered down to ``fs`` (or to
+            ``config.analysis_fs`` when that is lower).
+        consent_confirmed: ``True``, or a ``truth_decipher.ConsentRecord``
+            whose scope includes ``VITAL_SIGNS_CONSENT_SCOPE``: the subject
+            has given informed consent to contactless sensing.
         csi_amplitude: CSI amplitude, shape ``(T, S)`` or ``(T, S, A)``.
         csi_phase: CSI phase in radians, ``(T, S)`` or ``(T, S, A)``.
         subcarrier_indices: Subcarrier indices for phase sanitisation.
@@ -2049,7 +2471,8 @@ def track_vital_signs(
         The sliding-window track.
 
     Raises:
-        ConsentRequiredError: If ``consent_confirmed`` is not ``True``.
+        ConsentRequiredError: If ``consent_confirmed`` is neither ``True``
+            nor a ``ConsentRecord`` with ``VITAL_SIGNS_CONSENT_SCOPE``.
         ValueError: On malformed inputs, inadmissible window settings or a
             recording shorter than one window.
         TypeError: On complex-valued inputs.

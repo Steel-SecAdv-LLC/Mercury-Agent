@@ -109,6 +109,25 @@ whenever the server ran. Alert egress followed redirects with the sink's API
 key and queued deliveries without bound; `tracestate` was echoed unvalidated;
 CSV exports passed spreadsheet formulas through. All fixed.
 
+**Fixed — contactless vital signs reported breathing harmonics as heart rate
+(`biometric/rf_vital_signs.py`).** At 30 breaths/min or faster the breathing
+fundamental fell on the band edge, no harmonic was cancelled, and its second
+harmonic was reported as the heart rate (breathing 30/min with a true 96 bpm
+heart gave 60; 79 of 162 sweep windows were off by more than 5 bpm). The
+fundamental is now searched over a wider band and used for cancellation; when
+it cannot be resolved, or when a heart peak lies within
+`cancellation_guard_bins` (1.25, measured) of a suppressed harmonic, the heart
+rate is withheld as `HARMONIC_AMBIGUITY` (a heart at exactly 2x breathing had
+been reported 1.7 bpm off). The noise gate now uses the effective number of
+independent streams (participation ratio) instead of the raw count: noise
+shared across subcarriers passed it 7-12% of the time against a 1% target.
+Timestamped packets are interpolated at the packet rate and filtered down, so
+an out-of-band interferer no longer aliases into the heart band. Consent
+reuses `truth_decipher`'s `ConsentRecord` and `ConsentRequiredError`. The
+cost is coverage, not accuracy: CSI respiration coverage drops 1-8 points,
+and 10 s windows now never report a heart rate (they reported 17 of 111,
+within 1.6 bpm).
+
 **Fixed — monitoring that could not fire.** The Helm chart's API metrics port
 targeted 9090, where nothing listens; its alert rules were a hand-kept copy
 with eight alerts on metrics nothing emits and none of the drift alerts.

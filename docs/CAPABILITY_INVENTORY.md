@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,899
+- **Total top-level classes:** 2,898
 - **Capability-bearing classes:** 1,917 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1130 |
-| Support types (config / result / enum / error) | 982 |
+| Support types (config / result / enum / error) | 981 |
 | Detection | 168 |
 | Neural models & layers | 160 |
 | Data sources & loaders | 103 |
@@ -315,7 +315,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `biometric/` — 51 classes (36 capability)
+### `biometric/` — 50 classes (36 capability)
 
 **Biometric & recognition**
 
@@ -368,9 +368,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `OrientationFieldEstimator` (`biometric.fingerprint_recognition`) — Estimate local ridge orientation field.
 - `RidgeFrequencyEstimator` (`biometric.fingerprint_recognition`) — Estimate local ridge frequency.
 
-<details><summary>Support types (15)</summary>
+<details><summary>Support types (14)</summary>
 
-`AbstainReason`, `BiometricAnomalyResult`, `BiometricModality`, `BiometricVerificationResult`, `ConsentRequiredError`, `FingerprintLivenessResult`, `FingerprintMatchResult`, `FusionStrategy`, `IrisMatchResult`, `LivenessResult`, `MinutiaeType`, `SingularityType`, `VitalSignConfig`, `VoiceLivenessResult`, `VoiceMatchResult`
+`AbstainReason`, `BiometricAnomalyResult`, `BiometricModality`, `BiometricVerificationResult`, `FingerprintLivenessResult`, `FingerprintMatchResult`, `FusionStrategy`, `IrisMatchResult`, `LivenessResult`, `MinutiaeType`, `SingularityType`, `VitalSignConfig`, `VoiceLivenessResult`, `VoiceMatchResult`
 
 </details>
 

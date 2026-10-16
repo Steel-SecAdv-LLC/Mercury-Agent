@@ -33,8 +33,10 @@ from hypothesis import (
 )
 from scipy import signal, stats
 
+from omni_mercury_engine import truth_decipher
 from omni_mercury_engine.biometric.rf_vital_signs import (
     MAD_TO_SIGMA,
+    VITAL_SIGNS_CONSENT_SCOPE,
     AbstainReason,
     ConsentRequiredError,
     VitalSignConfig,
@@ -47,6 +49,7 @@ from omni_mercury_engine.biometric.rf_vital_signs import (
     count_cycle_rate,
     detect_motion,
     dominant_frequency,
+    effective_stream_count,
     estimate_vital_signs,
     extract_waveform_excerpt,
     first_principal_component,
@@ -205,6 +208,37 @@ class TestConsent:
 
     def test_consent_error_is_a_permission_error(self) -> None:
         assert issubclass(ConsentRequiredError, PermissionError)
+
+    def test_consent_error_is_shared_with_truth_decipher(self) -> None:
+        assert ConsentRequiredError is truth_decipher.ConsentRequiredError
+        d, _, _ = chest(30, 15, 70)
+        with pytest.raises(truth_decipher.ConsentRequiredError):
+            estimate_vital_signs(fs=FS, consent_confirmed=False, radar_displacement_m=d)
+
+    def test_consent_record_with_vital_signs_scope_is_accepted(self) -> None:
+        d, _, _ = chest(30, 15, 70)
+        record = truth_decipher.ConsentRecord(
+            subject_pseudonym="subject-7",
+            obtained_at=0.0,
+            scope=frozenset({VITAL_SIGNS_CONSENT_SCOPE}),
+            obtained_by="examiner-2",
+        )
+        by_record = estimate_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
+        by_flag = radar_estimate(d)
+        assert by_record.respiration == by_flag.respiration
+
+    def test_consent_record_without_vital_signs_scope_is_refused(self) -> None:
+        d, _, _ = chest(30, 15, 70)
+        record = truth_decipher.ConsentRecord(
+            subject_pseudonym="subject-7",
+            obtained_at=0.0,
+            scope=frozenset({truth_decipher.CIT_CONSENT_SCOPE}),
+            obtained_by="examiner-2",
+        )
+        with pytest.raises(ConsentRequiredError, match=VITAL_SIGNS_CONSENT_SCOPE):
+            estimate_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
+        with pytest.raises(ConsentRequiredError):
+            track_vital_signs(fs=FS, consent_confirmed=record, radar_displacement_m=d)
 
 
 # ---------------------------------------------------------------------------
@@ -512,6 +546,45 @@ class TestSpectral:
         np.testing.assert_array_equal(first_principal_component(np.ones((10, 3))), 0.0)
 
 
+class TestEffectiveStreams:
+    def test_independent_streams_count_nearly_fully(self) -> None:
+        """Few in-band bins bias the count low (conservative), more so in the narrow band."""
+        x = np.random.default_rng(5).standard_normal((600, 10))
+        assert (
+            4.0
+            < effective_stream_count(x, FS, RESP_BAND)
+            < effective_stream_count(x, FS, HEART_BAND)
+        )
+        assert 6.5 < effective_stream_count(x, FS, HEART_BAND) <= 10.0
+        long = np.random.default_rng(5).standard_normal((12000, 10))
+        assert 9.0 < effective_stream_count(long, FS, HEART_BAND) <= 10.0
+
+    def test_proportional_streams_count_once(self) -> None:
+        base = np.random.default_rng(6).standard_normal(600)
+        x = base[:, None] * np.linspace(0.5, 2.0, 8)[None, :] + 3.0
+        assert effective_stream_count(x, FS, HEART_BAND) == pytest.approx(1.0, abs=1e-9)
+
+    def test_two_independent_groups_count_twice(self) -> None:
+        rng = np.random.default_rng(7)
+        a, b = rng.standard_normal((2, 4000))
+        x = np.column_stack([a, a, a, b, b, b])
+        assert effective_stream_count(x, FS, HEART_BAND) == pytest.approx(2.0, abs=0.05)
+
+    def test_common_signal_is_excluded_from_the_noise_count(self) -> None:
+        rng = np.random.default_rng(8)
+        x = 3.0 * tone(0.25, 30.0)[:, None] + rng.standard_normal((600, 10))
+        assert effective_stream_count(x, FS, RESP_BAND) < 2.0
+        kept = effective_stream_count(x, FS, RESP_BAND, exclude_hz=0.25, exclude_halfwidth_hz=0.067)
+        assert kept > 3.5
+
+    def test_degenerate_inputs_count_one(self) -> None:
+        assert effective_stream_count(np.arange(600.0), FS, HEART_BAND) == 1.0
+        flat = np.column_stack([np.random.default_rng(9).standard_normal(600), np.ones(600)])
+        assert effective_stream_count(flat, FS, HEART_BAND) == 1.0
+        with pytest.raises(ValueError):
+            effective_stream_count(np.ones((600, 2)), FS, (0.5, 12.0))
+
+
 class TestCycleCount:
     def test_counts_breaths_of_a_clean_waveform(self) -> None:
         assert count_cycle_rate(tone(0.25), FS, 0.5) == pytest.approx(15.0, abs=0.05)
@@ -728,6 +801,26 @@ class TestEstimateRadar:
         assert est.respiration.rate_bpm == pytest.approx(15.0, abs=0.1)
         assert est.heart.rate_bpm == pytest.approx(72.0, abs=0.3)
 
+    def test_timestamped_packets_are_anti_alias_filtered(self) -> None:
+        """A 41.2 Hz interferer in ~1 kHz packets must not alias to 1.2 Hz at fs = 20."""
+        rng = np.random.default_rng(1)
+        t = np.cumsum(rng.uniform(0.95e-3, 1.05e-3, 40_000))
+        gain = rng.uniform(0.5, 1.5, 30)
+        breath = np.sin(2 * np.pi * 0.25 * t)
+        interferer = np.sin(2 * np.pi * 41.2 * t)
+        amp = (
+            10.0
+            + 0.05 * breath[:, None] * gain
+            + 0.5 * interferer[:, None] * gain[::-1]
+            + 0.2 * rng.standard_normal((t.size, 30))
+        )
+        est = estimate_vital_signs(
+            fs=20.0, consent_confirmed=True, csi_amplitude=amp, timestamps_s=t
+        )
+        assert est.fs_analysis == pytest.approx(20.0)
+        assert est.heart.abstained
+        assert est.respiration.rate_bpm == pytest.approx(15.0, abs=0.3)
+
     def test_breath_hold_keeps_heart_rate(self) -> None:
         rng = np.random.default_rng(13)
         _, _, f_h = chest(40, 15.0, 80.0)
@@ -785,6 +878,112 @@ class TestEstimateRadar:
         est = radar_estimate(d, config=VitalSignConfig(harmonic_suppression="none"))
         assert est.heart.reason is AbstainReason.HARMONIC_AMBIGUITY
         assert "harmonic 2 x" in est.heart.detail
+
+    @pytest.mark.parametrize("resp_bpm", [30.0, 36.0])
+    def test_fast_breathing_harmonic_is_never_reported(self, resp_bpm: float) -> None:
+        """Breathing on or above the band edge: its 2nd harmonic is not a heart rate.
+
+        At 30 and 36 breaths/min the respiration estimate abstains on the band
+        edge, while the second harmonic (60 and 72/min) is far stronger than
+        the heartbeat (96/min). The heart rate must be correct or withheld.
+        """
+        fs, heart_bpm = 100.0, 96.0
+        t = np.arange(round(30 * fs)) / fs
+        phi = 2 * np.pi * resp_bpm / 60.0 * t + 0.4
+        breathing = 3e-3 * (np.sin(phi) + 0.25 * np.sin(2 * phi + 0.7))
+        heart = 0.2e-3 * np.sin(2 * np.pi * heart_bpm / 60.0 * t + 1.3)
+        noise = 20e-6 * np.random.default_rng(int(resp_bpm)).standard_normal(t.size)
+        est = estimate_vital_signs(
+            fs=fs, consent_confirmed=True, radar_displacement_m=breathing + heart + noise
+        )
+        assert est.respiration.abstained
+        rate = est.heart.rate_bpm
+        assert rate is None or rate == pytest.approx(heart_bpm, abs=3.0)
+        assert rate is None or abs(rate - 2 * resp_bpm) > 3.0
+        if rate is None:
+            assert est.heart.reason in (AbstainReason.HARMONIC_AMBIGUITY, AbstainReason.LOW_SNR)
+        # the fundamental was located above the respiration band and its
+        # second harmonic removed from the heart band
+        assert 2 * resp_bpm / 60.0 == pytest.approx(est.suppressed_harmonics_hz[0], abs=0.02)
+
+    def test_breathing_above_the_band_is_not_reported_from_a_sidelobe(self) -> None:
+        """At 37/min the in-band spectrum once yielded a confident 6.3/min."""
+        d, _, f_h = chest(40, 37.0, 55.0, seed=0)
+        est = radar_estimate(d)
+        assert est.respiration.reason is AbstainReason.PEAK_AT_BAND_EDGE
+        assert "above the respiration band" in est.respiration.detail
+        assert est.heart.rate_bpm is None or est.heart.rate_bpm == pytest.approx(
+            truth_bpm(f_h, 0, 40), abs=1.0
+        )
+
+    def test_heart_second_harmonic_is_not_reported_after_cancellation(self) -> None:
+        """A 55/min heartbeat on the 3rd harmonic of 18/min breathing is cancelled with it.
+
+        Its own second harmonic (110/min) is then the heart-band maximum and
+        must not be reported as the heart rate.
+        """
+        d, _, f_h = chest(40, 18.0, 55.0, seed=0)
+        est = radar_estimate(d)
+        assert est.heart.rate_bpm is None or est.heart.rate_bpm == pytest.approx(
+            truth_bpm(f_h, 0, 40), abs=1.0
+        )
+        assert est.heart.reason is AbstainReason.HARMONIC_AMBIGUITY
+        assert "second harmonic of a heartbeat" in est.heart.detail
+
+    @pytest.mark.parametrize(
+        ("modality", "resp_bpm", "seed"),
+        [
+            ("radar", 33.0, 1),
+            ("radar", 22.0, 1),
+            ("radar", 33.0, 4),
+            ("csi", 33.0, 3),
+            ("csi", 22.0, 1),
+        ],
+    )
+    def test_heart_on_a_suppressed_harmonic_is_right_or_withheld(
+        self, modality: str, resp_bpm: float, seed: int
+    ) -> None:
+        """Heart rate exactly 2x (33/min) or 3x (22/min) the breathing rate.
+
+        Harmonic suppression removes most of a heartbeat that sits on the
+        harmonic and leaves a biased residual peak beside it. Without the
+        cancellation guard, radar reported 67.7/min (2x) and 67.6/min (3x)
+        for a true 66/min, and two-antenna CSI phase reported 100.8/min (the
+        residue of the third harmonic); such peaks must be withheld.
+        """
+        d, _, f_h = chest(40, resp_bpm, 66.0, seed=seed)
+        if modality == "radar":
+            est = radar_estimate(d)
+        else:
+            _, phase = csi(d, snr_db=40.0, n_sub=16, n_ant=2, seed=seed)
+            est = estimate_vital_signs(fs=FS, consent_confirmed=True, csi_phase=phase)
+        rate = est.heart.rate_bpm
+        assert rate is None or rate == pytest.approx(truth_bpm(f_h, 0, 40), abs=1.0)
+        if rate is None:
+            assert est.heart.reason in (AbstainReason.HARMONIC_AMBIGUITY, AbstainReason.LOW_SNR)
+
+    def test_cancellation_guard_is_the_decision_boundary(self) -> None:
+        d, _, _ = chest(40, 33.0, 66.0, seed=1)
+        guarded = radar_estimate(d)
+        assert guarded.heart.reason is AbstainReason.HARMONIC_AMBIGUITY
+        assert "suppression biases the residual peak" in guarded.heart.detail
+        off = radar_estimate(d, config=VitalSignConfig(cancellation_guard_bins=0.0))
+        assert off.heart.peak_hz == pytest.approx(guarded.heart.peak_hz, abs=1e-12)
+        # the biased residual peak (true rate 66/min) is what the guard withholds
+        assert off.heart.rate_bpm == pytest.approx(67.7, abs=0.1)
+
+    def test_unresolved_fast_fundamental_withholds_heart(self) -> None:
+        """Breathing (47/min) above the wide search band: no fundamental, heart withheld."""
+        t = np.arange(800) / FS
+        phi = 2 * np.pi * 0.78 * t
+        d = 3e-3 * (np.sin(phi) + 0.25 * np.sin(2 * phi + 0.7)) + 0.2e-3 * np.sin(
+            2 * np.pi * 1.2 * t
+        )
+        est = radar_estimate(d + 20e-6 * np.random.default_rng(8).standard_normal(t.size))
+        assert est.respiration.reason is AbstainReason.PEAK_AT_BAND_EDGE
+        assert est.heart.reason is AbstainReason.HARMONIC_AMBIGUITY
+        assert "band edge" in est.heart.detail
+        assert est.suppressed_harmonics_hz == ()
 
     def test_amplitude_scale_and_offset_do_not_change_rates(self) -> None:
         d, _, _ = chest(40, 17.0, 63.0, seed=4)
@@ -923,6 +1122,23 @@ class TestAbstention:
         assert est.respiration.reason is AbstainReason.MOTION
         assert "subject not stationary" in est.respiration.detail
 
+    def test_common_mode_noise_respects_the_false_alarm_rate(self) -> None:
+        """Pure noise shared by 30 subcarriers (95 %) passes at the 1 % design level.
+
+        Treating the 30 streams as independent let shared noise pass the
+        respiration and heart tests in about 7 % of windows each; the effective stream
+        count brings both rates back to the documented false-alarm level.
+        """
+        n, n_sub, trials = 600, 30, 200
+        reported = 0
+        for seed in range(trials):
+            rng = np.random.default_rng(seed)
+            common = rng.standard_normal(n)[:, None] * rng.uniform(0.5, 1.5, n_sub)
+            amp = 10.0 + 0.95 * common + 0.05 * rng.standard_normal((n, n_sub))
+            est = estimate_vital_signs(fs=FS, consent_confirmed=True, csi_amplitude=amp)
+            reported += int(not est.respiration.abstained) + int(not est.heart.abstained)
+        assert reported <= 0.02 * trials
+
     def test_slow_drift_does_not_create_a_rate(self) -> None:
         t = np.arange(800) / FS
         est = radar_estimate(1e-3 * t + 1e-7 * np.random.default_rng(3).standard_normal(800))
@@ -988,6 +1204,7 @@ class TestInputValidation:
             {"harmonic_suppression": "adaptive"},
             {"harmonic_poly_degree": -1},
             {"harmonic_coincidence_fraction": -0.5},
+            {"cancellation_guard_bins": -1.0},
         ],
     )
     def test_config_validation(self, kwargs: dict[str, object]) -> None:
@@ -1119,9 +1336,11 @@ class TestTrack:
         assert tr.window_s == 10.0 and tr.window_start_s.size == 111
         ok = np.isfinite(tr.heart_bpm)
         # At 10 s the resolution (0.1 Hz) is coarser than the gap between the heart
-        # and the nearest respiration harmonic, so most windows are withheld as
-        # ambiguous; whatever is reported stays within 2.5/min (measured max 1.9).
-        assert 0 < ok.sum() < 30
+        # (1.27 Hz) and the nearest suppressed respiration harmonic (1.2 Hz), so the
+        # windows are withheld as ambiguous. Before the cancellation guard 17 of 111
+        # were reported, biased by up to 1.6/min; now none are. Whatever is
+        # reported must stay within 2.5/min.
+        assert ok.sum() < 30
         np.testing.assert_allclose(tr.heart_bpm[ok], 76.0, atol=2.5)
         assert AbstainReason.HARMONIC_AMBIGUITY in set(tr.heart_reasons)
         # 10-s respiration windows are too short for the null test: always abstain
@@ -1186,12 +1405,14 @@ class TestStimulusLockedAccess:
 # ---------------------------------------------------------------------------
 
 
-@settings(derandomize=True, max_examples=15, deadline=None)
-@given(resp=st.floats(8.0, 28.0), heart=st.floats(55.0, 110.0), seed=st.integers(0, 50))
+@settings(derandomize=True, max_examples=25, deadline=None)
+@given(resp=st.floats(8.0, 40.0), heart=st.floats(55.0, 110.0), seed=st.integers(0, 50))
 def test_property_rates_recovered_across_bands(resp: float, heart: float, seed: int) -> None:
+    """Rates are recovered inside the band; above it (>= 30/min) they are right or withheld."""
     d, f_r, f_h = chest(40, resp, heart, seed=seed)
     est = radar_estimate(d)
-    assert est.respiration.rate_bpm == pytest.approx(truth_bpm(f_r, 0, 40), abs=0.15)
+    if resp <= 28.0 or est.respiration.rate_bpm is not None:
+        assert est.respiration.rate_bpm == pytest.approx(truth_bpm(f_r, 0, 40), abs=0.15)
     if est.heart.rate_bpm is not None:
         assert est.heart.rate_bpm == pytest.approx(truth_bpm(f_h, 0, 40), abs=1.0)
 
