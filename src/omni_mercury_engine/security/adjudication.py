@@ -88,7 +88,17 @@ Split. A case is held out iff ``int(sha3_256(case_id).hexdigest(), 16) % 100
 Tibshirani & Friedman (2009, sec. 7.2), who stress that there is no general
 rule; a validation set can be carved from the training split. The rule is
 fixed by a ledger's first case: a case recording a different percentage, or a
-split its hash rule does not give, is refused.
+split its hash rule does not give, is refused. A case whose ``intel_reports``
+are identical to a case already recorded in the *other* split is refused too:
+one payload on both sides of the split would score the network on its own
+training data. Rater and adjudicator ids are compared after
+:func:`normalize_source_id`, so ``"Alice"`` and ``"alice"`` are one person.
+
+Exports. :meth:`AdjudicationLedger.export` writes one split atomically
+(temporary file, ``fsync``, ``os.replace``) with the ledger head it came from.
+:func:`load_export` refuses a file of the wrong split, and, given the ledger,
+re-derives every case at that head and refuses any difference -- the export
+file is unsigned, so the ledger is what it is trusted against.
 
 Storage mirrors :class:`omni_mercury_engine.self_model.SelfModelLedger`:
 JSON lines ``{schema, index, prev_digest, entry, record_digest,
@@ -131,13 +141,15 @@ References:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import re
+import tempfile
 import unicodedata
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, timezone
 from fractions import Fraction
@@ -145,6 +157,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+try:  # POSIX advisory locks; Windows has no fcntl, and there the ledger stays single-writer.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX platforms
+    fcntl = None  # type: ignore[assignment]
 
 LEDGER_SCHEMA = "mercury.adjudication.ledger/v1"
 EXPORT_SCHEMA = "mercury.adjudication.export/v1"
@@ -946,6 +963,8 @@ class _Protocol:
     def __init__(self) -> None:
         self.cases: dict[str, _CaseState] = {}
         self.heldout_pct: int | None = None
+        #: digest of each recorded case's canonical ``intel_reports`` -> (case id, split).
+        self.payloads: dict[str, tuple[str, str]] = {}
 
     def _known(self, case_id: str, kind: str) -> _CaseState:
         state = self.cases.get(case_id)
@@ -982,7 +1001,16 @@ class _Protocol:
                 f"case {case.case_id!r} records split {split!r}, but its hash rule gives "
                 f"{expected!r}"
             )
+        payload = _digest(case.intel_reports)
+        twin = self.payloads.get(payload)
+        if twin is not None and twin[1] != split:
+            raise ValueError(
+                f"case {case.case_id!r} ({split}) carries the same intel_reports as case "
+                f"{twin[0]!r} ({twin[1]}): one payload in both splits leaks training data "
+                "into the held-out set"
+            )
         self.heldout_pct = pct
+        self.payloads.setdefault(payload, (case.case_id, split))
         self.cases[case.case_id] = _CaseState(case, split, pct, str(entry["digest"]))
 
     def _outcome(self, outcome: Outcome) -> None:
@@ -999,7 +1027,8 @@ class _Protocol:
             )
         if state.decision is not None:
             raise ValueError(f"rating of case {rating.case_id!r} after its adjudicator decision")
-        if any(r.rater_id == rating.rater_id for r in state.ratings):
+        who = normalize_source_id(rating.rater_id)
+        if any(normalize_source_id(r.rater_id) == who for r in state.ratings):
             raise ValueError(f"rater {rating.rater_id!r} already rated case {rating.case_id!r}")
         if rating.rated_at < state.outcome.observed_at:
             raise ValueError(
@@ -1024,7 +1053,9 @@ class _Protocol:
                 "(agreement or a majority settles them; a gap above one level needs a "
                 "third rating first)"
             )
-        if decision.adjudicator_id in {r.rater_id for r in state.ratings}:
+        if normalize_source_id(decision.adjudicator_id) in {
+            normalize_source_id(r.rater_id) for r in state.ratings
+        }:
             raise ValueError(
                 f"adjudicator {decision.adjudicator_id!r} rated case {decision.case_id!r}"
             )
@@ -1111,7 +1142,12 @@ def _label(state: _CaseState, agreement: AgreementReport, protocol_ok: bool) -> 
         reasons.append(method)
     else:
         adjudication = Adjudication(case.case_id, level, method, levels)
-        pair = agreement.pair((state.ratings[0].rater_id, state.ratings[1].rater_id))
+        pair = agreement.pair(
+            (
+                normalize_source_id(state.ratings[0].rater_id),
+                normalize_source_id(state.ratings[1].rater_id),
+            )
+        )
         if not pair.gated:
             reasons.append(
                 f"rater pair {pair.raters[0]}/{pair.raters[1]} co-rated {pair.n} < "
@@ -1231,9 +1267,12 @@ class AdjudicationLedger:
     is the previous ``record_digest`` (:data:`GENESIS_DIGEST` first) -- the
     conventions of :class:`~omni_mercury_engine.self_model.SelfModelLedger`.
 
-    The ledger assumes a single writer at a time: concurrent appends produce
-    a broken chain, which :meth:`verify` then reports (it never silently
-    merges).
+    Appends hold an exclusive advisory lock on ``<ledger>.lock`` (POSIX
+    ``flock``) across verification, replay and the write, so concurrent
+    writers on one host serialise instead of forking the chain; each batch
+    is written with a single ``O_APPEND`` write. A crash mid-write can leave
+    an unterminated last line, which :meth:`verify` reports and
+    :meth:`repair_torn_tail` removes (nothing else is ever rewritten).
     """
 
     def __init__(
@@ -1272,54 +1311,42 @@ class AdjudicationLedger:
         """Return every record in order (empty when the ledger does not exist yet)."""
         return [_loads(line) for line in self._lines()]
 
-    def verify(self, expected_public_key_hex: str | None = None) -> tuple[bool, str]:
+    def _pinned(self, expected_public_key_hex: str | None) -> str | None:
+        key = (
+            expected_public_key_hex
+            if expected_public_key_hex is not None
+            else self.expected_public_key_hex
+        )
+        return key.strip().lower() if key is not None else None
+
+    def verify(
+        self,
+        expected_public_key_hex: str | None = None,
+        *,
+        expected_head_digest: str | None = None,
+    ) -> tuple[bool, str]:
         """Check the whole chain, and signatures against a pinned key when one is set.
 
         Fails closed: an unparseable line, a malformed record or signature, or a
         signature that cannot be checked is a broken record, reported with its
         position, never an exception.
 
+        A hash chain cannot by itself reveal records cut off its end. Pass the
+        head digest of a state seen earlier (an export carries one) and a
+        ledger that no longer contains that record fails.
+
         Args:
             expected_public_key_hex: Pinned ML-DSA-65 key (hex, either case,
                 surrounding whitespace ignored); defaults to the ledger's pinned key.
+            expected_head_digest: A ``record_digest`` the chain must still contain.
 
         Returns:
             ``(ok, reason)`` naming the first broken record.
         """
-        key = (
-            expected_public_key_hex
-            if expected_public_key_hex is not None
-            else self.expected_public_key_hex
+        ok, reason, _ = _verify_lines(
+            self._lines(), self._pinned(expected_public_key_hex), expected_head_digest
         )
-        pinned = key.strip().lower() if key is not None else None
-        prev = GENESIS_DIGEST
-        for position, line in enumerate(self._lines()):
-            try:
-                record = _loads(line)
-            except ValueError:
-                return False, f"record {position}: not valid JSON"
-            if not isinstance(record, dict) or not isinstance(record.get("entry"), dict):
-                return False, f"record {position}: not a ledger record"
-            if record.get("schema") != LEDGER_SCHEMA:
-                return False, f"record {position}: unsupported schema {record.get('schema')!r}"
-            if record.get("index") != position:
-                return False, f"record {position}: index {record.get('index')} out of order"
-            if record.get("prev_digest") != prev:
-                return False, f"record {position}: does not chain to its predecessor"
-            unsigned = {k: v for k, v in record.items() if k not in ("record_digest", "signature")}
-            digest = _digest(unsigned)
-            if digest != record.get("record_digest"):
-                return False, f"record {position}: contents altered after recording"
-            entry = dict(record["entry"])
-            claimed = entry.pop("digest", None)
-            if _digest(entry) != claimed:
-                return False, f"record {position}: entry digest mismatch"
-            if pinned is not None:
-                problem = _signature_problem(record.get("signature"), digest, pinned)
-                if problem is not None:
-                    return False, f"record {position}: {problem}"
-            prev = digest
-        return True, "valid"
+        return ok, reason
 
     def head_digest(self) -> str:
         """Return the last record's digest (:data:`GENESIS_DIGEST` when empty)."""
@@ -1327,19 +1354,27 @@ class AdjudicationLedger:
         return str(records[-1]["record_digest"]) if records else GENESIS_DIGEST
 
     def report(self) -> LabelReport:
-        """Derive every case's label, exclusions and the agreement gate from the ledger."""
-        ok, reason = self.verify()
+        """Derive every case's label, exclusions and the agreement gate from the ledger.
+
+        The file is read once: the records that are verified are the records replayed.
+        """
+        ok, reason, records = _verify_lines(self._lines(), self._pinned(None), None)
         if not ok:
             return LabelReport(False, reason, (), None, (), GENESIS_DIGEST)
-        records = self.records()
+        return self._report_from(records, reason)
+
+    def _report_from(self, records: Sequence[Mapping[str, Any]], reason: str) -> LabelReport:
         protocol, problems = _replay(records)
         rated: dict[tuple[str, str], tuple[list[int], list[int]]] = {}
         for state in protocol.cases.values():
             if len(state.ratings) < 2:
                 continue
             first, second = state.ratings[0], state.ratings[1]
-            ordered = sorted((first, second), key=lambda r: r.rater_id)
-            key = (ordered[0].rater_id, ordered[1].rater_id)
+            ordered = sorted((first, second), key=lambda r: normalize_source_id(r.rater_id))
+            key = (
+                normalize_source_id(ordered[0].rater_id),
+                normalize_source_id(ordered[1].rater_id),
+            )
             a, b = rated.setdefault(key, ([], []))
             a.append(ordered[0].level)
             b.append(ordered[1].level)
@@ -1453,9 +1488,7 @@ class AdjudicationLedger:
                 if c.split == split and c.eligible
             ],
         }
-        target = Path(out)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        _atomic_write_text(Path(out), json.dumps(document, indent=2, sort_keys=True) + "\n")
         return document
 
     def stats(self) -> dict[str, Any]:
@@ -1540,7 +1573,8 @@ class AdjudicationLedger:
         """
         protocol = self._sound_protocol()
         state = protocol.cases[case_id]
-        own = next((r for r in state.ratings if r.rater_id == rater_id), None)
+        who = normalize_source_id(rater_id)
+        own = next((r for r in state.ratings if normalize_source_id(r.rater_id) == who), None)
         outcome = state.outcome
         return {
             "case_id": case_id,
@@ -1553,7 +1587,11 @@ class AdjudicationLedger:
             "other_ratings": (
                 None
                 if own is None
-                else [_public_rating(r) for r in state.ratings if r.rater_id != rater_id]
+                else [
+                    _public_rating(r)
+                    for r in state.ratings
+                    if normalize_source_id(r.rater_id) != who
+                ]
             ),
         }
 
@@ -1583,10 +1621,10 @@ class AdjudicationLedger:
         return queues
 
     def _sound_protocol(self) -> _Protocol:
-        ok, reason = self.verify()
+        ok, reason, records = _verify_lines(self._lines(), self._pinned(None), None)
         if not ok:
             raise ExportRefused(f"adjudication ledger fails verification: {reason}")
-        protocol, problems = _replay(self.records())
+        protocol, problems = _replay(records)
         if problems:
             raise ExportRefused("adjudication ledger content breaks the protocol: " + problems[0])
         return protocol
@@ -1661,6 +1699,10 @@ class AdjudicationLedger:
     ) -> list[dict[str, Any]]:
         """Record several items in order, all or nothing (one verification for the batch).
 
+        Every item is checked before anything is written, and the batch is
+        written with one ``O_APPEND`` write; a crash during that write can
+        still leave a prefix of it, whose complete records verify.
+
         Args:
             items: Cases, outcomes, ratings and decisions, in the order they
                 are to be recorded.
@@ -1688,13 +1730,41 @@ class AdjudicationLedger:
     ) -> dict[str, Any]:
         return self._append_entries([entry], signing_keypair)[0]
 
+    @contextlib.contextmanager
+    def _writer_lock(self) -> Iterator[None]:
+        """Hold an exclusive advisory lock on a sidecar ``.lock`` file (POSIX).
+
+        Verification, replay and the append happen under the lock, so two
+        writers cannot both chain onto the same head. The kernel releases
+        the lock when the holder exits, so a crash never leaves it held.
+        """
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if fcntl is None:  # pragma: no cover - non-POSIX platforms
+            yield
+            return
+        lock_path = self.path.with_name(self.path.name + ".lock")
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
     def _append_entries(
         self, entries: Sequence[dict[str, Any]], signing_keypair: tuple[bytes, bytes] | None
     ) -> list[dict[str, Any]]:
-        ok, reason = self.verify()
+        with self._writer_lock():
+            return self._append_locked(entries, signing_keypair)
+
+    def _append_locked(
+        self, entries: Sequence[dict[str, Any]], signing_keypair: tuple[bytes, bytes] | None
+    ) -> list[dict[str, Any]]:
+        ok, reason, records = _verify_lines(self._lines(), self._pinned(None), None)
         if not ok:
             raise ValueError(f"refusing to extend a broken adjudication ledger: {reason}")
-        records = self.records()
         protocol, problems = _replay(records)
         if problems:
             raise ValueError(
@@ -1732,13 +1802,122 @@ class AdjudicationLedger:
                 }
             prev = record["record_digest"]
             written.append(record)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            for record in written:
-                handle.write(json.dumps(record, sort_keys=True, allow_nan=False) + "\n")
+        payload = "".join(
+            json.dumps(record, sort_keys=True, allow_nan=False) + "\n" for record in written
+        ).encode("utf-8")
+        fd = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        try:
+            view = memoryview(payload)
+            while view:  # one write in practice; loop only on a short write
+                view = view[os.write(fd, view) :]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        return written
+
+    def repair_torn_tail(self) -> int:
+        """Drop an unterminated, unparseable last line left by a crash mid-append.
+
+        Only that fragment is removed, and only when every record before it
+        verifies; any other damage is left in place for :meth:`verify` to
+        report. A batch cut off between complete lines is not a torn tail:
+        its complete records stay and verify.
+
+        Returns:
+            The number of bytes removed (0 when there was nothing to repair).
+
+        Raises:
+            ValueError: The records before the fragment do not verify.
+        """
+        with self._writer_lock():
+            if not self.path.is_file():
+                return 0
+            data = self.path.read_bytes()
+            if not data or data.endswith(b"\n"):
+                return 0
+            cut = data.rfind(b"\n") + 1
+            try:
+                _loads(data[cut:].decode("utf-8"))
+            except (UnicodeDecodeError, ValueError):
+                pass
+            else:
+                return 0  # a complete record missing only its newline is not torn
+            prefix = data[:cut].decode("utf-8")
+            lines = [line for line in prefix.splitlines() if line.strip()]
+            ok, reason, _ = _verify_lines(lines, self._pinned(None), None)
+            if not ok:
+                raise ValueError(f"refusing to repair: the records before the tail fail: {reason}")
+            with self.path.open("r+b") as handle:
+                handle.truncate(cut)
+                handle.flush()
+                os.fsync(handle.fileno())
+            return len(data) - cut
+
+
+def _verify_lines(
+    lines: Sequence[str], pinned: str | None, expected_head_digest: str | None
+) -> tuple[bool, str, list[dict[str, Any]]]:
+    """Verify one read of a ledger; return ``(ok, reason, records)``.
+
+    ``records`` are the parsed records that were verified (empty when the
+    chain fails), so a caller replays exactly what was checked.
+    """
+    prev = GENESIS_DIGEST
+    records: list[dict[str, Any]] = []
+    for position, line in enumerate(lines):
+        try:
+            record = _loads(line)
+        except ValueError:
+            return False, f"record {position}: not valid JSON", []
+        if not isinstance(record, dict) or not isinstance(record.get("entry"), dict):
+            return False, f"record {position}: not a ledger record", []
+        if record.get("schema") != LEDGER_SCHEMA:
+            return False, f"record {position}: unsupported schema {record.get('schema')!r}", []
+        if record.get("index") != position:
+            return False, f"record {position}: index {record.get('index')} out of order", []
+        if record.get("prev_digest") != prev:
+            return False, f"record {position}: does not chain to its predecessor", []
+        unsigned = {k: v for k, v in record.items() if k not in ("record_digest", "signature")}
+        digest = _digest(unsigned)
+        if digest != record.get("record_digest"):
+            return False, f"record {position}: contents altered after recording", []
+        entry = dict(record["entry"])
+        claimed = entry.pop("digest", None)
+        if _digest(entry) != claimed:
+            return False, f"record {position}: entry digest mismatch", []
+        if pinned is not None:
+            problem = _signature_problem(record.get("signature"), digest, pinned)
+            if problem is not None:
+                return False, f"record {position}: {problem}", []
+        prev = digest
+        records.append(record)
+    if (
+        expected_head_digest is not None
+        and expected_head_digest != GENESIS_DIGEST
+        and all(r["record_digest"] != expected_head_digest for r in records)
+    ):
+        return (
+            False,
+            f"head {expected_head_digest[:16]}... is no longer in the chain: records were "
+            "removed from its end or the ledger was replaced",
+            [],
+        )
+    return True, "valid", records
+
+
+def _atomic_write_text(target: Path, text: str) -> None:
+    """Write ``text`` to ``target`` via a fsynced temporary file and ``os.replace``."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-        return written
+        Path(tmp).replace(target)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
 
 
 def _public_rating(rating: Rating) -> dict[str, Any]:
@@ -1775,21 +1954,47 @@ def _signature_problem(signature: Any, digest: str, pinned: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def load_export(path: str | Path) -> list[tuple[dict[str, Any], int]]:
+def load_export(
+    path: str | Path,
+    *,
+    split: str = "heldout",
+    ledger: AdjudicationLedger | None = None,
+) -> list[tuple[dict[str, Any], int]]:
     """Read an export written by :meth:`AdjudicationLedger.export`.
+
+    The file itself is unsigned JSON. Passed ``ledger``, every exported case
+    is re-derived from that ledger at the export's recorded head: the chain
+    (and pinned signatures) must verify and still contain that head, the
+    agreement gate and case minimum must pass there, and the file's cases
+    must equal the ledger's -- an edited label, payload or split is refused.
+    Without ``ledger`` only the file's structure and split are checked.
 
     Args:
         path: The export file.
+        split: The split the caller expects (default ``"heldout"``); a file
+            of the other split is refused, so training cases can never be
+            loaded as held-out cases.
+        ledger: The ledger the export claims to come from.
 
     Returns:
         ``(intel_reports, label)`` pairs, ready for ``load_trained_weights``.
 
     Raises:
-        ValueError: The file is not an adjudication export, or a case is malformed.
+        ValueError: The file is not an adjudication export of ``split``, or a
+            case is malformed.
+        ExportRefused: ``ledger`` does not verify, no longer contains the
+            export's head, or disagrees with the file.
     """
+    if split not in SPLITS:
+        raise ValueError(f"split must be one of {SPLITS}")
     document = _loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("schema") != EXPORT_SCHEMA:
         raise ValueError(f"{path} is not an adjudication export ({EXPORT_SCHEMA})")
+    if document.get("split") != split:
+        raise ValueError(
+            f"{path} is a {document.get('split')!r} export; {split!r} was expected "
+            "(training cases must never be scored as held-out cases)"
+        )
     cases = document.get("cases")
     if not isinstance(cases, list):
         raise ValueError(f"{path} has no case list")
@@ -1798,7 +2003,45 @@ def load_export(path: str | Path) -> list[tuple[dict[str, Any], int]]:
         if not isinstance(case, dict):
             raise ValueError(f"{path}: a case is not an object")
         pairs.append((_reports(case.get("intel_reports")), _level("label", case.get("label"))))
+    if ledger is not None:
+        _check_export_against_ledger(path, document, cases, ledger, split)
     return pairs
+
+
+def _check_export_against_ledger(
+    path: str | Path,
+    document: Mapping[str, Any],
+    cases: Sequence[Mapping[str, Any]],
+    ledger: AdjudicationLedger,
+    split: str,
+) -> None:
+    head = document.get("ledger_head_digest")
+    if not isinstance(head, str):
+        raise ExportRefused(f"{path} records no ledger head digest")
+    ok, reason, records = _verify_lines(ledger._lines(), ledger._pinned(None), head)
+    if not ok:
+        raise ExportRefused(f"adjudication ledger fails verification: {reason}")
+    if head == GENESIS_DIGEST:
+        records = []
+    else:
+        end = next(i for i, r in enumerate(records) if r["record_digest"] == head)
+        records = records[: end + 1]
+    report = ledger._report_from(records, reason)
+    ledger._export(split, report)
+    expected = [
+        (c.case_id, c.level, c.entry_digest, _copy(c.intel_reports))
+        for c in report.cases
+        if c.split == split and c.eligible
+    ]
+    found = [
+        (c.get("case_id"), c.get("label"), c.get("case_entry_digest"), c.get("intel_reports"))
+        for c in cases
+    ]
+    if found != expected:
+        raise ExportRefused(
+            f"{path} does not match the ledger at head {head[:16]}...: a case, label or "
+            "payload was altered, added or removed"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1939,7 +2182,7 @@ def outcome_from_ucdp_row(row: Mapping[str, str], *, case_id: str | None = None)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """``verify`` the chain, print ``stats``, or ``export`` one split's labels."""
+    """``verify`` or ``repair`` the chain, print ``stats``, or ``export`` one split's labels."""
     import argparse
 
     common = argparse.ArgumentParser(add_help=False)
@@ -1952,7 +2195,15 @@ def main(argv: list[str] | None = None) -> int:
     common.add_argument("--gate-on", choices=GATE_STATISTICS, default="point")
     parser = argparse.ArgumentParser(description="Mercury's adjudicated intelligence-case labels")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("verify", parents=[common], help="verify the ledger chain")
+    verify = commands.add_parser("verify", parents=[common], help="verify the ledger chain")
+    verify.add_argument(
+        "--expected-head",
+        default=None,
+        help="a record digest seen earlier (e.g. an export's head); fails if it is gone",
+    )
+    commands.add_parser(
+        "repair", parents=[common], help="drop an unterminated last line left by a crash"
+    )
     commands.add_parser("stats", parents=[common], help="agreement, counts and exclusions")
     export = commands.add_parser("export", parents=[common], help="export one split's labels")
     export.add_argument("--split", choices=SPLITS, required=True)
@@ -1970,9 +2221,17 @@ def main(argv: list[str] | None = None) -> int:
         expected_public_key_hex=args.pinned_key,
     )
     if args.command == "verify":
-        ok, reason = ledger.verify()
+        ok, reason = ledger.verify(expected_head_digest=args.expected_head)
         print(json.dumps({"ledger": str(ledger.path), "valid": ok, "reason": reason}))
         return 0 if ok else 1
+    if args.command == "repair":
+        try:
+            removed = ledger.repair_torn_tail()
+        except ValueError as exc:
+            print(json.dumps({"ledger": str(ledger.path), "repaired": False, "reason": str(exc)}))
+            return 1
+        print(json.dumps({"ledger": str(ledger.path), "repaired": True, "bytes_removed": removed}))
+        return 0
     if args.command == "stats":
         summary = ledger.stats()
         print(json.dumps(summary, indent=2))

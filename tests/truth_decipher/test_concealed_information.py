@@ -125,6 +125,18 @@ def test_consent_at_the_administration_instant_is_accepted() -> None:
     assert record.scope == frozenset({CIT_CONSENT_SCOPE})
 
 
+def test_withdrawn_consent_never_authorises_scoring() -> None:
+    record = ConsentRecord(
+        "subj-01", 0.0, frozenset({CIT_CONSENT_SCOPE}), "examiner-7", withdrawn_at=20.0
+    )
+    # Withdrawal stops all further scoring, including of a session held before it.
+    for administered_at in (10.0, 30.0):
+        with pytest.raises(ConsentRequiredError, match="withdrawn"):
+            require_consent(record, "subj-01", administered_at)
+    with pytest.raises(ValueError, match="withdrawn_at"):
+        ConsentRecord("s", 5.0, CIT_CONSENT_SCOPE, "x", withdrawn_at=4.0)  # type: ignore[arg-type]
+
+
 def test_consent_is_checked_before_any_question_is_read() -> None:
     def questions() -> Iterator[CITQuestion]:
         raise AssertionError("questions were read before consent was checked")
@@ -612,7 +624,12 @@ def test_question_from_time_series_validation() -> None:
         "q", "p", ["a"], close, heart_rate=hr, windows=ResponseWindows(allow_overlap=True)
     )
     assert ok.responses[HR] == ((0.0, 0.0),)
-    exactly = [("p", 20.0), ("a", 30.0)]  # 10 s apart equals the 10 s reach: allowed
+    # The heart-rate reach is the 10 s response window plus the next item's 3 s
+    # pre-onset baseline: 13 s. At 10 s the next baseline would sit inside this
+    # item's response, so a probe's deceleration would raise the irrelevant's score.
+    with pytest.raises(ValueError, match=r"reach 13\.0 s"):
+        question_from_time_series("q", "p", ["a"], [("p", 20.0), ("a", 30.0)], heart_rate=hr)
+    exactly = [("p", 20.0), ("a", 33.0)]  # 13 s apart equals the 13 s reach: allowed
     assert question_from_time_series("q", "p", ["a"], exactly, heart_rate=hr).n_repetitions == 1
 
 
@@ -656,3 +673,30 @@ def test_contactless_heart_rate_session_end_to_end() -> None:
     assert [q.probe_rank for q in res.questions] == [1, 1, 1, 1]
     assert res.rank_test_p == pytest.approx(1 / 625, rel=1e-15)
     assert res.finding == FINDING_INDICATED
+
+
+def test_committed_calibration_benchmark_holds_alpha() -> None:
+    # benchmarks/cit_calibration.py measures the null rejection rate by
+    # simulation; a seeded rerun at a smaller size must stay at or below alpha.
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "benchmarks" / "cit_calibration.py"
+    spec = importlib.util.spec_from_file_location("cit_calibration", path)
+    assert spec is not None and spec.loader is not None
+    bench = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bench)
+    for test in ("rank", "permutation"):
+        null = bench.rejection_rate(
+            sessions=400,
+            questions=6,
+            items=5,
+            repetitions=3,
+            effect=0.0,
+            effect_channels=frozenset({Channel.SKIN_CONDUCTANCE}),
+            primary_test=test,
+            alpha=0.05,
+            seed=7,
+        )
+        assert null["wilson_95"][0] <= 0.05, null
+        assert null["rate"] <= 0.05 + 0.02, null

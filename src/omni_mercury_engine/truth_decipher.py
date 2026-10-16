@@ -595,6 +595,21 @@ def converse_relations(relations: Iterable[AllenRelation]) -> frozenset[AllenRel
     return frozenset(_CONVERSE[r] for r in relations)
 
 
+#: Relations of a claim's interval to an evidence interval under which the
+#: evidence covers the whole claimed interval. Only such evidence can support
+#: a claim that something held over that interval: one instant inside a long
+#: interval says nothing about the rest of it, so its likelihood ratio would be
+#: overstated. Overlap is still enough to refute.
+COVERED_RELATIONS: frozenset[AllenRelation] = frozenset(
+    {AllenRelation.EQUALS, AllenRelation.STARTS, AllenRelation.DURING, AllenRelation.FINISHES}
+)
+
+
+def interval_covered(claim: TimeInterval, evidence: TimeInterval) -> bool:
+    """Whether ``evidence`` spans the whole of ``claim`` (see :data:`COVERED_RELATIONS`)."""
+    return allen_relation(claim, evidence) in COVERED_RELATIONS
+
+
 def intervals_concurrent(a: TimeInterval | None, b: TimeInterval | None) -> bool:
     """Whether two intervals share time (``True`` when either is unknown).
 
@@ -1374,6 +1389,15 @@ _UNINFORMATIVE_REASON = "uninformative: reliability is 0.5 after clipping"
 _LOW_RELIABILITY_REASON = (
     "reliability below 0.5 is treated as uninformative under the 'ignore' policy"
 )
+_UNTIMED_REASON = "evidence has no time, so it cannot bear on a claim about a specific interval"
+_PARTIAL_COVER_REASON = (
+    "evidence covers only part of the claimed interval: it can refute the claim, not support it"
+)
+
+
+#: Absolute tolerance, in log-odds, for the inclusive posterior thresholds, so
+#: a Bayes factor of exactly 19 reaches 0.95 despite floating-point rounding.
+_THRESHOLD_LOG_ODDS_TOLERANCE = 1e-12
 
 
 # --------------------------------------------------------------------------- #
@@ -1847,6 +1871,15 @@ class StatementVerifier:
             if item.evidence_id in ambiguous:
                 excluded.append(ExcludedEvidence(item.evidence_id, _AMBIGUOUS_REASON))
                 continue
+            interval = slot.claim.interval
+            if interval is not None:
+                when = item.effective_time
+                if when is None:
+                    excluded.append(ExcludedEvidence(item.evidence_id, _UNTIMED_REASON))
+                    continue
+                if stance is Stance.SUPPORTS and not interval_covered(interval, when):
+                    excluded.append(ExcludedEvidence(item.evidence_id, _PARTIAL_COVER_REASON))
+                    continue
             raw = self.reliability_model.reliability(item)
             if raw is None:
                 excluded.append(ExcludedEvidence(item.evidence_id, _NO_RELIABILITY_REASON))
@@ -1881,11 +1914,18 @@ class StatementVerifier:
         posterior_lo = prior_lo + total
         posterior = _expit(posterior_lo)
         insufficient = all(c.log_lr == 0.0 for c in contributions)
+        tol = _THRESHOLD_LOG_ODDS_TOLERANCE
+        upper, lower = _logit(cfg.corroborated_at), _logit(cfg.contradicted_at)
+        # A prior already past a threshold cannot carry a claim across it on
+        # its own: the evidence must then reach the threshold by itself (as it
+        # would have to from indifference), not merely point the right way.
+        reaches_upper = posterior_lo >= upper - tol and (prior_lo < upper or total >= upper - tol)
+        reaches_lower = posterior_lo <= lower + tol and (prior_lo > lower or total <= lower + tol)
         if insufficient:
             status = CorroborationStatus.UNRESOLVED
-        elif posterior >= cfg.corroborated_at and total > 0.0:
+        elif reaches_upper and total > 0.0:
             status = CorroborationStatus.CORROBORATED
-        elif posterior <= cfg.contradicted_at and total < 0.0:
+        elif reaches_lower and total < 0.0:
             status = CorroborationStatus.CONTRADICTED
         else:
             status = CorroborationStatus.UNRESOLVED
@@ -2009,15 +2049,23 @@ class StatementVerifier:
         return out
 
     def _event_times(
-        self, key: ClaimKey, statement: Statement, evidence: Sequence[EvidenceItem]
+        self,
+        key: ClaimKey,
+        statement: Statement,
+        evidence: Sequence[EvidenceItem],
+        ambiguous: frozenset[str] = frozenset(),
     ) -> list[tuple[EvidenceItem, TimeInterval]]:
-        """Evidence times for an event key, from items that report the event as the statement does."""
+        """Evidence times for an event key, from items that report the event as the statement does.
+
+        Target-form items whose target is ambiguous are skipped, as they are in
+        corroboration: which claim they report on is unknown.
+        """
         claims = [c for c in statement.claims if c.key == key]
         tolerance = self.config.tolerance_for(key.predicate)
         out: list[tuple[EvidenceItem, TimeInterval]] = []
         for item in evidence:
             when = item.effective_time
-            if item.key != key or when is None:
+            if item.key != key or when is None or item.evidence_id in ambiguous:
                 continue
             if item.asserted is None:
                 if item.stance is not Stance.SUPPORTS:
@@ -2032,7 +2080,10 @@ class StatementVerifier:
         return out
 
     def _temporal_contradictions(
-        self, statements: Sequence[Statement], evidence: Sequence[EvidenceItem]
+        self,
+        statements: Sequence[Statement],
+        evidence: Sequence[EvidenceItem],
+        ambiguous: frozenset[str] = frozenset(),
     ) -> list[Contradiction]:
         """Claimed orderings against evidence times, own claimed intervals and other orderings."""
         out: list[Contradiction] = []
@@ -2042,8 +2093,8 @@ class StatementVerifier:
             for j, o in enumerate(s.orderings)
         ]
         for statement, _j, ordering, oref in entries:
-            first_times = self._event_times(ordering.first, statement, evidence)
-            second_times = self._event_times(ordering.second, statement, evidence)
+            first_times = self._event_times(ordering.first, statement, evidence, ambiguous)
+            second_times = self._event_times(ordering.second, statement, evidence, ambiguous)
             for (ia, ta), (ib, tb) in product(first_times, second_times):
                 if ia.evidence_id == ib.evidence_id:
                     continue
@@ -2258,7 +2309,7 @@ class StatementVerifier:
         corroboration = tuple(self._corroborate(slot, items, ambiguous) for slot in slots)
         contradictions = tuple(
             self._value_contradictions(slots, items)
-            + self._temporal_contradictions(ordered, items)
+            + self._temporal_contradictions(ordered, items, ambiguous)
             + self._spatial_contradictions(slots, items)
         )
         speakers = sorted({s.speaker for s in ordered})
@@ -2434,18 +2485,28 @@ class ConsentRecord:
         scope: What the consent covers. It must include
             :data:`CIT_CONSENT_SCOPE`.
         obtained_by: Who obtained it (a role or pseudonymous staff id).
+        withdrawn_at: When the subject withdrew consent, if they have. A
+            withdrawn record never authorises scoring again (GDPR Art. 7(3):
+            withdrawal must be as easy as giving consent); data scored before
+            the withdrawal stays scored.
     """
 
     subject_pseudonym: str
     obtained_at: float
     scope: frozenset[str]
     obtained_by: str
+    withdrawn_at: float | None = None
 
     def __post_init__(self) -> None:
         """Validate the record and freeze the scope."""
         _non_empty(self.subject_pseudonym, "subject_pseudonym")
         _non_empty(self.obtained_by, "obtained_by")
         object.__setattr__(self, "obtained_at", _finite(self.obtained_at, "obtained_at"))
+        if self.withdrawn_at is not None:
+            withdrawn = _finite(self.withdrawn_at, "withdrawn_at")
+            if withdrawn < self.obtained_at:
+                raise ValueError("withdrawn_at must not precede obtained_at")
+            object.__setattr__(self, "withdrawn_at", withdrawn)
         scope = frozenset({self.scope}) if isinstance(self.scope, str) else frozenset(self.scope)
         if not scope:
             raise ValueError("consent scope must not be empty")
@@ -2469,8 +2530,8 @@ def require_consent(
 
     Raises:
         ConsentRequiredError: If the record is missing, of the wrong type,
-            for another subject, does not include :data:`CIT_CONSENT_SCOPE`, or
-            was obtained after the administration.
+            for another subject, does not include :data:`CIT_CONSENT_SCOPE`,
+            was obtained after the administration, or has been withdrawn.
     """
     if consent is None:
         raise ConsentRequiredError("a ConsentRecord is required to score a CIT")
@@ -2482,6 +2543,8 @@ def require_consent(
         raise ConsentRequiredError(f"the consent scope does not include {CIT_CONSENT_SCOPE!r}")
     if consent.obtained_at > _finite(administered_at, "administered_at"):
         raise ConsentRequiredError("consent was obtained after the test was administered")
+    if consent.withdrawn_at is not None:
+        raise ConsentRequiredError("the subject has withdrawn consent")
     return consent
 
 
@@ -2893,7 +2956,10 @@ class ConcealedInformationTest:
     ) -> CITResult:
         """Score a CIT session.
 
-        Consent is checked before any response data is read.
+        Consent is checked before any response is scored. Building questions
+        (:func:`question_from_time_series`, :func:`derive_response_amplitudes`)
+        only reduces recordings to amplitudes; recording and holding those
+        data must itself be covered by the consent the caller obtained.
 
         Args:
             questions: The session's questions (unique ids).
@@ -3235,15 +3301,21 @@ def question_from_time_series(
     unknown = {label for _, label in ordered} - set(items)
     if unknown:
         raise ValueError(f"presentations name unknown items {sorted(unknown)}")
-    ends = []
+    ends: list[float] = []
+    starts: list[float] = [0.0]
     if skin_conductance is not None:
         ends.append(w.scr[1])
+        starts.append(w.scr[0])
     if heart_rate is not None:
         ends.append(w.hr_response[1])
+        starts.append(w.hr_baseline[0])
     if respiration is not None:
         ends.append(w.rll[1])
+        starts.append(w.rll[0])
     if ends and not w.allow_overlap:
-        reach = max(ends)
+        # The next item's earliest window (a pre-onset baseline starts before
+        # its onset) must begin after this item's latest window ends.
+        reach = max(ends) - min(starts)
         for (t0, _), (t1, _) in pairwise(ordered):
             if t1 - t0 < reach:
                 raise ValueError(
@@ -3286,6 +3358,7 @@ __all__ = [
     "CIT_LIMITATIONS",
     "CIT_MEASURES",
     "CONCURRENT_RELATIONS",
+    "COVERED_RELATIONS",
     "DEFAULT_ALPHA",
     "DEFAULT_CONTRADICTED_AT",
     "DEFAULT_CORROBORATED_AT",
@@ -3359,6 +3432,7 @@ __all__ = [
     "exact_rank_sum_p_value",
     "haversine_km",
     "heart_rate_change",
+    "interval_covered",
     "intervals_concurrent",
     "log_likelihood_ratio",
     "question_from_time_series",

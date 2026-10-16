@@ -1472,21 +1472,31 @@ class TestExport:
         [
             ({"schema": "other"}, "not an adjudication export"),
             ([], "not an adjudication export"),
-            ({"schema": adj.EXPORT_SCHEMA}, "no case list"),
-            ({"schema": adj.EXPORT_SCHEMA, "cases": [1]}, "not an object"),
+            ({"schema": adj.EXPORT_SCHEMA, "split": "heldout"}, "no case list"),
+            ({"schema": adj.EXPORT_SCHEMA, "cases": []}, "'heldout' was expected"),
+            ({"schema": adj.EXPORT_SCHEMA, "split": "heldout", "cases": [1]}, "not an object"),
             (
-                {"schema": adj.EXPORT_SCHEMA, "cases": [{"intel_reports": {"x": {}}, "label": 0}]},
+                {
+                    "schema": adj.EXPORT_SCHEMA,
+                    "split": "heldout",
+                    "cases": [{"intel_reports": {"x": {}}, "label": 0}],
+                },
                 "threat level",
             ),
             (
                 {
                     "schema": adj.EXPORT_SCHEMA,
+                    "split": "heldout",
                     "cases": [{"intel_reports": {"x": {}}, "label": True}],
                 },
                 "threat level",
             ),
             (
-                {"schema": adj.EXPORT_SCHEMA, "cases": [{"intel_reports": [], "label": 3}]},
+                {
+                    "schema": adj.EXPORT_SCHEMA,
+                    "split": "heldout",
+                    "cases": [{"intel_reports": [], "label": 3}],
+                },
                 "intel_reports",
             ),
         ],
@@ -1946,3 +1956,209 @@ if HAVE_HYPOTHESIS:
         def test_source_normalisation_is_idempotent(self, raw: str) -> None:
             once = normalize_source_id(raw)
             assert normalize_source_id(once) == once
+
+
+# ---------------------------------------------------------------------------
+# Hardening: export provenance, leakage, concurrency and crash recovery
+# ---------------------------------------------------------------------------
+
+
+class TestExportProvenance:
+    def test_a_training_export_is_refused_as_heldout(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "training.json"
+        ledger.export("training", out)
+        with pytest.raises(ValueError, match="'training' export; 'heldout' was expected"):
+            load_export(out)
+        assert len(load_export(out, split="training")) == 10
+
+    def test_a_verified_export_matches_its_ledger(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        ledger.export("heldout", out)
+        assert load_export(out, ledger=ledger) == ledger.heldout_cases()
+
+    def test_an_edited_label_is_refused_against_the_ledger(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        document = ledger.export("heldout", out)
+        document["cases"][0]["label"] = 1 + document["cases"][0]["label"] % 5
+        out.write_text(json.dumps(document))
+        assert load_export(out)  # structurally valid: only the ledger can catch it
+        with pytest.raises(ExportRefused, match="does not match the ledger"):
+            load_export(out, ledger=ledger)
+
+    def test_an_edited_payload_is_refused_against_the_ledger(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        document = ledger.export("heldout", out)
+        document["cases"][-1]["intel_reports"] = {"open_source": {"threat_score": 0.99}}
+        out.write_text(json.dumps(document))
+        with pytest.raises(ExportRefused, match="does not match the ledger"):
+            load_export(out, ledger=ledger)
+
+    def test_records_cut_off_the_ledger_are_detected(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        document = ledger.export("heldout", out)
+        head = document["ledger_head_digest"]
+        lines = ledger.path.read_text().splitlines(keepends=True)
+        ledger.path.write_text("".join(lines[:-3]))
+        assert ledger.verify() == (True, "valid")  # a bare chain cannot see it
+        ok, reason = ledger.verify(expected_head_digest=head)
+        assert not ok and "no longer in the chain" in reason
+        with pytest.raises(ExportRefused, match="no longer in the chain"):
+            load_export(out, ledger=ledger)
+
+    def test_an_export_stays_valid_after_the_ledger_grows(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        ledger.export("heldout", out)
+        before = load_export(out, ledger=ledger)
+        extra = ids_in("heldout", 31)[-1]
+        ledger.extend(case_items(extra, [3, 3]))
+        assert load_export(out, ledger=ledger) == before
+
+    def test_export_replaces_the_file_atomically(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        out = tmp_path / "heldout.json"
+        out.write_text("previous")
+        ledger.export("heldout", out)
+        assert json.loads(out.read_text())["split"] == "heldout"
+        assert [p.name for p in tmp_path.iterdir() if p.name.startswith(".heldout")] == []
+
+
+class TestSplitLeakage:
+    def test_the_same_payload_cannot_sit_in_both_splits(self, tmp_path: Path) -> None:
+        held, train = ids_in("heldout", 1)[0], ids_in("training", 1)[0]
+        payload = {"open_source": {"threat_score": 0.7, "confidence": 0.8}}
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.add_case(make_case(held, intel_reports=payload))
+        with pytest.raises(ValueError, match="leaks training data"):
+            ledger.add_case(make_case(train, intel_reports=payload))
+        assert len(ledger.records()) == 1
+
+    def test_the_same_payload_may_repeat_within_one_split(self, tmp_path: Path) -> None:
+        first, second = ids_in("heldout", 2)
+        payload = {"open_source": {"threat_score": 0.7, "confidence": 0.8}}
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.extend(
+            [make_case(first, intel_reports=payload), make_case(second, intel_reports=payload)]
+        )
+        assert len(ledger.records()) == 2
+
+    def test_a_forged_cross_split_duplicate_breaks_the_protocol(self, tmp_path: Path) -> None:
+        held, train = ids_in("heldout", 1)[0], ids_in("training", 1)[0]
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.extend([make_case(held), make_case(train)])
+        copied = ledger.records()[0]["entry"]["intel_reports"]
+
+        def mutate(records: list[dict[str, Any]]) -> None:
+            records[1]["entry"]["intel_reports"] = copied
+
+        rewrite(ledger.path, mutate)
+        assert ledger.verify() == (True, "valid")
+        report = ledger.report()
+        assert any("leaks training data" in p for p in report.protocol_problems)
+
+
+class TestPeopleIds:
+    def test_one_rater_under_two_spellings_is_one_rater(self, tmp_path: Path) -> None:
+        cid = ids_in("heldout", 1)[0]
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.extend([make_case(cid), make_outcome(cid), rate("alice", cid, 3)])
+        with pytest.raises(ValueError, match="already rated"):
+            ledger.add_rating(rate(" Alice".strip().upper(), cid, 3))
+
+    def test_a_rater_cannot_adjudicate_under_another_spelling(self, tmp_path: Path) -> None:
+        cid = ids_in("heldout", 1)[0]
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.extend(
+            [make_case(cid), make_outcome(cid), rate("dana", cid, 2), rate("bob", cid, 3)]
+        )
+        with pytest.raises(ValueError, match="rated case"):
+            ledger.add_decision(decide(cid, 3, who="DANA"))
+
+    def test_rater_view_matches_under_another_spelling(self, tmp_path: Path) -> None:
+        cid = ids_in("heldout", 1)[0]
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=SMALL)
+        ledger.extend(
+            [make_case(cid), make_outcome(cid), rate("alice", cid, 2), rate("bob", cid, 2)]
+        )
+        view = ledger.rater_view("Alice", cid)
+        assert view["own_rating"]["level"] == 2
+        assert [r["rater_id"] for r in view["other_ratings"]] == ["bob"]
+
+
+class TestWritersAndCrashes:
+    def test_concurrent_writers_keep_one_chain(self, tmp_path: Path) -> None:
+        import threading
+
+        path = tmp_path / "l.jsonl"
+        cids = ids_in("heldout", 40)
+        errors: list[BaseException] = []
+
+        def write(chunk: list[str]) -> None:
+            ledger = AdjudicationLedger(path, policy=SMALL)
+            for cid in chunk:
+                try:
+                    ledger.add_case(make_case(cid))
+                except BaseException as exc:  # pragma: no cover - reported below
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=write, args=(cids[i::4],)) for i in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert errors == []
+        ledger = AdjudicationLedger(path, policy=SMALL)
+        assert ledger.verify() == (True, "valid")
+        assert len(ledger.records()) == 40
+
+    def test_a_torn_tail_is_reported_then_repaired(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        size = ledger.path.stat().st_size
+        with ledger.path.open("a", encoding="utf-8") as handle:
+            handle.write('{"schema": "mercury.adjudication.ledger/v1", "ind')
+        ok, reason = ledger.verify()
+        assert not ok and "not valid JSON" in reason
+        with pytest.raises(ValueError, match="broken adjudication ledger"):
+            ledger.add_case(make_case(ids_in("heldout", 31)[-1]))
+        torn = ledger.path.stat().st_size - size
+        assert ledger.repair_torn_tail() == torn
+        assert ledger.path.stat().st_size == size
+        assert ledger.verify() == (True, "valid")
+        assert ledger.repair_torn_tail() == 0
+        ledger.add_case(make_case(ids_in("heldout", 31)[-1]))
+        assert ledger.verify() == (True, "valid")
+
+    def test_repair_never_drops_a_complete_record(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        data = ledger.path.read_bytes()
+        ledger.path.write_bytes(data.rstrip(b"\n"))  # last record intact, newline lost
+        assert ledger.repair_torn_tail() == 0
+        assert ledger.path.read_bytes() == data.rstrip(b"\n")
+
+    def test_repair_refuses_when_earlier_records_are_damaged(self, tmp_path: Path) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        lines = ledger.path.read_text().splitlines(keepends=True)
+        lines[3] = lines[3].replace('"index": 3', '"index": 99')
+        ledger.path.write_text("".join(lines) + '{"torn')
+        with pytest.raises(ValueError, match="refusing to repair"):
+            ledger.repair_torn_tail()
+
+    def test_cli_repair_and_expected_head(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        ledger, _ = consensus_ledger(tmp_path / "l.jsonl", heldout=30, training=10)
+        head = ledger.head_digest()
+        with ledger.path.open("a", encoding="utf-8") as handle:
+            handle.write("{")
+        assert adj.main(["repair", "--ledger", str(ledger.path)]) == 0
+        assert json.loads(capsys.readouterr().out)["bytes_removed"] == 1
+        assert adj.main(["verify", "--ledger", str(ledger.path), "--expected-head", head]) == 0
+        capsys.readouterr()
+        lines = ledger.path.read_text().splitlines(keepends=True)
+        ledger.path.write_text("".join(lines[:-1]))
+        assert adj.main(["verify", "--ledger", str(ledger.path), "--expected-head", head]) == 1

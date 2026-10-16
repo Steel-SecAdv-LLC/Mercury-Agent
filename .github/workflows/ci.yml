@@ -663,7 +663,8 @@ jobs:
         # * tests/utils/         -- engineering-pass graduation (this round)
         #
         # This round's engineering pass graduated the 14 test directories
-        # (tests/truth_decipher/ was later removed together with its module)
+        # (tests/truth_decipher/ was later removed with its module; its rebuilt
+        # successor's tests run in the lenient lane until they graduate)
         # that were ALREADY fully annotated (measured 0 strict errors each;
         # 131 files clean in the combined invocation).  The ordered
         # dir-by-dir plan for the remaining relaxed-lane debt (automl 2 ...

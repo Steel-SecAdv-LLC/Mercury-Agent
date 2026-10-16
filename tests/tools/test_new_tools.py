@@ -46,6 +46,21 @@ class TestEthicalGateCoverageReport:
         assert cert["schema"] == "mercury.tools.ethical_gate_coverage_report/v1"
         assert cert["status"] in {"ok", "fail", "warn"}
 
+    def test_every_gate_token_names_real_code(self) -> None:
+        import re
+        from pathlib import Path as _Path
+
+        from omni_mercury_engine.tools import ethical_gate_coverage_report as report
+
+        src = _Path(report.__file__).resolve().parents[1]
+        text = "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in src.rglob("*.py")
+            if p.name != "ethical_gate_coverage_report.py"
+        )
+        for token in report._GATE_TOKENS:
+            assert re.search(rf"\b(?:def|class)\s+{token}\b|\b{token}\b", text), token
+
 
 class TestOaeDimensionalityProbe:
     def test_emits_valid_cert(self, tmp_path: Path) -> None:

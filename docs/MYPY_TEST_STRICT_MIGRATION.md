@@ -75,7 +75,8 @@ The engineering-pass round graduated the 14 directories that were
 **already fully annotated** — measured 0 strict errors each, 131 files
 clean in the combined invocation — so the graduation was a pure gate
 tightening with no source churn (`tests/truth_decipher/` was later removed
-with its module). The combined graduated invocation (20 directories)
+with its module; the rebuilt module's tests are type-checked in the lenient
+lane and are not yet graduated). The combined graduated invocation (20 directories)
 reports `Success: no issues found`.
 
 ## Remaining relaxed-lane debt (ordered plan)

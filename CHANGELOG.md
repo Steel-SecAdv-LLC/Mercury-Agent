@@ -54,8 +54,12 @@ detection (Allen's interval algebra, impossible travel), consistency over
 time, the SUE indicator and verifiability proportions, all with intervals and
 none with a verdict about a person. The CIT detects recognition of event
 details, not deception. It runs only with a consent record and abstains when
-the details were public. Under the null it rejected 2.5% of 2000 sessions at
-alpha 0.05, with 93% power at d = 1 over six questions. 221 tests.
+the details were public. Calibration is measured by
+`benchmarks/cit_calibration.py` (results in
+`benchmarks/results/cit_calibration.json`; six questions of five items, three
+repetitions, 2000 simulated sessions, alpha 0.05): null rejection 3.4% for the
+exact rank test and 4.2% for the permutation test, and power 47% / 66% at a
+one-SD probe effect on a single channel. 221 tests.
 
 **Added — counterintelligence screening of fused reports
 (`security/counterintelligence.py`).** It replaces a wrapper that reported
@@ -77,15 +81,16 @@ stores a SHA3 hash chain with optional ML-DSA-65 signatures. 271 tests;
 78 mutants, all killed.
 
 **Added — consent-gated contactless respiration and heart rate
-(`biometric/rf_vital_signs.py`).** These are physiological channels for the
-CIT from Wi-Fi CSI or radar, with no contact sensors, identification or
-imaging, and nothing runs without `consent_confirmed=True`. Every estimate
-reports a rate or abstains with a reason. On held-out real radar recordings
-(Schellenberger et al., Sci Data 2020, CC BY 4.0; not stored in the repo),
-heart rate is within MAE 0.75 bpm of ECG and respiration within 0.10/min of
-impedance. Only about 20% of windows report, so coverage, not accuracy, is the
-limitation. Real Wi-Fi CSI hardware is not validated. 154 tests; 44 mutants,
-all killed.
+(`biometric/rf_vital_signs.py`).** Respiration and heart rate from Wi-Fi CSI
+or radar, with no contact sensors, identification or imaging, and nothing
+runs without consent. Every estimate reports a rate or abstains with a reason.
+It is a library module with no API, CLI or MCP surface. Its minimum analysis
+window (about 20 s of clean signal) is longer than the CIT's 3 s baseline and
+10 s response windows, so it does not supply per-stimulus CIT channels. The
+real-radar accuracy figures quoted during development (Schellenberger et al.,
+Sci Data 2020) came from an out-of-tree validation script that is not in this
+repository, so they are not reproducible from it. Real Wi-Fi CSI hardware is
+not validated. 154 tests; 44 mutants, all killed.
 
 **Changed — drift detection is on by default.** `enable_drift_detection` had
 no caller, so served engines never tested for drift. When enabled, the first
@@ -993,7 +998,10 @@ Every orphaned module (no importer in production, CI, scripts, benchmarks or
 research) was read and vetted. What carried real value is now wired, fixed and
 measured; five modules whose output was wrong or fabricated are removed.
 
-**Removed:** `security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
+**Removed** (`security/quantum_risk_cyber`, `truth_decipher` and
+`security/counterintelligence` were later rebuilt from scratch on
+`steel/version-cov4`; see the review and restoration rounds above):
+`security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
 signs with, as quantum-vulnerable; scored SIKE/Rainbow as post-quantum),
 `truth_decipher` (hard-coded "true" ethics inputs; every case recorded as a
 success), `security/counterintelligence` (synthesised intelligence reports and

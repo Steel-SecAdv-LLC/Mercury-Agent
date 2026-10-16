@@ -20,9 +20,11 @@ spec:
       targetPort: {{ .Values.api.service.targetPort }}
       protocol: TCP
     {{- if .Values.metrics.enabled }}
+    # The API serves /metrics on its HTTP listener (api/server.py registers it
+    # at the root); nothing in the API process listens on metrics.port.
     - name: metrics
       port: {{ .Values.api.service.metricsPort }}
-      targetPort: {{ .Values.metrics.port }}
+      targetPort: http
       protocol: TCP
     {{- end }}
 {{- end }}

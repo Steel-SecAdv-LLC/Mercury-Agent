@@ -499,20 +499,62 @@ def test_status_needs_evidence_pointing_the_same_way() -> None:
     assert low.posterior < 0.05 and low.status is CorroborationStatus.UNRESOLVED
 
 
+def test_a_prior_past_the_threshold_cannot_carry_the_claim_alone() -> None:
+    st_ = _one_claim(Claim("A", "car", "red"))
+    # Prior 0.96 plus one item at r = 0.5001 (log LR 0.0004) is above 0.95, but
+    # the evidence said almost nothing: it must reach 0.95 on its own (B >= 19).
+    weak = _verify(
+        [st_], [_support("e1", A_CAR, 0.5001)], config=VerifierConfig(prior_probability=0.96)
+    ).corroboration[0]
+    assert weak.posterior > 0.95 and weak.status is CorroborationStatus.UNRESOLVED
+    strong = _verify(
+        [st_], [_support("e1", A_CAR, 0.95)], config=VerifierConfig(prior_probability=0.96)
+    ).corroboration[0]
+    assert strong.status is CorroborationStatus.CORROBORATED
+    weak_low = _verify(
+        [st_], [_refute("e1", A_CAR, 0.5001)], config=VerifierConfig(prior_probability=0.04)
+    ).corroboration[0]
+    assert weak_low.posterior < 0.05 and weak_low.status is CorroborationStatus.UNRESOLVED
+    # Below the threshold the prior is the caller's declared base rate and counts.
+    based = _verify(
+        [st_], [_support("e1", A_CAR, 0.8)], config=VerifierConfig(prior_probability=0.9)
+    ).corroboration[0]
+    assert based.posterior > 0.95 and based.status is CorroborationStatus.CORROBORATED
+
+
+def test_a_bayes_factor_of_19_reaches_095_despite_rounding() -> None:
+    # One item at r = 0.95 is a Bayes factor of exactly 19; in floating point
+    # the posterior is 0.9499999999999998, which must still count as 0.95.
+    st_ = _one_claim(Claim("A", "car", "red"))
+    c = _verify([st_], [_support("e1", A_CAR, 0.95)]).corroboration[0]
+    assert c.posterior == pytest.approx(0.95, abs=1e-15)
+    assert c.status is CorroborationStatus.CORROBORATED
+    r = _verify([st_], [_refute("e1", A_CAR, 0.95)]).corroboration[0]
+    assert r.status is CorroborationStatus.CONTRADICTED
+
+
+def _shift(p: float, log_odds: float) -> float:
+    """``p`` moved by ``log_odds`` on the log-odds scale."""
+    return 1.0 / (1.0 + math.exp(-(math.log(p / (1.0 - p)) + log_odds)))
+
+
 def test_status_thresholds_are_inclusive() -> None:
+    # Thresholds compare in log-odds with a 1e-12 tolerance (so a Bayes factor
+    # of exactly 19 reaches 0.95); a threshold 1e-9 log-odds past the posterior
+    # is beyond it.
     st_ = _one_claim(Claim("A", "car", "red"))
     support = [_support("e1", A_CAR, 0.9)]
     p = _verify([st_], support).corroboration[0].posterior
     at = _verify([st_], support, config=VerifierConfig(corroborated_at=p))
     assert at.corroboration[0].status is CorroborationStatus.CORROBORATED
-    above = _verify([st_], support, config=VerifierConfig(corroborated_at=math.nextafter(p, 1)))
+    above = _verify([st_], support, config=VerifierConfig(corroborated_at=_shift(p, 1e-9)))
     assert above.corroboration[0].status is CorroborationStatus.UNRESOLVED
 
     refute = [_refute("e1", A_CAR, 0.9)]
     q = _verify([st_], refute).corroboration[0].posterior
     at_lo = _verify([st_], refute, config=VerifierConfig(contradicted_at=q))
     assert at_lo.corroboration[0].status is CorroborationStatus.CONTRADICTED
-    below = _verify([st_], refute, config=VerifierConfig(contradicted_at=math.nextafter(q, 0)))
+    below = _verify([st_], refute, config=VerifierConfig(contradicted_at=_shift(q, -1e-9)))
     assert below.corroboration[0].status is CorroborationStatus.UNRESOLVED
 
 
@@ -599,15 +641,49 @@ def test_evidence_at_other_times_does_not_bear() -> None:
     ev = [_support("e1", A_LOC, 0.9, time=TimeInterval(200, 300))]
     c = _verify([st_], ev).corroboration[0]
     assert c.contributions == () and c.excluded == ()
-    ev2 = [_support("e1", A_LOC, 0.9, time=TimeInterval(50, 60))]
+    ev2 = [_support("e1", A_LOC, 0.9, time=TimeInterval(-10, 110))]
     assert _verify([st_], ev2).corroboration[0].contributions != ()
+
+
+def test_support_must_cover_the_whole_claimed_interval() -> None:
+    # Two independent sightings of one instant each inside an 8-hour claim used
+    # to corroborate it (posterior 0.988): nothing covered the other 7h59m.
+    st_ = _one_claim(Claim("A", "location", "office", TimeInterval(0, 28_800)))
+    blips = [
+        _support("e1", A_LOC, 0.9, source_id="cam-1", time=TimeInterval(100, 101)),
+        _support("e2", A_LOC, 0.9, source_id="cam-2", time=TimeInterval(200, 201)),
+    ]
+    c = _verify([st_], blips).corroboration[0]
+    assert c.contributions == () and c.status is CorroborationStatus.UNRESOLVED
+    assert {e.reason for e in c.excluded} == {
+        "evidence covers only part of the claimed interval: it can refute the claim, not "
+        "support it"
+    }
+    for covering in (TimeInterval(0, 28_800), TimeInterval(0, 30_000), TimeInterval(-5, 28_800)):
+        whole = [_support("e3", A_LOC, 0.9, time=covering)]
+        assert _verify([st_], whole).corroboration[0].contributions[0].stance is Stance.SUPPORTS
+    # One instant of contrary evidence inside the interval still refutes it.
+    contrary = [_refute("e4", A_LOC, 0.9, time=TimeInterval(100, 101))]
+    assert _verify([st_], contrary).corroboration[0].contributions[0].stance is Stance.REFUTES
+
+
+def test_untimed_evidence_does_not_bear_on_a_timed_claim() -> None:
+    timed = _one_claim(Claim("A", "location", "office", TimeInterval(50_000, 50_100)))
+    badge = [_support("e1", A_LOC, 0.95)]
+    c = _verify([timed], badge).corroboration[0]
+    assert c.contributions == () and c.status is CorroborationStatus.UNRESOLVED
+    assert [e.reason for e in c.excluded] == [
+        "evidence has no time, so it cannot bear on a claim about a specific interval"
+    ]
+    timeless = _one_claim(Claim("A", "location", "office"))
+    assert _verify([timeless], badge).corroboration[0].contributions != ()
 
 
 def test_asserted_evidence_supports_or_refutes_by_value_and_place() -> None:
     claim = Claim("A", "location", "home", TimeInterval(0, 100), Location(0, 0, 1.0))
     st_ = _one_claim(claim)
     same = EvidenceItem(
-        "e1", asserted=Claim("A", "location", "HOME", TimeInterval(10, 20)), reliability=0.8
+        "e1", asserted=Claim("A", "location", "HOME", TimeInterval(0, 100)), reliability=0.8
     )
     other = EvidenceItem(
         "e2", asserted=Claim("A", "location", "office", TimeInterval(10, 20)), reliability=0.8
@@ -619,7 +695,7 @@ def test_asserted_evidence_supports_or_refutes_by_value_and_place() -> None:
     )
     near = EvidenceItem(
         "e4",
-        asserted=Claim("A", "location", "home", TimeInterval(10, 20), Location(0, 0.01, 0.2)),
+        asserted=Claim("A", "location", "home", TimeInterval(0, 100), Location(0, 0.01, 0.2)),
         reliability=0.8,
     )
     stances = {}

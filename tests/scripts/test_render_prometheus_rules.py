@@ -64,6 +64,7 @@ class TestRenderedRuleFile:
         monkeypatch.setattr(render_rules, "REPO_ROOT", tmp_path)
         monkeypatch.setattr(render_rules, "SOURCE", source)
         monkeypatch.setattr(render_rules, "TARGET", target)
+        monkeypatch.setattr(render_rules, "HELM_TARGET", tmp_path / "helm" / "prometheusrule.yaml")
         assert render_rules.main(["--check"]) == 1  # missing
         assert render_rules.main([]) == 0
         assert render_rules.main(["--check"]) == 0
@@ -80,6 +81,63 @@ class TestRenderedRuleFile:
         api = next(j for j in config["scrape_configs"] if j["job_name"] == "mercury-agent-api")
         labels = api["static_configs"][0]["labels"]
         assert labels == {"app": "mercury-agent", "service": "api"}
+
+
+class TestHelmRuleTemplate:
+    """The chart's PrometheusRule is generated from the CRD, not maintained by hand."""
+
+    HELM = REPO_ROOT / "helm" / "mercury-agent" / "templates"
+
+    @staticmethod
+    def _unescape(text: str) -> str:
+        """Undo the Helm escaping the way ``helm template`` renders it."""
+        text = re.sub(r"\{\{ `(\{\{.*?\}\})` \}\}", r"\1", text)
+        return text.replace(
+            'namespace="{{ include "mercury-agent.namespace" . }}"', 'namespace="mercury-agent"'
+        )
+
+    def test_committed_helm_template_is_current(self) -> None:
+        crd = (PROM_DIR / "prometheus-rules.yaml").read_text()
+        assert (self.HELM / "prometheusrule.yaml").read_text() == render_rules.render_helm(crd)
+
+    def test_helm_groups_equal_the_crd_groups(self) -> None:
+        text = self._unescape((self.HELM / "prometheusrule.yaml").read_text())
+        start = text.index("  groups:\n")
+        end = text.index("{{- with .Values.metrics.prometheusRule.rules }}")
+        groups = yaml.safe_load(text[start:end])["groups"]
+        crd = yaml.safe_load((PROM_DIR / "prometheus-rules.yaml").read_text())
+        assert groups == crd["spec"]["groups"]
+
+    def test_prometheus_templates_are_escaped_from_helm(self) -> None:
+        rendered = render_rules.render_helm(
+            "spec:\n  groups:\n  - name: g\n    rules:\n    - alert: A\n"
+            "      expr: up == 0\n      annotations:\n"
+            "        description: '{{ $value }} on {{ $labels.pod }}'\n"
+        )
+        assert "{{ `{{ $value }}` }} on {{ `{{ $labels.pod }}` }}" in rendered
+        assert "{{ $value }}' " not in rendered
+
+    def test_drift_and_ethical_alerts_reach_helm(self) -> None:
+        text = (self.HELM / "prometheusrule.yaml").read_text()
+        for alert in (
+            "OmniMercuryDataDrift",
+            "OmniMercuryDriftBaselineMissing",
+            "OmniMercuryBenevolenceViolation",
+            "OmniMercurySigmaAlignmentViolation",
+        ):
+            assert f"alert: {alert}" in text
+
+    def test_servicemonitor_attaches_the_labels_the_rules_select(self) -> None:
+        text = (self.HELM / "servicemonitor.yaml").read_text()
+        assert "targetLabel: app\n          replacement: mercury-agent" in text
+        assert "targetLabel: job\n          replacement: mercury-agent-$1" in text
+        assert "__meta_kubernetes_service_label_app_kubernetes_io_component" in text
+
+    def test_api_metrics_port_targets_the_http_listener(self) -> None:
+        # The API serves /metrics on its HTTP port; nothing listens on metrics.port.
+        service = (self.HELM / "service.yaml").read_text()
+        api = service.split("---")[0]
+        assert "name: metrics" in api and "targetPort: http" in api
 
 
 class TestEveryQueriedSeriesIsEmitted:

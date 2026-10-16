@@ -600,7 +600,7 @@ The infrastructure modules implement several specialized capabilities:
 
 4. **Labor Resilience with Ethical AI**: Monitors essential worker availability with trauma-informed ethical scalars (compassion, omnibenevolent), weighting the workers most exposed in a crisis
 
-5. **Post-Quantum Cryptography Planning**: Integrated with `quantum_risk.py` to assess vulnerabilities and plan migration to NIST PQC standards
+5. **Post-Quantum Cryptography Planning**: Integrated with `security/quantum_risk_cyber.py` (exact-token classification against FIPS 203/204/205, NIST IR 8547 and CNSA 2.0 deadlines, CycloneDX CBOM checks) to assess vulnerabilities and plan migration to NIST PQC standards
 
 6. **Economic Development Monitoring**: Tracks 21 World Bank sectors with regenerative scoring for net-positive sustainable development impact
 
@@ -1235,7 +1235,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 1. **Distributed Processing** — Functional: native pure-stdlib `TCPMessageTransport` (`distributed/tcp_transport.py`) with per-message Ed25519 signatures; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes
 2. **Additional Biometric Modalities** — iris/fingerprint Functional; narrative-voice LLM requires an explicit `llm_provider=`
-3. **Real Quantum Computing** — simulator Functional (`AerSimulator` default); real hardware untested in-tree
+3. **Real Quantum Computing** — removed: the `quantum_computing/` package was deleted on `steel/version-cov3` (its VQE fit discarded the data and scored chance AUROC); `models/quantum.py` and `core/quantum_kernels.py` are classical simulations, not hardware integrations
 4. **Advanced Harmonics** — Functional; higher `l_max` analysis remains a tuning axis
 5. **AutoML** — Functional hyperparameter search wired into the training loop
 6. **Federated Learning** — Functional: privacy-preserving training with bidirectional GOSNN coupling

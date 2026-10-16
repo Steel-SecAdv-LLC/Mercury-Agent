@@ -235,3 +235,36 @@ groups:
       summary: Drift detection has no reference distribution
       description: '{{ $value }} drift checks in 30 minutes found no training reference: no model was fitted or loaded'
       runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/data-drift.md
+- name: mercury-agent.alerts.ethical
+  rules:
+  - alert: OmniMercuryBenevolenceViolation
+    expr: |
+      min(mercury_agent_benevolence_score{app="mercury-agent"}) < 0.99
+    for: 1m
+    labels:
+      severity: critical
+      team: ethics
+    annotations:
+      summary: Benevolence score below the 0.99 floor
+      description: Benevolence score is {{ $value | printf "%.3f" }}, below the immutable 0.99 floor
+  - alert: OmniMercurySigmaAlignmentViolation
+    expr: |
+      min(mercury_agent_sigma_alignment{app="mercury-agent"}) < 0.93
+    for: 30s
+    labels:
+      severity: critical
+      team: ethics
+    annotations:
+      summary: Sigma alignment below the 0.93 hard limit
+      description: Sigma alignment is {{ $value | printf "%.3f" }}; the ethical gate is blocking operations
+  - alert: OmniMercurySigmaAlignmentWarning
+    expr: |
+      min(mercury_agent_sigma_alignment{app="mercury-agent"}) >= 0.93
+      and min(mercury_agent_sigma_alignment{app="mercury-agent"}) < 0.96
+    for: 5m
+    labels:
+      severity: warning
+      team: ethics
+    annotations:
+      summary: Sigma alignment below the 0.96 target
+      description: Sigma alignment is {{ $value | printf "%.3f" }}, above the hard limit but under the 0.96 target
