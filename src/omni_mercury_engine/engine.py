@@ -4208,7 +4208,6 @@ class OmniMercuryEngine(LoggerMixin):
             logger.error(f"LLM enhancement error: {e}")
             return None
 
-    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def _auto_fit_on_inference(self, name: str, detector: Any, data: Any) -> None:
         """Fit an unfitted detector on an inference batch and record it.
 
@@ -4242,6 +4241,7 @@ class OmniMercuryEngine(LoggerMixin):
         self._inference_auto_fit_detectors.discard(name)
         return True
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
