@@ -896,11 +896,12 @@ class TestEstimateRadar:
 
     @pytest.mark.parametrize("resp_bpm", [30.0, 36.0])
     def test_fast_breathing_harmonic_is_never_reported(self, resp_bpm: float) -> None:
-        """Breathing on or above the band edge: its 2nd harmonic is not a heart rate.
+        """Fast breathing: its 2nd harmonic is not a heart rate.
 
-        At 30 and 36 breaths/min the respiration estimate abstains on the band
-        edge, while the second harmonic (60 and 72/min) is far stronger than
-        the heartbeat (96/min). The heart rate must be correct or withheld.
+        At 30 and 36 breaths/min the second harmonic (60 and 72/min) is far
+        stronger than the heartbeat (96/min). The heart rate must be correct
+        or withheld; the respiration rate (inside the 6-45/min band) correct
+        or withheld.
         """
         fs, heart_bpm = 100.0, 96.0
         t = np.arange(round(30 * fs)) / fs
@@ -911,7 +912,9 @@ class TestEstimateRadar:
         est = estimate_vital_signs(
             fs=fs, consent_confirmed=True, radar_displacement_m=breathing + heart + noise
         )
-        assert est.respiration.abstained
+        assert est.respiration.abstained or est.respiration.rate_bpm == pytest.approx(
+            resp_bpm, abs=0.5
+        )
         rate = est.heart.rate_bpm
         assert rate is None or rate == pytest.approx(heart_bpm, abs=3.0)
         assert rate is None or abs(rate - 2 * resp_bpm) > 3.0
@@ -922,9 +925,16 @@ class TestEstimateRadar:
         assert 2 * resp_bpm / 60.0 == pytest.approx(est.suppressed_harmonics_hz[0], abs=0.02)
 
     def test_breathing_above_the_band_is_not_reported_from_a_sidelobe(self) -> None:
-        """At 37/min the in-band spectrum once yielded a confident 6.3/min."""
-        d, _, f_h = chest(40, 37.0, 55.0, seed=0)
-        est = radar_estimate(d)
+        """Above the band, the in-band spectrum once yielded a confident 6.3/min.
+
+        Run with the former 6-30/min band, which 37/min exceeds; the default
+        band reaches 45/min and reports it.
+        """
+        d, f_r, f_h = chest(40, 37.0, 55.0, seed=0)
+        assert radar_estimate(d).respiration.rate_bpm == pytest.approx(
+            truth_bpm(f_r, 0, 40), abs=0.15
+        )
+        est = radar_estimate(d, config=VitalSignConfig(respiration_band_hz=(0.1, 0.5)))
         assert est.respiration.reason is AbstainReason.PEAK_AT_BAND_EDGE
         assert "above the respiration band" in est.respiration.detail
         assert est.heart.rate_bpm is None or est.heart.rate_bpm == pytest.approx(
@@ -1290,7 +1300,9 @@ class TestTrack:
     def test_waveform_equals_independent_band_pass(self) -> None:
         d, fs = stepped_chest()
         tr = track_vital_signs(fs=fs, consent_confirmed=True, radar_displacement_m=d)
-        sos = signal.butter(4, RESP_BAND, btype="bandpass", fs=fs, output="sos")
+        sos = signal.butter(
+            4, VitalSignConfig().respiration_band_hz, btype="bandpass", fs=fs, output="sos"
+        )
         expected = signal.sosfiltfilt(sos, signal.detrend(d))
         np.testing.assert_allclose(tr.respiration_waveform, expected, atol=1e-12)
 
@@ -1358,11 +1370,12 @@ class TestTrack:
         assert ok.sum() < 30
         np.testing.assert_allclose(tr.heart_bpm[ok], 76.0, atol=2.5)
         assert AbstainReason.HARMONIC_AMBIGUITY in set(tr.heart_reasons)
-        # 10-s respiration windows are too short for the null test: always abstain
-        assert set(tr.respiration_reasons) <= {
-            AbstainReason.LOW_SNR,
-            AbstainReason.PEAK_AT_BAND_EDGE,
-        }
+        # 10-s respiration windows: whatever is reported matches the step
+        # (12/min, then 18/min); a window straddling the step is skipped.
+        reported = np.isfinite(tr.respiration_bpm)
+        before, after = tr.window_end_s <= 60.0, tr.window_start_s >= 60.0
+        np.testing.assert_allclose(tr.respiration_bpm[reported & before], 12.0, atol=0.5)
+        np.testing.assert_allclose(tr.respiration_bpm[reported & after], 18.0, atol=0.5)
 
 
 class TestStimulusLockedAccess:
@@ -1453,3 +1466,14 @@ def test_property_affine_invariance_of_csi(shift: float, scale: float) -> None:
     )
     assert moved.respiration.rate_bpm == pytest.approx(base.respiration.rate_bpm, abs=1e-6)
     assert moved.selected_streams == base.selected_streams
+
+
+@pytest.mark.parametrize("resp_bpm", [32.0, 38.0, 44.0])
+def test_tachypnoea_is_reported_on_radar_and_csi(resp_bpm: float) -> None:
+    """31-45/min sat above the former 6-30/min band and was never reported."""
+    d, f_r, _ = chest(40, resp_bpm, 80.0, seed=1)
+    truth = truth_bpm(f_r, 0, 40)
+    assert radar_estimate(d).respiration.rate_bpm == pytest.approx(truth, abs=0.15)
+    amp, _ = csi(d, snr_db=25.0, seed=1)
+    est = estimate_vital_signs(fs=FS, consent_confirmed=True, csi_amplitude=amp[:, :, 0])
+    assert est.respiration.rate_bpm == pytest.approx(truth, abs=0.15)

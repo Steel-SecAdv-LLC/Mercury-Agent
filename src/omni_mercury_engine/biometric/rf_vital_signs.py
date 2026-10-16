@@ -345,10 +345,13 @@ class VitalSignConfig:
     default whose rationale is given here.
 
     Attributes:
-        respiration_band_hz: Respiration pass band. Default 0.1 to 0.5 Hz
-            (6 to 30 breaths/min), wider than the 12 to 20 breaths/min adult
-            resting range (Kebe et al. 2020) to keep bradypnoea and tachypnoea
-            in range.
+        respiration_band_hz: Respiration pass band. Default 0.1 to 0.75 Hz
+            (6 to 45 breaths/min): bradypnoea, adult tachypnoea and most of
+            the infant range, up to half the heart band's notch below it.
+            Measured against 0.1-0.5 Hz on 40 s windows: breathing at 31-45/min
+            went from 0% to 83% reported on radar and 0% to 100% on CSI (max
+            error 0.013/min), with no change below 30/min, in heart-rate
+            coverage, or in false reports on pure noise (0 of 400).
         heart_band_hz: Heart pass band. Default 0.8 to 2.0 Hz (48 to 120
             beats/min), wider than the 60 to 100 beats/min resting range
             (Kebe et al. 2020) to keep athletic bradycardia and
@@ -471,7 +474,7 @@ class VitalSignConfig:
             breaths at the 6 breaths/min band edge.
     """
 
-    respiration_band_hz: tuple[float, float] = (0.1, 0.5)
+    respiration_band_hz: tuple[float, float] = (0.1, 0.75)
     heart_band_hz: tuple[float, float] = (0.8, 2.0)
     analysis_fs: float | None = 20.0
     filter_order: int = 4
