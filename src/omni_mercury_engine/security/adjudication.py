@@ -1443,11 +1443,15 @@ class AdjudicationLedger:
             raise ExportRefused(f"agreement gate failed: {reason}")
         cases = report.labels(split)
         if split == "heldout":
+            # The merit gate counts exact duplicates (same payload and label)
+            # once, so the export applies the same distinct-case minimum.
             minimum = _min_heldout_cases()
-            if len(cases) < minimum:
+            distinct = len({_digest([reports, level]) for reports, level in cases})
+            if distinct < minimum:
+                counted = "" if distinct == len(cases) else f" ({len(cases)} with exact duplicates)"
                 raise ExportRefused(
-                    f"{len(cases)} eligible held-out cases; the merit gate needs at least "
-                    f"{minimum}"
+                    f"{distinct} distinct eligible held-out cases{counted}; the merit gate "
+                    f"needs at least {minimum}"
                 )
         return cases
 

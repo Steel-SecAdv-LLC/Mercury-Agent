@@ -195,6 +195,7 @@ class FlagKind(StrEnum):
     COORDINATED_REPORTING = "coordinated_reporting"
     FABRICATION = "fabrication"
     IMPOSSIBLE_TRAVEL = "impossible_travel"
+    CONFLICTING_CLAIMS = "conflicting_claims"
 
 
 _FLAG_ORDER = {kind: index for index, kind in enumerate(FlagKind)}
@@ -335,6 +336,11 @@ class CounterintelligenceConfig:
         fabrication_factor: Weight multiplier for fabrication-flagged reports.
         impossible_travel_factor: Weight multiplier for both reports of a
             violating pair.
+        claim_conflict_tolerance: Largest spread of stated ``threat_score``
+            values inside one independence cluster (and corroboration group)
+            that is not flagged as CONFLICTING_CLAIMS. Default 0: reports that
+            cannot count independently but state different scores are always
+            surfaced, because only the most reliable of them carries weight.
 
     The four factors default to 0.5, which halves the weight. This is a declared,
     uncalibrated choice. Set a factor to 0 to exclude flagged reports, or to 1
@@ -371,6 +377,7 @@ class CounterintelligenceConfig:
     coordinated_factor: float = 0.5
     fabrication_factor: float = 0.5
     impossible_travel_factor: float = 0.5
+    claim_conflict_tolerance: float = 0.0
 
     def __post_init__(self) -> None:
         """Validate every parameter.
@@ -419,6 +426,10 @@ class CounterintelligenceConfig:
         ):
             value = getattr(self, name)
             _require(0.0 <= value <= 1.0, f"{name} must lie in [0, 1], got {value!r}")
+        _require(
+            self.claim_conflict_tolerance >= 0.0,
+            "claim_conflict_tolerance must be non-negative",
+        )
 
 
 _DEFAULT_CONFIG = CounterintelligenceConfig()
@@ -428,6 +439,14 @@ _DEFAULT_CONFIG = CounterintelligenceConfig()
 # 1. Source reliability: Beta-Bernoulli posteriors.
 # --------------------------------------------------------------------------- #
 
+#: Largest evidential weight one adjudicated outcome may carry, in Bernoulli
+#: observations. Declared, not calibrated: it allows an up-weighted outcome
+#: (a formally reviewed adjudication) while keeping any single record from
+#: swamping the prior and the rest of a track record. Without a bound one
+#: outcome of weight 1e308 drove a source's posterior mean -- and the fusion
+#: engine's adjusted reliability -- to 1.0 in a single step.
+MAX_OUTCOME_WEIGHT = 10.0
+
 
 @dataclass(frozen=True)
 class SourceOutcome:
@@ -435,7 +454,8 @@ class SourceOutcome:
 
     Attributes:
         confirmed: True if the report was later confirmed, False if refuted.
-        weight: Evidential weight of the adjudication (default 1; 0 is a no-op).
+        weight: Evidential weight of the adjudication, a finite number in
+            ``[0, MAX_OUTCOME_WEIGHT]`` (default 1; 0 is a no-op).
     """
 
     confirmed: bool
@@ -446,12 +466,16 @@ class SourceOutcome:
 
         Raises:
             TypeError: If ``confirmed`` is not a bool.
-            ValueError: If ``weight`` is negative or not finite.
+            ValueError: If ``weight`` is not a finite number in
+                ``[0, MAX_OUTCOME_WEIGHT]``.
         """
         if not isinstance(self.confirmed, bool | np.bool_):
             raise TypeError(f"confirmed must be a bool, got {type(self.confirmed).__name__}")
         weight = _as_float(self.weight)
-        _require(weight is not None and weight >= 0.0, "weight must be finite and >= 0")
+        _require(
+            weight is not None and 0.0 <= weight <= MAX_OUTCOME_WEIGHT,
+            f"weight must be finite and in [0, {MAX_OUTCOME_WEIGHT:g}], got {self.weight!r}",
+        )
 
 
 def admiralty_prior(
@@ -629,7 +653,10 @@ class ReportRecord:
 
     Attributes:
         report_id: Report identifier. Defaults to the discipline key, or to
-            ``"<discipline>[i]"`` for the i-th report in a list.
+            ``"<discipline>[i]"`` for the i-th report in a list. Default ids
+            are reserved: a declared id equal to another report's default id
+            is renamed (see :func:`normalize_reports`), so a report can never
+            take over another discipline's identity by declaring its key.
         discipline: The discipline key the report arrived under.
         source_id: Reporting source, when stated.
         reported_at: POSIX seconds, when stated with a timezone.
@@ -645,6 +672,12 @@ class ReportRecord:
         numeric_values: Finite numeric values for the fabrication screens.
         provenance_adequate: The repository's ``Provenance.is_adequate()``
             verdict for an attached provenance record (``None`` if absent).
+        threat_score: The report's stated ``threat_score`` when it is a
+            finite number in ``[0, 1]``. Read only to detect conflicting
+            claims inside an independence cluster; never used to score.
+        same_as: Ids of reports that declared the same report id. They are
+            the same report presented twice, merged into one cluster without
+            an edge, so neither copy is presumed to be the original.
     """
 
     report_id: str
@@ -660,6 +693,8 @@ class ReportRecord:
     location: GeoFix | None = None
     numeric_values: tuple[float, ...] = ()
     provenance_adequate: bool | None = None
+    threat_score: float | None = None
+    same_as: tuple[str, ...] = ()
 
     @property
     def source_key(self) -> str:
@@ -786,6 +821,7 @@ def _normalise_one(
                 note("numeric_values", f"{dropped} non-finite or non-numeric entries dropped")
         else:
             note("numeric_values", "not a list of numbers")
+    stated_score = _as_float(raw.get("threat_score"))
     record = ReportRecord(
         report_id=report_id,
         discipline=discipline,
@@ -800,8 +836,21 @@ def _normalise_one(
         location=location,
         numeric_values=numeric,
         provenance_adequate=adequate,
+        threat_score=(
+            stated_score if stated_score is not None and 0.0 <= stated_score <= 1.0 else None
+        ),
     )
     return record, notes
+
+
+def _fresh_id(base: str, discipline: str, taken: set[str]) -> str:
+    """Return ``"<base>@<discipline>"``, suffixed ``#n`` until it is not in ``taken``."""
+    renamed = f"{base}@{discipline}"
+    suffix = 2
+    while renamed in taken:
+        renamed = f"{base}@{discipline}#{suffix}"
+        suffix += 1
+    return renamed
 
 
 def normalize_reports(
@@ -811,10 +860,22 @@ def normalize_reports(
 
     A discipline's value may be one report mapping, which is the engine's
     format, or a list of them. Disciplines are read in sorted key order, so
-    the result does not depend on dict insertion order. A report id seen
-    twice is the same report presented twice. The second copy is renamed
-    ``"<id>@<discipline>"`` and marked as derived from the first. The input is
-    never mutated.
+    the result does not depend on dict insertion order. The input is never
+    mutated.
+
+    Identity rules:
+
+    * A report without a declared ``report_id`` gets a default id (the
+      discipline key, or ``"<discipline>[i]"``). Default ids are reserved: a
+      declared id equal to *another* report's default id is renamed
+      ``"<id>@<discipline>"`` and is not treated as that report. Otherwise
+      ``{"communications": {"report_id": "signals"}}`` would turn the genuine
+      signals report into a "copy" of the impostor and zero its weight.
+    * A declared id seen twice is the same report presented twice. The second
+      copy is renamed ``"<id>@<discipline>"`` and listed in ``same_as`` of the
+      first's id. The pair forms one independence cluster *without* a
+      citation edge, so which copy carries the weight is decided by
+      reliability (:func:`analyse_independence`), not by key order.
 
     Args:
         intel_reports: Mapping of discipline key to report mapping(s).
@@ -832,7 +893,7 @@ def normalize_reports(
         )
     records: list[ReportRecord] = []
     notes: list[str] = []
-    seen: set[str] = set()
+    pending: list[tuple[str, str, Mapping[str, Any]]] = []
     for key in sorted(intel_reports, key=str):
         discipline = str(key)
         value = intel_reports[key]
@@ -848,26 +909,29 @@ def normalize_reports(
             if not isinstance(raw, Mapping):
                 notes.append(f"{default_id}: not a report mapping; ignored")
                 continue
-            record, record_notes = _normalise_one(discipline, default_id, raw)
-            notes.extend(record_notes)
-            if record.report_id in seen:
-                original = record.report_id
-                renamed = f"{original}@{discipline}"
-                suffix = 2
-                while renamed in seen:
-                    renamed = f"{original}@{discipline}#{suffix}"
-                    suffix += 1
-                record = replace(
-                    record,
-                    report_id=renamed,
-                    derived_from=tuple(dict.fromkeys([original, *record.derived_from])),
-                )
-                notes.append(
-                    f"report {original} appears again under {discipline}; the copy is "
-                    f"{renamed}, treated as derived from {original}"
-                )
-            seen.add(record.report_id)
-            records.append(record)
+            pending.append((discipline, default_id, raw))
+    reserved = {default_id for _, default_id, _ in pending}
+    seen: set[str] = set()
+    for discipline, default_id, raw in pending:
+        record, record_notes = _normalise_one(discipline, default_id, raw)
+        notes.extend(record_notes)
+        declared = record.report_id
+        if declared != default_id and declared in reserved:
+            renamed = _fresh_id(declared, discipline, seen | reserved)
+            record = replace(record, report_id=renamed)
+            notes.append(
+                f"report_id {declared} declared under {discipline} is another report's "
+                f"default id; renamed {renamed}, not treated as that report"
+            )
+        elif declared in seen:
+            renamed = _fresh_id(declared, discipline, seen | reserved)
+            record = replace(record, report_id=renamed, same_as=(declared,))
+            notes.append(
+                f"report {declared} appears again under {discipline}; the copy is "
+                f"{renamed}, treated as the same report as {declared}"
+            )
+        seen.add(record.report_id)
+        records.append(record)
     return tuple(records), tuple(notes)
 
 
@@ -1081,8 +1145,11 @@ class IndependenceCluster:
     Attributes:
         cluster_id: ``"cluster:<representative>"``.
         representative: The member that carries the cluster's weight: an
-            origin report (no upstream edge) if there is one, then the
-            earliest, then the smallest id.
+            origin report (no upstream edge) if there is one, then the most
+            reliable, then the earliest, then the smallest id. Reliability
+            ranks before time because ``reported_at`` is self-reported: an
+            impostor reusing a genuine report's id or source with an earlier
+            timestamp must not displace a more reliable report.
         report_ids: Members, sorted.
         origins: Upstream origin tokens shared through the cluster.
         source_ids: Distinct stated sources among the members.
@@ -1227,7 +1294,9 @@ class _UnionFind:
 
 
 def analyse_independence(
-    records: Sequence[ReportRecord], config: CounterintelligenceConfig | None = None
+    records: Sequence[ReportRecord],
+    config: CounterintelligenceConfig | None = None,
+    reliability: Mapping[str, float | None] | None = None,
 ) -> IndependenceAnalysis:
     """Build the provenance graph and derive independence clusters and flags.
 
@@ -1246,11 +1315,22 @@ def analyse_independence(
       reaches another report in the same corroboration group, because it is
       not independent corroboration of that report;
     * SHARED_ORIGIN when reports from two or more distinct sources in one
-      group trace, through at least one edge, to the same upstream origin.
+      group trace, through at least one edge, to the same upstream origin;
+    * CONFLICTING_CLAIMS when members of one cluster in the same group state
+      ``threat_score`` values further apart than
+      ``claim_conflict_tolerance``. Only the representative carries weight,
+      so the disagreement is surfaced rather than silently dropped.
+
+    Reports in each other's ``same_as`` (one declared id presented twice) are
+    merged without an edge, so neither is presumed to be the original.
 
     Args:
         records: Normalised reports.
         config: Parameters (defaults when ``None``).
+        reliability: Report id to reliability in ``[0, 1]`` used to choose
+            each cluster's representative. Missing or ``None`` ranks below
+            every stated value. When omitted, all reports tie and the
+            representative is the earliest origin, then the smallest id.
 
     Returns:
         The :class:`IndependenceAnalysis`.
@@ -1317,15 +1397,23 @@ def analyse_independence(
     for pair in near:
         if not pair.directed:
             union_find.union(f"R|{pair.report_a}", f"R|{pair.report_b}")
+    for record in records:
+        for twin in record.same_as:
+            if twin in by_id:
+                union_find.union(f"R|{record.report_id}", f"R|{twin}")
 
     members: dict[str, list[ReportRecord]] = defaultdict(list)
     for record in records:
         members[union_find.find(f"R|{record.report_id}")].append(record)
 
-    def representative_key(record: ReportRecord) -> tuple[int, float, str]:
+    stated_reliability = reliability or {}
+
+    def representative_key(record: ReportRecord) -> tuple[int, float, float, str]:
         is_origin = not succ[record.report_id]
+        rel = stated_reliability.get(record.report_id)
+        rank = -rel if rel is not None and math.isfinite(rel) else 1.0  # unknown ranks last
         time = record.reported_at if record.reported_at is not None else math.inf
-        return (0 if is_origin else 1, time, record.report_id)
+        return (0 if is_origin else 1, rank, time, record.report_id)
 
     clusters: list[IndependenceCluster] = []
     cluster_of: dict[str, str] = {}
@@ -1347,6 +1435,40 @@ def analyse_independence(
     clusters.sort(key=lambda c: c.cluster_id)
 
     flags: list[CounterintelligenceFlag] = []
+    for cluster in clusters:
+        by_claim: dict[str, list[ReportRecord]] = defaultdict(list)
+        for rid in cluster.report_ids:
+            if by_id[rid].threat_score is not None:
+                by_claim[by_id[rid].group].append(by_id[rid])
+        for group_key in sorted(by_claim):
+            stated = sorted(by_claim[group_key], key=lambda r: r.report_id)
+            scores = [r.threat_score for r in stated if r.threat_score is not None]
+            if len(stated) < 2 or max(scores) - min(scores) <= cfg.claim_conflict_tolerance:
+                continue
+            flags.append(
+                CounterintelligenceFlag(
+                    kind=FlagKind.CONFLICTING_CLAIMS,
+                    report_ids=tuple(r.report_id for r in stated),
+                    description=(
+                        f"{len(stated)} reports in {cluster.cluster_id} cannot count "
+                        f"independently but state threat scores {min(scores):g}-"
+                        f"{max(scores):g}; only {cluster.representative} carries weight"
+                    ),
+                    evidence=MappingProxyType(
+                        {
+                            "cluster": cluster.cluster_id,
+                            "group": group_key,
+                            "representative": cluster.representative,
+                            "threat_scores": MappingProxyType(
+                                {r.report_id: r.threat_score for r in stated}
+                            ),
+                            "reliability": MappingProxyType(
+                                {r.report_id: stated_reliability.get(r.report_id) for r in stated}
+                            ),
+                        }
+                    ),
+                )
+            )
     cycles: list[tuple[str, ...]] = []
     for ci, comp in enumerate(components):
         if not cyclic[ci]:
@@ -2402,8 +2524,9 @@ class AssessmentHistory:
         """Build a history from an instance, a mapping with the same keys, or ``None``.
 
         Outcomes may be :class:`SourceOutcome`, bools, or mappings with
-        ``confirmed`` and optional ``weight``. Invalid entries are dropped with
-        a note, never guessed.
+        ``confirmed`` and optional ``weight``. Invalid entries -- including a
+        weight that is not finite or lies outside ``[0, MAX_OUTCOME_WEIGHT]``
+        -- are dropped with a note, never guessed or clipped.
 
         Args:
             value: The history, in any accepted form.
@@ -2718,7 +2841,11 @@ class CounterintelligenceAssessor:
 
         posteriors = self._posteriors(records, past, reasons)
         adjusted = self._adjusted_reliability(records, posteriors, reasons)
-        independence = analyse_independence(records, cfg)
+        # Representatives are chosen by the reliability the fusion engine
+        # weights with, never by self-reported time alone.
+        independence = analyse_independence(
+            records, cfg, {r.report_id: adjusted.get(r.discipline) for r in records}
+        )
         coordination = detect_coordinated_reporting(
             records,
             independence.near_duplicates,
@@ -2866,6 +2993,7 @@ __all__ = [
     "DEFAULT_LOG_ODDS_CLIP",
     "DEFAULT_MAX_SPEED_KMH",
     "INFORMATION_CREDIBILITY_DESCRIPTORS",
+    "MAX_OUTCOME_WEIGHT",
     "MINHASH_PRIME",
     "NIGRINI_FIRST_DIGIT_MAD_BOUNDS",
     "NIGRINI_NONCONFORMITY",

@@ -287,7 +287,12 @@ def __getattr__(name: str) -> object:
             from omni_mercury_engine.security.intelligence_fusion import (
                 IntelligenceFusionEngine as engine_cls,
             )
-        except ImportError:  # torch not installed
+        except ModuleNotFoundError as exc:
+            # Only an absent torch means "fusion unavailable" (the historical
+            # ``None``). Any other import failure -- scipy missing, a broken
+            # submodule -- is a real fault and must not masquerade as it.
+            if (exc.name or "").split(".")[0] != "torch":
+                raise
             return None
         return engine_cls
     if name in _EXPORTS_BY_MODULE:

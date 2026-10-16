@@ -29,6 +29,7 @@ from omni_mercury_engine.security.counterintelligence import (
     ADMIRALTY_RELIABILITY_PRIOR_MEAN,
     BENFORD_FIRST_DIGIT_PROBABILITIES,
     DEFAULT_LOG_ODDS_CLIP,
+    MAX_OUTCOME_WEIGHT,
     MINHASH_PRIME,
     NIGRINI_NONCONFORMITY,
     AssessmentHistory,
@@ -204,9 +205,27 @@ class TestSourcePosterior:
     def test_outcome_validation(self) -> None:
         with pytest.raises(TypeError):
             SourceOutcome("yes")  # type: ignore[arg-type]
-        for bad in (-1.0, math.nan, math.inf):
+        for bad in (-1.0, math.nan, math.inf, 1e308, MAX_OUTCOME_WEIGHT + 1e-9):
             with pytest.raises(ValueError, match="weight"):
                 SourceOutcome(True, bad)
+        assert SourceOutcome(True, MAX_OUTCOME_WEIGHT).weight == MAX_OUTCOME_WEIGHT
+
+    def test_one_huge_adjudication_cannot_set_reliability(self) -> None:
+        # Regression: weight 1e308 was accepted, so one record drove the
+        # source posterior -- and the discipline's adjusted reliability -- to 1.0.
+        history = {
+            "outcomes": {
+                "A": [{"confirmed": True, "weight": 1e308}],
+                "B": [{"confirmed": True, "weight": 1e308}, {"confirmed": True, "weight": 1e308}],
+            }
+        }
+        reports = {
+            "signals": {"report_id": "x", "source_id": "A"},
+            "human": {"report_id": "y", "source_id": "B"},
+        }
+        result = CounterintelligenceAssessor(discipline_priors=PRIORS).assess(reports, history)
+        assert result.adjusted_reliability == {"human": 0.85, "signals": 0.9}
+        assert sum("weight must be finite" in reason for reason in result.reasons) == 3
 
 
 class TestConfig:
@@ -1168,11 +1187,14 @@ class TestNormalisation:
     def test_duplicate_report_ids_are_one_report_presented_twice(self) -> None:
         reports = {"open_source": {"report_id": "r1"}, "signals": {"report_id": "r1"}}
         records, notes = normalize_reports(reports)
-        assert [(r.report_id, r.derived_from) for r in records] == [
-            ("r1", ()),
-            ("r1@signals", ("r1",)),
+        # Same report twice: linked without a citation edge, so neither copy
+        # is presumed to be the original by key order.
+        assert [(r.report_id, r.derived_from, r.same_as) for r in records] == [
+            ("r1", (), ()),
+            ("r1@signals", (), ("r1",)),
         ]
-        assert "r1@signals, treated as derived from r1" in notes[0]
+        assert "r1@signals, treated as the same report as r1" in notes[0]
+        assert len(analyse_independence(records).clusters) == 1
         three = {"a": [{"report_id": "x"}, {"report_id": "x"}, {"report_id": "x"}]}
         ids = [r.report_id for r in normalize_reports(three)[0]]
         assert ids == ["x", "x@a", "x@a#2"]
@@ -1544,6 +1566,101 @@ class TestAssessor:
         assert engine.fuse_intelligence(reports).risk_score == pytest.approx(
             (0.75 * 0.6 + 0.85 * 0.7) / (0.75 + 0.85)
         )
+
+
+# --------------------------------------------------------------------------- #
+# Identity attacks: id hijack, source spoof, duplicate ids.
+# --------------------------------------------------------------------------- #
+GENUINE = {"confidence": 0.95, "threat_score": 0.95, "reported_at": T0 + 5}
+
+
+class TestIdentityAttacks:
+    """A self-declared id, source or timestamp must not displace a genuine report.
+
+    Regression: default ids were the bare discipline key, so
+    ``{"communications": {"report_id": "signals"}}`` (sorting first) made the
+    genuine signals report a "derived copy" with weight 0; and cluster
+    representatives were chosen by self-reported time, so a spoofed
+    ``source_id`` with an earlier ``reported_at`` took the genuine cluster.
+    """
+
+    def test_declaring_another_disciplines_default_id_does_not_hijack_it(self) -> None:
+        reports = {
+            "communications": {"report_id": "signals", "threat_score": 0.0, "reported_at": T0},
+            "signals": dict(GENUINE),
+        }
+        records, notes = normalize_reports(reports)
+        by_discipline = {r.discipline: r for r in records}
+        assert by_discipline["signals"].report_id == "signals"
+        assert by_discipline["signals"].derived_from == by_discipline["signals"].same_as == ()
+        assert by_discipline["communications"].report_id == "signals@communications"
+        assert by_discipline["communications"].same_as == ()
+        assert any("another report's default id" in note for note in notes)
+        result = CounterintelligenceAssessor(discipline_priors=PRIORS).assess(reports)
+        assert result.fusion_weight_multipliers == {"communications": 1.0, "signals": 1.0}
+        assert result.effective_independent_sources == 2
+
+    def test_list_default_ids_are_reserved_too(self) -> None:
+        reports = {"signals": [{"report_id": "signals[1]"}, {}]}
+        ids = [r.report_id for r in normalize_reports(reports)[0]]
+        assert ids == ["signals[1]@signals", "signals[1]"]
+
+    def test_spoofed_source_with_earlier_time_does_not_take_the_cluster(self) -> None:
+        reports = {
+            "open_source": {"source_id": "S1", "reported_at": T0, "threat_score": 0.0},
+            "signals": {"source_id": "S1", **GENUINE},
+        }
+        result = CounterintelligenceAssessor(discipline_priors=PRIORS).assess(reports)
+        (cluster,) = result.clusters
+        # signals (prior 0.9) outranks open_source (0.75) despite reporting later.
+        assert cluster.representative == "signals"
+        assert result.report_weight_multipliers == {"open_source": 0.0, "signals": 1.0}
+        (conflict,) = result.flags_of(FlagKind.CONFLICTING_CLAIMS)
+        assert conflict.report_ids == ("open_source", "signals")
+        assert conflict.evidence["representative"] == "signals"
+        assert dict(conflict.evidence["threat_scores"]) == {"open_source": 0.0, "signals": 0.95}
+
+    def test_duplicate_declared_id_is_resolved_by_reliability_not_key_order(self) -> None:
+        reports = {
+            "communications": {"report_id": "sig-1", "threat_score": 0.0, "reported_at": T0},
+            "signals": {"report_id": "sig-1", **GENUINE},
+        }
+        priors = {**PRIORS, "communications": 0.88}
+        result = CounterintelligenceAssessor(discipline_priors=priors).assess(reports)
+        (cluster,) = result.clusters
+        assert cluster.representative == "sig-1@signals"
+        assert result.fusion_weight_multipliers == {"communications": 0.0, "signals": 1.0}
+        assert len(result.flags_of(FlagKind.CONFLICTING_CLAIMS)) == 1
+
+    def test_representative_ranks_reliability_before_time(self) -> None:
+        records = [
+            rec("early", source_id="S", reported_at=T0),
+            rec("late", source_id="S", reported_at=T0 + 9),
+        ]
+        assert analyse_independence(records).clusters[0].representative == "early"
+        ranked = analyse_independence(records, reliability={"early": 0.5, "late": 0.9})
+        assert ranked.clusters[0].representative == "late"
+        unknown = analyse_independence(records, reliability={"early": None, "late": 0.1})
+        assert unknown.clusters[0].representative == "late"
+
+    def test_agreeing_or_unscored_cluster_members_raise_no_conflict(self) -> None:
+        same = [
+            rec("a", source_id="S", threat_score=0.5),
+            rec("b", source_id="S", threat_score=0.5),
+            rec("c", source_id="S"),
+        ]
+        assert analyse_independence(same).flags == ()
+        apart = [
+            rec("a", source_id="S", threat_score=0.5),
+            rec("b", source_id="S", threat_score=0.6),
+        ]
+        lenient = CounterintelligenceConfig(claim_conflict_tolerance=0.2)
+        assert analyse_independence(apart, lenient).flags == ()
+        assert len(analyse_independence(apart).flags) == 1
+
+    def test_negative_conflict_tolerance_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="claim_conflict_tolerance"):
+            CounterintelligenceConfig(claim_conflict_tolerance=-0.1)
 
 
 # --------------------------------------------------------------------------- #

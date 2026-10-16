@@ -34,6 +34,8 @@ Operational deployment requires security clearance and legal authorization.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
 from collections.abc import Mapping, Sequence
@@ -55,10 +57,56 @@ from omni_mercury_engine.security.counterintelligence import (
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Fusion weights replace evidence scoring only on measured merit: at least
-# this many labelled held-out cases, and a one-sided exact McNemar test on
-# the discordant pairs below this level.
+# this many distinct labelled held-out cases, and a one-sided exact McNemar
+# test on the discordant pairs below this level (on the first attempt against
+# a held-out set; see ``merit_alpha_for_attempt``).
 MIN_HELDOUT_CASES = INTEL_MERIT.MIN_HELDOUT_CASES
 MERIT_ALPHA = INTEL_MERIT.MERIT_ALPHA
+
+
+def merit_alpha_for_attempt(attempt: int) -> float:
+    """Significance level for the ``attempt``-th merit test against one held-out set.
+
+    Alpha spending over repeated attempts: ``MERIT_ALPHA * 2**-(attempt - 1)``.
+    The first attempt keeps the published level; each retry against the same
+    held-out set halves it. By the union bound the chance that *any* of an
+    unlimited sequence of attempts admits weights no better than evidence
+    scoring is at most ``2 * MERIT_ALPHA``. It is not held at ``MERIT_ALPHA``
+    because the first attempt spends all of it.
+
+    Args:
+        attempt: 1-based attempt number against the same held-out fingerprint.
+
+    Returns:
+        The p-value threshold the attempt must beat.
+    """
+    if attempt < 1:
+        raise ValueError(f"attempt must be at least 1, got {attempt}")
+    return MERIT_ALPHA * 2.0 ** -(attempt - 1)
+
+
+def _canonical(value: Any) -> Any:
+    """Deterministic JSON-friendly form of a held-out case, for deduplication."""
+    if isinstance(value, Mapping):
+        return {str(key): _canonical(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_canonical(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return sorted(json.dumps(_canonical(item), sort_keys=True) for item in value)
+    if isinstance(value, np.ndarray):
+        return _canonical(value.tolist())
+    if isinstance(value, np.generic):
+        return _canonical(value.item())
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    return repr(value)
+
+
+def _canonical_case(reports: Any, level: int) -> str:
+    """Canonical serialisation of one ``(intel_reports, level)`` held-out case."""
+    return json.dumps(
+        [_canonical(reports), level], sort_keys=True, separators=(",", ":"), allow_nan=True
+    )
 
 
 class IntelligenceDiscipline(Enum):
@@ -113,6 +161,10 @@ class IntelligenceFusionResult:
     # Source-reliability, independence, coordination, fabrication and
     # impossible-travel screening of the reports (security/counterintelligence.py).
     counterintelligence: dict[str, Any] | None = None
+    # Why report fields or whole reports did not count toward the decision
+    # (missing, non-finite or out-of-range scores, zero screening weight),
+    # and why the fusion network deferred to evidence scoring, if it did.
+    evidence_notes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -122,7 +174,12 @@ class FusionMerit:
     ``network_only`` and ``evidence_only`` are the discordant pairs (cases
     exactly one method classified correctly); ``p_value`` is the one-sided
     exact McNemar probability of at least ``network_only`` network wins among
-    them if both methods were equally accurate.
+    them if both methods were equally accurate. ``n_cases`` counts distinct
+    cases (exact duplicates by canonical serialisation count once);
+    ``n_supplied`` is how many were passed in. ``attempt`` is the 1-based
+    number of merit tests this engine has run against the same held-out set
+    and ``alpha`` the level that attempt had to beat
+    (:func:`merit_alpha_for_attempt`).
     """
 
     n_cases: int
@@ -131,11 +188,30 @@ class FusionMerit:
     network_only: int
     evidence_only: int
     p_value: float
+    n_supplied: int | None = None
+    attempt: int = 1
+    alpha: float = MERIT_ALPHA
 
     @property
     def admitted(self) -> bool:
         """Whether the network is significantly more accurate than the evidence path."""
-        return self.p_value < MERIT_ALPHA
+        return self.p_value < self.alpha
+
+
+@dataclass(frozen=True)
+class MeritAttempt:
+    """One merit test run by :meth:`IntelligenceFusionEngine.load_trained_weights`.
+
+    Attributes:
+        fingerprint: SHA-256 of the sorted canonical serialisations of the
+            distinct held-out cases; retries against the same set share it.
+        checkpoint: The checkpoint path that was tested.
+        merit: The measured merit, including the attempt number and level.
+    """
+
+    fingerprint: str
+    checkpoint: str
+    merit: FusionMerit
 
 
 def _mcnemar_one_sided(wins: int, losses: int) -> float:
@@ -322,6 +398,7 @@ class IntelligenceFusionEngine:
         self.fusion_network = AllSourceFusionNetwork(input_dim=128)
         self._trained = False
         self.merit: FusionMerit | None = None
+        self._merit_attempts: list[MeritAttempt] = []
 
         self.threat_knowledge_base = self._initialize_threat_kb()
 
@@ -335,6 +412,11 @@ class IntelligenceFusionEngine:
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
 
+    @property
+    def merit_attempts(self) -> tuple[MeritAttempt, ...]:
+        """Every merit test this engine has run, admitted or refused, oldest first."""
+        return tuple(self._merit_attempts)
+
     def load_trained_weights(
         self, path: str | Path, heldout: Sequence[tuple[dict[str, Any], int]]
     ) -> FusionMerit:
@@ -344,32 +426,60 @@ class IntelligenceFusionEngine:
         has them. The candidate is scored against the evidence path on
         labelled cases it was not trained on, and replaces it only when it is
         significantly more accurate (one-sided exact McNemar on the
-        discordant pairs, p < ``MERIT_ALPHA``). On refusal the engine keeps
-        scoring from evidence.
+        discordant pairs). On refusal the engine keeps scoring from evidence.
+
+        Both methods are measured exactly as they decide in
+        :meth:`fuse_intelligence`: on the same counterintelligence-screened
+        inputs, with the network through :meth:`_trained_assessment`, and
+        without temporal context. Held-out cases carry no temporal context,
+        so admitted weights never decide through the temporal LSTM branch
+        (``fuse_intelligence`` does not feed it); the branch is unmeasured.
+
+        What the gate enforces, and what it does not:
+
+        * Exact duplicate cases (same canonical serialisation of reports and
+          label) count once, both toward ``MIN_HELDOUT_CASES`` and in the
+          McNemar test, whose pairs must be independent. Near duplicates
+          (one field changed) are not detected.
+        * Every attempt is recorded on :attr:`merit_attempts`. The k-th
+          attempt against the same held-out fingerprint must beat
+          :func:`merit_alpha_for_attempt` (``MERIT_ALPHA`` halved per retry),
+          bounding the false-admission probability over unlimited retries by
+          ``2 * MERIT_ALPHA``. The count lives on this engine instance only:
+          a new engine, a new process, or a held-out set changed by one case
+          starts from attempt 1. A checkpoint that fails to load is not a
+          merit test and is not counted.
 
         Args:
             path: Checkpoint file holding the network ``state_dict`` (either
                 bare, or under a ``"state_dict"`` key).
-            heldout: At least ``MIN_HELDOUT_CASES`` pairs of
-                ``(intel_reports, true ThreatLevel value)``.
+            heldout: Pairs of ``(intel_reports, true ThreatLevel value)``, at
+                least ``MIN_HELDOUT_CASES`` of them distinct.
 
         Returns:
             The measured merit that admitted the weights (also kept on
             ``self.merit``).
 
         Raises:
-            ValueError: Fewer than ``MIN_HELDOUT_CASES`` cases, or a label
-                that is not a ``ThreatLevel`` value.
+            ValueError: Fewer than ``MIN_HELDOUT_CASES`` distinct cases, or a
+                label that is not a ``ThreatLevel`` value.
             RuntimeError: The checkpoint's tensor shapes do not match the
                 network, or the candidate is not significantly better.
         """
-        cases = list(heldout)
+        supplied = list(heldout)
+        distinct: dict[str, tuple[dict[str, Any], int]] = {}
+        for reports, label in supplied:
+            level = ThreatLevel(label).value
+            distinct.setdefault(_canonical_case(reports, level), (reports, level))
+        cases = list(distinct.values())
         if len(cases) < MIN_HELDOUT_CASES:
             raise ValueError(
-                f"{len(cases)} held-out cases; at least {MIN_HELDOUT_CASES} are needed "
-                "to measure fusion weights against evidence scoring"
+                f"{len(cases)} distinct held-out cases ({len(supplied)} supplied; exact "
+                f"duplicates count once); at least {MIN_HELDOUT_CASES} are needed to "
+                "measure fusion weights against evidence scoring"
             )
-        labels = np.array([ThreatLevel(label).value for _, label in cases])
+        labels = np.array([level for _, level in cases])
+        fingerprint = hashlib.sha256("\n".join(sorted(distinct)).encode()).hexdigest()
 
         checkpoint = safe_torch_load(Path(path), map_location="cpu")
         state = (
@@ -379,23 +489,30 @@ class IntelligenceFusionEngine:
         candidate.load_state_dict(state)
         candidate.eval()
 
+        # Measured as fuse_intelligence decides: the same screen feeds both
+        # the network (screened inputs) and the evidence path.
+        screens = [self._screen(reports) for reports, _ in cases]
         network_hits = (
-            np.array([self._network_assessment(candidate, reports)[0] for reports, _ in cases])
+            np.array(
+                [
+                    self._trained_assessment(candidate, reports, ci)[0]
+                    for (reports, _), ci in zip(cases, screens, strict=True)
+                ]
+            )
             == labels
         )
-        # Measured against the evidence path as it actually decides, i.e.
-        # with the same counterintelligence screening fuse_intelligence applies.
         evidence_hits = (
             np.array(
                 [
-                    self._evidence_assessment(reports, self._screen(reports))[0]
-                    for reports, _ in cases
+                    self._evidence_assessment(reports, ci)[0]
+                    for (reports, _), ci in zip(cases, screens, strict=True)
                 ]
             )
             == labels
         )
         network_only = int(np.sum(network_hits & ~evidence_hits))
         evidence_only = int(np.sum(evidence_hits & ~network_hits))
+        attempt = 1 + sum(a.fingerprint == fingerprint for a in self._merit_attempts)
         merit = FusionMerit(
             n_cases=len(cases),
             network_accuracy=float(network_hits.mean()),
@@ -403,13 +520,18 @@ class IntelligenceFusionEngine:
             network_only=network_only,
             evidence_only=evidence_only,
             p_value=_mcnemar_one_sided(network_only, evidence_only),
+            n_supplied=len(supplied),
+            attempt=attempt,
+            alpha=merit_alpha_for_attempt(attempt),
         )
+        self._merit_attempts.append(MeritAttempt(fingerprint, str(path), merit))
         if not merit.admitted:
             raise RuntimeError(
                 f"fusion weights from {path} refused: held-out accuracy "
                 f"{merit.network_accuracy:.3f} vs evidence {merit.evidence_accuracy:.3f} "
                 f"(n={merit.n_cases}, discordant {network_only}:{evidence_only}, "
-                f"one-sided McNemar p={merit.p_value:.3g} >= {MERIT_ALPHA})"
+                f"one-sided McNemar p={merit.p_value:.3g} >= {merit.alpha:g}, "
+                f"attempt {attempt} on this held-out set)"
             )
 
         self.fusion_network = candidate
@@ -417,12 +539,13 @@ class IntelligenceFusionEngine:
         self.merit = merit
         self.logger.info(
             "intelligence fusion: installed weights from %s (held-out accuracy %.3f vs "
-            "evidence %.3f, n=%d, p=%.3g)",
+            "evidence %.3f, n=%d, p=%.3g, attempt %d)",
             path,
             merit.network_accuracy,
             merit.evidence_accuracy,
             merit.n_cases,
             merit.p_value,
+            attempt,
         )
         return merit
 
@@ -513,25 +636,39 @@ class IntelligenceFusionEngine:
                 - cybint: Cyber indicators
                 - finint: Financial transactions
                 - cryptanalysis: Encrypted pattern analysis
-            temporal_context: Optional historical threat timeline
+            temporal_context: Optional historical threat timeline. It is
+                summarised in ``temporal_patterns``; it never reaches the
+                fusion network, whose weights are admitted on held-out cases
+                without temporal context (see :meth:`load_trained_weights`).
             counterintelligence_history: Source track records and baseline
                 reporting rates for the counterintelligence screen (see
                 ``AssessmentHistory.coerce``).
 
         Returns:
             Fused intelligence assessment with threat level
+
+        Raises:
+            InputModalityError: ``intel_reports`` is not a mapping of
+                discipline to one report mapping (a list of reports under a
+                discipline included).
         """
+        notes: list[str] = []
         ci = self._screen(intel_reports, counterintelligence_history)
         if self._trained:
-            threat_class, confidence_score, risk_score = self._network_assessment(
-                self.fusion_network, intel_reports, temporal_context
+            if temporal_context:
+                notes.append(
+                    "temporal_context not fed to the fusion network: its weights were "
+                    "admitted on held-out cases without temporal context"
+                )
+            threat_class, confidence_score, risk_score = self._trained_assessment(
+                self.fusion_network, intel_reports, ci, notes=notes
             )
         else:
             # Untrained network: its logits are initialisation noise, so the
             # assessment comes from the reported evidence instead (reliability
             # -weighted threat scores, corroboration-scaled confidence).
             threat_class, confidence_score, risk_score = self._evidence_assessment(
-                intel_reports, ci
+                intel_reports, ci, notes=notes
             )
 
         threat_level_enum = ThreatLevel(threat_class)
@@ -578,6 +715,7 @@ class IntelligenceFusionEngine:
             neurosymbolic_assessment=neurosymbolic_assessment,
             cryptographic_indicators=crypto_indicators,
             counterintelligence=ci.as_dict() if ci is not None else None,
+            evidence_notes=notes,
         )
 
         self.logger.info(
@@ -601,6 +739,78 @@ class IntelligenceFusionEngine:
             return None
         return number if math.isfinite(number) else None
 
+    @classmethod
+    def _unit_or_reason(cls, value: Any) -> tuple[float | None, str]:
+        """``(number, "")`` for a finite number in ``[0, 1]``, else ``(None, why)``.
+
+        Threat scores and confidences are probabilities. A value outside
+        ``[0, 1]`` is not evidence on that scale: clipping only the weighted
+        mean would let one report at ``-1e6`` or ``50`` decide the fused
+        level whatever its reliability weight.
+        """
+        number = cls._finite_or_none(value)
+        if number is None:
+            return None, f"{value!r} is not a finite number"
+        if not 0.0 <= number <= 1.0:
+            return None, f"{number:g} is outside [0, 1]"
+        return number, ""
+
+    def _scored_reports(
+        self,
+        intel_reports: Mapping[str, Any],
+        ci: CounterintelligenceAssessment | None,
+        notes: list[str] | None,
+    ) -> list[tuple[str, float, float, float | None]]:
+        """The reports that count as evidence, with their weights.
+
+        A report counts only when it states a valid ``threat_score`` (a finite
+        number in ``[0, 1]``) and keeps a positive weight after screening.
+        Its ``confidence`` counts when it is stated and valid; none is
+        assumed when it is missing. Every exclusion is logged and, when
+        ``notes`` is given, recorded there.
+
+        Returns:
+            ``(discipline, reliability weight, threat_score, confidence)`` per
+            counting report, in ``IntelligenceDiscipline`` order.
+        """
+
+        def exclude(message: str) -> None:
+            # Only a deciding call records (and logs); source ranking re-reads
+            # the same reports with ``notes=None`` and stays quiet.
+            if notes is not None:
+                self.logger.warning("evidence assessment: %s", message)
+                notes.append(message)
+
+        scored: list[tuple[str, float, float, float | None]] = []
+        for discipline in IntelligenceDiscipline:
+            key = discipline.value
+            report = intel_reports.get(key)
+            if not isinstance(report, Mapping):
+                continue
+            reliability = self.int_reliability_scores.get(key, 0.75)
+            if ci is not None:
+                adjusted = ci.adjusted_reliability.get(key)
+                if adjusted is not None:
+                    reliability = adjusted
+                reliability *= ci.fusion_weight_multipliers.get(key, 1.0)
+                if reliability <= 0.0:
+                    exclude(f"{key}: weight 0 after counterintelligence screening; excluded")
+                    continue
+            if "threat_score" not in report:
+                exclude(f"{key}: no threat_score; the report does not count")
+                continue
+            score, why = self._unit_or_reason(report["threat_score"])
+            if score is None:
+                exclude(f"{key}: threat_score {why}; the report does not count")
+                continue
+            confidence: float | None = None
+            if "confidence" in report:
+                confidence, why = self._unit_or_reason(report["confidence"])
+                if confidence is None:
+                    exclude(f"{key}: confidence {why}; dropped")
+            scored.append((key, reliability, score, confidence))
+        return scored
+
     def _screen(
         self, intel_reports: dict[str, Any], history: Any = None
     ) -> CounterintelligenceAssessment | None:
@@ -612,7 +822,18 @@ class IntelligenceFusionEngine:
 
     @staticmethod
     def _require_report_mapping(intel_reports: dict[str, Any]) -> None:
-        """Reject off-modality inputs with a clean, actionable error."""
+        """Reject off-modality inputs with a clean, actionable error.
+
+        The engine scores one report mapping per discipline. A list of
+        reports under a discipline (which the counterintelligence normaliser
+        accepts) is refused here, before screening, rather than screened as
+        several reports, silently skipped by evidence scoring and crashing
+        source ranking.
+
+        Raises:
+            InputModalityError: ``intel_reports`` is not a mapping, or one of
+                its values is not a single report mapping.
+        """
         if not isinstance(intel_reports, Mapping):
             shape_hint = (
                 f" of shape {intel_reports.shape}" if hasattr(intel_reports, "shape") else ""
@@ -623,13 +844,51 @@ class IntelligenceFusionEngine:
                 "{'open_source': {...}, 'signals': {...}}), got "
                 f"{type(intel_reports).__name__}{shape_hint}."
             )
+        for key, value in intel_reports.items():
+            if isinstance(value, Mapping):
+                continue
+            hint = (
+                "; fuse one report per discipline (screen a batch of reports with "
+                "CounterintelligenceAssessor directly)"
+                if isinstance(value, list | tuple)
+                else ""
+            )
+            raise InputModalityError(
+                "IntelligenceFusionEngine expects one report mapping per discipline; "
+                f"{key!r} holds {type(value).__name__}{hint}."
+            )
 
     def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
-        """Extract features from intelligence reports (O(n) complexity)."""
+        """Extract features from intelligence reports (O(n) complexity).
+
+        Fails closed: a stated ``confidence``, ``timeliness``, ``relevance``,
+        ``completeness`` or ``threat_score`` that is not a finite number in
+        ``[0, 1]``, or ``indicators`` without a length, raises rather than
+        reaching the network as NaN, an infinity or an out-of-scale value
+        (a NaN feature made every logit NaN, and ``argmax`` then read LOW).
+
+        Each discipline's features are scaled by the fixed
+        ``int_reliability_scores`` entry, never by the counterintelligence
+        screen's source-adjusted reliability: the scaling is the network's
+        input contract. :meth:`_trained_assessment` defers to evidence
+        scoring when the adjusted value differs.
+
+        Raises:
+            InputModalityError: ``intel_reports`` is not a report mapping.
+            ValueError: A stated feature field is unusable (see above).
+        """
         self._require_report_mapping(intel_reports)
 
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
+
+        def unit_feature(disc_key: str, report: Mapping[str, Any], name: str) -> float | None:
+            if name not in report:
+                return None
+            number, why = self._unit_or_reason(report[name])
+            if number is None:
+                raise ValueError(f"{disc_key}.{name}: {why}")
+            return number
 
         for discipline in IntelligenceDiscipline:
             disc_key = discipline.value
@@ -638,16 +897,22 @@ class IntelligenceFusionEngine:
             if disc_key in intel_reports:
                 report = intel_reports[disc_key]
 
-                features[0] = float(report.get("confidence", 0.5))
-                features[1] = float(report.get("timeliness", 0.5))
-                features[2] = float(report.get("relevance", 0.5))
-                features[3] = float(report.get("completeness", 0.5))
+                for index, name in enumerate(
+                    ("confidence", "timeliness", "relevance", "completeness")
+                ):
+                    value = unit_feature(disc_key, report, name)
+                    features[index] = 0.5 if value is None else value
 
                 if "indicators" in report:
-                    features[4] = float(len(report["indicators"])) / 10.0
+                    try:
+                        count = len(report["indicators"])
+                    except TypeError as exc:
+                        raise ValueError(f"{disc_key}.indicators: has no length") from exc
+                    features[4] = float(count) / 10.0
 
-                if "threat_score" in report:
-                    features[5] = float(report["threat_score"])
+                score = unit_feature(disc_key, report, "threat_score")
+                if score is not None:
+                    features[5] = score
 
                 reliability = self.int_reliability_scores.get(disc_key, 0.75)
                 features = np.asarray(features * reliability)
@@ -676,11 +941,18 @@ class IntelligenceFusionEngine:
         intel_reports: dict[str, Any],
         temporal_context: list[dict[str, Any]] | None = None,
     ) -> tuple[int, float, float]:
-        """Score the threat with a fusion network.
+        """Score the threat with a fusion network on the reports as given.
+
+        This is the raw scorer: no screening, no fallback. Decisions go
+        through :meth:`_trained_assessment`.
 
         Returns:
             Tuple of ``(threat_class, confidence_score, risk_score)``, as
             :meth:`_evidence_assessment` does.
+
+        Raises:
+            ValueError: A feature field is unusable (:meth:`_extract_int_features`).
+            RuntimeError: The network produced a non-finite output.
         """
         int_features = self._extract_int_features(intel_reports)
         temporal_tensor = (
@@ -689,14 +961,104 @@ class IntelligenceFusionEngine:
         network.eval()
         with torch.no_grad():
             threat_logits, confidence, _attention = network(int_features, temporal_tensor)
+        if not (
+            bool(torch.isfinite(threat_logits).all()) and bool(torch.isfinite(confidence).all())
+        ):
+            raise RuntimeError(
+                "fusion network produced non-finite outputs from finite features; "
+                "refusing to decide from them"
+            )
         threat_class = int(torch.argmax(threat_logits[0]).item()) + 1
         confidence_score = float(confidence[0].item())
         return threat_class, confidence_score, confidence_score * (threat_class / 5.0)
+
+    def _trained_assessment(
+        self,
+        network: AllSourceFusionNetwork,
+        intel_reports: dict[str, Any],
+        ci: CounterintelligenceAssessment | None,
+        *,
+        notes: list[str] | None = None,
+    ) -> tuple[int, float, float]:
+        """Decide with admitted fusion weights, on the screened reports.
+
+        The network takes per-discipline features and has no input for a
+        weight, so screening reaches it the only sound way: a discipline the
+        screen gave weight 0 (a derivative copy, an excluded report) is
+        removed and the network sees it as not reported. Scaling the features
+        by the multiplier instead would change their meaning (a halved
+        ``threat_score`` reads as a lower threat, not as weaker evidence).
+        For the same reason the network cannot honour a fractional weight
+        (a coordinated, fabricated or impossible-travel flag): when any
+        reporting discipline carries one, or a feature is unusable, the
+        network does not score this input and the decision falls back to
+        :meth:`_evidence_assessment`, which can apply it. Each case is
+        recorded in ``notes``. :meth:`load_trained_weights` measures merit
+        through this same method, so the gate tests what decides.
+
+        Source-adjusted reliability is handled the same way. The network's
+        features are scaled by the fixed ``int_reliability_scores`` table
+        (:meth:`_extract_int_features`); that scaling is part of its input
+        contract, so substituting the screen's source-adjusted reliability
+        would shift the input distribution every checkpoint was trained and
+        measured on. Instead, when a screened discipline's adjusted
+        reliability differs from the fixed table (stated grades or an
+        adjudicated track record moved it), the network does not score and
+        the evidence path, which weights by the adjusted value, decides.
+
+        Returns:
+            Tuple of ``(threat_class, confidence_score, risk_score)``.
+
+        Raises:
+            RuntimeError: The network produced a non-finite output.
+        """
+        sink: list[str] = notes if notes is not None else []
+        screened: dict[str, Any] = {}
+        fractional: list[str] = []
+        moved: list[str] = []
+        for discipline in IntelligenceDiscipline:
+            key = discipline.value
+            if key not in intel_reports:
+                continue
+            multiplier = 1.0 if ci is None else ci.fusion_weight_multipliers.get(key, 1.0)
+            if multiplier <= 0.0:
+                sink.append(
+                    f"{key}: weight 0 after counterintelligence screening; not shown to "
+                    "the fusion network"
+                )
+                continue
+            if multiplier < 1.0:
+                fractional.append(f"{key} x{multiplier:g}")
+            fixed = self.int_reliability_scores.get(key, 0.75)
+            adjusted = None if ci is None else ci.adjusted_reliability.get(key)
+            if adjusted is not None and not math.isclose(adjusted, fixed, abs_tol=1e-12):
+                moved.append(f"{key} {fixed:g}->{adjusted:.3g}")
+            screened[key] = intel_reports[key]
+        if fractional:
+            sink.append(
+                "fusion network did not score: it cannot represent fractional screening "
+                f"weights ({', '.join(fractional)}); decided by evidence scoring"
+            )
+            return self._evidence_assessment(intel_reports, ci, notes=notes)
+        if moved:
+            sink.append(
+                "fusion network did not score: its features use the fixed discipline "
+                f"reliabilities, but source information adjusted them ({', '.join(moved)}); "
+                "decided by evidence scoring"
+            )
+            return self._evidence_assessment(intel_reports, ci, notes=notes)
+        try:
+            return self._network_assessment(network, screened)
+        except ValueError as exc:
+            sink.append(f"fusion network did not score: {exc}; decided by evidence scoring")
+            return self._evidence_assessment(intel_reports, ci, notes=notes)
 
     def _evidence_assessment(
         self,
         intel_reports: dict[str, Any],
         ci: CounterintelligenceAssessment | None = None,
+        *,
+        notes: list[str] | None = None,
     ) -> tuple[int, float, float]:
         """Score the threat from the reported evidence alone.
 
@@ -704,13 +1066,19 @@ class IntelligenceFusionEngine:
         reliability-weighted mean of the per-discipline ``threat_score``
         values, with confidence taken from the reports and scaled by
         corroboration (a single-source assessment is damped; three or more
-        reporting disciplines carry full weight, matching the three primary
-        sources ``_identify_sources`` surfaces). An unusable ``threat_score``
-        or ``confidence`` — non-numeric, ``None``, NaN or infinite — is not
-        evidence: it is dropped with a warning (the same posture as GOSNN's
-        non-finite scalar handling and the timing monitor's
-        ``record_timing``) rather than propagated into the decision or
-        allowed to crash it.
+        scoring disciplines carry full weight, matching the three primary
+        sources ``_identify_sources`` surfaces).
+
+        Only a report stating a valid ``threat_score`` -- a finite number in
+        ``[0, 1]`` -- counts, toward the score, the corroboration and the
+        confidence. A report without one (``{}`` included) is not evidence and
+        no default is fabricated for it; a score that is non-numeric, ``None``,
+        NaN, infinite or outside ``[0, 1]`` excludes its report, because one
+        report at ``-1e6`` or ``50`` would otherwise decide the weighted mean
+        whatever its weight. A stated ``confidence`` outside ``[0, 1]`` (or
+        unusable) is dropped; a missing one is not assumed. Every exclusion
+        is logged and recorded in ``notes`` (surfaced as
+        ``IntelligenceFusionResult.evidence_notes``).
 
         With a counterintelligence assessment ``ci``, each discipline's
         reliability is the screen's source-adjusted posterior times its weight
@@ -721,6 +1089,7 @@ class IntelligenceFusionEngine:
         Args:
             intel_reports: Reports keyed by discipline.
             ci: The counterintelligence screen of the same reports, if run.
+            notes: Collects the reason for every exclusion, when given.
 
         Returns:
             Tuple of ``(threat_class, confidence_score, risk_score)`` where
@@ -729,58 +1098,26 @@ class IntelligenceFusionEngine:
         """
         self._require_report_mapping(intel_reports)
 
-        weighted: list[tuple[float, float]] = []
-        confidences: list[float] = []
-        contributing: list[str] = []
-
-        for discipline in IntelligenceDiscipline:
-            report = intel_reports.get(discipline.value)
-            if not isinstance(report, Mapping):
-                continue
-            reliability = self.int_reliability_scores.get(discipline.value, 0.75)
-            if ci is not None:
-                adjusted = ci.adjusted_reliability.get(discipline.value)
-                if adjusted is not None:
-                    reliability = adjusted
-                reliability *= ci.fusion_weight_multipliers.get(discipline.value, 1.0)
-                if reliability <= 0.0:
-                    continue  # derivative or excluded: no weight, confidence or corroboration
-            if "threat_score" in report:
-                score = self._finite_or_none(report["threat_score"])
-                if score is not None:
-                    weighted.append((reliability, score))
-                else:
-                    self.logger.warning(
-                        "evidence assessment: dropping unusable threat_score from %s",
-                        discipline.value,
-                    )
-            confidence = self._finite_or_none(report.get("confidence", 0.5))
-            if confidence is not None:
-                confidences.append(confidence)
-                contributing.append(discipline.value)
-            else:
-                self.logger.warning(
-                    "evidence assessment: dropping unusable confidence from %s",
-                    discipline.value,
-                )
-
-        total_weight = sum(w for w, _ in weighted)
-        if not weighted or total_weight <= 0.0:
+        scored = self._scored_reports(intel_reports, ci, notes)
+        total_weight = sum(weight for _, weight, _, _ in scored)
+        if not scored or total_weight <= 0.0:
             return ThreatLevel.LOW.value, 0.0, 0.0
 
-        risk_score = sum(w * s for w, s in weighted) / total_weight
-        risk_score = float(min(max(risk_score, 0.0), 1.0))
+        # Every score lies in [0, 1], so the weighted mean does too.
+        risk_score = float(sum(weight * score for _, weight, score, _ in scored) / total_weight)
 
+        confidences = [conf for _, _, _, conf in scored if conf is not None]
         if confidences:
+            contributing = [key for key, _, _, _ in scored]
             independent = (
-                ci.independent_corroboration(contributing) if ci is not None else len(confidences)
+                ci.independent_corroboration(contributing) if ci is not None else len(scored)
             )
             corroboration = min(1.0, independent / 3.0)
             confidence_score = float(
                 min(max(float(np.mean(confidences)) * corroboration, 0.0), 1.0)
             )
         else:
-            # Threat scores with no finite confidence anywhere: the risk is
+            # Threat scores with no valid confidence anywhere: the risk is
             # reportable but nothing supports asserting confidence in it.
             confidence_score = 0.0
 
@@ -794,27 +1131,20 @@ class IntelligenceFusionEngine:
     ) -> tuple[list[str], list[str]]:
         """Identify primary and corroborating intelligence sources.
 
-        A discipline the counterintelligence screen gave zero weight (all of
-        its reports derivative or excluded) is not listed as a source.
+        Only disciplines whose report counts as evidence (a valid
+        ``threat_score`` and a positive screening weight, as in
+        :meth:`_evidence_assessment`) are listed, ranked by confidence; an
+        empty report or a derivative copy is not a source.
         """
-        source_scores = []
-
-        for _i, discipline in enumerate(IntelligenceDiscipline):
-            if ci is not None and ci.fusion_weight_multipliers.get(discipline.value, 1.0) <= 0.0:
-                continue
-            if discipline.value in intel_reports:
-                # Unusable confidences rank last rather than crashing the sort.
-                score = self._finite_or_none(intel_reports[discipline.value].get("confidence", 0.0))
-                source_scores.append((discipline.value, score if score is not None else 0.0))
-
+        source_scores = [
+            (key, confidence if confidence is not None else 0.0)
+            for key, _, _, confidence in self._scored_reports(intel_reports, ci, None)
+        ]
+        # Stable sort: equal confidences keep IntelligenceDiscipline order.
         source_scores.sort(key=lambda x: x[1], reverse=True)
 
-        # Coerce IntelligenceDiscipline.value (typed as Literal[...] by mypy)
-        # into plain ``str`` so the return matches the declared signature
-        # ``tuple[list[str], list[str]]`` and downstream consumers don't get
-        # narrowed Literal types.
-        primary: list[str] = [str(s[0]) for s in source_scores[:3]]
-        corroborating: list[str] = [str(s[0]) for s in source_scores[3:6]]
+        primary: list[str] = [s[0] for s in source_scores[:3]]
+        corroborating: list[str] = [s[0] for s in source_scores[3:6]]
 
         return primary, corroborating
 

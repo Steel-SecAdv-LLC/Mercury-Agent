@@ -107,7 +107,9 @@ def ids_in(split: str, count: int, prefix: str = "case", pct: int = 25) -> list[
 
 
 def reports_for(case_id: str) -> dict[str, Any]:
-    return {"open_source": {"threat_score": bucket(case_id) / 100, "confidence": 0.8}}
+    """A payload unique to each case id (the merit gate counts duplicates once)."""
+    digest = int(hashlib.sha3_256(case_id.encode("utf-8")).hexdigest(), 16)
+    return {"open_source": {"threat_score": (digest % 10**6) / 10**6, "confidence": 0.8}}
 
 
 def make_case(cid: str, /, **overrides: Any) -> Case:
@@ -1367,7 +1369,8 @@ class TestExport:
             )["entry"].update(outcome_source_ids=["Reuters"]),
         )
         with pytest.raises(
-            ExportRefused, match="29 eligible held-out cases; the merit gate " "needs at least 30"
+            ExportRefused,
+            match="29 distinct eligible held-out cases; the merit gate needs at least 30",
         ):
             ledger.export_heldout_for_merit_gate()
         assert len(ledger.heldout_cases()) == 29  # listing is not the merit-gate export
@@ -2026,6 +2029,24 @@ class TestExportProvenance:
         ledger.export("heldout", out)
         assert json.loads(out.read_text())["split"] == "heldout"
         assert [p.name for p in tmp_path.iterdir() if p.name.startswith(".heldout")] == []
+
+
+class TestHeldoutMinimumCountsDistinctCases:
+    def test_exact_duplicates_count_once_toward_the_minimum(self, tmp_path: Path) -> None:
+        held = ids_in("heldout", 30)
+        payload = {"open_source": {"threat_score": 0.5, "confidence": 0.8}}
+        ledger = AdjudicationLedger(tmp_path / "l.jsonl", policy=AgreementPolicy(n_boot=50))
+        items: list[Any] = []
+        for i, cid in enumerate(held):
+            dup = {"intel_reports": payload} if i < 2 else {}  # two identical cases
+            level = 3 if i < 2 else 1 + i % 5
+            items += case_items(cid, [level, level], **dup)
+        ledger.extend(items)
+        assert len(ledger.heldout_cases()) == 30
+        with pytest.raises(
+            ExportRefused, match=r"29 distinct eligible held-out cases \(30 with exact"
+        ):
+            ledger.export_heldout_for_merit_gate()
 
 
 class TestSplitLeakage:

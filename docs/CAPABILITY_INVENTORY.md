@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,897
-- **Capability-bearing classes:** 1,915 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,898
+- **Capability-bearing classes:** 1,916 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,128 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,129 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1128 |
+| Other capability classes | 1129 |
 | Support types (config / result / enum / error) | 982 |
 | Detection | 168 |
 | Neural models & layers | 160 |
@@ -2469,7 +2469,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 197 classes (121 capability)
+### `security/` — 198 classes (122 capability)
 
 **Adapters & backends**
 
@@ -2586,6 +2586,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MLDSAProvider` (`security.crypto_api`) — ML-DSA-65 (Dilithium) post-quantum signature provider — delegates to AMA.
 - `MercuryCrypto` (`security.crypto_api`) — Unified cryptographic interface for Mercury Agent.
 - `MercuryCryptoUse` (`security.quantum_risk_cyber`) — One of Mercury's own cryptographic uses, pinned to its source file.
+- `MeritAttempt` (`security.intelligence_fusion`) — One merit test run by :meth:`IntelligenceFusionEngine.load_trained_weights`.
 - `MeteorologicalProcessor` (`security.int_sources`) — Meteorological Intelligence Processor.
 - `MinHasher` (`security.counterintelligence`) — MinHash signatures under a seeded universal hash family.
 - `NarrativeAnalysis` (`security.psyop`) — Analysis of a narrative or message.
