@@ -5210,11 +5210,11 @@ class OmniMercuryEngine(LoggerMixin):
                     if TORCH_AVAILABLE and isinstance(score, torch.Tensor):
                         if score.numel() == 0:
                             continue
-                        base_scalars[f"detector_{name}_score"] = float(
+                        base_scalars[f"omni_detector_{name}_score"] = float(
                             score.detach().cpu().float().mean()
                         )
                     elif isinstance(score, (np.ndarray, float, int)):
-                        base_scalars[f"detector_{name}_score"] = float(np.mean(score))
+                        base_scalars[f"omni_detector_{name}_score"] = float(np.mean(score))
 
                 enhancement_result = gosnn.get_enhanced_scalars(
                     requesting_component="OmniMercuryEngine.detect_with_fusion",

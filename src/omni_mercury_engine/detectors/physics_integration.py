@@ -152,13 +152,17 @@ class PhysicsGOSNNScalars:
 
     @classmethod
     def get_all_scalars(cls) -> dict[str, float]:
-        """Get all GOSNN scalars.
+        """Get all GOSNN scalars under their ``omni_`` scalar names.
+
+        The class constants keep their Python names; each one is published as
+        ``omni_<lowercased constant>`` (``SPECTRAL_INTEGRITY`` ->
+        ``omni_spectral_integrity``), the naming every GOSNN scalar uses.
 
         Returns:
             Dictionary of scalar names to values
         """
         return {
-            name: value
+            f"omni_{name.lower()}": value
             for name, value in vars(cls).items()
             if not name.startswith("_") and isinstance(value, (int, float))
         }

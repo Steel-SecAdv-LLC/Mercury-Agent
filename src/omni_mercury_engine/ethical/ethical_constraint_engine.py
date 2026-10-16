@@ -321,11 +321,11 @@ class MaatBalanceEngine:
         epsilon = 1e-10
         safe_heart_weight = max(abs(heart_weight), epsilon)
         return {
-            "maat_balance_scalar": 1.0 / safe_heart_weight,
-            "truth_scalar": ethical_scores.get("truth", 0.5) * 1.3,
-            "justice_scalar": ethical_scores.get("justice", 0.5) * 1.3,
-            "cosmic_order_scalar": 1.0 + (1.0 - abs(heart_weight - 1.0)) * 0.3,
-            "ethical_weight_scalar": max(0.8, 2.0 - heart_weight),
+            "omni_maat_balance_scalar": 1.0 / safe_heart_weight,
+            "omni_truth_scalar": ethical_scores.get("truth", 0.5) * 1.3,
+            "omni_justice_scalar": ethical_scores.get("justice", 0.5) * 1.3,
+            "omni_cosmic_order_scalar": 1.0 + (1.0 - abs(heart_weight - 1.0)) * 0.3,
+            "omni_ethical_weight_scalar": max(0.8, 2.0 - heart_weight),
         }
 
     def _compute_harmony(self, state: dict[str, float]) -> float:
@@ -1022,18 +1022,18 @@ class ImmutableWisdomEngine:
             scalars.update(maat_result.omni_scalars)
 
         if wisdom_quotient:
-            scalars["wisdom_quotient_scalar"] = wisdom_quotient.total_score * 1.3
-            scalars["strategic_intelligence_scalar"] = wisdom_quotient.strategic_intelligence * 1.2
-            scalars["ethical_alignment_scalar"] = wisdom_quotient.ethical_alignment * 1.3
+            scalars["omni_wisdom_quotient_scalar"] = wisdom_quotient.total_score * 1.3
+            scalars["omni_strategic_intelligence_scalar"] = wisdom_quotient.strategic_intelligence * 1.2
+            scalars["omni_ethical_alignment_scalar"] = wisdom_quotient.ethical_alignment * 1.3
 
         if verification_result:
-            scalars["twelve_fold_scalar"] = verification_result.overall_score * 1.25
-            scalars["verification_pass_rate"] = len(verification_result.passed_dimensions) / 12.0
+            scalars["omni_twelve_fold_scalar"] = verification_result.overall_score * 1.25
+            scalars["omni_verification_pass_rate"] = len(verification_result.passed_dimensions) / 12.0
 
         if geometry_result:
-            scalars["geometry_scalar"] = geometry_result.overall_geometry_score * 1.2
-            scalars["golden_ratio_scalar"] = geometry_result.golden_ratio_alignment * 1.618
-            scalars["fibonacci_scalar"] = geometry_result.fibonacci_spiral_score * 1.15
+            scalars["omni_geometry_scalar"] = geometry_result.overall_geometry_score * 1.2
+            scalars["omni_golden_ratio_scalar"] = geometry_result.golden_ratio_alignment * 1.618
+            scalars["omni_fibonacci_scalar"] = geometry_result.fibonacci_spiral_score * 1.15
 
         return scalars
 
