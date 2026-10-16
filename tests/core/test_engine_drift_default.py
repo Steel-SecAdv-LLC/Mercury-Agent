@@ -211,3 +211,29 @@ def test_decider_does_not_defer_on_severity_without_detected_drift() -> None:
 
     assert state({"is_drift": False, "severity": "HIGH"}) is ThreeState.GROUNDED
     assert state({"is_drift": True, "severity": "HIGH"}) is ThreeState.UNAVAILABLE
+
+
+def test_detect_records_its_inference_auto_fit() -> None:
+    # engine.detect() fitted unfitted detectors on the scored batch without
+    # recording it, so detect_with_fusion later took that batch as the drift
+    # reference and fit_fusion kept the inference fit instead of training.
+    engine = OmniMercuryEngine(mode="fusion")
+    batch = _normals(60, seed=51)
+    result = engine.detect(batch)
+    assert "spatial" in result["inference_auto_fit_detectors"]
+    drift = engine.detect_with_fusion(batch)["drift_detection"]
+    assert drift["status"] == "no_baseline" and engine._drift_reference is None
+
+
+def test_training_replaces_an_inference_auto_fit() -> None:
+    engine = OmniMercuryEngine(mode="fusion")
+    scored = _normals(60, seed=52) + 5.0
+    engine.detect(scored, detector_types=["spatial"])
+    train = _normals(80, seed=53)
+    labels = np.zeros(len(train), dtype=np.int64)
+    labels[:8] = 1
+    engine.fit_fusion(train, labels)
+    assert engine._inference_auto_fit_detectors == set()
+    spatial: Any = engine.detectors["spatial"]
+    state = spatial.get_fitted_state()
+    assert np.allclose(np.asarray(state["lof_points"]), train)

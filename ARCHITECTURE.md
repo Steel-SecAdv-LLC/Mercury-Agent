@@ -839,7 +839,7 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
 
 - `core/parallel_detectors.py` runs parallel-safe detectors under a real
   deadline (finished results kept, unfinished ones reported as timed out);
-  `EngineConfig.detector_timeout_s` sets the engine's budget. A timed-out
+  `EngineConfig.detector_timeout_s` sets the engine's budget (default 30 s). A timed-out
   registry detector opens its circuit breaker instead of being relaunched.
 - Drift detection is on by default (`MERCURY_DRIFT_DETECTION=0` disables it).
   The reference is never an inference batch: an explicit baseline, else the

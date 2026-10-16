@@ -2520,8 +2520,7 @@ class OmniMercuryEngine(LoggerMixin):
         all_scores: list[np.ndarray[Any, Any]] = []
         for name, detector in self.detectors.items():
             try:
-                if not detector.is_fitted():
-                    detector.fit(X)
+                self._fit_for_training(name, detector, X)
                 result = detector.detect(X)
                 scores = result.get("scores", result.get("is_anomaly", np.zeros(n_samples)))
                 if isinstance(scores, (list, np.ndarray)):
@@ -2607,8 +2606,7 @@ class OmniMercuryEngine(LoggerMixin):
             logger.info(f"Fitting {len(self.detectors)} base detectors...")
             for name, detector in self.detectors.items():
                 try:
-                    if not detector.is_fitted():
-                        detector.fit(X)
+                    if self._fit_for_training(name, detector, X):
                         logger.debug(f"Fitted detector: {name}")
                 except Exception as e:
                     logger.warning(f"Failed to fit detector {name}: {e}")
@@ -4211,6 +4209,39 @@ class OmniMercuryEngine(LoggerMixin):
             return None
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
+    def _auto_fit_on_inference(self, name: str, detector: Any, data: Any) -> None:
+        """Fit an unfitted detector on an inference batch and record it.
+
+        The record (``inference_auto_fit_detectors`` in results) keeps the
+        batch out of the drift reference and makes the next training fit
+        replace this fit instead of keeping it.
+        """
+        if name not in self._inference_auto_fit_detectors:
+            logger.warning(
+                "Detector %r was auto-fit on an inference batch (n=%s) because it had no "
+                "prior fit; that batch is now its reference. Call fit_fusion(X_train, "
+                "y_train) or load a checkpoint first to avoid the leakage.",
+                name,
+                getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+            )
+        self._inference_auto_fit_detectors.add(name)
+        detector.fit(data)
+
+    def _fit_for_training(self, name: str, detector: Any, X: Any) -> bool:
+        """Fit ``detector`` on training rows unless it already holds a training fit.
+
+        A detector auto-fit on an inference batch is refit, so training never
+        keeps a reference that came from scored data.
+
+        Returns:
+            Whether the detector was fitted.
+        """
+        if detector.is_fitted() and name not in self._inference_auto_fit_detectors:
+            return False
+        detector.fit(X)
+        self._inference_auto_fit_detectors.discard(name)
+        return True
+
     def detect(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
@@ -4248,7 +4279,9 @@ class OmniMercuryEngine(LoggerMixin):
                 the shared fail-closed decision gate refuses this decision.
 
         Note:
-            Detectors are automatically fitted if not already fitted.
+            An unfitted detector is fitted on ``data`` and listed under
+            ``inference_auto_fit_detectors`` in the result. Such a fit is never
+            used as the drift reference, and the next training fit replaces it.
             Dictionary input skips fitting for detectors that require arrays.
         """
         if detector_types is None:
@@ -4268,7 +4301,7 @@ class OmniMercuryEngine(LoggerMixin):
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
-                    detector.fit(data)
+                    self._auto_fit_on_inference(detector_name, detector, data)
 
                 if isinstance(data, dict):
                     continue
@@ -4297,7 +4330,7 @@ class OmniMercuryEngine(LoggerMixin):
         if failure is not None:
             reraise(failure)
 
-        return {
+        output: dict[str, Any] = {
             "detectors": results,
             "is_anomaly": any(
                 (
@@ -4308,6 +4341,9 @@ class OmniMercuryEngine(LoggerMixin):
                 for r in results.values()
             ),
         }
+        if self._inference_auto_fit_detectors:
+            output["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
+        return output
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_batch_subject)
     def detect_batch(
@@ -5007,18 +5043,7 @@ class OmniMercuryEngine(LoggerMixin):
                         "scored. To opt into the legacy auto-fit-on-first-batch "
                         "behaviour, construct OmniMercuryEngine(require_explicit_fit=False)."
                     )
-                if name not in self._inference_auto_fit_detectors:
-                    logger.warning(
-                        "Detector %r was auto-fit on the first inference "
-                        "batch (n=%s) because it had no prior fit. The "
-                        "batch's distribution is now this detector's "
-                        "reference — call fit_fusion(X_train, y_train) "
-                        "before detect_with_fusion to avoid the leakage.",
-                        name,
-                        getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
-                    )
-                self._inference_auto_fit_detectors.add(name)
-                detector.fit(data)
+                self._auto_fit_on_inference(name, detector, data)
 
             if isinstance(data, dict) and not detector.is_fitted():
                 continue

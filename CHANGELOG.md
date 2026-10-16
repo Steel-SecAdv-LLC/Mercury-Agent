@@ -95,8 +95,10 @@ than two parallel-safe tasks the registry timeout was not enforced, and a hung
 detector counted as a success, stranded a thread per call and saturated the
 executor until every healthy detector failed. All fixed; explicit baselines
 survive fits; failed derivations are cached; drift series are pre-created so
-the first detection after a restart alerts. New: `EngineConfig.detector_timeout_s`
-(default `None`) and `MERCURY_FUSION_CHECKPOINT`.
+the first detection after a restart alerts. `engine.detect()` now records its
+inference auto-fits too, and any training fit replaces an inference auto-fit
+(it used to keep it). New: `EngineConfig.detector_timeout_s` (default 30 s, the
+registry's budget; `None` disables it) and `MERCURY_FUSION_CHECKPOINT`.
 
 **Fixed — API audit and export (`api/`, `security/secure_audit_logging.py`).**
 A DETECT-only key could export audit logs with IPs and user agents:

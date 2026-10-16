@@ -516,7 +516,9 @@ class TestEngineDetectorTimeout:
 
         engine = OmniMercuryEngine(config=EngineConfig(detector_timeout_s=0.5))
         assert engine.detector_executor.timeout_s == 0.5
-        assert _engine(2).detector_executor.timeout_s is None  # default: no budget
+        assert _engine(2).detector_executor.timeout_s == 30.0  # default budget
+        unbounded = OmniMercuryEngine(config=EngineConfig(detector_timeout_s=None))
+        assert unbounded.detector_executor.timeout_s is None
 
     @pytest.mark.parametrize("bad", [0.0, -1.0])
     def test_config_rejects_a_non_positive_budget(self, bad: float) -> None:

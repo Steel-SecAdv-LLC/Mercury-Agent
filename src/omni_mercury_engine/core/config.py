@@ -300,14 +300,17 @@ class EngineConfig:
     ``MERCURY_DRIFT_DETECTION=0`` turns it off process-wide.
     """
 
-    detector_timeout_s: float | None = None
+    detector_timeout_s: float | None = 30.0
     """
-    Wall-clock budget (seconds) for the parallel-safe detectors of one fusion pass.
+    Wall-clock budget (seconds) for the parallel-safe detectors of one pass.
 
-    A detector still running at the deadline is skipped for that pass (its
-    thread finishes on its own; the result is discarded). Detectors that are
-    not ``parallel_safe`` run in the calling thread and are not bounded.
-    ``None`` (default) waits for every detector.
+    The default, 30 s, is the detector registry's budget too: generous for any
+    single batch, but a hung detector cannot hold a request open. A detector
+    still running at the deadline is skipped in ``detect_with_fusion`` (its
+    thread finishes on its own; the result is discarded) and raises
+    ``TimeoutError`` from ``detect``. Detectors that are not ``parallel_safe``
+    run in the calling thread and are not bounded. ``None`` waits for every
+    detector.
     """
 
     def __post_init__(self) -> None:
@@ -581,7 +584,9 @@ class ConfigurationManager:
             batch_size=int(self.get("batch_size", 32) or 32),
             num_workers=int(self.get("num_workers", 4) or 4),
             detector_timeout_s=(
-                float(timeout) if (timeout := self.get("detector_timeout_s")) is not None else None
+                float(timeout)
+                if (timeout := self.get("detector_timeout_s", 30.0)) is not None
+                else None
             ),
             model_path=self.get("model_path"),
             cache_dir=str(self.get("cache_dir", "./cache")),
