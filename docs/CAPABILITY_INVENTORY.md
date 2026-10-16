@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,886
-- **Capability-bearing classes:** 1,908 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,896
+- **Capability-bearing classes:** 1,914 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 47
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,121 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,127 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1121 |
-| Support types (config / result / enum / error) | 978 |
+| Other capability classes | 1127 |
+| Support types (config / result / enum / error) | 982 |
 | Detection | 168 |
 | Neural models & layers | 160 |
 | Data sources & loaders | 103 |
@@ -315,7 +315,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `biometric/` — 42 classes (30 capability)
+### `biometric/` — 51 classes (36 capability)
 
 **Biometric & recognition**
 
@@ -353,18 +353,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Minutia` (`biometric.fingerprint_recognition`) — A single fingerprint minutia point.
 - `MinutiaeExtractor` (`biometric.fingerprint_recognition`) — Extract minutiae from enhanced fingerprint image.
 - `PitchExtractor` (`biometric.voice_recognition`) — Extract pitch (fundamental frequency) contour.
+- `RateEstimate` (`biometric.rf_vital_signs`) — A rate estimate, or an abstention with its reason.
 - `Singularity` (`biometric.fingerprint_recognition`) — A fingerprint singularity point (core or delta).
 - `SpeakerEmbedding` (`biometric.voice_recognition`) — Generate speaker embeddings from acoustic features.
+- `SpectralPeak` (`biometric.rf_vital_signs`) — The dominant in-band spectral peak of one or more streams.
+- `VitalSignEstimate` (`biometric.rf_vital_signs`) — Respiration and heart-rate estimates for one analysis window.
+- `VitalSignTrack` (`biometric.rf_vital_signs`) — Sliding-window rate series plus the full respiration waveform.
 - `VoiceFeatures` (`biometric.voice_recognition`) — Extracted voice features.
+- `WaveformExcerpt` (`biometric.rf_vital_signs`) — A stimulus-locked respiration waveform excerpt, or an abstention.
+- `_Prepared` (`biometric.rf_vital_signs`)
 
 **Prediction & forecasting**
 
 - `OrientationFieldEstimator` (`biometric.fingerprint_recognition`) — Estimate local ridge orientation field.
 - `RidgeFrequencyEstimator` (`biometric.fingerprint_recognition`) — Estimate local ridge frequency.
 
-<details><summary>Support types (12)</summary>
+<details><summary>Support types (15)</summary>
 
-`BiometricAnomalyResult`, `BiometricModality`, `BiometricVerificationResult`, `FingerprintLivenessResult`, `FingerprintMatchResult`, `FusionStrategy`, `IrisMatchResult`, `LivenessResult`, `MinutiaeType`, `SingularityType`, `VoiceLivenessResult`, `VoiceMatchResult`
+`AbstainReason`, `BiometricAnomalyResult`, `BiometricModality`, `BiometricVerificationResult`, `ConsentRequiredError`, `FingerprintLivenessResult`, `FingerprintMatchResult`, `FusionStrategy`, `IrisMatchResult`, `LivenessResult`, `MinutiaeType`, `SingularityType`, `VitalSignConfig`, `VoiceLivenessResult`, `VoiceMatchResult`
 
 </details>
 
@@ -1897,7 +1903,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `ml/` — 307 classes (245 capability)
+### `ml/` — 308 classes (245 capability)
 
 **Adapters & backends**
 
@@ -2174,9 +2180,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (62)</summary>
+<details><summary>Support types (63)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`
 
 </details>
 
