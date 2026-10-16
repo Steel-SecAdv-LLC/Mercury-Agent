@@ -1503,6 +1503,16 @@ try:
 except ImportError as e:
     logger.warning(f"Hazard visualization routes not available: {e}")
 
+# Include Evidence-Assessment and Human-Subject Routes (statement verification,
+# CIT, counterintelligence screening and fusion, vital signs, adjudication)
+try:
+    from omni_mercury_engine.api.routes.assessment import router as assessment_router
+
+    app.include_router(assessment_router)
+    logger.info("Assessment routes registered")
+except ImportError as e:
+    logger.warning(f"Assessment routes not available: {e}")
+
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
 try:

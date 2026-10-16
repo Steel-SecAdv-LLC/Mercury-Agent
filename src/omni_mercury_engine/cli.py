@@ -2579,5 +2579,312 @@ def platform_audit_verify(file_path: str | None) -> None:
         raise SystemExit(1)
 
 
+# --------------------------------------------------------------------------- #
+# Evidence assessment and human-subject capabilities.
+# --------------------------------------------------------------------------- #
+#: Exit statuses of the ``assess`` and ``adjudication`` groups.
+_EXIT_ERROR = 1  # runtime failure, or the ledger cannot support the request
+_EXIT_INPUT = 2  # malformed input; nothing ran
+_EXIT_REFUSED = 3  # refused by the decision gate, consent or operator policy
+
+
+def _read_json_input(source: str) -> Any:
+    """Parse JSON from a file path, or from stdin when ``source`` is ``-``."""
+    import sys
+
+    try:
+        text = sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
+        return json.loads(text)
+    except (OSError, ValueError) as exc:
+        click.echo(json.dumps({"error": f"cannot read JSON from {source}: {exc}"}), err=True)
+        raise SystemExit(_EXIT_INPUT) from exc
+
+
+def _run_assessment(call: Any, *args: Any, **kwargs: Any) -> None:
+    """Run a service call, print its JSON result, and map refusals to exit statuses."""
+    try:
+        from omni_mercury_engine.assessment.policy import CapabilityDisabledError
+        from omni_mercury_engine.assessment.service import InputError
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+        from omni_mercury_engine.security.adjudication import ExportRefused
+        from omni_mercury_engine.truth_decipher import ConsentRequiredError
+    except ImportError as exc:  # the gate needs the ML stack; never run ungated
+        click.echo(json.dumps({"error": f"the decision gate is unavailable: {exc}"}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    try:
+        result = call(*args, **kwargs)
+    except EthicalConstraintViolationError as exc:
+        refusal = {"refused": True, "check": exc.check, "reason": str(exc)}
+        click.echo(json.dumps(refusal), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except ConsentRequiredError as exc:
+        click.echo(json.dumps({"refused": True, "check": "consent", "reason": str(exc)}), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except CapabilityDisabledError as exc:
+        click.echo(json.dumps({"refused": True, "check": "disabled", "reason": str(exc)}), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except InputError as exc:
+        click.echo(json.dumps({"error": str(exc)}), err=True)
+        raise SystemExit(_EXIT_INPUT) from exc
+    except ExportRefused as exc:
+        click.echo(json.dumps({"error": str(exc)}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    click.echo(json.dumps(result, indent=2, default=str))
+
+
+@main.group()
+def assess() -> None:
+    """Statement verification, CIT, intelligence screening and fusion, vital signs.
+
+    Each command reads one JSON request (a file, or ``-`` for stdin) in the
+    format the matching ``/api/v1/assessment`` route takes, passes the same
+    gates (harm-uplift decision gate; for the CIT and vital signs also operator
+    policy ``MERCURY_HUMAN_SUBJECT_CAPABILITIES``, a screened purpose and a
+    verified consent record), and prints the JSON result.
+
+    Exit status: 0 ok, 1 runtime failure, 2 malformed input, 3 refused.
+    """
+
+
+@assess.command("verify-statements")
+@click.argument("request_file")
+def assess_verify_statements(request_file: str) -> None:
+    """Verify statements against evidence (corroboration, contradictions, consistency)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.verify_statements,
+        _read_json_input(request_file),
+        surface="cli.assessment.verify_statements",
+    )
+
+
+@assess.command("cit")
+@click.argument("request_file")
+def assess_cit(request_file: str) -> None:
+    """Score a consented Concealed Information Test session (recognition, not deception)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.concealed_information_test,
+        _read_json_input(request_file),
+        surface="cli.assessment.concealed_information_test",
+    )
+
+
+@assess.command("vital-signs")
+@click.argument("request_file")
+@click.option(
+    "--arrays",
+    "arrays_file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="A .npz file whose arrays (csi_amplitude, csi_phase, subcarrier_indices, "
+    "radar_displacement_m, radar_phase_rad, timestamps_s) join the request; for "
+    "recordings too large for JSON.",
+)
+def assess_vital_signs(request_file: str, arrays_file: str | None) -> None:
+    """Estimate or track respiration and heart rate from radar or Wi-Fi CSI."""
+    from omni_mercury_engine.assessment import service
+
+    request = _read_json_input(request_file)
+    if arrays_file is not None:
+        if not isinstance(request, dict):
+            click.echo(json.dumps({"error": "the request must be a JSON object"}), err=True)
+            raise SystemExit(_EXIT_INPUT)
+        with np.load(arrays_file, allow_pickle=False) as archive:
+            for name in archive.files:
+                if name in request:
+                    click.echo(
+                        json.dumps({"error": f"{name} is given both in JSON and in --arrays"}),
+                        err=True,
+                    )
+                    raise SystemExit(_EXIT_INPUT)
+                request[name] = archive[name]
+    _run_assessment(service.vital_signs, request, surface="cli.assessment.vital_signs")
+
+
+@assess.command("screen")
+@click.argument("request_file")
+def assess_screen(request_file: str) -> None:
+    """Counterintelligence screens over a report batch (flags, never a threat level)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.screen_intel_reports,
+        _read_json_input(request_file),
+        surface="cli.assessment.screen_intel_reports",
+    )
+
+
+@assess.command("fuse")
+@click.argument("request_file")
+def assess_fuse(request_file: str) -> None:
+    """All-source fusion of screened reports into a threat assessment."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.fuse_intelligence,
+        _read_json_input(request_file),
+        surface="cli.assessment.fuse_intelligence",
+    )
+
+
+@assess.command("fusion-status")
+def assess_fusion_status() -> None:
+    """Which path the fusion engine decides with (evidence, or merit-admitted network)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.fusion_status)
+
+
+@main.group()
+def adjudication() -> None:
+    """The adjudication ledger: held-out threat-level labels for the fusion merit gate.
+
+    Operates on ``MERCURY_ADJUDICATION_PATH`` (default
+    ``~/.mercury/adjudication.jsonl``). Records and exports are ML-DSA-65
+    signed when ``MERCURY_ADJUDICATION_SIGNING_KEY`` names a key file, and
+    verified against ``MERCURY_ADJUDICATION_PUBLIC_KEY`` when that is set.
+    Ratings and decisions are stamped with the current time.
+    """
+
+
+@adjudication.command("status")
+def adjudication_status() -> None:
+    """Chain validity, agreement, counts and work queues."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.adjudication_status)
+
+
+@adjudication.command("verify")
+@click.option(
+    "--expected-head",
+    default=None,
+    help="A record digest seen earlier (e.g. an export's head); fails if it is gone.",
+)
+def adjudication_verify(expected_head: str | None) -> None:
+    """Verify the hash chain (and pinned signatures); exit 1 when it does not verify."""
+    from omni_mercury_engine.assessment import service
+
+    result = service.adjudication_verify(expected_head)
+    click.echo(json.dumps(result))
+    if not result["valid"]:
+        raise SystemExit(_EXIT_ERROR)
+
+
+@adjudication.command("repair")
+def adjudication_repair() -> None:
+    """Drop an unterminated last line left by a crash (nothing else is ever rewritten)."""
+    from omni_mercury_engine.assessment import service
+
+    result = service.adjudication_repair()
+    click.echo(json.dumps(result))
+    if not result["repaired"]:
+        raise SystemExit(_EXIT_ERROR)
+
+
+@adjudication.command("export")
+@click.option("--split", type=click.Choice(["heldout", "training"]), required=True)
+@click.option("--out", type=click.Path(dir_okay=False), required=True)
+def adjudication_export(split: str, out: str) -> None:
+    """Write one split's labels (signed when MERCURY_ADJUDICATION_SIGNING_KEY is set)."""
+    from omni_mercury_engine.assessment import service
+
+    def summary() -> dict[str, Any]:
+        document = service.adjudication_export(split, out)
+        return {
+            "exported": True,
+            "split": split,
+            "out": out,
+            "cases": len(document["cases"]),
+            "ledger_head_digest": document["ledger_head_digest"],
+            "signed": "signature" in document,
+        }
+
+    _run_assessment(summary)
+
+
+@adjudication.command("keygen")
+@click.option("--out", type=click.Path(dir_okay=False), required=True)
+def adjudication_keygen(out: str) -> None:
+    """Create an owner-only ML-DSA-65 key file (never overwrites) and print its public key."""
+    from omni_mercury_engine.security.signing_keys import generate_keyfile
+
+    try:
+        public_hex = generate_keyfile(out)
+    except FileExistsError as exc:
+        click.echo(json.dumps({"error": f"{out} exists; keys are never overwritten"}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    click.echo(json.dumps({"key_file": out, "public_key_hex": public_hex}))
+
+
+@adjudication.command("add-case")
+@click.argument("request_file")
+def adjudication_add_case(request_file: str) -> None:
+    """Record a case (its held-out/training split is fixed by its id)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_case,
+        _read_json_input(request_file),
+        surface="cli.assessment.adjudication_add_case",
+    )
+
+
+@adjudication.command("add-outcome")
+@click.argument("request_file")
+def adjudication_add_outcome(request_file: str) -> None:
+    """Record what happened in a case."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_outcome,
+        _read_json_input(request_file),
+        surface="cli.assessment.adjudication_add_outcome",
+    )
+
+
+@adjudication.command("rate")
+@click.argument("request_file")
+@click.option("--rater", required=True, help="The rater's id (who is rating).")
+def adjudication_rate(request_file: str, rater: str) -> None:
+    """Record a blind rating ({case_id, level, rationale}) by --rater, stamped now."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_rating,
+        _read_json_input(request_file),
+        rater_id=rater,
+        surface="cli.assessment.adjudication_add_rating",
+    )
+
+
+@adjudication.command("decide")
+@click.argument("request_file")
+@click.option("--adjudicator", required=True, help="The adjudicator's id (never a rater).")
+def adjudication_decide(request_file: str, adjudicator: str) -> None:
+    """Record an adjudicator decision ({case_id, level, rationale}), stamped now."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_decision,
+        _read_json_input(request_file),
+        adjudicator_id=adjudicator,
+        surface="cli.assessment.adjudication_add_decision",
+    )
+
+
+@adjudication.command("rater-view")
+@click.argument("case_id")
+@click.option("--rater", required=True, help="The rater asking.")
+def adjudication_rater_view(case_id: str, rater: str) -> None:
+    """What --rater may see of CASE_ID (others' ratings only after their own)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.adjudication_rater_view, rater, case_id)
+
+
 if __name__ == "__main__":
     main()

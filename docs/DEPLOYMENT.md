@@ -334,7 +334,24 @@ Structured-vs-text formatting is selected by the logging setup in
 | `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
 | `MERCURY_FUSION_CHECKPOINT` | bundled `models/default_fusion.pt` | Fusion checkpoint the API, MCP server and `detect`/`explain` serve; write one with `mercury-agent train -o`. A missing path fails like a missing bundled file, never falling back to it |
 | `MERCURY_DRIFT_DETECTION` | on | `0`/`false`/`off` disables input-drift detection (see `docs/runbooks/data-drift.md`) |
-| `MERCURY_ADJUDICATION_PATH` | `~/.mercury/adjudication.jsonl` | Held-out fusion-label ledger (`python -m omni_mercury_engine.security.adjudication`) |
+| `MERCURY_ADJUDICATION_PATH` | `~/.mercury/adjudication.jsonl` | Held-out fusion-label ledger (`mercury-agent adjudication ...`, `/api/v1/assessment/adjudication/*`) |
+| `MERCURY_ADJUDICATION_SIGNING_KEY` | unset | Owner-only ML-DSA-65 key file (`mercury-agent adjudication keygen --out PATH`) used to sign ledger records and exports |
+| `MERCURY_ADJUDICATION_PUBLIC_KEY` | unset | Hex ML-DSA-65 public key the ledger and its exports are pinned to on read; unsigned or differently signed records are refused |
+| `MERCURY_INTEL_FUSION_CHECKPOINT` | unset | All-source fusion checkpoint for the assessment surfaces; served only if the merit gate admits it against the ledger's held-out labels, else evidence scoring decides |
+| `MERCURY_MERIT_ATTEMPT_LOG` | unset | Hash-chained log of merit-gate attempts, so alpha spending survives restarts (unset: counted per engine instance) |
+
+### Human-subject capabilities
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MERCURY_HUMAN_SUBJECT_CAPABILITIES` | unset (off) | Lawful bases permitted for the Concealed Information Test and contactless vital signs on every surface: `consent`, and/or `vital_interests` (vital signs of people who cannot consent, e.g. survivors under rubble). An unknown value is refused, never guessed |
+| `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Largest declared request body the `/api/v1/assessment` routes accept (413 above it) |
+
+With the capabilities on, every call still needs a stated purpose (refused
+when it describes covert or non-consensual sensing, or harm to a person) and,
+under `consent`, a `ConsentRecord` for the subject, obtained before the
+recording, with the capability's scope and not withdrawn. Each admitted call is
+written to the gate audit log with a fingerprint of its consent or attestation.
 
 ML availability is determined by the installed extras (`pip install
 mercury-agent[ml]`), not by an environment toggle, and the PQC backend is

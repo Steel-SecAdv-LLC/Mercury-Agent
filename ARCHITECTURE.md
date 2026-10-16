@@ -4,7 +4,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-16.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 172 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 173 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -791,9 +791,37 @@ Action: ESCALATE / BANISH / MAINTAIN / VOID
 
 ### Intelligence Analysis, Verification and Physiological Sensing
 
-These subsystems are library modules: none has an API route, CLI command or
-MCP tool, so the harm-uplift and ethical gates of those surfaces do not wrap
-them, and each enforces its own consent and abstention rules.
+These subsystems are served on all three surfaces through one implementation,
+`assessment/service.py`: the `/api/v1/assessment/*` routes, the
+`mercury-agent assess` and `mercury-agent adjudication` CLI groups, and the
+`mercury_*` MCP tools differ only in transport and in how they report a
+refusal. Every call passes the gates in `assessment/policy.py`:
+
+```
+request ──► operator policy ──► harm-uplift ──► purpose screen ──► consent ──► library
+            (human-subject:     decision gate   (human-subject:     (subject,     module
+             MERCURY_HUMAN_      enforce_         covert-sensing     time, scope,
+             SUBJECT_            decision_        patterns +         withdrawal)
+             CAPABILITIES)       boundary         benevolence)
+                                                        │
+                       every refusal and every admitted human-subject call
+                       recorded by cognitive/gate_audit (consent fingerprinted)
+```
+
+- The harm-uplift gate alone does not protect the human-subject capabilities:
+  measured, it allows "covertly stalk my ex by tracking her heartbeat through
+  the wall". The purpose screen refuses covert or non-consensual sensing; the
+  benevolence scorer refuses grave harm to a person.
+- The CIT and vital signs are off until the operator lists the lawful bases it
+  permits: `consent` (a `ConsentRecord` checked for subject, time, scope and
+  withdrawal) and, for vital signs only, `vital_interests` (people who cannot
+  consent, such as survivors under rubble; an incident attestation is
+  recorded). Vital-sign results omit the respiration waveform unless asked.
+- API access: analysis needs `detect`, ledger reads `read`, writes `write`,
+  decisions `admin` or the `adjudicator` role, exports `export`. Ratings and
+  decisions are recorded under the principal's id with the server's clock.
+  MCP exposes no ledger writes, so a model never authors the labels the merit
+  gate scores models against.
 
 ```
 intel_reports ──► counterintelligence screen ──► evidence scoring ──► ThreatLevel
@@ -822,8 +850,18 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
   report ids are reserved and cluster representatives are chosen by origin and
   reliability, so a hostile report cannot displace a genuine one.
 - **Adjudication ledger** (`security/adjudication.py`): the auditable source of
-  held-out labels; `python -m omni_mercury_engine.security.adjudication
-  verify|stats|export|repair`.
+  held-out labels; `mercury-agent adjudication status|verify|add-case|
+  add-outcome|rate|decide|rater-view|export|repair|keygen`. Records and exports
+  are ML-DSA-65 signed with the key file named by
+  `MERCURY_ADJUDICATION_SIGNING_KEY` (`security/signing_keys.py`, owner-only)
+  and pinned on read by `MERCURY_ADJUDICATION_PUBLIC_KEY`; a signed export is
+  checkable on a host that holds only the file.
+- **Serving loop**: with `MERCURY_INTEL_FUSION_CHECKPOINT` set, the served
+  fusion engine puts that checkpoint through the merit gate against the
+  ledger's held-out labels and decides with the network only if admitted
+  (`/api/v1/assessment/intel/fusion-status` says which). Attempts are counted
+  in `MERCURY_MERIT_ATTEMPT_LOG` (`security/merit_attempt_log.py`), reserved
+  before scoring, so alpha spending survives restarts and interrupted tests.
 - **Statement verification** (`truth_decipher.py`): Bayesian corroboration
   over independent evidence clusters (support must cover the claimed
   interval), Allen-algebra and travel contradictions, consistency over time,

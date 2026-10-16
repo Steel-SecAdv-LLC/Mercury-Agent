@@ -614,8 +614,195 @@ class MercuryMCPServer:
                 },
                 handler=self._tool_value_metrics,
             ),
+            *self._assessment_specs(),
         ]
         self._tools = {s.name: s for s in specs}
+
+    # -- evidence assessment and human-subject tools -----------------------
+
+    def _assessment_specs(self) -> list[ToolSpec]:
+        """Tools for omni_mercury_engine.assessment (the API/CLI surfaces' implementation).
+
+        Ledger writes are deliberately absent: held-out labels must come from
+        human raters and adjudicators, or the merit gate they feed would be
+        scoring a model against labels a model wrote.
+        """
+        from omni_mercury_engine.assessment import service
+
+        human_subject_note = (
+            " Off until the operator sets MERCURY_HUMAN_SUBJECT_CAPABILITIES; needs a "
+            "stated 'purpose' (refused when it describes covert or non-consensual "
+            "sensing) and a verified consent record."
+        )
+        return [
+            ToolSpec(
+                name="mercury_verify_statements",
+                description=(
+                    "Verify statements against independent evidence: Bayesian "
+                    "corroboration over independence clusters, contradictions (Allen "
+                    "interval algebra, impossible travel), per-speaker consistency and "
+                    "verifiability. Never labels a person or an account."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "statements": {"type": "array", "description": "Statement objects."},
+                        "evidence": {"type": "array", "description": "Evidence items."},
+                        "config": {"type": "object"},
+                        "source_reliability": {"type": "object"},
+                        "verifiability_reference": {"type": "array"},
+                    },
+                    "required": ["statements"],
+                },
+                handler=self._assessment_handler(
+                    service.verify_statements, "mcp.assessment.verify_statements"
+                ),
+            ),
+            ToolSpec(
+                name="mercury_screen_intel_reports",
+                description=(
+                    "Counterintelligence screens over an intelligence report batch: "
+                    "source reliability, circular and coordinated reporting, "
+                    "fabrication screens, impossible travel. Flags are leads for an "
+                    "analyst; never a score or threat level."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "intel_reports": {"type": "object"},
+                        "history": {"type": "object"},
+                    },
+                    "required": ["intel_reports"],
+                },
+                handler=self._assessment_handler(
+                    service.screen_intel_reports, "mcp.assessment.screen_intel_reports"
+                ),
+            ),
+            ToolSpec(
+                name="mercury_fuse_intelligence",
+                description=(
+                    "All-source fusion of screened intelligence reports into a threat "
+                    "assessment. The network decides only after merit-gated weights "
+                    "are admitted; the result says which path decided."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "intel_reports": {"type": "object"},
+                        "temporal_context": {"type": "array"},
+                        "history": {"type": "object"},
+                    },
+                    "required": ["intel_reports"],
+                },
+                handler=self._assessment_handler(
+                    service.fuse_intelligence, "mcp.assessment.fuse_intelligence"
+                ),
+            ),
+            ToolSpec(
+                name="mercury_concealed_information_test",
+                description=(
+                    "Score a Concealed Information Test session: recognition of event "
+                    "details, not deception; a finding is not evidence of guilt."
+                    + human_subject_note
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "subject_pseudonym": {"type": "string"},
+                        "administered_at": {"type": "number"},
+                        "purpose": {"type": "string"},
+                        "consent": {"type": "object"},
+                        "questions": {"type": "array"},
+                        "series": {"type": "object"},
+                        "windows": {"type": "object"},
+                        "config": {"type": "object"},
+                        "probe_details_publicly_disclosed": {"type": "boolean"},
+                    },
+                    "required": [
+                        "subject_pseudonym",
+                        "administered_at",
+                        "purpose",
+                        "consent",
+                        "questions",
+                    ],
+                },
+                handler=self._assessment_handler(
+                    service.concealed_information_test,
+                    "mcp.assessment.concealed_information_test",
+                ),
+            ),
+            ToolSpec(
+                name="mercury_estimate_vital_signs",
+                description=(
+                    "Respiration and heart rate from contactless radar or Wi-Fi CSI; "
+                    "abstains rather than guesses. lawful_basis 'consent' (with a "
+                    "consent record) or 'vital_interests' (people who cannot consent, "
+                    "such as survivors under rubble, with an incident attestation)."
+                    + human_subject_note
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "purpose": {"type": "string"},
+                        "lawful_basis": {"type": "string", "enum": ["consent", "vital_interests"]},
+                        "fs": {"type": "number"},
+                        "recorded_at": {"type": "number"},
+                        "mode": {"type": "string", "enum": ["estimate", "track"]},
+                        "subject_pseudonym": {"type": "string"},
+                        "consent": {"type": "object"},
+                        "attestation": {"type": "object"},
+                        "radar_displacement_m": {"type": "array"},
+                        "radar_phase_rad": {"type": "array"},
+                        "wavelength_m": {"type": "number"},
+                        "csi_amplitude": {"type": "array"},
+                        "csi_phase": {"type": "array"},
+                        "include_waveform": {"type": "boolean"},
+                    },
+                    "required": ["purpose", "lawful_basis", "fs", "recorded_at"],
+                },
+                handler=self._assessment_handler(service.vital_signs, "mcp.assessment.vital_signs"),
+            ),
+            ToolSpec(
+                name="mercury_adjudication_status",
+                description=(
+                    "Read-only status of the adjudication ledger: chain validity, "
+                    "inter-rater agreement, counts per split and level, work queues."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                handler=self._assessment_handler(service.adjudication_status, None),
+            ),
+        ]
+
+    @staticmethod
+    def _assessment_handler(
+        call: Callable[..., dict[str, Any]], surface: str | None
+    ) -> Callable[[dict[str, Any]], str]:
+        """Wrap a service call: JSON in, JSON out, every refusal a ToolError naming its check."""
+
+        def handler(args: dict[str, Any]) -> str:
+            try:
+                from omni_mercury_engine.assessment.policy import CapabilityDisabledError
+                from omni_mercury_engine.assessment.service import InputError
+                from omni_mercury_engine.cognitive.ethical_bounding import (
+                    EthicalConstraintViolationError,
+                )
+                from omni_mercury_engine.security.adjudication import ExportRefused
+                from omni_mercury_engine.truth_decipher import ConsentRequiredError
+            except ImportError as exc:  # pragma: no cover - slim-install path
+                raise ToolError(f"the decision gate is unavailable: {exc}") from exc
+            try:
+                result = call(args, surface=surface) if surface is not None else call()
+            except EthicalConstraintViolationError as exc:
+                raise ToolError(f"refused by the '{exc.check}' gate: {exc}") from exc
+            except ConsentRequiredError as exc:
+                raise ToolError(f"refused (consent): {exc}") from exc
+            except CapabilityDisabledError as exc:
+                raise ToolError(f"refused (disabled): {exc}") from exc
+            except (InputError, ExportRefused) as exc:
+                raise ToolError(str(exc)) from exc
+            return json.dumps(result, default=str)
+
+        return handler
 
     # -- tool handlers -----------------------------------------------------
 
