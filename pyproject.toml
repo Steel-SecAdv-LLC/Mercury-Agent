@@ -782,14 +782,11 @@ module = [
     "hazard_scenarios",
     "hazard_scenarios.*",
     "scenario_io",
-    # Optional in-tree modules the tools surface ``try/except``-imports.
-    # The ML detector and federated aggregator surfaces ship behind
-    # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent
-    # in the default install; the tools above (``gosnn_latency_sla_gate``,
-    # ``memory_leak_sentinel``, ``federated_round_simulator``) treat
-    # the ``ImportError`` as a warn-status exit so the mypy boundary
-    # must follow suit.
-    "omni_mercury_engine.ml.gosnn_detector",
+    # Optional in-tree module a tool surfaces through ``try/except``-import.
+    # The federated aggregator ships behind the ``[federated]`` extra and is
+    # *expected* to be absent in the default install;
+    # ``federated_round_simulator`` treats the ``ImportError`` as a
+    # warn-status exit so the mypy boundary must follow suit.
     "omni_mercury_engine.federated.aggregator",
     # PKCS#11 HSM bindings (``python-pkcs11``) ship behind the ``[hsm]``
     # extra and are absent in the default install; ``corpus_resigner``

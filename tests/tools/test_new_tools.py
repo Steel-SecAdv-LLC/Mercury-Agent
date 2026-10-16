@@ -360,6 +360,42 @@ class TestGosnnLatencySlaGate:
         rc = TOOL_REGISTRY["gosnn_latency_sla_gate"](["--output", str(out), "--iterations", "8"])
         assert rc in (0, 1)
 
+    def test_measures_the_real_gosnn_step(self, tmp_path: Path) -> None:
+        # The gate used to import a module that never existed and always
+        # exited with a warning, measuring nothing.
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["gosnn_latency_sla_gate"](["--output", str(out), "--iterations", "8"])
+        cert = _load_cert(out)
+        body = cert["body"]
+        assert cert["status"] in ("ok", "fail")
+        assert body["measured"] == "GlobalOmniScalarNetwork.get_enhanced_scalars"
+        assert body["iterations"] == 8
+        assert 0.0 < body["p50_ms"] <= body["p95_ms"] <= body["max_ms"]
+        assert "cache_rate" not in body  # GOSNN has no result cache
+
+    def test_failing_budget_is_reported(self, tmp_path: Path) -> None:
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gosnn_latency_sla_gate"](
+            ["--output", str(out), "--iterations", "4", "--p50-ms-max", "0.000001"]
+        )
+        cert = _load_cert(out)
+        assert rc == 1 and cert["status"] == "fail"
+        assert any("p50 latency" in w for w in cert["warnings"])
+
+
+class TestMemoryLeakSentinelDefaultTarget:
+    def test_default_target_resolves_to_the_gosnn_step(self, tmp_path: Path) -> None:
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["memory_leak_sentinel"](
+            ["--output", str(out), "--iterations", "16", "--sample-every", "4"]
+        )
+        cert = _load_cert(out)
+        assert "target unavailable" not in " ".join(cert.get("warnings", []))
+        assert cert["status"] in ("ok", "fail")
+
 
 class TestThermalThrottleProbe:
     def test_short_window(self, tmp_path: Path) -> None:

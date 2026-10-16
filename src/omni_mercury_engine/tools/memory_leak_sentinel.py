@@ -32,7 +32,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--target",
-        default="omni_mercury_engine.ml.gosnn_detector:GOSNNDetector",
+        default="omni_mercury_engine.tools.gosnn_latency_sla_gate:GOSNNStep",
         help="module:ClassName whose ``detect(x)`` is exercised in a loop.",
     )
     parser.add_argument("--iterations", type=int, default=512)
