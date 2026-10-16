@@ -76,6 +76,8 @@ MAX_SIGNAL_VALUES = 2_000_000
 _PSEUDONYM = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 _FUSION_CHECKPOINT_ENV = "MERCURY_INTEL_FUSION_CHECKPOINT"
+#: Learn per-discipline reliabilities from the ledger's training split.
+_LEARN_RELIABILITY_ENV = "MERCURY_INTEL_LEARN_RELIABILITY"
 
 
 class InputError(ValueError):
@@ -880,6 +882,9 @@ def _report_text(reports: Mapping[str, Any]) -> str:
 def fusion_engine() -> IntelligenceFusionEngine:
     """The served all-source fusion engine, built once.
 
+    With ``MERCURY_INTEL_LEARN_RELIABILITY=1`` the per-discipline
+    reliabilities are first learned from the ledger's training split
+    (installed only if cross-validation says they beat the declared table).
     When ``MERCURY_INTEL_FUSION_CHECKPOINT`` names a checkpoint, it is put
     through the merit gate against the adjudication ledger's held-out labels
     (``MERCURY_ADJUDICATION_PATH``): admitted only if significantly better
@@ -896,6 +901,14 @@ def fusion_engine() -> IntelligenceFusionEngine:
         engine = IntelligenceFusionEngine()
         checkpoint = os.environ.get(_FUSION_CHECKPOINT_ENV, "").strip()
         status: dict[str, Any] = {"decides_with": "evidence", "checkpoint": checkpoint or None}
+        if os.environ.get(_LEARN_RELIABILITY_ENV, "").strip().lower() in ("1", "true", "on"):
+            # Training split only: the held-out split stays unspent for the
+            # checkpoint's merit test below.
+            try:
+                fit = engine.fit_reliability_scores(_ledger().training_cases())
+                status["reliability"] = asdict(fit)
+            except Exception as exc:  # keep the declared table; record why
+                status["reliability"] = {"installed": False, "reason": f"{type(exc).__name__}: {exc}"}
         if checkpoint:
             try:
                 heldout = _ledger().export_heldout_for_merit_gate()

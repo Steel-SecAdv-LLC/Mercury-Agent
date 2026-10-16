@@ -338,6 +338,7 @@ Structured-vs-text formatting is selected by the logging setup in
 | `MERCURY_ADJUDICATION_SIGNING_KEY` | unset | Owner-only ML-DSA-65 key file (`mercury-agent adjudication keygen --out PATH`) used to sign ledger records and exports |
 | `MERCURY_ADJUDICATION_PUBLIC_KEY` | unset | Hex ML-DSA-65 public key the ledger and its exports are pinned to on read; unsigned or differently signed records are refused |
 | `MERCURY_INTEL_FUSION_CHECKPOINT` | unset | All-source fusion checkpoint for the assessment surfaces; served only if the merit gate admits it against the ledger's held-out labels, else evidence scoring decides |
+| `MERCURY_INTEL_LEARN_RELIABILITY` | unset | `1` learns the per-discipline reliabilities from the ledger's training split at startup (installed only when cross-validation beats the declared table; the held-out split stays for the merit gate) |
 | `MERCURY_MERIT_ATTEMPT_LOG` | unset | Hash-chained log of merit-gate attempts, so alpha spending survives restarts (unset: counted per engine instance) |
 
 ### Human-subject capabilities

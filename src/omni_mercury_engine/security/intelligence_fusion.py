@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import nn
 
@@ -213,6 +214,54 @@ class MeritAttempt:
     fingerprint: str
     checkpoint: str
     merit: FusionMerit
+
+
+@dataclass(frozen=True)
+class ReliabilityFit:
+    """Per-discipline reliabilities learned from adjudicated training cases.
+
+    Attributes:
+        table: The reliability table after the fit (learned where a
+            discipline had enough reports, the previous value elsewhere).
+        previous_table: The table the fit started from.
+        fitted: Disciplines whose reliability was learned.
+        n_cases: Training cases with at least one scored report.
+        shrinkage: Penalty weight chosen by cross-validation.
+        cv_error_learned: Cross-validated mean absolute threat-level error
+            of evidence scoring with the learned table.
+        cv_error_previous: The same error with the previous table, on the
+            same folds.
+        installed: Whether the engine now uses ``table``.
+        reason: Why it was or was not installed.
+    """
+
+    table: dict[str, float]
+    previous_table: dict[str, float]
+    fitted: tuple[str, ...]
+    n_cases: int
+    shrinkage: float
+    cv_error_learned: float
+    cv_error_previous: float
+    installed: bool
+    reason: str
+
+
+def _validated_reliability_table(table: Mapping[str, Any]) -> dict[str, float]:
+    """A reliability table keyed by discipline value, each in the open interval (0, 1).
+
+    Raises:
+        ValueError: An unknown discipline or a value outside (0, 1).
+    """
+    known = {d.value for d in IntelligenceDiscipline}
+    out: dict[str, float] = {}
+    for key, value in table.items():
+        if key not in known:
+            raise ValueError(f"reliability table names unknown discipline {key!r}")
+        number = float(value)
+        if not (math.isfinite(number) and 0.0 < number < 1.0):
+            raise ValueError(f"reliability of {key!r} must lie in (0, 1), got {value!r}")
+        out[key] = number
+    return out
 
 
 def _mcnemar_one_sided(wins: int, losses: int) -> float:
@@ -501,10 +550,35 @@ class IntelligenceFusionEngine:
         state = (
             checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
         )
+        # A checkpoint trained with a learned reliability table carries it:
+        # the table scales the network's features, so the weights are only
+        # meaningful (and only measured, and only served) together with it.
+        carried = checkpoint.get("int_reliability_scores") if isinstance(checkpoint, dict) else None
+        table = _validated_reliability_table(carried) if carried is not None else None
         candidate = AllSourceFusionNetwork(input_dim=128)
         candidate.load_state_dict(state)
         candidate.eval()
+        previous_table = dict(self.int_reliability_scores)
+        if table is not None:
+            self._set_reliability_table({**previous_table, **table})
+        try:
+            merit = self._measure_candidate(candidate, path, fingerprint, cases, labels, supplied)
+        except BaseException:
+            if table is not None:
+                self._set_reliability_table(previous_table)
+            raise
+        return merit
 
+    def _measure_candidate(
+        self,
+        candidate: AllSourceFusionNetwork,
+        path: str | Path,
+        fingerprint: str,
+        cases: list[tuple[dict[str, Any], int]],
+        labels: np.ndarray[Any, np.dtype[Any]],
+        supplied: list[tuple[dict[str, Any], int]],
+    ) -> FusionMerit:
+        """Run the merit test of a loaded candidate; install it only if admitted."""
         # The checkpoint is loadable, so this is a merit test: reserve its
         # attempt number before scoring anything (see MeritAttemptLog).
         if self._merit_log is not None:
@@ -583,6 +657,161 @@ class IntelligenceFusionEngine:
             attempt,
         )
         return merit
+
+    def _set_reliability_table(self, table: Mapping[str, float]) -> None:
+        """Use ``table`` for features and evidence weights; re-seed the screen's priors."""
+        self.int_reliability_scores = dict(table)
+        if self.counterintelligence is not None:
+            self.counterintelligence = CounterintelligenceAssessor.from_engine(
+                self, config=self.counterintelligence.config
+            )
+
+    def fit_reliability_scores(
+        self,
+        training: Sequence[tuple[dict[str, Any], int]],
+        *,
+        folds: int = 5,
+        shrinkages: Sequence[float] = (1e-4, 1e-3, 1e-2, 1e-1, 1.0),
+        min_reports: int = 10,
+        seed: int = 0,
+        install: bool = True,
+    ) -> ReliabilityFit:
+        """Learn the per-discipline reliabilities from adjudicated training cases.
+
+        The fixed table (:meth:`_initialize_reliability_scores`) is a declared
+        choice. Here each discipline's reliability ``r_d`` is fitted so that
+        evidence scoring's reliability-weighted mean of the reported
+        ``threat_score`` values matches the adjudicated level (the midpoint
+        of its fifth of ``[0, 1]``), by least squares with a penalty pulling
+        ``logit(r_d)`` toward the current table. The penalty weight is chosen
+        by K-fold cross-validation. A discipline with fewer than
+        ``min_reports`` scored reports keeps its current value.
+
+        The table is installed only if, on the same folds, the learned table's
+        mean absolute threat-level error is lower than the current table's.
+        Only training cases are used: the held-out split stays unspent for the
+        network's merit gate (:meth:`load_trained_weights`). Installing a new
+        table un-admits a trained network, whose merit was measured on the
+        old feature scaling.
+
+        Args:
+            training: ``(intel_reports, ThreatLevel value)`` pairs, e.g.
+                ``AdjudicationLedger.training_cases()``.
+            folds: Cross-validation folds.
+            shrinkages: Candidate penalty weights.
+            min_reports: Reports a discipline needs to be fitted.
+            seed: Fold assignment seed.
+            install: Install the table when it wins (``False`` only measures).
+
+        Returns:
+            The :class:`ReliabilityFit`.
+
+        Raises:
+            ValueError: Fewer than ``MIN_HELDOUT_CASES`` usable cases, or a
+                label that is not a ``ThreatLevel`` value.
+        """
+        from scipy.optimize import minimize
+
+        keys = [d.value for d in IntelligenceDiscipline]
+        rows: list[npt.NDArray[np.float64]] = []
+        masks: list[npt.NDArray[np.float64]] = []
+        levels: list[int] = []
+        for reports, label in training:
+            level = ThreatLevel(label).value
+            scored = {key: score for key, _, score, _ in self._scored_reports(reports, None, None)}
+            if not scored:
+                continue
+            rows.append(np.array([scored.get(k, 0.0) for k in keys]))
+            masks.append(np.array([1.0 if k in scored else 0.0 for k in keys]))
+            levels.append(level)
+        if len(levels) < MIN_HELDOUT_CASES:
+            raise ValueError(
+                f"{len(levels)} training cases with a scored report; at least "
+                f"{MIN_HELDOUT_CASES} are needed to fit reliabilities"
+            )
+        scores, mask, y_level = np.stack(rows), np.stack(masks), np.array(levels)
+        target = (y_level - 0.5) / len(ThreatLevel)
+        previous = dict(self.int_reliability_scores)
+        prior = np.array([previous.get(k, 0.75) for k in keys])
+        theta0 = np.log(prior) - np.log1p(-prior)
+        free = mask.sum(axis=0) >= min_reports
+
+        def weights_of(theta_free: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+            theta = theta0.copy()
+            theta[free] = theta_free
+            return 1.0 / (1.0 + np.exp(-theta))
+
+        def risk(w: npt.NDArray[np.float64], idx: npt.NDArray[np.intp]) -> npt.NDArray[np.float64]:
+            m = mask[idx] * w
+            return np.asarray((m * scores[idx]).sum(axis=1) / m.sum(axis=1))
+
+        def level_error(w: npt.NDArray[np.float64], idx: npt.NDArray[np.intp]) -> float:
+            predicted = np.clip(np.ceil(risk(w, idx) * len(ThreatLevel)), 1, len(ThreatLevel))
+            return float(np.mean(np.abs(predicted - y_level[idx])))
+
+        def fit(idx: npt.NDArray[np.intp], lam: float) -> npt.NDArray[np.float64]:
+            if not free.any():
+                return weights_of(theta0[free])
+
+            def objective(
+                theta_free: npt.NDArray[np.float64],
+            ) -> tuple[float, npt.NDArray[np.float64]]:
+                w = weights_of(theta_free)
+                m = mask[idx]
+                denom = (m * w).sum(axis=1)
+                r = (m * w * scores[idx]).sum(axis=1) / denom
+                residual = r - target[idx]
+                # d r_i / d w_d = m_id (s_id - r_i) / denom_i; d w / d theta = w (1 - w).
+                grad_w = (2.0 / idx.size) * (
+                    (residual / denom)[:, None] * m * (scores[idx] - r[:, None])
+                ).sum(axis=0)
+                grad = grad_w * w * (1.0 - w)
+                penalty = theta_free - theta0[free]
+                value = float(np.mean(residual**2) + lam * np.sum(penalty**2))
+                return value, grad[free] + 2.0 * lam * penalty
+
+            result = minimize(objective, theta0[free], jac=True, method="L-BFGS-B")
+            return weights_of(np.asarray(result.x))
+
+        order = np.random.default_rng(seed).permutation(len(levels))
+        fold_of = np.empty(len(levels), dtype=np.intp)
+        fold_of[order] = np.arange(len(levels)) % max(2, folds)
+        k = int(fold_of.max()) + 1
+        cv: dict[float, float] = {}
+        for lam in shrinkages:
+            errors = []
+            for f in range(k):
+                train_idx, test_idx = np.flatnonzero(fold_of != f), np.flatnonzero(fold_of == f)
+                errors.append(level_error(fit(train_idx, float(lam)), test_idx) * test_idx.size)
+            cv[float(lam)] = float(sum(errors) / len(levels))
+        best = min(cv, key=lambda lam: (cv[lam], -lam))  # ties: the stronger pull to the prior
+        all_idx = np.arange(len(levels), dtype=np.intp)
+        learned = fit(all_idx, best)
+        previous_error = level_error(prior, all_idx)
+        table = {**previous, **{k_: float(learned[i]) for i, k_ in enumerate(keys) if free[i]}}
+        wins = cv[best] < previous_error
+        reason = (
+            f"cross-validated level error {cv[best]:.4f} vs {previous_error:.4f} with the "
+            f"previous table (shrinkage {best:g}, {len(levels)} cases)"
+        )
+        installed = bool(wins and install)
+        if installed:
+            if self._trained:
+                self._trained = False
+                self.merit = None
+                reason += "; the admitted network was measured on the old table and is un-admitted"
+            self._set_reliability_table(table)
+        return ReliabilityFit(
+            table=table,
+            previous_table=previous,
+            fitted=tuple(k_ for i, k_ in enumerate(keys) if free[i]),
+            n_cases=len(levels),
+            shrinkage=best,
+            cv_error_learned=cv[best],
+            cv_error_previous=previous_error,
+            installed=installed,
+            reason=("installed: " if installed else "not installed: ") + reason,
+        )
 
     def _initialize_threat_kb(self) -> dict[str, dict[str, Any]]:
         """Initialize threat pattern knowledge base."""

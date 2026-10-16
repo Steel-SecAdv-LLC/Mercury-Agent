@@ -563,3 +563,109 @@ def test_trained_path_defers_when_source_information_moves_reliability() -> None
     # Engine-format reports leave reliability untouched: the network decides.
     plain = engine.fuse_intelligence(BASE)
     assert not any("did not score" in n for n in plain.evidence_notes)
+
+
+# --------------------------------------------------------------------------- #
+# Learned per-discipline reliabilities.
+# --------------------------------------------------------------------------- #
+def _reliability_cases(seed: int, n: int) -> list[tuple[dict[str, Any], int]]:
+    """Signals tracks the adjudicated level closely; open-source reporting is noise."""
+    rng = np.random.default_rng(seed)
+    cases: list[tuple[dict[str, Any], int]] = []
+    for _ in range(n):
+        level = int(rng.integers(1, 6))
+        midpoint = (level - 0.5) / 5.0
+        reports = {
+            "signals": {"threat_score": float(np.clip(midpoint + rng.normal(0, 0.03), 0, 1))},
+            "open_source": {"threat_score": float(rng.uniform(0.0, 1.0))},
+        }
+        cases.append((reports, level))
+    return cases
+
+
+def test_reliabilities_are_learned_from_adjudicated_cases() -> None:
+    engine = _engine()
+    before = dict(engine.int_reliability_scores)
+    fit = engine.fit_reliability_scores(_reliability_cases(0, 400))
+    assert fit.installed, fit.reason
+    assert set(fit.fitted) == {"signals", "open_source"}
+    # The noisy discipline loses weight relative to the accurate one.
+    assert fit.table["open_source"] < before["open_source"]
+    assert (
+        fit.table["signals"] / fit.table["open_source"] > before["signals"] / before["open_source"]
+    )
+    assert fit.cv_error_learned < fit.cv_error_previous
+    assert engine.int_reliability_scores == fit.table
+    # Disciplines without reports keep their declared value.
+    assert fit.table["geospatial"] == before["geospatial"]
+    # The screen's priors follow the new table.
+    assert engine.counterintelligence is not None
+    held_out = _reliability_cases(1, 200)
+    hits = sum(
+        engine._evidence_assessment(r, engine._screen(r))[0] == level for r, level in held_out
+    )
+    baseline = _engine()
+    baseline_hits = sum(
+        baseline._evidence_assessment(r, baseline._screen(r))[0] == level for r, level in held_out
+    )
+    assert hits > baseline_hits  # better on fresh cases, not only in cross-validation
+
+
+def test_a_table_that_does_not_win_is_not_installed() -> None:
+    engine = _engine()
+    before = dict(engine.int_reliability_scores)
+    rng = np.random.default_rng(3)
+    noise = [
+        (
+            {
+                "signals": {"threat_score": float(rng.uniform())},
+                "open_source": {"threat_score": float(rng.uniform())},
+            },
+            int(rng.integers(1, 6)),
+        )
+        for _ in range(200)
+    ]
+    fit = engine.fit_reliability_scores(noise)
+    if not fit.installed:
+        assert engine.int_reliability_scores == before
+    assert fit.reason.startswith("installed" if fit.installed else "not installed")
+    measured = _engine().fit_reliability_scores(_reliability_cases(0, 400), install=False)
+    assert not measured.installed
+
+
+def test_too_few_training_cases_are_refused() -> None:
+    with pytest.raises(ValueError, match="training cases"):
+        _engine().fit_reliability_scores(_reliability_cases(0, MIN_HELDOUT_CASES - 1))
+
+
+def test_installing_a_new_table_un_admits_the_network(gate_pool: dict[str, Any]) -> None:
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]
+    engine = _engine()
+    assert engine.load_trained_weights(gate_pool["checkpoint"], heldout).admitted
+    fit = engine.fit_reliability_scores(_reliability_cases(0, 400))
+    assert fit.installed and "un-admitted" in fit.reason
+    assert not engine._trained and engine.merit is None
+
+
+def test_a_checkpoint_carries_its_reliability_table(
+    gate_pool: dict[str, Any], tmp_path: Path
+) -> None:
+    import torch
+
+    heldout = gate_pool["agree"][:MIN_HELDOUT_CASES] + gate_pool["wins"][:5]
+    state = torch.load(gate_pool["checkpoint"], weights_only=True)
+    engine = _engine()
+    before = dict(engine.int_reliability_scores)
+
+    bad = tmp_path / "bad.pt"
+    torch.save({"state_dict": state, "int_reliability_scores": {"no_such_int": 0.5}}, bad)
+    with pytest.raises(ValueError, match="unknown discipline"):
+        engine.load_trained_weights(bad, heldout)
+    assert engine.merit_attempts == ()  # an unusable checkpoint is not a merit test
+
+    zero = torch.load(gate_pool["zero"], weights_only=True)
+    refused = tmp_path / "refused.pt"
+    torch.save({"state_dict": zero, "int_reliability_scores": {"signals": 0.5}}, refused)
+    with pytest.raises(RuntimeError, match="refused"):
+        engine.load_trained_weights(refused, heldout)
+    assert engine.int_reliability_scores == before  # restored on refusal
