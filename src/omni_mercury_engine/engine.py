@@ -631,6 +631,19 @@ def _is_parallel_safe(component: Any, *, stateful_call: bool = False) -> bool:
     return not (stateful_call and getattr(component, "thread_bound_state", False) is True)
 
 
+def _reset_transient_state(component: Any) -> None:
+    """Clear a component's streaming state, if it keeps any.
+
+    Called before every pass over a batch, not once per batch: a component
+    that streams (a bounded memory of recent rows) leaves the tail of the
+    batch in that memory, so a second pass would score its first rows against
+    rows that come after them.
+    """
+    reset_state = getattr(component, "reset_state", None)
+    if callable(reset_state):
+        reset_state()
+
+
 class FeatureCache:
     """Thread-safe LRU cache for computed features.
 
@@ -5016,9 +5029,7 @@ class OmniMercuryEngine(LoggerMixin):
         engine's fusion boundary resets.
         """
         for component in (*self.detectors.values(), *self.models.values()):
-            reset_state = getattr(component, "reset_state", None)
-            if callable(reset_state):
-                reset_state()
+            _reset_transient_state(component)
 
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
@@ -5182,11 +5193,13 @@ class OmniMercuryEngine(LoggerMixin):
             # _reset_transient_detector_state. Runs inside the compute so a
             # worker thread resets its *own* thread-local state; cache hits
             # skip recomputation and stay deterministic by construction.
-            reset_state = getattr(detector, "reset_state", None)
-            if callable(reset_state):
-                reset_state()
+            _reset_transient_state(detector)
             with time_feature_extraction(name):
                 features = detector.extract_features(data)
+            # The second pass starts clean too: extraction leaves the tail of
+            # the batch in a streaming memory, and ``detect`` would otherwise
+            # score its first rows against rows that come after them.
+            _reset_transient_state(detector)
             with time_detection(name):
                 result = detector.detect(data)
             return features, result
@@ -5233,11 +5246,12 @@ class OmniMercuryEngine(LoggerMixin):
                     # Purity: reset transient streaming state so features
                     # depend only on (model state, d) — mirrors the
                     # detector-side closure above.
-                    reset_state = getattr(mdl, "reset_state", None)
-                    if callable(reset_state):
-                        reset_state()
+                    _reset_transient_state(mdl)
                     with time_feature_extraction(name):
                         features = mdl.extract_features(d)
+                    # Same for ``predict``: it re-reads the batch, so it must
+                    # not start from the memory extraction left behind.
+                    _reset_transient_state(mdl)
                     with time_detection(name):
                         prediction = mdl.predict(d)
                     return features, prediction
