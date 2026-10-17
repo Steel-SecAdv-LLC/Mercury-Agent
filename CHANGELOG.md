@@ -111,6 +111,11 @@ reference sorted once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
 - `mercury-agent detect -i data.csv` crashed with `could not convert string to
   float: 'a'` on any CSV with a header row; the data, label and hazard loaders
   now skip a header (a numeric first row is never dropped).
+- `mercury-agent detect -o out.json` (and every other CLI command that writes
+  JSON) serialised with `default=str`, which renders an ndarray as numpy's
+  abbreviated repr: the default statistical detector's per-row `scores`,
+  `z_scores` and flags came out as strings like `"[0.12 0.13 ... 0.26]"`, six
+  values per array. Arrays, numpy scalars and tensors now serialise as lists.
 - `scripts/mercury_session_setup.sh` installed `setuptools>=83 / wheel>=0.47 /
   cmake>=4.4.0`, below the floors AMA v5.0.0's setup rejects (84 / 0.48 /
   4.4.4), so a fresh container failed at its first AMA build. A test now keeps
@@ -170,8 +175,16 @@ configures, not read.
   receiving the client secret from an unpinned package. `docs/GCN_KAFKA_MCP.md`
   says what a working server needs; the keep-alive is unchanged.
 - `.flake8` needed no change: it reports nothing over CI's scope.
+- `test_single_image_path_input_finally_works` ran real DeepFace, which fetches
+  about 1.1 GB of weights on first use (and, with OpenCV 5 wheels that no longer
+  ship Haar cascades, the detector from GitHub), so it failed wherever that was
+  blocked. With the cascades supplied it passes against the real library (84 s),
+  so the setup is sound; the unit test now stubs DeepFace and asserts that a
+  pixel array, never the path, reaches it, and the real-library run moved to the
+  `MERCURY_NETWORK_TESTS=1` lane. `docs/INSTALLATION.md` lists the assets, where
+  they go and a checksum-verified way to pre-seed them.
 
-259 tests added; 16,705 are collected on this tree with the full optional-dependency
+265 tests added; 16,713 are collected on this tree with the full optional-dependency
 surface. The full run before the last two (compose) tests gave 16,600 passed, 102
 skipped, 1 failed: `test_single_image_path_input_finally_works`, which needs
 DeepFace to download a Haar cascade from GitHub and fails the same way on the
