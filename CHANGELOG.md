@@ -180,9 +180,11 @@ configures, not read.
   ship Haar cascades, the detector from GitHub), so it failed wherever that was
   blocked. With the cascades supplied it passes against the real library (84 s),
   so the setup is sound; the unit test now stubs DeepFace and asserts that a
-  pixel array, never the path, reaches it, and the real-library run moved to the
-  `MERCURY_NETWORK_TESTS=1` lane. `docs/INSTALLATION.md` lists the assets, where
-  they go and a checksum-verified way to pre-seed them.
+  pixel array, never the path, reaches it, and the real-library run needs
+  `[face]` and `MERCURY_NETWORK_TESTS=1`. No CI lane installs `[face]` (the old
+  test passed there only because DeepFace was absent and the harmonic fallback
+  ran), so that run is local until a lane adds the extra. `docs/INSTALLATION.md`
+  lists the assets, where they go and a checksum-verified way to pre-seed them.
 
 265 tests added; 16,713 are collected on this tree with the full optional-dependency
 surface. The full run before the last two (compose) tests gave 16,600 passed, 102

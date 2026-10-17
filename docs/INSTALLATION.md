@@ -155,8 +155,8 @@ sha256sum -c <<'SUMS'
 SUMS
 ```
 
-The unit tests stub DeepFace; the end-to-end test runs only with
-`MERCURY_NETWORK_TESTS=1`.
+The unit tests stub DeepFace; the end-to-end test needs `[face]` installed and
+`MERCURY_NETWORK_TESTS=1`, and no CI lane runs it yet.
 
 ## Core Dependencies
 

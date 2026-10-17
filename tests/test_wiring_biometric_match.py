@@ -184,8 +184,14 @@ def test_single_image_path_input_finally_works(
     reason="runs real DeepFace, which downloads ~1.1 GB of weights; set MERCURY_NETWORK_TESTS=1",
 )
 def test_single_image_path_input_runs_real_deepface(tmp_path: Path) -> None:
-    """End to end against the real library, in the network lane only."""
+    """End to end against the real library.
+
+    Needs DeepFace installed (``pip install -e ".[face]"``, Python < 3.14) and
+    network access. No CI lane installs ``[face]`` today, so this runs locally
+    and wherever a lane adds the extra.
+    """
     cv2 = pytest.importorskip("cv2")
+    pytest.importorskip("deepface")
     path = str(tmp_path / "ref.png")
     cv2.imwrite(path, _NOISE_IMG[..., ::-1])
     model = BiometricAnomalyModel()
