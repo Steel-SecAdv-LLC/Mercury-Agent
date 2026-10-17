@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Operator tool: tracemalloc-based memory-leak sentinel.
 
-Drives ``GOSNNDetector.detect()`` (or a user-supplied entry-point) in
-a sustained loop, sampling RSS / tracemalloc once per ``--sample-every``
+Drives the GOSNN forward step (``gosnn_latency_sla_gate.GOSNNStep.detect()``,
+the default ``--target``) or a user-supplied entry-point in a sustained
+loop, sampling RSS / tracemalloc once per ``--sample-every``
 iterations.  The certificate captures the regression slope of the
 trailing window; a slope above ``--slope-max-bytes`` per iteration
 fails the gate.
@@ -32,7 +33,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--target",
-        default="omni_mercury_engine.ml.gosnn_detector:GOSNNDetector",
+        default="omni_mercury_engine.tools.gosnn_latency_sla_gate:GOSNNStep",
         help="module:ClassName whose ``detect(x)`` is exercised in a loop.",
     )
     parser.add_argument("--iterations", type=int, default=512)

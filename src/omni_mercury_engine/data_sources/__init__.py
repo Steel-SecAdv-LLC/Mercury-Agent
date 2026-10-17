@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""STEM Alert & Anomaly Detection API Integration.
+"""STEAM Alert & Anomaly Detection API Integration.
 
 Production-grade data ingestion modules for multi-domain anomaly detection:
 - Space Weather & Solar Physics (NASA DONKI, NeoWs, NOAA SWPC, EONET)

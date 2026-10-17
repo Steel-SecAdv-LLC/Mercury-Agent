@@ -182,17 +182,21 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    # Scale based on Kafka consumer lag (requires KEDA or custom metrics)
-    # - type: External
-    #   external:
-    #     metric:
-    #       name: kafka_consumer_lag
-    #       selector:
-    #         matchLabels:
-    #           topic: mercury-detections
-    #     target:
-    #       type: AverageValue
-    #       averageValue: "100"
+    # Consumer-group backlog, served by prometheus-adapter
+    # (monitoring/prometheus/prometheus-adapter-values.yaml) from the series the
+    # PodMonitor below labels. Every worker reports the group-wide figure, so
+    # the target is a Value, not a per-pod AverageValue.
+    - type: External
+      external:
+        metric:
+          name: omni_detection_queue_depth
+          selector:
+            matchLabels:
+              app: mercury-agent
+              service: streaming-worker
+        target:
+          type: Value
+          value: "50"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60
@@ -246,7 +250,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: monitoring
+              kubernetes.io/metadata.name: monitoring
       ports:
         - protocol: TCP
           port: 9090
@@ -276,3 +280,30 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+---
+# Scrapes the workers' `metrics` port with the labels the alert rules and the
+# adapter's queue-depth rule select (see monitoring/prometheus/podmonitors.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: mercury-streaming-worker
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: streaming-worker
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - targetLabel: app
+          replacement: mercury-agent
+        - targetLabel: service
+          replacement: streaming-worker
+        - targetLabel: job
+          replacement: mercury-streaming-worker

@@ -18,7 +18,7 @@ where ``A = Theta^{1/2}`` and ``sigma_max(A) = sqrt(lambda_max(Theta))``.  Hence
 within an L2 ball of radius ``|p - p_tau| / sigma_max(A)``.
 
 Attribution: the Mahalanobis-radius construction is adapted as a *blueprint*
-from FINDOYOU certified-radius work; the operating point, threshold inversion,
+from FINDΩYOU™ certified-radius work; the operating point, threshold inversion,
 and the numbers Mercury reports are Mercury's own.
 """
 
@@ -30,15 +30,6 @@ from typing import Any
 import numpy as np
 
 _EPS = 1e-12
-
-
-def precision_sqrt(precision: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Return symmetric PSD ``A`` such that ``A.T @ A ~= precision``."""
-    theta = np.asarray(precision, dtype=np.float64)
-    theta = 0.5 * (theta + theta.T)
-    vals, vecs = np.linalg.eigh(theta)
-    vals = np.clip(vals, 0.0, None)
-    return (vecs * np.sqrt(vals)) @ vecs.T
 
 
 @dataclass(frozen=True)

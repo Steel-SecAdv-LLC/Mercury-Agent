@@ -100,7 +100,7 @@ class TestMultiSpecialtyNeuralNet:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.model = MultiSpecialtyNeuralNet(input_dim=64, num_specialties=24)
+        self.model = MultiSpecialtyNeuralNet(input_dim=64)
 
     def test_initialization(self) -> None:
         """Test model initialization."""

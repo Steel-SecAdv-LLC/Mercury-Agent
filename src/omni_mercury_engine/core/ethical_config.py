@@ -211,7 +211,7 @@ class EthicalScalars:
     omni_ci_ethical_threshold: float = 0.85
     omni_proactive_psi_p: complex = 1.30 + 0.15j
     omni_chaos_lambda_bifurcation: float = 1.28
-    omni_survivor_first_protection: float = 1.45
+    omni_civilization_first_protection: float = 1.45
     omni_non_discriminatory_ci: float = 1.40
     omni_bio_threat_vigilance: float = 1.38
     omni_pandemic_foresight: float = 1.42
@@ -260,7 +260,6 @@ class EngineConfig:
     fusion_mode: str = "hybrid"
     enable_neurosymbolic: bool = True
     enable_multiverse: bool = True
-    enable_ci: bool = False
 
     num_universes: int = 10
     multiverse_state_dim: int = 50

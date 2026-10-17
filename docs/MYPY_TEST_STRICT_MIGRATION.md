@@ -69,14 +69,15 @@ is not fully annotated to any of them fails the gate.
 | `tests/proofs/` | **engineering-pass round** |
 | `tests/reasoning/` | **engineering-pass round** |
 | `tests/research/` | **engineering-pass round** |
-| `tests/truth_decipher/` | **engineering-pass round** |
 | `tests/utils/` | **engineering-pass round** |
 
 The engineering-pass round graduated the 14 directories that were
 **already fully annotated** — measured 0 strict errors each, 131 files
 clean in the combined invocation — so the graduation was a pure gate
-tightening with no source churn. The combined graduated invocation
-(22 directories) reports `Success: no issues found`.
+tightening with no source churn (`tests/truth_decipher/` was later removed
+with its module; the rebuilt module's tests are type-checked in the lenient
+lane and are not yet graduated). The combined graduated invocation (20 directories)
+reports `Success: no issues found`.
 
 ## Remaining relaxed-lane debt (ordered plan)
 

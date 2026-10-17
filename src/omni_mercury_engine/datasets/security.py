@@ -1358,13 +1358,16 @@ class ThreatIntelLoader(DatasetLoader):
     - Mitigations and detection strategies
 
     Data source: https://github.com/mitre-attack/attack-stix-data
-    License: Apache 2.0
+    License: MITRE ATT&CK Terms of Use — a non-exclusive, royalty-free licence
+    for research, development and commercial use, provided MITRE's copyright
+    designation and the licence text are reproduced in any copy (see the
+    repository's LICENSE.txt). It is not Apache 2.0.
     """
 
     DATASET_NAME = "threat-intel"
     LABEL_SOURCE = "statistical"  # labels = (num_phases>=2 & num_platforms>=3) heuristic threshold
     DATASET_URL = "https://attack.mitre.org/"
-    LICENSE = "Apache 2.0 (MITRE ATT&CK)"
+    LICENSE = "MITRE ATT&CK Terms of Use (royalty-free; reproduce MITRE's copyright notice)"
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 

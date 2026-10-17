@@ -13,6 +13,42 @@ Production-grade secure audit logging providing:
 - Encrypted log storage option
 
 This addresses the security audit finding: "No Audit Log Integrity"
+
+On-disk layout (one directory, possibly several writer processes):
+
+* ``audit.jsonl`` -- the active log of the *primary* writer, the one process
+  holding the exclusive ``.audit.lock`` flock.
+* ``audit-<pid>.jsonl`` -- the active log of each further process on the same
+  directory (e.g. ``mercury serve --workers 4``); each holds
+  ``.audit-<pid>.lock`` for its lifetime so other processes can tell a live
+  writer from an orphan.
+* ``audit_<YYYYmmdd_HHMMSS>.<usec>[-<n>].jsonl`` -- a rotated segment of the
+  primary; ``..._<pid>.jsonl`` for a worker's. ``-<n>`` disambiguates
+  rotations in the same microsecond: a rotation never overwrites a segment.
+  Legacy second-resolution names (``audit_<stamp>.jsonl`` /
+  ``audit_<stamp>_<pid>.jsonl``) are still recognised. Each segment has a
+  ``.sha256`` sidecar written at rotation.
+
+Every writer resumes, rotates and prunes **only its own** files (the
+primary: unsuffixed segments; a worker: its ``_<pid>`` segments), so one
+writer's retention can never delete another's evidence and a chain never
+resumes from a different writer's segment. Files of writers that no longer
+run (their ``.audit-<pid>.lock`` is free, or -- for files from before the
+lock existed -- their pid is gone) are *orphans*: the primary keeps the newest
+``max_rotated_files`` of them (active logs and segments pooled, by mtime) and
+deletes the rest, so a fleet that restarts with fresh pids does not grow the
+directory forever. Orphans are never renamed or rewritten, so each stays
+verifiable.
+
+:func:`verify_audit_directory` verifies every writer's chain read-only,
+including the links *between* consecutive segments. What a hash chain can
+and cannot prove: an edit, insertion, reordering or interior deletion breaks
+content hashes, ``previous_hash`` links or the sequence numbers (which carry
+across restarts and rotation). Removing records from the *head* (the oldest
+segment, or its first lines) or the *tail* (the newest lines) leaves a
+shorter chain that is still internally valid; that can only be detected
+against an external anchor (a periodically exported last ``event_hash`` /
+``sequence_number``), which this module does not keep.
 """
 
 from __future__ import annotations
@@ -22,18 +58,175 @@ import hmac
 import json
 import logging
 import os
+import re
 import secrets
 import threading
 import time
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows: no advisory locks, single writer assumed
+    fcntl = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+#: Held (flock, exclusive) by the one process that writes ``audit.jsonl``.
+_PRIMARY_LOCK_NAME = ".audit.lock"
+#: Read this much from the end of a log to find its last record.
+_TAIL_BLOCK = 64 * 1024
+
+
+def _last_line(path: Path) -> bytes:
+    """Return the last non-empty line of ``path`` without reading the whole file."""
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        end = f.tell()
+        buf = b""
+        pos = end
+        while pos > 0:
+            step = min(_TAIL_BLOCK, pos)
+            pos -= step
+            f.seek(pos)
+            buf = f.read(step) + buf
+            stripped = buf.rstrip(b"\n")
+            if b"\n" in stripped:
+                return stripped.rsplit(b"\n", 1)[1]
+        return buf.rstrip(b"\n")
+
+
+#: Rotated segment names, current and legacy (see the module docstring).
+_SEGMENT_RE = re.compile(
+    r"audit_(?P<stamp>\d{8}_\d{6})(?:\.(?P<usec>\d{6}))?(?:-(?P<dup>\d+))?"
+    r"(?:_(?P<pid>\d+))?\.jsonl"
+)
+#: Active log of a non-primary writer.
+_WORKER_LOG_RE = re.compile(r"audit-(?P<pid>\d+)\.jsonl")
+#: Preview length of a dropped torn tail in the log message.
+_TORN_PREVIEW_BYTES = 200
+
+
+def _segment_info(path: Path) -> tuple[int | None, tuple[str, int, int]] | None:
+    """``(writer pid or None for the primary, sort key)`` of a rotated segment.
+
+    Returns ``None`` when ``path`` is not a rotated-segment name.
+    """
+    match = _SEGMENT_RE.fullmatch(path.name)
+    if match is None:
+        return None
+    pid = int(match["pid"]) if match["pid"] else None
+    usec = int(match["usec"]) if match["usec"] else -1
+    return pid, (match["stamp"], usec, int(match["dup"] or 0))
+
+
+def _writer_segments(log_dir: Path, pid: int | None) -> list[Path]:
+    """Rotated segments of one writer (``pid=None``: the primary), oldest first."""
+    found: list[tuple[tuple[str, int, int], float, Path]] = []
+    for path in log_dir.glob("audit_*.jsonl"):
+        info = _segment_info(path)
+        if info is None or info[0] != pid:
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        found.append((info[1], mtime, path))
+    found.sort(key=lambda item: (item[0], item[1]))
+    return [path for _key, _mtime, path in found]
+
+
+def _worker_lock_path(log_dir: Path, pid: int) -> Path:
+    return log_dir / f".audit-{pid}.lock"
+
+
+def _pid_running(pid: int) -> bool:
+    """Best-effort liveness of ``pid`` (errs towards *running*).
+
+    Never probes on Windows, where ``os.kill`` terminates the target process.
+    """
+    if pid == os.getpid() or os.name == "nt":
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except (PermissionError, OSError, ValueError, OverflowError):
+        return True
+    return True
+
+
+def _writer_is_live(log_dir: Path, pid: int) -> bool:
+    """Whether the writer that owns ``pid``'s files still runs.
+
+    A live writer holds ``.audit-<pid>.lock``; if that lock can be taken the
+    writer is gone. Without a lock file (files written before per-writer
+    locks existed, or a platform without ``fcntl``) fall back to a pid check,
+    which errs towards *live* so nothing is deleted on doubt.
+    """
+    if pid == os.getpid():
+        return True
+    lock_path = _worker_lock_path(log_dir, pid)
+    if fcntl is None or not lock_path.exists():
+        return _pid_running(pid)
+    try:
+        with open(lock_path, "a") as handle:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return True
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            return False
+    except OSError:
+        return True
+
+
+def _rename_no_clobber(src: Path, dst: Path) -> bool:
+    """Rename ``src`` to ``dst`` unless ``dst`` exists; ``True`` on success.
+
+    ``Path.rename`` silently replaces an existing target on POSIX. A hard
+    link is created atomically or fails with ``FileExistsError``, so no
+    concurrent actor can slip a file in between check and rename. On a
+    filesystem without hard links, fall back to check-then-rename (the
+    caller is the only writer naming files in its own namespace).
+    """
+    try:
+        os.link(src, dst)
+    except FileExistsError:
+        return False
+    except OSError:
+        if dst.exists():
+            return False
+        src.rename(dst)
+        return True
+    try:
+        src.unlink()
+    except OSError:
+        # Both names now share one inode: appending to src would also change
+        # the "rotated" segment. Undo the link and let the caller fail loudly.
+        dst.unlink(missing_ok=True)
+        raise
+    return True
+
+
+def _file_sha3(path: Path) -> str:
+    """SHA3-256 hex digest of a file, streamed."""
+    sha3 = hashlib.sha3_256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            sha3.update(chunk)
+    return sha3.hexdigest()
+
+
+def _remove_segment(path: Path) -> None:
+    path.unlink(missing_ok=True)
+    path.with_suffix(".sha256").unlink(missing_ok=True)
 
 
 class AuditEventSeverity(StrEnum):
@@ -352,6 +545,12 @@ class SecureHashChain:
 
             return event_hash, previous, seq
 
+    def resume(self, previous_hash: str, next_sequence: int) -> None:
+        """Continue an existing chain: link the next event to ``previous_hash``."""
+        with self._lock:
+            self._previous_hash = previous_hash
+            self._sequence_number = next_sequence
+
     def _recompute_event_hash(self, event: AuditEvent) -> str:
         """Recompute an event's HMAC hash from its persisted content.
 
@@ -394,6 +593,15 @@ class SecureHashChain:
           per-process ephemeral default.
         * **Linkage** -- each event's ``previous_hash`` must equal the prior
           event's ``event_hash``, so a deletion or reordering breaks the chain.
+        * **Sequence** -- each event's ``sequence_number`` must be the prior
+          event's plus one. Sequence numbers carry across restarts (the chain
+          resumes from disk) and rotation, so within a file a gap means
+          records are missing and a repeat means a replay. The number is part
+          of the HMAC input, so this mostly restates linkage in a form that
+          says *how many* records are gone (:func:`sequence_gaps`).
+
+        Head and tail truncation leave a shorter but internally valid chain
+        and cannot be detected here (see the module docstring).
 
         Uses :func:`hmac.compare_digest` to avoid leaking hash information via
         timing.
@@ -421,6 +629,10 @@ class SecureHashChain:
             ):
                 invalid_indices.add(i)
 
+            # (3) Sequence contiguity.
+            if event.sequence_number != events[i - 1].sequence_number + 1:
+                invalid_indices.add(i)
+
         return len(invalid_indices) == 0, sorted(invalid_indices)
 
     def get_chain_state(self) -> dict[str, Any]:
@@ -430,6 +642,189 @@ class SecureHashChain:
                 "previous_hash": self._previous_hash,
                 "sequence_number": self._sequence_number,
             }
+
+
+def sequence_gaps(events: list[AuditEvent]) -> list[str]:
+    """Describe every break in ``sequence_number`` contiguity.
+
+    Args:
+        events: Events in file order.
+
+    Returns:
+        One human-readable line per break (empty when contiguous).
+    """
+    gaps: list[str] = []
+    for prev, nxt in pairwise(events):
+        expected = prev.sequence_number + 1
+        if nxt.sequence_number > expected:
+            gaps.append(
+                f"sequence {prev.sequence_number} -> {nxt.sequence_number} "
+                f"({nxt.sequence_number - expected} record(s) missing)"
+            )
+        elif nxt.sequence_number != expected:
+            gaps.append(
+                f"sequence {prev.sequence_number} -> {nxt.sequence_number} "
+                "(repeated or out of order)"
+            )
+    return gaps
+
+
+def load_audit_events(path: Path) -> list[AuditEvent]:
+    """Parse one audit JSONL file into events (read-only).
+
+    Args:
+        path: The log or segment file.
+
+    Returns:
+        The events in file order.
+
+    Raises:
+        ValueError: A line is not a complete audit record (the message names
+            the 1-based line number).
+        OSError: The file cannot be read.
+    """
+    events: list[AuditEvent] = []
+    with open(path) as f:
+        for line_no, line in enumerate(f, 1):
+            try:
+                data = json.loads(line)
+                events.append(
+                    AuditEvent(
+                        event_id=data["event_id"],
+                        timestamp=data["timestamp"],
+                        category=AuditEventCategory(data["category"]),
+                        severity=AuditEventSeverity(data["severity"]),
+                        action=data["action"],
+                        actor=data.get("actor"),
+                        resource=data.get("resource"),
+                        outcome=data["outcome"],
+                        details=data["details"],
+                        sequence_number=data["sequence_number"],
+                        previous_hash=data["previous_hash"],
+                        event_hash=data["event_hash"],
+                        session_id=data.get("session_id"),
+                        client_ip=data.get("client_ip"),
+                    )
+                )
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"line {line_no}: {exc}") from exc
+    return events
+
+
+def verify_log_file(path: Path, hash_chain: SecureHashChain) -> tuple[bool, str]:
+    """Verify one audit file's chain without opening it for writing.
+
+    Args:
+        path: The log or segment file.
+        hash_chain: Supplies the HMAC key the file was written with.
+
+    Returns:
+        ``(is_valid, message)``.
+    """
+    ok, message, _events = _verify_file(path, hash_chain)
+    return ok, message
+
+
+def _verify_file(path: Path, hash_chain: SecureHashChain) -> tuple[bool, str, list[AuditEvent]]:
+    if not path.exists():
+        return False, "Log file does not exist", []
+    try:
+        events = load_audit_events(path)
+    except (OSError, ValueError) as e:
+        return False, f"Failed to parse log file: {e}", []
+    is_valid, invalid_indices = hash_chain.verify_chain(events)
+    if is_valid:
+        return True, f"Log integrity verified ({len(events)} events)", events
+    message = f"Chain broken at indices: {invalid_indices}"
+    gaps = sequence_gaps(events)
+    if gaps:
+        message += "; " + "; ".join(gaps)
+    return False, message, events
+
+
+def _verify_writer_chain(
+    files: list[Path], hash_chain: SecureHashChain, label: str
+) -> dict[str, Any]:
+    """Verify one writer's files (oldest first) and the links between them."""
+    report: dict[str, Any] = {"writer": label, "ok": True, "files": [], "notes": []}
+    last: AuditEvent | None = None
+    last_name = ""
+    for path in files:
+        ok, message, events = _verify_file(path, hash_chain)
+        entry: dict[str, Any] = {"file": path.name, "ok": ok, "message": message}
+        sidecar = path.with_suffix(".sha256")
+        if path.name.startswith("audit_") and sidecar.exists():
+            if not hmac.compare_digest(_file_sha3(path), sidecar.read_text().strip()):
+                entry["ok"] = False
+                entry["message"] += "; content differs from its .sha256 sidecar"
+        if events and last is not None:
+            first = events[0]
+            linked = hmac.compare_digest(
+                first.previous_hash.encode(), last.event_hash.encode()
+            ) and (first.sequence_number == last.sequence_number + 1)
+            if not linked:
+                entry["ok"] = False
+                entry["message"] += (
+                    f"; does not continue {last_name} (sequence {last.sequence_number} -> "
+                    f"{first.sequence_number}, previous_hash mismatch or gap)"
+                )
+        elif events and last is None and events[0].sequence_number != 0:
+            report["notes"].append(
+                f"{path.name} starts at sequence {events[0].sequence_number}: earlier "
+                "records were rotated out or removed (head truncation is not detectable "
+                "without an external anchor)"
+            )
+        if events:
+            last, last_name = events[-1], path.name
+        report["ok"] = report["ok"] and entry["ok"]
+        report["files"].append(entry)
+    return report
+
+
+def verify_audit_directory(
+    log_dir: str | Path, hmac_key: bytes | None = None
+) -> tuple[bool, list[dict[str, Any]]]:
+    """Verify every writer's chain in ``log_dir`` strictly read-only.
+
+    Unlike constructing a :class:`SecureAuditLogger` (which takes the writer
+    lock, may switch to a per-process file and starts a flush thread), this
+    opens nothing for writing, so it is safe while the server runs. Each
+    writer's rotated segments are verified oldest first, then its active
+    log, including the ``previous_hash`` / ``sequence_number`` link from
+    each file to the one before it.
+
+    Args:
+        log_dir: The audit directory (``MERCURY_AUDIT_LOG_DIR``).
+        hmac_key: The chain key; derived like the writer's when omitted.
+
+    Returns:
+        ``(all_valid, reports)`` with one report per writer chain (the
+        primary first). ``all_valid`` is ``False`` when no audit file exists.
+    """
+    directory = Path(log_dir)
+    hash_chain = SecureHashChain(hmac_key)
+    chains: dict[int | None, list[Path]] = {}
+    for path in directory.glob("audit_*.jsonl"):
+        info = _segment_info(path)
+        if info is not None:
+            chains.setdefault(info[0], [])
+    for path in directory.glob("audit-*.jsonl"):
+        match = _WORKER_LOG_RE.fullmatch(path.name)
+        if match is not None:
+            chains.setdefault(int(match["pid"]), [])
+    if (directory / "audit.jsonl").exists():
+        chains.setdefault(None, [])
+    reports: list[dict[str, Any]] = []
+    for pid in sorted(chains, key=lambda p: -1 if p is None else p):
+        files = _writer_segments(directory, pid)
+        active = directory / ("audit.jsonl" if pid is None else f"audit-{pid}.jsonl")
+        if active.exists():
+            files.append(active)
+        label = "primary" if pid is None else f"pid {pid}"
+        reports.append(_verify_writer_chain(files, hash_chain, label))
+    if not reports:
+        return False, [{"writer": "none", "ok": False, "files": [], "notes": ["no audit files"]}]
+    return all(r["ok"] for r in reports), reports
 
 
 class SecureAuditLogger:
@@ -480,9 +875,38 @@ class SecureAuditLogger:
         self._buffer: list[AuditEvent] = []
         self._buffer_lock = threading.Lock()
 
-        # Current log file
-        self._current_log_path = self.log_dir / "audit.jsonl"
+        # Current log file. One process owns audit.jsonl (an exclusive flock on
+        # .audit.lock, held for the logger's lifetime); a second process on the
+        # same directory -- e.g. `mercury serve --workers 4` -- gets its own
+        # audit-<pid>.jsonl. Two writers interleaving two chains in one file
+        # would make every later verification fail.
+        self._primary_lock: IO[str] | None = self._claim_primary_log()
+        self._writer_lock: IO[str] | None = None
+        #: ``None`` for the primary; this process's pid for a worker writer.
+        self._writer_pid: int | None
+        if self._primary_lock is not None or fcntl is None:
+            self._current_log_path = self.log_dir / "audit.jsonl"
+            self._rotated_tag = ""
+            self._writer_pid = None
+        else:
+            self._writer_pid = os.getpid()
+            self._current_log_path = self.log_dir / f"audit-{self._writer_pid}.jsonl"
+            self._rotated_tag = f"_{self._writer_pid}"
+            self._writer_lock = self._claim_worker_lock(self._writer_pid)
+            logger.critical(
+                "Another process already writes %s; this process audits to %s so the "
+                "two hash chains stay separate and verifiable.",
+                self.log_dir / "audit.jsonl",
+                self._current_log_path,
+            )
         self._file_lock = threading.Lock()
+        self._resume_chain_from_disk()
+        if self._writer_pid is None:
+            # Restarted fleets leave the previous workers' files behind.
+            try:
+                self._cleanup_orphans()
+            except OSError as exc:  # pragma: no cover - best-effort housekeeping
+                logger.warning("Orphaned audit log cleanup failed: %s", exc)
 
         # Flush timer
         self._flush_thread: threading.Thread | None = None
@@ -493,6 +917,123 @@ class SecureAuditLogger:
         self._event_hooks: list[Callable[[AuditEvent], None]] = []
 
         logger.info(f"SecureAuditLogger initialized: {self.log_dir}")
+
+    def _claim_primary_log(self) -> IO[str] | None:
+        """Take the directory's writer lock; ``None`` if another process holds it."""
+        if fcntl is None:
+            return None
+        handle = open(self.log_dir / _PRIMARY_LOCK_NAME, "a")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return None
+        return handle
+
+    def _claim_worker_lock(self, pid: int) -> IO[str] | None:
+        """Hold ``.audit-<pid>.lock`` so other processes see this writer as live."""
+        if fcntl is None:
+            return None
+        try:
+            handle = open(_worker_lock_path(self.log_dir, pid), "a")
+        except OSError as exc:
+            logger.warning("Cannot create the audit writer lock for pid %d: %s", pid, exc)
+            return None
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            # Same pid live in another pid namespace on a shared volume: keep
+            # going (the files are still distinct per process here).
+            logger.warning("Audit writer lock for pid %d is held by another process", pid)
+            handle.close()
+            return None
+        return handle
+
+    def _repair_torn_tail(self, path: Path) -> None:
+        """Cut an unterminated final line (a write interrupted by a crash).
+
+        Records are written as whole newline-terminated lines, so a file that
+        does not end in a newline ends in a fragment of a record that never
+        completed. Appending after it would glue the next record onto the
+        fragment and make the whole file unparseable. Only the bytes after the
+        last newline are removed; they are logged (length, SHA3-256 and a
+        preview) and preserved next to the log as ``<name>.torn-<usec>`` for
+        forensics. The caller must own ``path`` (writer lock held).
+        """
+        with open(path, "rb+") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            if size == 0:
+                return
+            f.seek(size - 1)
+            if f.read(1) == b"\n":
+                return
+            cut = 0
+            pos = size
+            while pos > 0:
+                step = min(_TAIL_BLOCK, pos)
+                pos -= step
+                f.seek(pos)
+                idx = f.read(step).rfind(b"\n")
+                if idx != -1:
+                    cut = pos + idx + 1
+                    break
+            f.seek(cut)
+            fragment = f.read(size - cut)
+            f.truncate(cut)
+            f.flush()
+            os.fsync(f.fileno())
+        keep = path.with_name(f"{path.name}.torn-{time.time_ns() // 1000}")
+        try:
+            keep.write_bytes(fragment)
+        except OSError as exc:  # pragma: no cover - best-effort preservation
+            logger.warning("Could not preserve torn audit fragment to %s: %s", keep, exc)
+        logger.critical(
+            "Audit log %s ended in an unterminated %d-byte fragment at offset %d "
+            "(sha3-256 %s, preview %r, saved to %s); it was cut so the chain resumes "
+            "from the last complete record.",
+            path,
+            len(fragment),
+            cut,
+            hashlib.sha3_256(fragment).hexdigest(),
+            fragment[:_TORN_PREVIEW_BYTES],
+            keep.name,
+        )
+
+    def _resume_chain_from_disk(self) -> None:
+        """Link the first new event to the last one already on disk.
+
+        The chain used to restart at a fresh genesis on every process start
+        while appending to the same file, so a log that had been through a
+        single restart failed :meth:`verify_log_integrity` exactly as a
+        tampered one does. Resumes from the active log, or -- right after a
+        rotation -- from the newest rotated segment of *this* writer (never
+        another writer's). A torn final line in the active log is cut first
+        (:meth:`_repair_torn_tail`).
+        """
+        candidates = [self._current_log_path]
+        if self._current_log_path.exists() and self._current_log_path.stat().st_size > 0:
+            try:
+                self._repair_torn_tail(self._current_log_path)
+            except OSError as exc:
+                logger.critical("Could not repair the tail of %s (%s)", self._current_log_path, exc)
+        if not self._current_log_path.exists() or self._current_log_path.stat().st_size == 0:
+            candidates = _writer_segments(self.log_dir, self._writer_pid)[-1:]
+        for path in candidates:
+            if not path.exists() or path.stat().st_size == 0:
+                continue
+            try:
+                record = json.loads(_last_line(path))
+                self.hash_chain.resume(
+                    str(record["event_hash"]), int(record["sequence_number"]) + 1
+                )
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                logger.critical(
+                    "Audit log %s does not end in a readable event (%s); new events "
+                    "start a fresh chain and verification will report the break.",
+                    path,
+                    exc,
+                )
 
     def _start_flush_thread(self) -> None:
         """Start background flush thread."""
@@ -737,12 +1278,23 @@ class SecureAuditLogger:
                 raise RuntimeError(f"Failed to write audit log (potential data loss): {e}") from e
 
     def _rotate_log(self) -> None:
-        """Rotate current log file."""
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        rotated_path = self.log_dir / f"audit_{timestamp}.jsonl"
+        """Rotate the active log to a uniquely named segment.
 
-        # Rename current file
-        self._current_log_path.rename(rotated_path)
+        Names carry microseconds plus a ``-<n>`` counter on collision, and
+        the rename refuses to replace an existing file
+        (:func:`_rename_no_clobber`), so two rotations in the same second (a
+        small ``rotate_size_mb`` or a burst) can never destroy a segment.
+        """
+        now = time.time()
+        base = f"audit_{time.strftime('%Y%m%d_%H%M%S', time.localtime(now))}"
+        base += f".{int(now * 1_000_000) % 1_000_000:06d}"
+        dup = 0
+        while True:
+            suffix = f"-{dup}" if dup else ""
+            rotated_path = self.log_dir / f"{base}{suffix}{self._rotated_tag}.jsonl"
+            if _rename_no_clobber(self._current_log_path, rotated_path):
+                break
+            dup += 1
 
         # Generate integrity hash for rotated file
         file_hash = self._compute_file_hash(rotated_path)
@@ -756,21 +1308,64 @@ class SecureAuditLogger:
 
     def _compute_file_hash(self, path: Path) -> str:
         """Compute SHA3-256 hash of file for AMA Cryptography alignment."""
-        sha3 = hashlib.sha3_256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha3.update(chunk)
-        return sha3.hexdigest()
+        return _file_sha3(path)
 
     def _cleanup_old_logs(self) -> None:
-        """Remove oldest rotated logs beyond limit."""
-        rotated_logs = sorted(self.log_dir.glob("audit_*.jsonl"), key=lambda p: p.stat().st_mtime)
+        """Keep this writer's newest ``max_rotated_files`` segments.
 
-        while len(rotated_logs) > self.max_rotated_files:
-            oldest = rotated_logs.pop(0)
-            oldest.unlink(missing_ok=True)
-            # Also remove hash file
-            oldest.with_suffix(".sha256").unlink(missing_ok=True)
+        Retention is per writer: only this writer's own segments are counted
+        and deleted (a worker's ``_<pid>`` segments, or the primary's
+        unsuffixed ones), so one busy writer cannot prune another's evidence.
+        The primary additionally caps orphaned writers' files
+        (:meth:`_cleanup_orphans`).
+        """
+        own = _writer_segments(self.log_dir, self._writer_pid)
+        for oldest in own[: max(len(own) - max(self.max_rotated_files, 0), 0)]:
+            _remove_segment(oldest)
+        if self._writer_pid is None:
+            self._cleanup_orphans()
+
+    def _cleanup_orphans(self) -> None:
+        """Cap the files left by writers that no longer run.
+
+        Every ``mercury serve --workers N`` restart leaves the previous
+        workers' ``audit-<pid>.jsonl`` and ``audit_*_<pid>.jsonl`` behind
+        under pids that will never write again, so per-writer retention never
+        sees them. The primary pools all orphaned files (active logs and
+        segments) and keeps the newest ``max_rotated_files`` by mtime; older
+        ones are deleted with their sidecars, and a dead writer's lock file is
+        removed once none of its files remain. Orphans are never renamed or
+        rewritten, so the kept ones remain verifiable. A writer is judged by
+        :func:`_writer_is_live`, which errs towards keeping files.
+        """
+        by_pid: dict[int, list[Path]] = {}
+        for path in self.log_dir.glob("audit_*.jsonl"):
+            info = _segment_info(path)
+            if info is not None and info[0] is not None:
+                by_pid.setdefault(info[0], []).append(path)
+        for path in self.log_dir.glob("audit-*.jsonl"):
+            match = _WORKER_LOG_RE.fullmatch(path.name)
+            if match is not None:
+                by_pid.setdefault(int(match["pid"]), []).append(path)
+        orphaned: list[tuple[float, Path]] = []
+        dead: list[int] = []
+        for pid, paths in by_pid.items():
+            if _writer_is_live(self.log_dir, pid):
+                continue
+            dead.append(pid)
+            for path in paths:
+                try:
+                    orphaned.append((path.stat().st_mtime, path))
+                except OSError:
+                    continue
+        orphaned.sort(key=lambda item: (item[0], item[1].name))
+        excess = max(len(orphaned) - max(self.max_rotated_files, 0), 0)
+        for _mtime, path in orphaned[:excess]:
+            logger.info("Removing orphaned audit file %s (writer no longer running)", path)
+            _remove_segment(path)
+        for pid in dead:
+            if not any(p.exists() for p in by_pid[pid]):
+                _worker_lock_path(self.log_dir, pid).unlink(missing_ok=True)
 
     def add_hook(self, hook: Callable[[AuditEvent], None]) -> None:
         """Add event hook for real-time processing."""
@@ -785,45 +1380,7 @@ class SecureAuditLogger:
         Returns:
             Tuple of (is_valid, message)
         """
-        path = path or self._current_log_path
-
-        if not path.exists():
-            return False, "Log file does not exist"
-
-        # Load events
-        events = []
-        try:
-            with open(path) as f:
-                for line in f:
-                    data = json.loads(line)
-                    events.append(
-                        AuditEvent(
-                            event_id=data["event_id"],
-                            timestamp=data["timestamp"],
-                            category=AuditEventCategory(data["category"]),
-                            severity=AuditEventSeverity(data["severity"]),
-                            action=data["action"],
-                            actor=data.get("actor"),
-                            resource=data.get("resource"),
-                            outcome=data["outcome"],
-                            details=data["details"],
-                            sequence_number=data["sequence_number"],
-                            previous_hash=data["previous_hash"],
-                            event_hash=data["event_hash"],
-                            session_id=data.get("session_id"),
-                            client_ip=data.get("client_ip"),
-                        )
-                    )
-        except (json.JSONDecodeError, KeyError) as e:
-            return False, f"Failed to parse log file: {e}"
-
-        # Verify chain
-        is_valid, invalid_indices = self.hash_chain.verify_chain(events)
-
-        if is_valid:
-            return True, f"Log integrity verified ({len(events)} events)"
-        else:
-            return False, f"Chain broken at indices: {invalid_indices}"
+        return verify_log_file(path or self._current_log_path, self.hash_chain)
 
     def get_recent_events(
         self,
@@ -879,6 +1436,13 @@ class SecureAuditLogger:
         if self._flush_thread and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=5.0)
 
+        if self._primary_lock is not None:
+            self._primary_lock.close()  # releases the flock
+            self._primary_lock = None
+        if self._writer_lock is not None:
+            self._writer_lock.close()
+            self._writer_lock = None
+
         logger.info("SecureAuditLogger shutdown complete")
 
 
@@ -903,9 +1467,12 @@ def get_audit_logger() -> SecureAuditLogger:
 
 
 def configure_audit_logger(**kwargs: Any) -> SecureAuditLogger:
-    """Configure and return global audit logger."""
+    """Configure and return global audit logger (shutting the previous one down)."""
     global _audit_logger
-    _audit_logger = SecureAuditLogger(**kwargs)
+    with _audit_logger_lock:
+        if _audit_logger is not None:
+            _audit_logger.shutdown()
+        _audit_logger = SecureAuditLogger(**kwargs)
     return _audit_logger
 
 
@@ -919,4 +1486,8 @@ __all__ = [
     "SecureHashChain",
     "configure_audit_logger",
     "get_audit_logger",
+    "load_audit_events",
+    "sequence_gaps",
+    "verify_audit_directory",
+    "verify_log_file",
 ]

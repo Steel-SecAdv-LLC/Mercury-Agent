@@ -8,7 +8,7 @@ into the Mercury-Agent detection pipeline:
 INTEGRATION POINTS:
 1. PlasticityEngine ↔ DetectorRegistry (learns from detector outputs)
 2. KnowledgeGraph ↔ NeurosymbolicEngine (stores symbolic knowledge)
-3. MultiHopReasoner ↔ TruthDecipherFramework (provides inference chains)
+3. MultiHopReasoner ↔ OmniMercuryEngine (provides inference chains)
 4. IPBEngine ↔ IntelligenceFusionEngine (threat preparation)
 5. CausalDiscovery ↔ AnomalyEngine (finds WHY anomalies occur)
 6. UncertaintyQuantifier ↔ All predictions (quantifies confidence)

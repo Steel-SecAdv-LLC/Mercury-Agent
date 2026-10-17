@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for STEM-verifiable mathematical constants."""
+"""Tests for STEAM-verifiable mathematical constants."""
 
 from __future__ import annotations
 

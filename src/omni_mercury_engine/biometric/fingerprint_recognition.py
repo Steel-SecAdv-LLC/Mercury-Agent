@@ -315,16 +315,34 @@ class GaborEnhancer:
             image: Input fingerprint image
             orientation: Local orientation field
             frequency: Local frequency field
-            quality_mask: Optional mask for valid regions
+            quality_mask: Optional per-block quality in ``[0, 1]`` with the
+                same shape as ``orientation``. Each block's output is the
+                quality-weighted blend ``q * filtered + (1 - q) * original``,
+                so low-quality regions keep the (normalised) input instead
+                of Gabor output — the standard guard against hallucinating
+                ridge structure where orientation/frequency estimates are
+                unreliable.
 
         Returns:
             Enhanced fingerprint image
+
+        Raises:
+            ValueError: ``quality_mask`` shape differs from ``orientation``.
         """
         if image.ndim == 3:
             image = np.mean(image, axis=2)
 
         image = image.astype(np.float64)
         image = (image - image.min()) / (image.max() - image.min() + 1e-8)
+
+        if quality_mask is not None:
+            quality_mask = np.asarray(quality_mask, dtype=np.float64)
+            if quality_mask.shape != orientation.shape:
+                raise ValueError(
+                    f"quality_mask shape {quality_mask.shape} must match "
+                    f"orientation field shape {orientation.shape}"
+                )
+            quality_mask = np.clip(quality_mask, 0.0, 1.0)
 
         h, w = image.shape
         enhanced = np.zeros_like(image)
@@ -362,7 +380,12 @@ class GaborEnhancer:
 
                 target_h = min(bh, extracted.shape[0])
                 target_w = min(bw, extracted.shape[1])
-                enhanced[y1 : y1 + target_h, x1 : x1 + target_w] = extracted[:target_h, :target_w]
+                block_out = extracted[:target_h, :target_w]
+                if quality_mask is not None:
+                    q = float(quality_mask[i, j])
+                    original = image[y1 : y1 + target_h, x1 : x1 + target_w]
+                    block_out = q * block_out + (1.0 - q) * original
+                enhanced[y1 : y1 + target_h, x1 : x1 + target_w] = block_out
 
         enhanced = (enhanced - enhanced.min()) / (enhanced.max() - enhanced.min() + 1e-8)
         return enhanced
@@ -596,6 +619,10 @@ class MinutiaeExtractor:
 
                 if quality_map[qi, qj] < self._quality_threshold:
                     continue
+                # Record the measured local quality: every downstream
+                # confidence weighting is impossible while quality is the
+                # constructed default of 1.0.
+                m.quality = float(quality_map[qi, qj])
 
             filtered.append(m)
 
@@ -945,13 +972,18 @@ class FingerprintRecognizer:
 
         orientation = self._orientation_estimator.estimate(gray)
         frequency = self._frequency_estimator.estimate(gray, orientation)
-        enhanced = self._enhancer.enhance(gray, orientation, frequency)
 
+        # The quality map is computed BEFORE enhancement and passed in, so the
+        # anti-hallucination blend (low-quality blocks keep the input instead
+        # of Gabor output) runs in the real recognition path, not only when a
+        # caller supplies a mask by hand.
         quality_map = self._compute_quality_map(gray, orientation)
+        enhanced = self._enhancer.enhance(gray, orientation, frequency, quality_mask=quality_map)
+
         minutiae = self._minutiae_extractor.extract(enhanced, orientation, quality_map)
 
         singularities = self._detect_singularities(orientation)
-        overall_quality = self._compute_overall_quality(quality_map, len(minutiae))
+        overall_quality = self._compute_overall_quality(quality_map, minutiae)
 
         return FingerprintFeatures(
             minutiae=minutiae,
@@ -1108,10 +1140,18 @@ class FingerprintRecognizer:
     def _compute_overall_quality(
         self,
         quality_map: np.ndarray[Any, Any],
-        minutiae_count: int,
+        minutiae: list[Minutia],
     ) -> float:
-        """Compute overall fingerprint quality."""
+        """Compute overall fingerprint quality.
+
+        The minutiae factor is confidence-weighted: each minutia contributes
+        its measured local quality, so spurious detections in unreliable
+        regions cannot inflate the score the way a raw count did (twenty
+        noise-crossings on a near-flat image are not evidence of a good
+        print).
+        """
         avg_quality = np.mean(quality_map)
-        minutiae_factor = min(1.0, minutiae_count / 30.0)
+        effective_minutiae = float(sum(m.quality for m in minutiae))
+        minutiae_factor = min(1.0, effective_minutiae / 30.0)
 
         return float(0.6 * avg_quality + 0.4 * minutiae_factor)

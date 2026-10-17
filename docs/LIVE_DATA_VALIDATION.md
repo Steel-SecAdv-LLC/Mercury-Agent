@@ -10,26 +10,24 @@ synthetic data, no tuning. Results are measured, not estimated.
 The committed `benchmarks/mercury_benchmark_results.json` run is the
 single source of truth:
 
-- **Committed benchmark run: 66 successful / 75 attempted.**
-  47 ADBench tabular + 28 domain loaders attempted; 9 external
-  sources unavailable / rate-limited. Measured **Mean AUC 0.8251 /
-  Median 0.8747 / Mean Oracle F1 0.5998** (2026-06-21, commit
-  a7a194b), surfaced in the README *Latest Benchmark Results* block
-  and regenerated on every push to `main`. The 0.8251 headline is the
-  genuine-labels-only mean over the 53 genuine-labeled datasets
+- **Committed benchmark run: 67 successful / 76 attempted.**
+  47 ADBench tabular + 29 domain loaders attempted; 9 external
+  sources unavailable / rate-limited. Measured **Mean AUC 0.8545 /
+  Median 0.9052 / Mean Oracle F1 0.6425** (2026-10-14, commit
+  27d2293), surfaced in the README *Latest Benchmark Results* block
+  and regenerated on every push to `main`. The 0.8545 headline is the
+  genuine-labels-only mean over the 54 genuine-labeled datasets
   (`headline_label_policy = genuine_labels_only`, `n_genuine_labeled
-  = 53`).
-- **CI regression-gate floor: Mean AUC 0.8259 / Mean Oracle F1
-  0.6046** (post-de-leak baseline, commit e9feeec, #261). The
-  benchmark workflow fails if ROC-AUC drops below 0.75 or Mean Oracle
-  F1 below 0.55 — ~9% margins below this measured baseline (see
-  `.github/workflows/benchmark.yml`).
-- **Externally-comparable subset: ADBench Mean AUC 0.8251** — the
-  numbers comparable to published detectors. The ADBench-comparable
-  figure coincides with the genuine-labels-only headline at 0.8251;
-  it is not a distinct ADBench-only subset (the self-labeled
-  environmental loaders are threshold-derived; see the README
-  "Label provenance and comparability" split).
+  = 54`).
+- **CI regression-gate floors: ROC-AUC 0.75 / Mean Oracle F1 0.55**
+  (`.github/workflows/benchmark.yml`), set ~9% below the post-de-leak
+  baseline of Mean AUC 0.8259 / Mean Oracle F1 0.6046 (commit
+  e9feeec, #261). The benchmark workflow fails below either floor.
+- **Externally-comparable subset: ADBench Mean AUC 0.8515** (47
+  datasets, Mean Oracle F1 0.6415) — the numbers comparable to
+  published detectors. The self-labeled environmental loaders are
+  threshold-derived and excluded; see the README "Label provenance
+  and comparability" split.
 
 For the authoritative live figures always consult the README
 *Latest Benchmark Results* block and `mercury_benchmark_results.json`.

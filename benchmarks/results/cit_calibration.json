@@ -1,0 +1,100 @@
+{
+  "design": {
+    "alpha": 0.05,
+    "channels": [
+      "skin_conductance",
+      "heart_rate",
+      "respiration_line_length"
+    ],
+    "effect_channels": [
+      "skin_conductance"
+    ],
+    "effects_sd": [
+      0.25,
+      0.5,
+      1.0
+    ],
+    "items": 5,
+    "questions": 6,
+    "repetitions": 3,
+    "seed": 20261016,
+    "sessions": 2000
+  },
+  "elapsed_s": 18.0,
+  "python": "3.13.16",
+  "results": {
+    "permutation/d=0.25": {
+      "rate": 0.1305,
+      "rejected": 261,
+      "sessions": 2000,
+      "wilson_95": [
+        0.11644255627223538,
+        0.1459741416686105
+      ]
+    },
+    "permutation/d=0.5": {
+      "rate": 0.264,
+      "rejected": 528,
+      "sessions": 2000,
+      "wilson_95": [
+        0.24514712228916352,
+        0.28375772402758787
+      ]
+    },
+    "permutation/d=1": {
+      "rate": 0.657,
+      "rejected": 1314,
+      "sessions": 2000,
+      "wilson_95": [
+        0.6359120298383315,
+        0.6774860173153551
+      ]
+    },
+    "permutation/null": {
+      "rate": 0.042,
+      "rejected": 84,
+      "sessions": 2000,
+      "wilson_95": [
+        0.0340516147420547,
+        0.05170440056757297
+      ]
+    },
+    "rank/d=0.25": {
+      "rate": 0.0895,
+      "rejected": 179,
+      "sessions": 2000,
+      "wilson_95": [
+        0.07776341044149375,
+        0.10281048537641489
+      ]
+    },
+    "rank/d=0.5": {
+      "rate": 0.1685,
+      "rejected": 337,
+      "sessions": 2000,
+      "wilson_95": [
+        0.15273437185402736,
+        0.1855366304934433
+      ]
+    },
+    "rank/d=1": {
+      "rate": 0.47,
+      "rejected": 940,
+      "sessions": 2000,
+      "wilson_95": [
+        0.44820482770857345,
+        0.49191019512830153
+      ]
+    },
+    "rank/null": {
+      "rate": 0.034,
+      "rejected": 68,
+      "sessions": 2000,
+      "wilson_95": [
+        0.026908260159560583,
+        0.042878427906567144
+      ]
+    }
+  },
+  "schema": "mercury.benchmarks.cit_calibration/v1"
+}

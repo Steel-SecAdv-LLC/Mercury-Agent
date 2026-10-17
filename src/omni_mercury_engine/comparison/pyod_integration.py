@@ -20,7 +20,7 @@ Design rules (transparent-by-construction):
 * **No silent drops.** A detector that raises is recorded as
   ``{"error": ...}`` in the result dict, never omitted.
 
-PyOD is an optional dependency (``pip install mercury-agent[benchmark]``);
+PyOD is an optional dependency (``pip install mercury-agent-global[benchmark]``);
 importing this module without PyOD installed is safe -- only building/running
 detectors raises, with an actionable message.
 
@@ -135,7 +135,7 @@ def build_pyod_detector(algorithm: PyODAlgorithm, *, seed: int = 42) -> Any:
 
     Raises:
         ImportError: PyOD is not installed
-            (``pip install mercury-agent[benchmark]``).
+            (``pip install mercury-agent-global[benchmark]``).
         ValueError: ``algorithm`` is not a supported :class:`PyODAlgorithm`.
     """
     try:
@@ -179,7 +179,7 @@ def build_pyod_detector(algorithm: PyODAlgorithm, *, seed: int = 42) -> Any:
         raise ImportError(
             f"Could not import the PyOD backend for {algorithm!r}: {exc}. "
             "This usually means PyOD itself is not installed -- install it with: "
-            "pip install 'mercury-agent[benchmark]' (or pip install pyod). It can "
+            "pip install 'mercury-agent-global[benchmark]' (or pip install pyod). It can "
             "also be a missing optional/transitive dependency of the specific "
             "model (e.g. AutoEncoder requires torch); the original ImportError "
             "above names the exact missing module."
@@ -220,7 +220,7 @@ def run_pyod_baselines(
     if not pyod_available():
         raise ImportError(
             "PyOD is required to run comparison baselines. "
-            "Install it with: pip install 'mercury-agent[benchmark]' (or pip install pyod)."
+            "Install it with: pip install 'mercury-agent-global[benchmark]' (or pip install pyod)."
         )
     chosen = tuple(algorithms) if algorithms is not None else DEFAULT_BASELINES
     X_train = np.asarray(X_train, dtype=np.float64)

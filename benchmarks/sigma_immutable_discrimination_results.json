@@ -145,7 +145,7 @@
       "passes": false,
       "backend": "sigma_immutable_ethical_floor",
       "raised_check": "sigma_immutable_ethical_floor",
-      "rationale": "A realistic partial failure: a monitoring/audit subsystem collapses (omnivigilance, omniaccountability, bias_audit_compliance -> 0.1) and benevolence sags to 0.5 -- what a degraded live component would register."
+      "rationale": "A realistic partial failure: a monitoring/audit subsystem collapses (omnivigilance, omniaccountability, omni_bias_audit_compliance -> 0.1) and benevolence sags to 0.5 -- what a degraded live component would register."
     },
     {
       "name": "held_out_benevolence_gap",

@@ -273,15 +273,31 @@ class TestCrisisMonitorSurvivorPriorities:
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.survivor_priorities, list)
 
-    def test_survivor_first_prioritization(self) -> None:
-        """Test that the most-exposed survivors are prioritised first."""
+    def test_civilization_first_prioritization(self) -> None:
+        """The most-exposed people are prioritised first, in a fixed, auditable order."""
         geoint_data = {
             "mass_casualty_event": True,
             "severity": 0.95,
         }
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
-        # Survivor priorities should be generated
-        assert isinstance(alert.survivor_priorities, list)
+        priorities = alert.survivor_priorities
+        # Life-critical care leads; evacuation names the groups actually identified
+        # as vulnerable for this crisis, ahead of logistics and reunification.
+        assert priorities[0].startswith("Immediate medical attention")
+        evacuation = next(p for p in priorities if p.startswith("Evacuation of vulnerable groups"))
+        assert priorities.index(evacuation) == 1
+        for group in alert.vulnerable_groups[:3]:
+            assert group in evacuation
+        assert priorities[-1].startswith("Establish communication channels")
+
+    def test_pandemic_puts_containment_ahead_of_everything(self) -> None:
+        """In a pandemic, quarantine and treatment of the infected precede all other aid."""
+        alert = self.monitor.monitor_crisis(
+            geoint_data={"severity": 0.9, "indicators": ["pandemic outbreak cluster"]},
+        )
+        assert alert.crisis_type == "pandemic"
+        assert alert.survivor_priorities[0].startswith("Quarantine and treatment")
+        assert alert.survivor_priorities[1].startswith("Immediate medical attention")
 
 
 class TestCrisisMonitorGEOINTIndicators:

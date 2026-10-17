@@ -4,7 +4,8 @@
 
 Consumer-facing surface for governance and policy frameworks.
 Hosts the NIST CSF 2.0 integrator, the OSHA / eCFR anomaly detector,
-and the FIRST.org / CISA Traffic Light Protocol 2.0 handler.
+the FIRST.org / CISA Traffic Light Protocol 2.0 handler, and the GDPR
+lawfulness-of-processing checklist (Arts. 5-49).
 
 These modules describe *what* organisations are required to do
 (controls, citations, dissemination rules) rather than *how* Mercury
@@ -15,6 +16,12 @@ PQC, threat detection, audit logging) live in
 
 from __future__ import annotations
 
+from omni_mercury_engine.compliance.gdpr_processing import (
+    GDPRCompliance,
+    GDPRComplianceResult,
+    GDPRComplianceViolation,
+    GDPRLegalBasis,
+)
 from omni_mercury_engine.compliance.nist_csf_integrator import (
     ImplementationTier,
     NISTAssessment,
@@ -52,6 +59,10 @@ __all__ = [
     "ComplianceLevel",
     "ECFRClient",
     "ECFRClientError",
+    "GDPRCompliance",
+    "GDPRComplianceResult",
+    "GDPRComplianceViolation",
+    "GDPRLegalBasis",
     "HazardCategory",
     "ImplementationTier",
     "NISTAssessment",

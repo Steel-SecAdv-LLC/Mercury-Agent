@@ -37,6 +37,7 @@ __all__ = [
     "LabelSmoothingLoss",
     "MultimodalFusion",
     "OmniFusionModel",
+    "STEAMDisciplineRouter",
     "STEMDisciplineRouter",
     "TemporalSequenceEncoder",
 ]
@@ -914,8 +915,8 @@ class OmniFusionModel(nn.Module):
         learning_rate: float = 0.001,
         lambda_lyapunov: float = 0.25,
         use_synthetic_gradients: bool = True,
-        use_dtp: bool = True,
         use_amav: bool = True,
+        use_dtp: bool = True,
         use_focal_loss: bool = False,
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
@@ -941,8 +942,17 @@ class OmniFusionModel(nn.Module):
             learning_rate: Base learning rate (default: 0.001)
             lambda_lyapunov: Lyapunov stability parameter (default: 0.25)
             use_synthetic_gradients: Enable synthetic gradient prediction
-            use_dtp: Enable difference target propagation
             use_amav: Enable auxiliary max-variance for multi-task
+            use_dtp: Run the invertibility diagnostic on the anomaly head's
+                first linear projection. Each log interval, a clone is
+                re-synced to the layer's current trained weights and ONLY an
+                auxiliary inverse map is refit against real captured
+                activations; the recorded value is the normalized round-trip
+                reconstruction error of the layer as trained at that moment
+                (fraction of activation variance not recovered; 0.0 is
+                perfect, ~1.0 is no better than the mean). It is a measurement
+                only: the clone's forward weights never train and the model's
+                weights are never mutated.
             use_focal_loss: Enable focal loss for severe class imbalance
             focal_alpha: Alpha parameter for focal loss (weight for positive class)
             focal_gamma: Gamma parameter for focal loss (focus on hard examples)
@@ -961,6 +971,7 @@ class OmniFusionModel(nn.Module):
         """
         from omni_mercury_engine.ml.optimizers import (
             AuxiliaryMaxVariance,
+            DifferenceTargetPropagation,
             SyntheticGradientPredictor,
             estimate_convergence_rate,
         )
@@ -981,6 +992,33 @@ class OmniFusionModel(nn.Module):
         amav = None
         if use_amav:
             amav = AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
+
+        # DTP invertibility diagnostic. Operates on a *clone* of the anomaly
+        # head's first linear projection so the trained model is never mutated;
+        # a forward hook captures real output activations and the auxiliary
+        # inverse is trained to round-trip them at each log interval.
+        dtp = None
+        dtp_reconstruction: list[float] = []
+        dtp_capture: dict[str, torch.Tensor] = {}
+        dtp_handle = None
+        if use_dtp:
+            diag_linears = [m for m in self.anomaly_head.modules() if isinstance(m, nn.Linear)]
+            if diag_linears:
+                diag_layer = diag_linears[0]
+                # Diagnostic runs on CPU to match the auto-created inverse layer;
+                # load_state_dict copies the live weights cross-device as needed.
+                dtp_forward = nn.Linear(diag_layer.in_features, diag_layer.out_features)
+                dtp_forward.load_state_dict(diag_layer.state_dict())
+                dtp = DifferenceTargetPropagation(forward_layer=dtp_forward)
+
+                def _dtp_hook(
+                    _module: nn.Module,
+                    _inputs: tuple[torch.Tensor, ...],
+                    output: torch.Tensor,
+                ) -> None:
+                    dtp_capture["output"] = output.detach()
+
+                dtp_handle = diag_layer.register_forward_hook(_dtp_hook)
 
         # Initialize focal loss if requested
         focal_loss_fn = None
@@ -1130,6 +1168,34 @@ class OmniFusionModel(nn.Module):
                     f"lyapunov_v={lyapunov_values[-1]:.4f}"
                 )
 
+                if dtp is not None and "output" in dtp_capture:
+                    # Re-sync the clone to the layer AS TRAINED RIGHT NOW and
+                    # refit ONLY the inverse against it, then record the
+                    # normalized round-trip error (fraction of activation
+                    # variance not recovered; scale-free). Keeping the forward
+                    # clone frozen at the live weights makes this a measurement
+                    # of the actual projection's invertibility — training the
+                    # clone too would measure a co-adapting autoencoder that
+                    # trends to zero for almost any layer.
+                    dtp.forward_layer.load_state_dict(diag_layer.state_dict())
+                    y_cpu = dtp_capture["output"].detach().cpu()
+                    for _ in range(20):
+                        dtp.optimizer_forward.zero_grad()
+                        dtp.optimizer_inverse.zero_grad()
+                        refit_loss = nn.functional.mse_loss(
+                            dtp.forward_layer(dtp.inverse_layer(y_cpu)), y_cpu
+                        )
+                        refit_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                        dtp.optimizer_inverse.step()  # the forward clone never steps
+                    with torch.no_grad():
+                        recon = dtp.forward_layer(dtp.inverse_layer(y_cpu))
+                        num = float(nn.functional.mse_loss(recon, y_cpu).item())
+                        denom = float(y_cpu.var(unbiased=False).item()) + 1e-8
+                        dtp_reconstruction.append(num / denom)
+
+        if dtp_handle is not None:
+            dtp_handle.remove()
+
         import numpy as np
 
         loss_array = np.array(loss_history)
@@ -1168,18 +1234,184 @@ class OmniFusionModel(nn.Module):
                 else None
             ),
             "label_smoothing": label_smoothing,
+            "dtp_reconstruction": dtp_reconstruction if use_dtp else None,
+        }
+
+    def compare_head_training_dtp_vs_backprop(
+        self,
+        train_loader: Any,
+        epochs: int = 20,
+        learning_rate: float = 0.01,
+        target_step: float = 0.5,
+        device: str = "cpu",
+    ) -> dict[str, Any]:
+        """A/B-train two identical anomaly-head copies: backprop vs canonical DTP.
+
+        Both arms start from the same weights and see the same frozen-trunk
+        fused representations. The backprop arm trains by ordinary end-to-end
+        gradient descent (Adam). The DTP arm trains by canonical Difference
+        Target Propagation (Lee et al. 2015): the only gradient ever taken is
+        the loss's *local* gradient at the output layer (which defines the top
+        target); the hidden layer's target comes from the difference-corrected
+        learned inverse, and every weight update is layer-local — no error
+        signal is backpropagated through the stack. The learned inverse is
+        trained on actual activation pairs (``g(f(h)) ~ h``).
+
+        This is a measured comparison, not a claim: DTP typically trails
+        backprop on small MLPs, and the returned trajectories quantify the gap
+        on *this* model's real fused representations.
+
+        Args:
+            train_loader: Iterable of ``(features_dict, labels)`` batches, as
+                for :meth:`train_with_optimizers`.
+            epochs: Training epochs for both arms.
+            learning_rate: Adam LR (backprop arm) and SGD LR (DTP arm's
+                layer-local and inverse updates).
+            target_step: Step size applied to the output-layer loss gradient
+                when forming the top target.
+            device: Torch device for the trunk forward pass.
+
+        Returns:
+            Dictionary with ``dtp_loss_history`` / ``backprop_loss_history``
+            (per-epoch mean BCE), the final losses, ``dtp_converged`` (final
+            below initial), and ``dtp_over_backprop_final_ratio``.
+        """
+        import copy
+
+        self.to(device)
+        self.eval()  # frozen trunk; dropout/batch-norm in inference behaviour
+
+        # Capture the real fused representation feeding the anomaly head.
+        captured: dict[str, torch.Tensor] = {}
+        first_linear = next(m for m in self.anomaly_head.modules() if isinstance(m, nn.Linear))
+
+        def _capture(
+            _module: nn.Module, inputs: tuple[torch.Tensor, ...], _output: torch.Tensor
+        ) -> None:
+            captured["x"] = inputs[0].detach().cpu()
+
+        handle = first_linear.register_forward_hook(_capture)
+        pairs: list[tuple[torch.Tensor, torch.Tensor]] = []
+        try:
+            with torch.no_grad():
+                for features_dict, labels in train_loader:
+                    features_dict = {k: v.to(device) for k, v in features_dict.items()}
+                    self.forward(features_dict)
+                    target = labels[:, 0].float() if labels.dim() > 1 else labels.float()
+                    pairs.append((captured["x"].clone(), target.cpu()))
+        finally:
+            handle.remove()
+
+        if not pairs:
+            raise ValueError("train_loader yielded no batches")
+
+        hidden_dim = int(first_linear.in_features)
+
+        # Identical initial weights for both arms.
+        l1 = nn.Linear(hidden_dim, 64)
+        l2 = nn.Linear(64, 1)
+        bp_head = nn.Sequential(copy.deepcopy(l1), nn.ReLU(), copy.deepcopy(l2))
+        f1 = nn.Sequential(l1, nn.ReLU())
+        f2 = l2
+        g2 = nn.Linear(1, 64)  # learned inverse of the output layer
+
+        # Local optimizers are Adam too: DTP's biological-plausibility
+        # constraint is the signal path (no error backpropagated through
+        # layers, no weight transport), not the local solver — Lee et al.
+        # themselves used RMSprop for the layer-local regressions.
+        opt_bp = torch.optim.Adam(bp_head.parameters(), lr=learning_rate)
+        opt_f1 = torch.optim.Adam(f1.parameters(), lr=learning_rate)
+        opt_f2 = torch.optim.Adam(f2.parameters(), lr=learning_rate)
+        opt_g2 = torch.optim.Adam(g2.parameters(), lr=learning_rate)
+        bce = nn.BCEWithLogitsLoss()
+        mse = nn.functional.mse_loss
+
+        bp_history: list[float] = []
+        dtp_history: list[float] = []
+
+        for _epoch in range(epochs):
+            bp_sum = 0.0
+            dtp_sum = 0.0
+            for x, y in pairs:
+                # --- backprop arm ---
+                opt_bp.zero_grad()
+                bp_loss = bce(bp_head(x).squeeze(-1), y)
+                bp_loss.backward()
+                opt_bp.step()
+                bp_sum += float(bp_loss.item())
+
+                # --- DTP arm ---
+                with torch.no_grad():
+                    h1 = f1(x)
+                    h2 = f2(h1)
+
+                # The ONLY gradient: the loss's local gradient at the output,
+                # which defines the top target. It does not touch any weights.
+                # The target uses the per-sample gradient (sum reduction) —
+                # for BCE-with-logits exactly ``sigmoid(h2) - y`` — so the
+                # step is in sigmoid-error units instead of shrinking with
+                # batch size; the reported loss stays the comparable mean.
+                h2_leaf = h2.clone().requires_grad_(True)
+                nn.functional.binary_cross_entropy_with_logits(
+                    h2_leaf.squeeze(-1), y, reduction="sum"
+                ).backward()  # type: ignore[no-untyped-call, unused-ignore]
+                assert h2_leaf.grad is not None
+                with torch.no_grad():
+                    h2_target = h2 - target_step * h2_leaf.grad
+                    dtp_sum += float(bce(h2.squeeze(-1), y).item())
+
+                # Inverse training on actual activation pairs: g2(f2(h1)) ~ h1.
+                opt_g2.zero_grad()
+                g2_loss = mse(g2(h2), h1)
+                g2_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                opt_g2.step()
+
+                # Difference-corrected hidden target (Lee et al. 2015, eq. 2).
+                with torch.no_grad():
+                    h1_target = h1 + g2(h2_target) - g2(h2)
+
+                # Layer-local forward updates — no cross-layer error signal.
+                opt_f2.zero_grad()
+                f2_loss = mse(f2(h1), h2_target)
+                f2_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                opt_f2.step()
+
+                opt_f1.zero_grad()
+                f1_loss = mse(f1(x), h1_target)
+                f1_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                opt_f1.step()
+
+            n = len(pairs)
+            bp_history.append(bp_sum / n)
+            dtp_history.append(dtp_sum / n)
+
+        return {
+            "dtp_loss_history": dtp_history,
+            "backprop_loss_history": bp_history,
+            "dtp_final_loss": dtp_history[-1],
+            "backprop_final_loss": bp_history[-1],
+            "dtp_converged": dtp_history[-1] < dtp_history[0],
+            "dtp_over_backprop_final_ratio": (
+                dtp_history[-1] / bp_history[-1] if bp_history[-1] > 0 else float("inf")
+            ),
+            "epochs": epochs,
+            "batches_per_epoch": len(pairs),
+            "mechanism": (
+                "canonical difference target propagation: local output gradient -> top "
+                "target; difference-corrected inverse target; layer-local updates only"
+            ),
         }
 
 
-class STEMDisciplineRouter:
-    """Routes data to appropriate engines based on STEM discipline.
+class STEAMDisciplineRouter:
+    """Routes data to appropriate engines based on STEAM discipline.
 
     Maps specific scientific disciplines to specialized detection engines
     for optimized multi-engine fusion. Improves detection accuracy through
     domain-aware weight selection.
 
     Example:
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         weights = router.route(data, discipline='biology')
 
         fusion_model = OmniFusionModel(...)
@@ -1187,7 +1419,7 @@ class STEMDisciplineRouter:
     """
 
     def __init__(self) -> None:
-        """Initialize STEM discipline routing mappings."""
+        """Initialize STEAM discipline routing mappings."""
         self.discipline_weights = {
             "biology": {
                 "biometric": 0.90,
@@ -1339,11 +1571,11 @@ class STEMDisciplineRouter:
     def route(
         self, data: torch.Tensor, discipline: str, data_type: str | None = None
     ) -> dict[str, float]:
-        """Route data to appropriate engines based on STEM discipline.
+        """Route data to appropriate engines based on STEAM discipline.
 
         Args:
             data: Input data tensor
-            discipline: STEM discipline (e.g., 'biology', 'physics', 'cybersecurity')
+            discipline: STEAM discipline (e.g., 'biology', 'physics', 'cybersecurity')
             data_type: Optional data type hint ('timeseries', 'image', 'tabular')
 
         Returns:
@@ -1398,7 +1630,7 @@ class STEMDisciplineRouter:
         """Explain why engines were prioritized for a discipline.
 
         Args:
-            discipline: STEM discipline
+            discipline: STEAM discipline
 
         Returns:
             Dict with explanation and top engines
@@ -1446,3 +1678,7 @@ class STEMDisciplineRouter:
             "top_engines": [name for name, _ in sorted_engines[:3]],
             "weights": dict(sorted_engines),
         }
+
+
+#: Back-compat alias: the router predates the STEAM naming.
+STEMDisciplineRouter = STEAMDisciplineRouter

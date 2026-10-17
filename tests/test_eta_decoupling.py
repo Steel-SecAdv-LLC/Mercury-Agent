@@ -75,3 +75,24 @@ def test_eta_is_still_reported_as_provenance() -> None:
     """Removing it from the arithmetic must not remove it from the record."""
     result = OmniAvaEquation().compute(0.8, 0.6, 0.4)
     assert 0.0 < result.ethical_compliance_threshold <= 1.0
+
+
+def test_dominance_proof_describes_the_equation_as_implemented() -> None:
+    """The proof dict used to report the removed factor and an unmeasured claim.
+
+    It listed ``* η_Ethical^Φ`` in the equation, presented the NSL-KDD F1 target
+    (0.92 vs 0.797) as an "improvement_factor" and claimed a "10-15%"
+    false-positive reduction. It now matches :meth:`OmniAvaEquation.compute`.
+    """
+    eq = OmniAvaEquation()
+    proof = eq.get_dominance_proof()
+    assert proof["equation"] == "A = w_R * R(x) + w_H * H(omega) + w_O * O(theta)"
+    assert proof["ethical_scaling"]["applied"] is False
+    assert proof["performance_claims"] is None
+    flat = repr(proof)
+    for retired in ("η_Ethical^Φ", "improvement_factor", "fp_reduction", "nsl_kdd"):
+        assert retired not in flat
+    # The equation string is what compute() returns for these inputs.
+    assert eq.compute(0.8, 0.6, 0.4).fusion_score == pytest.approx(
+        _weighted(eq, 0.8, 0.6, 0.4), abs=1e-12
+    )

@@ -228,6 +228,9 @@ async def _warmup(app_instance: FastAPI) -> None:
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     """ASGI lifespan handler: warmup + maintenance on startup, cleanup on stop.
 
+    On stop, in-flight SIEM alerts (:mod:`omni_mercury_engine.api.alert_egress`)
+    are awaited and the alert sinks closed.
+
     The maintenance task (see :mod:`omni_mercury_engine.api.maintenance`)
     prunes expired sessions/tokens, aged usage-ledger rows, and stale
     rate-limit state, and applies the TOTP sealing migration — once at
@@ -243,6 +246,9 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     finally:
         if maintenance_task is not None:
             maintenance_task.cancel()
+        from omni_mercury_engine.api.alert_egress import shutdown_alert_egress
+
+        await shutdown_alert_egress()
 
 
 # Initialize FastAPI application with comprehensive OpenAPI configuration
@@ -398,6 +404,9 @@ app.add_middleware(QuotaMiddleware)  # type: ignore[arg-type, unused-ignore]
 app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 
+from omni_mercury_engine.api.request_audit import audit_request
+
+
 # =============================================================================
 # Correlation ID Middleware (Observability & Distributed Tracing)
 # =============================================================================
@@ -413,6 +422,10 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
     Headers:
         X-Correlation-ID: UUID for request tracing (in/out)
         X-Request-ID: Alias for X-Correlation-ID (in only)
+        traceparent / tracestate: W3C Trace Context (in/out). A valid
+            incoming trace is continued with a new span-id for this
+            request; otherwise a new trace starts. See
+            :mod:`omni_mercury_engine.api.trace_context`.
 
     Usage in downstream code:
         from omni_mercury_engine.api.server import correlation_id_ctx
@@ -433,6 +446,15 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
         # Set context variable for access in handlers
         token = correlation_id_ctx.set(correlation_id)
+        from omni_mercury_engine.api.trace_context import continue_or_start, trace_context_ctx
+
+        # Multiple tracestate headers form one list (RFC 9110 field combining,
+        # W3C Trace Context 3.3.1.1); continue_or_start validates the result
+        # and drops it unless it is well-formed and within the size limits.
+        tracestate = ",".join(request.headers.getlist("tracestate")) or None
+        trace = continue_or_start(request.headers.get("traceparent"), tracestate)
+        trace_token = trace_context_ctx.set(trace)
+        request.state.trace_context = trace
 
         # Add correlation ID to request state for easy access
         request.state.correlation_id = correlation_id
@@ -441,7 +463,18 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
         start_time = time.perf_counter()
 
         try:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except Exception:
+                # An unhandled route exception never produced a response here, so
+                # it used to leave no http_requests_total{status="500"} sample and
+                # no audit entry -- the error-rate alert under-counted exactly
+                # the failures it exists for. Record both, then let the server's
+                # error handler build the 500.
+                failed_ms = (time.perf_counter() - start_time) * 1000
+                self._record_metrics(request, 500, failed_ms)
+                await audit_request(request, 500, failed_ms)
+                raise
 
             # Calculate request duration
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -449,36 +482,48 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             # Add tracing headers to response
             response.headers[self.HEADER_NAME] = correlation_id
             response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
+            response.headers["traceparent"] = trace.traceparent
+            if trace.tracestate:
+                response.headers["tracestate"] = trace.tracestate
 
-            # Record Prometheus HTTP metrics (http_requests_total /
-            # http_request_duration_seconds) the monitoring stack + API HPA
-            # consume. Best-effort and fully isolated: a metrics error must never
-            # affect the response. Labels with the matched route template, and
-            # collapses unmatched requests (404s, scanner/probe traffic on
-            # arbitrary paths) to a single "__unmatched__" label — using the raw
-            # URL path there would let external callers explode label cardinality.
-            try:
-                from omni_mercury_engine.core.metrics import record_http_request
-
-                route = request.scope.get("route")
-                endpoint = getattr(route, "path", None) or "__unmatched__"
-                record_http_request(
-                    request.method, endpoint, response.status_code, duration_ms / 1000.0
-                )
-            except Exception:  # pragma: no cover - metrics must never break a request
-                pass
+            self._record_metrics(request, response.status_code, duration_ms)
+            # One audit entry per finished API request (api/request_audit.py);
+            # best-effort, never changes the response.
+            await audit_request(request, response.status_code, duration_ms)
 
             # Log request completion with correlation ID
             logger.info(
                 f"Request completed: {request.method} {request.url.path} "
                 f"status={response.status_code} duration={duration_ms:.2f}ms "
-                f"correlation_id={correlation_id}"
+                f"correlation_id={correlation_id} trace_id={trace.trace_id} "
+                f"span_id={trace.span_id}"
             )
 
             return response
         finally:
-            # Reset context variable
+            # Reset context variables
+            trace_context_ctx.reset(trace_token)
             correlation_id_ctx.reset(token)
+
+    @staticmethod
+    def _record_metrics(request: Request, status_code: int, duration_ms: float) -> None:
+        """Record Prometheus HTTP metrics (http_requests_total / _duration_seconds).
+
+        Consumed by the monitoring stack and the API HPA. Best-effort and fully
+        isolated: a metrics error must never affect the response. Labels with
+        the matched route template, and collapses unmatched requests (404s,
+        scanner/probe traffic on arbitrary paths) to a single "__unmatched__"
+        label — using the raw URL path there would let external callers explode
+        label cardinality.
+        """
+        try:
+            from omni_mercury_engine.core.metrics import record_http_request
+
+            route = request.scope.get("route")
+            endpoint = getattr(route, "path", None) or "__unmatched__"
+            record_http_request(request.method, endpoint, status_code, duration_ms / 1000.0)
+        except Exception:  # pragma: no cover - metrics must never break a request
+            pass
 
 
 # Register correlation ID middleware (runs before rate limiting)
@@ -958,7 +1003,7 @@ async def health_check() -> HealthResponse:
     and monitoring service availability.
 
     Returns:
-        HealthResponse: Service status and version information.
+        HealthResponse: Service status, version and uptime.
 
     Example:
         ```bash
@@ -967,10 +1012,16 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "x.y.z"}
+        {"status": "healthy", "version": "x.y.z", "uptime_seconds": 3600.5}
         ```
     """
-    return HealthResponse(status="healthy", version=API_VERSION)
+    from omni_mercury_engine.api.health import get_health_checker
+
+    return HealthResponse(
+        status="healthy",
+        version=API_VERSION,
+        uptime_seconds=round(get_health_checker().get_uptime(), 2),
+    )
 
 
 @app.post(
@@ -1457,6 +1508,16 @@ try:
     logger.info("Hazard visualization routes registered")
 except ImportError as e:
     logger.warning(f"Hazard visualization routes not available: {e}")
+
+# Include Evidence-Assessment and Human-Subject Routes (statement verification,
+# CIT, counterintelligence screening and fusion, vital signs, adjudication)
+try:
+    from omni_mercury_engine.api.routes.assessment import router as assessment_router
+
+    app.include_router(assessment_router)
+    logger.info("Assessment routes registered")
+except ImportError as e:
+    logger.warning(f"Assessment routes not available: {e}")
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)

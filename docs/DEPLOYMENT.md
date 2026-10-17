@@ -270,8 +270,8 @@ Set **both** in production:
 |----------|---------|--------|
 | `MERCURY_ENV` | `development` | When `production`, every collaborator with a mock/stub fallback (currently `narrative.voice.MercuryVoice`, more to come) hard-fails with `MercuryProductionConfigError` rather than silently degrading. Unknown values (e.g. `prod`) also raise — typos must be loud. Locked by `tests/test_env.py`. |
 | `AMA_MASTER_SEED` | unset | Hex-encoded AMA HD Key Management master seed (`openssl rand -hex 64`; ≥ 32 decoded bytes enforced, malformed values raise). When set, HD-derived keys (JWT signing, API key, audit signing) are deterministic fleet-wide. Locked by `tests/security/test_jwt_auth.py::TestAMAMasterSeed`. |
-| `AMA_REQUIRE_REAL_PQC` | unset | **No-op compatibility diagnostic.** The import-time PQC gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is unconditional: `import omni_mercury_engine` raises `RuntimeError` whenever AMA Cryptography's native library is not loadable, regardless of this variable (pinned by `tests/test_pqc_startup_gate.py`). Setting it `true` keeps legacy workflows readable. |
-| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v4.0.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
+| `AMA_REQUIRE_REAL_PQC` | unset | **No-op compatibility diagnostic.** The import-time PQC gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is unconditional on the agent surfaces: importing `omni_mercury_engine.engine` / `.crypto` (or touching an AMA-backed `security` export) raises `RuntimeError` whenever AMA Cryptography's native library is not loadable, regardless of this variable (pinned by `tests/test_pqc_startup_gate.py`). Setting it `true` keeps legacy workflows readable. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v5.0.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
 
 `MERCURY_ENV` is consumed via the shared
 `omni_mercury_engine._env.{get_mercury_env, is_production,
@@ -332,11 +332,33 @@ Structured-vs-text formatting is selected by the logging setup in
 | `MERCURY_CACHE_DIR` | `~/.mercury/cache` | On-disk loader cache path (`loaders/base.py`) |
 | `TORCH_HOME` | `/app/models` | PyTorch model cache (consumed by torch) |
 | `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
+| `MERCURY_FUSION_CHECKPOINT` | bundled `models/default_fusion.pt` | Fusion checkpoint the API, MCP server and `detect`/`explain` serve; write one with `mercury-agent train -o`. A missing path fails like a missing bundled file, never falling back to it |
+| `MERCURY_DRIFT_DETECTION` | on | `0`/`false`/`off` disables input-drift detection (see `docs/runbooks/data-drift.md`) |
+| `MERCURY_ADJUDICATION_PATH` | `~/.mercury/adjudication.jsonl` | Held-out fusion-label ledger (`mercury-agent adjudication ...`, `/api/v1/assessment/adjudication/*`) |
+| `MERCURY_ADJUDICATION_SIGNING_KEY` | unset | Owner-only ML-DSA-65 key file (`mercury-agent adjudication keygen --out PATH`) used to sign ledger records and exports |
+| `MERCURY_ADJUDICATION_PUBLIC_KEY` | unset | Hex ML-DSA-65 public key the ledger and its exports are pinned to on read; unsigned or differently signed records are refused |
+| `MERCURY_INTEL_FUSION_CHECKPOINT` | unset | All-source fusion checkpoint for the assessment surfaces; served only if the merit gate admits it against the ledger's held-out labels, else evidence scoring decides |
+| `MERCURY_INTEL_LEARN_RELIABILITY` | unset | `1` learns the per-discipline reliabilities from the ledger's training split at startup (installed only when cross-validation beats the declared table; the held-out split stays for the merit gate) |
+| `MERCURY_MERIT_ATTEMPT_LOG` | unset | Hash-chained log of merit-gate attempts, so alpha spending survives restarts (unset: counted per engine instance) |
+
+### Human-subject capabilities
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MERCURY_HUMAN_SUBJECT_CAPABILITIES` | unset (off) | Lawful bases permitted for the Concealed Information Test and contactless vital signs on every surface: `consent`, and/or `vital_interests` (vital signs of people who cannot consent, e.g. survivors under rubble). An unknown value is refused, never guessed |
+| `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Largest declared request body the `/api/v1/assessment` routes accept (413 above it) |
+
+With the capabilities on, every call still needs a stated purpose (refused
+when it describes covert or non-consensual sensing, or harm to a person) and,
+under `consent`, a `ConsentRecord` for the subject, obtained before the
+recording, with the capability's scope and not withdrawn. Each admitted call is
+written to the gate audit log with a fingerprint of its consent or attestation.
 
 ML availability is determined by the installed extras (`pip install
-mercury-agent[ml]`), not by an environment toggle, and the PQC backend is
-mandatory at import — there is no `OMNI_ML_ENABLED` or
-`OMNI_QUANTUM_ENABLED` switch in the application.
+mercury-agent-global[ml]`), not by an environment toggle, and the PQC backend is
+mandatory for every agent surface (engine, crypto, AMA-backed security
+names) — there is no `OMNI_ML_ENABLED` or `OMNI_QUANTUM_ENABLED` switch in
+the application.
 
 ### Database (optional persistence)
 
@@ -355,7 +377,12 @@ GET /health
 ```
 
 Returns `200 OK` when the service is ready to handle requests. Used by
-Kubernetes readiness and liveness probes.
+Kubernetes readiness and liveness probes. The body is
+`{"status": "healthy", "version": "...", "uptime_seconds": 3600.5}`;
+`uptime_seconds` is the age of the API process, so a value that keeps
+resetting is a crash loop that the `200` alone would not show. The endpoint is
+unauthenticated and exempt from rate limiting (see
+[SECURITY.md](../SECURITY.md#api-security)).
 
 ### Docker HEALTHCHECK
 
@@ -363,14 +390,20 @@ The Dockerfile defines:
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import omni_mercury_engine; print('healthy')" || exit 1
+    CMD python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('healthy')" || exit 1
 ```
+
+It runs the fail-closed PQC production gate directly instead of importing the
+whole engine on every probe.
 
 ### CLI check
 
 ```bash
-python -c "import omni_mercury_engine; print('OK')"
+python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('OK')"
 ```
+
+A bare `import omni_mercury_engine` does not import the engine or run the
+gate, so it does not prove the install is usable; the gate does.
 
 ---
 
@@ -385,12 +418,80 @@ default registry, so a single scrape target covers both. This requires the
 without it the application metrics no-op and `/metrics` serves only the health
 gauges.
 
-Emitted by the API on every request (via `CorrelationIDMiddleware`):
+Distributed tracing: the API speaks W3C Trace Context. A valid incoming
+`traceparent` is continued (same trace-id, a new span-id per request; the
+response carries the resulting `traceparent`, and `tracestate` is passed
+through); otherwise a new trace starts. The trace and span ids are in every
+request log line and on SIEM alerts (`trace_id` label), so a gateway trace, a
+Mercury log line and a forwarded alert join on one id. Spans are not exported
+(that needs an OpenTelemetry SDK, which is not a project dependency).
+
+Emitted by the API on every request, including requests that end in an
+unhandled exception (via `CorrelationIDMiddleware`):
 `http_requests_total{method,endpoint,status}` and
-`http_request_duration_seconds{method,endpoint}` — the series the
-`prometheus-rules.yaml` recording/alerting rules and the API HPA custom metrics
-consume. The detection/model `omni_*` metrics are defined in
-`core.metrics` and surface on `/metrics` as the code paths that record them run.
+`http_request_duration_seconds{method,endpoint}`. The recording and alerting
+rules and the API HPA's custom metrics consume these series. The engine emits
+the detection series on every component call, and the streaming worker emits
+them on every message: `omni_detection_{requests,success}_total`,
+`omni_detection_duration_seconds`, `omni_model_inference_errors_total` and
+`omni_component_declined_total`. A component refusing input of a modality it
+does not process counts as *declined*, never as an error. The streaming worker
+also publishes `omni_detection_queue_depth`, its consumer-group backlog (`-1`
+when the backend cannot report it). `fit_fusion` sets
+`omni_model_roc_auc` / `omni_model_f1_score` from the validation split.
+
+Wiring the series to the rules:
+
+| Deployment | Scrape + labels | Rules | Autoscaling |
+|---|---|---|---|
+| docker compose | `monitoring/prometheus/prometheus.yml` (adds `app`, `service`) | `rules.yml`, rendered from the CRD by `scripts/render_prometheus_rules.py` | — |
+| Kubernetes (`k8s/`) | `monitoring/prometheus/podmonitors.yaml` (adds `app`, `service`, `job`) | `prometheus-rules.yaml` (PrometheusRule) | prometheus-adapter with `monitoring/prometheus/prometheus-adapter-rules.yaml` |
+| Helm chart | `templates/servicemonitor.yaml` (adds `app`, `service`, `job` from each Service's component label; the API's `metrics` Service port targets its HTTP listener, which serves `/metrics`) | `templates/prometheusrule.yaml`, rendered from the same CRD by `scripts/render_prometheus_rules.py`, plus `metrics.prometheusRule.rules` | prometheus-adapter, as for `k8s/` |
+
+Every rule selects `{app="mercury-agent"}`. A scrape config that does not
+attach that label leaves every alert permanently silent. Without the adapter
+rules, the HPAs' custom metrics are unavailable and Kubernetes never scales
+those deployments down. Each worker reports the backlog group-wide, so the
+adapter aggregates it with `max`.
+
+**Audit trail.** Every finished API request by an identified caller (API
+key, JWT or browser session; except probes, docs, unmatched paths and 429
+rejections) is recorded with:
+- the principal and the route template (never the raw path);
+- path parameters, status and duration;
+- the client IP and the correlation id;
+- query parameter *names*, never their values.
+
+Caller-controlled fields are clipped (256 characters for the user agent, path
+and resource; 64 per path parameter or query name; at most 16 query names), so
+a client cannot inflate entries. Unauthenticated 4xx responses are counted (a
+capped tally plus `http_requests_total`) but not written to the audit log:
+anonymous traffic must not be able to rotate login and 2FA evidence out of the
+retained segments. Login failures are still recorded by the auth auditor.
+
+`GET /api/v1/export/audit-logs` serves these entries (the in-memory store
+keeps the newest `MAX_AUDIT_LOG_RECORDS`, 50,000 by default). Every
+`/api/v1/export/*` route requires the `export` permission: default API keys
+carry `read` + `detect` only, so issue a key with `export` (or use an admin
+principal) for compliance exports. CSV exports neutralise cells that a
+spreadsheet would run as a formula.
+
+With `MERCURY_AUDIT_LOG_DIR` set, the entries also go to the hash-chained
+audit log together with auth events:
+- The chain resumes across restarts. A crash that leaves a torn last line is
+  repaired on start: only the bytes after the last newline are cut, logged
+  with their digest and kept as `audit.jsonl.torn-<usec>`.
+- The first process to open the directory writes `audit.jsonl`. Any further
+  process, such as extra `--workers`, writes its own `audit-<pid>.jsonl` and
+  holds `.audit-<pid>.lock`, so each file is one verifiable chain.
+- Rotated segments get microsecond-unique names and are never overwritten.
+  Resume and count-based retention only ever touch a writer's own segments;
+  the time-based sweep also removes a finished worker's log and old torn
+  fragments, never a live writer's active file.
+- `mercury-agent platform audit verify` checks every writer's chain
+  read-only (no lock taken, safe while the server runs); `--file` checks one
+  file. A chain cannot reveal records cut from its very start or end without
+  an external anchor.
 
 ### Grafana dashboards
 
@@ -411,11 +512,41 @@ Recording/alerting rules live in `monitoring/prometheus/prometheus-rules.yaml`; 
 | Metric | Alert threshold | Notes |
 |--------|----------------|-------|
 | `omni_detection_requests_total` | — | Detection throughput (rules file) |
+| `omni_detection_success_total` / `omni_detection_requests_total` | < 0.95 for 10 m | Detection success rate; declines excluded (rules file) |
+| `omni_model_inference_errors_total` | > 0.1/s for 5 m | Component, fusion-head or stream-detector failures (rules file) |
+| `omni_detection_queue_depth` | HPA target 50 | Streaming backlog; `-1` = unknown (engine HPA) |
 | `http_request_duration_seconds` | p99 > 2 s | API latency histogram (rules file) |
 | `http_requests_total{status=~"5.."}` ratio | sustained > 0 | API error rate (rules file) |
 | `mercury_gate_fires_total` | unexpected drop to 0 | Ethical-gate activity (exporter tool) |
 | `mercury_benevolence_floor` / `mercury_sigma_band_*` | drift from configured values | Gate configuration drift (exporter tool) |
 | `process_resident_memory_bytes` | > 4 GiB | Memory leak indicator |
+
+### SIEM / observability alert egress
+
+Set `MERCURY_ALERT_SINKS` to forward every detection that flagged an anomaly
+(fire-and-forget; a sink failure never fails the request) to Splunk HEC,
+Datadog, Elastic / OpenSearch, a Prometheus pushgateway, an OTLP collector or
+a generic HTTP receiver:
+
+```bash
+export SPLUNK_HEC_TOKEN=...   # secrets come from env vars, never the JSON
+export MERCURY_ALERT_SINKS='[
+  {"name": "soc", "platform": "splunk", "endpoint": "https://splunk:8088",
+   "auth_type": "api_key", "credentials_env": {"api_key": "SPLUNK_HEC_TOKEN"},
+   "index": "security", "max_tlp": "AMBER+STRICT", "min_score": 0.5}
+]'
+```
+
+Each alert carries the detection's TLP 2.0 colour (the export API's
+classification) and no user identifier. A sink receives only alerts at or
+below its `max_tlp` (default `AMBER+STRICT`, so `TLP:RED` is never forwarded
+automatically). Under `MERCURY_OFFLINE` non-loopback sinks are refused before
+any socket opens. A malformed value is logged once and disables egress.
+Sinks never follow HTTP redirects (a redirect could carry the sink's API key
+to another host, past the offline gate), and at most
+`MERCURY_ALERT_MAX_PENDING` deliveries (default 256) are in flight: beyond
+that, new alerts are dropped and counted (`dropped_backpressure` in the egress
+stats) rather than queued without bound behind a slow sink.
 
 ---
 
@@ -528,7 +659,7 @@ docker run -d --name mercury-agent \
 
 1. Check `MERCURY_AGENT_ENV` is set as intended. `JWT_SECRET_KEY` is required only when AMA HD key derivation is unavailable or failing — in production `JWTAuth` derives the signing key from AMA HD Key Management when the env var is unset, and the startup error message includes the `HD derivation error:` cause when that path fails. Still set it explicitly for multi-worker / multi-replica deployments (see "Required Environment Variables" above).
 2. In production mode, verify `API_KEY_HASH_SALT` is set (enforced at first API-key hash)
-3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"` — a missing AMA Cryptography native build raises `RuntimeError` here
+3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine.engine"` — a missing AMA Cryptography native build raises `RuntimeError` here
 
 ### LLM narration unavailable
 

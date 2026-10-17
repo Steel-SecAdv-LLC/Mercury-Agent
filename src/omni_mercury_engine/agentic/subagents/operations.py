@@ -915,7 +915,14 @@ def _op_iris(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResult 
 
 
 def _op_pan(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResult | None:
-    """Real op: ``core.GlobalOmniScalarNetwork`` register + compute global score."""
+    """Real op: ``core.GlobalOmniScalarNetwork`` global score over the payload scalars.
+
+    The payload is scored together with the registered scalars but never
+    registered: ``GlobalOmniScalarNetwork`` is a process-wide singleton, and
+    registering into its default ETHICAL group made each payload value an
+    ethical anchor, so ``{"temperature": 0.2}`` tripped the ethical floor for
+    every later detection in the process.
+    """
     scalars = _mapping(task.payload, "scalars")
     if not scalars:
         return None
@@ -925,15 +932,12 @@ def _op_pan(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResult |
         return None
 
     network = GlobalOmniScalarNetwork()
-    component = str(task.payload.get("component", f"sensor::{task.task_id}"))
-    network.register_scalars(
-        component_name=component, scalars={k: float(v) for k, v in scalars.items()}
-    )
-    global_score = float(network.compute_global_intelligence_score())
-    harmony = float(network.compute_triadic_harmony())
+    extra = {k: float(v) for k, v in scalars.items()}
+    global_score = float(network.compute_global_intelligence_score(extra=extra))
+    harmony = float(network.compute_triadic_harmony(extra=extra))
     output = {
         "operation": "core.GlobalOmniScalarNetwork.compute_global_intelligence_score",
-        "n_registered": len(scalars),
+        "n_scored": len(scalars),
         "global_intelligence_score": global_score,
         "triadic_harmony": harmony,
     }
@@ -1346,8 +1350,3 @@ OPERATIONS: dict[str, Adapter] = {
     "Hyperion_XXXII": _op_hyperion,
     "Rhea_XXXIII": _op_rhea,
 }
-
-
-def operation_for(pantheon_id: str) -> Adapter | None:
-    """Return the real-entrypoint adapter for a coordinator, or ``None`` if none."""
-    return OPERATIONS.get(pantheon_id)

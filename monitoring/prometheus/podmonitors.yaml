@@ -1,0 +1,64 @@
+# Mercury-Agent PodMonitors (Prometheus Operator) for the raw k8s/ manifests.
+#
+# Every rule in prometheus-rules.yaml selects {app="mercury-agent"} and groups
+# by `service`; the OmniMercuryServiceDown alert reads up{job="mercury-agent-api"}.
+# Annotation-based pod discovery maps pod labels to
+# app_kubernetes_io_name/... and attaches neither, so without these monitors the
+# rules evaluate to nothing. Each monitor attaches the three labels explicitly.
+#
+# The engine HPA's External metric (omni_detection_queue_depth, k8s/base/hpa.yaml)
+# is served through prometheus-adapter-rules.yaml from the engine series scraped
+# here.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: mercury-agent-api
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: api
+  podMetricsEndpoints:
+    # The API serves /metrics on its HTTP port (api/server.py registers it at
+    # the root); the pod's prometheus.io/port annotation says the same.
+    - port: http
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - targetLabel: app
+          replacement: mercury-agent
+        - targetLabel: service
+          replacement: api
+        - targetLabel: job
+          replacement: mercury-agent-api
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: mercury-agent-engine
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: engine
+  podMetricsEndpoints:
+    # The streaming worker (`mercury stream`) serves its pipeline counters plus
+    # the omni_* registry on the `metrics` port.
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - targetLabel: app
+          replacement: mercury-agent
+        - targetLabel: service
+          replacement: engine
+        - targetLabel: job
+          replacement: mercury-agent-engine

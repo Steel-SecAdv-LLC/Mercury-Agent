@@ -6,8 +6,9 @@ Pins the org-chart invariants of the 33-member fleet: unique pantheon ids, valid
 depth labels, real subsystem bindings (every subsystem resolves to a live
 ``omni_mercury_engine`` module/package), Omni-Code anchors drawn from the Seven,
 exactly seven code-bearers (one per Code, anchor-consistent), the autonomy-from-
-anchor binding, and the hard constraint that **no "memorial code" terminology
-exists anywhere in the subsystem** (Omni-Codes only).
+anchor binding, and the hard constraint that **Omni-Codes is the only code
+terminology anywhere in the subsystem** (the retired alternative is enforced
+repository-wide by ``tests/test_retired_terminology.py``).
 """
 
 from __future__ import annotations
@@ -93,13 +94,17 @@ def test_resolve_anchor_rejects_unknown() -> None:
         resolve_anchor("OMNI_NONEXISTENT")
 
 
-def test_no_memorial_terminology_anywhere_in_subsystem() -> None:
-    # Hard requirement: Omni-Codes only — the term "memorial" must not appear in
-    # any source file of the subagent subsystem.
+#: The retired code-system word, assembled so this guard never spells it.
+_RETIRED_CODE_WORD = "memor" + "ial"
+
+
+def test_omni_codes_is_the_only_code_terminology_in_subsystem() -> None:
+    # Hard requirement: Omni-Codes only — the retired code-system word must not
+    # appear in any source file of the subagent subsystem.
     root = Path(subagents_pkg.__file__).parent
     offenders = [
         str(path.relative_to(root))
         for path in root.rglob("*.py")
-        if "memorial" in path.read_text(encoding="utf-8").lower()
+        if _RETIRED_CODE_WORD in path.read_text(encoding="utf-8").lower()
     ]
-    assert not offenders, f"'memorial' terminology found in: {offenders}"
+    assert not offenders, f"retired code terminology found in: {offenders}"

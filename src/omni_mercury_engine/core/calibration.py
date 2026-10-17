@@ -440,16 +440,35 @@ class BetaCalibration:
         self._fitted = False
 
     def _scale(self, s: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Map scores into ``(0, 1)`` strictly monotonically.
+
+        Inside the calibration range this is the min-max map clipped to
+        ``[eps, 1 - eps]``. Outside it the map keeps increasing toward 0 / 1
+        (``eps / (1 + t)`` below, ``1 - eps / (1 + t)`` above, ``t`` the
+        distance past the range in range units) instead of clamping, so
+        held-out scores beyond the calibration range -- typically the most
+        extreme anomalies -- keep their order rather than tying.
+        """
         s = np.asarray(s, dtype=np.float64).reshape(-1)
         rng = self._s_max - self._s_min
         if rng <= 0:
             rng = 1.0
         u = (s - self._s_min) / rng
-        return np.clip(u, self.eps, 1.0 - self.eps)
+        eps = self.eps
+        inside = np.clip(u, eps, 1.0 - eps)
+        below = eps / (1.0 + np.maximum(-u, 0.0))
+        above = 1.0 - eps / (1.0 + np.maximum(u - 1.0, 0.0))
+        return np.where(u < 0.0, below, np.where(u > 1.0, above, inside))
 
     def _link(self, u: np.ndarray[Any, Any], a: float, b: float, c: float) -> np.ndarray[Any, Any]:
+        # expit is overflow-safe, so the logit needs no +/-50 clip; the clip
+        # tied every score past it (all mapped to sigmoid(+/-50)). Above a
+        # logit of ~37 float64 still rounds p to 1.0 -- a representation
+        # limit, not a rank inversion.
+        from scipy.special import expit
+
         z = c + a * np.log(u) - b * np.log1p(-u)
-        p: np.ndarray[Any, Any] = 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))
+        p: np.ndarray[Any, Any] = np.asarray(expit(z), dtype=np.float64)
         return p
 
     def fit(

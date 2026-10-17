@@ -437,9 +437,9 @@ class TestCognitiveHTTPXSourcesOfflineGate:
         from omni_mercury_engine.cognitive import anomaly_detection
 
         monkeypatch.setattr(anomaly_detection, "HTTPX_AVAILABLE", False)
-        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+        with pytest.raises(ImportError, match=r"mercury-agent-global\[api\]"):
             anomaly_detection.USGSEarthquakeSource()
-        with pytest.raises(ImportError, match=r"mercury-agent\[api\]"):
+        with pytest.raises(ImportError, match=r"mercury-agent-global\[api\]"):
             anomaly_detection.NOAAWeatherSource(state="CA")
 
 

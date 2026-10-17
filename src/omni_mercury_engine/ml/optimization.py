@@ -21,10 +21,7 @@ import sys
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import wraps
-from typing import Any, Protocol, TypeVar, cast
-
-import numpy as np
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -154,62 +151,6 @@ class MemoryEfficientCache:
             "size_mb": self.current_size / (1024 * 1024),
             "max_size_mb": self.max_size_bytes / (1024 * 1024),
         }
-
-
-class _CachedCallable(Protocol):
-    """A callable decorated by :func:`memory_efficient_lru_cache`.
-
-    Declares the cache-introspection attributes the decorator attaches, so the
-    wrapper can expose them as a checked structural type instead of forcing an
-    ``attr-defined`` suppression at each assignment.
-    """
-
-    cache: MemoryEfficientCache
-    cache_clear: Callable[[], None]
-    cache_stats: Callable[[], dict[str, Any]]
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-
-
-def memory_efficient_lru_cache(
-    max_size_mb: float = 128.0,
-    max_entries: int = 128,
-) -> Callable[[F], _CachedCallable]:
-    """Decorator for memory-efficient LRU caching.
-
-    Args:
-        max_size_mb: Maximum cache size in MB
-        max_entries: Maximum number of entries
-
-    Returns:
-        Decorated function with memory-aware caching (a :class:`_CachedCallable`
-        exposing ``.cache`` / ``.cache_clear`` / ``.cache_stats``).
-    """
-    cache = MemoryEfficientCache(max_size_mb, max_entries)
-
-    def decorator(func: F) -> _CachedCallable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Create cache key
-            key = str((args, tuple(sorted(kwargs.items()))))
-
-            # Check cache
-            result = cache.get(key)
-            if result is not None:
-                return result
-
-            # Compute and cache
-            result = func(*args, **kwargs)
-            cache.put(key, result)
-            return result
-
-        typed_wrapper = cast("_CachedCallable", wrapper)
-        typed_wrapper.cache = cache
-        typed_wrapper.cache_clear = cache.clear
-        typed_wrapper.cache_stats = lambda: cache.stats
-        return typed_wrapper
-
-    return decorator
 
 
 class MemoryManager:
@@ -654,72 +595,3 @@ def apply_all_optimizations(
     )
 
     return components
-
-
-# Convenience functions
-def parallel_map(
-    func: Any,
-    items: list[Any],
-    n_jobs: int = -1,
-    **kwargs: Any,
-) -> list[Any]:
-    """Convenience function for parallel mapping.
-
-    Args:
-        func: Function to apply
-        items: Items to process
-        n_jobs: Number of parallel jobs
-        **kwargs: Additional function arguments
-
-    Returns:
-        List of results
-    """
-    executor = ParallelExecutor(n_jobs=n_jobs)
-    return executor.map(func, items, **kwargs)
-
-
-def get_optimal_batch_size(
-    model: Any,
-    input_shape: tuple[int, ...],
-    max_memory_fraction: float = 0.8,
-) -> int:
-    """Estimate optimal batch size based on available memory.
-
-    Args:
-        model: PyTorch model
-        input_shape: Shape of single input (excluding batch)
-        max_memory_fraction: Maximum fraction of GPU memory to use
-
-    Returns:
-        Recommended batch size
-    """
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return 32  # Default for CPU
-
-        # Get available memory
-        total_memory = torch.cuda.get_device_properties(0).total_memory
-        available = int(total_memory * max_memory_fraction)
-
-        # Estimate model memory
-        param_memory = sum(p.numel() * p.element_size() for p in model.parameters())
-
-        # Estimate input memory (float32)
-        input_memory = int(np.prod(input_shape)) * 4
-
-        # Estimate gradient memory (roughly 2x parameters)
-        gradient_memory = param_memory * 2
-
-        # Available for batch
-        batch_memory = available - param_memory - gradient_memory
-
-        # Estimate batch size
-        batch_size = max(1, batch_memory // (input_memory * 3))  # 3x for activations
-
-        return int(min(batch_size, 256))  # Cap at 256
-
-    except Exception as e:
-        logger.debug("Batch size estimation failed, using default: %s", e)
-        return 32  # Default fallback

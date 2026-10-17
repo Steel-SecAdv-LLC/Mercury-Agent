@@ -477,32 +477,25 @@ class MetricsCalculator:
         scores: np.ndarray[Any, Any],
         weights: np.ndarray[Any, Any],
     ) -> None:
-        """Compute spatial autocorrelation metrics."""
+        """Compute Moran's I and Geary's C of the scores under *weights*.
+
+        Both statistics use the same weight matrix as given (the former
+        code row-normalised it for Moran's I but not for Geary's C, so the
+        two described different neighbourhood structures). See
+        :mod:`omni_mercury_engine.ml.spatial_autocorrelation`.
+        """
         try:
-            n = len(scores)
-            mean = np.mean(scores)
-            deviations = scores - mean
+            from scipy import sparse
 
-            # Normalize weights
-            row_sums = weights.sum(axis=1, keepdims=True)
-            weights_norm = weights / (row_sums + 1e-10)
+            from omni_mercury_engine.ml.spatial_autocorrelation import gearys_c, morans_i
 
-            # Moran's I
-            numerator = np.sum(weights_norm * np.outer(deviations, deviations))
-            denominator = np.sum(deviations**2)
-            w_sum = np.sum(weights_norm)
-
-            if denominator > 0 and w_sum > 0:
-                metrics.morans_i = float((n / w_sum) * (numerator / denominator))
-
-            # Geary's C
-            diff_matrix = (scores[:, None] - scores[None, :]) ** 2
-            numerator_c = np.sum(weights * diff_matrix)
-            denominator_c = 2 * np.sum(weights) * np.sum((scores - mean) ** 2)
-
-            if denominator_c > 0:
-                metrics.gearys_c = float((n - 1) * numerator_c / denominator_c)
-
+            w = sparse.csr_matrix(np.asarray(weights, dtype=np.float64))
+            moran = morans_i(scores, w)
+            geary = gearys_c(scores, w)
+            if np.isfinite(moran):
+                metrics.morans_i = float(moran)
+            if np.isfinite(geary):
+                metrics.gearys_c = float(geary)
         except Exception as e:
             logger.warning(f"Spatial metrics computation failed: {e}")
 
@@ -671,26 +664,3 @@ class DomainSpecificMetrics:
         """Compute graph domain metrics."""
         # Use adjacency as spatial weights
         return DomainSpecificMetrics.compute_spatial_metrics(node_scores, adjacency_matrix)
-
-
-def compute_benchmark_metrics(
-    y_true: np.ndarray[Any, Any],
-    y_pred: np.ndarray[Any, Any],
-    y_prob: np.ndarray[Any, Any] | None = None,
-    domain: str = "general",
-    **kwargs: Any,
-) -> ComprehensiveMetrics:
-    """Convenience function to compute metrics for benchmarking.
-
-    Args:
-        y_true: Ground truth labels
-        y_pred: Binary predictions
-        y_prob: Probability predictions
-        domain: Domain type for specialized metrics
-        **kwargs: Additional arguments
-
-    Returns:
-        ComprehensiveMetrics instance
-    """
-    calculator = MetricsCalculator()
-    return calculator.compute_all_metrics(y_true, y_pred, y_prob, **kwargs)

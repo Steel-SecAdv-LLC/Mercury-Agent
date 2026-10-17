@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Advanced Visualization Generator for Mercury Agent.
 
-Generates publication-quality STEM visualizations for:
+Generates publication-quality STEAM visualizations for:
 - Confidence evolution over epochs
 - Anomaly detection precision/recall/F1
 - Domain competence heatmaps

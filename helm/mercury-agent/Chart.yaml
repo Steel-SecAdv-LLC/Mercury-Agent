@@ -1,11 +1,12 @@
 # Mercury Agent Helm Chart
-# Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection
+# Civilization-first Computational Systems Intelligence for anomaly & hazard detection
 apiVersion: v2
 name: mercury-agent
 description: |
-  Mercury Agent (Omnidisciplinary Neural-Symbolic AI Virtual Analyst) is a comprehensive
-  anomaly detection framework supporting medical, security intelligence, planetary
-  monitoring, chemistry, and consciousness research domains.
+  Mercury Agent is a civilization-first Computational Systems Intelligence (CSI):
+  a neuro-symbolic platform for multi-domain anomaly and hazard detection, built on
+  resilience engineering, fail-closed AI-safety gates and post-quantum security,
+  serving humanitarian technology and STEAM research domains.
 
 type: application
 version: 2.1.0

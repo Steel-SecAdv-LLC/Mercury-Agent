@@ -893,38 +893,3 @@ def _compute_richness_by_cell(
         richness[str(cell)] = float(group["scientificName"].nunique())
 
     return richness
-
-
-def _compute_sst_anomaly_proxy(cell_data: pd.DataFrame) -> float:
-    """Compute an SST anomaly proxy from species occurrence patterns.
-
-    The proxy is the ratio of warm-water indicator genera (those in the
-    first half of :pydata:`_REEF_INDICATOR_SPECIES`, which tend to be
-    more temperature-sensitive) to total occurrences.  Higher ratios
-    may indicate normal conditions; a sudden drop suggests stress from
-    elevated temperatures causing absence of expected species.
-
-    Args:
-        cell_data: DataFrame of occurrences within a single grid cell.
-
-    Returns:
-        Float in ``[0.0, 1.0]`` representing the warm-water species ratio.
-        Returns ``0.0`` if no species data is available.
-    """
-    if cell_data.empty or "scientificName" not in cell_data.columns:
-        return 0.0
-
-    total = len(cell_data)
-    if total == 0:
-        return 0.0
-
-    # First half of indicator list are the most temperature-sensitive genera.
-    warm_indicators = set(_REEF_INDICATOR_SPECIES[: len(_REEF_INDICATOR_SPECIES) // 2])
-
-    warm_count = sum(
-        1
-        for name in cell_data["scientificName"]
-        if any(indicator in str(name) for indicator in warm_indicators)
-    )
-
-    return float(warm_count) / float(total)

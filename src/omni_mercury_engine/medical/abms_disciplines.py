@@ -35,6 +35,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+
 if TYPE_CHECKING:
     import torch
     from torch import nn
@@ -107,7 +109,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
         """
 
-        def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
+        def __init__(self, input_dim: int = 64) -> None:
             """Initialize the instance."""
             super().__init__()
 
@@ -214,7 +216,7 @@ class ABMSDisciplineDetector:
         self.enable_neurosymbolic = enable_neurosymbolic
         self.golden_ratio = 1.618 if golden_ratio_threshold else 1.0
 
-        self.model = MultiSpecialtyNeuralNet(input_dim=64, num_specialties=24)
+        self.model = MultiSpecialtyNeuralNet(input_dim=64)
 
         self.subspecialties = self._initialize_subspecialties()
 
@@ -600,7 +602,7 @@ class ABMSDisciplineDetector:
         """Extract numerical features from patient clinical data (O(n) complexity)."""
         if not isinstance(patient_data, Mapping):
             shape_hint = f" of shape {patient_data.shape}" if hasattr(patient_data, "shape") else ""
-            raise ValueError(
+            raise InputModalityError(
                 "ABMSDisciplineDetector expects a patient-record mapping "
                 "(dict with 'vitals'/'labs'/'symptoms'/'history' keys), got "
                 f"{type(patient_data).__name__}{shape_hint}. "
@@ -909,33 +911,6 @@ class ABMSDisciplineDetector:
         for board in ABMSBoard:
             results[board.value] = self.detect(data, board.value)
         return results
-
-
-def create_omni_medical_scalars() -> dict[str, float]:
-    """Create doctorate-level medical scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-medical scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_diagnostic_precision": 1.42 * phi,
-        "omni_clinical_judgment": 1.38 * phi,
-        "omni_treatment_efficacy": 1.45 * phi,
-        "omni_patient_safety": 1.50 * phi,
-        "omni_interdisciplinary_coordination": 1.35 * phi,
-        "omni_evidence_based_medicine": 1.40 * phi,
-        "omni_preventive_care": 1.33 * phi,
-        "omni_holistic_assessment": 1.37 * phi,
-        "omni_subspecialty_expertise": 1.44 * phi,
-        "omni_emergency_responsiveness": 1.48 * phi,
-        "omni_chronic_disease_management": 1.36 * phi,
-        "omni_surgical_precision": 1.46 * phi,
-        "omni_pharmaceutical_optimization": 1.39 * phi,
-        "omni_imaging_interpretation": 1.41 * phi,
-        "omni_laboratory_correlation": 1.34 * phi,
-    }
 
 
 ABMSAnomalyDetector = ABMSDisciplineDetector

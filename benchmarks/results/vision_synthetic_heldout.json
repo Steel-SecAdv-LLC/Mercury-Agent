@@ -1,0 +1,226 @@
+{
+  "benchmark": "procedural textures with exact masks and types (held-out images and seeds)",
+  "protocol": {
+    "alpha": 0.1,
+    "image_size": 192,
+    "analyzer": "AnalyzerConfig defaults"
+  },
+  "environment": {
+    "python": "3.13.16",
+    "machine": "x86_64"
+  },
+  "domains": {
+    "woven": {
+      "fit_seconds": 43.2,
+      "n_fit_normals": 40,
+      "n_heldout_normals": 60,
+      "false_alarm_rate_at_alpha": 0.0333,
+      "forensic_false_positive_rate": 0.0,
+      "median_latency_ms": 219.5,
+      "same_definition_classification": {
+        "correct": 139,
+        "total": 140,
+        "accuracy": 0.9929,
+        "top_confusions": {
+          "occlusion_or_missing -> blur_or_defocus": 1
+        }
+      },
+      "cross_generator_classification": {
+        "correct": 205,
+        "total": 240,
+        "accuracy": 0.8542
+      },
+      "injectors": {
+        "occlusion": {
+          "expected_type": "occlusion_or_missing",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9988,
+          "type_accuracy": 0.667,
+          "predicted_types": {
+            "occlusion_or_missing": 20,
+            "exposure_anomaly": 10
+          }
+        },
+        "blur": {
+          "expected_type": "blur_or_defocus",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9986,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "blur_or_defocus": 30
+          }
+        },
+        "noise": {
+          "expected_type": "noise_or_sensor_corruption",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9996,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "noise_or_sensor_corruption": 30
+          }
+        },
+        "impulse": {
+          "expected_type": "noise_or_sensor_corruption",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.999,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "noise_or_sensor_corruption": 30
+          }
+        },
+        "stain": {
+          "expected_type": "color_shift",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9995,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "color_shift": 30
+          }
+        },
+        "foreign": {
+          "expected_type": "foreign_texture_or_object",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.995,
+          "type_accuracy": 0.167,
+          "predicted_types": {
+            "structural_change": 25,
+            "foreign_texture_or_object": 5
+          }
+        },
+        "scratch": {
+          "expected_type": "structural_change",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9884,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "structural_change": 30
+          }
+        },
+        "dark": {
+          "expected_type": "exposure_anomaly",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9993,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "exposure_anomaly": 30
+          }
+        }
+      }
+    },
+    "leather": {
+      "fit_seconds": 32.2,
+      "n_fit_normals": 40,
+      "n_heldout_normals": 60,
+      "false_alarm_rate_at_alpha": 0.05,
+      "forensic_false_positive_rate": 0.0,
+      "median_latency_ms": 166.2,
+      "same_definition_classification": {
+        "correct": 133,
+        "total": 140,
+        "accuracy": 0.95,
+        "top_confusions": {
+          "foreign_texture_or_object -> color_shift": 3,
+          "occlusion_or_missing -> exposure_anomaly": 2,
+          "occlusion_or_missing -> blur_or_defocus": 1
+        }
+      },
+      "cross_generator_classification": {
+        "correct": 186,
+        "total": 240,
+        "accuracy": 0.775
+      },
+      "injectors": {
+        "occlusion": {
+          "expected_type": "occlusion_or_missing",
+          "detection_rate": 1.0,
+          "image_auroc": 0.9967,
+          "pixel_auroc": 0.9994,
+          "type_accuracy": 0.0,
+          "predicted_types": {
+            "blur_or_defocus": 30
+          }
+        },
+        "blur": {
+          "expected_type": "blur_or_defocus",
+          "detection_rate": 1.0,
+          "image_auroc": 0.9894,
+          "pixel_auroc": 0.9995,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "blur_or_defocus": 30
+          }
+        },
+        "noise": {
+          "expected_type": "noise_or_sensor_corruption",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9996,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "noise_or_sensor_corruption": 30
+          }
+        },
+        "impulse": {
+          "expected_type": "noise_or_sensor_corruption",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9996,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "noise_or_sensor_corruption": 30
+          }
+        },
+        "stain": {
+          "expected_type": "color_shift",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9994,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "color_shift": 30
+          }
+        },
+        "foreign": {
+          "expected_type": "foreign_texture_or_object",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9994,
+          "type_accuracy": 0.2,
+          "predicted_types": {
+            "structural_change": 19,
+            "foreign_texture_or_object": 6,
+            "noise_or_sensor_corruption": 5
+          }
+        },
+        "scratch": {
+          "expected_type": "structural_change",
+          "detection_rate": 1.0,
+          "image_auroc": 1.0,
+          "pixel_auroc": 0.9937,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "structural_change": 30
+          }
+        },
+        "dark": {
+          "expected_type": "exposure_anomaly",
+          "detection_rate": 1.0,
+          "image_auroc": 0.9833,
+          "pixel_auroc": 0.9993,
+          "type_accuracy": 1.0,
+          "predicted_types": {
+            "exposure_anomaly": 30
+          }
+        }
+      }
+    }
+  }
+}

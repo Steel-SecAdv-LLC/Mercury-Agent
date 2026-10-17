@@ -16,7 +16,6 @@ Integrations:
 - Solar X-ray flux monitoring
 - Magnetometer networks
 - Energy grid infrastructure (energy_dams.py)
-- Quantum-resistant cyber systems (quantum_risk_cyber.py)
 - Schumann resonance correlation
 
 Research sources:
@@ -39,6 +38,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -423,7 +423,7 @@ class SolarFlareDetector:
         """
         if isinstance(x_ray_flux, np.ndarray):
             if x_ray_flux.ndim > 1:
-                raise ValueError(
+                raise InputModalityError(
                     "SolarFlareDetector expects a GOES XRS X-ray flux scalar "
                     "or 1-D time series in W/m^2; got array with shape "
                     f"{x_ray_flux.shape}. Pass one flux channel (e.g. the "

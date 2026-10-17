@@ -207,9 +207,12 @@ class TestDetectionResults:
         # Ingest an extreme outlier to trigger anomaly
         sd.ingest([100.0, -100.0])
 
-        # Callback may or may not have fired depending on detector
-        # sensitivity; this test verifies no crash. If it fired, verify
-        # that the argument is a dict.
+        # A single extreme point MUST fire: the fit-time conformal
+        # reference gives single-point ingestion a real threshold. (The old
+        # batch-relative cut made a lone point its own threshold, so this
+        # callback could never fire — the previous version of this test
+        # hedged with "may or may not have fired".)
+        assert fired, "extreme single-point ingest did not raise an anomaly"
         for r in fired:
             assert isinstance(r, dict)
 

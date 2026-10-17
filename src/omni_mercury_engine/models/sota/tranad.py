@@ -84,7 +84,7 @@ class TranADConfig:
         default_factory=lambda: {
             "harm_prevention": 1.50,
             "non_discriminatory": 1.40,
-            "survivor_first": 1.45,
+            "civilization_first": 1.45,
         }
     )
 
@@ -526,18 +526,16 @@ class AdversarialTrainer:
         self.model = model
         self.adversarial_weight = adversarial_weight
 
-        # Separate optimizers for generator and discriminator
-        gen_params = (
-            list(model.encoder.parameters())
-            + list(model.decoder1.parameters())
-            + list(model.output_projection1.parameters())
+        # Separate optimizers for generator and discriminator. The generator
+        # is every parameter outside the discriminator -- the hand-built list
+        # this replaced omitted input_projection, which therefore stayed at
+        # its random initialisation.
+        disc_ids = (
+            {id(p) for p in model.discriminator.parameters()}
+            if model.discriminator is not None
+            else set()
         )
-        if model.decoder2 is not None:
-            gen_params += list(model.decoder2.parameters())
-            if model.output_projection2 is not None:
-                gen_params += list(model.output_projection2.parameters())
-        if model.focus_conditioning is not None:
-            gen_params += list(model.focus_conditioning.parameters())
+        gen_params = [p for p in model.parameters() if id(p) not in disc_ids]
 
         self.optimizer_g = Adam(gen_params, lr=lr_g)
 

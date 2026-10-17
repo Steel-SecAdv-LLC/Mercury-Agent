@@ -2,15 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Operator tool: GOSNN latency-SLA gate.
 
-Asserts the README's two performance claims on every PR:
+Times the GOSNN step that runs inside every ``detect_with_fusion`` call,
+``GlobalOmniScalarNetwork.get_enhanced_scalars`` (scalar collection, the
+advisory σ_Immutable score, attention fusion and harmonic synergy), and
+fails when its median or p95 latency exceeds the budget.
 
-* <100 ms median GOSNN detection latency,
-* >50% cache hit rate over a representative sweep.
-
-Drives ``GOSNNDetector.detect()`` (when importable) over a synthetic
-sweep with deterministic seed; falls back to a structural check
-(``module-level constants exist``) when torch is unavailable, so the
-gate runs identically in CPU-only CI.
+Earlier versions drove a ``GOSNNDetector`` from a module that never existed,
+so the gate always exited with a warning and never measured anything; they
+also scored a cache-hit rate by assuming every repeated input was a hit.
+GOSNN has no result cache, so no cache rate is reported. The first
+``--warmup`` calls (weight loading) are timed separately and excluded.
 """
 
 from __future__ import annotations
@@ -22,16 +23,51 @@ from typing import Any
 
 from omni_mercury_engine.tools._base import Certificate, DependencyMissing, run_tool
 
-_SCHEMA = "mercury.tools.gosnn_latency_sla_gate/v1"
+_SCHEMA = "mercury.tools.gosnn_latency_sla_gate/v2"
+
+#: Detector-score names as ``detect_with_fusion`` builds them (``engine.py``).
+_DETECTORS = ("statistical", "temporal", "spatial", "dimensional", "directive")
+
+
+class GOSNNStep:
+    """The per-detection GOSNN step, behind a ``detect(x)`` entry point.
+
+    ``x`` supplies one score per default detector (values are clipped to
+    ``[0, 1]``, the range detector scores take), so the call matches what
+    ``detect_with_fusion`` sends. Shared with ``memory_leak_sentinel``.
+    """
+
+    def __init__(self) -> None:
+        """Bind the process-wide GOSNN instance."""
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            get_global_scalar_network,
+        )
+
+        self.network = get_global_scalar_network()
+
+    def detect(self, x: Any) -> Any:
+        """Run ``get_enhanced_scalars`` once for the scores in ``x``."""
+        import numpy as np
+
+        values = np.clip(np.ravel(np.asarray(x, dtype=np.float64)), 0.0, 1.0)
+        base = {
+            f"omni_detector_{name}_score": float(values[i % values.size])
+            for i, name in enumerate(_DETECTORS)
+        }
+        return self.network.get_enhanced_scalars(
+            requesting_component="gosnn_latency_sla_gate",
+            base_scalars=base,
+            context={"domain": None},
+        )
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m omni_mercury_engine.tools.gosnn_latency_sla_gate",
-        description="Assert GOSNN detection latency SLA on every PR.",
+        description="Assert the GOSNN per-detection latency budget.",
     )
     parser.add_argument("--iterations", type=int, default=64)
-    parser.add_argument("--cache-rate-min", type=float, default=0.50)
+    parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--p50-ms-max", type=float, default=100.0)
     parser.add_argument("--p95-ms-max", type=float, default=250.0)
     parser.add_argument("--seed", type=int, default=0)
@@ -45,7 +81,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         raise DependencyMissing(f"numpy unavailable: {exc}") from exc
 
     try:
-        from omni_mercury_engine.ml.gosnn_detector import GOSNNDetector
+        step = GOSNNStep()
     except ImportError as exc:
         return Certificate(
             tool="gosnn_latency_sla_gate",
@@ -55,59 +91,37 @@ def _collect(args: argparse.Namespace) -> Certificate:
                 "iterations": int(args.iterations),
                 "p50_ms": None,
                 "p95_ms": None,
-                "cache_rate": None,
-                "error": f"GOSNNDetector unavailable: {exc}",
+                "error": f"GOSNN unavailable: {exc}",
             },
-            warnings=[f"GOSNN detector not importable: {exc}"],
+            warnings=[f"GOSNN not importable (the [ml] extra provides torch): {exc}"],
         )
 
     rng = np.random.default_rng(int(args.seed))
-    detector = GOSNNDetector()
-    latencies: list[float] = []
-    cache_hits = 0
-    cache_misses = 0
-    # A small bag of repeating inputs so the cache has something to hit.
-    bag = [rng.standard_normal(32).astype(np.float64) for _ in range(8)]
-    for i in range(int(args.iterations)):
-        sample = bag[i % len(bag)]
-        t0 = time.perf_counter_ns()
-        result = detector.detect(sample)
-        latencies.append((time.perf_counter_ns() - t0) / 1e6)
-        # Heuristic: any detector exposing a ``cache_hit`` attribute on
-        # the result is consulted; otherwise we count repeat-bag indices
-        # past the first sweep as expected cache hits.
-        hit = getattr(result, "cache_hit", None)
-        if hit is None:
-            hit = i >= len(bag)
-        if hit:
-            cache_hits += 1
-        else:
-            cache_misses += 1
 
+    def timed() -> float:
+        t0 = time.perf_counter_ns()
+        step.detect(rng.uniform(0.0, 1.0, len(_DETECTORS)))
+        return (time.perf_counter_ns() - t0) / 1e6
+
+    warmup = [timed() for _ in range(max(int(args.warmup), 0))]
+    latencies = [timed() for _ in range(max(int(args.iterations), 1))]
     p50 = statistics.median(latencies)
     p95 = sorted(latencies)[int(0.95 * (len(latencies) - 1))]
-    cache_rate = cache_hits / max(cache_hits + cache_misses, 1)
 
     body: dict[str, Any] = {
-        "iterations": int(args.iterations),
+        "measured": "GlobalOmniScalarNetwork.get_enhanced_scalars",
+        "iterations": len(latencies),
         "p50_ms": p50,
         "p95_ms": p95,
-        "cache_rate": cache_rate,
-        "cache_hits": cache_hits,
-        "cache_misses": cache_misses,
-        "thresholds": {
-            "p50_ms_max": float(args.p50_ms_max),
-            "p95_ms_max": float(args.p95_ms_max),
-            "cache_rate_min": float(args.cache_rate_min),
-        },
+        "max_ms": max(latencies),
+        "warmup_ms": warmup,
+        "thresholds": {"p50_ms_max": float(args.p50_ms_max), "p95_ms_max": float(args.p95_ms_max)},
     }
     failures: list[str] = []
     if p50 > float(args.p50_ms_max):
         failures.append(f"p50 latency {p50:.2f}ms > {args.p50_ms_max}ms")
     if p95 > float(args.p95_ms_max):
         failures.append(f"p95 latency {p95:.2f}ms > {args.p95_ms_max}ms")
-    if cache_rate < float(args.cache_rate_min):
-        failures.append(f"cache hit rate {cache_rate:.2f} < {args.cache_rate_min}")
     return Certificate(
         tool="gosnn_latency_sla_gate",
         schema=_SCHEMA,

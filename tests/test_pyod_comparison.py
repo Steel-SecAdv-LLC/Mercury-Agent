@@ -4,7 +4,7 @@
 
 The layer under test actually runs PyOD detectors, so most tests skip cleanly
 when the optional ``pyod`` package is absent (``pip install
-mercury-agent[benchmark]``). The end-to-end tests run on a *real* ADBench
+mercury-agent-global[benchmark]``). The end-to-end tests run on a *real* ADBench
 dataset fixture (``wine``, the smallest Classical set) served from the local
 dataset cache; when the NPZ is not cached the fixture downloads it, and if
 that requires network in an offline environment the test skips rather than
@@ -27,7 +27,7 @@ from omni_mercury_engine.comparison.pyod_integration import (
 )
 
 requires_pyod = pytest.mark.skipif(
-    not pyod_available(), reason="pyod not installed (pip install mercury-agent[benchmark])"
+    not pyod_available(), reason="pyod not installed (pip install mercury-agent-global[benchmark])"
 )
 
 
@@ -194,7 +194,7 @@ def test_run_pyod_baselines_records_failures_not_drops(
 def test_run_pyod_baselines_raises_actionable_import_error_when_missing() -> None:
     if pyod_available():
         pytest.skip("pyod installed; ImportError path not reachable")
-    with pytest.raises(ImportError, match="mercury-agent\\[benchmark\\]"):
+    with pytest.raises(ImportError, match="mercury-agent-global\\[benchmark\\]"):
         run_pyod_baselines(np.zeros((4, 2)), np.zeros((2, 2)))
 
 

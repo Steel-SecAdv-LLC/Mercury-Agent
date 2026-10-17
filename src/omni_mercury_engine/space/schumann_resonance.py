@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.fft import fft, fftfreq
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.data_sources.live_ingestion import (
     LiveDataError,
     fetch_live_datapoints,
@@ -118,6 +119,8 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
                 "Install it with: pip install torch"
             )
         super().__init__()
+
+        self.spectrum_size = spectrum_size
 
         phi = 1.618
 
@@ -374,7 +377,12 @@ class SchumannResonanceDetector:
         if self._neural_trained:
             # Trained weights present: use the learned CNN-LSTM classifier.
             spectrum_tensor = (
-                torch.tensor(power_spectrum[:512], dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+                torch.tensor(
+                    power_spectrum[: self.harmonic_analyzer.spectrum_size],
+                    dtype=torch.float32,
+                )
+                .unsqueeze(0)
+                .unsqueeze(0)
             )
             temporal_tensor = None
             if temporal_history and len(temporal_history) > 0:
@@ -627,7 +635,7 @@ class SchumannResonanceDetector:
         # (if degenerate) ELF sample as off-modality input.
         signal = np.atleast_1d(np.squeeze(np.asarray(elf_signal, dtype=np.float64)))
         if signal.ndim != 1:
-            raise ValueError(
+            raise InputModalityError(
                 "SchumannResonanceDetector expects a 1-D ELF time series "
                 f"(single channel, sampled at {self.sampling_rate:g} Hz); got "
                 f"shape {np.asarray(elf_signal).shape}. Pass one ELF channel."
@@ -990,25 +998,3 @@ class SchumannResonanceDetector:
             "confidence": result.confidence,
             "fundamental_freq": result.fundamental_freq,
         }
-
-
-def create_omni_resonance_scalars() -> dict[str, float]:
-    """Create doctorate-level Schumann resonance scalars.
-
-    Returns:
-        Dictionary of omni-resonance scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_electromagnetic_harmony": 1.46 * phi,
-        "omni_ionospheric_coherence": 1.42 * phi,
-        "omni_planetary_resonance": 1.44 * phi,
-        "omni_seismic_precursor_detection": 1.48 * phi,
-        "omni_space_weather_correlation": 1.40 * phi,
-        "omni_frequency_stability": 1.38 * phi,
-        "omni_amplitude_sensitivity": 1.43 * phi,
-        "omni_geophysical_cycle_alignment": 1.37 * phi,
-        "omni_waveguide_propagation": 1.39 * phi,
-        "omni_solar_modulation": 1.41 * phi,
-    }

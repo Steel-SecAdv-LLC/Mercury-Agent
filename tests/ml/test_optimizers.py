@@ -326,7 +326,6 @@ class TestOmniFusionModelAdvancedTraining:
             epochs=5,
             learning_rate=0.001,
             use_synthetic_gradients=True,
-            use_dtp=True,
             use_amav=True,
             log_interval=2,
         )
@@ -340,18 +339,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
-            use_dtp=True,
-            use_amav=True,
-        )
-        assert "final_loss" in result
-
-    def test_train_without_dtp(self, fusion_model: Any, train_loader: Any) -> None:
-        """Test training without DTP."""
-        result = fusion_model.train_with_optimizers(
-            train_loader=train_loader,
-            epochs=3,
-            use_synthetic_gradients=True,
-            use_dtp=False,
             use_amav=True,
         )
         assert "final_loss" in result
@@ -362,7 +349,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=True,
-            use_dtp=True,
             use_amav=False,
         )
         assert "final_loss" in result
@@ -373,7 +359,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
-            use_dtp=False,
             use_amav=False,
         )
         assert "final_loss" in result

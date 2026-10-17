@@ -638,7 +638,7 @@ def apply_ethical_constraints(
 ) -> torch.Tensor:
     """Apply ethical constraints to anomaly detection.
 
-    Ensures high recall for critical anomalies to protect survivors.
+    Ensures high recall for critical anomalies to protect the people at risk.
 
     Args:
         anomaly_scores: Raw anomaly scores

@@ -469,6 +469,27 @@ class TestBenevolenceOptimization:
             BENEVOLENCE_THRESHOLD == 0.99
         ), f"Benevolence threshold {BENEVOLENCE_THRESHOLD} != 0.99"
 
+    def test_pareto_mutation_rate_reaches_the_search(self) -> None:
+        """Regression: ``mutation_rate`` was accepted but never forwarded to
+        the NSGA-II search, so setting it had no effect on the result."""
+        from omni_mercury_engine.core.benevolence_optimization import ParetoOptimizer
+
+        def objective(params: np.ndarray) -> np.ndarray:
+            return np.array([float(np.sum(params**2)), float(np.sum((params - 1.0) ** 2))])
+
+        def front_params(mutation_rate: float) -> list[list[float]]:
+            front = ParetoOptimizer(
+                objective_fn=objective,
+                n_objectives=2,
+                population_size=12,
+                n_generations=5,
+                mutation_rate=mutation_rate,
+                seed=3,
+            ).optimize(bounds=[(-2.0, 2.0)] * 3, benevolence_constraint=0.0)
+            return sorted(np.asarray(s.parameters).tolist() for s in front.solutions)
+
+        assert front_params(0.0) != front_params(0.9)
+
 
 # =============================================================================
 # Integration Tests

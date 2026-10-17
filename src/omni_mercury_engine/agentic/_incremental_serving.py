@@ -6,7 +6,7 @@ The agent's single-sample contract is *score the sample as the last row of
 ``vstack([reference, row])``* — the detectors normalize within a batch, so a
 lone sample needs company to be scored meaningfully. The reference batch is
 fixed at fit time, yet the full path re-scores all of it through every
-detector protocol on every call (e.g. the directive detector's O(n²·d)
+detector protocol on every call (e.g. the directive detector's former O(n²·d)
 stability term), which a 2026-06-11 profile measured at ~54 ms per served
 sample across the five agents — dominated by directive (28 ms), spatial
 (11 ms) and temporal (10 ms) per-batch recomputation.
@@ -115,10 +115,10 @@ class _DirectiveServingCache(_ServingCache):
     * PCP / GSIS / RMD / EOA protocol scores for ``x``'s row only — the
       combined score has no cross-row coupling (scores are clipped to [0, 1]
       before return, so the agent's batch renormalization never engages).
-    * GSIS is the O(n²·d) term: ``x``'s row needs only its own distance
-      vector ``[‖x − R_j‖.., 0.0]`` (self-distance last, exactly as in the
-      reference where ``x`` is the final row), its 20th percentile, and the
-      strict-below count.
+    * GSIS scores each row against the detector's fitted reference sample
+      (or, without one, against the batch itself), at O(n·m·d). It is
+      recomputed on the assembled ``[R; x]`` array through the detector's own
+      method -- same code, same array -- so ``x``'s score is the full path's.
     * RMD replays the reference's memory-buffer evolution: after a reset
       (the agent's pure-batch contract) and a pass over ``R``, the buffer
       holds the last ``memory_depth`` reference rows; appending ``x`` and
@@ -166,20 +166,9 @@ class _DirectiveServingCache(_ServingCache):
         normalized = diff / (float(np.linalg.norm(baseline)) + 1e-6)
         pcp = normalized / (det.convergence_threshold + normalized)
 
-        # --- GSIS (x's row of the pairwise term) -------------------------
-        # The reference computes ‖block_row − batch_row‖ with the same
-        # subtract → square → pairwise-sum → sqrt pipeline; the sign flip
-        # (R − x vs x − R) squares away bit-exactly, and x's self-distance
-        # is exactly 0.0 at the final position.
-        if n_total < 2:
-            gsis = 0.0
-        else:
-            dist_vec = np.empty(n_total, dtype=np.float64)
-            dist_vec[:n] = np.linalg.norm(self._reference - row, axis=1)
-            dist_vec[n] = 0.0
-            threshold = np.percentile(dist_vec, 20)
-            local_density = int(np.sum(dist_vec < threshold))
-            gsis = (1.0 - local_density / n_total) * det.stability_factor
+        # --- GSIS (recomputed on [R; x] by the detector itself) -----------
+        self._batch[-1] = row
+        gsis = float(det._gravitational_stability_check(self._batch)[-1]) if n_total >= 2 else 0.0
 
         # --- RMD (memory-buffer replay) -----------------------------------
         buffer_rows = [*self._rmd_tail, row.astype(np.float64)]
@@ -205,7 +194,6 @@ class _DirectiveServingCache(_ServingCache):
         )
 
         # --- Batch-global blend scalars (recomputed on [R; x]) -------------
-        self._batch[-1] = row
         if det.use_quantum_enhanced:
             quantum_scores = det._quantum_pattern_containment(self._batch)
             if quantum_scores and weights.quantum_blend > 0:

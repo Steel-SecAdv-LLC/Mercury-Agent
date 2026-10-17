@@ -701,9 +701,23 @@ class LearnableGOSNN:
         self,
         scalar_names: list[str],
         target_score: float,
-        actual_score: float,
+        actual_score: float | None = None,
     ) -> float:
-        """Update scalar embeddings based on feedback."""
+        """Update scalar embeddings based on feedback.
+
+        Args:
+            scalar_names: Scalars whose embeddings receive the update.
+            target_score: Score the system should have produced.
+            actual_score: Score the system actually produced. When given,
+                the update is error-proportional: the loss is scaled by
+                ``1 + |target - actual|`` (clipped at 10x), so a large
+                observed miss moves the embeddings further than a near-hit
+                while a perfect hit keeps the baseline step. Omitted, the
+                plain target regression is used.
+
+        Returns:
+            The (scaled) loss value actually backpropagated.
+        """
         if not TORCH_AVAILABLE or self.optimizer is None:
             return 0.0
 
@@ -726,6 +740,9 @@ class LearnableGOSNN:
         target = torch.tensor(target_score, dtype=torch.float32, device=self.device)
 
         loss = F.mse_loss(predicted, target)
+        if actual_score is not None:
+            discrepancy = abs(float(target_score) - float(actual_score))
+            loss = loss * float(min(1.0 + discrepancy, 10.0))
         loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
 
         self.optimizer.step()

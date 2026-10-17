@@ -115,25 +115,21 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run_rfc8032_ed25519() -> list[dict[str, Any]]:
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-        Ed25519PrivateKey,
-        Ed25519PublicKey,
-    )
+    # The vectors run against Mercury's production Ed25519 path — AMA's
+    # native backend via security.pqc_backends — so the KAT certificate
+    # attests the implementation that actually signs in production, not a
+    # bystander library.
+    from omni_mercury_engine.security.pqc_backends import ed25519_sign, ed25519_verify
 
     records: list[dict[str, Any]] = []
     for label, sk_hex, pk_hex, msg_hex, sig_hex in _RFC8032_ED25519_VECTORS:
-        sk = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(sk_hex))
-        pk = Ed25519PublicKey.from_public_bytes(bytes.fromhex(pk_hex))
+        seed = bytes.fromhex(sk_hex)
+        pk = bytes.fromhex(pk_hex)
         msg = bytes.fromhex(msg_hex)
         expected_sig = bytes.fromhex(sig_hex)
-        produced_sig = sk.sign(msg)
+        produced_sig = ed25519_sign(msg, seed)
         sign_match = produced_sig == expected_sig
-        try:
-            pk.verify(expected_sig, msg)
-            verify_ok = True
-        except InvalidSignature:
-            verify_ok = False
+        verify_ok = ed25519_verify(msg, expected_sig, pk)
         records.append(
             {
                 "algorithm": "ed25519",

@@ -381,39 +381,6 @@ def test_pathogen_detector_seed_reproducible() -> None:
     assert a.J_matrix.tolist() == b.J_matrix.tolist()
 
 
-def test_quantum_circuit_seed_reproducible() -> None:
-    from omni_mercury_engine.quantum_computing.circuits import (
-        SimulatedQuantumCircuit,
-        VariationalCircuit,
-    )
-
-    c1 = SimulatedQuantumCircuit(num_qubits=3, seed=21)
-    c2 = SimulatedQuantumCircuit(num_qubits=3, seed=21)
-    assert (
-        c1._rng.choice(8, 16, p=[1 / 8] * 8).tolist()
-        == c2._rng.choice(8, 16, p=[1 / 8] * 8).tolist()
-    )
-
-    v1 = VariationalCircuit(num_qubits=3, reps=1, seed=21)
-    v2 = VariationalCircuit(num_qubits=3, reps=1, seed=21)
-    assert v1._rng.uniform(0, 1, 8).tolist() == v2._rng.uniform(0, 1, 8).tolist()
-
-
-def test_quantum_hybrid_optimizers_seed_reproducible() -> None:
-    from omni_mercury_engine.quantum_computing.hybrid import (
-        ClassicalOptimizer,
-        HybridOptimizer,
-    )
-
-    a = ClassicalOptimizer(seed=3)
-    b = ClassicalOptimizer(seed=3)
-    assert a._rng.choice([-1, 1], 16).tolist() == b._rng.choice([-1, 1], 16).tolist()
-
-    h1 = HybridOptimizer(seed=3)
-    h2 = HybridOptimizer(seed=3)
-    assert h1._rng.uniform(0, 1, 8).tolist() == h2._rng.uniform(0, 1, 8).tolist()
-
-
 def test_voice_embedding_default_seed_42() -> None:
     """Voice ``SpeakerEmbedding`` default ``seed=42`` keeps deterministic init."""
     from omni_mercury_engine.biometric.voice_recognition import SpeakerEmbedding

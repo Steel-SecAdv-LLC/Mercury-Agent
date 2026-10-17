@@ -13,29 +13,74 @@ inputs:
       AMA Cryptography git tag/ref to build. Pin to an immutable tag (not a
       moving branch) so KAT reproducibility has a stable anchor.
     required: false
-    default: v4.0.0
+    default: v5.0.0
 
 runs:
   using: composite
   steps:
+    - name: Compute AMA native-build cache key
+      # The cmake build of the native PQC library is identical for every job
+      # on the same runner image and architecture (it involves no Python), so
+      # roughly ten jobs per CI run were rebuilding the same shared objects.
+      # Key the cached build tree on everything the artifact depends on: the
+      # immutable AMA tag, OS/arch, the runner image generation (glibc), and
+      # this action file itself (compiler + cmake flags live here).
+      id: cache-key
+      shell: bash
+      env:
+        AMA_REF: ${{ inputs.ama-ref }}
+      run: |
+        echo "key=ama-native-${AMA_REF}-${RUNNER_OS}-$(uname -m)-${ImageOS:-unknown-image}" \
+          >> "$GITHUB_OUTPUT"
+
+    - name: Restore cached AMA native build tree
+      # Security posture: the key is exact-match only (no restore-keys), so a
+      # partial or sibling cache can never be substituted; and the two
+      # verification gates below (native PQC capability probe + engine
+      # import-time gate, which checks AMA's signed native-library digest)
+      # run on hit and miss alike, so a stale or tampered cache entry fails
+      # this action loudly instead of degrading the backend.
+      id: ama-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: /tmp/ama-cryptography
+        key: ${{ steps.cache-key.outputs.key }}-${{ hashFiles('.github/actions/build-ama-cryptography/action.yml') }}
+
     - name: Install build toolchain for AMA Cryptography native library
+      # Only a cache miss compiles anything: on a hit the restored tree already
+      # holds the shared objects, and the Python install below builds a wheel
+      # without a compiler. Measured on CI run 38928977672 (Core Tests 3.13):
+      # the cache HIT, yet this step took 7m15s, because apt fetched
+      # build-essential/cmake/ninja (13.7 MB) from a mirror serving 31.5 kB/s.
+      # That one step, not a cache miss, pushed the job past its limit.
+      #
+      # On a miss the step installs only what the runner image lacks. GitHub's
+      # Ubuntu 24.04 image ships gcc-12, g++-12 and make; cmake comes from the
+      # PyPI shim pinned in the next step (it shadows any apt cmake on PATH).
+      # apt is the fallback for a different image, bounded so a slow mirror
+      # fails in minutes instead of eating the job budget.
+      if: steps.ama-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        # GitHub-hosted runners preinstall Microsoft apt repositories
-        # (packages.microsoft.com: azure-cli + prod) that periodically return
-        # 403 / "no longer signed". They are irrelevant here — the AMA native
-        # library only needs Ubuntu-archive packages — but while present a
-        # Microsoft-side outage makes `apt-get update` exit non-zero and fails
-        # the whole job before any test runs. Drop them so the toolchain
-        # install depends only on what it uses; a genuine failure to reach the
-        # Ubuntu archives or install the packages below still fails loudly.
+        missing=()
+        # The build below calls /usr/bin/gcc-12 and /usr/bin/g++-12 by path.
+        for tool in gcc-12 g++-12; do
+          [ -x "/usr/bin/${tool}" ] || missing+=("${tool}")
+        done
+        command -v make >/dev/null 2>&1 || missing+=(make)
+        if [ "${#missing[@]}" -eq 0 ]; then
+          echo "Toolchain present on the runner image (gcc-12, g++-12, make); no apt install needed."
+          exit 0
+        fi
+        echo "Installing missing toolchain: ${missing[*]}"
+        # Pre-installed Microsoft apt repositories periodically return 403 /
+        # "no longer signed"; the toolchain needs only Ubuntu-archive packages.
         sudo grep -rlZ --include='*.list' --include='*.sources' \
           'packages\.microsoft\.com' /etc/apt/sources.list.d/ 2>/dev/null \
           | sudo xargs -0r rm -f || true
-        # Bounded retry tolerates a transient archive hiccup without masking a
-        # persistent outage (still exits non-zero after the final attempt).
+        apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
         for attempt in 1 2 3; do
-          sudo apt-get update && break
+          sudo timeout 180 apt-get "${apt_opts[@]}" update && break
           if [ "${attempt}" -eq 3 ]; then
             echo "apt-get update failed after ${attempt} attempts" >&2
             exit 1
@@ -43,19 +88,21 @@ runs:
           echo "apt-get update failed (attempt ${attempt}); retrying in 5s" >&2
           sleep 5
         done
-        sudo apt-get install -y --no-install-recommends \
-          build-essential gcc-12 g++-12 cmake ninja-build pkg-config
+        # Each probed tool is also its Ubuntu package name.
+        sudo timeout 600 apt-get "${apt_opts[@]}" install -y --no-install-recommends "${missing[@]}"
 
     - name: Install AMA Cryptography PEP 517 build-system floors
       # AMA's ``setup.py`` preflight enforces the supply-chain floors declared
       # in its ``pyproject.toml [build-system].requires``:
-      #   setuptools>=83.0.0  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5, raised to
-      #                          83.0.0 by AMA v4.0.0, whose preflight reports
-      #                          ``AttributeError(install_layout) on bdist_wheel``
-      #                          on anything older (verified against 79.0.1).
-      #   wheel>=0.47.0       — GHSA-8rrh-rw8j-w5fx
-      #   cmake>=4.4.0        — Dependabot supply-chain floor (the PyPI cmake
-      #                          shim's ``__version__`` is what setup.py's
+      #   setuptools>=84.0.0  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5 (fixed at
+      #                          70.0.0 / 78.1.1); AMA v5.0.0 pins the floor at
+      #                          84.0.0 (its latest baseline) and its preflight
+      #                          reports ``AttributeError(install_layout) on
+      #                          bdist_wheel`` on Debian-patched 68.x.
+      #   wheel>=0.48.0       — GHSA-8rrh-rw8j-w5fx, raised to 0.48.0 by AMA
+      #                          v5.0.0's preflight.
+      #   cmake>=4.4.4        — AMA v5.0.0's ``_BUILD_REQS`` floor (the PyPI
+      #                          cmake shim's ``__version__`` is what setup.py's
       #                          ``_check_cmake_version`` reads; the system
       #                          apt cmake is older and trips the preflight).
       # ``pip install --no-build-isolation`` below skips PEP 517 build-env
@@ -65,11 +112,16 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade \
-          "setuptools>=83.0.0" \
-          "wheel>=0.47.0" \
-          "cmake>=4.4.0"
+          "setuptools>=84.0.0" \
+          "wheel>=0.48.0" \
+          "cmake>=4.4.4"
 
     - name: Build AMA Cryptography native C library
+      # Skipped on a cache hit: the restored tree holds this exact tag's
+      # checkout plus its compiled build/ output. The toolchain and PEP 517
+      # floor steps above stay unconditional — the Python install below
+      # still needs them either way.
+      if: steps.ama-cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         AMA_REF: ${{ inputs.ama-ref }}

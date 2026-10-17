@@ -29,7 +29,6 @@ import logging
 import os
 import secrets
 import threading
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -71,27 +70,22 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastapi import HTTPException, Request, status
-    from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+    from fastapi.security import APIKeyHeader, HTTPBearer
 
     from omni_mercury_engine.api.key_store import KeyStore
 else:
     try:
         from fastapi import HTTPException, Request, status
-        from fastapi.security import (
-            APIKeyHeader,
-            HTTPAuthorizationCredentials,
-            HTTPBearer,
-        )
+        from fastapi.security import APIKeyHeader, HTTPBearer
     except ImportError:
         _FASTAPI_HINT = (
             "FastAPI is required for Mercury's HTTP auth surface; install the "
-            "API extra:  pip install 'mercury-agent[api]'"
+            "API extra:  pip install 'mercury-agent-global[api]'"
         )
 
         # Annotation-only names (this module uses ``from __future__ import
         # annotations``, so these are never evaluated at runtime).
         Request = Any
-        HTTPAuthorizationCredentials = Any
 
         class _RequiresFastAPI:
             """Fail-closed stand-in for a FastAPI symbol used as a runtime value.
@@ -222,37 +216,6 @@ class AuthorizationError(Exception):
         """Initialize the instance."""
         super().__init__(message)
         self.required = required
-
-
-class AuthProvider(ABC):
-    """Abstract base class for authentication providers."""
-
-    @abstractmethod
-    async def authenticate(self, credentials: Any) -> User:
-        """Authenticate credentials and return user.
-
-        Args:
-            credentials: Authentication credentials.
-
-        Returns:
-            Authenticated user.
-
-        Raises:
-            AuthenticationError: If authentication fails.
-        """
-        pass
-
-    @abstractmethod
-    async def validate_token(self, token: str) -> User | None:
-        """Validate a token and return user if valid.
-
-        Args:
-            token: Token to validate.
-
-        Returns:
-            User if valid, None otherwise.
-        """
-        pass
 
 
 class APIKeyStore:
@@ -465,11 +428,14 @@ class AuthKeyManager:
         if index is None:
             index = self._key_index.get(purpose, 0)
 
-        result: bytes = self._hd.derive_key(
-            purpose=purpose_id,
-            account=0,
-            change=0,
-            index=index,
+        # AMA v5 returns a bytearray; callers expect immutable bytes.
+        result: bytes = bytes(
+            self._hd.derive_key(
+                purpose=purpose_id,
+                account=0,
+                change=0,
+                index=index,
+            )
         )
         return result
 
@@ -693,16 +659,16 @@ class APIKeyAuth:
             auto_error=auto_error,
         )
 
-    async def __call__(
-        self,
-        request: Request,
-        api_key: str | None = None,
-    ) -> User | None:
-        """Authenticate request with API key.
+    async def __call__(self, request: Request) -> User | None:
+        """Authenticate request with the API key header.
+
+        The key is read from the header only. The signature used to declare an
+        ``api_key: str | None`` parameter, which FastAPI exposes as a *query*
+        parameter, so ``?api_key=<raw key>`` authenticated too and left the
+        key in access logs, proxy logs and browser history.
 
         Args:
             request: FastAPI request.
-            api_key: API key from header.
 
         Returns:
             Authenticated user.
@@ -710,9 +676,7 @@ class APIKeyAuth:
         Raises:
             HTTPException: If authentication fails.
         """
-        # Get key from header
-        if api_key is None:
-            api_key = request.headers.get(self.header_name)
+        api_key = request.headers.get(self.header_name)
 
         if not api_key:
             if self.auto_error:
@@ -1020,16 +984,18 @@ class JWTAuth:
         self.auto_error = auto_error
         self.bearer = HTTPBearer(auto_error=auto_error)
 
-    async def __call__(
-        self,
-        request: Request,
-        credentials: HTTPAuthorizationCredentials | None = None,
-    ) -> User | None:
-        """Authenticate request with JWT token.
+    async def __call__(self, request: Request) -> User | None:
+        """Authenticate request with the ``Authorization: Bearer`` header.
+
+        The signature used to declare ``credentials:
+        HTTPAuthorizationCredentials | None``. That is a pydantic model, so
+        FastAPI read it as a second *request body* field, and every POST route
+        depending on this class had its own body embedded under its parameter
+        name (``{"request": {...}}``) instead of taking the documented flat
+        body. The token now comes from the header only.
 
         Args:
             request: FastAPI request.
-            credentials: Bearer token credentials.
 
         Returns:
             Authenticated user.
@@ -1037,20 +1003,17 @@ class JWTAuth:
         Raises:
             HTTPException: If authentication fails.
         """
-        if credentials is None:
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-            else:
-                if self.auto_error:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Bearer token required",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-                return None
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
         else:
-            token = credentials.credentials
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Bearer token required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return None
 
         # Validate JWT using PyJWT with cryptographic signature verification
         user = await self._validate_jwt(token)
@@ -1379,45 +1342,6 @@ def require_role(role: str) -> Callable[..., Any]:
         return wrapper
 
     return decorator
-
-
-async def rate_limit_middleware(
-    request: Request,
-    call_next: Callable[..., Any],
-) -> Any:
-    """Rate limiting middleware.
-
-    Args:
-        request: FastAPI request.
-        call_next: Next middleware/handler.
-
-    Returns:
-        Response.
-    """
-    limiter = get_rate_limiter()
-    user = getattr(request.state, "user", None) if hasattr(request, "state") else None
-
-    allowed, info = limiter.is_allowed(request, user)
-
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Rate limit exceeded",
-            headers={
-                "X-RateLimit-Limit": str(info["limit"]),
-                "X-RateLimit-Remaining": str(info["remaining"]),
-                "X-RateLimit-Reset": str(info["reset"]),
-            },
-        )
-
-    response = await call_next(request)
-
-    # Add rate limit headers
-    response.headers["X-RateLimit-Limit"] = str(info["limit"])
-    response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-    response.headers["X-RateLimit-Reset"] = str(info["reset"])
-
-    return response
 
 
 class AuthConfig(BaseModel):

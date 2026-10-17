@@ -216,8 +216,68 @@ jobs:
         echo "=== Disk space after cleanup ==="
         df -h /
 
+    # Buildx setup with the same 3-attempt retry and the same pinned action
+    # as ci.yml's docker-build job: booting the buildkit container pulls
+    # ``moby/buildkit:buildx-stable-1`` from Docker Hub, which intermittently
+    # times out on hosted runners. The final attempt has no
+    # ``continue-on-error``, so a genuine registry outage still fails the job.
+    - name: Set up Docker Buildx (attempt 1)
+      id: buildx
+      continue-on-error: true
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+    - name: Pause before Buildx retry 1 (transient registry flake stabilisation)
+      if: steps.buildx.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::warning::docker/setup-buildx-action@v4 attempt 1 failed (likely a transient registry-1.docker.io timeout booting the buildkit container). Sleeping 15s before retry."
+        sleep 15
+
+    - name: Set up Docker Buildx (attempt 2, runs only on attempt-1 failure)
+      id: buildx2
+      if: steps.buildx.outcome == 'failure'
+      continue-on-error: true
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+    - name: Pause before Buildx retry 2 (extended backoff)
+      if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::warning::docker/setup-buildx-action@v4 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+        sleep 60
+
+    - name: Set up Docker Buildx (attempt 3, final; runs only on attempts 1+2 failure)
+      if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
     - name: Build Docker image
-      run: docker build -t mercury-agent:scan .
+      # Same Dockerfile and context as ci.yml's docker-build job, which owns
+      # the GHA layer-cache write (``cache-to: type=gha,mode=max``); this job
+      # only READS that cache (mirroring docker.yml), so an identical head
+      # assembles the image from cached layers instead of rebuilding
+      # ~10 minutes of apt + venv from scratch. No scan-surface change: the
+      # Trivy steps below scan the assembled image contents either way, with
+      # a freshly downloaded vulnerability DB — layer caching cannot hide a
+      # newly published CVE, and the ci.yml blocking gate already scans an
+      # image assembled from this same cache.
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        load: true
+        tags: mercury-agent:scan
+        cache-from: type=gha
+
+    - name: Reclaim disk before Trivy scan
+      # The cache import leaves a sizable copy of the image layers in the
+      # buildx builder cache on top of the daemon-side image the scan needs;
+      # drop the builder cache (the daemon image survives) so Trivy has
+      # headroom for its image-export step. Mirrors ci.yml's docker-build.
+      run: |
+        docker buildx prune -af || true
+        docker builder prune -af || true
+        df -h /
 
     - name: Install Trivy binary
       # The bundled ``aquasecurity/setup-trivy`` action that
@@ -248,6 +308,14 @@ jobs:
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      env:
+        # Path-scoped secret-scanner allowlist (see trivy-secret.yaml):
+        # the anthropic SDK's Managed Agents type files quote the JSON
+        # type discriminator of a GCP service-account key in docstrings,
+        # which the gcp-service-account rule reports as a CRITICAL leaked
+        # key. (The marker is deliberately not spelled out here — the
+        # repo-tree scan flags the comment itself.)
+        TRIVY_SECRET_CONFIG: trivy-secret.yaml
       with:
         image-ref: 'mercury-agent:scan'
         format: 'sarif'
@@ -270,7 +338,7 @@ jobs:
         skip-setup-trivy: true
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+      uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
       if: always() && hashFiles('trivy-results.sarif') != ''
       with:
         sarif_file: 'trivy-results.sarif'
@@ -284,6 +352,9 @@ jobs:
       # the table form is the gate that makes such findings visible
       # in the PR review UI rather than only after merge.
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      env:
+        # Same path-scoped secret allowlist as the SARIF run above.
+        TRIVY_SECRET_CONFIG: trivy-secret.yaml
       with:
         image-ref: 'mercury-agent:scan'
         format: 'table'
@@ -367,7 +438,7 @@ jobs:
         skip-setup-trivy: true
 
     - name: Upload Trivy filesystem results
-      uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+      uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
       if: always() && hashFiles('trivy-fs-results.sarif') != ''
       with:
         sarif_file: 'trivy-fs-results.sarif'
@@ -461,16 +532,16 @@ jobs:
     - name: Initialize CodeQL
       # Pin to v4.32.2: newer v4 tags call GitHub's feature-flag API during
       # init, which returns Bad credentials for Copilot Code Review tokens.
-      uses: github/codeql-action/init@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+      uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
       with:
         languages: ${{ matrix.language }}
         config-file: ./.github/codeql/codeql-config.yml
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+      uses: github/codeql-action/autobuild@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+      uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
       with:
         category: "/language:${{ matrix.language }}"
 

@@ -62,6 +62,7 @@ from omni_mercury_engine.api.rate_limit_store import (
     ActionRateLimiter,
     build_action_rate_limiter,
 )
+from omni_mercury_engine.api.request_audit import set_audit_actor
 
 if TYPE_CHECKING:
     from omni_mercury_engine.api.auth import APIKey
@@ -514,6 +515,14 @@ def current_session(
         request: The incoming request (for the session cookie).
         service: The auth service.
 
+    The resolved account is published as the request's audit actor
+    (:func:`~omni_mercury_engine.api.request_audit.set_audit_actor`), so
+    session-cookie actions -- API-key create/revoke, email change, account
+    deletion -- are attributed to the account in the request audit trail
+    instead of ``anonymous``. ``request.state.user`` is deliberately left
+    unset: a browser session is not an API credential and carries no
+    :class:`~omni_mercury_engine.api.auth.Permission` set.
+
     Returns:
         The authenticated account and its session record.
 
@@ -524,6 +533,7 @@ def current_session(
     resolved = service.resolve_session(raw) if raw else None
     if resolved is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not authenticated")
+    set_audit_actor(request, resolved[0].id, "session")
     return resolved
 
 
@@ -699,6 +709,7 @@ def session_or_api_key_account(
     if raw_session:
         resolved = service.resolve_session(raw_session)
         if resolved is not None:
+            set_audit_actor(request, resolved[0].id, "session")
             return resolved[0]
     raw_key = request.headers.get("X-API-Key")
     if raw_key:
@@ -706,6 +717,7 @@ def session_or_api_key_account(
         if key is not None and key.is_active and not key.is_expired:
             account = service.get_account(key.user_id)
             if account is not None and account.is_active:
+                set_audit_actor(request, account.id, "api_key")
                 return account
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not authenticated")
 

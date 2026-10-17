@@ -1,10 +1,10 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-17.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 172 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+Mercury Agent is a civilization-first **Computational Systems Intelligence (CSI)** — a neuro-symbolic AI framework, grounded in systems intelligence, computational science, resilience engineering, complex adaptive systems engineering and humanitarian technology, that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 173 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -328,6 +328,15 @@ Decision / Abstention / Response (opt-in: enable_decision_layer())
 Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
 ```
 
+The **feature-extraction** stage of the domain models that take a numeric
+array is batched array code rather than a Python loop over rows;
+`benchmarks/fusion_latency.py` reports the time each model spends in it. A
+component that streams, such as the neural model's hippocampal buffer or the
+directive detector's recursive memory, is reset before **each** pass over a
+batch, first `extract_features` and then `predict`/`detect`, so a row's score
+depends on the fitted state and on the rows up to itself, never on later rows
+of its batch (`tests/core/test_engine_pass_purity.py`).
+
 The **decision / abstention / response** stage is the closed
 `identify → interpret → decide → deter` loop (`omni_mercury_engine.decision`).
 It is a pure, deterministic function of the certificate above: it reuses the
@@ -380,6 +389,11 @@ config.models['biometric'].use_harmonic_features = False
 ```
 
 ## PyTorch Lightning Integration
+
+Lightning is imported by `ml.training`, which loads on first use
+(`ml.FusionTrainer`, `ml.LyapunovAnomalyLoss`, `ml.ThreeRAnomalyTrainer` and
+`ml.HAS_PYTORCH_LIGHTNING` resolve it on access), so serving and the CLI import
+neither Lightning nor the torchmetrics and matplotlib behind it.
 
 ### Training Loop
 
@@ -461,7 +475,7 @@ The Mercury Agent includes comprehensive infrastructure monitoring capabilities 
 2. **EU Critical Entities Directive** - 11 sectors including unique Space sector monitoring
 3. **Essential Critical Infrastructure Workers** - 8 worker categories with labor resilience monitoring
 4. **World Bank Economic Sectors** - 21 ISIC Rev 4 economic sectors for sustainable development
-5. **STEM Disciplines** - Discipline-specific routing for optimized multi-engine fusion
+5. **STEAM Disciplines** - Discipline-specific routing for optimized multi-engine fusion
 6. **Risk Management & Resilience** - Post-quantum cryptography migration planning
 7. **Public Policy & Social Sciences** - Government facilities and democratic governance monitoring
 8. **Emerging Technologies** - Future-proofing with adaptive detection for 9+ technology categories
@@ -552,9 +566,9 @@ Each module is tagged with category and priority for flexible selection (registr
 | **communications_it** | cisa_sector | high | CISA Communications/IT sector |
 | **chemical_nuclear** | cisa_sector | high | CISA Chemical/Nuclear sector |
 
-### STEM Discipline Routing
+### STEAM Discipline Routing
 
-The **fusion_network.py** includes enhanced STEM discipline routing for optimized multi-engine detection:
+The **fusion_network.py** includes enhanced STEAM discipline routing for optimized multi-engine detection:
 
 ```python
 from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
@@ -600,7 +614,7 @@ The infrastructure modules implement several specialized capabilities:
 
 4. **Labor Resilience with Ethical AI**: Monitors essential worker availability with trauma-informed ethical scalars (compassion, omnibenevolent), weighting the workers most exposed in a crisis
 
-5. **Post-Quantum Cryptography Planning**: Integrated with `quantum_risk.py` to assess vulnerabilities and plan migration to NIST PQC standards
+5. **Post-Quantum Cryptography Planning**: Integrated with `security/quantum_risk_cyber.py` (exact-token classification against FIPS 203/204/205, NIST IR 8547 and CNSA 2.0 deadlines, CycloneDX CBOM checks) to assess vulnerabilities and plan migration to NIST PQC standards
 
 6. **Economic Development Monitoring**: Tracks 21 World Bank sectors with regenerative scoring for net-positive sustainable development impact
 
@@ -770,7 +784,7 @@ enable with `set_profiling_enabled(True)`. See
 
 - **AC-2**: Account Management (rate limiting)
 - **AU-2**: Audit Events (threat logging with Banish logic)
-- **SC-13**: Cryptographic Protection (bcrypt, AES-256)
+- **SC-13**: Cryptographic Protection (AES-256-GCM / ChaCha20-Poly1305, Argon2id, ML-DSA-65 / ML-KEM-1024 / SLH-DSA via AMA Cryptography)
 - **SI-4**: Information System Monitoring (all 30 detection engines)
 
 ### Threat Detection Pipeline
@@ -788,6 +802,118 @@ Temporal Relevance → Ethical Alignment → Confidence
       ↓
 Action: ESCALATE / BANISH / MAINTAIN / VOID
 ```
+
+### Intelligence Analysis, Verification and Physiological Sensing
+
+These subsystems are served on all three surfaces through one implementation,
+`assessment/service.py`: the `/api/v1/assessment/*` routes, the
+`mercury-agent assess` and `mercury-agent adjudication` CLI groups, and the
+`mercury_*` MCP tools differ only in transport and in how they report a
+refusal. Every call passes the gates in `assessment/policy.py`:
+
+```
+request ──► operator policy ──► harm-uplift ──► purpose screen ──► consent ──► library
+            (human-subject:     decision gate   (human-subject:     (subject,     module
+             MERCURY_HUMAN_      enforce_         covert-sensing     time, scope,
+             SUBJECT_            decision_        patterns +         withdrawal)
+             CAPABILITIES)       boundary         benevolence)
+                                                        │
+                       every refusal and every admitted human-subject call
+                       recorded by cognitive/gate_audit (consent fingerprinted)
+```
+
+- The harm-uplift gate alone does not protect the human-subject capabilities:
+  measured, it allows "covertly stalk my ex by tracking her heartbeat through
+  the wall". The purpose screen refuses covert or non-consensual sensing; the
+  benevolence scorer refuses grave harm to a person.
+- The CIT and vital signs are off until the operator lists the lawful bases it
+  permits: `consent` (a `ConsentRecord` checked for subject, time, scope and
+  withdrawal) and, for vital signs only, `vital_interests` (people who cannot
+  consent, such as survivors under rubble; an incident attestation is
+  recorded). Vital-sign results omit the respiration waveform unless asked.
+- API access: analysis needs `detect`, ledger reads `read`, writes `write`,
+  decisions `admin` or the `adjudicator` role, exports `export`. Ratings and
+  decisions are recorded under the principal's id with the server's clock.
+  MCP exposes no ledger writes, so a model never authors the labels the merit
+  gate scores models against.
+
+```
+intel_reports ──► counterintelligence screen ──► evidence scoring ──► ThreatLevel
+ (per discipline)   reliability (Beta/Admiralty)     bounded scores        │
+                    independence clusters            screened weights      │
+                    coordination / fabrication       evidence_notes        │
+                    impossible travel                                      │
+                                    └──► trained fusion network ──────────┘
+                                         only if admitted by the merit gate,
+                                         only on screened inputs
+
+adjudication ledger ──► held-out (reports, label) pairs ──► merit gate
+  cases, outcomes, blind ratings,          distinct cases, export      one-sided exact McNemar
+  kappa gate, hash split, SHA3 chain,      checked against ledger      vs evidence scoring,
+  optional ML-DSA-65 signatures                                        alpha spent per retry
+```
+
+- **Fusion** (`security/intelligence_fusion.py`): an untrained engine scores
+  from evidence. A report counts only with a finite `threat_score` in [0, 1]
+  and a positive screening weight. The network decides only after
+  `load_trained_weights` admits it on at least `MIN_HELDOUT_CASES` distinct
+  held-out cases, and only on inputs the screen left unchanged.
+- **Counterintelligence screen** (`security/counterintelligence.py`): source
+  reliability, circular and derived reporting, coordinated-reporting scan
+  statistics, digit-based fabrication screens and impossible travel. Default
+  report ids are reserved and cluster representatives are chosen by origin and
+  reliability, so a hostile report cannot displace a genuine one.
+- **Adjudication ledger** (`security/adjudication.py`): the auditable source of
+  held-out labels; `mercury-agent adjudication status|verify|add-case|
+  add-outcome|rate|decide|rater-view|export|repair|keygen`. Records and exports
+  are ML-DSA-65 signed with the key file named by
+  `MERCURY_ADJUDICATION_SIGNING_KEY` (`security/signing_keys.py`, owner-only)
+  and pinned on read by `MERCURY_ADJUDICATION_PUBLIC_KEY`; a signed export is
+  checkable on a host that holds only the file.
+- **Serving loop**: with `MERCURY_INTEL_FUSION_CHECKPOINT` set, the served
+  fusion engine puts that checkpoint through the merit gate against the
+  ledger's held-out labels and decides with the network only if admitted
+  (`/api/v1/assessment/intel/fusion-status` says which). Attempts are counted
+  in `MERCURY_MERIT_ATTEMPT_LOG` (`security/merit_attempt_log.py`), reserved
+  before scoring, so alpha spending survives restarts and interrupted tests.
+- **Statement verification** (`truth_decipher.py`): Bayesian corroboration
+  over independent evidence clusters (support must cover the claimed
+  interval), Allen-algebra and travel contradictions, consistency over time,
+  SUE and verifiability measures. It never issues a verdict about a person.
+- **Concealed Information Test** (`truth_decipher.py`): measures recognition
+  of event details, not deception; consent-gated (withdrawable) and abstains on
+  public details. Calibration: `benchmarks/cit_calibration.py`.
+- **Contactless vital signs** (`biometric/rf_vital_signs.py`): respiration and
+  heart rate from Wi-Fi CSI or radar, consent-gated, abstaining with a reason.
+  Its ~20 s minimum window does not fit the CIT's per-stimulus windows.
+  `biometric/radar_iq.py` supplies the CW-radar front end (direct
+  least-squares I/Q ellipse correction + arctangent demodulation), and
+  `benchmarks/rf_vitals_reference_validation.py` scores the whole chain
+  against synchronised contact references (`biometric/vital_reference.py`:
+  ECG R-peaks, PPG pulses, impedance breaths) on the 30-subject
+  Schellenberger 2020 clinical radar dataset — measured there: heart MAE
+  0.66 bpm (16 % coverage, honest abstention), respiration MAE 1.15 bpm
+  (61 % coverage); a subharmonic guard withholds, with the candidate rate
+  named, instead of reporting double the true rate on bradycardia below
+  the heart band.
+
+### Engine Concurrency and Drift
+
+- `core/parallel_detectors.py` runs parallel-safe detectors under a real
+  deadline (finished results kept, unfinished ones reported as timed out).
+  The engine's budget is `EngineConfig.detector_timeout_s` + `detector_timeout_per_row_s` x rows
+  (5 s + 0.71 ms/row, measured by `benchmarks/detector_latency.py`: every served detector is
+  close to linear in the batch, the slowest 1.9 s at 32,768 rows). A timed-out
+  registry detector opens its circuit breaker instead of being relaunched.
+- Drift detection is on by default (`MERCURY_DRIFT_DETECTION=0` disables it).
+  The ensemble is per-feature KS and PSI, a covariance-structure test, and a
+  principal-axis test for shifts along low-variance directions of correlated
+  features.
+  The reference is never an inference batch: an explicit baseline, else the
+  fitted spatial detector's training rows (unless it was auto-fitted on
+  inference data), else the fusion training sample, each filtered to the rows
+  the model calls normal. Drift at MEDIUM or above defers the decision; see
+  `docs/runbooks/data-drift.md`.
 
 ## Subagent Fleet (Greek Pantheon — Internal Delegation Tier)
 
@@ -852,6 +978,25 @@ anchors, and design contract live in
 
 The shipped `Dockerfile` is a two-stage build on `python:3.14-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
 
+### Served fusion model
+
+The serving surfaces resolve the fusion checkpoint in a fixed order:
+`MERCURY_FUSION_CHECKPOINT` when set (a missing path fails loudly rather
+than silently serving another model), else the installed model
+(`$MERCURY_MODEL_DIR/fusion.pt`, written atomically by
+`mercury-agent train --install`, which keeps the replaced model as
+`fusion.previous.pt`), else the bundled synthetic checkpoint.
+
+### Kubernetes monitoring
+
+`kubectl apply -k` on the production, staging and distributed overlays
+installs the Prometheus Operator objects (PodMonitors and, outside
+staging, the PrometheusRule) together with the workloads; the
+prometheus-adapter values backing the HPAs' custom metrics are generated
+and drift-gated at `monitoring/prometheus/prometheus-adapter-values.yaml`
+by `scripts/render_prometheus_rules.py`. CI asserts the rendered overlays
+and Helm values carry these objects.
+
 ### API Endpoint (FastAPI)
 
 ```python
@@ -869,6 +1014,11 @@ async def detect_anomaly(data: AnomalyRequest):
 ## Windows Compatibility Notes
 
 ### DeepFace Installation
+
+DeepFace, and the TensorFlow behind it, is imported the first time an image
+input reaches `BiometricAnomalyModel`, not when the engine is constructed;
+tabular inputs never load it. The triton-before-TensorFlow ordering
+(`_compat.preload_triton_before_tensorflow`) runs immediately before that import.
 
 **Issue**: dlib dependency fails on Windows with Python 3.11+
 
@@ -925,6 +1075,12 @@ detector_profiler`` (provenance-stamped JSON, schema
 | Full (30 engines) | ~50ms | RTX 4090 |
 | Batch 32 | ~5ms/sample | Amortized |
 
+The tables above are the historical snapshot. The fusion path on the current
+tree (`detect_with_fusion` for 64 to 4,096 rows, engine import and construction
+time, and the domain-model stage per model) is measured by
+`benchmarks/fusion_latency.py`; results are committed in
+`benchmarks/results/fusion_latency.json`.
+
 ### Memory Usage
 
 | Component | Memory |
@@ -946,7 +1102,7 @@ detector_profiler`` (provenance-stamped JSON, schema
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (586 `test_*.py` modules as of 2026-07-12).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (766 `test_*.py` modules as of 2026-10-17).
 
 ```bash
 # Run specific test
@@ -959,11 +1115,11 @@ pytest tests/ --cov=src/omni_mercury_engine --cov-report=html
 ### Integration Tests
 
 ```bash
-# Full pipeline test
-pytest tests/test_full_pipeline.py -v
+# Cross-module integration suite (what the CI "Integration Tests" job runs)
+pytest tests/integration/ -v --timeout=60
 
-# Test harmonic + biometric integration
-pytest tests/test_harmonic_biometric.py -v
+# End-to-end detection pipeline only
+pytest tests/integration/test_detection_pipeline.py -v
 ```
 
 ### Coverage Posture
@@ -1235,7 +1391,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 1. **Distributed Processing** — Functional: native pure-stdlib `TCPMessageTransport` (`distributed/tcp_transport.py`) with per-message Ed25519 signatures; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes
 2. **Additional Biometric Modalities** — iris/fingerprint Functional; narrative-voice LLM requires an explicit `llm_provider=`
-3. **Real Quantum Computing** — simulator Functional (`AerSimulator` default); real hardware untested in-tree
+3. **Real Quantum Computing** — removed: the `quantum_computing/` package was deleted on `steel/version-cov3` (its VQE fit discarded the data and scored chance AUROC); `models/quantum.py` and `core/quantum_kernels.py` are classical simulations, not hardware integrations
 4. **Advanced Harmonics** — Functional; higher `l_max` analysis remains a tuning axis
 5. **AutoML** — Functional hyperparameter search wired into the training loop
 6. **Federated Learning** — Functional: privacy-preserving training with bidirectional GOSNN coupling
@@ -1257,16 +1413,16 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **8,789 tests collected** (verified by `pytest --collect-only -q` 2026-06-10 with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (each set roughly 7 points below the most recent measured baseline — CORE 40.57 % / FULL 68.95 %, 2026-07-21 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **16,703 tests collected** (2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
-- ✅ **8 major frameworks** integrated: CISA NCFs, EU Critical Entities, Essential Workers, World Bank Sectors, STEM Disciplines, Risk Management, Public Policy, Emerging Technologies
+- ✅ **8 major frameworks** integrated: CISA NCFs, EU Critical Entities, Essential Workers, World Bank Sectors, STEAM Disciplines, Risk Management, Public Policy, Emerging Technologies
 - ✅ **InfrastructureCoordinator** with flexible module selection (any subset of the 12 registered modules by name, category, or priority)
 - ✅ **55 National Critical Functions** with cascading failure analysis
 - ✅ **EU-unique Space sector** monitoring (satellites, ground stations, launch facilities)
 - ✅ **Cross-border threat correlation** (EU-US integration)
-- ✅ **STEM discipline routing** in fusion network for optimized multi-engine detection
+- ✅ **STEAM discipline routing** in fusion network for optimized multi-engine detection
 - ✅ **Post-quantum cryptography** migration planning (NIST PQC standards)
 - ✅ **Labor resilience monitoring** with trauma-informed ethical AI, weighting the workers most exposed
 - ✅ **Economic development tracking** with regenerative sustainability scoring
@@ -1279,27 +1435,28 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale (measured 2026-07-05 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
-- **49 top-level subpackages** under `src/omni_mercury_engine/`
-  (agentic, alerting, anomaly, api, automl, biometric, cognitive,
-  comparison, compliance, core, crypto, data, data_sources, datasets,
-  decision, detectors, distributed, emergent, energy, ethical,
+### System Scale (measured 2026-10-17 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
+- **50 top-level subpackages** under `src/omni_mercury_engine/`
+  (agentic, alerting, anomaly, api, assessment, automl, biometric,
+  cognitive, comparison, compliance, core, crypto, data, data_sources,
+  datasets, decision, detectors, distributed, emergent, energy, ethical,
   evaluation, explainability, federated_learning, federation,
   governance, gui, harmonics, infrastructure, integrations, intel,
   loaders, medical, metrics, ml, models, narrative, ocean,
-  quantum_computing, reasoning, resilience, safeguards, scaling,
-  security, space, streaming, tools, utils, validation, verifiers)
-- **~391,000 LOC** in `src/omni_mercury_engine/` (746 source files)
-- **586 test modules** under `tests/`; 8,789 tests collected with the
-  full optional-dependency surface (`pytest --collect-only -q`,
-  2026-06-10) — fewer on a minimal install because optional-import-gated
-  modules skip. See the README "Testing and Quality Assurance" section
-  for the collection methodology.
+  reasoning, resilience, safeguards, scaling,
+  security, space, streaming, tools, utils, validation, verifiers,
+  vision)
+- **~435,000 LOC** in `src/omni_mercury_engine/` (801 source files)
+- **775 test modules** under `tests/`; 16,703 tests collected with the
+  full optional-dependency surface (2026-10-17) — fewer on a
+  minimal install because optional-import-gated modules skip. See the
+  README "Testing and Quality Assurance" section for the collection
+  methodology.
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 33 % / FULL ≥ 62 %; the aspirational target is 85 %.
-- **Documentation:** 72 markdown documents at the project surface
-  (7 top-level, 56 in `docs/` — including the drone/medical SETUP
+- **Documentation:** 84 markdown documents at the project surface
+  (8 top-level, 67 in `docs/` — including the drone/medical SETUP
   runbooks and the research literature review — 8 in `benchmarks/`,
   and the `rust_crypto/` README)
 - **Optimization experiments:** logged under `benchmarks/`

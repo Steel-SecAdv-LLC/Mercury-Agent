@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the crypto_api module - cryptographic operations.
 
-AMA Cryptography v4.0.0 is a mandatory Mercury capability.  There is no
+AMA Cryptography v5.0.0 is a mandatory Mercury capability.  There is no
 simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 """
 
@@ -395,6 +395,93 @@ class TestHybridCryptography:
         crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
         caps = crypto.get_capabilities()
         assert caps is not None
+
+    def test_stripped_classical_signature_fails_closed(self) -> None:
+        """A hybrid whose classical half was stripped must not verify classically.
+
+        The old behaviour initialised ``classical_valid = True`` and only
+        overwrote it when a classical signature was *present*, so an attacker
+        who removed the Ed25519 half of a hybrid signature in transit got
+        ``classical_valid=True`` from a verifier that supplied the classical
+        public key — a PQC-only forgery would then pass the full hybrid
+        check, defeating the reason the hybrid exists.
+        """
+        from omni_mercury_engine.security.crypto_api import (
+            HybridSignature,
+            HybridSignatureProvider,
+        )
+
+        provider = HybridSignatureProvider()
+        classical_kp, pqc_kp = provider.generate_keypairs()
+        if classical_kp is None:
+            pytest.skip("Ed25519 classical provider unavailable in this build")
+        message = b"Hybrid security message"
+        hybrid_sig = provider.sign(message, classical_kp.secret_key, pqc_kp.secret_key)
+
+        stripped = HybridSignature(
+            classical_signature=b"",
+            pqc_signature=hybrid_sig.pqc_signature,
+            classical_algorithm=hybrid_sig.classical_algorithm,
+            pqc_algorithm=hybrid_sig.pqc_algorithm,
+        )
+        classical_valid, pqc_valid = provider.verify(
+            message, stripped, classical_kp.public_key, pqc_kp.public_key
+        )
+        assert classical_valid is False, (
+            "a stripped classical signature must fail the classical half, "
+            "not report vacuous success"
+        )
+        assert pqc_valid is True
+
+    def test_ed25519_interop_with_pyca_signatures(self) -> None:
+        """AMA-native Ed25519 interoperates with PyCA-era keys and signatures.
+
+        The provider moved from PyCA to AMA's native backend with the AMA
+        v5.0.0 pin. RFC 8032 makes signing deterministic and verification
+        implementation-independent, so every signature persisted under the
+        PyCA-backed provider (e.g. the committed σ_Immutable corpus
+        manifest) must verify under AMA, and AMA's signatures must verify
+        under PyCA. Pin both directions, plus byte-identical signing from
+        the same seed.
+        """
+        pyca_ed25519 = pytest.importorskip(
+            "cryptography.hazmat.primitives.asymmetric.ed25519",
+            reason="PyCA unavailable: interop cross-check needs the old backend",
+        )
+        from omni_mercury_engine.security.crypto_api import Ed25519Provider
+
+        provider = Ed25519Provider()
+        kp = provider.generate_keypair()
+        message = b"cross-implementation interop pin"
+
+        pyca_sk = pyca_ed25519.Ed25519PrivateKey.from_private_bytes(kp.secret_key)
+        pyca_pk = pyca_ed25519.Ed25519PublicKey.from_public_bytes(kp.public_key)
+        # Same seed -> same public key and byte-identical signature.
+        assert pyca_sk.public_key().public_bytes_raw() == kp.public_key
+        ama_sig = provider.sign(message, kp.secret_key)
+        assert pyca_sk.sign(message) == ama_sig
+        # PyCA-era signature verifies under the AMA-backed provider.
+        assert provider.verify(message, pyca_sk.sign(message), kp.public_key) is True
+        # AMA signature verifies under PyCA (raises on failure).
+        pyca_pk.verify(ama_sig, message)
+
+    def test_classical_opt_out_is_explicit_none(self) -> None:
+        """``classical_public=None`` is the one opt-out from the classical half.
+
+        A verifier with no classical key can only assess the PQC half; the
+        classical result reports True so the PQC verdict decides. This is the
+        legitimate counterpart of the fail-closed case above.
+        """
+        from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
+
+        provider = HybridSignatureProvider()
+        _classical_kp, pqc_kp = provider.generate_keypairs()
+        message = b"Hybrid security message"
+        hybrid_sig = provider.sign(message, None, pqc_kp.secret_key)
+
+        classical_valid, pqc_valid = provider.verify(message, hybrid_sig, None, pqc_kp.public_key)
+        assert classical_valid is True
+        assert pqc_valid is True
 
 
 class TestCryptoPackageOperations:

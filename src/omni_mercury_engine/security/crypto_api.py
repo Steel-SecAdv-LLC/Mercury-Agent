@@ -27,6 +27,17 @@ References:
 
 from __future__ import annotations
 
+# Agent-surface PQC gate: this module is a facade over AMA Cryptography and
+# cannot function without it. Enforcing the scoped gate here turns the cryptic
+# ``ModuleNotFoundError`` a missing AMA build would raise at the import below
+# into the named, fail-closed refusal with recovery steps (see
+# omni_mercury_engine._pqc_gate). Pinned by
+# tests/test_pqc_startup_gate.py::TestScopedGateContract.
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
+
 import hashlib
 import json
 import logging
@@ -58,9 +69,13 @@ ama_create_crypto_package: Any = _ama_create_crypto_package
 ama_get_pqc_capabilities: Any = _ama_get_pqc_capabilities
 
 from omni_mercury_engine.security.pqc_backends import (
+    ED25519_AVAILABLE,
     dilithium_sign,
     dilithium_verify,
+    ed25519_sign,
+    ed25519_verify,
     generate_dilithium_keypair,
+    generate_ed25519_keypair,
     generate_kyber_keypair,
     generate_sphincs_keypair,
     get_pqc_capabilities,
@@ -71,21 +86,6 @@ from omni_mercury_engine.security.pqc_backends import (
 )
 
 logger = logging.getLogger(__name__)
-
-ED25519_AVAILABLE = False
-InvalidSignature: type[Exception] | None = None
-try:
-    from cryptography.exceptions import InvalidSignature as _InvalidSignature
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-        Ed25519PrivateKey,
-        Ed25519PublicKey,
-    )
-
-    InvalidSignature = _InvalidSignature
-    ED25519_AVAILABLE = True
-except ImportError:
-    logger.debug("cryptography library not available for Ed25519")
 
 
 class AlgorithmType(Enum):
@@ -216,56 +216,42 @@ class CryptoPackageResult:
 
 
 class Ed25519Provider:
-    """Ed25519 classical signature provider."""
+    """Ed25519 classical signature provider — delegates to AMA's native backend.
+
+    AMA Cryptography is Mercury's sole production crypto backend; since the
+    v5.0.0 pin the classical signature half runs on AMA's hardened native
+    Ed25519 (RFC 8032 with canonical-encoding rejection and a FIPS 140-3
+    pairwise consistency test at keygen) rather than PyCA ``cryptography``.
+    Ed25519 signing is deterministic and verification is RFC 8032
+    interoperable, so keys and signatures produced by the previous
+    PyCA-backed provider — including the committed σ_Immutable corpus
+    manifest — verify unchanged.
+
+    Key format is unchanged: ``KeyPair.secret_key`` is the 32-byte RFC 8032
+    seed; ``sign`` also accepts AMA's 64-byte ``seed || public_key`` form.
+    """
 
     def __init__(self) -> None:
         """Initialize the instance."""
         if not ED25519_AVAILABLE:
-            raise RuntimeError("cryptography library required for Ed25519")
-        self._private_key: Ed25519PrivateKey | None = None
-        self._public_key: Ed25519PublicKey | None = None
+            raise RuntimeError("AMA Cryptography native Ed25519 backend required")
 
     def generate_keypair(self) -> KeyPair:
-        """Generate Ed25519 key pair."""
-        self._private_key = Ed25519PrivateKey.generate()
-        self._public_key = self._private_key.public_key()
-
-        public_bytes = self._public_key.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw,
-        )
-        private_bytes = self._private_key.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-
+        """Generate Ed25519 key pair (secret_key is the 32-byte seed)."""
+        kp = generate_ed25519_keypair()
         return KeyPair(
-            public_key=public_bytes,
-            secret_key=private_bytes,
+            public_key=kp.public_key,
+            secret_key=kp.secret_key,
             algorithm=AlgorithmType.ED25519,
         )
 
     def sign(self, message: bytes, secret_key: bytes) -> bytes:
-        """Sign message with Ed25519."""
-        private_key = Ed25519PrivateKey.from_private_bytes(secret_key)
-        signature: bytes = private_key.sign(message)
-        return signature
+        """Sign message with Ed25519 (32-byte seed or 64-byte native key)."""
+        return ed25519_sign(message, secret_key)
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
-        """Verify Ed25519 signature."""
-        try:
-            pub_key = Ed25519PublicKey.from_public_bytes(public_key)
-            pub_key.verify(signature, message)
-            return True
-        except (ValueError, TypeError) as e:
-            logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
-            return False
-        except Exception as e:
-            if InvalidSignature is not None and isinstance(e, InvalidSignature):
-                logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
-                return False
-            raise
+        """Verify Ed25519 signature; malformed inputs verify False."""
+        return ed25519_verify(message, signature, public_key)
 
 
 class MLDSAProvider:
@@ -390,9 +376,28 @@ class HybridSignatureProvider:
         """Verify hybrid signature.
 
         Returns (classical_valid, pqc_valid).
+
+        The classical half fails closed: when the verifier supplies a
+        classical public key it is demanding both halves, so a hybrid
+        signature whose ``classical_signature`` is absent — stripped in
+        transit, or produced without the classical secret — verifies
+        ``classical_valid=False``, never vacuously ``True``. Reporting a
+        stripped signature as classically valid would let a PQC-only forgery
+        pass a verifier that asked for the hybrid guarantee, defeating the
+        reason a hybrid exists (each half protects against the other's
+        algorithm breaking). Passing ``classical_public=None`` is the one
+        explicit opt-out: the verifier has no classical key, so only the PQC
+        half is meaningful and ``classical_valid`` reports ``True``.
         """
-        classical_valid = True
-        if self.classical_provider and classical_public and hybrid_sig.classical_signature:
+        if classical_public is None:
+            # Explicit opt-out: no classical key to verify against.
+            classical_valid = True
+        elif self.classical_provider is None or not hybrid_sig.classical_signature:
+            # Fail closed: a classical key was supplied, but the classical
+            # half cannot be verified (unavailable provider, empty key, or a
+            # missing/stripped classical signature).
+            classical_valid = False
+        else:
             classical_valid = self.classical_provider.verify(
                 message, hybrid_sig.classical_signature, classical_public
             )

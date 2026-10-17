@@ -25,6 +25,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -161,7 +162,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
         series = np.asarray(series)
         if series.ndim != 1:
-            raise ValueError(
+            raise InputModalityError(
                 f"Matrix Profile expects a 1-D time series; got shape {tuple(series.shape)}. "
                 "Pass a single univariate series [T]."
             )

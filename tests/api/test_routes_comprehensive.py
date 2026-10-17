@@ -82,12 +82,10 @@ class TestModelRoutes:
         response = client.post(
             "/api/v1/models",
             json={
-                "request": {
-                    "name": "test_model_for_testing",
-                    "model_type": "fusion",
-                    "description": "A test model",
-                    "tags": ["test"],
-                }
+                "name": "test_model_for_testing",
+                "model_type": "fusion",
+                "description": "A test model",
+                "tags": ["test"],
             },
             headers=auth_headers,
         )
@@ -101,10 +99,8 @@ class TestModelRoutes:
         response = client.post(
             "/api/v1/models",
             json={
-                "request": {
-                    "name": "",  # Empty name
-                    "model_type": "fusion",
-                }
+                "name": "",  # Empty name
+                "model_type": "fusion",
             },
             headers=auth_headers,
         )
@@ -132,11 +128,9 @@ class TestModelRoutes:
         create_resp = client.post(
             "/api/v1/models",
             json={
-                "request": {
-                    "name": "roundtrip_model",
-                    "model_type": "statistical",
-                    "description": "A roundtrip test model",
-                }
+                "name": "roundtrip_model",
+                "model_type": "statistical",
+                "description": "A roundtrip test model",
             },
             headers=auth_headers,
         )
@@ -253,11 +247,9 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/fusion",
             json={
-                "request": {
-                    "data": data,
-                    "sensitivity": 0.7,
-                    "detectors": ["statistical", "temporal"],
-                }
+                "data": data,
+                "sensitivity": 0.7,
+                "detectors": ["statistical", "temporal"],
             },
         )
         assert response.status_code == 200
@@ -277,10 +269,8 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/fusion",
             json={
-                "request": {
-                    "data": data,
-                    "sensitivity": 0.5,
-                }
+                "data": data,
+                "sensitivity": 0.5,
             },
         )
         assert response.status_code == 200
@@ -291,7 +281,7 @@ class TestDetectionRoutes:
         """Test fusion with insufficient data."""
         response = client.post(
             "/api/v1/detect/fusion",
-            json={"request": {"data": [1.0, 2.0]}},
+            json={"data": [1.0, 2.0]},
         )
         assert response.status_code == 422
 
@@ -301,11 +291,9 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/fusion",
             json={
-                "request": {
-                    "data": data,
-                    "sensitivity": 0.9,
-                    "detectors": ["statistical"],
-                }
+                "data": data,
+                "sensitivity": 0.9,
+                "detectors": ["statistical"],
             },
         )
         assert response.status_code == 200
@@ -318,12 +306,10 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/three-r",
             json={
-                "request": {
-                    "data": data,
-                    "recursion_depth": 3,
-                    "harmonic_bands": 4,
-                    "ethical_threshold": 0.96,
-                }
+                "data": data,
+                "recursion_depth": 3,
+                "harmonic_bands": 4,
+                "ethical_threshold": 0.96,
             },
         )
         assert response.status_code == 200
@@ -339,10 +325,8 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/three-r",
             json={
-                "request": {
-                    "data": data,
-                    "recursion_depth": 0,  # Must be 1-10
-                }
+                "data": data,
+                "recursion_depth": 0,  # Must be 1-10
             },
         )
         assert response.status_code == 422
@@ -352,7 +336,7 @@ class TestDetectionRoutes:
         data = [np.sin(i * 0.1) for i in range(100)]
         response = client.post(
             "/api/v1/detect/three-r",
-            json={"request": {"data": data}},
+            json={"data": data},
         )
         assert response.status_code == 200
         result = response.json()
@@ -371,11 +355,9 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/tier",
             json={
-                "request": {
-                    "data": series,
-                    "subset": ["spectral_residual", "spot_evt", "bocpd"],
-                    "conformal_alpha": 0.05,
-                }
+                "data": series,
+                "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                "conformal_alpha": 0.05,
             },
         )
         assert response.status_code == 200
@@ -393,7 +375,7 @@ class TestDetectionRoutes:
         rng = np.random.default_rng(1)
         response = client.post(
             "/api/v1/detect/tier",
-            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "method": "stacking"}},
+            json={"data": rng.normal(0, 1, 60).tolist(), "method": "stacking"},
         )
         assert response.status_code == 400
 
@@ -404,7 +386,7 @@ class TestDetectionRoutes:
         rng = np.random.default_rng(1)
         response = client.post(
             "/api/v1/detect/tier",
-            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]}},
+            json={"data": rng.normal(0, 1, 60).tolist(), "subset": ["not_a_detector"]},
         )
         assert response.status_code == 400
         assert "not_a_detector" in response.json()["detail"]
@@ -421,7 +403,7 @@ class TestDetectionRoutes:
         matrix = rng.normal(size=(30, 5)).tolist()
         response = client.post(
             "/api/v1/detect/flagship",
-            json={"request": {"data": matrix}},
+            json={"data": matrix},
         )
         assert response.status_code == 200, response.text
         result = response.json()
@@ -440,7 +422,7 @@ class TestDetectionRoutes:
         """A 1-D series is rejected by the 2-D matrix contract (422)."""
         response = client.post(
             "/api/v1/detect/flagship",
-            json={"request": {"data": [1.0, 2.0, 3.0]}},
+            json={"data": [1.0, 2.0, 3.0]},
         )
         assert response.status_code == 422
 
@@ -468,7 +450,7 @@ class TestDetectionRoutes:
         monkeypatch.setattr(det, "_run_flagship_detection", _blocked)
         response = client.post(
             "/api/v1/detect/flagship",
-            json={"request": {"data": [[1.0, 2.0], [3.0, 4.0]]}},
+            json={"data": [[1.0, 2.0], [3.0, 4.0]]},
         )
         assert response.status_code == 403
         assert "sigma_immutable" in response.json()["detail"]
@@ -486,11 +468,9 @@ class TestDetectionRoutes:
         response = client.post(
             "/api/v1/detect/rca",
             json={
-                "request": {
-                    "observations": obs.tolist(),
-                    "train": base[:-1].tolist(),
-                    "node_names": ["pump", "valve", "tank", "aux"],
-                }
+                "observations": obs.tolist(),
+                "train": base[:-1].tolist(),
+                "node_names": ["pump", "valve", "tank", "aux"],
             },
         )
         assert response.status_code == 200, response.text
@@ -505,7 +485,7 @@ class TestDetectionRoutes:
         """A 1-D observation array is rejected by the rows x nodes contract (422)."""
         response = client.post(
             "/api/v1/detect/rca",
-            json={"request": {"observations": [1.0, 2.0, 3.0]}},
+            json={"observations": [1.0, 2.0, 3.0]},
         )
         assert response.status_code == 422
 
@@ -524,11 +504,9 @@ class TestBatchRoutes:
         response = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": data,
-                    "method": "univariate",
-                    "sensitivity": 0.5,
-                }
+                "data": data,
+                "method": "univariate",
+                "sensitivity": 0.5,
             },
         )
         assert response.status_code == 202
@@ -543,11 +521,9 @@ class TestBatchRoutes:
         submit_resp = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": data,
-                    "method": "statistical",
-                    "sensitivity": 0.5,
-                }
+                "data": data,
+                "method": "statistical",
+                "sensitivity": 0.5,
             },
         )
         assert submit_resp.status_code == 202
@@ -569,10 +545,8 @@ class TestBatchRoutes:
         response = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": [],
-                    "method": "univariate",
-                }
+                "data": [],
+                "method": "univariate",
             },
         )
         assert response.status_code == 422
@@ -582,7 +556,7 @@ class TestBatchRoutes:
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
             "/api/v1/batch/detect",
-            json={"request": {"data": data, "sensitivity": 0.5}},
+            json={"data": data, "sensitivity": 0.5},
         )
         assert response.status_code == 202
 
@@ -592,7 +566,7 @@ class TestBatchRoutes:
         data = [[float(i)] for i in range(100)]
         submit_resp = client.post(
             "/api/v1/batch/detect",
-            json={"request": {"data": data, "method": "univariate"}},
+            json={"data": data, "method": "univariate"},
         )
         assert submit_resp.status_code == 202
         job_id = submit_resp.json()["job_id"]
@@ -620,12 +594,13 @@ class TestExportRoutes:
     @pytest.fixture
     def auth_headers(self):
         """Create valid API key auth headers."""
-        from omni_mercury_engine.api.auth import get_api_key_store
+        from omni_mercury_engine.api.auth import Permission, get_api_key_store
 
         store = get_api_key_store()
         raw_key, _ = store.create_key(
             name="export_test_key",
             user_id="export_test_user",
+            permissions={Permission.READ, Permission.EXPORT},
         )
         return {"X-API-Key": raw_key}
 
@@ -782,11 +757,9 @@ class TestBatchCallbackSSRF:
         response = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": data,
-                    "method": "univariate",
-                    "callback_url": "https://192.168.1.1/webhook",
-                }
+                "data": data,
+                "method": "univariate",
+                "callback_url": "https://192.168.1.1/webhook",
             },
         )
         assert response.status_code == 422
@@ -797,11 +770,9 @@ class TestBatchCallbackSSRF:
         response = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": data,
-                    "method": "univariate",
-                    "callback_url": "https://localhost/webhook",
-                }
+                "data": data,
+                "method": "univariate",
+                "callback_url": "https://localhost/webhook",
             },
         )
         assert response.status_code == 422
@@ -812,11 +783,9 @@ class TestBatchCallbackSSRF:
         response = client.post(
             "/api/v1/batch/detect",
             json={
-                "request": {
-                    "data": data,
-                    "method": "univariate",
-                    "callback_url": "http://example.com/webhook",
-                }
+                "data": data,
+                "method": "univariate",
+                "callback_url": "http://example.com/webhook",
             },
         )
         assert response.status_code == 422

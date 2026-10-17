@@ -46,6 +46,21 @@ class TestEthicalGateCoverageReport:
         assert cert["schema"] == "mercury.tools.ethical_gate_coverage_report/v1"
         assert cert["status"] in {"ok", "fail", "warn"}
 
+    def test_every_gate_token_names_real_code(self) -> None:
+        import re
+        from pathlib import Path as _Path
+
+        from omni_mercury_engine.tools import ethical_gate_coverage_report as report
+
+        src = _Path(report.__file__).resolve().parents[1]
+        text = "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in src.rglob("*.py")
+            if p.name != "ethical_gate_coverage_report.py"
+        )
+        for token in report._GATE_TOKENS:
+            assert re.search(rf"\b(?:def|class)\s+{token}\b|\b{token}\b", text), token
+
 
 class TestOaeDimensionalityProbe:
     def test_emits_valid_cert(self, tmp_path: Path) -> None:
@@ -359,6 +374,42 @@ class TestGosnnLatencySlaGate:
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["gosnn_latency_sla_gate"](["--output", str(out), "--iterations", "8"])
         assert rc in (0, 1)
+
+    def test_measures_the_real_gosnn_step(self, tmp_path: Path) -> None:
+        # The gate used to import a module that never existed and always
+        # exited with a warning, measuring nothing.
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["gosnn_latency_sla_gate"](["--output", str(out), "--iterations", "8"])
+        cert = _load_cert(out)
+        body = cert["body"]
+        assert cert["status"] in ("ok", "fail")
+        assert body["measured"] == "GlobalOmniScalarNetwork.get_enhanced_scalars"
+        assert body["iterations"] == 8
+        assert 0.0 < body["p50_ms"] <= body["p95_ms"] <= body["max_ms"]
+        assert "cache_rate" not in body  # GOSNN has no result cache
+
+    def test_failing_budget_is_reported(self, tmp_path: Path) -> None:
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gosnn_latency_sla_gate"](
+            ["--output", str(out), "--iterations", "4", "--p50-ms-max", "0.000001"]
+        )
+        cert = _load_cert(out)
+        assert rc == 1 and cert["status"] == "fail"
+        assert any("p50 latency" in w for w in cert["warnings"])
+
+
+class TestMemoryLeakSentinelDefaultTarget:
+    def test_default_target_resolves_to_the_gosnn_step(self, tmp_path: Path) -> None:
+        pytest.importorskip("torch")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["memory_leak_sentinel"](
+            ["--output", str(out), "--iterations", "16", "--sample-every", "4"]
+        )
+        cert = _load_cert(out)
+        assert "target unavailable" not in " ".join(cert.get("warnings", []))
+        assert cert["status"] in ("ok", "fail")
 
 
 class TestThermalThrottleProbe:

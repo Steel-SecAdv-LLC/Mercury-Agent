@@ -239,17 +239,38 @@ class OceanographyPatterns:
         """Detect periodic patterns analogous to tides.
 
         Inspired by tidal observations recorded by Aristotle and Strabo
-        (384-322 BC) and modern tidal prediction systems.
+        (384-322 BC) and modern tidal prediction systems. The unsupervised
+        path finds the dominant autocorrelation peak; when a constituent
+        period is known a priori (the standard situation in tidal work,
+        e.g. the M2 semidiurnal constituent), a classical harmonic
+        least-squares fit at that exact frequency quantifies it:
+        ``y ~ a cos(2 pi t / P) + b sin(2 pi t / P) + c`` solved in closed
+        form, as in tidal harmonic analysis.
 
         Args:
-            time_series: Time-series data
-            expected_period: Expected period (if known)
+            time_series: Time-series data (uniform sampling).
+            expected_period: Known constituent period in samples. Must
+                satisfy ``2 < expected_period <= n / 2`` so the fit sees at
+                least two full cycles above the Nyquist limit.
 
         Returns:
-            Dictionary with tidal pattern characteristics
+            Dictionary with tidal pattern characteristics. With
+            ``expected_period`` it additionally carries
+            ``harmonic_amplitude`` / ``harmonic_phase_rad`` (of the fitted
+            cosine), ``harmonic_r2`` (variance fraction the constituent
+            explains) and ``period_deviation`` (relative gap between the
+            autocorrelation-detected and the expected period).
+
+        Raises:
+            ValueError: ``expected_period`` outside ``(2, n / 2]``.
         """
-        acf = np.correlate(time_series, time_series, mode="full")
-        acf = acf[len(acf) // 2 :]
+        # Linear autocorrelation via zero-padded Wiener-Khinchin: O(n log n)
+        # where np.correlate's direct form is O(n^2) — tide-gauge records are
+        # long time series. Equal to the direct form to floating point.
+        n_acf = len(time_series)
+        padded = np.zeros(2 * n_acf)
+        padded[:n_acf] = time_series
+        acf = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_acf]
         acf = acf / acf[0]
 
         peaks = []
@@ -264,12 +285,38 @@ class OceanographyPatterns:
             dominant_period = 0
             strength = 0.0
 
-        return {
+        result = {
             "detected_period": float(dominant_period),
             "pattern_strength": float(strength),
             "is_periodic": bool(strength > 0.5),
             "autocorrelation_max": float(np.max(acf[1:])),
         }
+
+        if expected_period is not None:
+            n = len(time_series)
+            if not 2.0 < expected_period <= n / 2.0:
+                raise ValueError(
+                    f"expected_period {expected_period} outside (2, {n / 2}]: the "
+                    "harmonic fit needs two full cycles above the Nyquist limit"
+                )
+            t = np.arange(n, dtype=float)
+            omega = 2.0 * np.pi / float(expected_period)
+            design = np.column_stack([np.cos(omega * t), np.sin(omega * t), np.ones(n)])
+            coeffs, _, _, _ = np.linalg.lstsq(design, time_series, rcond=None)
+            a, b, _c = (float(v) for v in coeffs)
+            fitted = design @ coeffs
+            residual = time_series - fitted
+            total_var = float(np.var(time_series))
+            r2 = 1.0 - float(np.var(residual)) / total_var if total_var > 1e-12 else 0.0
+            result["harmonic_amplitude"] = float(np.hypot(a, b))
+            # y = A cos(omega t - phase) with phase = atan2(b, a).
+            result["harmonic_phase_rad"] = float(np.arctan2(b, a))
+            result["harmonic_r2"] = max(0.0, r2)
+            result["period_deviation"] = abs(dominant_period - expected_period) / float(
+                expected_period
+            )
+
+        return result
 
     def climate_drift_detection(
         self, historical_data: np.ndarray[Any, Any], recent_data: np.ndarray[Any, Any]

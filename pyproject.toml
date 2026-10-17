@@ -7,9 +7,9 @@ requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mercury-agent"
+name = "mercury-agent-global"
 version = "2.1.0"
-description = "Mercury Agent: ML-Centric Multi-Domain Anomaly Detection Framework"
+description = "Mercury Agent: civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.11"
@@ -47,7 +47,7 @@ classifiers = [
 dependencies = [
     # Lightweight core -- enough for CLI, statistical detectors, and rule-based
     # detection without pulling in ~2 GB of PyTorch.  For the full ML stack,
-    # install mercury-agent[ml] or mercury-agent[all].
+    # install mercury-agent-global[ml] or mercury-agent-global[all].
     # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
     # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
     # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13/3.14,
@@ -64,7 +64,6 @@ dependencies = [
     "click>=8.1.0",
     "pydantic>=2.13.3",
     "bcrypt>=4.0.1",
-    "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
     "requests>=2.33.1",  # Security: CVE-2026-25645
     # Pin urllib3's floor even though it is transitive via requests: the open-web
@@ -136,10 +135,10 @@ ml = [
     # disagree about the ``requests.Session.request`` monkeypatch in
     # ``datasets/mitbih.py`` (lines 105/109): an unpinned/older mypy reports
     # the two ``# type: ignore`` comments as ``unused-ignore`` while the
-    # pinned mypy needs them (verified still needed under 2.3.0).  Bump all
+    # pinned mypy needs them (verified still needed under 2.3.1).  Bump all
     # three sites together (this [ml] extra, [dev] below, and the two
     # ``.github/workflows/ci.yml`` install lines).
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "types-requests==2.33.0.20260712",
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
@@ -156,20 +155,16 @@ ml = [
     "obspy>=1.4",
 ]
 
-# Native acceleration lane — activates the numba @jit fast paths that are
-# otherwise dormant fallbacks (e.g. detectors/spatial.py distance scoring,
-# which JIT-compiles only when numba is importable). Before this extra
-# existed, numba was referenced by the code and the mypy overrides but was
-# not declarable as a dependency anywhere, so the native lane could never
-# be engaged by install. JIT-vs-numpy parity is pinned by
-# tests/test_native_acceleration.py (skipped when numba is absent).
-performance = [
-    "numba>=0.59",
-]
+# Kept as an empty extra so ``pip install mercury-agent-global[performance]`` keeps
+# resolving: it used to carry numba for the detectors' @jit lanes, but every
+# former numba kernel is now a plain BLAS formulation that is faster and runs
+# unconditionally (detectors/spatial.py distance scoring, detectors/directive.py
+# GSIS), so there is no optional fast path left to activate.
+performance = []
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
 visual = [
-    "mercury-agent[ml]",
+    "mercury-agent-global[ml]",
 ]
 
 # Vision-Language Model detectors (AnyAnomaly, LAVAD)
@@ -180,7 +175,7 @@ vlm = [
 
 # Foundation model adapters (TimeGPT, Chronos, etc.)
 #
-# Compose ``mercury-agent[ml]`` (the [visual]/[medical]/[sota] convention):
+# Compose ``mercury-agent-global[ml]`` (the [visual]/[medical]/[sota] convention):
 # every adapter in ``models/foundation/`` (chronos, timegpt, matrix_profile,
 # base_foundation) imports torch at module top for the fusion tensor
 # surface, so without [ml] the extra installed fine but the package it
@@ -194,7 +189,7 @@ vlm = [
 # surface the adapter uses; validated in-repo against the 2.x line
 # (2.3.1, chronos-t5-tiny, pinned-SHA load through SafeHFLoader).
 foundation = [
-    "mercury-agent[ml]",
+    "mercury-agent-global[ml]",
     "stumpy>=1.14.1",
     "nixtla>=0.5.0",
     "chronos-forecasting>=1.4",
@@ -205,11 +200,11 @@ foundation = [
 # The medical suite's anesthesiology / endocrinology / cure predictors are
 # real ``torch.nn`` models, and ``MedicalCoordinator`` binds them in its
 # registry, so ``import omni_mercury_engine.medical`` requires the ML stack.
-# Compose ``mercury-agent[ml]`` (same convention as the ``[visual]`` / ``[sota]``
-# extras) so ``pip install mercury-agent[medical]`` yields an importable,
+# Compose ``mercury-agent-global[ml]`` (same convention as the ``[visual]`` / ``[sota]``
+# extras) so ``pip install mercury-agent-global[medical]`` yields an importable,
 # functional package instead of one that fails at import on a missing ``torch``.
 medical = [
-    "mercury-agent[ml]",
+    "mercury-agent-global[ml]",
     "wfdb>=4.3.1",
 ]
 
@@ -288,7 +283,7 @@ api = [
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
 sota = [
-    "mercury-agent[ml]",
+    "mercury-agent-global[ml]",
     "einops>=0.8.2",
 ]
 
@@ -317,9 +312,9 @@ fairness = [
 
 # Post-Quantum Cryptography - Primary backend (AMA Cryptography)
 pqc = [
-    # Pinned to v4.0.0 to match the validated real-AMA surface used by
-    # CI (`AMA_REF: v4.0.0`) and the production PQC gate.
-    # v4.0.0 (this pin) carries forward the v3.2.0
+    # Pinned to v5.0.0 to match the validated real-AMA surface used by
+    # CI (`ama-ref: v5.0.0`) and the production PQC gate.
+    # v5.0.0 (this pin) carries forward the v3.2.0
     # ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python
     # bindings consumed by
     # ``omni_mercury_engine.security.native_jwt._sign`` for the
@@ -331,7 +326,7 @@ pqc = [
     # silently bump the Mercury PQC surface mid-cycle.  Bump this tag
     # in lockstep with `tests/security/test_pqc_gate_real_ama.py` and
     # the migration notes in `docs/MIGRATION-1.6-to-1.7.md` §3.
-    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v4.0.0",  # Primary: Steel Security PQC framework (pinned v4.0.0; native HMAC-SHA-256/384/512 bindings route HS256/HS384/HS512 in native_jwt)
+    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v5.0.0",  # Primary: Steel Security PQC framework (pinned v5.0.0; native HMAC-SHA-256/384/512 bindings route HS256/HS384/HS512 in native_jwt)
 ]
 
 
@@ -367,6 +362,14 @@ benchmark = [
 
 # Development tools
 dev = [
+    # pyca cryptography is NOT a runtime dependency: AMA Cryptography owns
+    # every production crypto path and crypto/sovereign.py is the
+    # repository-owned emergency tier (tests/test_pyca_import_boundary.py
+    # holds the engine at zero pyca imports). It remains here solely as the
+    # independent test oracle for the sovereign tier's RFC pins and the
+    # legacy-continuity checks. Floor carries the CVE fixes:
+    # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892.
+    "cryptography>=46.0.7",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
@@ -375,9 +378,9 @@ dev = [
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
-    "mypy==2.3.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "mypy==2.3.1",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
-    "ruff==0.16.0",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
+    "ruff==0.16.4",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
     "flake8==7.3.0",  # PINNED with the CI Code Quality job and the pre-commit hook (parity gate: scripts/check_pinned_tool_versions.py)
     "pre-commit>=3.5.0",
 ]
@@ -428,16 +431,14 @@ explainability = [
 # authoritative CSF 2.0 XLSX) — observed as ModuleNotFoundError in the
 # network-marked tests/test_nist_csf_integrator.py live lane.
 all = [
-    # ``performance`` (numba) is in this list on purpose: without it the numba
-    # fast-path parity tests in tests/test_native_acceleration.py skip in every
-    # CI lane, so the JIT paths were shipped with a test suite that never ran
-    # them and still reported green.
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
+    # ``performance`` is now empty (the numba lanes became unconditional BLAS
+    # code); it stays listed so the composed extra keeps covering it.
+    "mercury-agent-global[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
 ]
 
 # Test environment: all runtime features + dev tooling
 test = [
-    "mercury-agent[all,dev]",
+    "mercury-agent-global[all,dev]",
 ]
 
 [project.scripts]
@@ -694,18 +695,9 @@ module = [
     # Observability
     "opentelemetry",
     "opentelemetry.*",
-    # Quantum computing libraries
-    "qiskit",
-    "qiskit.*",
-    "qiskit_aer",
-    "qiskit_aer.*",
-    "qiskit_ibm_runtime",
-    "qiskit_ibm_runtime.*",
     # Machine learning frameworks
     "mamba_ssm",
     "mamba_ssm.*",
-    "numba",
-    "numba.*",
     # torch's compiler backend; probed by _compat.preload_triton_before_tensorflow
     # to pin native LLVM load order ahead of TensorFlow. Ships no py.typed.
     "triton",
@@ -775,20 +767,18 @@ module = [
     "intel_value_metrics_report",
     "meaning_level_model_double",
     "meaning_level_corpus",
+    "mvtec_visual_benchmark",
     # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
     # and ``hazard_scenarios/generate_scenarios.py`` import these siblings via
     # sys.path manipulation (same first-party-outside-src pattern as above).
     "hazard_scenarios",
     "hazard_scenarios.*",
     "scenario_io",
-    # Optional in-tree modules the tools surface ``try/except``-imports.
-    # The ML detector and federated aggregator surfaces ship behind
-    # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent
-    # in the default install; the tools above (``gosnn_latency_sla_gate``,
-    # ``memory_leak_sentinel``, ``federated_round_simulator``) treat
-    # the ``ImportError`` as a warn-status exit so the mypy boundary
-    # must follow suit.
-    "omni_mercury_engine.ml.gosnn_detector",
+    # Optional in-tree module a tool surfaces through ``try/except``-import.
+    # The federated aggregator ships behind the ``[federated]`` extra and is
+    # *expected* to be absent in the default install;
+    # ``federated_round_simulator`` treats the ``ImportError`` as a
+    # warn-status exit so the mypy boundary must follow suit.
     "omni_mercury_engine.federated.aggregator",
     # PKCS#11 HSM bindings (``python-pkcs11``) ship behind the ``[hsm]``
     # extra and are absent in the default install; ``corpus_resigner``
@@ -827,7 +817,7 @@ module = [
 ]
 disallow_untyped_decorators = false
 
-# ML modules extend torch.nn.Module and use numba @jit decorators
+# ML modules extend torch.nn.Module (untyped third-party decorators)
 [[tool.mypy.overrides]]
 module = [
     "omni_mercury_engine.ml.*",
@@ -836,7 +826,6 @@ module = [
     "omni_mercury_engine.cognitive.*",
     "omni_mercury_engine.biometric.*",
     "omni_mercury_engine.harmonics.*",
-    "omni_mercury_engine.quantum_computing.*",
     "omni_mercury_engine.medical.*",
     "omni_mercury_engine.emergent.*",
     "omni_mercury_engine.space.*",

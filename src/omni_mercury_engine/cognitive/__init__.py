@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Cognitive Architecture Module for Mercury Agent.
 
-This is NOT market fluff. These components integrate directly into the
-Truth Decipher Framework via the CognitiveOrchestrator.
+These components integrate into the detection pipeline via the
+CognitiveOrchestrator (OmniMercuryEngine, the narrative engine and the
+agentic operations subagent).
 
 INTEGRATION ARCHITECTURE:
     ┌─────────────────────────────────────────────────────────────┐
-    │                  TruthDecipherFramework                      │
+    │                    OmniMercuryEngine                         │
     │                         ↓                                    │
     │              CognitiveOrchestrator                          │
     │    ┌────────────┼────────────┼────────────┐                │

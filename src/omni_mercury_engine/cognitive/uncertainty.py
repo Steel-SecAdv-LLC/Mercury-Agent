@@ -89,6 +89,10 @@ class UncertaintyEstimate:
     epistemic_measured: bool = True
     aleatoric_measured: bool = True
     confidence_calibrated: bool = False
+    #: The raw MC / ensemble sample stack behind ``epistemic`` (one row per
+    #: draw or member), when the caller asked for it and samples were
+    #: actually drawn; ``None`` otherwise — never a fabricated stand-in.
+    sample_values: np.ndarray[Any, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """To dict."""
@@ -109,6 +113,9 @@ class UncertaintyEstimate:
             "epistemic_measured": self.epistemic_measured,
             "aleatoric_measured": self.aleatoric_measured,
             "confidence_calibrated": self.confidence_calibrated,
+            "sample_values": (
+                self.sample_values.tolist() if self.sample_values is not None else None
+            ),
         }
 
 
@@ -393,15 +400,62 @@ class AdaptiveConformalInference:
     ) -> tuple[float, float]:
         """Compute prediction interval.
 
+        With ``score_function`` the interval is the conformal prediction
+        set ``{y : s(y) <= q}`` inverted numerically: the boundary on each
+        side of the point prediction is found by geometric expansion then
+        bisection. The contract on ``s`` is the standard conformal one —
+        non-decreasing as ``y`` moves away from the point prediction on
+        each side (e.g. ``|y - mu|`` or ``|y - mu| / sigma(y)``) — which is
+        what makes the prediction set an interval; this supports asymmetric
+        nonconformity scores a plain half-width cannot express.
+
         Args:
             point_prediction: Point estimate
-            score_function: Function to compute nonconformity scores
-            residual_std: Standard deviation for simple intervals
+            score_function: Nonconformity score ``s(y)`` on the same scale
+                as the calibration scores fed to ``update``. Takes
+                precedence over ``residual_std``.
+            residual_std: Standard deviation for simple symmetric intervals
 
         Returns:
-            (lower, upper) prediction interval
+            (lower, upper) prediction interval. With ``score_function`` and
+            no finite calibrated quantile yet: ``(-inf, inf)`` — an honest
+            "cannot bound it" rather than an invented width. If even the
+            point prediction is nonconforming (``s(point) > q``) the
+            prediction set is empty and the degenerate
+            ``(point, point)`` is returned.
         """
         q = self.get_quantile()
+
+        if score_function is not None:
+            if q == float("inf"):
+                return (float("-inf"), float("inf"))
+            if score_function(point_prediction) > q:
+                return (point_prediction, point_prediction)
+            step0 = max(abs(point_prediction), 1.0) * 1e-3
+
+            def _boundary(direction: float) -> float:
+                step = step0
+                inside = point_prediction
+                for _ in range(80):  # geometric expansion, ~1e24 x step0 max
+                    probe = point_prediction + direction * step
+                    if score_function(probe) > q:
+                        outside = probe
+                        break
+                    inside = probe
+                    step *= 2.0
+                else:
+                    return inside  # never nonconforming in reachable range
+                for _ in range(100):
+                    mid = 0.5 * (inside + outside)
+                    if score_function(mid) > q:
+                        outside = mid
+                    else:
+                        inside = mid
+                    if abs(outside - inside) <= 1e-9 * max(1.0, abs(inside)):
+                        break
+                return inside
+
+            return (_boundary(-1.0), _boundary(1.0))
 
         if residual_std is not None:
             # Simple scaled interval
@@ -604,7 +658,10 @@ class UncertaintyQuantifier:
             prediction_function: Function to generate predictions (for MC sampling)
             input_data: Input data for prediction function
             model: PyTorch model (for MC Dropout wrapper)
-            return_samples: Whether to include MC samples in result
+            return_samples: Attach the raw MC / ensemble sample stack to
+                ``UncertaintyEstimate.sample_values`` (a defensive copy, one
+                row per draw). When no multi-draw path ran there is nothing
+                to return and ``sample_values`` stays ``None``.
             ensemble_predictions: Optional stack of predictions from independent
                 ensemble members / detectors, shape ``(n_members,)`` or
                 ``(n_members, ...)``. When supplied (and no MC path ran), epistemic
@@ -628,6 +685,7 @@ class UncertaintyQuantifier:
 
         # === MC DROPOUT / ENSEMBLE SAMPLING ===
         mc_predictions = None
+        samples_drawn = False  # True only when a genuine multi-draw path ran
 
         if model is not None and TORCH_AVAILABLE:
             # Use MC Dropout wrapper for PyTorch models, threading our
@@ -655,6 +713,7 @@ class UncertaintyQuantifier:
                 _mean_pred, _epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
                     input_tensor, n_samples=self.n_monte_carlo
                 )
+                samples_drawn = True
                 self._stats["mc_samples_total"] += self.n_monte_carlo
             except Exception as e:
                 logger.warning(f"MC Dropout failed: {e}, falling back to standard estimation")
@@ -665,6 +724,7 @@ class UncertaintyQuantifier:
             mc_predictions = self._monte_carlo_sampling(
                 prediction_function, input_data, self.n_monte_carlo
             )
+            samples_drawn = True
             self._stats["mc_samples_total"] += self.n_monte_carlo
 
         if mc_predictions is None and ensemble_predictions is not None:
@@ -675,6 +735,7 @@ class UncertaintyQuantifier:
                 ens = ens.reshape(-1, 1)
             if ens.shape[0] > 1:
                 mc_predictions = ens
+                samples_drawn = True
 
         if mc_predictions is None:
             mc_predictions = predictions
@@ -807,6 +868,14 @@ class UncertaintyQuantifier:
             epistemic_measured=epistemic_measured,
             aleatoric_measured=aleatoric_measured,
             confidence_calibrated=confidence_calibrated,
+            sample_values=(
+                # Only genuinely drawn samples are attached: a multi-row batch
+                # of caller predictions is NOT a sample stack, and labeling it
+                # as one would fabricate an ensemble that never ran.
+                np.array(mc_predictions, copy=True)
+                if return_samples and samples_drawn and mc_predictions.shape[0] > 1
+                else None
+            ),
         )
 
     def estimate_epistemic(

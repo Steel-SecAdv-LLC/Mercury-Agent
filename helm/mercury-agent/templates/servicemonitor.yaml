@@ -18,10 +18,21 @@ spec:
       path: {{ .Values.metrics.path }}
       interval: {{ .Values.metrics.serviceMonitor.interval }}
       scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
-      {{- with .Values.metrics.serviceMonitor.relabelings }}
+      # The chart's alert rules (rendered from the CRD) select
+      # {app="mercury-agent"} and group by `service`; OmniMercuryServiceDown
+      # reads up{job="mercury-agent-api"}. Attach all three, as the raw
+      # manifests' PodMonitors do, then any operator relabelings.
       relabelings:
+        - targetLabel: app
+          replacement: mercury-agent
+        - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+          targetLabel: job
+          replacement: mercury-agent-$1
+        {{- with .Values.metrics.serviceMonitor.relabelings }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       {{- with .Values.metrics.serviceMonitor.metricRelabelings }}
       metricRelabelings:
         {{- toYaml . | nindent 8 }}

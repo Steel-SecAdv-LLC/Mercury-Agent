@@ -1712,15 +1712,19 @@ class NeuroSymbolicHub:
         Returns:
             Dictionary of scalars for GOSNN registration
         """
+        # The weights are bounded and operational. Counts and latency are raw,
+        # unbounded measurements: under the plain names they entered the
+        # σ_Immutable vector and a busy hub drove the score towards 0, so they
+        # use the metric-only ``omni_diag_`` channel the gate excludes.
         return {
-            "neurosymbolic_neural_weight": self._neural_weight,
-            "neurosymbolic_symbolic_weight": self._symbolic_weight,
-            "neurosymbolic_inference_count": float(self._inference_count),
-            "neurosymbolic_avg_latency_ms": (
+            "omni_neurosymbolic_neural_weight": self._neural_weight,
+            "omni_neurosymbolic_symbolic_weight": self._symbolic_weight,
+            "omni_diag_neurosymbolic_inference_count": float(self._inference_count),
+            "omni_diag_neurosymbolic_avg_latency_ms": (
                 self._total_processing_time / max(self._inference_count, 1)
             ),
-            "neurosymbolic_rule_count": float(len(self.knowledge_graph.rules)),
-            "neurosymbolic_fact_count": float(len(self.knowledge_graph.facts)),
+            "omni_diag_neurosymbolic_rule_count": float(len(self.knowledge_graph.rules)),
+            "omni_diag_neurosymbolic_fact_count": float(len(self.knowledge_graph.facts)),
         }
 
     def integrate_with_gosnn(self, gosnn: Any) -> None:

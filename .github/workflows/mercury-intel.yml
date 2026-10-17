@@ -1,8 +1,9 @@
 # Mercury-Agent intelligence-layer CI lanes.
 #
 # Four lanes for the learning + geometry layer (steel/refinement-mercury-intel),
-# each fail-closed and each building the mandatory AMA/PQC backend first (every
-# `import omni_mercury_engine` runs the import-time PQC gate):
+# each fail-closed and each building the mandatory AMA/PQC backend first (the
+# agent surfaces — `omni_mercury_engine.engine` / `.crypto` — run the scoped
+# import-time PQC gate, and these lanes exercise engine code):
 #   * ci/closed-loop-integration -- end-to-end gated retrain staging run + the
 #     OOF/adversarial regression gate (poisoned candidate must be blocked)
 #   * ci/confidence-cascade       -- routing correctness + cost/accuracy report
@@ -79,7 +80,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Closed-loop staging demo (clean run) -> retrain artifact
         run: PYTHONPATH=src python scripts/closed_loop_demo.py --staging-dir artifacts/closed_loop/staging
@@ -151,7 +152,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Cascade routing + self-consistency unit tests
         run: >-
@@ -199,7 +200,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Red-team harness unit tests (incl. real-gate smoke)
         run: pytest tests/intel/test_red_team.py -q -p no:cov
@@ -255,7 +256,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Verifier-in-the-loop gating tests (Collatz/primality/propositional/physics)
         run: >-

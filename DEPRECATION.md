@@ -41,7 +41,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 |------------|-------------|--------|
 | `core.self_healing` | `resilience.self_healing` | **Preserved** - Compatibility shim active |
 | `core.neurosymbolic_engine` | `core.code_analysis` / `models.neurosymbolic` | **Preserved** - Compatibility shim active |
-| Legacy scalar names (37) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
+| Legacy scalar names (39) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
 | `sigma_immutable` param | `ethical_compliance_threshold` | **Preserved** - Alias mapping active |
 | `lambda_lyapunov` param | `convergence_rate` | **Preserved** - Alias mapping active |
 | `enable_quantum_terms` | `enable_optimization_terms` | **Preserved** - Alias mapping active |
@@ -169,21 +169,25 @@ engine = OmniMercuryEngine()
 
 ## 2. Scalar Name Aliases (Dual Support)
 
-The Global Omni-Scalar Network (GOSNN) supports **both** legacy and omni-prefixed naming conventions. No migration is required, but new code should prefer the omni-prefixed names.
+The Global Omni-Scalar Network (GOSNN) supports **both** legacy and omni-prefixed naming conventions. No migration is required, but new code should prefer the omni-prefixed names. Every built-in scalar carries the `omni` prefix (pinned by `tests/core/test_gosnn_scalar_naming.py`).
 
 ### Implementation
 
-The GOSNN maintains a bidirectional alias registry:
+GOSNN keeps a legacy-to-canonical alias table (`_initialize_legacy_aliases`). Reads resolve through `resolve_scalar_name`; writes through `register_scalars` resolve a legacy name to its canonical scalar when that scalar exists in the target group, so a legacy write cannot add a second entry and shift the σ_Immutable layout. There is no `set_scalar` method. Resolution logs at DEBUG level and emits no deprecation warning.
 
 ```python
 # Both of these return the same value:
 value = gosnn.get_scalar("morality_scalar")      # Legacy name
 value = gosnn.get_scalar("omnimorality")         # New name
 
-# Both of these set the same scalar:
-gosnn.set_scalar("morality_scalar", 0.95)        # Legacy name
-gosnn.set_scalar("omnimorality", 0.95)           # New name
+# Both of these write the same scalar:
+gosnn.register_scalars("my_component", {"morality_scalar": 0.95})   # Legacy name
+gosnn.register_scalars("my_component", {"omnimorality": 0.95})      # New name
 ```
+
+Values written to the ETHICAL group must be finite and within the σ_Immutable network's trained support `[0, 2.0]` (`ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH`); `register_scalars` raises `ValueError` and writes nothing otherwise. Names under a metric-only prefix such as `omni_diag_` are exempt because they never enter the σ vector.
+
+Renaming a scalar is safe only in place: σ_Immutable depends on the order of the operational vector, not on names. After a rename, regenerate the baseline with `python scripts/harvest_sigma_baseline.py` (its diff should touch only the name lists) and re-run `python scripts/sigma_immutable_discrimination_check.py`. The signed training corpus holds no names and does not change.
 
 ### Ethical Scalars
 
@@ -207,6 +211,8 @@ gosnn.set_scalar("omnimorality", 0.95)           # New name
 | `explainability_factor` | `omniexplainability` | Both supported |
 | `benevolence` | `omnibenevolence` | Both supported |
 | `equity` | `omniequity` | Both supported |
+| `civilization_first_principle` | `omni_civilization_first_principle` | Both supported |
+| `bias_audit_compliance` | `omni_bias_audit_compliance` | Both supported |
 
 ### Cosmic Scalars
 

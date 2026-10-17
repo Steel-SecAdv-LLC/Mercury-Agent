@@ -204,7 +204,7 @@ class ThresholdConfig:
     anomaly_cap: float = 0.95
     """Maximum allowed threshold to prevent over-filtering."""
 
-    # Classification confidence bands (used in truth_decipher, etc.)
+    # Classification confidence bands (used by classifiers)
     confidence_high: float = 0.9
     """High confidence threshold for definitive classifications."""
 
@@ -248,35 +248,6 @@ class ThresholdConfig:
     """Threshold for geometric pattern detection in ethical alignment."""
 
 
-class ThresholdDefaults:
-    """Original threshold values preserved for reference.
-
-    WARNING: Changing these affects ethical governance, anomaly detection,
-    and security decisions across the entire system.
-
-    These were the original hardcoded values before centralization.
-    Do NOT change without architectural review.
-    """
-
-    # From ethical_governor.py:129 - Sigma Directive weighted score threshold
-    SIGMA_DIRECTIVE_WEIGHTED_SCORE: float = 0.8
-
-    # From ethical_governor.py:351 - Demographic parity bias detection
-    BIAS_DETECTION_DEMOGRAPHIC_PARITY: float = 0.1
-
-    # From neurosymbolic_hub.py:810 - Default anomaly classification threshold
-    ANOMALY_CLASSIFICATION_DEFAULT: float = 0.5
-
-    # Configured magnitude of the GOSNN omnibenevolence scalar (advisory).
-    OMNIBENEVOLENCE_SCALAR: float = ETHICAL.OMNIBENEVOLENCE_SCALAR
-
-    # From ethical alignment modules - Minimum ethical score
-    ETHICAL_MINIMUM: float = 0.6
-
-    # From pattern detection modules - Geometric pattern threshold
-    PATTERN_DETECTION_GEOMETRIC: float = 0.6
-
-
 @dataclass
 class EngineConfig:
     """Main engine configuration."""
@@ -315,8 +286,65 @@ class EngineConfig:
     Uses percentile-based thresholding when contamination is set.
     """
 
+    drift_detection: bool = True
+    """
+    Test every ``detect_with_fusion`` batch for distribution drift.
+
+    Only the rows the model calls normal are tested, against a reference
+    filtered by the same rule (``score_fusion`` and the serving threshold), so
+    anomalies are not mistaken for drift. The reference comes from an explicit
+    ``enable_drift_detection(baseline)`` if given, else from every training row
+    the fitted spatial detector keeps, else from the fusion training sample;
+    a detector auto-fit on an inference batch is never used. It is re-derived
+    after every fit and load. A detected drift demotes the decision to DEFER.
+    ``MERCURY_DRIFT_DETECTION=0`` turns it off process-wide.
+    """
+
+    detector_timeout_s: float | None = 5.0
+    """
+    Fixed part (seconds) of the wall-clock budget for the parallel-safe
+    detectors of one pass; ``detector_timeout_per_row_s`` adds the part that
+    grows with the batch. ``None`` waits for every detector.
+
+    Measured, not chosen (``benchmarks/detector_latency.py``,
+    ``benchmarks/results/detector_latency.json``): every served detector is
+    close to linear in the batch, so the budget is
+    ``detector_timeout_s + detector_timeout_per_row_s * rows`` -- 5.2 s for
+    256 rows, 28 s for 32,768, 76 s for 100,000. The previous fixed 30 s (the
+    registry's default) cancelled healthy work: the directive detector alone
+    took 287 s at 32,768 rows before its O(n^2) GSIS term was replaced, and
+    the cap fell on a batch of roughly 12,000 rows. A detector still running
+    at the deadline is skipped in ``detect_with_fusion`` (its thread finishes
+    on its own; the result is discarded) and raises ``TimeoutError`` from
+    ``detect``. Detectors that are not ``parallel_safe`` run in the calling
+    thread and are not bounded.
+    """
+
+    detector_timeout_per_row_s: float | None = 7.1e-4
+    """
+    Per-row part (seconds per batch row) of the detector budget: five times
+    the summed per-row latency of the served detectors measured at 32,768
+    rows (the sequential worst case, so it holds for any worker count, on a
+    host five times slower). ``None`` makes the budget the fixed
+    ``detector_timeout_s`` alone.
+    """
+
     def __post_init__(self) -> None:
-        """Initialize default detector and model configs."""
+        """Validate fields and initialize default detector and model configs.
+
+        Raises:
+            ValueError: ``detector_timeout_s`` is set and not positive, or
+                ``detector_timeout_per_row_s`` is set and negative.
+        """
+        if self.detector_timeout_s is not None and not self.detector_timeout_s > 0:
+            raise ValueError(
+                f"detector_timeout_s must be positive or None, got {self.detector_timeout_s}"
+            )
+        if self.detector_timeout_per_row_s is not None and not self.detector_timeout_per_row_s >= 0:
+            raise ValueError(
+                "detector_timeout_per_row_s must be non-negative or None, got "
+                f"{self.detector_timeout_per_row_s}"
+            )
         if not self.detectors:
             self.detectors = {
                 "statistical": DetectorConfig(),
@@ -577,6 +605,16 @@ class ConfigurationManager:
             fusion_mode=FusionMode(self.get("fusion_mode", "hybrid")),
             batch_size=int(self.get("batch_size", 32) or 32),
             num_workers=int(self.get("num_workers", 4) or 4),
+            detector_timeout_s=(
+                float(timeout)
+                if (timeout := self.get("detector_timeout_s", 5.0)) is not None
+                else None
+            ),
+            detector_timeout_per_row_s=(
+                float(per_row)
+                if (per_row := self.get("detector_timeout_per_row_s", 7.1e-4)) is not None
+                else None
+            ),
             model_path=self.get("model_path"),
             cache_dir=str(self.get("cache_dir", "./cache")),
             log_level=str(self.get("log_level", "INFO")),
@@ -668,38 +706,3 @@ def get_config_manager() -> ConfigurationManager:
     if _config_manager is None:
         _config_manager = ConfigurationManager()
     return _config_manager
-
-
-def load_configuration(
-    config_files: list[str | Path] | None = None,
-    load_env: bool = True,
-) -> ConfigurationManager:
-    """Load configuration from files and environment.
-
-    Args:
-        config_files: List of configuration file paths
-        load_env: Whether to load from environment variables
-
-    Returns:
-        Configured ConfigurationManager
-    """
-    manager = get_config_manager()
-
-    # Load from default locations if no files specified
-    if config_files is None:
-        config_files = [
-            Path("omni_mercury.yaml"),
-            Path("omni_mercury.toml"),
-            Path("omni_mercury.json"),
-            Path.home() / ".config" / "omni_mercury" / "config.yaml",
-        ]
-
-    for config_file in config_files:
-        path = Path(config_file)
-        if path.exists():
-            manager.load_from_file(path)
-
-    if load_env:
-        manager.load_from_env()
-
-    return manager

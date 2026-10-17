@@ -254,3 +254,60 @@ def test_audit_verify_refuses_without_dir(monkeypatch: pytest.MonkeyPatch) -> No
     result = CliRunner().invoke(main, ["platform", "audit", "verify"])
     assert result.exit_code == 1
     assert "MERCURY_AUDIT_LOG_DIR" in result.output
+
+
+def test_audit_verify_is_read_only_while_the_server_writes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """verify succeeds while a live writer holds the lock and checks every segment.
+
+    It used to construct a full SecureAuditLogger: with the server holding the
+    directory lock that logger moved to ``audit-<pid>.jsonl`` and verified
+    that (nonexistent) file, so verification always failed in production.
+    """
+    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+
+    audit_dir = tmp_path / "audit"
+    monkeypatch.setenv("MERCURY_AUDIT_LOG_DIR", str(audit_dir))
+    monkeypatch.setenv("AMA_MASTER_SEED", "cd" * 64)
+    monkeypatch.setattr(auth, "_auth_key_manager", None)
+
+    server = SecureAuditLogger(log_dir=audit_dir, rotate_size_mb=1e-6, flush_interval=3600)
+    try:
+        for outcome in ("success", "failure", "success"):
+            server.log_authentication(action="login", actor="acct-cli-1", outcome=outcome)
+            server.flush()
+        before = sorted(p.name for p in audit_dir.iterdir())
+
+        code, out = _invoke("platform", "audit", "verify")
+        payload = json.loads(out)
+        assert code == 0, payload
+        assert payload["ok"] is True
+        files = [f["file"] for f in payload["chains"][0]["files"]]
+        assert files[-1] == "audit.jsonl" and len(files) == 3  # 2 segments + active
+        assert sorted(p.name for p in audit_dir.iterdir()) == before  # nothing written
+
+        segment = audit_dir / files[0]
+        code, out = _invoke("platform", "audit", "verify", "--file", str(segment))
+        assert code == 0 and json.loads(out)["ok"] is True
+
+        # Doctoring a rotated segment is caught by the directory verify.
+        lines = segment.read_text().splitlines()
+        lines[0] = lines[0].replace('"success"', '"failure"')
+        segment.write_text("\n".join(lines) + "\n")
+        code, out = _invoke("platform", "audit", "verify")
+        assert code == 1
+        assert files[0] in json.loads(out)["message"]
+    finally:
+        server.shutdown()
+
+
+def test_audit_verify_fails_on_an_empty_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("MERCURY_AUDIT_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("AMA_MASTER_SEED", "cd" * 64)
+    monkeypatch.setattr(auth, "_auth_key_manager", None)
+    code, out = _invoke("platform", "audit", "verify")
+    assert code == 1
+    assert json.loads(out)["ok"] is False

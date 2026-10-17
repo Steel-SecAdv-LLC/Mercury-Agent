@@ -42,11 +42,10 @@ supplies their own telemetry source.
 │                                                           │
 │    DroneAnomalyDetector                                   │
 │    ├── RADD invariant rules (altitude, battery, GPS, …)   │
-│    ├── MercuryAnomalyDetector ensemble                    │
-│    │     ├── ResonanceScore (40%) — FFT harmonic OOD      │
-│    │     ├── KinematicScore  (30%) — jerk / curvature     │
-│    │     └── InfoGeometryScore (30%) — Fisher OOD         │
-│    └── DronLomaly-style Bi-LSTM log path (optional)       │
+│    ├── MercuryAnomalyDetector on the rolling window      │
+│    │     ├── decision: kNN density z >= 8 (single row)    │
+│    │     └── reported: InfoGeometry z, 40/30/30 blend     │
+│    └── DronLomaly-style keyword log path (optional)       │
 └──────────────────────────────┬────────────────────────────┘
                                │ DroneFault list + scores
                                ▼
@@ -204,9 +203,40 @@ while True:
 ```
 
 `pymavlink` is a runtime-optional dependency. The detector is happy
-to be called at any cadence; the rule engine is stateless per call,
-and the Mercury ensemble can be re-`fit()` on a sliding window if
-your telemetry shifts characteristics over a mission.
+to be called at any cadence; the rule engine is stateless per call
+(except the RETURN-phase distance trend).
+
+## Ensemble decision
+
+Each call judges ONE telemetry row. The Mercury ensemble is fitted on
+the previous `history_window` states (default 100, never including the
+state being judged) and refitted every `refit_interval` ticks (default
+10). Resonance and Kinematic need a sequence, so for a single row they
+are undefined; the fault decision is the ensemble's kNN density stream,
+expressed as a robust z-score against its leave-one-out reference on
+the window, at `z_gate` (default 8). The fault type is attributed to the
+telemetry group that deviates most from the window (motors, temperature,
+battery, GPS, link, motion, position); absolute battery / GPS / link
+limits take precedence.
+
+Measured on a simulated cruise (20 flights x 280 scored ticks): no false
+alarm in 5,600 normal ticks; motor 4000 -> 3000 RPM, 4000 -> 300 RPM,
+temperature 40 -> 55 C, 40 -> 95 C and a 500 m position jump were each
+flagged every time. A 20 m jump inside the flown range is not flagged.
+
+Rule violations are typed by the field they evidence (battery ->
+`BATTERY_CRITICAL`, GPS -> `GPS_LOSS`, link -> `COMMUNICATION_LOSS`,
+takeoff motor speed -> `MOTOR_FAILURE`, climb/descent rate ->
+`ACTUATOR_FAILURE`, landing drift -> `WIND_DISTURBANCE`, low return
+altitude -> `COLLISION_RISK`); mission invariants without a component
+are `CONFIGURATION_ERROR`.
+
+## Detector registry
+
+`DroneAnomalyDetector` is in `DETECTOR_MANIFEST` as `drone`
+(category `UAV`, 16 features). `extract_features` / `predict` accept a
+`DroneState` (or a dict of its fields) as the next tick; anonymous
+arrays get summary statistics only.
 
 ---
 
@@ -243,8 +273,8 @@ dataclass.
 ## See also
 
 - [`docs/API_REFERENCE.md`](../API_REFERENCE.md) — quick-import index.
-- `tests/test_drone_detector.py` — 32 tests covering the rule engine
-  and ensemble integration.
+- `tests/test_drone_detector.py` — rule engine, fault typing, the
+  single-row ensemble decision and the registry protocol.
 - `RADD: Rule-based Anomaly Detection for Drones` — academic reference
   for the invariant-rule approach.
 - `DronLomaly: Drone Log Anomaly Detection with Bi-LSTM` — academic

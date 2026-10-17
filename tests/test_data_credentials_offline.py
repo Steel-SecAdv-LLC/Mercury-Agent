@@ -203,6 +203,71 @@ def test_non_200_classification(mod: Any, status: int, expected: str) -> None:
     assert verdict == getattr(mod, expected)
 
 
+@pytest.mark.parametrize(
+    "checker",
+    ["check_eia", "check_fred", "check_nasa", "check_alpha_vantage", "check_openweathermap"],
+)
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"",  # the real 2026-10-12 NASA case: HTTP 200, empty body
+        b"<html><body>503 Service Unavailable</body></html>",  # CDN error page
+        b"upstream connect error or disconnect/reset before headers",
+    ],
+    ids=["empty-body", "html-error-page", "proxy-text"],
+)
+def test_http_200_with_non_json_body_is_unreachable(
+    mod: Any, monkeypatch: pytest.MonkeyPatch, checker: str, body: bytes
+) -> None:
+    """An HTTP 200 whose body is not JSON is an outage, not a credential verdict.
+
+    Every provider in this lane answers a rejected credential with a non-200 or
+    a parseable JSON error body, so a 200 that cannot be parsed at all carries
+    no information about the key. Measured 2026-10-12 in the scheduled run:
+    NASA DONKI returned HTTP 200 with an unparseable body and turned the lane
+    red for a key that had delivered the day before.
+    """
+    monkeypatch.setattr(mod, "_get", lambda *a, **k: (200, body))
+    verdict, detail = getattr(mod, checker)("dummy-key")
+    assert verdict == mod.UNREACHABLE, f"{checker} treated upstream noise as a credential verdict"
+    assert "non-JSON" in detail
+
+
+@pytest.mark.parametrize(
+    "checker,body",
+    [
+        ("check_eia", b'{"response": {}}'),  # parses, but no ["response"]["data"]
+        ("check_fred", b'{"error_message": "api_key missing"}'),  # no ["observations"]
+        ("check_nasa", b'{"error": "unexpected"}'),  # dict where a list is expected
+        ("check_alpha_vantage", b"[1, 2]"),  # list where a dict is expected
+        ("check_openweathermap", b"[1, 2]"),
+    ],
+)
+def test_http_200_with_wrong_json_shape_stays_fail(
+    mod: Any, monkeypatch: pytest.MonkeyPatch, checker: str, body: bytes
+) -> None:
+    """A body that parses but lacks the expected shape is still a hard FAIL.
+
+    A parseable-but-unexpected answer can be the provider's own credential
+    error, which is exactly what this lane exists to surface -- only genuinely
+    unparseable bodies are excused as upstream noise.
+    """
+    monkeypatch.setattr(mod, "_get", lambda *a, **k: (200, body))
+    verdict, detail = getattr(mod, checker)("dummy-key")
+    assert verdict == mod.FAIL
+    assert "unexpected response shape" in detail
+
+
+def test_non_json_200_detail_is_redacted(mod: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The body preview in a non-JSON-200 detail must never leak a credential."""
+    monkeypatch.setenv("DEMO_API_KEY", _SECRET)
+    data, outage = mod._parse_200_body(f"redirecting... ?api_key={_SECRET}".encode())
+    assert data is None and outage is not None
+    verdict, detail = outage
+    assert verdict == mod.UNREACHABLE
+    assert _SECRET not in detail
+
+
 def test_all_sources_unreachable_is_not_a_clean_run(
     mod: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

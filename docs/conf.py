@@ -49,7 +49,7 @@ with (_REPO_ROOT / "pyproject.toml").open("rb") as _f:
     _pyproject = tomllib.load(_f)
 release = str(_pyproject.get("project", {}).get("version", "0.0.0"))
 version = ".".join(release.split(".")[:2])
-copyright = "Steel-SecAdv-LLC. Released under MIT."
+copyright = "2025 Steel Security Advisors LLC. Released under GPL-3.0-or-later"
 
 # -----------------------------------------------------------------------------
 # Extensions
@@ -96,8 +96,7 @@ source_suffix = {
 master_doc = "index"
 language = "en"
 
-# Exclude build outputs and the comprehensive audit report (which is a
-# point-in-time deliverable, not a stable doc surface).
+# Exclude build outputs and OS metadata files.
 exclude_patterns = [
     "_build",
     "Thumbs.db",
@@ -149,7 +148,6 @@ def _ensure_index() -> Path:
         "API_REFERENCE",
         "MATH_SPEC",
         "BENCHMARKS",
-        "DOMAIN_PERFORMANCE",
         "ROUTING_GUIDE",
         "DATASOURCES",
         "LIVE_DATA_VALIDATION",

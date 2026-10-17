@@ -29,6 +29,7 @@ from scripts.check_benchmark_integrity import (
     check,
     main,
 )
+from scripts.update_readme_benchmarks import render_domain_block
 
 
 def _valid_results() -> dict[str, Any]:
@@ -72,7 +73,8 @@ def _readme_for(results: dict[str, Any]) -> str:
         f"| Datasets (successful / total) | {s['successful']} / {s['total_datasets']} | x | x |\n"
         f"| Run timestamp (UTC) | {m['timestamp']} | x | — |\n"
         f"| Commit | `{m['git_commit'][:7]}` | x | — |\n"
-        "<!-- BENCHMARK:END -->\n"
+        "<!-- BENCHMARK:END -->\n\n"
+        f"{render_domain_block(results)}\n"
     )
 
 
@@ -92,7 +94,9 @@ class TestCleanDocument:
 
     def test_main_returns_zero_on_clean_document(self, tmp_path: Path) -> None:
         rp, mp = _write(tmp_path, _valid_results())
-        assert main(["--results", str(rp), "--readme", str(mp)]) == 0
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        assert main(["--results", str(rp), "--readme", str(mp), "--docs", str(docs)]) == 0
 
 
 class TestStructuralInvariants:
@@ -154,6 +158,71 @@ class TestReadmeParity:
             check(rp, mp)
 
 
+class TestDomainBlockParity:
+    def test_a_hand_edited_domain_row_is_caught(self, tmp_path: Path) -> None:
+        results = _valid_results()
+        readme = _readme_for(results)
+        row = "| Uncategorised (A, B) | 2 | 0.8500 | 0.6500 |"
+        assert row in readme
+        rp, mp = _write(tmp_path, results, readme.replace(row, row.replace("0.8500", "0.9100")))
+        assert any("per-domain block" in v for v in check(rp, mp))
+
+    def test_a_missing_domain_block_is_caught(self, tmp_path: Path) -> None:
+        results = _valid_results()
+        readme = _readme_for(results).split("<!-- BENCHMARK-DOMAINS:START -->")[0]
+        rp, mp = _write(tmp_path, results, readme)
+        assert any("per-domain block" in v for v in check(rp, mp))
+
+
+class TestProseCounts:
+    """Prose dataset counts must state the committed run (3 of 4 here)."""
+
+    @pytest.mark.parametrize(
+        ("prose", "line"),
+        [
+            ("ran over **2 of 4 attempted** datasets", 3),
+            ("the run: **2 successful / 4\n  attempted**, mean AUC", 3),
+            ("> the run (2 successful / 4\n> attempted under the policy)", 3),
+            ("on **2 reproducible real datasets** (of 4 attempted; see)", 3),
+            ("(this committed run: 2/4 scored) and", 3),
+            ("measures 4 datasets attempted / 2 successful / 2 failed", 3),
+            ("\n\nran over 3 of 5 attempted datasets", 5),
+        ],
+    )
+    def test_stale_claims_are_caught_with_their_line(
+        self, tmp_path: Path, prose: str, line: int
+    ) -> None:
+        results = _valid_results()
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "page.md").write_text(f"# Page\n\n{prose}\n", encoding="utf-8")
+        rp, mp = _write(tmp_path, results)
+        violations = check(rp, mp, docs)
+        assert len(violations) == 1
+        assert f"page.md:{line} claims" in violations[0]
+
+    @pytest.mark.parametrize(
+        "prose",
+        [
+            "ran over **3 of 4 attempted** datasets",
+            "the run: **3 successful / 4\n  attempted**",
+            "measures 4 datasets attempted / 3 successful",
+            "3 of 4 regions were surveyed",
+        ],
+    )
+    def test_current_or_unrelated_claims_pass(self, tmp_path: Path, prose: str) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "page.md").write_text(prose, encoding="utf-8")
+        rp, mp = _write(tmp_path, _valid_results())
+        assert check(rp, mp, docs) == []
+
+    def test_the_readme_itself_is_checked(self, tmp_path: Path) -> None:
+        results = _valid_results()
+        rp, mp = _write(tmp_path, results, _readme_for(results) + "\nOver 2 of 4 attempted.\n")
+        assert any("README.md" in v and "2 of 4" in v for v in check(rp, mp))
+
+
 class TestFailClosed:
     def test_missing_results_file_returns_two(self, tmp_path: Path) -> None:
         assert (
@@ -174,4 +243,4 @@ class TestRealCommittedArtifacts:
         readme = _REPO_ROOT / "README.md"
         if not results.is_file():  # pragma: no cover - defensive
             pytest.skip("committed benchmark results not present")
-        assert check(results, readme) == []
+        assert check(results, readme, _REPO_ROOT / "docs") == []

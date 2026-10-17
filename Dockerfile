@@ -38,13 +38,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel, fixed in 26.1)
 # Python 3.13+ implements PEP 706, so the vulnerable tar fallback is never used,
 # but we pin to >=26.1 as defense-in-depth and to fully resolve all three CVEs.
-# setuptools floor is 83.0.0, not 78.1.1: 78.1.1 fixes only CVE-2025-47273, and
-# CVE-2026-59890 has a published fix in 83.0.0. This repo's policy is that a
-# fixable CVE is remediated, never accepted into .trivyignore. 83.0.0 is also
-# what AMA v4.0.0's own preflight demands — the same floor
+# setuptools floor is 84.0.0 (was 83.0.0): 78.1.1 fixes only CVE-2025-47273,
+# CVE-2026-59890 has a published fix in 83.0.0, and this repo's policy is that a
+# fixable CVE is remediated, never accepted into .trivyignore. 84.0.0 is also
+# what AMA v5.0.0's own preflight demands — the same floor
 # scripts/build_ama_native.sh and .github/actions/build-ama-cryptography already
 # declare — so all three build paths now state one number instead of three.
-RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=83.0.0" "wheel>=0.47.0"
+RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=84.0.0" "wheel>=0.48.0"
 
 # Set working directory for build
 WORKDIR /app
@@ -74,7 +74,7 @@ RUN pip install --no-cache-dir ".[all]"
 # venv even though the earlier floor had already installed a newer one,
 # alongside a clean build in the runtime prefix.
 #
-#   setuptools >= 83.0.0  CVE-2025-47273 (PackageIndex path traversal, fixed in
+#   setuptools >= 84.0.0  CVE-2025-47273 (PackageIndex path traversal, fixed in
 #                         78.1.1) AND CVE-2026-59890 (fixed in 83.0.0). The
 #                         floor is the HIGHER of the two: ``only-if-needed``
 #                         below will not move a package that already satisfies
@@ -86,27 +86,28 @@ RUN pip install --no-cache-dir ".[all]"
 #                         reuse); pulled in transitively, so it has no direct
 #                         declaration in pyproject to carry the floor.
 #
-# 83.0.0 is also exactly what AMA v4.0.0's preflight requires, so this floor and
+# 84.0.0 is also exactly what AMA v5.0.0's preflight requires, so this floor and
 # the one scripts/build_ama_native.sh applies a few lines below are now the same
 # number rather than two that happen to converge.
 #
 # --upgrade-strategy only-if-needed keeps this from disturbing the resolved set
 # beyond these two packages.
 RUN pip install --no-cache-dir --upgrade --upgrade-strategy only-if-needed \
-        "setuptools>=83.0.0" "msgpack>=1.2.1" && \
+        "setuptools>=84.0.0" "msgpack>=1.2.1" && \
     python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
-assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
+assert Version(setuptools.__version__) >= Version('84.0.0'), setuptools.__version__; \
 assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
 print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 
 # Build and install the AMA Cryptography native PQC backend so the runtime image
-# can import omni_mercury_engine (the import-time PQC gate requires ML-DSA-65 +
-# Kyber-1024 + SPHINCS+ native availability — see omni_mercury_engine._pqc_gate).
+# can import the Mercury agent surfaces — omni_mercury_engine.engine / .crypto,
+# whose scoped import-time PQC gate requires ML-DSA-65 + Kyber-1024 + SPHINCS+
+# native availability (see omni_mercury_engine._pqc_gate).
 # The shared object is co-located inside the installed ama_cryptography package
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
-ARG AMA_REF=v4.0.0
+ARG AMA_REF=v5.0.0
 COPY scripts/build_ama_native.sh /app/scripts/build_ama_native.sh
 RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
 
@@ -161,12 +162,12 @@ ARG MERCURY_VERSION=2.1.0
 # Security labels
 LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@gmail.com>"
 LABEL org.opencontainers.image.title="Mercury Agent"
-LABEL org.opencontainers.image.description="ML-Centric Multi-Domain Anomaly Detection Framework"
+LABEL org.opencontainers.image.description="Civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-07-02"
+LABEL security.scan-date="2026-09-27"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
@@ -227,7 +228,18 @@ RUN apt-get update && \
     # trixie status "open", no fixed version) instead of accepting it.
     # Verified post-purge on the trixie base: apt-get update / install /
     # upgrade, dpkg, and `python -c "import gzip"` round-trip all work.
-    apt-get purge -y --allow-remove-essential perl-base adduser gzip && \
+    #
+    # mount (2026-09-27): ELIMINATED. The package ships mount(8)/umount(8)/
+    # losetup/swapon, the privileged entry points of the unfixed util-linux
+    # CVE-2026-76642 / CVE-2026-78409 / CVE-2026-78410 (X-mount.* hooks and
+    # restricted bind mounts; Debian trixie ``<no-dsa>``). It is not
+    # essential, nothing depends on it, and a container never mounts
+    # filesystems itself. The util-linux source family stays in the ledger
+    # (its essential packages remain), but the vulnerable binaries are gone.
+    # Verified on the trixie 13.7 base: apt-get update/install, dpkg --audit,
+    # useradd and the CPython uuid/gzip/ssl/sqlite3/readline/curses modules
+    # all work without it.
+    apt-get purge -y --allow-remove-essential perl-base adduser gzip mount && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
     apt-get clean && \
@@ -285,7 +297,7 @@ RUN /usr/local/bin/python -m pip uninstall -y pip && \
 #
 # Both of these were once true at the same time on the shipped image:
 #
-#   * the import assert below passed (``setuptools.__version__`` >= 83.0.0);
+#   * the import assert below passed (``setuptools.__version__`` >= 84.0.0);
 #   * the blocking container scan reported ``setuptools 70.3.0``
 #     (CVE-2025-47273) and ``msgpack 1.1.2`` (GHSA-6v7p-g79w-8964).
 #
@@ -306,7 +318,7 @@ COPY scripts/enforce_wheel_floors.py /tmp/enforce_wheel_floors.py
 RUN /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv /usr/local /usr/lib && \
     /opt/venv/bin/python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
-assert Version(setuptools.__version__) >= Version('83.0.0'), setuptools.__version__; \
+assert Version(setuptools.__version__) >= Version('84.0.0'), setuptools.__version__; \
 assert tuple(msgpack.version) >= (1, 2, 1), msgpack.version; \
 print('runtime venv floors held (import):', setuptools.__version__, msgpack.version)" && \
     ! /opt/venv/bin/python -c "import pip" 2>/dev/null && \
@@ -341,11 +353,13 @@ ENV PYTHONUNBUFFERED=1
 # k8s liveness/readiness probes enforce at runtime. This guarantees the shipped
 # image is importable as the final non-root user rather than crash-looping on
 # first start.
-RUN python -c "import omni_mercury_engine; print('engine import OK — native AMA PQC backend verified')"
+RUN python -c "import omni_mercury_engine.engine; print('engine import OK — native AMA PQC backend verified')"
 
-# Health check for container orchestration
+# Health check for container orchestration. Runs the PQC production gate
+# directly: the same fail-closed check the agent surfaces enforce at import,
+# without re-importing the full engine stack on every 30 s probe.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import omni_mercury_engine; print('healthy')" || exit 1
+    CMD python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('healthy')" || exit 1
 
 # Expose the API port
 EXPOSE 8000

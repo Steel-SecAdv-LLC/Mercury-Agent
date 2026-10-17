@@ -6,13 +6,25 @@ This module provides centralized metric definitions that match the
 prometheus-rules.yaml expectations. Metrics gracefully degrade to
 no-ops when prometheus_client is not available.
 
-Metrics emitted:
-- omni_detection_requests_total: Counter for detection requests by detector type
-- omni_detection_duration_seconds: Histogram for detection duration by detector type
-- omni_detection_success_total: Counter for successful detections by detector type
-- omni_model_inference_errors_total: Counter for model inference errors
-- omni_fusion_inference_duration_seconds: Histogram for fusion layer inference time
-- omni_detector_extraction_duration_seconds: Histogram for feature extraction time
+Metrics emitted (and where each is recorded):
+- omni_detection_requests_total / omni_detection_success_total /
+  omni_detection_duration_seconds: every component ``detect``/``predict`` call
+  in ``OmniMercuryEngine`` and every message the streaming worker scores.
+- omni_detector_extraction_{duration_seconds,success_total,errors_total}:
+  every component ``extract_features`` call in the engine's inference path.
+- omni_component_declined_total: a component refused input of a modality it
+  does not process (:class:`~omni_mercury_engine.core.exceptions.InputModalityError`).
+  Declines are excluded from the request/success/duration/error series above so
+  the success-rate and inference-error alerts reflect real failures only.
+- omni_model_inference_errors_total: any other component, fusion-head or
+  streaming-detector failure.
+- omni_fusion_inference_duration_seconds: fusion-head ``predict`` calls.
+- omni_model_roc_auc / omni_model_f1_score: fusion-head quality on the
+  validation split, set at the end of every ``fit_fusion`` run.
+- omni_detection_queue_depth: the streaming worker's consumer-group backlog.
+- omni_feature_cache_{hits,misses}_total, omni_detector_score,
+  omni_detector_nonfinite_corrected, http_requests_total,
+  http_request_duration_seconds: see their definitions below.
 """
 
 from __future__ import annotations
@@ -22,6 +34,8 @@ import math
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
+
+from omni_mercury_engine.core.exceptions import InputModalityError
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -163,6 +177,31 @@ DETECTOR_EXTRACTION_ERRORS = _create_counter(
     ["detector_name"],
 )
 
+# A component declining off-modality input (a 1-D signal detector handed a
+# feature matrix, a mapping-only model handed an array) is a correct refusal,
+# not a fault. Counting it here -- and nowhere else -- keeps the success-rate
+# and inference-error alerts from firing on every request that simply does
+# not carry that component's modality.
+COMPONENT_DECLINED = _create_counter(
+    "omni_component_declined_total",
+    "Components that declined input of a modality they do not process",
+    ["component"],
+)
+
+# Consumer-group backlog of the streaming worker: messages on the input topic
+# not yet committed (Kafka: log-end minus committed offset over every
+# partition; Redis: undelivered plus delivered-but-unacked entries; memory:
+# unread entries). Every worker reports the *group-wide* total, so aggregate
+# across pods with max(), not sum() -- a sum would multiply by the replica
+# count, and a per-assignment figure would drop to zero during a rebalance and
+# let the autoscaler scale down mid-backlog. -1 means the backend could not
+# report a value.
+DETECTION_QUEUE_DEPTH = _create_gauge(
+    "omni_detection_queue_depth",
+    "Streaming consumer-group backlog (messages not yet committed); -1 = unknown",
+    [],
+)
+
 # Anomaly score distribution per detector (scores are normalised to [0, 1]).
 # Gives dashboards a per-detector score histogram alongside the latency/success
 # series, so score drift is visible without per-detector panels.
@@ -189,6 +228,50 @@ DETECTOR_NONFINITE_CORRECTED = _create_counter(
     ["detector", "policy", "field"],
 )
 
+# Drift detection on the fusion path (``OmniMercuryEngine._drift_payload``).
+DRIFT_CHECKS = _create_counter(
+    "omni_drift_checks_total",
+    "Drift checks by outcome: tested, no_baseline, incomparable, insufficient_rows, error",
+    ["status"],
+)
+
+DRIFT_DETECTED = _create_counter(
+    "omni_drift_detected_total",
+    "Drift checks that rejected the no-drift hypothesis, by ensemble severity",
+    ["severity"],
+)
+
+DRIFT_CHECK_DURATION = _create_histogram(
+    "omni_drift_check_duration_seconds",
+    "Wall time of one drift check",
+    [],
+    buckets=(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25),
+)
+
+#: Every ``status`` label ``_drift_payload`` reports.
+DRIFT_CHECK_STATUSES: tuple[str, ...] = (
+    "tested",
+    "no_baseline",
+    "incomparable",
+    "insufficient_rows",
+    "error",
+)
+
+#: Every ``severity`` label a detected drift carries: the names of
+#: ``ml.drift.DriftSeverity`` except ``NONE`` (not imported here, to keep this
+#: module free of the scipy dependency; a test pins the two together).
+DRIFT_SEVERITIES: tuple[str, ...] = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+# Pre-create every label series at 0. A Prometheus counter child exists only
+# once ``.labels()`` is called, and ``increase()`` needs two samples, so a
+# series born on its first ``.inc()`` reads that first increment as 0: the
+# first drift a pod detected never fired ``OmniMercuryDataDrift``.
+for _status in DRIFT_CHECK_STATUSES:
+    DRIFT_CHECKS.labels(status=_status)
+for _severity in DRIFT_SEVERITIES:
+    DRIFT_DETECTED.labels(severity=_severity)
+del _status, _severity
+
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
     "omni_feature_cache_hits_total",
@@ -202,7 +285,11 @@ FEATURE_CACHE_MISSES = _create_counter(
     ["detector_name"],
 )
 
-# Model quality metrics (live performance)
+# Model quality metrics. Set by ``OmniMercuryEngine.fit_fusion`` from the
+# fusion head's validation split (``dataset="fit_validation"``). That split also
+# chose the early-stopping epoch, so these are fit-time figures, optimistic
+# relative to unseen data -- not live production accuracy, which needs
+# labelled feedback the engine does not receive.
 MODEL_ROC_AUC = _create_gauge(
     "omni_model_roc_auc",
     "Current ROC-AUC score for model",
@@ -235,23 +322,36 @@ HTTP_REQUEST_DURATION = _create_histogram(
 
 @contextmanager
 def time_detection(detector_type: str) -> Generator[None, None, None]:
-    """Context manager to time detection operations.
+    """Count and time one detection call.
+
+    A normal exit counts a request and a success; any exception counts a
+    request without a success (so ``success / requests`` is the detection
+    success rate). An :class:`InputModalityError` is a decline, not an attempt,
+    and touches none of these series -- record it with
+    :func:`record_component_declined`. Inference errors are recorded by the
+    caller (:func:`record_inference_error`) so each failure is counted once.
 
     Args:
-        detector_type: Type of detector being timed
+        detector_type: Component name (detector, model or ``"stream"``).
 
     Example:
         with time_detection("statistical"):
             result = detector.detect(data)
     """
-    DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
     start_time = time.perf_counter()
     try:
         yield
-        DETECTION_SUCCESS.labels(detector_type=detector_type).inc()
-    finally:
-        duration = time.perf_counter() - start_time
-        DETECTION_DURATION.labels(detector_type=detector_type).observe(duration)
+    except InputModalityError:
+        raise
+    except Exception:
+        DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
+        DETECTION_DURATION.labels(detector_type=detector_type).observe(
+            time.perf_counter() - start_time
+        )
+        raise
+    DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
+    DETECTION_SUCCESS.labels(detector_type=detector_type).inc()
+    DETECTION_DURATION.labels(detector_type=detector_type).observe(time.perf_counter() - start_time)
 
 
 @contextmanager
@@ -261,6 +361,9 @@ def time_feature_extraction(detector_name: str) -> Generator[None, None, None]:
     Args:
         detector_name: Name of detector being timed
 
+    An :class:`InputModalityError` is a decline and is left uncounted here
+    (see :func:`time_detection`).
+
     Example:
         with time_feature_extraction("isolation_forest"):
             features = detector.extract_features(data)
@@ -268,13 +371,18 @@ def time_feature_extraction(detector_name: str) -> Generator[None, None, None]:
     start_time = time.perf_counter()
     try:
         yield
-        DETECTOR_EXTRACTION_SUCCESS.labels(detector_name=detector_name).inc()
+    except InputModalityError:
+        raise
     except Exception:
         DETECTOR_EXTRACTION_ERRORS.labels(detector_name=detector_name).inc()
+        DETECTOR_EXTRACTION_DURATION.labels(detector_name=detector_name).observe(
+            time.perf_counter() - start_time
+        )
         raise
-    finally:
-        duration = time.perf_counter() - start_time
-        DETECTOR_EXTRACTION_DURATION.labels(detector_name=detector_name).observe(duration)
+    DETECTOR_EXTRACTION_SUCCESS.labels(detector_name=detector_name).inc()
+    DETECTOR_EXTRACTION_DURATION.labels(detector_name=detector_name).observe(
+        time.perf_counter() - start_time
+    )
 
 
 @contextmanager
@@ -303,6 +411,40 @@ def record_inference_error(model_name: str) -> None:
         model_name: Name of the model that had an error
     """
     MODEL_INFERENCE_ERRORS.labels(model_name=model_name).inc()
+
+
+def record_component_declined(component: str) -> None:
+    """Record that a component declined input of a modality it does not process.
+
+    Args:
+        component: Name of the declining detector or model.
+    """
+    COMPONENT_DECLINED.labels(component=component).inc()
+
+
+def record_drift_check(status: str, severity: str | None, duration_seconds: float) -> None:
+    """Record one drift check.
+
+    Args:
+        status: How the check ended (``tested``, ``no_baseline``, ...).
+        severity: Ensemble severity name when drift was detected, else ``None``.
+        duration_seconds: Wall time of the check.
+    """
+    DRIFT_CHECKS.labels(status=status).inc()
+    if severity is not None:
+        DRIFT_DETECTED.labels(severity=severity).inc()
+    DRIFT_CHECK_DURATION.observe(duration_seconds)
+
+
+def set_detection_queue_depth(depth: int | None) -> None:
+    """Publish the streaming consumer-group backlog.
+
+    Args:
+        depth: Messages not yet committed, or ``None`` when the backend could
+            not report it (published as ``-1`` so "unknown" is never mistaken
+            for "empty").
+    """
+    DETECTION_QUEUE_DEPTH.set(-1 if depth is None else depth)
 
 
 def record_cache_hit(detector_name: str) -> None:

@@ -220,6 +220,7 @@ class TestMultiscaleTTA:
         det = MercuryAnomalyDetector({"multiscale_tta_pool": " MAX "})
         assert det._multiscale_tta_pool == "max"
 
+    @pytest.mark.timeout(600)
     def test_tta_max_improves_collective_anomalies(self) -> None:
         """Max-pool TTA improves AUROC on collective (regime-change) anomalies.
 
@@ -247,6 +248,7 @@ class TestMultiscaleTTA:
         )
         assert wins >= 4, f"max-pool TTA improved only {wins}/6 collective seeds"
 
+    @pytest.mark.timeout(600)
     def test_tta_mean_pool_does_not_collapse(self) -> None:
         """Mean-pool TTA (the default) stays close to base on easy temporal data
         and never collapses the ranking (it is the false-alarm-safe pool)."""

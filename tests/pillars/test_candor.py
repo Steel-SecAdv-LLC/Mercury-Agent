@@ -68,7 +68,12 @@ class TestTheDocLintGateIsRealAndPasses:
         from scripts.doc_lint import BANNED
 
         labels = {banned.label for banned in BANNED}
-        assert labels >= {"survivor-first", "People First", "FIPS-certified", "NIST-validated"}
+        assert labels >= {
+            "retired humanitarian-slice mission framing",
+            "People First",
+            "FIPS-certified",
+            "NIST-validated",
+        }
 
     def test_every_ban_explains_itself_and_offers_a_replacement(self) -> None:
         """A ban with no guidance gets worked around, not obeyed."""
@@ -95,8 +100,7 @@ class TestTheGateHasTeeth:
 
         for banned in BANNED:
             # The phrase the rule bans, written the way prose would write it.
-            probe = banned.label
-            assert re.search(banned.pattern, probe, re.IGNORECASE), banned.label
+            assert re.search(banned.pattern, banned.probe, re.IGNORECASE), banned.label
 
     def test_a_missing_mission_phrase_is_detected(self) -> None:
         from scripts.doc_lint import MISSION_PHRASE
@@ -137,6 +141,61 @@ class TestTheGateHasTeeth:
             "`pytest tests/pillars/test_this_was_deleted.py` | **enforced** |\n"
         )
         assert scan_capability_matrix(bad)
+
+
+class TestCitedTestsExist:
+    """Rule 4: prose that points at a test must point at one that exists."""
+
+    @staticmethod
+    def _scan(text: str) -> list[str]:
+        from scripts.doc_lint import REPO_ROOT, _citation_violations
+
+        lines = list(enumerate(text.splitlines(), start=1))
+        return [v.rule for v in _citation_violations(str(REPO_ROOT / "probe.md"), lines)]
+
+    def test_resolving_citations_pass(self) -> None:
+        text = (
+            "See tests/pillars/test_candor.py and\n"
+            "tests/pillars/test_candor.py::TestCitedTestsExist::test_resolving_citations_pass\n"
+            "and tests/pillars/test_candor.py::TestCitedTestsExist.\n"
+        )
+        assert self._scan(text) == []
+
+    def test_a_missing_test_file_is_detected(self) -> None:
+        rules = self._scan("covered by tests/pillars/test_never_written.py")
+        assert len(rules) == 1 and "does not exist" in rules[0]
+
+    def test_an_undefined_node_id_is_detected(self) -> None:
+        rules = self._scan("tests/pillars/test_candor.py::test_that_was_renamed")
+        assert len(rules) == 1 and "test_that_was_renamed" in rules[0]
+
+    def test_a_method_cited_without_its_class_is_detected(self) -> None:
+        # The exact drift docs/DATASOURCES.md carried: pytest cannot collect a
+        # method by ``file::method``, so the node id a reader would run fails.
+        rules = self._scan("tests/pillars/test_candor.py::test_resolving_citations_pass")
+        assert len(rules) == 1
+
+    def test_a_method_missing_from_its_class_is_detected(self) -> None:
+        rules = self._scan("tests/pillars/test_candor.py::TestCitedTestsExist::test_gone")
+        assert len(rules) == 1 and "test_gone" in rules[0]
+
+    def test_deep_node_ids_resolve_to_any_depth(self) -> None:
+        """Regression: the old regex verified two ``::`` segments and silently
+        accepted whatever followed, so a typo in the third segment passed."""
+        deep = "tests/test_anomaly_detection_module.py::TestEnsembleCoordinator::MockDetector"
+        assert self._scan(f"{deep}::fit") == []
+        rules = self._scan(f"{deep}::fit_gone")
+        assert len(rules) == 1 and "fit_gone" in rules[0]
+
+    def test_test_modules_are_checked_through_docstrings_only(self) -> None:
+        from scripts.doc_lint import REPO_ROOT, scan_test_module_citations
+
+        source = (
+            '"""Live paths are covered by tests/pillars/test_never_written.py."""\n'
+            "FIXTURE = 'tests/pillars/test_this_was_deleted.py'\n"
+        )
+        violations = scan_test_module_citations(REPO_ROOT / "tests" / "probe.py", source)
+        assert [v.line_number for v in violations] == [1]
 
 
 class TestShippedIsSeparatedFromAspirational:

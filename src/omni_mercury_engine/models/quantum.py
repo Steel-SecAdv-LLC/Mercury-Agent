@@ -85,13 +85,21 @@ class QuantumAnomalyModel:
 
         return amplitudes * phases
 
+    @staticmethod
+    def _pure_state_entropy(states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Von Neumann entropy of each row's density matrix ``|psi><psi|``.
+
+        That matrix has exactly one non-zero eigenvalue, ``<psi|psi>``, so the
+        entropy needs a dot product, not the O(d^3) eigendecomposition of a
+        d x d matrix per row (769 ms for 512 rows at d = 128). Eigenvalues at or
+        below 1e-10 are dropped, as before.
+        """
+        weight = np.sum(states.real**2 + states.imag**2, axis=1)
+        return np.where(weight > 1e-10, -weight * np.log2(weight + 1e-10), 0.0)
+
     def _measure_entanglement(self, state: np.ndarray[Any, Any]) -> float:
         """Measure quantum entanglement in state using von Neumann entropy."""
-        density_matrix = np.outer(state, np.conj(state))
-        eigenvalues = np.linalg.eigvalsh(density_matrix)
-        eigenvalues = eigenvalues[eigenvalues > 1e-10]
-        entropy = -np.sum(eigenvalues * np.log2(eigenvalues + 1e-10))
-        return float(entropy)
+        return float(self._pure_state_entropy(np.asarray(state)[None, :])[0])
 
     def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract quantum-inspired features from data."""
@@ -116,11 +124,7 @@ class QuantumAnomalyModel:
         if phases.shape[1] < 4:
             phases = np.pad(phases, ((0, 0), (0, 4 - phases.shape[1])), mode="constant")
 
-        entanglement = (
-            np.array([self._measure_entanglement(quantum_states[i]) for i in range(batch_size)])
-            .reshape(-1, 1)
-            .astype(np.float32)
-        )
+        entanglement = self._pure_state_entropy(quantum_states).reshape(-1, 1).astype(np.float32)
 
         features = np.concatenate(
             [

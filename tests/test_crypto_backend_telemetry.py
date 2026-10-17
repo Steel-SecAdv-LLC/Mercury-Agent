@@ -8,7 +8,7 @@ import hashlib
 
 from omni_mercury_engine import crypto
 
-VALID_BACKENDS = {"rust", "python-cryptography", "hashlib-only"}
+VALID_BACKENDS = {"rust", "ama-native", "sovereign-python"}
 
 
 def test_backend_is_reported_and_valid() -> None:
@@ -23,7 +23,7 @@ def test_rust_flag_is_consistent_with_backend() -> None:
         assert crypto.get_crypto_backend() == "rust"
     else:
         # Fallback must be explicit, never silently "rust" when unavailable.
-        assert crypto.get_crypto_backend() in {"python-cryptography", "hashlib-only"}
+        assert crypto.get_crypto_backend() in {"ama-native", "sovereign-python"}
 
 
 def test_hash_data_is_deterministic_and_correct_length() -> None:

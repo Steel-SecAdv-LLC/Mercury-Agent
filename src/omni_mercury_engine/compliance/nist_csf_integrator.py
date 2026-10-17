@@ -509,7 +509,7 @@ def _parse_csf_xlsx(payload: bytes) -> dict[NISTFunction, list[NISTCategory]]:
         raise NISTCSFReferenceError(
             "openpyxl is required to parse the NIST CSF reference XLSX. "
             "Install Mercury Agent with the compliance extra: "
-            "pip install 'mercury-agent[compliance]'"
+            "pip install 'mercury-agent-global[compliance]'"
         ) from exc
 
     try:

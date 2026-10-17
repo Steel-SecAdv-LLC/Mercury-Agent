@@ -4,9 +4,12 @@
 #
 # Build and install the AMA Cryptography native PQC backend.
 #
-# AMA is Mercury's mandatory, sole crypto core: ``import omni_mercury_engine``
-# refuses to proceed unless ML-DSA-65 (Dilithium), Kyber-1024, and SPHINCS+ are
-# loadable from the native C library (see ``omni_mercury_engine._pqc_gate``).
+# AMA is Mercury's mandatory, sole crypto core: the agent surfaces
+# (``omni_mercury_engine.engine`` — which the CLI and API serve — and
+# ``omni_mercury_engine.crypto``) refuse to import unless ML-DSA-65 (Dilithium),
+# Kyber-1024, and SPHINCS+ are loadable from the native C library (see
+# ``omni_mercury_engine._pqc_gate``; the standalone analytic leaves import
+# AMA-free for the quickstart).
 # Mercury-Agent ships no ``CMakeLists.txt`` of its own; the native library lives
 # in the upstream AMA-Cryptography repository, which this script clones at a
 # pinned, immutable tag and builds.
@@ -24,22 +27,40 @@
 # at runtime (``ama_cryptography._find_native_library`` searches there first).
 #
 # Environment overrides:
-#   AMA_REF        git tag/ref to build (default: v4.0.0)
+#   AMA_REF        git tag/ref to build (default: v5.0.0)
 #   AMA_REPO       repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
 #   AMA_BUILD_DIR  scratch checkout/build directory (default: /tmp/ama-cryptography)
 set -euo pipefail
 
-AMA_REF="${AMA_REF:-v4.0.0}"
+# Preflight: name every missing prerequisite at once instead of failing midway
+# with cmake's or git's own error. cmake itself is pip-installed below.
+missing=""
+command -v git >/dev/null 2>&1 || missing="${missing} git"
+command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 \
+  || command -v clang >/dev/null 2>&1 || missing="${missing} a-C-compiler(gcc/clang)"
+command -v python >/dev/null 2>&1 || missing="${missing} python"
+if [ -n "${missing}" ]; then
+  echo "ERROR: cannot build the AMA native PQC backend; install:${missing}" >&2
+  echo "  Debian/Ubuntu: apt-get install git build-essential" >&2
+  echo "  RHEL/Fedora:   dnf install git gcc gcc-c++ make" >&2
+  echo "  macOS:         xcode-select --install" >&2
+  exit 1
+fi
+
+# Core count without Linux-only nproc (macOS has sysctl; POSIX has getconf).
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+
+AMA_REF="${AMA_REF:-v5.0.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
 
 echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 
 # PEP 517 build-system floors AMA's setup.py enforces when installing with
-# --no-build-isolation: setuptools>=83.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
-# raised from 78.1.1 by AMA v4.0.0 — anything older fails its preflight with
-# ``AttributeError(install_layout) on bdist_wheel``), wheel>=0.47.0
-# (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.4.0 shim whose __version__ AMA's
+# --no-build-isolation: setuptools>=84.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
+# raised to 84.0.0 by AMA v5.0.0 — anything older fails its preflight with
+# ``AttributeError(install_layout) on bdist_wheel``), wheel>=0.48.0
+# (GHSA-8rrh-rw8j-w5fx), and the PyPI cmake>=4.4.4 shim whose __version__ AMA's
 # _check_cmake_version reads. AMA_NO_CYTHON short-circuits the Cython/numpy
 # floor, so those are intentionally absent.
 #
@@ -48,7 +69,7 @@ echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 # what CI builds with, this script is what the Dockerfile and the session setup
 # build with, and a floor raised in only one of them yields an image that fails
 # AMA's preflight on exactly the lanes CI does not cover.
-python -m pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
+python -m pip install --upgrade "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
 
 rm -rf "${AMA_BUILD_DIR}"
 git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"
@@ -60,7 +81,7 @@ cmake -S "${AMA_BUILD_DIR}" -B "${AMA_BUILD_DIR}/build" \
   -DAMA_BUILD_STATIC=OFF \
   -DAMA_BUILD_TESTS=OFF \
   -DAMA_BUILD_EXAMPLES=OFF
-cmake --build "${AMA_BUILD_DIR}/build" -j "$(nproc)"
+cmake --build "${AMA_BUILD_DIR}/build" -j "${JOBS}"
 
 # --no-build-isolation links the wheel against the .so just produced rather than
 # re-running cmake into a transient build env. AMA_NO_CYTHON skips the optional
@@ -77,15 +98,18 @@ cmake --build "${AMA_BUILD_DIR}/build" -j "$(nproc)"
 # without LD_LIBRARY_PATH (survives `COPY --from=builder /opt/venv` into the
 # runtime image, and read-only-rootfs containers).
 AMA_PKG_DIR="$(python -c 'import ama_cryptography, os; print(os.path.dirname(ama_cryptography.__file__))')"
-mapfile -t SO_FILES < <(find "${AMA_BUILD_DIR}/build" -name 'libama_cryptography.so*' -print)
-if [ "${#SO_FILES[@]}" -eq 0 ]; then
-  echo "ERROR: AMA build produced no libama_cryptography.so* under ${AMA_BUILD_DIR}/build" >&2
+# .so on Linux, .dylib on macOS; plain loop instead of mapfile so the script
+# also runs under macOS's stock bash 3.2.
+found=0
+for so in $(find "${AMA_BUILD_DIR}/build" \( -name 'libama_cryptography.so*' -o -name 'libama_cryptography*.dylib' \) -print); do
+  cp -P -p "${so}" "${AMA_PKG_DIR}/"
+  echo "    co-located $(basename "${so}") -> ${AMA_PKG_DIR}/"
+  found=1
+done
+if [ "${found}" -eq 0 ]; then
+  echo "ERROR: AMA build produced no libama_cryptography shared library under ${AMA_BUILD_DIR}/build" >&2
   exit 1
 fi
-for so in "${SO_FILES[@]}"; do
-  cp -a "${so}" "${AMA_PKG_DIR}/"
-  echo "    co-located $(basename "${so}") -> ${AMA_PKG_DIR}/"
-done
 
 # Fail loud unless all three mandatory PQC algorithms load via the native backend
 # (matches the engine's import-time gate and the build-ama-cryptography action).

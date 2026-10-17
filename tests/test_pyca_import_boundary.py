@@ -3,18 +3,23 @@
 """Guardrail: the pyca ``cryptography`` library stays inside its boundary.
 
 Dependency sovereignty for the crypto layer. AMA Cryptography owns the
-post-quantum path (ML-DSA-65 / Kyber-1024 / SPHINCS+). The third-party
-``cryptography`` (pyca) package is *intentional but bounded*: it supplies the
-classical Ed25519 half of the hybrid signature, AEAD/KDF primitives, and the
-Known-Answer-Test (KAT) validation harnesses. That split is correct — but only
-as long as pyca cannot quietly leak into modules it has no business in, which is
-exactly how a PQC path silently degrades to classical-only crypto.
+production path end to end: the post-quantum algorithms (ML-DSA-65 /
+Kyber-1024 / SPHINCS+ / SLH-DSA), the JOSE HMAC routing, and — since the AMA
+v5.0.0 pin — the classical Ed25519 half as well (``security/pqc_backends``
+wraps AMA's native RFC 8032 backend; signing, σ_Immutable corpus
+verification, tool certificates and the KAT harness all route through it).
+The third-party ``cryptography`` (pyca) package now has **no production
+role at all**: the crypto/ layer's emergency fallback is Mercury's own
+stdlib-only sovereign tier (``crypto/sovereign.py``), so pyca is a test
+oracle and benchmark baseline only. That boundary is correct — but only as
+long as pyca cannot quietly leak back in, which is exactly how an AMA-owned
+path silently degrades to third-party crypto.
 
 This guard fails loudly if any ``src/omni_mercury_engine`` module imports
-``cryptography`` from **outside** the allowlisted crypto/security/tools surface.
-It is the crypto-layer sibling of ``tests/test_no_sklearn_in_src.py``: lock the
-verified boundary so a future change cannot move pyca onto an AMA-owned path
-without this test going red.
+``cryptography`` anywhere.
+It is the crypto-layer sibling of ``tests/test_no_sklearn_in_src.py``: lock
+the verified boundary so a future change cannot move pyca onto an AMA-owned
+path without this test going red.
 """
 
 from __future__ import annotations
@@ -26,12 +31,14 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _REPO / "src" / "omni_mercury_engine"
 
-# Package-relative prefixes permitted to import pyca ``cryptography``. These are
-# the modules that legitimately own classical-hybrid crypto + KAT validation:
-#   crypto/    -- classical Ed25519 hybrid half, AEAD/KDF primitives
-#   security/  -- crypto_api surface that composes AMA + classical
-#   tools/     -- standalone KAT runners / PQC capability probes
-_ALLOWED_PREFIXES: tuple[str, ...] = ("crypto/", "security/", "tools/")
+# Package-relative prefixes permitted to import pyca ``cryptography``.
+# Tightened in two steps as AMA absorbed each surface: first from
+# ("crypto/", "security/", "tools/") to ("crypto/",) when the AMA v5.0.0 pin
+# moved Ed25519 onto AMA's native backend, then to EMPTY when the sovereign
+# emergency tier (crypto/sovereign.py) replaced the crypto/ layer's pyca
+# AEAD/KDF fallback. pyca cryptography now has no production role anywhere
+# in the engine: it is a test oracle and benchmark baseline only.
+_ALLOWED_PREFIXES: tuple[str, ...] = ()
 
 
 def _src_python_files() -> list[Path]:
@@ -69,14 +76,15 @@ def _is_allowed(path: Path) -> bool:
     return _rel(path).startswith(_ALLOWED_PREFIXES)
 
 
-def test_pyca_cryptography_confined_to_crypto_security_tools() -> None:
-    """No engine module outside crypto/security/tools may import pyca cryptography."""
+def test_pyca_cryptography_fully_outside_the_engine() -> None:
+    """No engine module may import pyca cryptography at all."""
     offenders = sorted(
         _rel(p) for p in _src_python_files() if _imports_pyca_cryptography(p) and not _is_allowed(p)
     )
     assert not offenders, (
-        "pyca `cryptography` must stay inside the crypto/security/tools boundary "
-        "(AMA owns the PQC path). Move the primitive behind the AMA/crypto API, or "
+        "pyca `cryptography` has no production role in the engine "
+        "(AMA owns the crypto path; crypto/sovereign.py is the emergency tier). "
+        "Move the primitive behind the AMA API or the sovereign tier, or "
         "justify and extend _ALLOWED_PREFIXES. Offending modules:\n  " + "\n  ".join(offenders)
     )
 
