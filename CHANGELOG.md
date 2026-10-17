@@ -111,8 +111,6 @@ reference sorted once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
 - `mercury-agent detect -i data.csv` crashed with `could not convert string to
   float: 'a'` on any CSV with a header row; the data, label and hazard loaders
   now skip a header (a numeric first row is never dropped).
-- `/health` declared `uptime_seconds` but never set it; it now reports the
-  service uptime.
 - `scripts/mercury_session_setup.sh` installed `setuptools>=83 / wheel>=0.47 /
   cmake>=4.4.0`, below the floors AMA v5.0.0's setup rejects (84 / 0.48 /
   4.4.4), so a fresh container failed at its first AMA build. A test now keeps
@@ -135,16 +133,32 @@ configures, not read.
 - `.safety-policy.yml` carried eight bookworm-era CVE acceptances whose review
   had lapsed on 2026-08-02, none in `.trivyignore` and none read by any gate;
   removed rather than re-dated.
+- `/health` stays minimal (`status`, `version`). An earlier commit in this
+  round filled its never-populated `uptime_seconds`, but uptime on an
+  unauthenticated endpoint tells any caller when the service last restarted and
+  is already exported as `omni_mercury_uptime_seconds` on `/metrics`, so that
+  change is reverted. The platform's Caddyfile now answers 404 for `/metrics`
+  instead of proxying it: Prometheus scrapes the API over the compose network,
+  and its security model says `/metrics` must not face the internet (checked
+  with Caddy 2.11.7: `/metrics`, `/metrics/` and `/metrics/x` return 404;
+  `/health` and `/metricsx` proxy).
 - Compose: every published port is bound to `127.0.0.1` (the platform overlay
   had published the API, an unauthenticated Prometheus and a Grafana on
   admin/admin on all interfaces, around the TLS edge and the trusted
   `X-Forwarded-For` hop), the overlay requires `GRAFANA_ADMIN_PASSWORD`, and the
-  stale pins moved: Caddy 2.8.4 to 2.11.7, Prometheus 2.51.2 to 3.15.0, Grafana
-  10.4.2 to 13.2.4. Each was run against the repo's own config (Caddyfile
-  validates; 33 rules load and reload; the provisioned datasource and all 16
-  dashboard panels load; Prometheus 3 scrapes the live API's `/metrics`).
-  Dependabot gains a `docker-compose` ecosystem, since its `docker` entry reads
-  only the Dockerfile.
+  stale pins moved: Caddy 2.8.4 to 2.11.7, Prometheus 2.51.2 to 3.13.4 (the LTS
+  line, supported to 2027-07-31; 3.15 is a regular minor whose fixes stop about
+  six weeks after release), Grafana 10.4.2 to 13.2.4 (a supported minor). Each
+  was run against the repo's own config (Caddyfile validates; 33 rules load and
+  reload; the provisioned datasource and all 16 dashboard panels load; Prometheus
+  3 scrapes the live API's `/metrics`). Prometheus 3 can only be downgraded to
+  2.55 and Grafana migrates its database forward-only, so the data volumes are
+  now named for the image's major version (`prometheus-data-v3`,
+  `grafana-data-v13`): a major bump starts on a new volume and the old one stays
+  intact. Tests fail when a volume name stops matching its image's major or
+  Prometheus leaves 3.13, and Dependabot (which gains a `docker-compose`
+  ecosystem, since its `docker` entry reads only the Dockerfile) takes
+  Prometheus patches and Grafana minors but not majors.
 - `.dockerignore` re-includes the two benchmark artefacts `self_model.py` reads;
   without them the in-image self-description reported no measured limitations.
 - `.coveragerc` and `pyproject.toml` comments claimed `fail_under = 85` and an

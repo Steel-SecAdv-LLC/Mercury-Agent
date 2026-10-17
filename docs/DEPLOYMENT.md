@@ -65,6 +65,36 @@ only; use an SSH tunnel or a reverse proxy to reach one from another machine):
 | `prometheus` | 9090 | Metrics scrape |
 | `grafana` | 3000 | Dashboards (admin/admin; set `GRAFANA_ADMIN_PASSWORD`) |
 
+### Upgrading the monitoring stack
+
+Prometheus is pinned to its LTS line (3.13, supported until 2027-07-31); the
+other Prometheus minors stop receiving fixes about six weeks after release.
+Grafana is pinned to a supported minor (each is supported for nine months).
+Dependabot proposes Prometheus patches and Grafana minors; majors are
+deliberate.
+
+The data volumes carry the image's major version: `prometheus-data-v3` and
+`grafana-data-v13`. Prometheus 3 can only be downgraded to 2.55 without losing
+its TSDB, and Grafana migrates its database forward-only, so a major upgrade
+on the old volume could not be rolled back. A new major therefore starts on a
+new volume and the previous one is left untouched; a test fails when a volume
+name stops matching its image's major version.
+
+- **Moving to a new major.** Change the image and rename the volume in
+  `docker-compose.yml` together. Prometheus history restarts (retention is 7
+  days). Grafana's provisioned datasource and dashboards come from
+  `monitoring/grafana`, so only state created in the UI (extra users, stars,
+  preferences) stays on the old volume.
+- **Carrying Grafana state forward.** Stop Grafana, back up the old volume, then
+  copy it into the new one; the first start of the new version migrates the
+  copy, never the original:
+  ```bash
+  docker run --rm -v grafana-data:/from -v "$PWD":/backup busybox tar czf /backup/grafana-backup.tgz -C /from .
+  docker run --rm -v grafana-data:/from -v grafana-data-v13:/to busybox cp -a /from/. /to/
+  ```
+- **Rolling back.** Restore the previous image and volume name; the old volume
+  still holds its data. Remove one you no longer need with `docker volume rm`.
+
 ---
 
 ## Production Docker
@@ -379,11 +409,10 @@ GET /health
 
 Returns `200 OK` when the service is ready to handle requests. Used by
 Kubernetes readiness and liveness probes. The body is
-`{"status": "healthy", "version": "...", "uptime_seconds": 3600.5}`;
-`uptime_seconds` is the age of the API process, so a value that keeps
-resetting is a crash loop that the `200` alone would not show. The endpoint is
-unauthenticated and exempt from rate limiting (see
-[SECURITY.md](../SECURITY.md#api-security)).
+`{"status": "healthy", "version": "..."}` and nothing else: the endpoint is
+unauthenticated and exempt from rate limiting, so it reports only what a probe
+needs (see [SECURITY.md](../SECURITY.md#api-security)). Process uptime, which
+shows crash loops, is the `omni_mercury_uptime_seconds` metric on `/metrics`.
 
 ### Docker HEALTHCHECK
 
@@ -410,7 +439,11 @@ gate, so it does not prove the install is usable; the gate does.
 
 ## Monitoring
 
-Prometheus metrics are served on the API port at `/metrics` (the engine /
+Prometheus metrics are served on the API port at `/metrics`. Prometheus scrapes
+it over the compose/cluster network; the platform's Caddy edge answers 404 for
+`/metrics` rather than proxying it, because Prometheus' security model says
+instrumented `/metrics` endpoints must not face the internet. If you expose the
+API some other way, restrict `/metrics` the same way. (The engine /
 streaming-worker tier serves its own metrics on `:9090`, see the streaming
 section above). The `/metrics` endpoint merges the health gauges
 (`omni_mercury_up`, component status/latency) with the `prometheus_client`
