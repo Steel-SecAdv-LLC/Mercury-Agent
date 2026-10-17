@@ -21,23 +21,34 @@ except ImportError:
 
 from omni_mercury_engine._compat import preload_triton_before_tensorflow
 
-# deepface pulls TensorFlow into the process; triton (torch's compiler
-# backend) segfaults if it loads after TensorFlow's LLVM, so bind it first.
-preload_triton_before_tensorflow()
+# deepface pulls TensorFlow into the process (1.8 s of the 2.0 s it took to
+# construct an engine, plus a stream of CUDA probe messages), and only image
+# inputs use it. ``DeepFace`` therefore stays a module-level name, patchable
+# like any other, that starts out unresolved and is filled by ``_deepface()``
+# the first time an image needs it.
+_UNRESOLVED: Any = object()
+DeepFace: Any = _UNRESOLVED
 
-try:
-    from deepface import DeepFace
 
-    DEEPFACE_AVAILABLE = True
-except Exception:
-    # ``except Exception`` (not just ``(ImportError, ValueError)``)
-    # because the deepface -> retinaface -> tensorflow import chain
-    # can raise ``OSError`` (missing CUDA runtime), ``RuntimeError``
-    # (tf version mismatch), or ``AttributeError`` (stale transitive
-    # deps) in addition to the known ``ValueError`` from the
-    # tf-keras check.  ``BaseException`` is deliberately not caught.
-    DeepFace = None
-    DEEPFACE_AVAILABLE = False
+def _deepface() -> Any:
+    """Return the ``DeepFace`` class, importing it on first use (``None`` if unusable)."""
+    global DeepFace
+    if DeepFace is _UNRESOLVED:
+        # triton (torch's compiler backend) segfaults if it loads after
+        # TensorFlow's LLVM, so bind it first.
+        preload_triton_before_tensorflow()
+        try:
+            from deepface import DeepFace as loaded
+        except Exception:
+            # ``except Exception`` (not just ``(ImportError, ValueError)``)
+            # because the deepface -> retinaface -> tensorflow import chain
+            # can raise ``OSError`` (missing CUDA runtime), ``RuntimeError``
+            # (tf version mismatch), or ``AttributeError`` (stale transitive
+            # deps) in addition to the known ``ValueError`` from the
+            # tf-keras check.  ``BaseException`` is deliberately not caught.
+            loaded = None
+        DeepFace = loaded
+    return DeepFace
 
 
 # Flipped once, on the first feature-extraction call that has to fall back to
@@ -280,51 +291,31 @@ class BiometricAnomalyModel:
         power_spectrum = fourier_result["power_spectrum"]
         phase = fourier_result["phase"]
 
-        features_per_sample = []
-        for i in range(batch_size):
-            harmonic_feats = (
-                harmonic[i, :32]
-                if harmonic.shape[1] >= 32
-                else np.pad(harmonic[i], (0, 32 - harmonic.shape[1]))
-            )
-            power_feats = (
-                power_spectrum[i, :32]
-                if power_spectrum.shape[1] >= 32
-                else np.pad(power_spectrum[i], (0, 32 - power_spectrum.shape[1]))
-            )
-            phase_feats = (
-                phase[i, :32]
-                if phase.shape[1] >= 32
-                else np.pad(phase[i], (0, 32 - phase.shape[1]))
+        def leading(block: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            """First 32 columns of ``block``, zero-padded when narrower."""
+            if block.shape[1] >= 32:
+                return block[:, :32]
+            return np.pad(block, ((0, 0), (0, 32 - block.shape[1])))
+
+        def summary(block: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            """Mean, standard deviation, maximum and minimum of every row."""
+            return np.stack(
+                [block.mean(axis=1), block.std(axis=1), block.max(axis=1), block.min(axis=1)],
+                axis=1,
             )
 
-            sample_features = np.concatenate(
-                [
-                    harmonic_feats[:32],
-                    power_feats[:32],
-                    phase_feats[:32],
-                    np.array(
-                        [
-                            np.mean(harmonic[i]),
-                            np.std(harmonic[i]),
-                            np.max(harmonic[i]),
-                            np.min(harmonic[i]),
-                        ]
-                    ),
-                    np.array(
-                        [
-                            np.mean(power_spectrum[i]),
-                            np.std(power_spectrum[i]),
-                            np.max(power_spectrum[i]),
-                            np.min(power_spectrum[i]),
-                        ]
-                    ),
-                    np.zeros(24),
-                ]
-            )
-            features_per_sample.append(sample_features[: self.target_embedding_size])
-
-        return np.array(features_per_sample, dtype=np.float32)
+        features = np.concatenate(
+            [
+                leading(harmonic),
+                leading(power_spectrum),
+                leading(phase),
+                summary(harmonic),
+                summary(power_spectrum),
+                np.zeros((batch_size, 24)),
+            ],
+            axis=1,
+        )
+        return features[:, : self.target_embedding_size].astype(np.float32)
 
     def _normalize_embedding_size(
         self, embedding: np.ndarray[Any, Any] | torch.Tensor
@@ -373,9 +364,10 @@ class BiometricAnomalyModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        if DeepFace is not None and image_input:
+        deepface = _deepface() if image_input else None
+        if deepface is not None:
             try:
-                result = DeepFace.represent(
+                result = deepface.represent(
                     data, model_name=self.model_name, enforce_detection=False
                 )
                 if isinstance(result, list) and len(result) > 0:
@@ -387,7 +379,7 @@ class BiometricAnomalyModel:
                 logger.debug("DeepFace feature extraction failed, using harmonic fallback: %s", e)
                 features = self._extract_harmonic_features(data)
         else:
-            if DeepFace is None and image_input:
+            if image_input:
                 _warn_simulated_biometric_fallback()
             features = self._extract_harmonic_features(data)
 
@@ -419,18 +411,20 @@ class BiometricAnomalyModel:
 
         features: np.ndarray[Any, Any] | None = None
         backend = "harmonic_fallback"
-        if DeepFace is not None and self._is_image_input(image):
-            try:
-                represented = DeepFace.represent(
-                    image, model_name=self.model_name, enforce_detection=False
-                )
-                if isinstance(represented, list) and represented:
-                    features = np.array([r["embedding"] for r in represented], dtype=np.float32)
-                    backend = "deepface"
-            except Exception as exc:
-                logger.debug("DeepFace representation failed, using harmonic fallback: %s", exc)
-        elif DeepFace is None and self._is_image_input(image):
-            _warn_simulated_biometric_fallback()
+        if self._is_image_input(image):
+            deepface = _deepface()
+            if deepface is None:
+                _warn_simulated_biometric_fallback()
+            else:
+                try:
+                    represented = deepface.represent(
+                        image, model_name=self.model_name, enforce_detection=False
+                    )
+                    if isinstance(represented, list) and represented:
+                        features = np.array([r["embedding"] for r in represented], dtype=np.float32)
+                        backend = "deepface"
+                except Exception as exc:
+                    logger.debug("DeepFace representation failed, using harmonic fallback: %s", exc)
 
         if features is None:
             try:
@@ -627,9 +621,10 @@ class BiometricAnomalyModel:
             result: dict[str, Any] = {"model_type": "biometric"}
             result.update(self._visual_assessment(data))
             result["attributes_measured"] = False
-            if DeepFace is not None:
+            deepface = _deepface()
+            if deepface is not None:
                 try:
-                    analysis = DeepFace.analyze(
+                    analysis = deepface.analyze(
                         data, actions=["age", "gender", "emotion"], enforce_detection=False
                     )
                     if isinstance(analysis, list) and len(analysis) > 0:

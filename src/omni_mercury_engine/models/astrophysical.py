@@ -28,25 +28,25 @@ class AstrophysicalAnomalyModel:
             2 * self.gravitational_constant * self.mass_equivalent / (self.speed_of_light**2)
         )
 
-    def _compute_gravitational_field(self, distance: float) -> float:
-        """Compute gravitational field strength."""
-        if distance < 1e-6:
-            return 1e6
-        return float(self.gravitational_constant * self.mass_equivalent / (distance**2))
+    def _compute_gravitational_field(self, distance: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Compute gravitational field strength at each distance."""
+        with np.errstate(divide="ignore"):
+            field = self.gravitational_constant * self.mass_equivalent / (distance**2)
+        return np.where(distance < 1e-6, 1e6, field)
 
-    def _compute_time_dilation(self, distance: float) -> float:
-        """Compute gravitational time dilation factor."""
-        if distance <= self.schwarzschild_radius:
-            return 0.0
-        return float(np.sqrt(1 - self.schwarzschild_radius / distance))
+    def _compute_time_dilation(self, distance: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Compute gravitational time dilation factor at each distance."""
+        with np.errstate(divide="ignore", invalid="ignore"):
+            factor = np.sqrt(1 - self.schwarzschild_radius / distance)
+        return np.where(distance <= self.schwarzschild_radius, 0.0, factor)
 
     def _compute_hawking_temperature(self) -> float:
         """Compute Hawking temperature."""
         return float(1.0 / (8 * np.pi * self.mass_equivalent))
 
-    def _compute_event_horizon_distance(self, data_point: np.ndarray[Any, Any]) -> float:
-        """Compute distance from event horizon (singularity)."""
-        return float(np.linalg.norm(data_point))
+    def _compute_event_horizon_distance(self, points: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Compute each row's distance from the event horizon (singularity)."""
+        return np.linalg.norm(points, axis=1).astype(np.float64)
 
     def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract astrophysical features from data."""
@@ -58,47 +58,26 @@ class AstrophysicalAnomalyModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        features = []
+        distance = self._compute_event_horizon_distance(data)
+        radius = self.schwarzschild_radius
+        horizon_state = np.select(
+            [distance > 10 * radius, distance > 2 * radius, distance > radius],
+            [0.0, 0.33, 0.66],
+            default=1.0,
+        )
+        info_density = np.std(data, axis=1) / (np.mean(np.abs(data), axis=1) + 1e-8)
+        accretion = np.sum(np.abs(data), axis=1) / data.shape[1]
 
-        for i in range(data.shape[0]):
-            point = data[i]
-
-            distance = self._compute_event_horizon_distance(point)
-            grav_field = self._compute_gravitational_field(distance)
-            time_dilation = self._compute_time_dilation(distance)
-
-            if distance > 10 * self.schwarzschild_radius:
-                horizon_state = 0.0
-            elif distance > 2 * self.schwarzschild_radius:
-                horizon_state = 0.33
-            elif distance > self.schwarzschild_radius:
-                horizon_state = 0.66
-            else:
-                horizon_state = 1.0
-
-            hawking_temp = self._compute_hawking_temperature()
-            info_density = np.std(point) / (np.mean(np.abs(point)) + 1e-8)
-            accretion = np.sum(np.abs(point)) / len(point)
-
-            point_features = np.array(
-                [
-                    distance,
-                    grav_field,
-                    time_dilation,
-                    horizon_state,
-                    hawking_temp,
-                    info_density,
-                    accretion,
-                    self.schwarzschild_radius,
-                ]
-            )
-
-            padding = np.zeros(16)
-            point_features = np.concatenate([point_features, padding])
-
-            features.append(point_features)
-
-        return np.array(features).astype(np.float32)
+        features = np.zeros((data.shape[0], 24))
+        features[:, 0] = distance
+        features[:, 1] = self._compute_gravitational_field(distance)
+        features[:, 2] = self._compute_time_dilation(distance)
+        features[:, 3] = horizon_state
+        features[:, 4] = self._compute_hawking_temperature()
+        features[:, 5] = info_density
+        features[:, 6] = accretion
+        features[:, 7] = radius
+        return features.astype(np.float32)
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict anomalies using astrophysical models."""

@@ -8,6 +8,9 @@ from typing import Any
 
 import numpy as np
 
+#: Rows whose 16 x 16 state matrices are decomposed in one stacked call.
+_ENTANGLEMENT_BLOCK_ROWS = 16384
+
 
 class ConsciousnessPreservationModel:
     """Model for consciousness state preservation and anomaly detection."""
@@ -22,16 +25,14 @@ class ConsciousnessPreservationModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        batch_size, _dim = data.shape
+        batch_size = data.shape[0]
         pattern_states = np.zeros((batch_size, 16), dtype=np.complex64)
 
-        for i in range(batch_size):
-            pattern = data[i]
-            norm = np.linalg.norm(pattern)
-            normalized = pattern / norm if norm > 0 else pattern
-
-            fft_result = np.fft.fft(normalized)
-            pattern_states[i, : min(16, len(fft_result))] = fft_result[: min(16, len(fft_result))]
+        norm = np.linalg.norm(data, axis=1)
+        normalized = np.where(norm[:, None] > 0, data / np.where(norm > 0, norm, 1)[:, None], data)
+        fft_result = np.fft.fft(normalized, axis=1)
+        kept = min(16, fft_result.shape[1])
+        pattern_states[:, :kept] = fft_result[:, :kept]
 
         return pattern_states
 
@@ -39,38 +40,28 @@ class ConsciousnessPreservationModel:
         self, pattern_states: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
         """Measure coherence of pattern states using quantum coherence metrics."""
-        batch_size = pattern_states.shape[0]
-        coherence = np.zeros(batch_size, dtype=np.float32)
+        amplitudes = np.abs(pattern_states)
+        total_amplitude = np.sum(amplitudes, axis=1)
 
-        for i in range(batch_size):
-            state = pattern_states[i]
-            amplitudes = np.abs(state)
-            total_amplitude = np.sum(amplitudes)
+        has_amplitude = total_amplitude > 0
+        probabilities = amplitudes / np.where(has_amplitude, total_amplitude, 1)[:, None]
+        coherence = np.where(has_amplitude, 1.0 - np.sum(probabilities**2, axis=1), 0.0)
 
-            if total_amplitude > 0:
-                probabilities = amplitudes / total_amplitude
-                coherence[i] = 1.0 - np.sum(probabilities**2)
-            else:
-                coherence[i] = 0.0
-
-        return coherence
+        return coherence.astype(np.float32)
 
     def _compute_entanglement(self, pattern_states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute entanglement measure between pattern state components."""
-        batch_size = pattern_states.shape[0]
-        entanglement = np.zeros(batch_size, dtype=np.float32)
-
-        for i in range(batch_size):
-            state = pattern_states[i]
-            state_matrix = np.outer(state, np.conj(state))
+        entanglement = np.zeros(len(pattern_states), dtype=np.float32)
+        for start in range(0, len(pattern_states), _ENTANGLEMENT_BLOCK_ROWS):
+            states = pattern_states[start : start + _ENTANGLEMENT_BLOCK_ROWS]
+            state_matrix = states[:, :, None] * np.conj(states)[:, None, :]
             eigenvalues = np.linalg.eigvalsh(state_matrix.real)
-            eigenvalues = eigenvalues[eigenvalues > 1e-10]
+            positive = np.where(eigenvalues > 1e-10, eigenvalues, 0.0)
 
-            if len(eigenvalues) > 0:
-                probabilities = eigenvalues / np.sum(eigenvalues)
-                entanglement[i] = -np.sum(probabilities * np.log2(probabilities + 1e-10))
-            else:
-                entanglement[i] = 0.0
+            total = np.sum(positive, axis=1)
+            probabilities = positive / np.where(total > 0, total, 1)[:, None]
+            terms = np.where(positive > 0, probabilities * np.log2(probabilities + 1e-10), 0.0)
+            entanglement[start : start + _ENTANGLEMENT_BLOCK_ROWS] = -np.sum(terms, axis=1)
 
         return entanglement
 

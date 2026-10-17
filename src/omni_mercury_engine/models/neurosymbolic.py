@@ -60,11 +60,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_mercury_engine.utils.constants import OmniCodes
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # Omni-Code: Omni-Benevolent Stone (ethical foundation and humanitarian alignment)
 _FOUNDATION_HASH = OmniCodes.OMNI_BENEVOLENT.code
@@ -263,6 +266,26 @@ class SymbolicReasoningLayer:
         Returns:
             ReasoningResult with explanation
         """
+        return self.reason_many([neural_score], context)[0]
+
+    def reason_many(
+        self,
+        neural_scores: Sequence[float],
+        context: dict[str, Any],
+    ) -> list[ReasoningResult]:
+        """Reason over several neural scores against one context.
+
+        The rules see only ``context``, so they are evaluated once and every
+        score is blended with the same symbolic outcome. Each result gets its
+        own ``rules_fired`` list.
+
+        Args:
+            neural_scores: Outputs from the neural detector (0.0 to 1.0).
+            context: Context dict with code metrics and features
+
+        Returns:
+            One ReasoningResult per neural score, in order.
+        """
         rules_fired: list[str] = []
         explanations: list[str] = []
 
@@ -274,6 +297,9 @@ class SymbolicReasoningLayer:
 
         symbolic_score = len(rules_fired) / len(self.rules) if self.rules else 0.0
         symbolic_confidence = symbolic_score if rules_fired else 0.0
+        explanation = (
+            "; ".join(explanations) if explanations else "Based on neural network analysis only."
+        )
 
         # Adaptive neuro-symbolic blend (single canonical implementation),
         # replacing the former hardcoded 0.6/0.4 static mix. Weighting adapts
@@ -283,27 +309,25 @@ class SymbolicReasoningLayer:
             adaptive_neurosymbolic_fuse,
         )
 
-        combined_confidence, _ = adaptive_neurosymbolic_fuse(
-            neural_score,
-            symbolic_score,
-            symbolic_confidence=symbolic_confidence,
-        )
-
-        is_anomaly = combined_confidence > 0.5
-
-        explanation = (
-            "; ".join(explanations) if explanations else "Based on neural network analysis only."
-        )
-
-        return ReasoningResult(
-            result=is_anomaly,
-            confidence=combined_confidence,
-            explanation=explanation,
-            method="hybrid",
-            rules_fired=rules_fired,
-            neural_contribution=neural_score,
-            symbolic_contribution=symbolic_score,
-        )
+        results = []
+        for neural_score in neural_scores:
+            combined_confidence, _ = adaptive_neurosymbolic_fuse(
+                neural_score,
+                symbolic_score,
+                symbolic_confidence=symbolic_confidence,
+            )
+            results.append(
+                ReasoningResult(
+                    result=combined_confidence > 0.5,
+                    confidence=combined_confidence,
+                    explanation=explanation,
+                    method="hybrid",
+                    rules_fired=list(rules_fired),
+                    neural_contribution=neural_score,
+                    symbolic_contribution=symbolic_score,
+                )
+            )
+        return results
 
     def _evaluate_rule(self, rule: SymbolicRule, context: dict[str, Any]) -> bool:
         """Evaluate if a rule's premise is satisfied by context."""
@@ -506,18 +530,30 @@ class NeurosymbolicEngine:
         Returns:
             Confidence score in ``[0.0, 1.0]`` (deterministic for a given input).
         """
-        arr = np.asarray(features, dtype=np.float64).reshape(-1)
-        if arr.size == 0 or not np.all(np.isfinite(arr)):
-            return 0.5
+        arr = np.asarray(features, dtype=np.float64).reshape(1, -1)
+        return float(self._dispersion_confidence(arr)[0])
+
+    @staticmethod
+    def _dispersion_confidence(rows: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Anomaly confidence of every row of a float64 matrix (see ``neural_inference``).
+
+        A row that is empty or holds a non-finite value scores 0.5.
+        """
+        confidence = np.full(rows.shape[0], 0.5)
+        usable = np.isfinite(rows).all(axis=1) if rows.shape[1] else np.zeros(len(rows), bool)
+        if not usable.any():
+            return confidence
+        arr = rows[usable]
 
         # Robust dispersion: mean absolute deviation normalised by a robust
         # scale (MAD, falling back to std).  Higher relative spread ⇒ higher
         # anomaly confidence.  Deterministic and bounded via a logistic.
-        centre = float(np.median(arr))
-        mad = float(np.median(np.abs(arr - centre)))
-        scale = mad if mad > 1e-9 else float(np.std(arr) + 1e-9)
-        dispersion = float(np.mean(np.abs(arr - float(np.mean(arr)))) / scale)
-        return float(1.0 / (1.0 + np.exp(-(dispersion - 1.0))))
+        centre = np.median(arr, axis=1)
+        mad = np.median(np.abs(arr - centre[:, None]), axis=1)
+        scale = np.where(mad > 1e-9, mad, np.std(arr, axis=1) + 1e-9)
+        dispersion = np.mean(np.abs(arr - arr.mean(axis=1, keepdims=True)), axis=1) / scale
+        confidence[usable] = 1.0 / (1.0 + np.exp(-(dispersion - 1.0)))
+        return confidence
 
     def symbolic_inference(self, query: str) -> dict[str, Any]:
         """Perform symbolic inference using knowledge base.
@@ -603,26 +639,13 @@ class NeurosymbolicEngine:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        batch_size = data.shape[0]
-        features = []
-
-        for i in range(batch_size):
-            neural_conf = self.neural_inference(data[i])
-
-            feature_vec = np.concatenate(
-                [
-                    (
-                        data[i][:10]
-                        if data.shape[1] >= 10
-                        else np.pad(data[i], (0, 10 - data.shape[1]))
-                    ),
-                    [neural_conf],
-                    [self.omni_scalars["omni_logic"]],
-                ]
-            )
-            features.append(feature_vec)
-
-        return np.array(features).astype(np.float32)
+        batch_size, width = data.shape
+        features = np.zeros((batch_size, 12), dtype=np.float32)
+        head = min(width, 10)
+        features[:, :head] = data[:, :head]
+        features[:, 10] = self._dispersion_confidence(data.astype(np.float64))
+        features[:, 11] = self.omni_scalars["omni_logic"]
+        return features
 
     def predict(
         self,
@@ -657,10 +680,7 @@ class NeurosymbolicEngine:
 
         elif reasoning_mode == ReasoningMode.SYMBOLIC_ONLY:
             # Pure symbolic reasoning
-            symbolic_results = []
-            for _ in range(len(neural_scores)):
-                result = self.symbolic_layer.reason(0.5, context)
-                symbolic_results.append(result)
+            symbolic_results = self.symbolic_layer.reason_many([0.5] * len(neural_scores), context)
 
             anomaly_scores = np.array([1.0 if r.result else 0.0 for r in symbolic_results]).astype(
                 np.float32
@@ -678,11 +698,9 @@ class NeurosymbolicEngine:
 
         else:  # HYBRID or NEURO_SYMBOLIC_ATTENTION
             # Hybrid neuro-symbolic reasoning
-            hybrid_results = []
-            for i in range(len(neural_scores)):
-                neural_score = float(neural_scores[i])
-                result = self.symbolic_layer.reason(neural_score, context)
-                hybrid_results.append(result)
+            hybrid_results = self.symbolic_layer.reason_many(
+                [float(score) for score in neural_scores], context
+            )
 
             anomaly_scores = np.array([r.confidence for r in hybrid_results]).astype(np.float32)
 
