@@ -984,12 +984,15 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
-# The ENFORCED floor, matching ``COVERAGE_THRESHOLD_CORE`` in
-# .github/workflows/ci.yml. It was 85 for a long time and nothing ever ran at
-# 85: CI passes ``--cov-fail-under=${COVERAGE_THRESHOLD_CORE/FULL}`` on the
-# command line, which overrides this key, so the 85 declared a bar the project
-# did not hold itself to. A number in a config file that no lane enforces reads
-# as a guarantee and is not one.
+# Mirrors ``COVERAGE_THRESHOLD_CORE`` in .github/workflows/ci.yml. It was 85
+# for a long time and nothing ever ran at 85: CI passes
+# ``--cov-fail-under=${COVERAGE_THRESHOLD_CORE/FULL}`` on the command line,
+# which is what enforces a floor, so the 85 declared a bar the project did not
+# hold itself to. A number in a config file that no lane enforces reads as a
+# guarantee and is not one. Note that coverage.py reads ``.coveragerc`` in
+# preference to this table while that file exists, and that file deliberately
+# sets no ``fail_under`` (report-only lanes rely on it), so this key applies
+# only if ``.coveragerc`` is removed.
 #
 # 85 remains the project's stated *aspiration*, in prose, labelled as an
 # aspiration -- see README "Coverage" and docs/MAINT1_2_COVERAGE_REMEDIATION.md.

@@ -323,7 +323,7 @@ Every disposition is recorded to an append-only audit trail. See
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-07-09*
+*Last Review: 2026-09-27*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -419,8 +419,8 @@ re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
-[`.trivyignore`](.trivyignore) (4 CVEs, each with a 90-day expiry that
-fails the gate until re-reviewed).
+[`.trivyignore`](.trivyignore) (7 CVEs, each expiring 2026-12-26 — the gate
+fails until it is re-reviewed).
 
 ## Security Assessment Posture
 

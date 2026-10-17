@@ -118,7 +118,50 @@ reference sorted once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
   4.4.4), so a fresh container failed at its first AMA build. A test now keeps
   it, `build_ama_native.sh` and the CI action in lockstep.
 
-257 tests added; 16,703 are collected on this tree with the full optional-dependency surface.
+**Fixed — repository configuration.** Each item was checked against the tool it
+configures, not read.
+- `.gitleaks.toml` held an allowlist and no `[extend] useDefault = true`, so the
+  CI Gitleaks step loaded zero rules: a file with a GitHub and a Slack token
+  gave "leaks found: 1" under the default config and "no leaks found" under the
+  repo's. It now extends the defaults. The tree, the PR's commit range and all
+  1,045 commits of history scan clean with two exact test sentinels and one history-only
+  type-annotation false positive allowlisted.
+- `.secrets.baseline` listed no plugins, so the pre-commit `detect-secrets` hook
+  printed "No plugins to scan with!" and exited 0 on that same file. Regenerated
+  with detect-secrets 1.4.0 (the hook's version): 22 plugins, 183 findings
+  reviewed line by line and recorded as false positives (placeholders, env-var
+  names, pinned digests, public KAT vectors); digest and NIST-vector JSON is
+  excluded by path. All tracked files pass and the canary file fails.
+- `.safety-policy.yml` carried eight bookworm-era CVE acceptances whose review
+  had lapsed on 2026-08-02, none in `.trivyignore` and none read by any gate;
+  removed rather than re-dated.
+- Compose: every published port is bound to `127.0.0.1` (the platform overlay
+  had published the API, an unauthenticated Prometheus and a Grafana on
+  admin/admin on all interfaces, around the TLS edge and the trusted
+  `X-Forwarded-For` hop), the overlay requires `GRAFANA_ADMIN_PASSWORD`, and the
+  stale pins moved: Caddy 2.8.4 to 2.11.7, Prometheus 2.51.2 to 3.15.0, Grafana
+  10.4.2 to 13.2.4. Each was run against the repo's own config (Caddyfile
+  validates; 33 rules load and reload; the provisioned datasource and all 16
+  dashboard panels load; Prometheus 3 scrapes the live API's `/metrics`).
+  Dependabot gains a `docker-compose` ecosystem, since its `docker` entry reads
+  only the Dockerfile.
+- `.dockerignore` re-includes the two benchmark artefacts `self_model.py` reads;
+  without them the in-image self-description reported no measured limitations.
+- `.coveragerc` and `pyproject.toml` comments claimed `fail_under = 85` and an
+  "enforced" pyproject floor; coverage.py reads `.coveragerc` alone
+  (`coverage debug config`), so the comments now say so.
+- `.mcp.json` removed. `uvx kafka-mcp-server` could not start (its unbounded
+  `mcp>=1.6.0` resolves to mcp 2.x, which dropped `mcp.server.fastmcp`) and has
+  no SASL support, so it could not have authenticated to GCN even running, while
+  receiving the client secret from an unpinned package. `docs/GCN_KAFKA_MCP.md`
+  says what a working server needs; the keep-alive is unchanged.
+- `.flake8` needed no change: it reports nothing over CI's scope.
+
+259 tests added; 16,705 are collected on this tree with the full optional-dependency
+surface. The full run before the last two (compose) tests gave 16,600 passed, 102
+skipped, 1 failed: `test_single_image_path_input_finally_works`, which needs
+DeepFace to download a Haar cascade from GitHub and fails the same way on the
+unmodified tree in a sandbox that blocks that host.
 
 ### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
 
