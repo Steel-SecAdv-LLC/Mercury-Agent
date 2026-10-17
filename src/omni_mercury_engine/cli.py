@@ -39,6 +39,21 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
     return OmniMercuryEngine(*args, **kwargs)
 
 
+def _json_default(value: Any) -> Any:
+    """Serialise what ``json`` cannot, keeping array contents.
+
+    ``default=str`` turned every ndarray into numpy's abbreviated repr
+    (``"[0.12 0.13 ... 0.26]"``), so a saved results file kept six values per
+    array and lost the rest. Arrays, numpy scalars and CPU/GPU tensors all
+    expose ``tolist``; anything else still falls back to ``str``.
+    """
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    if isinstance(value, (set, frozenset)):
+        return sorted(value, key=str)
+    return str(value)
+
+
 @click.group()
 @click.version_option(version=_DISTRIBUTION_VERSION)
 def main() -> None:
@@ -126,9 +141,9 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
 
     if output:
         with open(output, "w") as f:
-            json.dump(results, f, indent=2, default=str)
+            json.dump(results, f, indent=2, default=_json_default)
     else:
-        click.echo(json.dumps(results, indent=2, default=str))
+        click.echo(json.dumps(results, indent=2, default=_json_default))
 
 
 @main.command("tier-detect")
@@ -230,7 +245,7 @@ def tier_detect(
         counterfactual_method=cf_method,
     )
 
-    text = json.dumps(result, indent=2, default=str)
+    text = json.dumps(result, indent=2, default=_json_default)
     if output:
         Path(output).write_text(text)
         click.echo(f"Wrote tier detection result to {output}", err=True)
@@ -283,7 +298,7 @@ def rca(
         observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
     )
 
-    text = json.dumps(result, indent=2, default=str)
+    text = json.dumps(result, indent=2, default=_json_default)
     if output:
         Path(output).write_text(text)
         click.echo(f"Wrote root-cause analysis to {output}", err=True)
@@ -497,7 +512,7 @@ def biometric(reference: str, test: str) -> None:
 
     result = engine.detect_biometric(reference, test)
 
-    click.echo(json.dumps(result, indent=2, default=str))
+    click.echo(json.dumps(result, indent=2, default=_json_default))
 
 
 @main.command()
@@ -508,7 +523,7 @@ def security(payload: str) -> None:
 
     result = engine.detect_security_threat(payload)
 
-    click.echo(json.dumps(result, indent=2, default=str))
+    click.echo(json.dumps(result, indent=2, default=_json_default))
 
 
 @main.command()
@@ -724,10 +739,10 @@ def causal(
 
         if output:
             with open(output, "w") as f:
-                json.dump(graph, f, indent=2, default=str)
+                json.dump(graph, f, indent=2, default=_json_default)
             click.echo(f"Causal graph saved to {output}")
         else:
-            click.echo(json.dumps(graph, indent=2, default=str))
+            click.echo(json.dumps(graph, indent=2, default=_json_default))
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -742,10 +757,10 @@ def symbolic_rules(output: str | None) -> None:
         graph = engine.symbolic_rule_graph()
         if output:
             with open(output, "w") as f:
-                json.dump(graph, f, indent=2, default=str)
+                json.dump(graph, f, indent=2, default=_json_default)
             click.echo(f"Rule graph saved to {output}")
         else:
-            click.echo(json.dumps(graph, indent=2, default=str))
+            click.echo(json.dumps(graph, indent=2, default=_json_default))
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -977,10 +992,10 @@ def physics_spectral(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1058,10 +1073,10 @@ def physics_dynamics(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1194,10 +1209,10 @@ def physics_uiux(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1365,10 +1380,10 @@ def physics_integrated(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -2662,7 +2677,7 @@ def _run_assessment(call: Any, *args: Any, **kwargs: Any) -> None:
     except ExportRefused as exc:
         click.echo(json.dumps({"error": str(exc)}), err=True)
         raise SystemExit(_EXIT_ERROR) from exc
-    click.echo(json.dumps(result, indent=2, default=str))
+    click.echo(json.dumps(result, indent=2, default=_json_default))
 
 
 @main.group()
