@@ -27,6 +27,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
+
+Found by running the shipped system against a native AMA v5.0.0 build and
+profiling it. Same machine and environment, original tree against this one:
+
+| Measurement | Before | After |
+|---|---|---|
+| `detect_with_fusion`, 1,024 rows x 8 | 1.8-2.1 s | 0.18-0.20 s |
+| `detect_with_fusion`, 4,096 rows x 8 | 7.6 s | 0.52 s |
+| Domain-model feature stage, 2,048 rows (extract + predict) | 3.5 s | 0.15 s |
+| `quantum` features, 512 rows x 128 features | 769 ms | 4 ms |
+| `import omni_mercury_engine.engine` (shap installed) | 8.6 s | 3.1 s |
+| `OmniMercuryEngine(auto_load_checkpoint=True)` | 2.4 s | 0.22 s |
+
+**Fixed — a row's score depended on the rows after it (`engine.py`).** The
+engine cleared streaming state (the neural model's hippocampal buffer, the
+directive detector's recursive memory) before `extract_features` but not before
+the `predict`/`detect` pass that follows it, so the second pass scored the first
+rows of a batch against the last rows of the same batch. With only the final 100
+of 300 rows replaced, 99 of the first 100 neural scores moved; they now do not.
+Training-time consensus scores take the same seam and are clean too.
+
+**Fixed — a single spike row discarded the neural model for the whole batch.**
+A spike has a flat spectrum, and `np.histogram` raises "Too many bins for data
+range" on it (float32 spikes of amplitude 1, 3000, 5000 and 1e5 all did); the
+engine then dropped the neural feature group. Such a row now falls in the middle
+bin, where a constant row already fell. On the shipped checkpoint no verdict
+moved, so this cost the neural evidence, not the decisions.
+
+**Performance — per-row Python loops replaced by batched array code.**
+`models/neural.py` (27x), `multiverse.py`, `neurosymbolic.py`, `consciousness.py`,
+`astrophysical.py`, `biometric.py` (harmonic features), `quantum.py` and
+`detectors/temporal.py` (sliding-window trend scores). Each is tested against the
+original implementation, kept in the test as an oracle: float64 and integer
+inputs match to rounding, float32 to single precision, and mutating the new code
+(window off by one, dropped ULP correction, unstable tie sort, wrong threshold)
+is caught. `quantum` previously eigendecomposed a d x d density matrix per row
+(O(d^3)); a pure state has one non-zero eigenvalue, `<psi|psi>`, so it is now a
+dot product. The old value carried single-precision LAPACK noise (up to 2e-6) on
+float32 input; the new one is exact. `SymbolicReasoningLayer.reason_many`
+evaluates the rules once per call, since they see only the context.
+
+**Performance — start-up.** PyTorch Lightning (with torchmetrics and matplotlib),
+sympy, shap and DeepFace (with TensorFlow, 1.8 s of the 2.0 s it took to construct
+an engine) load on first use instead of at import. Every public name still
+resolves, and the module-level `DeepFace`, `SHAP_AVAILABLE`, `LIME_AVAILABLE`,
+`SYMPY_AVAILABLE` and `ml.HAS_PYTORCH_LIGHTNING` keep working; the triton
+preload still runs immediately before the TensorFlow import. The unused
+`models.biometric.DEEPFACE_AVAILABLE` is removed.
+
+**Added — principal-axis drift test (`ml/drift.py`).** Per-feature KS and PSI
+dilute a shift along a low-variance direction of correlated features, and the
+covariance test centres each window on its own mean. `PrincipalAxisDriftDetector`
+runs a KS test on every axis of the reference's PCA basis (Bonferroni, 0.01
+family-wise; the PCA variant of the aggregated univariate tests that Rabanser
+et al., arXiv:1810.11953, section 5, found comparable to multivariate tests).
+Axes come from the even reference rows and the distribution from the odd rows:
+fitting both on the same rows measured 7-100% false alarms in 64-128 features.
+Measured with 8 features correlated at 0.9 and a one-SD shift along the weakest
+axis (about 0.1 SD in any single feature): the ensemble flagged 3% / 10% / 0% of
+64 / 200 / 1000-row windows before and 100% / 100% / 100% now, with false alarms
+moving from 0-1% to 1-2%. With 128 features and 1,000 reference rows, 0% became
+99%. With 128 correlated features and only 400 reference rows it flags nothing
+(and raises no false alarms). It is on in `EnsembleDriftDetector` by default
+(`principal_axes=False` removes it, and `covariance=False` alone no longer gives
+a marginal-only ensemble). Its statistic is computed against a reference sorted
+once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
+
+**Fixed — operator-facing.**
+- `mercury-agent detect -i data.csv` crashed with `could not convert string to
+  float: 'a'` on any CSV with a header row; the data, label and hazard loaders
+  now skip a header (a numeric first row is never dropped).
+- `/health` declared `uptime_seconds` but never set it; it now reports the
+  service uptime.
+- `scripts/mercury_session_setup.sh` installed `setuptools>=83 / wheel>=0.47 /
+  cmake>=4.4.0`, below the floors AMA v5.0.0's setup rejects (84 / 0.48 /
+  4.4.4), so a fresh container failed at its first AMA build. A test now keeps
+  it, `build_ama_native.sh` and the CI action in lockstep.
+
+255 tests added. Full suite on this tree: 16,597 passed, 102 skipped, 1 failed.
+The failure, `test_single_image_path_input_finally_works`, needs DeepFace to
+download a Haar cascade from GitHub; it fails identically on the unmodified
+tree in a sandbox that blocks that host.
+
 ### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
 
 Seven independent reviews covered the roughly 20,000 lines added after the
