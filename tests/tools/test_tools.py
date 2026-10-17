@@ -420,7 +420,7 @@ def test_sbom_emitter_contains_omni_mercury_engine(tmp_path: Path) -> None:
     sbom = tmp_path / "sbom.json"
     out = tmp_path / "cert.json"
     rc = sbom_emitter.main(
-        ["--root-name", "mercury-agent", "--sbom-path", str(sbom), "--output", str(out)]
+        ["--root-name", "mercury-agent-csi", "--sbom-path", str(sbom), "--output", str(out)]
     )
     cert = _load_cert(out)
     assert cert["status"] == "ok"
@@ -428,7 +428,7 @@ def test_sbom_emitter_contains_omni_mercury_engine(tmp_path: Path) -> None:
     parsed = json.loads(sbom.read_text())
     assert parsed["bomFormat"] == "CycloneDX"
     assert parsed["specVersion"] == "1.5"
-    assert any(c["name"].lower() == "mercury-agent" for c in parsed["components"])
+    assert any(c["name"].lower() == "mercury-agent-csi" for c in parsed["components"])
     assert rc == 0
 
 
