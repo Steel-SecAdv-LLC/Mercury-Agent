@@ -187,10 +187,8 @@ configures, not read.
   lists the assets, where they go and a checksum-verified way to pre-seed them.
 
 265 tests added; 16,713 are collected on this tree with the full optional-dependency
-surface. The full run before the last two (compose) tests gave 16,600 passed, 102
-skipped, 1 failed: `test_single_image_path_input_finally_works`, which needs
-DeepFace to download a Haar cascade from GitHub and fails the same way on the
-unmodified tree in a sandbox that blocks that host.
+surface. The full local run gave 16,610 passed, 103 skipped, 0 failed (the 103rd
+skip is the real-DeepFace test, which needs `[face]` and `MERCURY_NETWORK_TESTS=1`).
 
 ### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
 
