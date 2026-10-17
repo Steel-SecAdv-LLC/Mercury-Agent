@@ -111,8 +111,7 @@ jobs:
       run: |
         safety check \
           -r /tmp/mercury-audit-env/requirements.txt \
-          --save-json safety-report.json \
-          --policy-file .safety-policy-v2.yml
+          --save-json safety-report.json
 
     - name: Run pip-audit
       # pip-audit cross-checks against PyPA's advisory database

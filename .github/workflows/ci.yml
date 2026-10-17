@@ -914,17 +914,15 @@ jobs:
         # NOT scanned — auditor-internal packages are not Mercury's
         # supply chain.
         #
-        # ``--policy-file .safety-policy-v2.yml`` is required to
-        # override Safety's auto-discovery of ``.safety-policy.yml``
-        # (which is in v3 format and rejected by ``check``'s legacy
-        # parser).  The v2 file is a no-op shim — per-CVE risk
-        # acceptance via ``--ignore`` is intentionally NOT used: any
-        # new finding in Mercury's own surface fails the gate.
+        # No policy file and no ``--ignore``: per-CVE risk acceptance is
+        # intentionally NOT used, so any new finding in Mercury's own
+        # surface fails the gate.  (A repo-root ``.safety-policy.yml`` in
+        # the v3 format would make ``check`` abort — its legacy parser
+        # rejects v3 files it auto-discovers — so do not add one.)
         run: |
           set +e
           safety check \
             -r /tmp/mercury-audit-env/requirements.txt \
-            --policy-file .safety-policy-v2.yml \
             --output json > safety-report.json
           rc=$?
           # On any non-zero exit, surface each finding as a GHA
