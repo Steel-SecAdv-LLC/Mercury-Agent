@@ -1,18 +1,19 @@
 # Mercury Agent Safety Policy (v3.0)
-# Defines accepted vulnerabilities for the Safety CLI scanner.
+# Policy for the Safety CLI scanner. It holds NO accepted vulnerabilities:
+# the Python-package gate (`safety check --policy-file .safety-policy-v2.yml`,
+# which exists to override this file's auto-discovery) runs with zero risk
+# acceptance, and the deployment-image gate's acceptances live in `.trivyignore`
+# (enumerated, expiring) with their rationale in SECURITY.md and CHANGELOG.md.
 #
-# Each CVE entry documents the rationale, applied mitigations, and review
-# schedule so that CI can hard-fail on NEW vulnerabilities while allowing
-# known, risk-assessed exceptions through.
-#
-# Last Updated: 2026-05-22 (PR #238 — refreshed cross-references after
-#   `docs/SECURITY.md` was retired per owner directive; the Python-package
-#   gate runs with zero risk acceptance and the OS-level acceptances
-#   below remain enforced by Trivy via `.trivyignore`.  Per-CVE
-#   rationale that previously lived in `docs/SECURITY.md` is now tracked
-#   under the dated security entries in `CHANGELOG.md`.)
+# Last Updated: 2026-10-17. This file previously listed eight CVEs as accepted
+#   until 2026-08-02 (quarterly review). That review had lapsed, the entries
+#   were Debian bookworm findings from before the image moved to trixie
+#   (SECURITY.md, "Trixie re-enumeration", 2026-06-18), none of them is in
+#   `.trivyignore`, and no gate read them. A lapsed acceptance that nothing
+#   enforces is not a control, so they are removed rather than re-dated; a
+#   scanner that auto-discovers this file no longer waves them through.
 # Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-08-02 (quarterly)
+# Next Review: 2027-01-17 (quarterly)
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 
@@ -56,49 +57,7 @@ installation:
     enabled: true
   allow:
     packages: []
-    # Accepted CVEs with documented risk assessment.
-    # Each entry expires 2026-08-02 (quarterly review).
-    vulnerabilities:
-      # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
-      # Severity: Medium | Non-root container; setpwnam() never called.
-      CVE-2025-14104:
-        reason: "Non-root container; setpwnam() not called by application."
-        expires: "2026-08-02"
-      # CVE-2025-8869: pip symlink extraction vulnerability
-      # Severity: Medium | Runtime image does not run pip.
-      CVE-2025-8869:
-        reason: "Runtime image does not invoke pip; fixed in pip >= 26.0."
-        expires: "2026-08-02"
-      # CVE-2025-7709: libsqlite3 FTS5 vulnerability
-      # Severity: Medium | FTS5 module not used.
-      CVE-2025-7709:
-        reason: "FTS5 module not used by application."
-        expires: "2026-08-02"
-      # CVE-2025-68973: GnuPG key handling
-      # Severity: High | GnuPG not present in runtime image.
-      CVE-2025-68973:
-        reason: "GnuPG not used; package absent from runtime image."
-        expires: "2026-08-02"
-      # CVE-2025-13601: glib URI processing
-      # Severity: High | No glib URI processing in code.
-      CVE-2025-13601:
-        reason: "Application does not process URIs via glib."
-        expires: "2026-08-02"
-      # CVE-2025-6020: linux-pam
-      # Severity: High | No PAM usage; non-root container.
-      CVE-2025-6020:
-        reason: "PAM not used; container runs non-root."
-        expires: "2026-08-02"
-      # CVE-2025-7458: SQLite (Critical, no fix in Debian bookworm)
-      # Severity: Critical | No SQLite bindings or imports.
-      CVE-2025-7458:
-        reason: "SQLite not used by application; no direct bindings."
-        expires: "2026-08-02"
-      # CVE-2023-45853: zlib/minizip (Critical, no fix in Debian bookworm)
-      # Severity: Critical | minizip not used; only zlib core compression.
-      CVE-2023-45853:
-        reason: "minizip not used; only zlib core compression."
-        expires: "2026-08-02"
+    vulnerabilities: {}
   deny:
     packages: {}
     vulnerabilities:

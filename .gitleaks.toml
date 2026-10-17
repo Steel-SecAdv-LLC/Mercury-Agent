@@ -3,10 +3,18 @@
 
 title = "Mercury-Agent Gitleaks Configuration"
 
+# A custom config REPLACES gitleaks' built-in rules unless it extends them.
+# Without this block the file below carried only an allowlist, so the CI
+# "Run Gitleaks" step loaded zero rules and reported "no leaks found" for any
+# content (verified with gitleaks 8.30.0 on a file holding a GitHub token and a
+# Slack token: default config found one, this file alone found none).
+[extend]
+useDefault = true
+
 # Allowlist specific findings that are false positives or test data
 [allowlist]
   description = "Allowlist for test data and false positives"
-  
+
   # Allowlist the specific fingerprint from Claude's test file
   # This is a test API key used in unit tests for PII masking validation
   # The test verifies that the PIIMaskingFilter correctly redacts API keys
@@ -14,8 +22,24 @@ title = "Mercury-Agent Gitleaks Configuration"
   commits = [
     "20ba7c58f919818c3d855f8677433130664a932c"
   ]
-  
+
   # Also allowlist test files that intentionally contain fake secrets for testing
   paths = [
     '''tests/security/test_audit_improvements\.py''',
+    # detect-secrets' baseline stores the SHA-1 of each reviewed false positive;
+    # the generic-api-key rule reads every one of those hashes as a key.
+    '''\.secrets\.baseline''',
+  ]
+
+  # Test sentinels that the default generic-api-key rule matches by shape.
+  # Each is the exact string, so a real secret of a similar shape still fires.
+  regexes = [
+    # tests/api/test_jwt_key_material.py: a 64-hex stand-in for "real" key material
+    '''f3a9c1d2e4b5a6978c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d''',
+    # tests/loaders/test_base_loader.py: the sentinel the redaction test searches for
+    '''hunter2-secret-key-000042''',
+    # History only: ``self._private_key: Ed25519PrivateKey | None = None`` in
+    # security/crypto_api.py (commits 5dce8170 and c5a0d4f2) is a type
+    # annotation; the rule reads the annotation as the value.
+    '''Ed25519PrivateKey''',
   ]
