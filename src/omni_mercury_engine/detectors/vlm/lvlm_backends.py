@@ -393,7 +393,7 @@ class BLIPVQABackend(LVLMBackend):
         except ImportError as e:
             raise ImportError(
                 "transformers is required for the BLIP VQA backend. "
-                "Install with: pip install 'mercury-agent[vlm]'"
+                "Install with: pip install 'mercury-agent-csi[vlm]'"
             ) from e
 
         logger.info(f"Loading BLIP VQA: {self.model_name}")
@@ -505,7 +505,7 @@ class BLIPCaptionBackend(LVLMBackend):
         except ImportError as e:
             raise ImportError(
                 "transformers is required for the BLIP captioning backend. "
-                "Install with: pip install 'mercury-agent[vlm]'"
+                "Install with: pip install 'mercury-agent-csi[vlm]'"
             ) from e
 
         logger.info(f"Loading BLIP captioner: {self.model_name}")

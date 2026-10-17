@@ -540,7 +540,7 @@ class DataSourceBase(ABC):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "HTTP data sources require httpx. "
-                "Install with `pip install 'mercury-agent[data]'`."
+                "Install with `pip install 'mercury-agent-csi[data]'`."
             )
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -562,7 +562,7 @@ class DataSourceBase(ABC):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "HTTP data sources require httpx. "
-                "Install with `pip install 'mercury-agent[data]'`."
+                "Install with `pip install 'mercury-agent-csi[data]'`."
             )
         if self._sync_client is None:
             self._sync_client = httpx.Client(

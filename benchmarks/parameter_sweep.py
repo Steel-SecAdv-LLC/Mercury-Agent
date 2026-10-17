@@ -696,7 +696,7 @@ def run_sweep(
         raise ImportError(
             "Optuna is required for parameter sweep optimisation.\n"
             "Install it with:  pip install optuna\n"
-            "Or:               pip install 'mercury-agent[benchmarks]'"
+            "Or:               pip install 'mercury-agent-csi[benchmarks]'"
         )
 
     if output_path is None:

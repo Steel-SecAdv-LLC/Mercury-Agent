@@ -198,7 +198,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         - 128D feature normalization for fusion pipeline
         - Hard fail-fast when transformers unavailable (constructor raises
           ``NotImplementedError`` to comply with the Phase 2 audit ban on
-          silent mock degradation; install ``mercury-agent[vlm]`` to enable)
+          silent mock degradation; install ``mercury-agent-csi[vlm]`` to enable)
 
     Example:
         >>> # SafeHFLoader requires a revision pin for Hub IDs; supply

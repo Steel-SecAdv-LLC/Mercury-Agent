@@ -5,7 +5,7 @@
 Every adapter in ``models/foundation/`` imports torch at module top (the
 fusion tensor surface), and the chronos adapter needs
 ``chronos.ChronosPipeline`` from the ``chronos-forecasting`` package.  The
-extra must therefore compose ``mercury-agent[ml]`` and declare
+extra must therefore compose the project's own ``[ml]`` extra and declare
 ``chronos-forecasting``; historically it declared only stumpy/nixtla, so
 ``pip install .[foundation]`` produced an environment where the chronos
 detector could never become operational and the package it enabled could
@@ -27,6 +27,14 @@ def _foundation_extra() -> list[str]:
     return [dep.lower() for dep in extras["foundation"]]
 
 
+def _project_name() -> str:
+    """The distribution's own name, so the assertion survives renames."""
+    import tomllib
+
+    with (Path(__file__).resolve().parents[1] / "pyproject.toml").open("rb") as handle:
+        return str(tomllib.load(handle)["project"]["name"])
+
+
 def test_foundation_extra_declares_chronos_forecasting() -> None:
     joined = " ".join(_foundation_extra())
     assert "chronos-forecasting" in joined, (
@@ -36,8 +44,8 @@ def test_foundation_extra_declares_chronos_forecasting() -> None:
 
 
 def test_foundation_extra_composes_ml() -> None:
-    assert any("mercury-agent[ml]" in dep for dep in _foundation_extra()), (
-        "[foundation] must compose mercury-agent[ml]: every models/foundation adapter "
+    assert any(f"{_project_name()}[ml]" in dep for dep in _foundation_extra()), (
+        "[foundation] must compose mercury-agent-csi[ml]: every models/foundation adapter "
         "imports torch at module top"
     )
 
