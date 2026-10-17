@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-16%2C445%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-16%2C703%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -40,33 +40,13 @@
               +===============================================================================+
 ```
 
-> **On the Layer-3 entries:** these are runtime-enforced gates, **not static
-> guarantees**.
->
-> The enforced harm control is the two-axis (hazard-domain × operational-intent)
-> **harm-uplift gate** (`src/omni_mercury_engine/cognitive/decision_gate.py`,
-> policy in [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)). It gates on
-> *operational uplift toward a weapon or mass-casualty outcome*, not on the
-> presence of a hazardous subject, and it fails closed. It replaced a
-> benevolence pass-bar (`≥ 0.99`) that scored a **fixed string the engine wrote
-> for itself** rather than the caller's request — so it rejected benign work for
-> having plain vocabulary and could not discriminate anything. Benevolence
-> remains as an **advisory** score that decides nothing.
->
-> Lyapunov stability is a *design-time* convergence proof plus *runtime
-> monitoring* (`is_stable`), not a runtime guarantee:
-> `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so it
-> observes and records unless an operator constructs it to halt. See
-> [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3, and
-> [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md).
-
-**Copyright 2025 Steel Security Advisors LLC**
-**Author/Inventor:** Andrew E. A.
-**Contact:** steel.sa.llc@gmail.com
-**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
-**Version:** v2.1.0
+**Copyright 2025 Steel Security Advisors LLC**\
+**Author/Inventor:** Andrew E. A.\
+**Contact:** steel.sa.llc@gmail.com\
+**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)\
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
+**Version:** v2.1.0\
 **Date:** 2026-10-17
-**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
 
@@ -627,6 +607,14 @@ unchanged).
   `{0,1}` → **UNAVAILABLE**, a *resolvable* don't-know; `{}` → **UNDECIDABLE**, a
   *fail-closed* hold). Neuro-symbolic disagreement, drift, or an ethical-gate
   refusal can only move a verdict toward abstention.
+- **Drift-aware abstention** — the normal-looking rows of every served batch are
+  tested against the model's reference rows: per-feature KS and PSI, the
+  covariance structure, and mean shifts along the reference's principal axes
+  (the case per-feature tests dilute in correlated data; measured by
+  `benchmarks/drift_power.py`). Drift at MEDIUM or above demotes the decision to
+  `DEFER`; the scores are still returned. An input whose feature count differs
+  from the reference is reported `incomparable` and is not tested — see
+  [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
 - **Bounded, non-destructive response** — `monitor` / `alert` /
   `recommend_mitigation` / `recommend_conversion` / `recommend_restoration` /
   `escalate_to_human` / `request_input` / `hold`. The loop recommends and
@@ -656,10 +644,10 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 30 detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 16,445 tests collected (2026-10-17, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
+| Comprehensive Testing | 16,703 tests collected (2026-10-17, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
 | Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
-| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
+| Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
 </details>
@@ -764,6 +752,14 @@ emits a provenance-stamped JSON latency/RSS profile (schema
 47.7 ms, p95 56.3 ms — the ``<100ms`` fast-path claim holds).*
 
 </details>
+
+**Measured on this tree** (4 vCPU sandbox, 8 features, cold feature cache,
+warm engine; `python benchmarks/fusion_latency.py` reproduces it and
+`benchmarks/results/fusion_latency.json` holds the run): `detect_with_fusion`
+takes 38 ms for 64 rows, 182 ms for 1,024 and 397 ms for 4,096. Importing the
+engine takes 3.0 s and constructing it with the shipped checkpoint 0.24 s;
+PyTorch Lightning, sympy, shap, lime and DeepFace/TensorFlow load on first use,
+not at import.
 
 <details>
 <summary><strong>Memory Footprint</strong></summary>
@@ -884,7 +880,7 @@ bash scripts/build_ama_native.sh
 python -c "import omni_mercury_engine as m; print(m.__version__)"
 ```
 
-Build prerequisites for step 2: GCC >= 12 and the PyPI `cmake>=4.4.0` shim
+Build prerequisites for step 2: GCC >= 12 and the PyPI `cmake>=4.4.4` shim
 (the script installs the Python build floors itself). The full procedure,
 including the manual out-of-tree variant and the `AMA_REF` / `AMA_REPO`
 overrides, is in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
@@ -999,7 +995,7 @@ Once enabled, a detector contributes its feature group to `fit_fusion` and `dete
 # View available commands
 mercury-agent --help
 
-# Anomaly detection
+# Anomaly detection (CSV with or without a header row, .json or .npy)
 mercury-agent detect --input data.csv --detector fusion
 
 # Biometric analysis
@@ -1180,7 +1176,7 @@ docker run -it \
 | `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON file supplying the `OMNI_DETECTOR_*` / `OMNI_ENSEMBLE_*` knobs (env overrides file) | unset |
 | `MERCURY_FUSION_CHECKPOINT` | Serve this fusion checkpoint instead of the installed/bundled one (a set-but-missing path fails loudly) | unset |
 | `MERCURY_MODEL_DIR` | Directory of the installed fusion model written by `mercury-agent train --install` (`fusion.pt`; replaced model kept as `fusion.previous.pt`) | `~/.mercury/models` |
-| `MERCURY_DRIFT_DETECTION` | Data-drift checks on served detections (`0` disables) | `1` |
+| `MERCURY_DRIFT_DETECTION` | Data-drift checks on served detections: per-feature KS/PSI, covariance structure, principal-axis shifts (`0` disables; see `docs/runbooks/data-drift.md`) | `1` |
 | `MERCURY_FRONTEND_ENABLED` | Serve the browser account UI from the API process (see [Self-Service Account Platform](#quick-start)) | `false` |
 | `MERCURY_KEYSTORE_PATH` | SQLite file backing all account/quota platform state | unset (in-memory) |
 | `MERCURY_QUOTA_ENABLED` | Per-account quota enforcement on metered routes | `false` |
@@ -1485,7 +1481,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **16,445 tests collected** (CI ML lane, 2026-10-17, with the
+- **16,703 tests collected** (2026-10-17, with the
   optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` / `h5py` /
   `plotly` dependencies installed) across
   the test modules counted in the CI-gated
@@ -1657,6 +1653,7 @@ mypy src/
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Python API quick reference (detector ensemble, compliance, medical, drone, profiling) |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
 | [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
+| [docs/HARM_POLICY.md](docs/HARM_POLICY.md) | Two-axis (hazard domain × operational intent) harm-uplift gate: what is refused, what is permitted, and why |
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
 | [docs/NEUROSYMBOLIC.md](docs/NEUROSYMBOLIC.md) | Neuro-symbolic co-training accounting, ablation, and keep/quarantine verdicts |
@@ -2548,7 +2545,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
 - **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** 16,445 tests collected with the full optional-dependency surface (CI ML lane, 2026-10-17) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Comprehensive testing:** 16,703 tests collected with the full optional-dependency surface (2026-10-17) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).

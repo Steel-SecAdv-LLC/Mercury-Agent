@@ -328,6 +328,15 @@ Decision / Abstention / Response (opt-in: enable_decision_layer())
 Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
 ```
 
+The **feature-extraction** stage of the domain models that take a numeric
+array is batched array code rather than a Python loop over rows;
+`benchmarks/fusion_latency.py` reports the time each model spends in it. A
+component that streams, such as the neural model's hippocampal buffer or the
+directive detector's recursive memory, is reset before **each** pass over a
+batch, first `extract_features` and then `predict`/`detect`, so a row's score
+depends on the fitted state and on the rows up to itself, never on later rows
+of its batch (`tests/core/test_engine_pass_purity.py`).
+
 The **decision / abstention / response** stage is the closed
 `identify → interpret → decide → deter` loop (`omni_mercury_engine.decision`).
 It is a pure, deterministic function of the certificate above: it reuses the
@@ -380,6 +389,11 @@ config.models['biometric'].use_harmonic_features = False
 ```
 
 ## PyTorch Lightning Integration
+
+Lightning is imported by `ml.training`, which loads on first use
+(`ml.FusionTrainer`, `ml.LyapunovAnomalyLoss`, `ml.ThreeRAnomalyTrainer` and
+`ml.HAS_PYTORCH_LIGHTNING` resolve it on access), so serving and the CLI import
+neither Lightning nor the torchmetrics and matplotlib behind it.
 
 ### Training Loop
 
@@ -1001,6 +1015,11 @@ async def detect_anomaly(data: AnomalyRequest):
 
 ### DeepFace Installation
 
+DeepFace, and the TensorFlow behind it, is imported the first time an image
+input reaches `BiometricAnomalyModel`, not when the engine is constructed;
+tabular inputs never load it. The triton-before-TensorFlow ordering
+(`_compat.preload_triton_before_tensorflow`) runs immediately before that import.
+
 **Issue**: dlib dependency fails on Windows with Python 3.11+
 
 **Solutions**:
@@ -1055,6 +1074,12 @@ detector_profiler`` (provenance-stamped JSON, schema
 |---------------|---------|-------|
 | Full (30 engines) | ~50ms | RTX 4090 |
 | Batch 32 | ~5ms/sample | Amortized |
+
+The tables above are the historical snapshot. The fusion path on the current
+tree (`detect_with_fusion` for 64 to 4,096 rows, engine import and construction
+time, and the domain-model stage per model) is measured by
+`benchmarks/fusion_latency.py`; results are committed in
+`benchmarks/results/fusion_latency.json`.
 
 ### Memory Usage
 
@@ -1388,7 +1413,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **16,445 tests collected** (CI ML lane, 2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **16,703 tests collected** (2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
@@ -1422,8 +1447,8 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   security, space, streaming, tools, utils, validation, verifiers,
   vision)
 - **~435,000 LOC** in `src/omni_mercury_engine/` (801 source files)
-- **766 test modules** under `tests/`; 16,445 tests collected with the
-  full optional-dependency surface (CI ML lane, 2026-10-17) — fewer on a
+- **775 test modules** under `tests/`; 16,703 tests collected with the
+  full optional-dependency surface (2026-10-17) — fewer on a
   minimal install because optional-import-gated modules skip. See the
   README "Testing and Quality Assurance" section for the collection
   methodology.

@@ -30,16 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
 
 Found by running the shipped system against a native AMA v5.0.0 build and
-profiling it. Same machine and environment, original tree against this one:
+profiling it. Both columns come from `benchmarks/fusion_latency.py` run on the
+same 4-CPU machine, once from the base commit's tree and once from this one
+(medians of three; run-to-run variation on this shared machine was up to about
+a third, so read the ratios, not the last digit; `benchmarks/results/fusion_latency.json`
+holds this tree's 8-feature run):
 
 | Measurement | Before | After |
 |---|---|---|
-| `detect_with_fusion`, 1,024 rows x 8 | 1.8-2.1 s | 0.18-0.20 s |
-| `detect_with_fusion`, 4,096 rows x 8 | 7.6 s | 0.52 s |
-| Domain-model feature stage, 2,048 rows (extract + predict) | 3.5 s | 0.15 s |
-| `quantum` features, 512 rows x 128 features | 769 ms | 4 ms |
-| `import omni_mercury_engine.engine` (shap installed) | 8.6 s | 3.1 s |
-| `OmniMercuryEngine(auto_load_checkpoint=True)` | 2.4 s | 0.22 s |
+| `import omni_mercury_engine.engine` (shap installed) | 8.4 s | 3.0 s |
+| `OmniMercuryEngine(auto_load_checkpoint=True)` | 2.4 s | 0.24 s |
+| `detect_with_fusion`, 64 rows x 8 | 157 ms | 38 ms |
+| `detect_with_fusion`, 1,024 rows x 8 | 2.13 s | 0.18 s |
+| `detect_with_fusion`, 4,096 rows x 8 | 7.89 s | 0.40 s |
+| Domain-model feature stage, 4,096 rows x 8 | 7.53 s | 0.19 s |
+| `detect_with_fusion`, 512 rows x 128 (`--features 128 --sizes 512`) | 2.62 s | 0.19 s |
+| of which `quantum` / `multiverse` / `neural` / `biometric`, same run | 1,706 / 267 / 670 / 54 ms | 8 / 6 / 20 / 4 ms |
 
 **Fixed — a row's score depended on the rows after it (`engine.py`).** The
 engine cleared streaming state (the neural model's hippocampal buffer, the
@@ -74,8 +80,10 @@ sympy, shap and DeepFace (with TensorFlow, 1.8 s of the 2.0 s it took to constru
 an engine) load on first use instead of at import. Every public name still
 resolves, and the module-level `DeepFace`, `SHAP_AVAILABLE`, `LIME_AVAILABLE`,
 `SYMPY_AVAILABLE` and `ml.HAS_PYTORCH_LIGHTNING` keep working; the triton
-preload still runs immediately before the TensorFlow import. The unused
-`models.biometric.DEEPFACE_AVAILABLE` is removed.
+preload still runs immediately before the TensorFlow import.
+`models.biometric.DEEPFACE_AVAILABLE` is now resolved when it is read, and
+`QuantumConsciousnessModel._measure_entanglement` still answers for one state;
+nothing public was removed.
 
 **Added — principal-axis drift test (`ml/drift.py`).** Per-feature KS and PSI
 dilute a shift along a low-variance direction of correlated features, and the
@@ -84,16 +92,20 @@ runs a KS test on every axis of the reference's PCA basis (Bonferroni, 0.01
 family-wise; the PCA variant of the aggregated univariate tests that Rabanser
 et al., arXiv:1810.11953, section 5, found comparable to multivariate tests).
 Axes come from the even reference rows and the distribution from the odd rows:
-fitting both on the same rows measured 7-100% false alarms in 64-128 features.
-Measured with 8 features correlated at 0.9 and a one-SD shift along the weakest
-axis (about 0.1 SD in any single feature): the ensemble flagged 3% / 10% / 0% of
-64 / 200 / 1000-row windows before and 100% / 100% / 100% now, with false alarms
-moving from 0-1% to 1-2%. With 128 features and 1,000 reference rows, 0% became
-99%. With 128 correlated features and only 400 reference rows it flags nothing
-(and raises no false alarms). It is on in `EnsembleDriftDetector` by default
-(`principal_axes=False` removes it, and `covariance=False` alone no longer gives
-a marginal-only ensemble). Its statistic is computed against a reference sorted
-once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
+fitting both on the same rows gave 6% / 25% / 100% false alarms (64 features
+with 500 reference rows; 128 with 1,000; 128 with 400) against 0% / 2% / 0%
+split. `benchmarks/drift_power.py` (100 windows per cell over 5 independent
+references) shifts 8 features correlated at 0.9 by one SD along the weakest
+axis (0.11 SD in the most-moved single feature): the ensemble flagged 1% / 8% /
+0% of 64 / 200 / 1,000-row windows before and 100% / 100% / 100% now, with
+false alarms with no drift moving from 0-2% to 1-5%. With 128 features and
+1,000 reference rows, 0% became 57% at one SD and 2% became 100% at two. With
+independent features it adds nothing (the per-feature tests already see the
+shift), and with 128 features at correlation 0.95 and only 400 reference rows
+it flags nothing beyond the other tests. It is on in `EnsembleDriftDetector` by
+default (`principal_axes=False` removes it, and `covariance=False` alone no
+longer gives a marginal-only ensemble). Its statistic is computed against a
+reference sorted once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
 
 **Fixed — operator-facing.**
 - `mercury-agent detect -i data.csv` crashed with `could not convert string to
@@ -106,10 +118,7 @@ once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
   4.4.4), so a fresh container failed at its first AMA build. A test now keeps
   it, `build_ama_native.sh` and the CI action in lockstep.
 
-255 tests added. Full suite on this tree: 16,597 passed, 102 skipped, 1 failed.
-The failure, `test_single_image_path_input_finally_works`, needs DeepFace to
-download a Haar cascade from GitHub; it fails identically on the unmodified
-tree in a sandbox that blocks that host.
+257 tests added; 16,703 are collected on this tree with the full optional-dependency surface.
 
 ### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
 

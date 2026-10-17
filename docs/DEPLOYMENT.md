@@ -377,7 +377,12 @@ GET /health
 ```
 
 Returns `200 OK` when the service is ready to handle requests. Used by
-Kubernetes readiness and liveness probes.
+Kubernetes readiness and liveness probes. The body is
+`{"status": "healthy", "version": "...", "uptime_seconds": 3600.5}`;
+`uptime_seconds` is the age of the API process, so a value that keeps
+resetting is a crash loop that the `200` alone would not show. The endpoint is
+unauthenticated and exempt from rate limiting (see
+[SECURITY.md](../SECURITY.md#api-security)).
 
 ### Docker HEALTHCHECK
 
@@ -385,14 +390,20 @@ The Dockerfile defines:
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import omni_mercury_engine; print('healthy')" || exit 1
+    CMD python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('healthy')" || exit 1
 ```
+
+It runs the fail-closed PQC production gate directly instead of importing the
+whole engine on every probe.
 
 ### CLI check
 
 ```bash
-python -c "import omni_mercury_engine; print('OK')"
+python -c "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as g; g(); print('OK')"
 ```
+
+A bare `import omni_mercury_engine` does not import the engine or run the
+gate, so it does not prove the install is usable; the gate does.
 
 ---
 

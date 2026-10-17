@@ -207,6 +207,7 @@ probabilities.
 - **Authentication**: JWT-based authentication with secure token handling
 - **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
 - **Input Validation**: Comprehensive input sanitization and validation
+- **`/health`**: unauthenticated and exempt from rate limiting, so load balancers and container health checks can poll it. It returns only `status`, `version` and `uptime_seconds` (process uptime, which reveals when the service last restarted). Put it behind the network boundary if that is not acceptable.
 - **CORS Configuration**: Environment-aware cross-origin resource sharing
   - Production: cross-origin access requires explicit `MERCURY_CORS_ORIGINS` configuration; unset means same-origin only (fail-closed)
   - Development: Allows localhost origins by default
@@ -276,11 +277,13 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **PyTorch**: GPU acceleration library with its own security considerations
 - **NumPy/SciPy**: Numerical libraries - keep updated for security patches
 - **FastAPI**: Web framework - follow OWASP guidelines for API security
+- **Optional libraries are imported on first use**: PyTorch Lightning, torchmetrics, matplotlib, SymPy, SHAP, LIME and DeepFace/TensorFlow load when the code that needs them first runs, not when `omni_mercury_engine` is imported. Pin and scan them like any other dependency (see Two-Tier Dependency-CVE Coverage below); a vulnerable copy that is installed but never used is no longer imported at start-up, and one that is used is imported at that point.
 
 ### Machine Learning Security
 
 - **Model Integrity**: Verify model checksums before loading
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
+- **Distribution drift**: the drift ensemble (per-feature KS and PSI, covariance, and a principal-axis KS test) flags a batch that differs from the reference, and the decision layer defers at MEDIUM severity or above. It is a statistical test, not an adversarial-robustness guarantee: a crafted input drawn from the reference distribution is not drift, and a batch whose width differs from the reference is reported `incomparable` and not deferred. See [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) and [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
 - **Training Data**: Ensure training data is from trusted sources
 
 ### Autonomous Self-Modification (Governed, Fail-Closed)

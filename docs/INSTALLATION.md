@@ -7,7 +7,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 - Python >= 3.11 (3.12 recommended; 3.13 and 3.14 supported)
 - pip >= 26.1 (the CVE-2026-6357 floor enforced across every install
   path in CI by `tests/security/test_cve_2026_6357_regression.py`)
-- GCC >= 12 and CMake >= 4.4.0 for the AMA Cryptography native PQC
+- GCC >= 12 and CMake >= 4.4.4 for the AMA Cryptography native PQC
   build (see "Post-Quantum Cryptography backend" below). Mercury does
   not import without real AMA/PQC.
 
@@ -119,6 +119,14 @@ The `[compliance]` extra installs `openpyxl`, used only by
 XLSX. The OSHA and TLP 2.0 modules in `omni_mercury_engine.compliance`
 have no extra dependencies beyond core.
 
+PyTorch Lightning, torchmetrics, matplotlib, SymPy, SHAP, LIME and
+DeepFace/TensorFlow are imported the first time the feature that needs them
+runs, not when `omni_mercury_engine` is imported (a cold
+`import omni_mercury_engine.engine` took about 3 s on the 4-CPU host it was
+measured on, by `benchmarks/fusion_latency.py`). A missing library is therefore
+noticed, or replaced by the in-repo fallback where one exists, when that
+feature first runs.
+
 ## Core Dependencies
 
 The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
@@ -153,7 +161,7 @@ installs the Python package, **co-locates the shared object inside the installed
 loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 
 ```bash
-# Requires git, gcc/g++ >= 12, and cmake >= 4.4.0 on PATH.
+# Requires git and gcc/g++ >= 12; the script installs cmake >= 4.4.4 itself.
 bash scripts/build_ama_native.sh
 # AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v5.0.0 (native-only
 # constant-time is unconditional; AMA warns if it is set); no need to export it.
@@ -161,7 +169,7 @@ bash scripts/build_ama_native.sh
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
 The script performs, in order: install the PEP 517 build floors
-(`setuptools>=83.0.0`, `wheel>=0.47.0`, `cmake>=4.4.0` — AMA v5.0.0 raised the
+(`setuptools>=84.0.0`, `wheel>=0.48.0`, `cmake>=4.4.4` — AMA v5.0.0 raised the
 setuptools and cmake floors; older toolchains fail its preflight); `git clone
 --branch v5.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
@@ -175,7 +183,7 @@ directory on `LD_LIBRARY_PATH` before importing Mercury:
 git clone --depth 1 --branch v5.0.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
-pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
+pip install --upgrade "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
 cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
 AMA_NO_CYTHON=1 pip install --no-build-isolation .
 export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}
