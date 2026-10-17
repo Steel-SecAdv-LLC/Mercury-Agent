@@ -13,6 +13,11 @@
 #
 # Full runbook: docs/PLATFORM_HARDENING.md → Deployment.
 #
+# Caddy (80/443) is the only public listener. The API, Prometheus and Grafana
+# ports in the base file are bound to 127.0.0.1, so a client cannot reach the
+# API around the TLS edge and forge the X-Forwarded-For hop that
+# MERCURY_TRUSTED_PROXY_HOPS=1 trusts (tests/scripts/test_compose_platform.py).
+#
 # Every MERCURY_* variable named here is documented in the Configuration
 # reference table of docs/PLATFORM_HARDENING.md (a test asserts exactly that:
 # tests/scripts/test_compose_platform.py). Parameterised families
@@ -85,11 +90,18 @@ services:
     volumes:
       - mercury-platform-data:/var/lib/mercury
 
+  # The base file's Grafana falls back to admin/admin, which is for a laptop.
+  # The platform host refuses to start without a real password in .env, e.g.
+  #   echo "GRAFANA_ADMIN_PASSWORD=$(python scripts/generate_secret_key.py --bytes 24)" >> .env
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+
   # -------------------------------------------------------------------------
   # Caddy — TLS termination + reverse proxy (auto-TLS via Let's Encrypt)
   # -------------------------------------------------------------------------
   caddy:
-    image: caddy:2.8.4
+    image: caddy:2.11.7
     container_name: mercury-caddy
     restart: unless-stopped
     ports:

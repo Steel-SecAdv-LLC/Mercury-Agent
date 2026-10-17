@@ -119,3 +119,28 @@ def test_runbook_documents_the_overlay_command() -> None:
     text = _HARDENING_DOC.read_text(encoding="utf-8")
     assert "docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d" in text
     assert "generate_secret_key.py --all" in text
+
+
+def test_caddy_is_the_only_public_listener() -> None:
+    """Every other published port is bound to loopback.
+
+    Docker publishes on all interfaces and bypasses host firewalls, so a bare
+    ``"8000:8000"`` lets a client reach the API around the TLS edge and supply
+    the X-Forwarded-For hop the app trusts (``MERCURY_TRUSTED_PROXY_HOPS=1``),
+    and exposes Prometheus and Grafana to the network.
+    """
+    for path in (_BASE, _OVERLAY):
+        for name, service in _load(path)["services"].items():
+            if name == "caddy":
+                continue
+            for port in service.get("ports", []):
+                assert str(port).startswith("127.0.0.1:"), (path.name, name, port)
+
+
+def test_overlay_requires_a_grafana_password() -> None:
+    """The platform profile refuses to start on the base file's admin/admin."""
+    grafana = _load(_OVERLAY)["services"]["grafana"]
+    password = grafana["environment"]["GF_SECURITY_ADMIN_PASSWORD"]
+    assert password.startswith("${GRAFANA_ADMIN_PASSWORD:?"), password
+    text = _HARDENING_DOC.read_text(encoding="utf-8")
+    assert "GRAFANA_ADMIN_PASSWORD" in text

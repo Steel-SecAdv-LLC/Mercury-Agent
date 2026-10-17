@@ -40,8 +40,10 @@ Measured on the shipped checkpoint with fresh draws from its training
 distribution (100 batches each): 50-row batches deferred for drift 1% of the
 time, 200-row batches 0%; a +1.0 shift was detected in 100% of 50-row
 batches, a +0.5 shift in 99% (16% with the principal-axis test turned off).
-A drift check costs 25-35 ms; the first check after a fit or load also derives
-the reference (about 2 s for the shipped checkpoint's 1168 training rows).
+A drift check costs about 28 ms on a 200-row batch (24 ms without the
+principal-axis test); the first call after a fit or load also derives the
+reference from the shipped checkpoint's 1,050 normal training rows, and took
+0.6 s end to end (0.3 s without the principal-axis test).
 
 ## First checks
 

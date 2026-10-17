@@ -56,13 +56,14 @@ curl http://localhost:8000/health
 docker compose logs -f mercury-agent
 ```
 
-Services started by docker-compose:
+Services started by docker-compose (each port is published on `127.0.0.1`
+only; use an SSH tunnel or a reverse proxy to reach one from another machine):
 
 | Service | Port | Purpose |
 |---------|------|---------|
 | `mercury-agent` | 8000 | REST API |
 | `prometheus` | 9090 | Metrics scrape |
-| `grafana` | 3000 | Dashboards (admin/admin) |
+| `grafana` | 3000 | Dashboards (admin/admin; set `GRAFANA_ADMIN_PASSWORD`) |
 
 ---
 

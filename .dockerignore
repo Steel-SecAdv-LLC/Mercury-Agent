@@ -17,6 +17,11 @@ docs/
 # Tests and benchmarks
 tests/
 benchmarks/
+# ...except the two committed artefacts the runtime reads: self_model.py derives
+# its measured metrics and limitations from them and reports none when they are
+# absent, which would make the in-image self-description look limitation-free.
+!benchmarks/mercury_benchmark_results.json
+!benchmarks/results/mvtec_visual_benchmark.json
 htmlcov/
 .coverage
 coverage.xml

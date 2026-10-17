@@ -289,6 +289,7 @@ git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git
 cd Mercury-Agent
 cp .env.example .env
 python scripts/generate_secret_key.py --all >> .env   # secrets, no OpenSSL needed
+echo "GRAFANA_ADMIN_PASSWORD=$(python scripts/generate_secret_key.py --bytes 24)" >> .env
 docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
 curl -fsS http://localhost:8000/health
 ```
@@ -296,7 +297,8 @@ curl -fsS http://localhost:8000/health
 Server-env checklist for the platform profile (details and defaults in the
 runbook's configuration reference):
 
-- Secrets from `generate_secret_key.py --all` reviewed into `.env`
+- Secrets from `generate_secret_key.py --all` reviewed into `.env`, plus a
+  `GRAFANA_ADMIN_PASSWORD` (the overlay refuses to start without one)
 - `MERCURY_FRONTEND_ENABLED=true` — serves the account UI (registration,
   login/2FA, dashboard) from the API process; the overlay defaults it on
 - `MERCURY_SMTP_*` pointed at the Google mailbox from Section 4
