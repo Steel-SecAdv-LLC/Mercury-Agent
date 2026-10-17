@@ -11,7 +11,8 @@ unavailable backend path refuses with a named reason instead of fabricating.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import os
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -116,12 +117,44 @@ def test_match_handles_grayscale_and_float_images() -> None:
         assert result["match_score"] == pytest.approx(1.0, abs=1e-9)
 
 
-def test_single_image_path_input_finally_works(tmp_path: Path) -> None:
+class _StubDeepFace:
+    """Stands in for DeepFace and records what reaches it.
+
+    Real ``analyze``/``represent`` download about 1.1 GB of model weights on
+    first use (age 539 MB, gender 537 MB, emotion 6 MB) and, under OpenCV 5
+    wheels that no longer ship Haar cascades, the detector from GitHub. A unit
+    test of the path-loading contract must not depend on that.
+    """
+
+    def __init__(self) -> None:
+        self.inputs: list[Any] = []
+
+    def analyze(self, img: Any, **_: Any) -> list[dict[str, Any]]:
+        self.inputs.append(img)
+        return [
+            {
+                "age": 31,
+                "gender": {"Man": 60.0, "Woman": 40.0},
+                "emotion": {"neutral": 90.0, "happy": 10.0},
+            }
+        ]
+
+    def represent(self, img: Any, **_: Any) -> list[dict[str, Any]]:
+        self.inputs.append(img)
+        return [{"embedding": np.linspace(0.1, 1.0, 128).tolist()}]
+
+
+def test_single_image_path_input_finally_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The documented "path or array" contract never worked for paths: the old
     # np.array(path) coercion produced a 0-d string array that DeepFace
     # errored on and the harmonic fallback crashed on. A path now loads to
-    # pixels and analyses like an array.
+    # pixels and analyses like an array, so what reaches DeepFace is a pixel
+    # array, never the path string.
     cv2 = pytest.importorskip("cv2")
+    stub = _StubDeepFace()
+    monkeypatch.setattr("omni_mercury_engine.models.biometric._deepface", lambda: stub)
     path = str(tmp_path / "ref.png")
     cv2.imwrite(path, _NOISE_IMG[..., ::-1])
     model = BiometricAnomalyModel()
@@ -130,6 +163,7 @@ def test_single_image_path_input_finally_works(tmp_path: Path) -> None:
     assert result["model_type"] == "biometric"
     assert "error" not in result
     assert "anomaly_scores" in result
+    assert result["age"] == 31 and result["attributes_measured"] is True
 
     # extract_features honours the same contract (its annotation says str).
     features = np.asarray(model.extract_features(path))
@@ -137,6 +171,34 @@ def test_single_image_path_input_finally_works(tmp_path: Path) -> None:
     assert float(np.linalg.norm(features)) > 0.0
 
     # And a path-loaded image embeds identically to its pixel array.
+    direct = model.predict({"reference": path, "test": _NOISE_IMG})
+    assert direct["match_score"] == pytest.approx(1.0, abs=1e-9)
+
+    assert stub.inputs, "DeepFace was never reached"
+    assert all(isinstance(seen, np.ndarray) for seen in stub.inputs), [type(s) for s in stub.inputs]
+
+
+@pytest.mark.network
+@pytest.mark.skipif(
+    os.environ.get("MERCURY_NETWORK_TESTS") != "1",
+    reason="runs real DeepFace, which downloads ~1.1 GB of weights; set MERCURY_NETWORK_TESTS=1",
+)
+def test_single_image_path_input_runs_real_deepface(tmp_path: Path) -> None:
+    """End to end against the real library, in the network lane only."""
+    cv2 = pytest.importorskip("cv2")
+    path = str(tmp_path / "ref.png")
+    cv2.imwrite(path, _NOISE_IMG[..., ::-1])
+    model = BiometricAnomalyModel()
+
+    result = model.predict({"reference": path})
+    assert result["model_type"] == "biometric"
+    assert "error" not in result, result.get("error")
+    assert "anomaly_scores" in result
+
+    features = np.asarray(model.extract_features(path))
+    assert features.shape[-1] == 128
+    assert float(np.linalg.norm(features)) > 0.0
+
     direct = model.predict({"reference": path, "test": _NOISE_IMG})
     assert direct["match_score"] == pytest.approx(1.0, abs=1e-9)
 

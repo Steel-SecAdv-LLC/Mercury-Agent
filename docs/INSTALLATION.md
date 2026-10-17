@@ -127,6 +127,37 @@ measured on, by `benchmarks/fusion_latency.py`). A missing library is therefore
 noticed, or replaced by the in-repo fallback where one exists, when that
 feature first runs.
 
+### Biometric image analysis (DeepFace) assets
+
+DeepFace is installed only on Python < 3.14 (TensorFlow has no 3.14 wheel), so
+the container image, which runs 3.14, uses the harmonic fallback instead. On
+other installs the first image analysis downloads, into
+`$DEEPFACE_HOME/.deepface/weights` (default `~/.deepface/weights`):
+
+| Asset | Size | Needed by |
+|---|---|---|
+| `age_model_weights.h5`, `gender_model_weights.h5`, `facial_expression_model_weights.h5` | 539 MB, 537 MB, 6 MB | `predict()` on an image |
+| `facenet_weights.h5` | 92 MB | `extract_features()` and reference-vs-test matching |
+| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection, **only with OpenCV 5.x**; 4.x wheels ship them in `cv2/data` |
+
+A failed download does not raise: `predict()` returns the visual assessment with
+an `error` key and `attributes_measured: false`. On a host without GitHub
+access, copy a populated `weights` directory into place, and fetch the two
+cascades (pinned to the OpenCV 4.9.0 tag DeepFace uses) with:
+
+```bash
+cd "${DEEPFACE_HOME:-$HOME}/.deepface/weights"
+base=https://raw.githubusercontent.com/opencv/opencv/4.9.0/data/haarcascades
+curl -fLO "$base/haarcascade_frontalface_default.xml" -O "$base/haarcascade_eye.xml"
+sha256sum -c <<'SUMS'
+0f7d4527844eb514d4a4948e822da90fbb16a34a0bbbbc6adc6498747a5aafb0  haarcascade_frontalface_default.xml
+71cc64fc305a355dc60067880f6fbbd43dd155bd63ee3844661a1bda34b2fd8c  haarcascade_eye.xml
+SUMS
+```
+
+The unit tests stub DeepFace; the end-to-end test runs only with
+`MERCURY_NETWORK_TESTS=1`.
+
 ## Core Dependencies
 
 The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
