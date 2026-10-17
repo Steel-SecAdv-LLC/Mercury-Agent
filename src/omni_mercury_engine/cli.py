@@ -475,7 +475,11 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     if path.suffix == ".npy":
         return {PRIMARY_INPUT_ARRAY[hazard]: np.load(path, allow_pickle=False)}
     if path.suffix == ".csv":
-        return {PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(path, delimiter=",")}
+        return {
+            PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(
+                path, delimiter=",", skiprows=_csv_header_rows(path)
+            )
+        }
     if path.suffix == ".json":
         with open(path) as fh:
             return {PRIMARY_INPUT_ARRAY[hazard]: np.asarray(json.load(fh), dtype=float)}
@@ -780,8 +784,19 @@ def explain(input: str, model: str) -> None:
         raise SystemExit(1) from e
 
 
+def _csv_header_rows(path: Path) -> int:
+    """Return 1 when the first line of a CSV holds column names, else 0."""
+    with open(path, encoding="utf-8") as handle:
+        first_line = handle.readline()
+    try:
+        [float(cell) for cell in first_line.strip().split(",")]
+    except ValueError:
+        return 1
+    return 0
+
+
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
-    """Load data from file."""
+    """Load data from file (a CSV may start with a header row)."""
     path = Path(filepath)
 
     if path.suffix == ".json":
@@ -792,7 +807,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             return np.array([data])
 
     elif path.suffix == ".csv":
-        data = np.loadtxt(path, delimiter=",", dtype=np.float32)
+        data = np.loadtxt(path, delimiter=",", dtype=np.float32, skiprows=_csv_header_rows(path))
         if data.ndim == 1:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
@@ -813,7 +828,7 @@ def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
     if path.suffix == ".npy":
         y = np.load(path, allow_pickle=False)
     elif path.suffix == ".csv":
-        y = np.loadtxt(path, delimiter=",")
+        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path))
     elif path.suffix == ".json":
         with open(path) as f:
             y = np.array(json.load(f))

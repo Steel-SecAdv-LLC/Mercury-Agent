@@ -117,3 +117,33 @@ def test_pydocstyle_pin_matches_ci_code_quality_lane() -> None:
         f"script pins pydocstyle=={script_pin.group(1)} but ci.yml pins "
         f"=={ci_pin.group(1)} — bump them in lockstep"
     )
+
+
+def _build_floors(text: str) -> dict[str, str]:
+    """Return the ``setuptools``/``wheel``/``cmake`` floors an install line names."""
+    return dict(re.findall(r"(setuptools|wheel|cmake)>=([0-9][0-9.]*)", text))
+
+
+def test_ama_build_floors_match_the_other_build_paths() -> None:
+    """AMA's setup.py preflight rejects older build tools, so the session
+    bootstrap, ``build_ama_native.sh`` (Dockerfile) and the CI composite
+    action must all name the same floors. The bootstrap fell behind
+    (setuptools 83 / wheel 0.47 / cmake 4.4.0 against AMA v5.0.0's
+    84 / 0.48 / 4.4.4), so a fresh container failed at its first AMA build."""
+    others = {
+        "scripts/build_ama_native.sh": REPO / "scripts" / "build_ama_native.sh",
+        "build-ama-cryptography action": REPO
+        / ".github"
+        / "actions"
+        / "build-ama-cryptography"
+        / "action.yml",
+    }
+    session = _build_floors(_script_text())
+    assert set(session) == {"setuptools", "wheel", "cmake"}
+    for label, path in others.items():
+        install = [
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if "pip install" in line or line.strip().startswith('"')
+        ]
+        assert _build_floors("\n".join(install)) == session, label

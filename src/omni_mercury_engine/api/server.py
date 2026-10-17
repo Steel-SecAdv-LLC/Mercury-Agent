@@ -1003,7 +1003,7 @@ async def health_check() -> HealthResponse:
     and monitoring service availability.
 
     Returns:
-        HealthResponse: Service status and version information.
+        HealthResponse: Service status, version and uptime.
 
     Example:
         ```bash
@@ -1012,10 +1012,16 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "x.y.z"}
+        {"status": "healthy", "version": "x.y.z", "uptime_seconds": 3600.5}
         ```
     """
-    return HealthResponse(status="healthy", version=API_VERSION)
+    from omni_mercury_engine.api.health import get_health_checker
+
+    return HealthResponse(
+        status="healthy",
+        version=API_VERSION,
+        uptime_seconds=round(get_health_checker().get_uptime(), 2),
+    )
 
 
 @app.post(
