@@ -3,13 +3,12 @@ name: GCN Credential Keep-Alive
 # ---------------------------------------------------------------------------
 # NASA GCN disables a Kafka client credential that has not connected to a
 # broker in 30 days, and the credential cannot be re-enabled -- a new one has
-# to be issued and every consumer (including the `gcn-kafka` MCP server in
-# .mcp.json) reconfigured.
+# to be issued and every consumer reconfigured.
 #
-# Attaching the MCP server counts as use, but only when someone happens to be
-# working. This workflow is the floor under that: one authenticated metadata
-# request per day from a machine that is always on, so the clock is reset
-# whether or not anybody opened an editor that week.
+# This workflow is what resets the clock: one authenticated metadata request
+# per day from a machine that is always on, so it does not depend on anybody
+# having a client attached that week. (No Kafka MCP server is configured; the
+# one that was tried could not authenticate, see docs/GCN_KAFKA_MCP.md.)
 #
 # The credential lives in repository secrets and is injected as an env var for
 # the single step that needs it. It is never written to a file, echoed, or

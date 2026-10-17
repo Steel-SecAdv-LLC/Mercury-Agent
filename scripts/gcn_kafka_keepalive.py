@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Keep-alive probe for the GCN Kafka client credentials behind the MCP server.
+"""Keep-alive probe for the GCN Kafka client credentials.
 
 NASA's General Coordinates Network (GCN) disables a Kafka client credential
 that has not been used to connect to a broker for 30 days, and warns by email
 nine days before it goes. A disabled credential cannot be re-enabled -- a new
-one has to be issued and every consumer reconfigured. An MCP client that only
-attaches the Kafka server occasionally is exactly the usage pattern that walks
-into that deadline.
+one has to be issued and every consumer reconfigured. A consumer that is only
+attached occasionally is exactly the usage pattern that walks into that
+deadline.
 
 This script is the scheduled counterpart to that interactive use: it makes ONE
 authenticated metadata request against the GCN broker, which is what GCN counts
@@ -105,9 +105,9 @@ _ENV_STATE_FILE = "GCN_KAFKA_STATE_FILE"
 
 #: Other names the same credential is stored under. ``GCN_CLIENT_*`` is how
 #: GCN's own client examples name the pair, and ``KAFKA_SASL_OAUTHBEARER_*`` is
-#: what the ``gcn-kafka`` MCP server in ``.mcp.json`` reads. A secret store
-#: provisioned for either consumer therefore also feeds this probe, instead of
-#: the keep-alive reporting "no credential" while the MCP server holds one.
+#: how a Kafka client's SASL settings name it. A secret store provisioned for
+#: either therefore also feeds this probe, instead of the keep-alive reporting
+#: "no credential" while another consumer holds one.
 #: The canonical ``GCN_KAFKA_*`` name always wins when several are set.
 _ENV_ALIASES: dict[str, tuple[str, ...]] = {
     _ENV_CLIENT_ID: ("GCN_CLIENT_ID", "KAFKA_SASL_OAUTHBEARER_CLIENT_ID"),
@@ -298,7 +298,7 @@ def consumer_config(creds: Credentials, group_id: str = "mercury-gcn-keepalive")
 
     This is the same shape ``gcn-kafka`` builds internally; it is spelled out
     here so the probe works with a plain ``confluent-kafka`` install and so the
-    identical block can be pasted into an MCP server's own config.
+    identical block can be handed to any other Kafka client.
     """
     return {
         "bootstrap.servers": creds.bootstrap_servers,

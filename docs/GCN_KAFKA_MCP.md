@@ -3,8 +3,8 @@
 NASA's [General Coordinates Network](https://gcn.nasa.gov) (GCN) publishes
 multimessenger alerts — gravitational-wave candidates, neutrino tracks, GRB
 notices — on a Kafka broker at `kafka.gcn.nasa.gov:9092`. This document covers
-wiring that broker to an MCP client and keeping the credential from expiring
-underneath it.
+keeping the credential from expiring, and what an MCP client would need before
+it could use that broker.
 
 The expiry is the part that bites. From GCN's FAQ:
 
@@ -12,15 +12,13 @@ The expiry is the part that bites. From GCN's FAQ:
 > used to connect to a Kafka broker for the past 30 days.
 
 An email warning arrives nine days before. A disabled credential **cannot be
-re-enabled** — a new pair has to be issued and every consumer reconfigured. An
-MCP server that is only attached when somebody happens to be working is exactly
-the usage pattern that walks into that deadline, so this repository ships both
-halves: the MCP configuration, and a scheduled keep-alive that connects whether
-or not anyone is at a keyboard.
+re-enabled** — a new pair has to be issued and every consumer reconfigured. A
+consumer that is only attached when somebody happens to be working is exactly
+the usage pattern that walks into that deadline, so this repository ships a
+scheduled keep-alive that connects whether or not anyone is at a keyboard.
 
 | Piece | Path |
 | --- | --- |
-| MCP server entry (project scope) | `.mcp.json` |
 | Credentials file template | `configs/mcp/gcn-kafka.env.example` |
 | Keep-alive script | `scripts/gcn_kafka_keepalive.py` |
 | systemd user timer | `deploy/systemd/mercury-gcn-keepalive.{service,timer}` |
@@ -61,88 +59,45 @@ ${EDITOR:-vi} ~/.config/mercury/gcn-kafka.env       # paste the real values
 
 `scripts/gcn_kafka_keepalive.py` **refuses to read that file unless it is mode
 600** — a credential readable by every account on the host defeats the point of
-keeping it out of the checkout. To hand the same file to the MCP server, source
+keeping it out of the checkout. To hand the same file to another consumer, source
 it into the launching shell: `set -a; . ~/.config/mercury/gcn-kafka.env; set +a`.
 
 **Repository secrets**, for the scheduled CI keep-alive: add
 `GCN_KAFKA_CLIENT_ID` and `GCN_KAFKA_CLIENT_SECRET` under *Settings → Secrets and
 variables → Actions*. A pair already stored as `GCN_CLIENT_ID` /
 `GCN_CLIENT_SECRET` is accepted as well; the canonical names win when both
-exist. The keep-alive script also reads the MCP server's own
-`KAFKA_SASL_OAUTHBEARER_CLIENT_ID` / `_SECRET`, so one secret store feeds both.
+exist. The keep-alive script also reads `KAFKA_SASL_OAUTHBEARER_CLIENT_ID` /
+`_SECRET`, the names a Kafka client's SASL settings use, so one secret store
+feeds both.
 
 `.gitignore` blocks `*.env` anywhere in the tree, so a copy dropped in the
 working directory by mistake cannot be committed casually.
 
-## 3. The MCP server entry
+## 3. No MCP server entry
 
-`.mcp.json` at the repository root configures a `gcn-kafka` server for every
-Claude Code session opened in this project. Claude Code asks for approval the
-first time it sees a project-scoped server.
+This repository does not configure a Kafka MCP server, because the only one
+that was tried (`uvx kafka-mcp-server`, PyPI 0.1.1) can neither start nor
+authenticate to GCN:
 
-```json
-{
-  "mcpServers": {
-    "gcn-kafka": {
-      "command": "uvx",
-      "args": ["kafka-mcp-server"],
-      "env": {
-        "KAFKA_BOOTSTRAP_SERVERS": "${GCN_KAFKA_BOOTSTRAP_SERVERS:-kafka.gcn.nasa.gov:9092}",
-        "KAFKA_SECURITY_PROTOCOL": "SASL_SSL",
-        "KAFKA_SASL_MECHANISM": "OAUTHBEARER",
-        "KAFKA_SASL_OAUTHBEARER_METHOD": "oidc",
-        "KAFKA_SASL_OAUTHBEARER_CLIENT_ID": "${GCN_KAFKA_CLIENT_ID}",
-        "KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET": "${GCN_KAFKA_CLIENT_SECRET}",
-        "KAFKA_SASL_OAUTHBEARER_TOKEN_ENDPOINT_URL": "${GCN_KAFKA_TOKEN_ENDPOINT:-https://auth.gcn.nasa.gov/oauth2/token}",
-        "KAFKA_CLIENT_ID": "mercury-agent-mcp"
-      }
-    }
-  }
-}
-```
+* it declares `mcp[cli]>=1.6.0` with no upper bound, so `uvx` resolves mcp 2.x,
+  which removed `mcp.server.fastmcp`; the entry point exits with
+  `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`;
+* even on mcp 1.x it reads only `KAFKA_BOOTSTRAP_SERVERS`, `TOPIC_NAME`,
+  `IS_TOPIC_READ_FROM_BEGINNING` and `DEFAULT_GROUP_ID_FOR_CONSUMER`, and builds
+  a plain `aiokafka` producer: no security protocol, no SASL. The
+  `KAFKA_SASL_OAUTHBEARER_*` settings that `.mcp.json` used to pass were
+  ignored, and GCN requires SASL_SSL with an OIDC client-credentials exchange.
 
-Every credential reference is a `${VAR}` expansion resolved from the launching
-shell's environment at startup. Claude Code expands `${VAR}` and
-`${VAR:-default}` in `command`, `args`, `env`, `url`, and `headers`, so the file
-carries variable *names* and no values. If a variable is unset, Claude Code
-still loads the server and warns rather than substituting anything.
+A project-scoped server also received the client secret through its `env`
+block while resolving an unpinned package at every launch, which is a poor
+trade for a connection that could not succeed. The scheduled keep-alive below
+is therefore the only thing that holds the credential open.
 
-Prefer it configured for yourself rather than for the project? Use user scope,
-which lives in `~/.claude.json` and applies across projects:
-
-```bash
-claude mcp add --scope user gcn-kafka \
-  --env KAFKA_BOOTSTRAP_SERVERS=kafka.gcn.nasa.gov:9092 \
-  --env KAFKA_SECURITY_PROTOCOL=SASL_SSL \
-  --env KAFKA_SASL_MECHANISM=OAUTHBEARER \
-  --env 'KAFKA_SASL_OAUTHBEARER_CLIENT_ID=${GCN_KAFKA_CLIENT_ID}' \
-  --env 'KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET=${GCN_KAFKA_CLIENT_SECRET}' \
-  -- uvx kafka-mcp-server
-```
-
-Quote the `${...}` arguments in single quotes so the shell passes them through
-literally — if the shell expands them first, the secret is written into
-`~/.claude.json` in plaintext, which is the thing this setup exists to avoid.
-
-> **Note on `~/.claude/settings.json`.** MCP servers are not configured there.
-> `settings.json` holds permissions, hooks, and environment settings;
-> `mcpServers` belongs in `.mcp.json` (project) or `~/.claude.json` (user/local
-> scope, most easily managed with `claude mcp add`).
-
-### What the MCP path does and does not give you today
-
-Attaching an MCP server that authenticates against GCN counts as use and resets
-the 30-day clock. That is the design intent above, and the configuration is
-written for it.
-
-Be aware of the gap: the published `kafka-mcp-server` builds on `kafka-python`
-and takes its connection settings from a `kafka.properties` file.
-`kafka-python` reaches SASL/OAUTHBEARER only through a token-provider object
-supplied in code, so the OIDC client-credentials exchange GCN requires is not
-reachable from configuration alone. Until an OAUTHBEARER-capable Kafka MCP
-server is in use, treat the MCP connection as best-effort and the keep-alive
-below as the mechanism that actually holds the credential open. The exact
-librdkafka settings a compliant server needs are the ones
+A Kafka MCP server is worth adding once one supports SASL/OAUTHBEARER with
+OIDC. Pin its exact version, and give it the credential through `${VAR}`
+expansion in `.mcp.json` (Claude Code expands `${VAR}` and `${VAR:-default}` in
+`command`, `args`, `env`, `url` and `headers`, so the file carries variable
+names and no values). The settings it must end up with are the ones
 `scripts/gcn_kafka_keepalive.py::consumer_config` builds:
 
 ```python
@@ -156,6 +111,11 @@ librdkafka settings a compliant server needs are the ones
     "sasl.oauthbearer.token.endpoint.url": "https://auth.gcn.nasa.gov/oauth2/token",
 }
 ```
+
+> **Note on `~/.claude/settings.json`.** MCP servers are not configured there.
+> `settings.json` holds permissions, hooks, and environment settings;
+> `mcpServers` belongs in `.mcp.json` (project) or `~/.claude.json` (user/local
+> scope, most easily managed with `claude mcp add`).
 
 ## 4. The keep-alive
 
@@ -244,9 +204,6 @@ python scripts/gcn_kafka_keepalive.py --json
 python scripts/gcn_kafka_keepalive.py --check-only    # should report ~0 days
 ```
 
-In an MCP session, ask the client to list Kafka topics; GCN topic names look
-like `gcn.notices.icecube.lvk_nu_track_search`.
-
 ## What is never stored
 
 * The client secret is read from the environment or an owner-only file and held
@@ -255,8 +212,8 @@ like `gcn.notices.icecube.lvk_nu_track_search`.
   never the id and never the secret, and is written mode 600.
 * Both values are stripped from any error text before it is printed, so a broker
   error quoting the connection string cannot leak the credential into a CI log.
-* `.mcp.json`, `configs/mcp/gcn-kafka.env.example`, and `.env.example` carry
-  variable names only.
+* `configs/mcp/gcn-kafka.env.example` and `.env.example` carry variable names
+  only.
 
 ## References
 
