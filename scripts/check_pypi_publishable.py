@@ -7,10 +7,12 @@ A ``PYPI_TOKEN`` (or a trusted publisher) only authenticates the upload. PyPI
 still refuses it when any of the following holds, and each one was true of
 this repository's release pipeline when the check was written:
 
-1. **The project name belongs to someone else.** ``mercury-agent`` on PyPI is
-   an unrelated project (v0.1.10, a different author and homepage). An upload
-   under that name is rejected for lack of ownership, and a user following a
-   bare ``pip install mercury-agent`` gets the other project's code.
+1. **The project name belongs to someone else.** The distribution is named
+   ``mercury-agent-csi`` because ``mercury-agent`` on PyPI is an unrelated
+   project (v0.1.10, a different author and homepage): an upload under that
+   name is rejected for lack of ownership, and a user following a bare
+   ``pip install mercury-agent`` gets the other project's code. The check
+   guards the chosen name the same way against future collisions.
 2. **A direct URL dependency in the metadata.** PyPI rejects any
    ``Requires-Dist`` of the form ``name @ url`` ("Can't have direct
    dependency"), extras included. The ``[pqc]`` extra pins AMA Cryptography

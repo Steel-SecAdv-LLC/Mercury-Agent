@@ -581,9 +581,9 @@ jobs:
           echo "### Installation" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
-          # Direct reference to this repository's tag: the bare PyPI name
-          # \`mercury-agent\` belongs to an unrelated project.
-          echo "pip install \"mercury-agent @ git+https://github.com/${{ github.repository }}.git@v$VERSION\"" >> CHANGELOG_EXCERPT.md
+          # Direct reference to this repository's tag; works whether or not
+          # the release is also on PyPI.
+          echo "pip install \"mercury-agent-csi @ git+https://github.com/${{ github.repository }}.git@v$VERSION\"" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "### Docker" >> CHANGELOG_EXCERPT.md
@@ -637,7 +637,7 @@ jobs:
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/project/mercury-agent/
+      url: https://pypi.org/project/mercury-agent-csi/
 
     steps:
       - name: Checkout code (preflight script)

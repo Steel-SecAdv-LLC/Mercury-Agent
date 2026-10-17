@@ -24,7 +24,7 @@
 ```
               +===============================================================================+
               |                            Mercury Agent ♱ v2.1.0                             |
-              | Neuro-Symbolic AI for Autonomous, Multi-Model, Multi-Domain Anomaly Detection |
+              | Computational Systems Intelligence - Multi-Domain Anomaly & Hazard Detection  |
               |                                                                               |
               |   Cognitive Orchestrator |   Hybrid Fusion ML      |   Production Security    |
               |   Neural + Symbolic      |   30 Detection Engines  |   Post-Quantum Crypto    |
