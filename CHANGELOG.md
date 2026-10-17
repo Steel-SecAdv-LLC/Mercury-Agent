@@ -135,9 +135,18 @@ configures, not read.
   reviewed line by line and recorded as false positives (placeholders, env-var
   names, pinned digests, public KAT vectors); digest and NIST-vector JSON is
   excluded by path. All tracked files pass and the canary file fails.
-- `.safety-policy.yml` carried eight bookworm-era CVE acceptances whose review
-  had lapsed on 2026-08-02, none in `.trivyignore` and none read by any gate;
-  removed rather than re-dated.
+- The Safety policy is one working file. `.safety-policy.yml` was a 3.0-format
+  file no gate read (`safety check` aborts on 3.0), carrying eight bookworm-era
+  acceptances whose review had lapsed on 2026-08-02; `.safety-policy-v2.yml`
+  existed only to stop `check` auto-discovering it. They are replaced by one
+  2.0-format `.safety-policy.yml` that both gates pass with `--policy-file`:
+  every severity reported, unscored findings and unpinned requirements
+  included, nothing accepted, and an exception only with a reason and an expiry
+  within 90 days (`tests/security/test_safety_policy.py`). Checked with Safety
+  3.8.1: a vulnerable pin fails (exit 64); an exception with a future expiry
+  removes exactly that advisory and an expired one stops applying; a misspelled
+  key fails the gate (exit 2); an unpinned requirement is scanned (9 findings,
+  0 if unpinned were ignored); a clean pin passes.
 - `/health` stays minimal (`status`, `version`). An earlier commit in this
   round filled its never-populated `uptime_seconds`, but uptime on an
   unauthenticated endpoint tells any caller when the service last restarted and
@@ -186,9 +195,10 @@ configures, not read.
   ran), so that run is local until a lane adds the extra. `docs/INSTALLATION.md`
   lists the assets, where they go and a checksum-verified way to pre-seed them.
 
-265 tests added; 16,713 are collected on this tree with the full optional-dependency
+269 tests added; 16,717 are collected on this tree with the full optional-dependency
 surface. The full local run gave 16,610 passed, 103 skipped, 0 failed (the 103rd
-skip is the real-DeepFace test, which needs `[face]` and `MERCURY_NETWORK_TESTS=1`).
+skip is the real-DeepFace test, which needs `[face]` and `MERCURY_NETWORK_TESTS=1`);
+the four Safety-policy tests added after it pass.
 
 ### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
 

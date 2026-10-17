@@ -1413,7 +1413,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **16,713 tests collected** (2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **16,717 tests collected** (2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
@@ -1447,7 +1447,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   security, space, streaming, tools, utils, validation, verifiers,
   vision)
 - **~435,000 LOC** in `src/omni_mercury_engine/` (801 source files)
-- **776 test modules** under `tests/`; 16,713 tests collected with the
+- **777 test modules** under `tests/`; 16,717 tests collected with the
   full optional-dependency surface (2026-10-17) — fewer on a
   minimal install because optional-import-gated modules skip. See the
   README "Testing and Quality Assurance" section for the collection

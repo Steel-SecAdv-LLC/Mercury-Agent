@@ -104,13 +104,14 @@ jobs:
     - name: Run Safety check
       # Safety scans the isolated Mercury install via ``-r``.
       # BLOCKING — any finding in Mercury's own dependency surface
-      # fails the job.  No per-CVE risk acceptance: the audit-doc
-      # IGNORE column is the prior architecture (since removed)
-      # because that approach silenced findings rather than
-      # remediating the supply chain.
+      # fails the job.  ``.safety-policy.yml`` accepts nothing and
+      # reports every severity; the audit-doc IGNORE column is the prior
+      # architecture (since removed) because it silenced findings rather
+      # than remediating the supply chain.
       run: |
         safety check \
           -r /tmp/mercury-audit-env/requirements.txt \
+          --policy-file .safety-policy.yml \
           --save-json safety-report.json
 
     - name: Run pip-audit

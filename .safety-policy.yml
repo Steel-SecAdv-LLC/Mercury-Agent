@@ -1,0 +1,40 @@
+# Mercury Agent: Safety policy for the Python-package CVE gate.
+#
+# Read by `safety check --policy-file .safety-policy.yml` in the blocking
+# dependency gates of .github/workflows/ci.yml and security.yml, which scan the
+# isolated Mercury install (`pip freeze` of `pip install -e ".[api]"`). Safety's
+# `check` command reads only this format (policy version 2.0); a 3.0 file makes
+# it abort, so this file stays at 2.0 until the gate moves to `safety scan`.
+#
+# Posture: zero accepted risk. Every severity is reported, a vulnerability with
+# no CVSS score is reported, unpinned requirements are scanned, and any report
+# fails the job. tests/security/test_safety_policy.py pins each of these values
+# and the rules for exceptions below.
+#
+# Exceptions: none. An exception is a last resort for a finding with no fixed
+# release that cannot be removed or isolated. It names the Safety advisory id,
+# says why the vulnerable code is not reachable in Mercury, and carries an
+# expiry at most 90 days out; Safety stops applying an expired entry, so the
+# gate fails again until the exception is re-reviewed or the dependency fixed.
+# Record the full rationale in a dated CHANGELOG security entry. Shape:
+#
+#   ignore-vulnerabilities:
+#     77680:
+#       reason: "requests: <component>; not reachable because <...>; CHANGELOG 2026-10-17"
+#       expires: "2027-01-15"
+#
+# Deployment-image (OS package) acceptances are a separate ledger: .trivyignore.
+
+version: '2.0'
+
+security:
+  # Report every CVSS score; no floor below which findings are dropped.
+  ignore-cvss-severity-below: 0
+  # A vulnerability that has no CVSS score yet is still a vulnerability.
+  ignore-cvss-unknown-severity: false
+  # Scan unpinned requirements against every vulnerable version they allow.
+  ignore-unpinned-requirements: false
+  # Any reported vulnerability fails the job.
+  continue-on-vulnerability-error: false
+  # Accepted exceptions (see the rules above). Empty: nothing is accepted.
+  ignore-vulnerabilities: {}

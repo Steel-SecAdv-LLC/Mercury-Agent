@@ -409,13 +409,13 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | No policy file and no ignore flags in `.github/workflows/{ci,security}.yml`; per-CVE rationale is tracked in [CHANGELOG.md](CHANGELOG.md) under the dated security entries |
+| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | [`.safety-policy.yml`](.safety-policy.yml) (every severity reported, unscored and unpinned findings included, nothing accepted; an exception needs a reason and an expiry at most 90 days out) + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale under the dated security entries) |
 | Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) (enumerated, expiring acceptances) + the gate configuration in `.github/workflows/{ci,security}.yml` |
 
 Both gates must be GREEN for any PR to merge. The Python-package gate
-runs with **zero risk acceptance**: there is no Safety policy file and
-no `--ignore` / `--ignore-vuln` flags are wired into either CI
-workflow. Findings are remediated by upgrade, isolation, or native
+runs with **zero risk acceptance**: `.safety-policy.yml` accepts nothing
+(`tests/security/test_safety_policy.py` pins that) and no `--ignore` /
+`--ignore-vuln` flags are wired into either CI workflow. Findings are remediated by upgrade, isolation, or native
 re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable

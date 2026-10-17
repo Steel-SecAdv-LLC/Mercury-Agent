@@ -914,15 +914,16 @@ jobs:
         # NOT scanned — auditor-internal packages are not Mercury's
         # supply chain.
         #
-        # No policy file and no ``--ignore``: per-CVE risk acceptance is
-        # intentionally NOT used, so any new finding in Mercury's own
-        # surface fails the gate.  (A repo-root ``.safety-policy.yml`` in
-        # the v3 format would make ``check`` abort — its legacy parser
-        # rejects v3 files it auto-discovers — so do not add one.)
+        # ``.safety-policy.yml`` (policy version 2.0, the only one
+        # ``check`` reads) reports every severity, unscored findings and
+        # unpinned requirements, and accepts nothing: any finding in
+        # Mercury's own surface fails the gate.  An exception lives in
+        # that file with a reason and an expiry, never as ``--ignore``.
         run: |
           set +e
           safety check \
             -r /tmp/mercury-audit-env/requirements.txt \
+            --policy-file .safety-policy.yml \
             --output json > safety-report.json
           rc=$?
           # On any non-zero exit, surface each finding as a GHA
