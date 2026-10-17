@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-13%2C950%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-16%2C445%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -65,14 +65,14 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 **Version:** v2.1.0
-**Date:** 2026-07-24
+**Date:** 2026-10-17
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
 
 ## Executive Summary
 
-Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent is a civilization-first **Computational Systems Intelligence (CSI)**: a comprehensive neuro-symbolic AI for multi-domain anomaly and hazard detection, built at the meeting point of systems intelligence, computational science, resilience engineering, complex adaptive systems engineering, and humanitarian technology — with STEAM research as its application domain, not its identity. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** mission: serving the broad range of scientific, clinical, engineering, humanitarian and public-safety work that hazard detection touches. FINDΩYOU™ — locating the lost, missing and abducted — is one deployment of that mission, not its ceiling. Every public decision surface clears one mandatory, fail-closed **harm-uplift gate** (`cognitive/decision_gate.py`, [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)), which refuses operational uplift toward a weapon or mass-casualty outcome and permits the diagnostic, defensive, clinical and responsive half of every hazard domain. Benevolence is scored and logged as an **advisory** signal; it is not a pass-bar.
 
@@ -94,7 +94,7 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-07-24
+> **Last Updated:** 2026-10-17
 >
 
 ---
@@ -656,7 +656,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 30 detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
+| Comprehensive Testing | 16,445 tests collected (2026-10-17, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
 | Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
@@ -676,7 +676,7 @@ See `examples/decision_abstention_response_demo.py` and
 | JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
-| Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
+| Real-Data Validation | **Partial** | NSL-KDD benchmarked (AUC 0.975, table above); medical modules still require MIMIC-III clinical validation |
 
 **Legend:**
 - **Complete**: Implemented and tested
@@ -921,20 +921,22 @@ wsl --install
 
 The package uses the following naming conventions:
 
-- **Package Name**: `mercury-agent` (used in pip install and pyproject.toml)
+- **Distribution Name**: `mercury-agent-global` (pyproject.toml `[project].name`; the name `mercury-agent` on PyPI belongs to an unrelated project)
 - **CLI Command**: `mercury-agent` (the command-line interface)
 - **Internal Module**: `omni_mercury_engine` (the Python import path)
 
 You import with `from omni_mercury_engine import ...`. The internal module name preserves backward compatibility with the original codebase while the package and CLI names reflect the current project identity.
 
-**There is no PyPI release, and the PyPI name is taken.** `mercury-agent` on
-PyPI is an unrelated project, so a bare `pip install mercury-agent` installs
-someone else's code. Install from a clone, following **Standard Installation**
-above (including the AMA native build), or by direct reference to a tag:
-`pip install "mercury-agent @ git+https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git@<tag>"`.
-The release workflow runs `scripts/check_pypi_publishable.py` before any upload;
-it refuses while the name belongs to another project and while the `[pqc]`
-extra pins AMA by git URL, which PyPI rejects.
+**There is no PyPI release, by choice.** The distribution is named
+`mercury-agent-global` because `mercury-agent` on PyPI is an unrelated
+project — a bare `pip install mercury-agent` installs someone else's code.
+Install from a clone, following **Standard Installation** above (including
+the AMA native build), or by direct reference to a tag:
+`pip install "mercury-agent-global @ git+https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git@<tag>"`.
+The release workflow runs `scripts/check_pypi_publishable.py` before any
+upload; publishing stays off until the `[pqc]` extra's git-URL pin on AMA
+(which PyPI rejects) is resolved — and nothing in this repository depends on
+it ever being published.
 
 ### External Dependencies
 
@@ -1005,6 +1007,16 @@ mercury-agent biometric --help
 
 # Security analysis
 mercury-agent security --help
+
+# Intelligence assessment (statement verification, consent-gated CIT,
+# contactless vital signs, intel screening and merit-gated fusion)
+mercury-agent assess --help
+
+# Adjudication ledger (held-out labels, ML-DSA-65-signed records/exports)
+mercury-agent adjudication --help
+
+# Train the fusion model and install it as the served default
+mercury-agent train --data features.npz --install
 ```
 
 </details>
@@ -1166,6 +1178,9 @@ docker run -it \
 | `OMNI_DETECTOR_MAX_MAGNITUDE` | Unified safe magnitude cap for detector scores/inputs/metadata | `1e100` |
 | `OMNI_DETECTOR_RIDGE_FACTOR` | Digital-twin scale-relative Tikhonov ridge factor | `1e-6` |
 | `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON file supplying the `OMNI_DETECTOR_*` / `OMNI_ENSEMBLE_*` knobs (env overrides file) | unset |
+| `MERCURY_FUSION_CHECKPOINT` | Serve this fusion checkpoint instead of the installed/bundled one (a set-but-missing path fails loudly) | unset |
+| `MERCURY_MODEL_DIR` | Directory of the installed fusion model written by `mercury-agent train --install` (`fusion.pt`; replaced model kept as `fusion.previous.pt`) | `~/.mercury/models` |
+| `MERCURY_DRIFT_DETECTION` | Data-drift checks on served detections (`0` disables) | `1` |
 | `MERCURY_FRONTEND_ENABLED` | Serve the browser account UI from the API process (see [Self-Service Account Platform](#quick-start)) | `false` |
 | `MERCURY_KEYSTORE_PATH` | SQLite file backing all account/quota platform state | unset (in-memory) |
 | `MERCURY_QUOTA_ENABLED` | Per-account quota enforcement on metered routes | `false` |
@@ -1270,7 +1285,11 @@ kubectl get pods -n mercury-agent -l app.kubernetes.io/name=mercury-agent
 `MERCURY_ENV=production`, and API-key hashing then refuses to fall back to the
 built-in default salt.
 
-Raw manifests, if you prefer kustomize to Helm:
+Raw manifests, if you prefer kustomize to Helm — the production, staging
+and distributed overlays install their Prometheus Operator monitoring
+(PodMonitors + PrometheusRule) in the same apply, and the prometheus-adapter
+values backing the HPAs' custom metrics are generated, drift-gated, at
+`monitoring/prometheus/prometheus-adapter-values.yaml`:
 
 ```bash
 kubectl apply -k k8s/overlays/production
@@ -1466,9 +1485,9 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **13,950 tests collected** (`pytest --collect-only -q`, 2026-07-24, with the
+- **16,445 tests collected** (CI ML lane, 2026-10-17, with the
   optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` / `h5py` /
-  `plotly` dependencies installed — zero modules skipped at collection) across
+  `plotly` dependencies installed) across
   the test modules counted in the CI-gated
   [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
   module count is measured from disk, never hand-typed). A minimal install
@@ -2529,7 +2548,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
 - **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** 13,950 tests collected with the full optional-dependency surface (`pytest --collect-only -q`, 2026-07-24) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Comprehensive testing:** 16,445 tests collected with the full optional-dependency surface (CI ML lane, 2026-10-17) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
@@ -2547,7 +2566,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 Before production use:
 
-- Validate performance on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
+- Validate performance on domain-specific real-world datasets (e.g. MIMIC-III for the medical modules; NSL-KDD is already in the committed benchmarks)
 - Commission independent security audit by qualified professionals
 - Conduct clinical validation for any medical applications
 - Deploy with FIPS 140-2 Level 3+ HSM for production secrets
@@ -2563,12 +2582,12 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v2.1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v2.1.0 — Computational Systems Intelligence for Multi-Domain Anomaly & Hazard Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
 <img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
-*Last updated: 2026-07-24*
+*Last updated: 2026-10-17*
 
 </div>

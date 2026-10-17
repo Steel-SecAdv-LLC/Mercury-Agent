@@ -90,7 +90,7 @@ class TemporalAnomalyDetector(BaseDetector):
         if self.lstm is None:
             raise ImportError(
                 "TemporalAnomalyDetector LSTM forecasting requires PyTorch. "
-                "Install with `pip install 'mercury-agent-csi[ml]'` or use the "
+                "Install with `pip install 'mercury-agent-global[ml]'` or use the "
                 "trend / change / seasonality detection paths which run on "
                 "NumPy only."
             )
@@ -191,7 +191,7 @@ class TemporalAnomalyDetector(BaseDetector):
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "TemporalAnomalyDetector.extract_features requires PyTorch. "
-                "Install with `pip install 'mercury-agent-csi[ml]'`, or use "
+                "Install with `pip install 'mercury-agent-global[ml]'`, or use "
                 "detect()/fit() which run on NumPy only."
             )
 

@@ -37,6 +37,7 @@ __all__ = [
     "LabelSmoothingLoss",
     "MultimodalFusion",
     "OmniFusionModel",
+    "STEAMDisciplineRouter",
     "STEMDisciplineRouter",
     "TemporalSequenceEncoder",
 ]
@@ -1402,15 +1403,15 @@ class OmniFusionModel(nn.Module):
         }
 
 
-class STEMDisciplineRouter:
-    """Routes data to appropriate engines based on STEM discipline.
+class STEAMDisciplineRouter:
+    """Routes data to appropriate engines based on STEAM discipline.
 
     Maps specific scientific disciplines to specialized detection engines
     for optimized multi-engine fusion. Improves detection accuracy through
     domain-aware weight selection.
 
     Example:
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         weights = router.route(data, discipline='biology')
 
         fusion_model = OmniFusionModel(...)
@@ -1418,7 +1419,7 @@ class STEMDisciplineRouter:
     """
 
     def __init__(self) -> None:
-        """Initialize STEM discipline routing mappings."""
+        """Initialize STEAM discipline routing mappings."""
         self.discipline_weights = {
             "biology": {
                 "biometric": 0.90,
@@ -1570,11 +1571,11 @@ class STEMDisciplineRouter:
     def route(
         self, data: torch.Tensor, discipline: str, data_type: str | None = None
     ) -> dict[str, float]:
-        """Route data to appropriate engines based on STEM discipline.
+        """Route data to appropriate engines based on STEAM discipline.
 
         Args:
             data: Input data tensor
-            discipline: STEM discipline (e.g., 'biology', 'physics', 'cybersecurity')
+            discipline: STEAM discipline (e.g., 'biology', 'physics', 'cybersecurity')
             data_type: Optional data type hint ('timeseries', 'image', 'tabular')
 
         Returns:
@@ -1629,7 +1630,7 @@ class STEMDisciplineRouter:
         """Explain why engines were prioritized for a discipline.
 
         Args:
-            discipline: STEM discipline
+            discipline: STEAM discipline
 
         Returns:
             Dict with explanation and top engines
@@ -1677,3 +1678,7 @@ class STEMDisciplineRouter:
             "top_engines": [name for name, _ in sorted_engines[:3]],
             "weights": dict(sorted_engines),
         }
+
+
+#: Back-compat alias: the router predates the STEAM naming.
+STEMDisciplineRouter = STEAMDisciplineRouter

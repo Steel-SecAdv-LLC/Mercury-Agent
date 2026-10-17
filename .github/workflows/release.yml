@@ -583,7 +583,7 @@ jobs:
           echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
           # Direct reference to this repository's tag; works whether or not
           # the release is also on PyPI.
-          echo "pip install \"mercury-agent-csi @ git+https://github.com/${{ github.repository }}.git@v$VERSION\"" >> CHANGELOG_EXCERPT.md
+          echo "pip install \"mercury-agent-global @ git+https://github.com/${{ github.repository }}.git@v$VERSION\"" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "### Docker" >> CHANGELOG_EXCERPT.md
@@ -637,7 +637,7 @@ jobs:
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/project/mercury-agent-csi/
+      url: https://pypi.org/project/mercury-agent-global/
 
     steps:
       - name: Checkout code (preflight script)

@@ -424,7 +424,7 @@ def hazard_viz(
 
         if not PLOTLY_AVAILABLE:
             raise click.UsageError(
-                "--format html needs plotly: pip install 'mercury-agent-csi[gui]'"
+                "--format html needs plotly: pip install 'mercury-agent-global[gui]'"
             )
         builder = DashboardBuilder(DashboardConfig(title=f"{diagnostics.hazard} diagnostics"))
         builder.add_hazard_panel(f"{diagnostics.hazard} panel", diagnostics)
@@ -1844,7 +1844,7 @@ def stream(
     except ImportError as exc:  # optional aiokafka/redis extras not installed
         click.echo(
             "Error: streaming dependencies are not installed. "
-            f"Install with: pip install 'mercury-agent-csi[streaming]' ({exc})",
+            f"Install with: pip install 'mercury-agent-global[streaming]' ({exc})",
             err=True,
         )
         raise SystemExit(1) from exc

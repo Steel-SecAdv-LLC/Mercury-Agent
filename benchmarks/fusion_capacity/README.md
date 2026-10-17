@@ -40,7 +40,7 @@ against the current default after every run.
 
 **Config:** 4 dims (32, 64, 128, 256) × 3 seeds (0, 1, 2) × 8
 genuinely-labelled ADBench datasets (`cardio`, `mammography`, `pendigits`,
-`annthyroid`, `satellite`, `Pima`, `WBC`, `Ionosphere` — medical + STEM).
+`annthyroid`, `satellite`, `Pima`, `WBC`, `Ionosphere` — medical + STEAM).
 **96 runs**, 40 epochs each with early stopping, cap 1000 samples per dataset,
 30 % held-out test.
 

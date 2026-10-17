@@ -6,7 +6,7 @@ Monitors CISA critical infrastructure sectors, EU Critical Entities,
 World Bank economic sectors, and emerging technologies for anomalies.
 
 Includes a filtering/selection system to run any subset of the registered
-modules for flexible STEM applications.
+modules for flexible STEAM applications.
 """
 
 from __future__ import annotations

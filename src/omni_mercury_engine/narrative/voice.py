@@ -717,7 +717,7 @@ class MercuryVoice:
         start_time = time.time()
 
         message = (
-            "I can help with anomaly detection, pattern analysis, and STEM exploration. "
+            "I can help with anomaly detection, pattern analysis, and STEAM exploration. "
             "You can ask me about: "
             "(1) Detection results and their meaning, "
             "(2) Historical patterns and trends, "

@@ -355,7 +355,7 @@ recording, with the capability's scope and not withdrawn. Each admitted call is
 written to the gate audit log with a fingerprint of its consent or attestation.
 
 ML availability is determined by the installed extras (`pip install
-mercury-agent-csi[ml]`), not by an environment toggle, and the PQC backend is
+mercury-agent-global[ml]`), not by an environment toggle, and the PQC backend is
 mandatory for every agent surface (engine, crypto, AMA-backed security
 names) — there is no `OMNI_ML_ENABLED` or `OMNI_QUANTUM_ENABLED` switch in
 the application.

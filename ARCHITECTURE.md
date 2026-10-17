@@ -1,10 +1,10 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-16.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-17.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 173 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+Mercury Agent is a civilization-first **Computational Systems Intelligence (CSI)** — a neuro-symbolic AI framework, grounded in systems intelligence, computational science, resilience engineering, complex adaptive systems engineering and humanitarian technology, that integrates 30 diverse scientific and computational paradigms — a deep-learning core (171 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 173 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -461,7 +461,7 @@ The Mercury Agent includes comprehensive infrastructure monitoring capabilities 
 2. **EU Critical Entities Directive** - 11 sectors including unique Space sector monitoring
 3. **Essential Critical Infrastructure Workers** - 8 worker categories with labor resilience monitoring
 4. **World Bank Economic Sectors** - 21 ISIC Rev 4 economic sectors for sustainable development
-5. **STEM Disciplines** - Discipline-specific routing for optimized multi-engine fusion
+5. **STEAM Disciplines** - Discipline-specific routing for optimized multi-engine fusion
 6. **Risk Management & Resilience** - Post-quantum cryptography migration planning
 7. **Public Policy & Social Sciences** - Government facilities and democratic governance monitoring
 8. **Emerging Technologies** - Future-proofing with adaptive detection for 9+ technology categories
@@ -552,9 +552,9 @@ Each module is tagged with category and priority for flexible selection (registr
 | **communications_it** | cisa_sector | high | CISA Communications/IT sector |
 | **chemical_nuclear** | cisa_sector | high | CISA Chemical/Nuclear sector |
 
-### STEM Discipline Routing
+### STEAM Discipline Routing
 
-The **fusion_network.py** includes enhanced STEM discipline routing for optimized multi-engine detection:
+The **fusion_network.py** includes enhanced STEAM discipline routing for optimized multi-engine detection:
 
 ```python
 from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
@@ -770,7 +770,7 @@ enable with `set_profiling_enabled(True)`. See
 
 - **AC-2**: Account Management (rate limiting)
 - **AU-2**: Audit Events (threat logging with Banish logic)
-- **SC-13**: Cryptographic Protection (bcrypt, AES-256)
+- **SC-13**: Cryptographic Protection (AES-256-GCM / ChaCha20-Poly1305, Argon2id, ML-DSA-65 / ML-KEM-1024 / SLH-DSA via AMA Cryptography)
 - **SI-4**: Information System Monitoring (all 30 detection engines)
 
 ### Threat Detection Pipeline
@@ -872,6 +872,16 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
 - **Contactless vital signs** (`biometric/rf_vital_signs.py`): respiration and
   heart rate from Wi-Fi CSI or radar, consent-gated, abstaining with a reason.
   Its ~20 s minimum window does not fit the CIT's per-stimulus windows.
+  `biometric/radar_iq.py` supplies the CW-radar front end (direct
+  least-squares I/Q ellipse correction + arctangent demodulation), and
+  `benchmarks/rf_vitals_reference_validation.py` scores the whole chain
+  against synchronised contact references (`biometric/vital_reference.py`:
+  ECG R-peaks, PPG pulses, impedance breaths) on the 30-subject
+  Schellenberger 2020 clinical radar dataset — measured there: heart MAE
+  0.66 bpm (16 % coverage, honest abstention), respiration MAE 1.15 bpm
+  (61 % coverage); a subharmonic guard withholds, with the candidate rate
+  named, instead of reporting double the true rate on bradycardia below
+  the heart band.
 
 ### Engine Concurrency and Drift
 
@@ -950,6 +960,25 @@ anchors, and design contract live in
 ### Docker Container
 
 The shipped `Dockerfile` is a two-stage build on `python:3.14-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
+
+### Served fusion model
+
+The serving surfaces resolve the fusion checkpoint in a fixed order:
+`MERCURY_FUSION_CHECKPOINT` when set (a missing path fails loudly rather
+than silently serving another model), else the installed model
+(`$MERCURY_MODEL_DIR/fusion.pt`, written atomically by
+`mercury-agent train --install`, which keeps the replaced model as
+`fusion.previous.pt`), else the bundled synthetic checkpoint.
+
+### Kubernetes monitoring
+
+`kubectl apply -k` on the production, staging and distributed overlays
+installs the Prometheus Operator objects (PodMonitors and, outside
+staging, the PrometheusRule) together with the workloads; the
+prometheus-adapter values backing the HPAs' custom metrics are generated
+and drift-gated at `monitoring/prometheus/prometheus-adapter-values.yaml`
+by `scripts/render_prometheus_rules.py`. CI asserts the rendered overlays
+and Helm values carry these objects.
 
 ### API Endpoint (FastAPI)
 
@@ -1045,7 +1074,7 @@ detector_profiler`` (provenance-stamped JSON, schema
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (586 `test_*.py` modules as of 2026-07-12).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (766 `test_*.py` modules as of 2026-10-17).
 
 ```bash
 # Run specific test
@@ -1356,16 +1385,16 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **8,789 tests collected** (verified by `pytest --collect-only -q` 2026-06-10 with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (each set roughly 7 points below the most recent measured baseline — CORE 40.57 % / FULL 68.95 %, 2026-07-21 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **16,445 tests collected** (CI ML lane, 2026-10-17, with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 33` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 62` on the full suite (held below the most recent measured baseline — CORE 44.47 % / FULL 73.77 %, CI runs of 2026-10-17 — so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
-- ✅ **8 major frameworks** integrated: CISA NCFs, EU Critical Entities, Essential Workers, World Bank Sectors, STEM Disciplines, Risk Management, Public Policy, Emerging Technologies
+- ✅ **8 major frameworks** integrated: CISA NCFs, EU Critical Entities, Essential Workers, World Bank Sectors, STEAM Disciplines, Risk Management, Public Policy, Emerging Technologies
 - ✅ **InfrastructureCoordinator** with flexible module selection (any subset of the 12 registered modules by name, category, or priority)
 - ✅ **55 National Critical Functions** with cascading failure analysis
 - ✅ **EU-unique Space sector** monitoring (satellites, ground stations, launch facilities)
 - ✅ **Cross-border threat correlation** (EU-US integration)
-- ✅ **STEM discipline routing** in fusion network for optimized multi-engine detection
+- ✅ **STEAM discipline routing** in fusion network for optimized multi-engine detection
 - ✅ **Post-quantum cryptography** migration planning (NIST PQC standards)
 - ✅ **Labor resilience monitoring** with trauma-informed ethical AI, weighting the workers most exposed
 - ✅ **Economic development tracking** with regenerative sustainability scoring
@@ -1378,27 +1407,28 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale (measured 2026-07-05 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
-- **49 top-level subpackages** under `src/omni_mercury_engine/`
-  (agentic, alerting, anomaly, api, automl, biometric, cognitive,
-  comparison, compliance, core, crypto, data, data_sources, datasets,
-  decision, detectors, distributed, emergent, energy, ethical,
+### System Scale (measured 2026-10-17 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
+- **50 top-level subpackages** under `src/omni_mercury_engine/`
+  (agentic, alerting, anomaly, api, assessment, automl, biometric,
+  cognitive, comparison, compliance, core, crypto, data, data_sources,
+  datasets, decision, detectors, distributed, emergent, energy, ethical,
   evaluation, explainability, federated_learning, federation,
   governance, gui, harmonics, infrastructure, integrations, intel,
   loaders, medical, metrics, ml, models, narrative, ocean,
   reasoning, resilience, safeguards, scaling,
-  security, space, streaming, tools, utils, validation, verifiers)
-- **~391,000 LOC** in `src/omni_mercury_engine/` (746 source files)
-- **586 test modules** under `tests/`; 8,789 tests collected with the
-  full optional-dependency surface (`pytest --collect-only -q`,
-  2026-06-10) — fewer on a minimal install because optional-import-gated
-  modules skip. See the README "Testing and Quality Assurance" section
-  for the collection methodology.
+  security, space, streaming, tools, utils, validation, verifiers,
+  vision)
+- **~435,000 LOC** in `src/omni_mercury_engine/` (801 source files)
+- **766 test modules** under `tests/`; 16,445 tests collected with the
+  full optional-dependency surface (CI ML lane, 2026-10-17) — fewer on a
+  minimal install because optional-import-gated modules skip. See the
+  README "Testing and Quality Assurance" section for the collection
+  methodology.
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 33 % / FULL ≥ 62 %; the aspirational target is 85 %.
-- **Documentation:** 72 markdown documents at the project surface
-  (7 top-level, 56 in `docs/` — including the drone/medical SETUP
+- **Documentation:** 84 markdown documents at the project surface
+  (8 top-level, 67 in `docs/` — including the drone/medical SETUP
   runbooks and the research literature review — 8 in `benchmarks/`,
   and the `rust_crypto/` README)
 - **Optimization experiments:** logged under `benchmarks/`

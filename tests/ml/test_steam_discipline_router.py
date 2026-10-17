@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for STEM Discipline Router for multi-engine fusion."""
+"""Tests for STEAM Discipline Router for multi-engine fusion."""
 
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ pytest.importorskip("torch")
 
 import torch
 
-from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
+from omni_mercury_engine.ml.fusion_network import STEAMDisciplineRouter
 
 
-class TestSTEMDisciplineRouter:
-    """Test suite for STEMDisciplineRouter."""
+class TestSTEAMDisciplineRouter:
+    """Test suite for STEAMDisciplineRouter."""
 
     def test_router_instantiation(self) -> None:
         """Test router can be instantiated."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         assert router is not None
 
     def test_discipline_mappings_exist(self) -> None:
         """Test discipline mappings are defined."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
 
         assert len(router.discipline_weights) > 0
         assert "biology" in router.discipline_weights
@@ -32,7 +32,7 @@ class TestSTEMDisciplineRouter:
 
     def test_route_biology_data(self) -> None:
         """Test routing biology data to appropriate engines."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         data = torch.randn(10, 5)
 
         weights = router.route(data, "biology")
@@ -43,7 +43,7 @@ class TestSTEMDisciplineRouter:
 
     def test_route_physics_data(self) -> None:
         """Test routing physics data to appropriate engines."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         data = torch.randn(10, 5)
 
         weights = router.route(data, "physics")
@@ -54,7 +54,7 @@ class TestSTEMDisciplineRouter:
 
     def test_route_cybersecurity_data(self) -> None:
         """Test routing cybersecurity data to security engine."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         data = torch.randn(10, 5)
 
         weights = router.route(data, "cybersecurity")
@@ -64,7 +64,7 @@ class TestSTEMDisciplineRouter:
 
     def test_adaptive_weight_adjustment(self) -> None:
         """Test adaptive weight adjustment based on data type."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
 
         numerical_data = torch.randn(10, 5)
         timeseries_data = torch.randn(50, 5)
@@ -79,7 +79,7 @@ class TestSTEMDisciplineRouter:
 
     def test_explain_routing(self) -> None:
         """Test routing explanation functionality."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
 
         explanation = router.explain_routing("neuroscience")
 
@@ -90,9 +90,15 @@ class TestSTEMDisciplineRouter:
 
     def test_unknown_discipline_fallback(self) -> None:
         """Test fallback for unknown disciplines."""
-        router = STEMDisciplineRouter()
+        router = STEAMDisciplineRouter()
         data = torch.randn(10, 5)
 
         weights = router.route(data, "unknown_discipline")
 
         assert len(weights) > 0
+
+
+def test_back_compat_alias_is_the_same_class() -> None:
+    from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
+
+    assert STEMDisciplineRouter is STEAMDisciplineRouter

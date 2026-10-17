@@ -45,7 +45,7 @@ def test_foundation_extra_declares_chronos_forecasting() -> None:
 
 def test_foundation_extra_composes_ml() -> None:
     assert any(f"{_project_name()}[ml]" in dep for dep in _foundation_extra()), (
-        "[foundation] must compose mercury-agent-csi[ml]: every models/foundation adapter "
+        "[foundation] must compose mercury-agent-global[ml]: every models/foundation adapter "
         "imports torch at module top"
     )
 

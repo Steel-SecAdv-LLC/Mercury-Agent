@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Base classes and types for STEM Alert & Anomaly Detection data sources.
+"""Base classes and types for STEAM Alert & Anomaly Detection data sources.
 
 This module provides:
 - DataSourceType: Enum for categorizing data sources
@@ -540,7 +540,7 @@ class DataSourceBase(ABC):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "HTTP data sources require httpx. "
-                "Install with `pip install 'mercury-agent-csi[data]'`."
+                "Install with `pip install 'mercury-agent-global[data]'`."
             )
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -562,7 +562,7 @@ class DataSourceBase(ABC):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "HTTP data sources require httpx. "
-                "Install with `pip install 'mercury-agent-csi[data]'`."
+                "Install with `pip install 'mercury-agent-global[data]'`."
             )
         if self._sync_client is None:
             self._sync_client = httpx.Client(

@@ -132,7 +132,7 @@ deterministic template. See `src/omni_mercury_engine/models/foundation/ollama_ad
 ## Results
 
 <!-- RESULTS:START — filled in from the actual runs on this branch -->
-Recorded on this branch (Python 3.11, `mercury-agent-csi[ml,llm,api,benchmark,dev]`
+Recorded on this branch (Python 3.11, `mercury-agent-global[ml,llm,api,benchmark,dev]`
 plus the AMA-Cryptography v3.3.0 native PQC backend). **No live
 `ANTHROPIC_API_KEY` was available in the validation environment**, so the two
 scripts ran in fixture + live-transport mode; every assertion held.

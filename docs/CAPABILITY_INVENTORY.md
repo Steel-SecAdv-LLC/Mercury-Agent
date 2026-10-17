@@ -1966,7 +1966,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MemoryManager` (`ml.optimization`) — Memory manager for preventing OOM errors.
 - `OnlineLearningPipeline` (`ml.__init__`) — Lazy-loaded OnlineLearningPipeline wrapper.
 - `OnlineLearningPipeline` (`ml.online_learning`) — Complete online learning pipeline with drift detection and adaptation.
-- `STEMDisciplineRouter` (`ml.fusion_network`) — Routes data to appropriate engines based on STEM discipline.
+- `STEAMDisciplineRouter` (`ml.fusion_network`) — Routes data to appropriate engines based on STEAM discipline.
 
 **Ethics & governance**
 

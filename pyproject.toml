@@ -7,7 +7,7 @@ requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mercury-agent-csi"
+name = "mercury-agent-global"
 version = "2.1.0"
 description = "Mercury Agent: civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 readme = "README.md"
@@ -47,7 +47,7 @@ classifiers = [
 dependencies = [
     # Lightweight core -- enough for CLI, statistical detectors, and rule-based
     # detection without pulling in ~2 GB of PyTorch.  For the full ML stack,
-    # install mercury-agent-csi[ml] or mercury-agent-csi[all].
+    # install mercury-agent-global[ml] or mercury-agent-global[all].
     # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
     # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
     # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13/3.14,
@@ -155,7 +155,7 @@ ml = [
     "obspy>=1.4",
 ]
 
-# Kept as an empty extra so ``pip install mercury-agent-csi[performance]`` keeps
+# Kept as an empty extra so ``pip install mercury-agent-global[performance]`` keeps
 # resolving: it used to carry numba for the detectors' @jit lanes, but every
 # former numba kernel is now a plain BLAS formulation that is faster and runs
 # unconditionally (detectors/spatial.py distance scoring, detectors/directive.py
@@ -164,7 +164,7 @@ performance = []
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
 visual = [
-    "mercury-agent-csi[ml]",
+    "mercury-agent-global[ml]",
 ]
 
 # Vision-Language Model detectors (AnyAnomaly, LAVAD)
@@ -175,7 +175,7 @@ vlm = [
 
 # Foundation model adapters (TimeGPT, Chronos, etc.)
 #
-# Compose ``mercury-agent-csi[ml]`` (the [visual]/[medical]/[sota] convention):
+# Compose ``mercury-agent-global[ml]`` (the [visual]/[medical]/[sota] convention):
 # every adapter in ``models/foundation/`` (chronos, timegpt, matrix_profile,
 # base_foundation) imports torch at module top for the fusion tensor
 # surface, so without [ml] the extra installed fine but the package it
@@ -189,7 +189,7 @@ vlm = [
 # surface the adapter uses; validated in-repo against the 2.x line
 # (2.3.1, chronos-t5-tiny, pinned-SHA load through SafeHFLoader).
 foundation = [
-    "mercury-agent-csi[ml]",
+    "mercury-agent-global[ml]",
     "stumpy>=1.14.1",
     "nixtla>=0.5.0",
     "chronos-forecasting>=1.4",
@@ -200,11 +200,11 @@ foundation = [
 # The medical suite's anesthesiology / endocrinology / cure predictors are
 # real ``torch.nn`` models, and ``MedicalCoordinator`` binds them in its
 # registry, so ``import omni_mercury_engine.medical`` requires the ML stack.
-# Compose ``mercury-agent-csi[ml]`` (same convention as the ``[visual]`` / ``[sota]``
-# extras) so ``pip install mercury-agent-csi[medical]`` yields an importable,
+# Compose ``mercury-agent-global[ml]`` (same convention as the ``[visual]`` / ``[sota]``
+# extras) so ``pip install mercury-agent-global[medical]`` yields an importable,
 # functional package instead of one that fails at import on a missing ``torch``.
 medical = [
-    "mercury-agent-csi[ml]",
+    "mercury-agent-global[ml]",
     "wfdb>=4.3.1",
 ]
 
@@ -283,7 +283,7 @@ api = [
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
 sota = [
-    "mercury-agent-csi[ml]",
+    "mercury-agent-global[ml]",
     "einops>=0.8.2",
 ]
 
@@ -433,12 +433,12 @@ explainability = [
 all = [
     # ``performance`` is now empty (the numba lanes became unconditional BLAS
     # code); it stays listed so the composed extra keeps covering it.
-    "mercury-agent-csi[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
+    "mercury-agent-global[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability,compliance,performance]",
 ]
 
 # Test environment: all runtime features + dev tooling
 test = [
-    "mercury-agent-csi[all,dev]",
+    "mercury-agent-global[all,dev]",
 ]
 
 [project.scripts]

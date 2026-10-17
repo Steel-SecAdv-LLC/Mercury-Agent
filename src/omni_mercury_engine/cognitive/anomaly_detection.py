@@ -655,7 +655,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "httpx is required for USGSEarthquakeSource. "
-                "Install with: pip install 'mercury-agent-csi[api]'"
+                "Install with: pip install 'mercury-agent-global[api]'"
             )
         self.source_name = "usgs_earthquake"
         self.min_magnitude = min_magnitude
@@ -788,7 +788,7 @@ class NOAAWeatherSource(ExternalDataSource):
         if not HTTPX_AVAILABLE:
             raise ImportError(
                 "httpx is required for NOAAWeatherSource. "
-                "Install with: pip install 'mercury-agent-csi[api]'"
+                "Install with: pip install 'mercury-agent-global[api]'"
             )
         self.source_name = "noaa_weather"
         self.state = state

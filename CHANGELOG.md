@@ -2608,7 +2608,7 @@ Full audit trail with measured before/after evidence:
   pins lime out of the extras graph. Validated: full `[all,dev]` install
   resolves and imports.
 - **`[foundation]` made operational.** The extra now composes
-  `mercury-agent-csi[ml]` (every `models/foundation` adapter imports torch at
+  `mercury-agent-global[ml]` (every `models/foundation` adapter imports torch at
   module top, so the extra previously installed an unimportable feature) and
   declares `chronos-forecasting>=1.4` (previously undeclared, so the chronos
   detector could never run). Validated live: `amazon/chronos-t5-tiny` under a
@@ -3219,7 +3219,7 @@ behaviour — and carries tests.
 - **`GET /export/metrics` now serves CSV and JSON-Lines in addition to JSON**,
   and its JSON summary is enriched (score percentiles, per-method breakdowns,
   and time-series buckets via a `bucket` param). The multi-format export is a
-  deliberate capability for the STEM / medical / meteorological / space
+  deliberate capability for the STEAM / medical / meteorological / space
   researchers Mercury serves — collecting event and request data in a tabular
   format is an advantage, not a footgun to reject.
 
@@ -5130,7 +5130,7 @@ fidelity 600/600).
   the mypy overrides but declared in no dependency group, so the designed
   `@jit` lanes (e.g. `detectors/spatial.py` distance scoring) could never
   be engaged by install — dormant in every environment including CI. Now
-  installable via `pip install mercury-agent-csi[performance]`; JIT-vs-numpy
+  installable via `pip install mercury-agent-global[performance]`; JIT-vs-numpy
   parity is pinned by `tests/test_native_acceleration.py` (skipped when
   numba is absent).
 * **Reproducibility:** `benchmarks/orchestration_validation.py` now pins
@@ -8036,7 +8036,7 @@ and regression tests:
   `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
   PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
 - All remaining top-level sklearn imports in `src/` converted to lazy imports.
-  sklearn is now a true optional dependency (`pip install mercury-agent-csi[ml]`).
+  sklearn is now a true optional dependency (`pip install mercury-agent-global[ml]`).
 - Deleted stale benchmark PNG artifacts from `benchmarks/`
 
 ### Fixed

@@ -977,7 +977,7 @@ def _compute_metrics_summary(
 
     Beyond the headline counts this exposes score percentiles, per-method
     statistics, and a time-bucketed series — the surfaces a researcher analysing
-    STEM / medical / meteorological / space detection runs actually plots. Every
+    STEAM / medical / meteorological / space detection runs actually plots. Every
     field is derived from the real ``DetectionRecord`` data, nothing synthetic.
     """
     if not detections:
@@ -1137,7 +1137,7 @@ async def export_metrics(
     metrics are derived from (``X-TLP*`` headers; a ``tlp`` key in the JSON
     summary and a ``tlp`` metric row in csv/jsonl).
 
-    Researchers across Mercury's domains (STEM, medical, meteorological, space, …)
+    Researchers across Mercury's domains (STEAM, medical, meteorological, space, …)
     consume detection metrics in whatever format their analysis stack expects, so
     the summary is offered as a nested JSON object *and* as tidy two-column
     csv/jsonl (``metric,value``) that loads straight into pandas / R.
