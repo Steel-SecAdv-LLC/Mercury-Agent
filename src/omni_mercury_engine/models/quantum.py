@@ -97,6 +97,10 @@ class QuantumAnomalyModel:
         weight = np.sum(states.real**2 + states.imag**2, axis=1)
         return np.where(weight > 1e-10, -weight * np.log2(weight + 1e-10), 0.0)
 
+    def _measure_entanglement(self, state: np.ndarray[Any, Any]) -> float:
+        """Measure quantum entanglement in state using von Neumann entropy."""
+        return float(self._pure_state_entropy(np.asarray(state)[None, :])[0])
+
     def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract quantum-inspired features from data."""
         if isinstance(data, dict):

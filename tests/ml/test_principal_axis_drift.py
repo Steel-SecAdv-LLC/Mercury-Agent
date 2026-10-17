@@ -3,10 +3,10 @@
 """Mean-shift drift along principal axes, which per-feature tests dilute.
 
 In correlated data a shift along a low-variance direction moves each column by
-a fraction of its spread. Measured with 8 features correlated at 0.9, a
-one-SD shift along the weakest axis was flagged in 0-10% of windows by the
-KS, PSI and covariance ensemble and in 100% once the principal-axis test was
-added, at 1-2% false alarms.
+a fraction of its spread. ``benchmarks/drift_power.py`` measures it: with 8
+features correlated at 0.9, a one-SD shift along the weakest axis was flagged
+in 0-8% of windows by the KS, PSI and covariance ensemble and in 100% once the
+principal-axis test was added.
 """
 
 from __future__ import annotations

@@ -51,6 +51,13 @@ def _deepface() -> Any:
     return DeepFace
 
 
+def __getattr__(name: str) -> Any:
+    """Resolve ``DEEPFACE_AVAILABLE`` when it is read (importing DeepFace if needed)."""
+    if name == "DEEPFACE_AVAILABLE":
+        return _deepface() is not None
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 # Flipped once, on the first feature-extraction call that has to fall back to
 # the simulated harmonic path because DeepFace is unavailable.  That fallback
 # is deterministic but is *not* a face-identity embedding, so we surface a

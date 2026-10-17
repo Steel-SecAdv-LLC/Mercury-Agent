@@ -52,6 +52,13 @@ class TestQuantum:
         # The original used complex64 LAPACK for float32 input; float64 is exact.
         np.testing.assert_allclose(got, want, rtol=0, atol=1e-12)
 
+    def test_measure_entanglement_still_answers_for_one_state(self) -> None:
+        model = QuantumAnomalyModel()
+        for state in model._create_quantum_state(_data((12, 6), np.float64, 3)):
+            assert model._measure_entanglement(state) == pytest.approx(
+                _reference_entanglement(state), abs=1e-12
+            )
+
     def test_features_match_for_float32(self) -> None:
         model = QuantumAnomalyModel()
         data = _data((50, 12))

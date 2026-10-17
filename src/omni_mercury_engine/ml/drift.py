@@ -843,19 +843,20 @@ class PrincipalAxisDriftDetector:
 
     The axes are learned from the even reference rows and the compared
     distribution comes from the odd rows. Fitting both on the same rows
-    measured 7% (64 features, 500 rows), 18% (128 features, 1000 rows) and
+    measured 6% (64 features, 500 rows), 25% (128 features, 1000 rows) and
     100% (128 features, 400 rows) false alarms, because the axes follow the
-    reference's own noise; split, they measured 0-3%.
+    reference's own noise; split, they measured 0%, 2% and 0%.
 
-    Measured (8 features correlated at 0.9, 2000 reference rows, 100 windows
-    per cell): added to the KS, PSI and covariance ensemble, false alarms went
-    from 0-1% to 1-2%. A shift of one standard deviation along the weakest
-    axis (about 0.1 SD in any single feature) was flagged in 100% of 64, 200
-    and 1000-row windows, where the ensemble without it flagged 3%, 10% and
-    0%; with 128 features correlated at 0.9 and 1000 reference rows, 0% became
-    99%. Limit: the axes need rows to be learned from; with 128 correlated
-    features and 400 reference rows the test flagged nothing (and raised no
-    false alarms).
+    Measured by ``benchmarks/drift_power.py`` (100 windows per cell over 5
+    independent references; 8 features correlated at 0.9, 2000 reference rows):
+    added to the KS, PSI and covariance ensemble, false alarms went from 0-2% to
+    1-5%. A shift of one standard deviation along the weakest axis (about 0.1 SD
+    in any single feature) was flagged in 100% of 64, 200 and 1000-row windows,
+    where the ensemble without it flagged 1%, 8% and 0%. With 128 features
+    correlated at 0.9 and 1000 reference rows, one SD went from 0% to 57% and two
+    SD from 2% to 100%. Limit: the axes need rows to be learned from; with 128
+    features correlated at 0.95 and only 400 reference rows it flags nothing
+    beyond the other tests (and adds no false alarms).
     """
 
     #: Reference rows below which the axes are not fitted.

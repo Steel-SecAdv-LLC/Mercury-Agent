@@ -150,3 +150,19 @@ def test_patching_the_module_name_still_controls_the_backend(
 
     monkeypatch.setattr(biometric_module, "DeepFace", _Stub)
     assert biometric_module._deepface() is _Stub
+
+
+def test_deepface_available_is_still_a_module_flag(
+    unresolved: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The flag callers could read before the lazy import still answers, and still lies about nothing."""
+    monkeypatch.setattr(biometric_module, "DeepFace", None)
+    assert biometric_module.DEEPFACE_AVAILABLE is False
+
+    class _Stub:
+        pass
+
+    monkeypatch.setattr(biometric_module, "DeepFace", _Stub)
+    assert biometric_module.DEEPFACE_AVAILABLE is True
+    with pytest.raises(AttributeError, match="no attribute"):
+        biometric_module.NOT_A_FLAG  # noqa: B018
