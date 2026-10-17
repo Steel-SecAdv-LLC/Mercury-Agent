@@ -106,7 +106,7 @@ def test_ensemble_reports_covariance_only_drift(reference: np.ndarray) -> None:
 
 
 def test_marginal_only_ensemble_is_blind_to_structure(reference: np.ndarray) -> None:
-    ens = EnsembleDriftDetector(covariance=False).fit(reference)
+    ens = EnsembleDriftDetector(covariance=False, principal_axes=False).fit(reference)
     result = ens.detect(np.random.default_rng(10).standard_normal((300, D)))
     assert not result.is_drift
     assert result.details["covariance_result"] is None

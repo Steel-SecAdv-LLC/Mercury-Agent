@@ -892,6 +892,9 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
   close to linear in the batch, the slowest 1.9 s at 32,768 rows). A timed-out
   registry detector opens its circuit breaker instead of being relaunched.
 - Drift detection is on by default (`MERCURY_DRIFT_DETECTION=0` disables it).
+  The ensemble is per-feature KS and PSI, a covariance-structure test, and a
+  principal-axis test for shifts along low-variance directions of correlated
+  features.
   The reference is never an inference batch: an explicit baseline, else the
   fitted spatial detector's training rows (unless it was auto-fitted on
   inference data), else the fusion training sample, each filtered to the rows

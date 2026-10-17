@@ -16,8 +16,11 @@ re-derived after every fit or load from, in order: an explicit
 spatial detector's training rows, or the fusion training sample. An inference
 batch is never the reference: a spatial detector auto-fitted on inference data
 (`require_explicit_fit=False`) is skipped. The test is an ensemble:
-Kolmogorov-Smirnov and PSI per feature, plus a covariance-structure test
-(`ml/drift.py`).
+Kolmogorov-Smirnov and PSI per feature, plus a covariance-structure test and a
+principal-axis test (`ml/drift.py`). The principal-axis test compares each axis
+of the reference's PCA basis, so it catches a shift along a low-variance
+direction of correlated features that every single-feature test dilutes; its
+message reads "mean shifted along a principal axis".
 
 A batch with drift at MEDIUM or above has its decision demoted to DEFER
 (`decision` record, reason "distribution drift … the calibration may no
