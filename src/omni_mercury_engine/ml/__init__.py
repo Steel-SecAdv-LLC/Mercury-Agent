@@ -88,9 +88,6 @@ __all__ = [
     "quick_anomaly_score",
 ]
 
-# Default value for HAS_PYTORCH_LIGHTNING when torch is not available
-HAS_PYTORCH_LIGHTNING = False
-
 # =============================================================================
 # Lightweight Primitives (no torch required - pure NumPy)
 # =============================================================================
@@ -148,12 +145,36 @@ if HAS_TORCH or TYPE_CHECKING:
         ThreeRAnomalyTransformer,
         ThreeRAttentionBlock,
     )
+
+if TYPE_CHECKING:
     from omni_mercury_engine.ml.training import (
         HAS_PYTORCH_LIGHTNING,
         FusionTrainer,
         LyapunovAnomalyLoss,
         ThreeRAnomalyTrainer,
     )
+
+# ``ml.training`` imports PyTorch Lightning, torchmetrics and matplotlib (about
+# 2 s of the engine's import time) and only training needs them, so its names
+# are resolved on first access instead of when the package loads.
+_TRAINING_EXPORTS = frozenset(
+    {"HAS_PYTORCH_LIGHTNING", "FusionTrainer", "LyapunovAnomalyLoss", "ThreeRAnomalyTrainer"}
+)
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve the names owned by ``ml.training`` on first access."""
+    if name in _TRAINING_EXPORTS:
+        if not HAS_TORCH:
+            if name == "HAS_PYTORCH_LIGHTNING":
+                return False
+        else:
+            from omni_mercury_engine.ml import training
+
+            value = getattr(training, name)
+            globals()[name] = value
+            return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _require_torch() -> None:

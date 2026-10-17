@@ -20,6 +20,7 @@ References:
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import math
 from dataclasses import dataclass
@@ -38,13 +39,23 @@ try:
 except ImportError:
     MPMATH_AVAILABLE = False
 
-try:
-    import sympy
+# sympy is optional and costs about 0.4 s to import, so it is only probed here
+# and imported by ``_load_sympy`` the first time a constant is validated.
+SYMPY_AVAILABLE = importlib.util.find_spec("sympy") is not None
+sympy: Any = None
 
-    SYMPY_AVAILABLE = True
-except ImportError:
-    sympy = None
-    SYMPY_AVAILABLE = False
+
+def _load_sympy() -> Any:
+    """Return the sympy module, importing it on first use (``None`` if unusable)."""
+    global sympy
+    if sympy is None and SYMPY_AVAILABLE:
+        try:
+            import sympy as loaded
+        except ImportError:
+            return None
+        sympy = loaded
+    return sympy
+
 
 # Mapping of our constants to sympy equivalents for validation
 SYMPY_CONSTANT_MAP: dict[str, str] = {
@@ -125,7 +136,7 @@ class MathConstant:
         if not math.isfinite(self.value):
             return False
 
-        if use_sympy and SYMPY_AVAILABLE and sympy is not None:
+        if use_sympy and SYMPY_AVAILABLE and _load_sympy() is not None:
             sympy_name = _get_sympy_constant_name(self.name)
             if sympy_name:
                 try:
@@ -632,20 +643,21 @@ def _evaluate_sympy_constant(sympy_expr: str) -> float | None:
     Returns:
         Float value of the constant, or None if evaluation fails
     """
-    if not SYMPY_AVAILABLE or sympy is None:
+    module = _load_sympy() if SYMPY_AVAILABLE else None
+    if module is None:
         return None
 
     try:
         if sympy_expr in ("pi", "E", "EulerGamma", "Catalan", "GoldenRatio"):
-            const = getattr(sympy, sympy_expr, None)
+            const = getattr(module, sympy_expr, None)
             if const is not None:
                 return float(const.evalf(50))
         elif sympy_expr.startswith("sqrt("):
             num = int(sympy_expr[5:-1])
-            return float(sympy.sqrt(num).evalf(50))
+            return float(module.sqrt(num).evalf(50))
         elif sympy_expr.startswith("log("):
             num = int(sympy_expr[4:-1])
-            return float(sympy.log(num).evalf(50))
+            return float(module.log(num).evalf(50))
         return None
     except Exception as e:
         logger.debug(f"Failed to evaluate sympy expression '{sympy_expr}': {e}")
