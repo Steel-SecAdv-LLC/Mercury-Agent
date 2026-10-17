@@ -802,19 +802,24 @@ class HealthResponse(BaseModel):
     Attributes:
         status: Service status ('healthy', 'degraded', 'unhealthy').
         version: API version string.
-        uptime_seconds: Server uptime in seconds (if available).
+        uptime_seconds: Always ``None`` here: process uptime is exported as
+            ``omni_mercury_uptime_seconds`` on ``/metrics`` instead.
     """
 
     status: str = Field(
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
     version: str = Field(..., description="API version", json_schema_extra={"example": API_VERSION})
-    uptime_seconds: float | None = Field(default=None, description="Server uptime in seconds")
+    uptime_seconds: float | None = Field(
+        default=None,
+        description=(
+            "Not reported by this unauthenticated endpoint; see "
+            "omni_mercury_uptime_seconds on /metrics"
+        ),
+    )
 
     model_config = {
-        "json_schema_extra": {
-            "examples": [{"status": "healthy", "version": API_VERSION, "uptime_seconds": 3600.5}]
-        }
+        "json_schema_extra": {"examples": [{"status": "healthy", "version": API_VERSION}]}
     }
 
 
@@ -1003,7 +1008,7 @@ async def health_check() -> HealthResponse:
     and monitoring service availability.
 
     Returns:
-        HealthResponse: Service status, version and uptime.
+        HealthResponse: Service status and version information.
 
     Example:
         ```bash
@@ -1012,16 +1017,10 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "x.y.z", "uptime_seconds": 3600.5}
+        {"status": "healthy", "version": "x.y.z"}
         ```
     """
-    from omni_mercury_engine.api.health import get_health_checker
-
-    return HealthResponse(
-        status="healthy",
-        version=API_VERSION,
-        uptime_seconds=round(get_health_checker().get_uptime(), 2),
-    )
+    return HealthResponse(status="healthy", version=API_VERSION)
 
 
 @app.post(

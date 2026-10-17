@@ -207,7 +207,8 @@ probabilities.
 - **Authentication**: JWT-based authentication with secure token handling
 - **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
 - **Input Validation**: Comprehensive input sanitization and validation
-- **`/health`**: unauthenticated and exempt from rate limiting, so load balancers and container health checks can poll it. It returns only `status`, `version` and `uptime_seconds` (process uptime, which reveals when the service last restarted). Put it behind the network boundary if that is not acceptable.
+- **`/health`**: unauthenticated and exempt from rate limiting, so load balancers and container health checks can poll it. It returns only `status` and `version`; process uptime would reveal when the service last restarted, so it is exported as `omni_mercury_uptime_seconds` on `/metrics` instead.
+- **`/metrics`**: unauthenticated Prometheus exposition. Prometheus' security model says instrumented `/metrics` endpoints must not be exposed to the internet, so the platform's Caddy edge answers 404 for it and Prometheus scrapes the API over the internal network. Restrict it the same way if you expose the API directly.
 - **CORS Configuration**: Environment-aware cross-origin resource sharing
   - Production: cross-origin access requires explicit `MERCURY_CORS_ORIGINS` configuration; unset means same-origin only (fail-closed)
   - Development: Allows localhost origins by default
@@ -408,12 +409,12 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale tracked under the dated security entries) |
+| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | No policy file and no ignore flags in `.github/workflows/{ci,security}.yml`; per-CVE rationale is tracked in [CHANGELOG.md](CHANGELOG.md) under the dated security entries |
 | Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) (enumerated, expiring acceptances) + the gate configuration in `.github/workflows/{ci,security}.yml` |
 
 Both gates must be GREEN for any PR to merge. The Python-package gate
-runs with **zero risk acceptance**: the policy files are no-op shims
-and no `--ignore` / `--ignore-vuln` flags are wired into either CI
+runs with **zero risk acceptance**: there is no Safety policy file and
+no `--ignore` / `--ignore-vuln` flags are wired into either CI
 workflow. Findings are remediated by upgrade, isolation, or native
 re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current

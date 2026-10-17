@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -144,3 +145,47 @@ def test_overlay_requires_a_grafana_password() -> None:
     assert password.startswith("${GRAFANA_ADMIN_PASSWORD:?"), password
     text = _HARDENING_DOC.read_text(encoding="utf-8")
     assert "GRAFANA_ADMIN_PASSWORD" in text
+
+
+def test_caddyfile_does_not_proxy_the_metrics_endpoint() -> None:
+    """``/metrics`` is answered 404 at the public edge, ahead of the proxy.
+
+    Prometheus scrapes ``mercury-agent:8000`` over the compose network, and its
+    security model says instrumented ``/metrics`` endpoints must not face the
+    internet. Verified against Caddy 2.11.7: ``/metrics``, ``/metrics/`` and
+    ``/metrics/x`` return 404 while ``/health`` and ``/metricsx`` proxy.
+    """
+    caddyfile = _CADDYFILE.read_text(encoding="utf-8")
+    assert "@metrics path /metrics /metrics/*" in caddyfile
+    blocked = caddyfile.index("handle @metrics")
+    proxied = caddyfile.index("reverse_proxy mercury-agent:8000")
+    assert "respond 404" in caddyfile[blocked:proxied]
+
+
+@pytest.mark.parametrize(
+    ("service", "mount_point"),
+    [("prometheus", "/prometheus"), ("grafana", "/var/lib/grafana")],
+)
+def test_data_volume_name_tracks_the_image_major_version(service: str, mount_point: str) -> None:
+    """A major bump must start on a new volume, so the old one can be rolled back to.
+
+    Prometheus 3 can only be downgraded to 2.55 and Grafana migrates its database
+    forward-only (Prometheus migration guide; Grafana upgrade guide). Reusing a
+    volume across a major version therefore removes the rollback path.
+    """
+    compose = _load(_BASE)
+    spec = compose["services"][service]
+    major = re.match(r"v?(\d+)\.", spec["image"].rsplit(":", 1)[1])
+    assert major, spec["image"]
+    volume = next(v.split(":")[0] for v in spec["volumes"] if v.endswith(f":{mount_point}"))
+    assert volume.endswith(f"-v{major.group(1)}"), (
+        f"{service} runs {spec['image']} but writes volume {volume!r}; rename the volume to "
+        f"end in -v{major.group(1)} when the major version changes"
+    )
+    assert volume in compose["volumes"]
+
+
+def test_prometheus_is_pinned_to_an_lts_patch_release() -> None:
+    """3.13 is the supported LTS line (to 2027-07-31); other minors lose fixes in ~6 weeks."""
+    image = _load(_BASE)["services"]["prometheus"]["image"]
+    assert re.fullmatch(r"prom/prometheus:v3\.13\.\d+", image), image
