@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_NAMES, noaa_g_scale
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -1290,19 +1291,13 @@ class SolarStormDetector:
         }
 
     def _classify_geostorm(self, kp_index: float) -> str:
-        """Classify geomagnetic storm by Kp index."""
-        if kp_index >= 9:
-            return GeostormScale.G5.value
-        elif kp_index >= 8:
-            return GeostormScale.G4.value
-        elif kp_index >= 7:
-            return GeostormScale.G3.value
-        elif kp_index >= 6:
-            return GeostormScale.G2.value
-        elif kp_index >= 5:
-            return GeostormScale.G1.value
-        else:
-            return GeostormScale.G0.value
+        """Classify geomagnetic storm by Kp index (NOAA thirds: 5- is G1, 9- is G4).
+
+        A regressed Kp is held to the [0, 9] scale; NaN is refused.
+        """
+        if not np.isfinite(kp_index):
+            raise ValueError(f"Kp must be finite, got {kp_index}")
+        return G_SCALE_NAMES[noaa_g_scale(float(np.clip(kp_index, 0.0, 9.0)))]
 
     def _assess_grid_risk(self, result: SolarStormPredictionResult) -> str:
         """Assess power grid vulnerability."""

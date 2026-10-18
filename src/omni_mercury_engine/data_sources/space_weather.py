@@ -40,6 +40,7 @@ from omni_mercury_engine.data_sources.base import (
     DataSourceType,
     RateLimitConfig,
 )
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale, parse_kp
 
 logger = logging.getLogger(__name__)
 
@@ -185,21 +186,12 @@ class NASADONKISource(DataSourceBase):
         if kp_index is None:
             return AlertLevel.NONE
 
+        # "5-" is 4.67, a G1 storm; it used to parse as 5.0, and "5o" as no
+        # storm at all.
         try:
-            kp = float(str(kp_index).replace("+", ".33").replace("-", ""))
-            if kp >= 9:
-                return AlertLevel.EXTREME  # G5
-            elif kp >= 8:
-                return AlertLevel.SEVERE  # G4
-            elif kp >= 7:
-                return AlertLevel.STRONG  # G3
-            elif kp >= 6:
-                return AlertLevel.MODERATE  # G2
-            elif kp >= 5:
-                return AlertLevel.MINOR  # G1
-        except ValueError:
-            pass
-        return AlertLevel.NONE
+            return AlertLevel.from_noaa_g_scale(noaa_g_scale(parse_kp(kp_index)))
+        except (TypeError, ValueError):
+            return AlertLevel.NONE
 
     async def _fetch_event_type(
         self,
@@ -698,18 +690,8 @@ class NOAASWPCSource(DataSourceBase):
         return mapping.get(product, DataSourceType.CUSTOM)
 
     def _parse_kp_alert_level(self, kp: float) -> AlertLevel:
-        """Parse Kp index to G-scale alert level."""
-        if kp >= 9:
-            return AlertLevel.EXTREME  # G5
-        elif kp >= 8:
-            return AlertLevel.SEVERE  # G4
-        elif kp >= 7:
-            return AlertLevel.STRONG  # G3
-        elif kp >= 6:
-            return AlertLevel.MODERATE  # G2
-        elif kp >= 5:
-            return AlertLevel.MINOR  # G1
-        return AlertLevel.NONE
+        """Parse Kp index to G-scale alert level (NOAA thirds: 5- is G1, 9- is G4)."""
+        return AlertLevel.from_noaa_g_scale(noaa_g_scale(parse_kp(kp)))
 
     async def _fetch_product(self, product: SWPCProduct) -> list[DataPoint]:
         """Fetch a specific SWPC product."""
@@ -722,14 +704,16 @@ class NOAASWPCSource(DataSourceBase):
             # ``products/rtsw/...`` path 404s (verified 2026-08-03).
             endpoint = f"json/{product.value}"
 
+        # A failed fetch or an unreadable body raises: returned as [] it read
+        # as a quiet live feed (no Kp, no alerts), an all-clear nobody issued.
+        response = await self._http_get(endpoint)
         try:
-            response = await self._http_get(endpoint)
             data = response.json()
-            return self._parse_product_data(product, data)
-
-        except Exception as e:
-            logger.warning(f"SWPC {product.value} fetch failed: {e}")
-            return []
+        except ValueError as exc:
+            raise DataSourceError(
+                f"SWPC {product.value} returned a non-JSON body", source_id=self.source_id
+            ) from exc
+        return self._parse_product_data(product, data)
 
     def _parse_product_data(
         self,

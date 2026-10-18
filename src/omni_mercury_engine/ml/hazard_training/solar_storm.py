@@ -37,6 +37,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_NAMES, noaa_g_scale
 from omni_mercury_engine.ml.hazard_training.common import (
     EvaluationOutcome,
     PipelineContext,
@@ -594,18 +595,8 @@ def _select_operating_point(
 
 
 def _g_bucket(kp: float) -> str:
-    """NOAA G-scale bucket for a Kp value (matches the detector's mapping)."""
-    if kp >= 9:
-        return "extreme"
-    if kp >= 8:
-        return "severe"
-    if kp >= 7:
-        return "strong"
-    if kp >= 6:
-        return "moderate"
-    if kp >= 5:
-        return "minor"
-    return "none"
+    """NOAA G-scale bucket for a Kp value (the detector's mapping, in thirds)."""
+    return G_SCALE_NAMES[noaa_g_scale(kp)]
 
 
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
