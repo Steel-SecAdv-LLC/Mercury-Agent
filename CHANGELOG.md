@@ -541,23 +541,41 @@ Principle, and the new contract tests fail on the previous code.
   class; the DOE 2021 E1 benchmark measures 2.47 / 22.98 ns against
   2.5 / 23 ns), detects E2 after E1, locates a source by TDOA, and keeps
   `IntentionalEMIDetector`, trainable and not consulted until weights load.
-- Hazard fields: wildfire fuel moisture (NFDRS EMC, GTR INT-169), flood
-  peak discharge and time to peak, hurricane intensification rate (≥ 30 kt /
-  24 h is rapid; Milton 70 → 150 kt in HURDAT2), earthquake IASPEI ML and
-  Reasenberg–Jones aftershock probability, volcanic time to eruption by the
-  failure forecast method (Poisson MLE, Bell et al. 2013); `None` where the
-  inputs do not allow a value.
-- Space: one NOAA G/R/S definition in Kp thirds replaces five ladders that
-  disagreed (5- read no storm, 9- read G5); an SWPC fetch failure raises
-  instead of reading as a quiet feed. The shipped `solar_storm_geomag`
-  checkpoint was trained on Kp ≥ 5.0 labels and needs a retrain to match.
+- Hazard fields: wildfire fuel moisture (NFDRS 1-hour, 1.03 × the EMC at
+  the fuel-atmosphere interface, GTR INT-169 eq. 26 and Table 6; it needs
+  the `nfdrs_state_of_weather` code, without which the spread model keeps
+  its released 10 %), flood peak discharge and time to peak, hurricane
+  intensification rate (≥ 30 kt / 24 h is rapid; Milton 70 → 150 kt in
+  HURDAT2), earthquake IASPEI ML and Reasenberg–Jones aftershock
+  probability, volcanic time to eruption by the failure forecast method
+  (Poisson MLE, Bell et al. 2013; no forecast when the fitted failure time
+  precedes the last sample); `None` where the inputs do not allow a value.
+  `forecast_method` and `detection_method` follow the released fields, so
+  positional construction keeps its order.
+- Space: one NOAA G-scale definition in Kp thirds replaces five ladders that
+  disagreed (5- read no storm, 9- read G5) in the SWPC and DONKI parsers,
+  `SolarStormDetector`, the solar-storm evaluation buckets and the Schumann
+  storm labeller; DONKI reads a storm at its peak Kp, not its onset (the
+  May 2024 storm read G4, not G5); an SWPC fetch failure raises instead of
+  reading as a quiet feed. Still on Kp ≥ 5.0 and due with the retrain of the shipped
+  `solar_storm_geomag` checkpoint: that model's training labels, physics
+  baseline and operating-point rule, and the Schumann training labels. The R
+  and S scales exist in `evaluation/hazard_metrics` but the flare and proton
+  ladders do not use them yet.
 - `security/hive_firewall`: feedback reaches the nodes that voted (a
-  reported false positive had lowered every threshold), and workers hold
-  distinct thresholds under trust-weighted supervisors and a queen majority.
+  reported false positive had lowered every threshold), once per decision,
+  and workers hold distinct thresholds under trust-weighted supervisors and
+  a queen majority. An allowlisted pattern is allowed without a vote; trust
+  is floored above 0; signatures are exact for every dtype (strings hash as
+  released; large integers and complex values no longer collide); the
+  released `trust_decay=1.0` and `consensus_threshold=0` work again.
 - `quantum_computing`: the VQE detector minimises the encoded training
-  samples' 1 − P(|0…0⟩) (held-out AUROC 0.942, was 0.51–0.58), encodes
-  every feature, scales by the training data, and refuses IBM hardware
-  under `MERCURY_OFFLINE`; `cobyla` is SciPy's COBYLA.
+  samples' 1 − P(|0…0⟩) (held-out AUROC 0.997, was 0.51–0.58), encodes
+  every feature, scales by the training data and squashes out-of-range
+  values into a window shorter than the encoding's period (a sample two
+  training ranges out had encoded like one in range), and refuses IBM
+  hardware under `MERCURY_OFFLINE`; `cobyla` is SciPy's COBYLA, and every
+  optimizer returns the objective at the point it returns.
 - `slhdsa_sign_internal` stays removed as a security exception, aligned with
   AMA Cryptography v5 (DEPRECATION.md §6.11).
 
@@ -567,29 +585,36 @@ f07b724e) are reverted under the Preservation Principle: every symbol is back
 under its released name and signature with a test, and the defect tests fail
 on the released code.
 - `OnlineDriftDetector` is ADWIN0 (Bifet & Gavaldà 2007) with a Bonferroni
-  share per feature: no false drifts on stationary 3-feature streams, where
-  the per-feature KS check raised 12–31 per 2,000 samples; a 1σ shift is
-  found in 20–72 samples.
+  share per feature and the window's range in the bound, so it gives the
+  same answer in any units: no false drifts on stationary 3-feature streams,
+  where the per-feature KS check raised 12–31 per 2,000 samples; a 1σ shift
+  is found in 80–169 samples (20 seeds).
 - `ParallelDetectorExecutor` runs on `core.parallel_detectors`: a detector
   past the timeout is reported and the finished results are kept (the
-  released loop raised `TimeoutError` and lost them).
+  released loop raised `TimeoutError` and lost them). Detectors that do not
+  declare `parallel_safe = True`, and all of them at `max_workers=1`, run in
+  the calling thread outside the deadline, the engine's rule.
 - `rate_limit_middleware` returns its 429 with `Retry-After`; raising
   `HTTPException` from an `http` middleware reached clients as a 500.
 - `load_noaa_tsunami_records` pages HazEL with `itemsPerPage`/`page` (it sent
   `maxSize`, which HazEL ignores) and raises `OfflineModeError` offline.
 - `memory_efficient_lru_cache` keys arrays by digest: `str()` abbreviates
   arrays past 1,000 elements, so a changed array was served the old result.
+  Arguments with no exact key (model instances, masked arrays) run uncached.
 - `_LegacyOAEWeightOptimizer` fits F1 without derivatives (SLSQP stopped at
   the initial weights after one iteration; held-out F1 0.34 → 0.99 on data
-  whose signal is in O). The other eight `_Legacy*` names alias the live
-  `core/three_r` classes, which are the same or supersets.
+  whose signal is in O). `_LegacyOmniAvaEquation` and
+  `_LegacyRefactoringConfig` keep their released bodies (the live classes
+  drop η^Φ, change the default weights, and reorder the config's fields);
+  the six other `_Legacy*` names alias identical live classes.
 - `_safe_cholesky` doubles its diagonal shift until the factorization
   succeeds; the single 1e-6 shift failed for any eigenvalue below −1e-6.
 - `_compute_sst_anomaly_proxy` counts the bleaching-susceptible acroporid and
   pocilloporid genera (Marshall & Baird 2000; Pratchett et al. 2013); the
   released "first half of the list" counted the tolerant *Porites* and
   missed *Seriatopora*.
-- `compute_benchmark_metrics` uses `domain`, which it ignored;
+- `compute_benchmark_metrics` uses `domain`, which it ignored (temporal,
+  spatial and graph; any other domain gets the standard suite, as before);
   `reliability_pool`, `add_conformal_to_detector` and
   `MultiScaleFeatureAggregator` reject an unknown mode, method or missing
   layer instead of substituting a default.
