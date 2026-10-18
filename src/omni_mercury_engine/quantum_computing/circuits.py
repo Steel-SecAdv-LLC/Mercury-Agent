@@ -397,8 +397,10 @@ class AnomalyEncodingCircuit:
         ``j // n``, with a CX chain between layers, so ``d`` features use
         ``ceil(d / n)`` layers on ``n`` qubits and none is dropped (the
         one-qubit-per-feature encodings keep only the first ``n``). Inputs
-        are expected in [0, 1] (training-scaled); values outside rotate
-        further, which is how an out-of-range sample shows.
+        are expected in [0, 1] (training-scaled). The probabilities repeat
+        with period 2 in each ``x_j``, so inputs must stay within a window
+        shorter than 2; :class:`~omni_mercury_engine.quantum_computing.detector.QuantumAnomalyDetector`
+        squashes out-of-range values into (-0.45, 1.45).
 
         Args:
             data: One sample's features.

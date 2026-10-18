@@ -30,6 +30,25 @@ from omni_mercury_engine.quantum_computing.hybrid import (
 
 logger = logging.getLogger(__name__)
 
+#: Out-of-range scaled values are squashed into ``(-W, 1 + W)``. Every
+#: encoding rotates by ``pi * x``, whose measurement probabilities repeat
+#: with period 2 in ``x``: unsquashed, a sample two training ranges out
+#: encoded exactly like one in range (60 of 60 such anomalies scored as
+#: normal). ``W < 0.5`` keeps the window shorter than the period.
+OUT_OF_RANGE_WINDOW = 0.45
+
+
+def _squash_out_of_range(z: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Identity on [0, 1]; beyond it, ``tanh``-compressed into the window.
+
+    Strictly increasing with a continuous slope, so a sample further out
+    still encodes further out, and no two values share an encoding.
+    """
+    w = OUT_OF_RANGE_WINDOW
+    above = 1.0 + w * np.tanh((z - 1.0) / w)
+    below = -w * np.tanh(-z / w)
+    return np.where(z > 1.0, above, np.where(z < 0.0, below, z))
+
 
 @dataclass
 class QuantumDetectionResult:
@@ -161,6 +180,7 @@ class QuantumAnomalyDetector:
         n_features = X_train.shape[1]
         self._num_qubits = num_qubits or min(4, n_features)
         self._method = method
+        self._threshold = 0.5  # a refit does not inherit the previous method's quantile
 
         self._feature_min = X_train.min(axis=0)
         self._feature_range = X_train.max(axis=0) - self._feature_min + 1e-10
@@ -210,7 +230,13 @@ class QuantumAnomalyDetector:
 
         Returns:
             QuantumDetectionResult with anomaly scores and predictions
+
+        Raises:
+            ValueError: ``data`` holds a non-finite value (a NaN feature
+                scored NaN, which compared as "not anomalous").
         """
+        if not np.all(np.isfinite(np.asarray(data, dtype=float))):
+            raise ValueError("data must be finite")
         method = method or self._method or "vqe_anomaly"
         threshold = self._threshold if threshold is None else threshold
 
@@ -325,9 +351,11 @@ class QuantumAnomalyDetector:
     def _normalize_data(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Scale to [0, 1] by the training range (the batch's own before fit).
 
-        Values outside the training range stay outside [0, 1]; for the
-        kernel path the result is projected on the training principal axes
-        and rescaled to the projected training range.
+        Values outside the training range are squashed into
+        ``(-OUT_OF_RANGE_WINDOW, 1 + OUT_OF_RANGE_WINDOW)`` (see
+        :func:`_squash_out_of_range`); for the kernel path the data are first
+        projected on the training principal axes and rescaled to the
+        projected training range.
         """
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
@@ -339,9 +367,9 @@ class QuantumAnomalyDetector:
             return (X - X_min) / X_range
 
         if self._projection is None:
-            return (X - self._feature_min) / self._feature_range
+            return _squash_out_of_range((X - self._feature_min) / self._feature_range)
         mean, axes, low, span = self._projection
-        return ((X - mean) @ axes.T - low) / span
+        return _squash_out_of_range(((X - mean) @ axes.T - low) / span)
 
     def _fit_quantum_kernel(
         self,

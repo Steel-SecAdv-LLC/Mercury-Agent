@@ -146,14 +146,22 @@ class ClassicalOptimizer:
         objective: Callable[[np.ndarray[Any, Any]], float],
         initial_params: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
-        """Coordinate pattern search with a shrinking step (gradient-free)."""
+        """Coordinate pattern search with a shrinking step (gradient-free).
+
+        ``history`` ends with the value at the returned parameters: when the
+        last sweep moved them, its value is appended (it was dropped, so the
+        returned value predated the final sweep).
+        """
         params = initial_params.copy()
         history = []
         rho = 1.0
+        current_value = 0.0
+        evaluated = params.copy()
 
         for iteration in range(self._maxiter):
             current_value = objective(params)
             history.append(current_value)
+            evaluated = params.copy()
 
             if iteration > 0 and abs(history[-1] - history[-2]) < self._tol:
                 break
@@ -175,6 +183,8 @@ class ClassicalOptimizer:
 
             rho *= 0.95
 
+        if history and not np.array_equal(params, evaluated):
+            history.append(current_value)
         return params, history[-1] if history else objective(params), history
 
     def _spsa_minimize(
@@ -217,15 +227,22 @@ class ClassicalOptimizer:
         objective: Callable[[np.ndarray[Any, Any]], float],
         initial_params: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
-        """Gradient descent with finite differences."""
+        """Gradient descent with finite differences.
+
+        ``history`` ends with the value at the returned parameters: when the
+        last step moved them, their value is appended (the update was not
+        evaluated, so the returned value was the objective one step earlier).
+        """
         params = initial_params.copy()
         history = []
         learning_rate = 0.1
         epsilon = 0.01
 
+        evaluated = params.copy()
         for iteration in range(self._maxiter):
             current_value = objective(params)
             history.append(current_value)
+            evaluated = params.copy()
 
             gradient = np.zeros_like(params)
             for i in range(len(params)):
@@ -239,6 +256,8 @@ class ClassicalOptimizer:
             if iteration > 0 and abs(history[-1] - history[-2]) < self._tol:
                 break
 
+        if history and not np.array_equal(params, evaluated):
+            history.append(objective(params))
         return params, history[-1] if history else objective(params), history
 
 
@@ -415,8 +434,10 @@ class VQEAnomalyDetector:
     2017, Quantum Sci. Technol. 2, 045001). A sample's anomaly score is the
     same ``1 - P(|0...0>)``: samples like the training data compress, others
     do not. Every feature is encoded (:meth:`AnomalyEncodingCircuit.encode_layered`).
-    On a simulator the probabilities are exact; on hardware they come from
-    measured counts. (The former fit computed the training mean, discarded
+    On a simulator the probabilities are exact. An executor that returns
+    measured counts is scored from them; the hardware backend submits jobs
+    asynchronously and returns none from ``run``, so fitting or scoring on
+    it raises ``NotImplementedError``. (The former fit computed the training mean, discarded
     it, and minimised the parity of the bare circuit, so its parameters
     never saw the data and held-out AUROC sat at chance.)
     """
@@ -522,6 +543,11 @@ class VQEAnomalyDetector:
         combined.measure_all()
         result = executor.run(combined)
         if isinstance(result, list):
+            if not result:
+                raise NotImplementedError(
+                    "VQE evaluates each circuit synchronously, but this backend runs "
+                    "jobs asynchronously and returned no result; use a simulator"
+                )
             result = result[0]
         total = sum(result.counts.values())
         return result.counts.get("0" * self._num_qubits, 0) / total if total else 0.0
