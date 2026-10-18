@@ -8,11 +8,14 @@ the learned path served a magnitude from an amplitude-free spectrogram plus
 an aftershock "probability" of min(0.9, M/10), a DC offset hid a clear event
 from STA/LTA, a batch was cut to its first row, a 40 Hz trace ran through the
 100 Hz CNN, and a global catalog told everyone to "Take protective action".
+A magnitude now comes from the IASPEI standard on a calibrated amplitude, and
+an aftershock probability from Reasenberg-Jones given regional parameters.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -123,3 +126,86 @@ def test_b_value_recovers_a_known_gutenberg_richter_slope() -> None:
 def test_b_value_needs_fifty_events_above_completeness() -> None:
     b, ci, _mc, n = dd.gutenberg_richter_b(np.linspace(4.5, 5.8, 12))
     assert b is None and ci is None and n == 12
+
+
+def test_iaspei_ml_reproduces_richters_anchor() -> None:
+    # Richter: ML 3 is 1 mm on a Wood-Anderson (measured gain 2080) at 100 km.
+    assert dd.local_magnitude(1e6 / 2080.0, 100.0) == pytest.approx(3.0, abs=0.01)
+
+
+def test_calibrated_amplitude_gives_a_magnitude_on_either_path(
+    served: EarthquakeDetector, physics: EarthquakeDetector, stead: dict[str, Any]
+) -> None:
+    info = {"wood_anderson_amplitude_nm": 2.0e5, "hypocentral_distance_km": 40.0}
+    expected = dd.local_magnitude(2.0e5, 40.0)
+    for det in (served, physics):
+        result = det.predict_earthquake(_event(stead), station_info=info)
+        assert result.estimated_magnitude == pytest.approx(expected)
+        assert result.magnitude_class == "moderate"  # ML 5.1
+
+
+def test_amplitude_without_distance_is_refused(
+    physics: EarthquakeDetector, stead: dict[str, Any]
+) -> None:
+    with pytest.raises(InvalidObservationError, match="hypocentral_distance_km"):
+        physics.predict_earthquake(_event(stead), station_info={"wood_anderson_amplitude_nm": 1e4})
+
+
+@pytest.mark.parametrize(
+    ("mainshock", "expected"),
+    [
+        # 10^(a + b(M - 5)) * [(c)^(1-p) - (7 + c)^(1-p)] / (p - 1), P = 1 - exp(-N)
+        (6.0, 0.5944),
+        (7.0, 0.9993),
+    ],
+)
+def test_reasenberg_jones_generic_california(mainshock: float, expected: float) -> None:
+    p = dd.reasenberg_jones_probability(mainshock, dd.REASENBERG_JONES_GENERIC_CALIFORNIA)
+    assert p == pytest.approx(expected, abs=1e-4)
+
+
+def test_aftershock_forecast_needs_regional_parameters(stead: dict[str, Any]) -> None:
+    info = {"wood_anderson_amplitude_nm": 2.0e5, "hypocentral_distance_km": 40.0}
+    plain = EarthquakeDetector(load_shipped_weights=False).predict_earthquake(
+        _event(stead), station_info=info
+    )
+    assert plain.aftershock_probability == 0.0  # not estimated
+    regional = EarthquakeDetector(
+        load_shipped_weights=False,
+        aftershock_parameters=dd.REASENBERG_JONES_GENERIC_CALIFORNIA,
+    ).predict_earthquake(_event(stead), station_info=info)
+    assert regional.earthquake_detected is True
+    assert regional.aftershock_probability == pytest.approx(
+        dd.reasenberg_jones_probability(
+            dd.local_magnitude(2.0e5, 40.0), dd.REASENBERG_JONES_GENERIC_CALIFORNIA
+        )
+    )
+
+
+def test_live_aftershock_window_starts_at_as_of() -> None:
+    payload = json.loads((ROOT / "live_wiring" / "usgs_earthquakes.json").read_text())
+
+    class _Response:
+        def json(self) -> Any:
+            return payload
+
+    async def _get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
+        return _Response()
+
+    def _detector() -> EarthquakeDetector:
+        source = USGSEarthquakeSource(min_magnitude=4.5)
+        source._http_get = _get  # type: ignore[method-assign]
+        return EarthquakeDetector(
+            data_source=source, aftershock_parameters=dd.REASENBERG_JONES_GENERIC_CALIFORNIA
+        )
+
+    first = _detector().detect_live()
+    strongest = first.live_context["strongest_event"]
+    t0 = datetime.fromisoformat(str(strongest["time"]).replace("Z", "+00:00"))
+    at_event = _detector().detect_live(as_of=t0)
+    week_later = _detector().detect_live(as_of=t0 + timedelta(days=7))
+    assert at_event.aftershock_probability == pytest.approx(
+        dd.reasenberg_jones_probability(5.8, dd.REASENBERG_JONES_GENERIC_CALIFORNIA)
+    )
+    # Omori decay: the following week is less likely than the first.
+    assert 0.0 < week_later.aftershock_probability < at_event.aftershock_probability

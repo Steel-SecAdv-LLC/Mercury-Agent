@@ -232,7 +232,7 @@ class TestHurricanePredictionResult:
             wind_shear_kt=10.0,
             ocean_heat_content=80.0,
             rapid_intensification=True,
-            pressure_change_24h_mb=45.0,
+            intensification_rate_kt_24h=35.0,
             resonance_score=0.85,
             frequency_amplification=1.5,
             harmonic_patterns=[0.05, 0.1, 0.2],

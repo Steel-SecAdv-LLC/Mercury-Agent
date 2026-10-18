@@ -36,6 +36,7 @@ Research sources:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -1139,6 +1140,91 @@ STA_WINDOW_S = 0.5
 LTA_WINDOW_S = 5.0
 
 
+def local_magnitude(amplitude_nm: float, hypocentral_distance_km: float) -> float:
+    """IASPEI standard local magnitude.
+
+    ``ML = log10(A) + 1.11 log10(R) + 0.00189 R - 2.09`` (IASPEI Working Group
+    on Magnitudes, 2013; Hutton & Boore 1987 with the measured Wood-Anderson
+    gain of 2080), for crustal events with southern-California-like
+    attenuation; other regions need their own calibration.
+
+    Args:
+        amplitude_nm: Maximum horizontal trace amplitude, nm, on a record
+            filtered to the Wood-Anderson response with static magnification 1.
+        hypocentral_distance_km: Hypocentral distance, km (at most 1000).
+
+    Returns:
+        ML.
+
+    Raises:
+        InvalidObservationError: On a non-positive amplitude or a distance
+            outside (0, 1000] km.
+    """
+    amplitude = finite_scalar(amplitude_nm, "wood_anderson_amplitude_nm", unit="nm", lo=0.0)
+    distance = finite_scalar(
+        hypocentral_distance_km, "hypocentral_distance_km", unit="km", lo=0.0, hi=1000.0
+    )
+    if amplitude == 0.0 or distance == 0.0:
+        raise InvalidObservationError("ML needs a positive amplitude and hypocentral distance")
+    return math.log10(amplitude) + 1.11 * math.log10(distance) + 0.00189 * distance - 2.09
+
+
+#: Reasenberg & Jones (1989) generic California aftershock sequence: rate of
+#: M >= M_min aftershocks 10^(a + b (M_main - M_min)) (t + c)^-p per day, t
+#: and c in days (USGS Open-File Report 96-266). Regional: other regions need
+#: their own parameters (Page et al. 2016), so a detector uses them only when
+#: they are passed as ``aftershock_parameters``.
+REASENBERG_JONES_GENERIC_CALIFORNIA: dict[str, float] = {
+    "a": -1.67,
+    "b": 0.91,
+    "p": 1.08,
+    "c": 0.05,
+}
+
+#: Aftershock forecast reported by the detector: at least one M >= 5 within 7 days.
+AFTERSHOCK_MIN_MAGNITUDE = 5.0
+AFTERSHOCK_WINDOW_DAYS = 7.0
+
+
+def reasenberg_jones_probability(
+    mainshock_magnitude: float,
+    parameters: dict[str, float],
+    *,
+    min_magnitude: float = AFTERSHOCK_MIN_MAGNITUDE,
+    start_days: float = 0.0,
+    duration_days: float = AFTERSHOCK_WINDOW_DAYS,
+) -> float:
+    """Probability of at least one aftershock of ``min_magnitude`` or more in a window.
+
+    The expected number is the Reasenberg-Jones rate integrated over
+    ``[start_days, start_days + duration_days]`` after the mainshock, and
+    the probability is ``1 - exp(-N)`` (Poisson).
+
+    Args:
+        mainshock_magnitude: Mainshock magnitude.
+        parameters: ``a``, ``b``, ``p``, ``c`` (c in days).
+        min_magnitude: Smallest aftershock magnitude counted.
+        start_days: Window start, days after the mainshock.
+        duration_days: Window length, days.
+
+    Returns:
+        Probability in [0, 1).
+    """
+    a, b, p, c = (
+        finite_scalar(parameters[k], f"aftershock parameter {k}", unit="-") for k in "abpc"
+    )
+    t1 = finite_scalar(start_days, "start_days", unit="days", lo=0.0)
+    t2 = t1 + finite_scalar(duration_days, "duration_days", unit="days", lo=0.0)
+    if c <= 0.0:
+        raise InvalidObservationError("aftershock parameter c must be positive (days)")
+    if abs(p - 1.0) < 1e-9:
+        decay = math.log((t2 + c) / (t1 + c))
+    else:
+        decay = ((t1 + c) ** (1.0 - p) - (t2 + c) ** (1.0 - p)) / (p - 1.0)
+    expected = 10.0 ** (a + b * (mainshock_magnitude - min_magnitude)) * decay
+    return 1.0 - math.exp(-expected)
+
+
 def gutenberg_richter_b(
     magnitudes: np.ndarray[Any, Any], bin_width: float = 0.1, min_events: int = 50
 ) -> tuple[float | None, tuple[float, float] | None, float | None, int]:
@@ -1249,6 +1335,7 @@ class EarthquakeDetector:
         data_source: USGSEarthquakeSource | None = None,
         keep_diagnostics: bool = False,
         load_shipped_weights: bool = True,
+        aftershock_parameters: dict[str, float] | None = None,
     ):
         """Initialize the instance.
 
@@ -1276,11 +1363,24 @@ class EarthquakeDetector:
                 regression guard's physics lane, and the honesty-contract
                 tests). Absence of the checkpoint falls open to physics; an
                 invalid checkpoint still fails loud.
+            aftershock_parameters: Reasenberg-Jones ``a``, ``b``, ``p``, ``c``
+                for the region monitored (e.g.
+                :data:`REASENBERG_JONES_GENERIC_CALIFORNIA`). With them,
+                ``aftershock_probability`` is the probability of an M >= 5
+                aftershock within 7 days of a known mainshock magnitude;
+                without them it stays 0.0 (not estimated), because generic
+                parameters from one region miscalibrate another.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "EarthquakeDetector requires PyTorch. Install with: pip install torch"
             )
+        if aftershock_parameters is not None:
+            missing = set("abpc") - set(aftershock_parameters)
+            if missing:
+                raise ValueError(f"aftershock_parameters lacks {sorted(missing)}")
+            reasenberg_jones_probability(6.0, aftershock_parameters)  # validates values
+        self.aftershock_parameters = aftershock_parameters
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
@@ -1437,15 +1537,21 @@ class EarthquakeDetector:
         Args:
             seismic_data: One seismic waveform, ``[seq_len]`` or
                 ``[1, seq_len]``, sampled at ``self.sampling_rate``.
-            station_info: Optional station information
+            station_info: Optional station information. With
+                ``wood_anderson_amplitude_nm`` (peak horizontal amplitude on
+                the Wood-Anderson response, magnification 1) and
+                ``hypocentral_distance_km``, the IASPEI local magnitude is
+                reported (:func:`local_magnitude`).
 
         Returns:
             EarthquakePredictionResult with detection details.
-            ``estimated_magnitude`` is None on both paths: the learned head
-            reads a per-trace z-normalised spectrogram, which carries no
-            amplitude, and local magnitude is defined on absolute amplitude
-            and distance (IASPEI ML). On real Alaska events it scored worse
-            than a constant. ``detection_method`` names the path that ran.
+            ``estimated_magnitude`` comes only from that calibrated amplitude
+            and distance: the learned head reads a per-trace z-normalised
+            spectrogram, which carries no amplitude (on real Alaska events it
+            scored worse than a constant), so the trace alone gives None.
+            ``aftershock_probability`` follows from a magnitude and the
+            constructor's ``aftershock_parameters``. ``detection_method``
+            names the path that ran.
 
         Raises:
             InputModalityError: If the input is not a 1-D or 2-D waveform.
@@ -1579,6 +1685,17 @@ class EarthquakeDetector:
             aftershock_probability = 0.0
             detection_method = "physics_sta_lta"
 
+        if station_info and station_info.get("wood_anderson_amplitude_nm") is not None:
+            if station_info.get("hypocentral_distance_km") is None:
+                raise InvalidObservationError(
+                    "wood_anderson_amplitude_nm needs hypocentral_distance_km for ML"
+                )
+            estimated_mag = local_magnitude(
+                station_info["wood_anderson_amplitude_nm"],
+                station_info["hypocentral_distance_km"],
+            )
+            magnitude_class = self._classify_magnitude(estimated_mag)
+
         # Deployed alert rule: the physics path thresholds at the
         # constructor's ``detection_threshold``; the learned path uses the
         # checkpoint's ratified operating point when it carries one (the
@@ -1589,6 +1706,15 @@ class EarthquakeDetector:
             earthquake_detected = confidence > self._operating_point["detection_threshold"]
         else:
             earthquake_detected = confidence > self.detection_threshold
+
+        if (
+            earthquake_detected
+            and estimated_mag is not None
+            and self.aftershock_parameters is not None
+        ):
+            aftershock_probability = reasenberg_jones_probability(
+                estimated_mag, self.aftershock_parameters
+            )
 
         epicenter_distance = None
         if p_arrival is not None and s_arrival is not None and s_arrival > p_arrival:
@@ -1666,6 +1792,7 @@ class EarthquakeDetector:
         station_lat: float | None = None,
         station_lon: float | None = None,
         allow_simulated: bool = False,
+        as_of: datetime | None = None,
         **fetch_kwargs: Any,
     ) -> EarthquakePredictionResult:
         """Assess live seismicity from the USGS event catalog.
@@ -1677,9 +1804,11 @@ class EarthquakeDetector:
         spectral anomalies) are absent/zero here and ``estimated_magnitude``
         is the LARGEST OBSERVED catalog magnitude -- a real USGS measurement,
         not a model estimate (the untrained-network magnitude fabrication was
-        removed in the transparency wave). ``aftershock_probability`` stays 0.0:
-        no calibrated Reasenberg-Jones parameters are available, so no
-        forecast is fabricated. Rate/clustering features (events/day,
+        removed in the transparency wave). ``aftershock_probability`` is the
+        Reasenberg-Jones probability of an M >= 5 aftershock of the largest
+        event in the 7 days after ``as_of`` when the detector was given
+        ``aftershock_parameters`` for the region; otherwise it stays 0.0 (not
+        estimated). Rate/clustering features (events/day,
         maximum-likelihood b-value per Aki 1965, clustered-event fraction)
         are reported in ``live_context``.
 
@@ -1688,6 +1817,7 @@ class EarthquakeDetector:
             station_lat: Optional station latitude for epicentral distance.
             station_lon: Optional station longitude for epicentral distance.
             allow_simulated: Explicit opt-in for simulated sources.
+            as_of: Forecast start for the aftershock window (default: now, UTC).
             **fetch_kwargs: Extra client fetch parameters (e.g. bounds).
 
         Returns:
@@ -1755,6 +1885,16 @@ class EarthquakeDetector:
                 station_lat, station_lon, strongest.location[0], strongest.location[1]
             )
 
+        aftershock_probability = 0.0
+        if self.aftershock_parameters is not None:
+            elapsed_days = max(
+                ((as_of or datetime.now(UTC)) - strongest.timestamp).total_seconds() / 86400.0,
+                0.0,
+            )
+            aftershock_probability = reasenberg_jones_probability(
+                max_magnitude, self.aftershock_parameters, start_days=elapsed_days
+            )
+
         magnitude_class = self._classify_magnitude(max_magnitude)
         result = EarthquakePredictionResult(
             earthquake_detected=True,
@@ -1768,6 +1908,7 @@ class EarthquakeDetector:
             # estimate (ShakeMap), so a global M6 no longer tells everyone to
             # "Take protective action".
             warning_actions=["Monitor official earthquake information"],
+            aftershock_probability=aftershock_probability,
             detection_method="usgs_catalog",
             source_id=fetch.source_id,
             data_provenance=fetch.data_provenance,

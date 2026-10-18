@@ -233,19 +233,19 @@ class TestWildfireDiagnosticsAndIgnitionFields:
         row, col = result.ignition_locations[0]
         assert 10 <= row <= 14 and 20 <= col <= 25  # pixel-space centroid
         # No pixel_size_km supplied -> no fabricated ground area.
-        assert result.hotspot_area_km2 is None
+        assert result.fire_perimeter_km2 is None
 
     def test_area_estimate_requires_pixel_size(self, thermal_image: np.ndarray[Any, Any]) -> None:
         detector = WildfireDetector()
         result = detector.predict_wildfire({"thermal_image": thermal_image, "pixel_size_km": 0.5})
-        assert result.hotspot_area_km2 == pytest.approx(20 * 0.5**2)
+        assert result.fire_perimeter_km2 == pytest.approx(20 * 0.5**2)
 
     def test_hotspot_count_is_spatial_not_channel_summed(self) -> None:
         """A pixel hot in several bands is still ONE ground pixel.
 
         Regression: the count used to sum threshold exceedances across all
         channels, so this 4x5 block hot in all 3 bands counted as 60 pixels
-        and inflated hotspot_area_km2 by 3x.
+        and inflated fire_perimeter_km2 by 3x.
         """
         rng = np.random.default_rng(3)
         img = rng.normal(300.0, 5.0, size=(3, 32, 32))
@@ -253,7 +253,7 @@ class TestWildfireDiagnosticsAndIgnitionFields:
         detector = WildfireDetector()
         result = detector.predict_wildfire({"thermal_image": img, "pixel_size_km": 0.5})
         assert result.thermal_hotspots == 20  # spatial pixels, not 60
-        assert result.hotspot_area_km2 == pytest.approx(20 * 0.5**2)
+        assert result.fire_perimeter_km2 == pytest.approx(20 * 0.5**2)
         assert len(result.ignition_locations) == 1
 
     def test_thermal_mask_and_pixels_captured(self, thermal_image: np.ndarray[Any, Any]) -> None:

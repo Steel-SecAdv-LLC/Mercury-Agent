@@ -21,6 +21,7 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+from omni_mercury_engine.detectors.geological import volcanic
 from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
 
 
@@ -112,3 +113,91 @@ def test_elf_deviation_carries_no_decision_weight(physics: VolcanicEruptionDetec
     with_elf = physics.predict_eruption({**_unrest(), "schumann_elf": elf})
     assert with_elf.schumann_elf_correlation is not None
     assert (with_elf.confidence, with_elf.alert_level) == (plain.confidence, plain.alert_level)
+
+
+def _accelerating_rate(t_h: np.ndarray, failure_h: float, k: float = 50.0) -> np.ndarray:
+    """dR/dt = A R^2 integrates to R = k / (t_f - t): 1/R falls linearly to 0 at t_f."""
+    return k / (failure_h - t_h)
+
+
+def test_failure_forecast_recovers_the_failure_time() -> None:
+    t = np.arange(0.0, 96.0, 6.0)  # 16 samples over four days
+    forecast = volcanic.failure_forecast(t, _accelerating_rate(t, failure_h=120.0))
+    assert forecast is not None
+    assert forecast["failure_time_h"] == pytest.approx(120.0)
+    assert forecast["time_to_failure_h"] == pytest.approx(120.0 - 90.0)
+    assert forecast["r_squared"] == pytest.approx(1.0)
+
+
+def _accelerating_counts(seed: int, edges: np.ndarray, failure_h: float = 120.0) -> np.ndarray:
+    """Poisson counts per bin of the rate 400 / (t_f - t)."""
+    expected = 400.0 * np.log((failure_h - edges[:-1]) / (failure_h - edges[1:]))
+    return np.random.default_rng(seed).poisson(expected)
+
+
+def test_inverse_rate_least_squares_fails_on_sparse_counts() -> None:
+    edges = np.arange(0.0, 102.0, 6.0)
+    counts = _accelerating_counts(0, edges)
+    # Bell et al. (2013): 1/count scatter hides the trend (R^2 0.13 here).
+    assert volcanic.failure_forecast(edges[:-1], np.maximum(counts, 1)) is None
+
+
+def test_poisson_failure_forecast_on_counts() -> None:
+    edges = np.arange(0.0, 102.0, 6.0)
+    errors = []
+    for seed in range(20):
+        forecast = volcanic.failure_forecast_poisson(edges, _accelerating_counts(seed, edges))
+        assert forecast is not None
+        assert forecast["likelihood_ratio"] > volcanic.FFM_LR_CRITICAL
+        errors.append(abs(forecast["failure_time_h"] - 120.0))
+    assert float(np.median(errors)) < 6.0
+
+
+def test_constant_count_rate_is_not_an_acceleration() -> None:
+    edges = np.arange(0.0, 102.0, 6.0)
+    accepted = sum(
+        volcanic.failure_forecast_poisson(
+            edges, np.random.default_rng(1000 + seed).poisson(np.full(16, 30.0))
+        )
+        is not None
+        for seed in range(100)
+    )
+    assert accepted <= 10  # the 5% test level, with sampling slack
+
+
+def test_steady_or_declining_rate_has_no_failure_time() -> None:
+    t = np.arange(0.0, 48.0, 6.0)
+    assert volcanic.failure_forecast(t, np.full(t.size, 10.0)) is None
+    assert volcanic.failure_forecast(t, 50.0 / (t + 10.0)) is None
+
+
+@pytest.mark.parametrize(
+    ("times", "rates"),
+    [
+        ([0, 6, 12, 18, 24], [5, 6, 0, 9, 12]),  # a zero rate has no inverse
+        ([0, 6, 6, 18, 24], [5, 6, 7, 9, 12]),  # times must increase
+        ([0, 6, 12, 18], [5, 6, 7, 9]),  # too few samples
+    ],
+)
+def test_failure_forecast_refuses_unusable_series(times: list, rates: list) -> None:
+    with pytest.raises(InvalidObservationError):
+        volcanic.failure_forecast(times, rates)
+
+
+def test_detector_reports_the_failure_forecast() -> None:
+    t = np.arange(0.0, 96.0, 6.0)
+    det = VolcanicEruptionDetector(load_shipped_weights=False)
+    result = det.predict_eruption(
+        {"precursor_rate": {"times_h": t, "rate": _accelerating_rate(t, failure_h=120.0)}}
+    )
+    assert result.time_to_eruption_hours == pytest.approx(30.0)
+    assert result.time_to_eruption_fit is not None
+    assert result.time_to_eruption_fit["method"] == "ffm_inverse_rate"
+    assert result.vei_estimate is None  # VEI is not forecast from precursors
+    edges = np.arange(0.0, 102.0, 6.0)
+    counted = det.predict_eruption(
+        {"precursor_rate": {"bin_edges_h": edges, "counts": _accelerating_counts(3, edges)}}
+    )
+    assert counted.time_to_eruption_fit is not None
+    assert counted.time_to_eruption_fit["method"] == "ffm_poisson_mle"
+    assert 0.0 < counted.time_to_eruption_hours < 40.0

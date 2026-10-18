@@ -109,14 +109,22 @@ class FloodPredictionResult:
     soil_saturation_pct: float = 0.0
 
     runoff_coefficient: float = 0.0
+    #: Lead time (h) to the crest of the supplied stage forecast; 0.0 when the
+    #: forecast is no higher than the current stage. None without a forecast.
+    time_to_peak_hours: float | None = None
+    #: Largest supplied discharge (observed, history or forecast), cfs; None
+    #: when no discharge was supplied (0.0 claimed a dry channel).
+    peak_discharge_cfs: float | None = None
 
     refactoring_score: float = 0.0
     model_optimization_iterations: int = 0
     prediction_uncertainty: float = 0.0
 
-    # Peak discharge, time to peak, affected area and population at risk were
-    # declared here but never computed (no hydrograph or exposure model
-    # exists); they are removed rather than served as permanent zeros.
+    # Inundated area and exposed population need an inundation map and
+    # census exposure, which no input carries: None means not assessed (the
+    # former 0.0 / 0 read "nothing affected").
+    affected_area_sq_mi: float | None = None
+    population_at_risk: int | None = None
 
     warning_actions: list[str] = field(default_factory=list)
     evacuation_routes: list[str] = field(default_factory=list)
@@ -279,6 +287,34 @@ class RiverGaugeMonitor:
         else:
             trend = "unknown"
 
+        discharges = [
+            finite_array(gauge_data[key], key, unit="cfs", ndim=(0, 1), lo=0.0)
+            for key in ("discharge_cfs", "discharge_history_cfs", "forecast_discharge_cfs")
+            if gauge_data.get(key) is not None
+        ]
+        peak_discharge = max(float(np.max(d)) for d in discharges) if discharges else None
+
+        time_to_peak: float | None = None
+        forecast_crest: float | None = None
+        if gauge_data.get("forecast_stage_ft") is not None:
+            forecast = finite_array(
+                gauge_data["forecast_stage_ft"], "forecast_stage_ft", unit="ft", ndim=1
+            )
+            if "forecast_lead_h" not in gauge_data:
+                raise InvalidObservationError(
+                    "forecast_stage_ft needs forecast_lead_h (hours ahead of each value)"
+                )
+            lead = finite_array(
+                gauge_data["forecast_lead_h"], "forecast_lead_h", unit="h", ndim=1, lo=0.0
+            )
+            if lead.shape != forecast.shape or np.any(np.diff(lead) <= 0):
+                raise InvalidObservationError(
+                    "forecast_lead_h must give one increasing lead time per forecast stage"
+                )
+            crest = int(np.argmax(forecast))
+            forecast_crest = float(forecast[crest])
+            time_to_peak = float(lead[crest]) if forecast_crest > current_stage else 0.0
+
         flood_status = "normal"
         if action_stage is not None and current_stage >= action_stage:
             flood_status = "action"
@@ -293,6 +329,9 @@ class RiverGaugeMonitor:
             "flood_status": flood_status,
             "stage_trend": trend,
             "at_or_above_flood": current_stage >= flood_stage,
+            "peak_discharge_cfs": peak_discharge,
+            "time_to_peak_hours": time_to_peak,
+            "forecast_crest_ft": forecast_crest,
         }
 
 
@@ -567,6 +606,8 @@ class FloodDetector:
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
             result.stage_trend = gauge_result["stage_trend"]
+            result.peak_discharge_cfs = gauge_result["peak_discharge_cfs"]
+            result.time_to_peak_hours = gauge_result["time_to_peak_hours"]
             gauge_status = gauge_result["flood_status"]
 
             if gauge_result["at_or_above_flood"]:
@@ -591,6 +632,8 @@ class FloodDetector:
             and self.prediction_optimizer is not None
         ):
             initial_prediction = {"stage_ft": result.river_stage_ft}
+            if result.peak_discharge_cfs is not None:
+                initial_prediction["discharge_cfs"] = result.peak_discharge_cfs
             refactor_result = self.prediction_optimizer.optimize_prediction(
                 initial_prediction, flood_data["observed_data"]
             )
@@ -701,6 +744,13 @@ class FloodDetector:
                     "flood_category": worst_gauge.get("flood_category"),
                     "forecast_flood_category": worst_gauge.get("forecast_flood_category"),
                 }
+                # NWPS reports flow as the secondary value, usually in kcfs.
+                flow = worst_gauge.get("observed_secondary")
+                flow_scale = {"kcfs": 1000.0, "cfs": 1.0}.get(
+                    str(worst_gauge.get("observed_secondary_unit", "")).lower()
+                )
+                if flow is not None and flow_scale is not None and float(flow) >= 0.0:
+                    live_context["worst_gauge"]["observed_flow_cfs"] = float(flow) * flow_scale
 
         flood_alerts = 0
         if self._alerts_source is not None:

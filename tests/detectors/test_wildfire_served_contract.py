@@ -6,7 +6,8 @@ Each test fails on the detector as it was before: any 3-channel array went to
 the next-day FIRMS forecaster (a brightness image with a 380 K fire read
 p=0.078, not detected), NaN and inf passed through, the risk ladder summed
 floats so three weather flags with no fire read "very_high", spread was
-modelled with no fire, and the hotspot area was named a perimeter.
+modelled with no fire, fuel moisture was a fixed 10% whatever the weather,
+and smoke read "not detected" without being assessed.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.detectors.geological import wildfire
 from omni_mercury_engine.detectors.geological.wildfire import (
     WildfireDetector,
     WildfirePredictionResult,
@@ -108,16 +110,71 @@ def test_weather_outside_its_units_is_refused(served: WildfireDetector) -> None:
         served.predict_wildfire({"weather_data": {"relative_humidity_pct": 0.15e3}})
 
 
-def test_hotspot_area_is_named_an_area(served: WildfireDetector) -> None:
+def test_fire_perimeter_area_is_pixel_count_times_pixel_area(served: WildfireDetector) -> None:
     result = served.predict_wildfire({"thermal_image": _brightness_scene(), "pixel_size_km": 0.5})
-    assert result.hotspot_area_km2 == pytest.approx(4 * 0.25)
+    assert result.fire_perimeter_km2 == pytest.approx(4 * 0.25)
+
+
+def test_every_result_field_of_the_released_api_is_kept() -> None:
     fields = set(WildfirePredictionResult.__dataclass_fields__)
-    assert "fire_perimeter_km2" not in fields
-    for never_computed in (
+    assert {
+        "fire_perimeter_km2",
         "smoke_detected",
         "fuel_moisture",
         "weather_factors",
         "evacuation_zones",
         "containment_strategy",
-    ):
-        assert never_computed not in fields
+    } <= fields
+    # Positional construction of the released field order still works.
+    positional = WildfirePredictionResult(True, 0.9, "high", [(1.0, 2.0)], 3.0)
+    assert (positional.ignition_locations, positional.fire_perimeter_km2) == ([(1.0, 2.0)], 3.0)
+
+
+@pytest.mark.parametrize(
+    ("temperature_c", "humidity", "emc"),
+    [
+        # GTR INT-169 Appendix C at 90 degF (32.2 degC) and 60 degF (15.6 degC).
+        ((90 - 32) * 5 / 9, 5.0, 0.03299 + 0.281073 * 5 - 0.000578 * 5 * 90),
+        ((90 - 32) * 5 / 9, 15.0, 2.22749 + 0.160107 * 15 - 0.01478 * 90),
+        ((60 - 32) * 5 / 9, 70.0, 21.0606 + 0.005565 * 4900 - 0.00035 * 70 * 60 - 0.483199 * 70),
+    ],
+)
+def test_equilibrium_moisture_follows_nfdrs(
+    temperature_c: float, humidity: float, emc: float
+) -> None:
+    assert wildfire.equilibrium_moisture_content(temperature_c, humidity) == pytest.approx(emc)
+
+
+def test_fuel_moisture_is_estimated_from_the_weather_and_drives_spread(
+    served: WildfireDetector,
+) -> None:
+    weather = {"temperature_c": 32.0, "relative_humidity_pct": 12.0, "wind_speed_kmh": 25.0}
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "weather_data": weather}
+    )
+    emc = wildfire.equilibrium_moisture_content(32.0, 12.0)
+    assert result.weather_factors["equilibrium_moisture_pct"] == pytest.approx(emc)
+    assert result.weather_factors["wind_speed_kmh"] == 25.0
+    assert "wind_direction_deg" not in result.weather_factors  # not supplied, not invented
+    assert result.fuel_moisture == pytest.approx(1.03 * emc)
+    # Dry fuel spreads faster than the fixed 10% the spread model assumed.
+    fixed = served.predict_wildfire(
+        {
+            "thermal_image": _brightness_scene(),
+            "weather_data": weather,
+            "fire_data": {"fuel_moisture_pct": 10.0},
+        }
+    )
+    assert fixed.fuel_moisture == 10.0
+    assert result.spread_rate_km_hr > fixed.spread_rate_km_hr
+
+
+def test_unassessed_fields_say_so(served: WildfireDetector) -> None:
+    result = served.predict_wildfire({"thermal_image": _brightness_scene()})
+    assert result.smoke_detected is None
+    assert result.fuel_moisture is None
+    assert (result.evacuation_zones, result.containment_strategy) == ([], [])
+    official = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "evacuation_zones": ["Zone 4B"]}
+    )
+    assert official.evacuation_zones == ["Zone 4B"]

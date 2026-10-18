@@ -61,6 +61,46 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 #: (>= 30 kt in 24 h); the stricter 42 hPa keeps false claims rare.
 RAPID_DEEPENING_HPA_24H = 42.0
 
+#: Rapid intensification: an increase in maximum sustained wind of at least
+#: 30 kt in 24 h (NHC glossary; Kaplan & DeMaria 2003).
+RAPID_INTENSIFICATION_KT_24H = 30.0
+
+
+def _steps_per_24h(interval_h: Any, name: str) -> int:
+    """Samples spanning 24 h at ``interval_h``, refusing an interval that does not divide it."""
+    step = finite_scalar(interval_h, name, unit="h", lo=1e-3, hi=24.0)
+    steps = round(24.0 / step)
+    if abs(steps * step - 24.0) > 1e-6:
+        raise InvalidObservationError(
+            f"{name}={step:g} h does not divide 24 h; a 24 h change needs a sample 24 h back"
+        )
+    return int(steps)
+
+
+def intensification_rate_kt_24h(max_wind_kt: Any, interval_h: Any) -> float | None:
+    """Change in maximum sustained wind over the latest 24 h, kt.
+
+    Args:
+        max_wind_kt: Equally spaced maximum sustained winds (kt), oldest
+            first, e.g. the 6-hourly best-track fixes.
+        interval_h: Spacing of the samples, hours (must divide 24).
+
+    Returns:
+        The latest value minus the value 24 h earlier, or None when the
+        history spans less than 24 h.
+
+    Raises:
+        InvalidObservationError: On non-finite or out-of-range winds or an
+            interval that does not divide 24 h.
+    """
+    winds = finite_array(
+        max_wind_kt, "max_wind_kt", unit="kt", ndim=1, min_size=2, lo=0.0, hi=250.0
+    )
+    steps = _steps_per_24h(interval_h, "interval_h")
+    if winds.size <= steps:
+        return None
+    return float(winds[-1] - winds[-1 - steps])
+
 
 class SaffirSimpsonCategory(Enum):
     """Saffir-Simpson Hurricane Wind Scale categories."""
@@ -102,11 +142,10 @@ class HurricanePredictionResult:
     ocean_heat_content: float = 0.0
 
     rapid_intensification: bool = False
-    # Central-pressure change over the latest 24 h (hPa, positive = deepening);
-    # None unless a sampled history with its interval was supplied. Replaces
-    # ``intensification_rate_kt_24h``, which was declared in knots but filled
-    # with this hPa value.
-    pressure_change_24h_mb: float | None = None
+    # Maximum-wind change over the latest 24 h (kt), from
+    # ``cyclone_data["intensity_history"]``; None without a 24 h wind history.
+    # (It used to be filled with the hPa pressure change.)
+    intensification_rate_kt_24h: float | None = None
 
     resonance_score: float = 0.0
     frequency_amplification: float = 0.0
@@ -132,6 +171,10 @@ class HurricanePredictionResult:
     # vorticity field. There is deliberately NO track cone: the storm-track
     # model was removed as uncomputed, and none is fabricated here.
     diagnostics: HazardDiagnostics | None = None
+
+    # Central-pressure change over the latest 24 h (hPa, positive = deepening);
+    # None unless a sampled history with its interval was supplied.
+    pressure_change_24h_mb: float | None = None
 
 
 class SeaSurfaceTemperatureAnalyzer:
@@ -348,10 +391,7 @@ class PressureTracker:
         rapid_intensification = False
         interval = pressure_data.get("pressure_history_interval_h")
         if interval is not None and len(pressure_history) >= 2:
-            interval_h = finite_scalar(
-                interval, "pressure_history_interval_h", unit="h", lo=1e-3, hi=24.0
-            )
-            steps = round(24.0 / interval_h)
+            steps = _steps_per_24h(interval, "pressure_history_interval_h")
             if len(pressure_history) > steps:
                 pressure_change_24h = float(pressure_history[-1 - steps] - pressure_history[-1])
                 rapid_intensification = pressure_change_24h >= RAPID_DEEPENING_HPA_24H
@@ -633,6 +673,19 @@ class HurricaneDetector:
                 indicators_detected += 1
 
             if pressure_result["rapid_intensification"]:
+                indicators_detected += 1
+
+        if "intensity_history" in cyclone_data:
+            history = cyclone_data["intensity_history"]
+            result.intensification_rate_kt_24h = intensification_rate_kt_24h(
+                history.get("max_wind_kt"), history.get("interval_h")
+            )
+            if (
+                result.intensification_rate_kt_24h is not None
+                and result.intensification_rate_kt_24h >= RAPID_INTENSIFICATION_KT_24H
+                and not result.rapid_intensification
+            ):
+                result.rapid_intensification = True
                 indicators_detected += 1
 
         tc_probability: float | None = None

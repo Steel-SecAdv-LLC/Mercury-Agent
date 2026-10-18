@@ -5,8 +5,9 @@
 Each test fails on the detector as it was before: an empty record read as at
 flood stage ("MINOR FLOODING"), invented category stages overrode the gauge's
 own, severity ignored the gauge category, injected noise moved the decision,
-advisories counted as floods, and a quiet gauge feed reported an arbitrary
-gauge's stage.
+advisories counted as floods, a quiet gauge feed reported an arbitrary
+gauge's stage, and peak discharge, time to peak, area and population read 0
+without being assessed.
 """
 
 from __future__ import annotations
@@ -164,12 +165,59 @@ def test_every_gauge_in_the_box_is_read() -> None:
     assert result.severity == "major"
 
 
-def test_never_computed_fields_are_gone() -> None:
+GAUGE = {"current_stage_ft": 12.0, "flood_stage_ft": 15.0}
+
+
+def test_released_result_fields_are_kept() -> None:
     fields = set(FloodPredictionResult.__dataclass_fields__)
-    for name in (
+    assert {
         "peak_discharge_cfs",
         "time_to_peak_hours",
         "affected_area_sq_mi",
         "population_at_risk",
-    ):
-        assert name not in fields
+    } <= fields
+    result = FloodDetector().predict_flood({"gauge_data": GAUGE})
+    # Not assessed is None; 0.0 claimed a dry channel and nothing affected.
+    assert (result.peak_discharge_cfs, result.time_to_peak_hours) == (None, None)
+    assert (result.affected_area_sq_mi, result.population_at_risk) == (None, None)
+
+
+def test_peak_discharge_is_the_largest_supplied_flow() -> None:
+    gauge = {
+        **GAUGE,
+        "discharge_cfs": 8_200.0,
+        "discharge_history_cfs": [5_000.0, 7_900.0],
+        "forecast_discharge_cfs": [9_100.0, 12_400.0, 11_000.0],
+    }
+    assert FloodDetector().predict_flood({"gauge_data": gauge}).peak_discharge_cfs == 12_400.0
+
+
+def test_time_to_peak_is_the_forecast_crest_lead() -> None:
+    rising = {
+        **GAUGE,
+        "forecast_stage_ft": [13.0, 16.5, 17.2, 16.0],
+        "forecast_lead_h": [6, 12, 18, 24],
+    }
+    assert FloodDetector().predict_flood({"gauge_data": rising}).time_to_peak_hours == 18.0
+    crested = {**GAUGE, "forecast_stage_ft": [11.5, 10.0], "forecast_lead_h": [6, 12]}
+    assert FloodDetector().predict_flood({"gauge_data": crested}).time_to_peak_hours == 0.0
+
+
+@pytest.mark.parametrize(
+    ("extra", "fragment"),
+    [
+        ({"forecast_stage_ft": [16.0, 17.0]}, "forecast_lead_h"),
+        ({"forecast_stage_ft": [16.0, 17.0], "forecast_lead_h": [12, 6]}, "increasing"),
+        ({"discharge_cfs": -5.0}, "discharge_cfs"),
+    ],
+)
+def test_malformed_hydrograph_is_refused(extra: dict[str, Any], fragment: str) -> None:
+    with pytest.raises(InvalidObservationError, match=fragment):
+        FloodDetector().predict_flood({"gauge_data": {**GAUGE, **extra}})
+
+
+def test_live_worst_gauge_reports_its_observed_flow() -> None:
+    gauges = json.loads((FIXTURES / "nwps_gauges.json").read_text())
+    gauges["gauges"][0]["status"]["observed"]["floodCategory"] = "minor"
+    result = FloodDetector(gauge_source=_replay(NOAANWPSSource(), gauges)).detect_live()
+    assert result.live_context["worst_gauge"]["observed_flow_cfs"] == pytest.approx(1_340.0)

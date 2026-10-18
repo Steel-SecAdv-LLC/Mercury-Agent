@@ -49,10 +49,148 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
-from omni_mercury_engine.detectors._hazard_input import finite_array, finite_scalar
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+#: Least R^2 of the inverse-rate line before a failure time is reported.
+FFM_MIN_R2 = 0.8
+
+#: Fewest precursor-rate samples the failure forecast method accepts.
+FFM_MIN_POINTS = 5
+
+
+def failure_forecast(times_h: Any, rates: Any) -> dict[str, float] | None:
+    """Failure forecast method, inverse-rate form (Voight 1988, Nature 332).
+
+    A precursor rate that accelerates as dR/dt = A R^2 (alpha = 2, the case
+    most often observed; Cornelius & Voight 1995) has an inverse rate that
+    falls linearly with time and reaches zero at the failure (eruption) time.
+    A least-squares line through 1/R is extrapolated to zero. The method has
+    retrospective skill (e.g. Mount St. Helens 1980-86 dome extrusions) but is
+    uncertain prospectively. For event counts use
+    :func:`failure_forecast_poisson`: least squares on inverse rates is
+    biased and unstable for sparse counts (Bell, Naylor & Main 2013, GJI 194).
+
+    Args:
+        times_h: Increasing sample times, hours.
+        rates: Positive precursor rates at those times (e.g. VT events per
+            day, RSAM), at least :data:`FFM_MIN_POINTS`.
+
+    Returns:
+        ``failure_time_h`` (same clock as ``times_h``),
+        ``time_to_failure_h`` (after the last sample; 0 if already passed),
+        ``r_squared`` and ``n_points``; None when the inverse rate is not
+        falling (no acceleration) or the line fits worse than
+        :data:`FFM_MIN_R2`.
+
+    Raises:
+        InvalidObservationError: On non-finite or non-positive rates,
+            non-increasing times, mismatched lengths or too few samples.
+    """
+    t = finite_array(times_h, "precursor times_h", unit="h", ndim=1, min_size=FFM_MIN_POINTS)
+    r = finite_array(rates, "precursor rate", unit="events per unit time", ndim=1, lo=0.0)
+    if r.shape != t.shape:
+        raise InvalidObservationError(f"{r.size} precursor rates for {t.size} times")
+    if np.any(np.diff(t) <= 0):
+        raise InvalidObservationError("precursor times_h must increase")
+    if np.any(r == 0.0):
+        raise InvalidObservationError("the inverse-rate method needs positive rates")
+    inverse = 1.0 / r
+    slope, intercept = np.polyfit(t, inverse, 1)
+    fitted = slope * t + intercept
+    total = float(np.sum((inverse - inverse.mean()) ** 2))
+    r_squared = 1.0 - float(np.sum((inverse - fitted) ** 2)) / total if total > 0 else 0.0
+    if slope >= 0.0 or r_squared < FFM_MIN_R2:
+        return None
+    failure_time = float(-intercept / slope)
+    return {
+        "failure_time_h": failure_time,
+        "time_to_failure_h": max(failure_time - float(t[-1]), 0.0),
+        "r_squared": r_squared,
+        "n_points": float(t.size),
+    }
+
+
+#: Likelihood-ratio statistic above which acceleration is accepted over a
+#: constant rate: the 95% point of chi-squared with one degree of freedom.
+FFM_LR_CRITICAL = 3.841
+
+
+def failure_forecast_poisson(bin_edges_h: Any, counts: Any) -> dict[str, float] | None:
+    """Failure forecast method for event counts by Poisson maximum likelihood.
+
+    For alpha = 2 the rate is ``k / (t_f - t)``, so a bin ``[a, b]`` expects
+    ``k ln((t_f - a) / (t_f - b))`` events. For each ``t_f`` the likelihood
+    is maximised in closed form by ``k = sum(n) / sum(ln(...))``; the profile
+    is searched over ``t_f`` beyond the last bin (Bell, Naylor & Main 2013,
+    GJI 194, who show this removes the bias of least squares on inverse
+    rates). Acceleration must beat a constant rate by a likelihood ratio of
+    :data:`FFM_LR_CRITICAL`.
+
+    Args:
+        bin_edges_h: Increasing bin edges, hours (one more than ``counts``).
+        counts: Non-negative event counts per bin, at least
+            :data:`FFM_MIN_POINTS` bins.
+
+    Returns:
+        ``failure_time_h``, ``time_to_failure_h`` (after the last edge),
+        ``likelihood_ratio`` (against a constant rate) and ``n_bins``; None
+        when no acceleration beats a constant rate.
+
+    Raises:
+        InvalidObservationError: On malformed edges or counts.
+    """
+    from scipy.optimize import minimize_scalar
+
+    edges = finite_array(bin_edges_h, "bin_edges_h", unit="h", ndim=1, min_size=FFM_MIN_POINTS + 1)
+    n = finite_array(counts, "counts", unit="events", ndim=1, lo=0.0)
+    if edges.size != n.size + 1:
+        raise InvalidObservationError(f"{edges.size} bin edges for {n.size} counts")
+    if np.any(np.diff(edges) <= 0):
+        raise InvalidObservationError("bin_edges_h must increase")
+    total = float(n.sum())
+    if total == 0.0:
+        return None
+    lo, hi = edges[:-1], edges[1:]
+    end, span = float(edges[-1]), float(edges[-1] - edges[0])
+    occupied = n > 0
+
+    width = hi - lo
+    constant = total * width / float(width.sum())
+    loglik_constant = float(np.sum(n[occupied] * np.log(constant[occupied]))) - total
+
+    def negative_loglik(offset_h: float) -> float:
+        growth = np.log((end + offset_h - lo) / (end + offset_h - hi))
+        expected = total / float(growth.sum()) * growth
+        return -(float(np.sum(n[occupied] * np.log(expected[occupied]))) - total)
+
+    offsets = np.geomspace(1e-3 * span, 1e3 * span, 400)
+    values = np.array([negative_loglik(float(o)) for o in offsets])
+    best = int(np.argmin(values))
+    if best == offsets.size - 1:
+        return None  # the likelihood keeps rising toward a constant rate
+    fit = minimize_scalar(
+        negative_loglik,
+        bounds=(float(offsets[max(best - 1, 0)]), float(offsets[best + 1])),
+        method="bounded",
+        options={"xatol": 1e-6 * span},
+    )
+    likelihood_ratio = 2.0 * (-float(fit.fun) - loglik_constant)
+    if likelihood_ratio < FFM_LR_CRITICAL:
+        return None
+    return {
+        "failure_time_h": end + float(fit.x),
+        "time_to_failure_h": float(fit.x),
+        "likelihood_ratio": likelihood_ratio,
+        "n_bins": float(n.size),
+    }
+
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import USGSVolcanoSource
@@ -95,7 +233,9 @@ class VolcanicPredictionResult:
     alert_level: str
     eruption_type: str
 
-    # Not forecast (None): the former values were 168 * (1 - p) hours and a
+    # Time to eruption comes only from the failure forecast method on a
+    # supplied accelerating precursor rate (:func:`failure_forecast`); VEI is
+    # not forecast (None). The former values were 168 * (1 - p) hours and a
     # VEI read off the strongest precursor, so gas at 5x baseline alone gave
     # "VEI 6, hawaiian_effusive, eruption in 6 h".
     time_to_eruption_hours: float | None = None
@@ -124,6 +264,11 @@ class VolcanicPredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # How time_to_eruption_hours was fitted: the failure-forecast output of
+    # :func:`failure_forecast` or :func:`failure_forecast_poisson` plus its
+    # ``method``.
+    time_to_eruption_fit: dict[str, Any] | None = None
 
 
 class SeismicSwarmDetector(nn.Module):
@@ -1115,6 +1260,10 @@ class VolcanicEruptionDetector:
                 - gas_data: SO2/CO2 flux measurements
                 - insar_data: Ground deformation data
                 - schumann_elf: Optional Schumann resonance data
+                - precursor_rate: Optional accelerating precursor, either
+                  ``{"bin_edges_h", "counts"}`` event counts
+                  (:func:`failure_forecast_poisson`) or ``{"times_h", "rate"}``
+                  a continuous rate such as RSAM (:func:`failure_forecast`)
                 - metadata: Volcano name, location, history
 
         Returns:
@@ -1224,6 +1373,18 @@ class VolcanicEruptionDetector:
             result.schumann_elf_correlation = self._correlate_schumann_elf(
                 finite_array(volcano_data["schumann_elf"], "schumann_elf", unit="Hz")
             )
+
+        if "precursor_rate" in volcano_data:
+            rate = volcano_data["precursor_rate"]
+            if "counts" in rate:
+                forecast = failure_forecast_poisson(rate.get("bin_edges_h"), rate["counts"])
+                method = "ffm_poisson_mle"
+            else:
+                forecast = failure_forecast(rate.get("times_h"), rate.get("rate"))
+                method = "ffm_inverse_rate"
+            if forecast is not None:
+                result.time_to_eruption_hours = forecast["time_to_failure_h"]
+                result.time_to_eruption_fit = {"method": method, **forecast}
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}

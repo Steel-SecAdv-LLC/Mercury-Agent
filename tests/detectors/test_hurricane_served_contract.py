@@ -171,6 +171,66 @@ def test_rapid_intensification_needs_a_time_base() -> None:
     assert twelve_hourly.rapid_intensification is False
 
 
+#: Hurricane Milton (AL142024), synoptic 6-hourly best-track fixes 2024-10-06
+#: 00Z to 10-07 18Z (max wind kt, central pressure hPa), from NHC HURDAT2
+#: hurdat2-1851-2025-092326.txt (sha256 75202780ce56c845...).
+MILTON_WIND_KT = [35.0, 45.0, 55.0, 70.0, 75.0, 90.0, 120.0, 150.0]
+MILTON_PRESSURE_HPA = [1004.0, 999.0, 991.0, 986.0, 981.0, 972.0, 943.0, 908.0]
+
+
+def test_milton_intensification_is_measured_in_knots() -> None:
+    det = HurricaneDetector(load_shipped_weights=False)
+    result = det.predict_hurricane(
+        {
+            "pressure_data": {
+                "central_pressure_mb": 908.0,
+                "pressure_history_mb": MILTON_PRESSURE_HPA,
+                "pressure_history_interval_h": 6.0,
+            },
+            "intensity_history": {"max_wind_kt": MILTON_WIND_KT, "interval_h": 6.0},
+        }
+    )
+    assert result.intensification_rate_kt_24h == pytest.approx(80.0)  # 70 -> 150 kt
+    assert result.pressure_change_24h_mb == pytest.approx(78.0)  # 986 -> 908 hPa
+    assert result.rapid_intensification is True
+
+
+def test_wind_history_alone_flags_rapid_intensification() -> None:
+    det = HurricaneDetector(load_shipped_weights=False)
+    result = det.predict_hurricane(
+        {"intensity_history": {"max_wind_kt": MILTON_WIND_KT, "interval_h": 6.0}}
+    )
+    assert result.rapid_intensification is True
+    steady = det.predict_hurricane(
+        {"intensity_history": {"max_wind_kt": [90.0] * 5, "interval_h": 6.0}}
+    )
+    assert (steady.intensification_rate_kt_24h, steady.rapid_intensification) == (0.0, False)
+    short = det.predict_hurricane(
+        {"intensity_history": {"max_wind_kt": [70.0, 90.0], "interval_h": 6.0}}
+    )
+    assert short.intensification_rate_kt_24h is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"intensity_history": {"max_wind_kt": MILTON_WIND_KT, "interval_h": 7.0}},
+        {
+            "pressure_data": {
+                "central_pressure_mb": 908.0,
+                "pressure_history_mb": MILTON_PRESSURE_HPA,
+                "pressure_history_interval_h": 7.0,
+            }
+        },
+        {"intensity_history": {"max_wind_kt": MILTON_WIND_KT}},
+    ],
+)
+def test_a_24h_change_needs_a_sample_24h_back(data: dict[str, Any]) -> None:
+    # A 7 h interval measured the change over 21 h and called it 24 h.
+    with pytest.raises(InvalidObservationError):
+        HurricaneDetector(load_shipped_weights=False).predict_hurricane(data)
+
+
 def test_short_signal_features_do_not_raise() -> None:
     det = HurricaneDetector(load_shipped_weights=False)
     features = det.extract_features(np.ones((4, 64)))
