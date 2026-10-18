@@ -50,9 +50,16 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+#: Minimum fraction of finite (unmasked) gates in a radar window: the floor the
+#: ``tornado_nexrad`` training and evaluation sets enforce
+#: (``ml.hazard_training.tornado_radar.MIN_FINITE_FRACTION``). A sparser window
+#: is outside what the model was ever shown, so it is refused, not scored.
+MIN_FINITE_GATE_FRACTION = 0.30
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import NWSWeatherAlertsSource
@@ -589,14 +596,15 @@ class TornadoDetector:
         )
 
         indicators_detected = 0
+        radar_confidence: float | None = None
 
         if self.enable_radar and "radar_sequence" in weather_data:
             radar_result = self._analyze_radar(weather_data["radar_sequence"])
             result.mesocyclone_detected = radar_result["mesocyclone_detected"]
             result.rotation_velocity_ms = radar_result["rotation_velocity"]
+            radar_confidence = float(radar_result["confidence"])
             if radar_result["mesocyclone_detected"]:
                 indicators_detected += 2
-                result.confidence = max(result.confidence, radar_result["confidence"])
             if self.keep_diagnostics and "velocity_field" in radar_result:
                 # Both paths capture the consumed Doppler field; only the
                 # trained-LSTM path additionally carries attention weights.
@@ -622,6 +630,10 @@ class TornadoDetector:
             if pressure_result["rapid_drop_detected"]:
                 indicators_float += 1
 
+        # ``signal_data`` is reported (resonance score, harmonic anomalies,
+        # recursion depth) but carries no decision weight: three generic
+        # spectral heuristics on an unspecified signal added up to 1.2
+        # indicators, so injected noise flipped ``tornado_likely``.
         if self.enable_resonance and "signal_data" in weather_data:
             assert self.resonance_analyzer is not None
             resonance_result = self.resonance_analyzer.analyze_resonance(
@@ -629,8 +641,6 @@ class TornadoDetector:
             )
             result.resonance_score = resonance_result["resonance_score"]
             result.harmonic_anomalies = resonance_result["harmonic_anomalies"]
-            if resonance_result["resonance_score"] > 0.6:
-                indicators_float += 0.5
 
         if self.enable_recursion and "signal_data" in weather_data:
             assert self.recursive_extractor is not None
@@ -639,46 +649,34 @@ class TornadoDetector:
             )
             result.recursion_depth = depth
 
-            hierarchical_features = self.recursion_engine.hierarchical_feature_extraction(
-                weather_data["signal_data"], num_levels=3
-            )
-            if len(hierarchical_features) > 0:
-                multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
-                if multi_scale_variance > 0.5:
-                    indicators_float += 0.3
-
         if "signal_data" in weather_data:
             resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
                 weather_data["signal_data"], threshold_std=2.5
             )
             if resonance_anomalies["is_anomalous"]:
-                indicators_float += 0.4
                 result.harmonic_anomalies.extend(
                     [float(f) for f in resonance_anomalies["anomalous_frequencies"][:3]]
                 )
 
-        if self.enable_refactoring and "observed_data" in weather_data:
-            initial_prediction_str = str(
-                {
-                    "confidence": result.confidence,
-                    "indicators": indicators_float,
-                }
-            )
-            # detect_code_anomalies expects a callable, so we pass a lambda
-            refactor_result = self.refactoring_engine.detect_code_anomalies(
-                lambda: initial_prediction_str
-            )
-            if refactor_result.get("anomaly_score", 0) > 0.5:
-                indicators_float += 0.2
-
+        # Tornado-alley membership is climatology, not evidence of a tornado
+        # now: it is reported but no longer adds 0.3 to the decision. (A
+        # second +0.2 came from the code complexity of a lambda wrapping this
+        # function's own interim result; it is gone.)
         location = weather_data.get("location", {})
         state = location.get("state", "")
         if state in self.tornado_alley_states:
             result.tornado_alley_correlation = 0.8
-            indicators_float += 0.3
 
         result.tornado_likely = indicators_float >= 2
-        result.confidence = min(indicators_float / 4.0, 1.0)
+        # The trained mesocyclone probability is kept when radar was analysed
+        # (it was overwritten by the indicator count before); otherwise the
+        # fraction of indicators present, which is a count, not a probability.
+        evidence_fraction = min(indicators_float / 4.0, 1.0)
+        result.confidence = (
+            evidence_fraction
+            if radar_confidence is None
+            else max(radar_confidence, evidence_fraction)
+        )
         result.threat_level = self._determine_threat_level(indicators_float, result)
         result.estimated_intensity = self._estimate_intensity(result)
 
@@ -767,6 +765,21 @@ class TornadoDetector:
         mask) a mesocyclone.
         """
         radar_result: dict[str, Any]
+        raw = np.asarray(radar_sequence, dtype=np.float64)
+        if raw.size == 0:
+            raise InvalidObservationError("radar_sequence is empty")
+        finite = np.isfinite(raw)
+        if float(finite.mean()) < MIN_FINITE_GATE_FRACTION:
+            raise InvalidObservationError(
+                f"radar_sequence has {100.0 * float(finite.mean()):.0f}% finite gates; the "
+                f"detector is trained and evaluated on windows with at least "
+                f"{100.0 * MIN_FINITE_GATE_FRACTION:.0f}%"
+            )
+        # Gates the radar masked (below SNR, range-folded) decode as NaN. The
+        # training set maps them to 0.0 m/s and so does the physics path; the
+        # LSTM path used to receive the NaN, so a real masked sector (31 of 40
+        # held-out storm windows) returned NaN and was never detected.
+        radar_sequence = np.where(finite, raw, 0.0)
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
             seq_tensor = seq_tensor.unsqueeze(0)

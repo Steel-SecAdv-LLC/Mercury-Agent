@@ -193,7 +193,9 @@ class TestHurricaneHonesty:
         n = 50
         x = np.linspace(-1, 1, n)
         X, Y = np.meshgrid(x, x)
-        omega, half_domain = 1e-3, 100_000.0
+        # 80 km half-width keeps the corner speed (omega * r) at 113 m/s, inside
+        # the detector's 120 m/s surface-wind ceiling.
+        omega, half_domain = 1e-3, 80_000.0
         det = HurricaneDetector()
         vortex = det._analyze_wind_field(
             {
@@ -218,7 +220,9 @@ class TestHurricaneHonesty:
         n = 50
         x = np.linspace(-1, 1, n)
         X, Y = np.meshgrid(x, x)
-        omega, half_domain = 1e-3, 100_000.0
+        # 80 km half-width keeps the corner speed (omega * r) at 113 m/s, inside
+        # the detector's 120 m/s surface-wind ceiling.
+        omega, half_domain = 1e-3, 80_000.0
         det = HurricaneDetector()
         result = det.predict_hurricane(
             {

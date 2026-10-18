@@ -60,3 +60,17 @@ class InputModalityError(ValueError):
     ``except ValueError`` handler and test keeps its behaviour and no
     ``except OmniAnomalyException`` handler starts catching it.
     """
+
+
+class InvalidObservationError(ValueError):
+    """A hazard detector refused a physical observation it cannot interpret.
+
+    Raised for a value of the right modality that is not a usable measurement:
+    non-finite, outside the physical range of the quantity, or in a unit other
+    than the one the detector documents. Scoring such a value is how a NaN
+    pressure became a Category 5 hurricane and an empty gauge record a flood
+    warning, so the detector refuses and names the quantity and unit instead.
+
+    Subclasses ``ValueError`` only, for the same reason as
+    :class:`InputModalityError`.
+    """

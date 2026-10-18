@@ -44,9 +44,22 @@ from omni_mercury_engine.core.three_r_mechanism import (
     RefactoringEngine,
     ResonanceEngine,
 )
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+#: Rapid deepening of the central pressure: >= 42 hPa in 24 h, Holliday &
+#: Thompson's (1979) western North Pacific definition (the upper quartile of
+#: 24 h pressure falls); the same method gives ~28 hPa/day for Atlantic
+#: hurricanes (Kaplan & DeMaria, https://www.aoml.noaa.gov/hrd/project2000/jk_proj2.html).
+#: It is the pressure counterpart of NHC's wind-based rapid intensification
+#: (>= 30 kt in 24 h); the stricter 42 hPa keeps false claims rare.
+RAPID_DEEPENING_HPA_24H = 42.0
 
 
 class SaffirSimpsonCategory(Enum):
@@ -89,7 +102,11 @@ class HurricanePredictionResult:
     ocean_heat_content: float = 0.0
 
     rapid_intensification: bool = False
-    intensification_rate_kt_24h: float = 0.0
+    # Central-pressure change over the latest 24 h (hPa, positive = deepening);
+    # None unless a sampled history with its interval was supplied. Replaces
+    # ``intensification_rate_kt_24h``, which was declared in knots but filled
+    # with this hPa value.
+    pressure_change_24h_mb: float | None = None
 
     resonance_score: float = 0.0
     frequency_amplification: float = 0.0
@@ -138,9 +155,22 @@ class SeaSurfaceTemperatureAnalyzer:
         Returns:
             SST analysis results
         """
-        current_sst = sst_data.get("sst_celsius", 25.0)
-        climatology_sst = sst_data.get("climatology_celsius", 26.0)
-        depth_26c = sst_data.get("depth_26c_m", 50.0)
+        # Sea water freezes near -1.9 °C and the warmest open-ocean SSTs are in
+        # the mid-30s, so a value outside [-2.5, 40] is a unit error (300.15 is
+        # 27 °C in kelvin, which read as "very high" potential before).
+        current_sst = finite_scalar(
+            sst_data.get("sst_celsius", 25.0), "sst_celsius", unit="degC", lo=-2.5, hi=40.0
+        )
+        climatology_sst = finite_scalar(
+            sst_data.get("climatology_celsius", 26.0),
+            "climatology_celsius",
+            unit="degC",
+            lo=-2.5,
+            hi=40.0,
+        )
+        depth_26c = finite_scalar(
+            sst_data.get("depth_26c_m", 50.0), "depth_26c_m", unit="m", lo=0.0, hi=1000.0
+        )
 
         sst_anomaly = current_sst - climatology_sst
 
@@ -284,25 +314,54 @@ class PressureTracker:
         Returns:
             Pressure analysis results
         """
-        central_pressure = pressure_data.get("central_pressure_mb", 1013.0)
-        environmental_pressure = pressure_data.get("environmental_pressure_mb", 1013.0)
+        # The lowest sea-level pressure on record is 870 hPa (Typhoon Tip, 1979);
+        # a central pressure outside [850, 1050] hPa is a unit error (95 is kPa,
+        # 101325 is Pa) and produced a 200 kt Category 5 before.
+        central_pressure = finite_scalar(
+            pressure_data.get("central_pressure_mb", 1013.0),
+            "central_pressure_mb",
+            unit="hPa",
+            lo=850.0,
+            hi=1050.0,
+        )
+        environmental_pressure = finite_scalar(
+            pressure_data.get("environmental_pressure_mb", 1013.0),
+            "environmental_pressure_mb",
+            unit="hPa",
+            lo=950.0,
+            hi=1050.0,
+        )
         pressure_history = pressure_data.get("pressure_history_mb", [])
+        if len(pressure_history):
+            pressure_history = finite_array(
+                pressure_history, "pressure_history_mb", unit="hPa", ndim=1, lo=850.0, hi=1050.0
+            )
 
         pressure_deficit = environmental_pressure - central_pressure
 
-        if len(pressure_history) >= 2:
-            pressure_change_24h = pressure_history[0] - pressure_history[-1]
-            rapid_intensification = pressure_change_24h > 30
-        else:
-            pressure_change_24h = 0.0
-            rapid_intensification = False
+        # A deepening rate needs a time base: the history is read as equally
+        # spaced samples ``pressure_history_interval_h`` apart, oldest first,
+        # and the change is taken over the latest 24 h. Without the interval
+        # no rate is claimed (the old rule compared first and last samples of
+        # a history of any length against 30 hPa).
+        pressure_change_24h: float | None = None
+        rapid_intensification = False
+        interval = pressure_data.get("pressure_history_interval_h")
+        if interval is not None and len(pressure_history) >= 2:
+            interval_h = finite_scalar(
+                interval, "pressure_history_interval_h", unit="h", lo=1e-3, hi=24.0
+            )
+            steps = round(24.0 / interval_h)
+            if len(pressure_history) > steps:
+                pressure_change_24h = float(pressure_history[-1 - steps] - pressure_history[-1])
+                rapid_intensification = pressure_change_24h >= RAPID_DEEPENING_HPA_24H
 
         estimated_wind = self._pressure_wind_relationship(central_pressure)
 
         return {
             "central_pressure_mb": float(central_pressure),
             "pressure_deficit_mb": float(pressure_deficit),
-            "pressure_change_24h_mb": float(pressure_change_24h),
+            "pressure_change_24h_mb": pressure_change_24h,
             "rapid_intensification": rapid_intensification,
             "estimated_max_wind_kt": float(estimated_wind),
         }
@@ -345,6 +404,7 @@ class ResonanceFrequencyAmplifier:
                 "resonance_score": 0.0,
                 "amplification_factor": 1.0,
                 "harmonic_patterns": [],
+                "spectral_energy": 0.0,
             }
 
         signal_flat = signal.flatten()
@@ -565,7 +625,7 @@ class HurricaneDetector:
             result.min_pressure_mb = pressure_result["central_pressure_mb"]
             result.max_wind_speed_kt = pressure_result["estimated_max_wind_kt"]
             result.rapid_intensification = pressure_result["rapid_intensification"]
-            result.intensification_rate_kt_24h = pressure_result["pressure_change_24h_mb"]
+            result.pressure_change_24h_mb = pressure_result["pressure_change_24h_mb"]
 
             if pressure_result["pressure_deficit_mb"] > 20:
                 indicators_detected += 2
@@ -575,6 +635,7 @@ class HurricaneDetector:
             if pressure_result["rapid_intensification"]:
                 indicators_detected += 1
 
+        tc_probability: float | None = None
         if self.enable_wind and "wind_field" in cyclone_data:
             if self._neural_trained:
                 wind_result = self._analyze_wind_field_neural(cyclone_data["wind_field"])
@@ -592,35 +653,29 @@ class HurricaneDetector:
                 indicators_detected += 1
             elif wind_result["max_relative_vorticity_s1"] > 5e-4:
                 indicators_detected += 0.5
-            # Learned path only: the category head's tropical-cyclone
-            # probability (physics results carry no such key).
-            if wind_result.get("neural_tc_probability", 0.0) >= 0.5:
-                indicators_detected += 1
+            # Learned path only: the trained category head's tropical-cyclone
+            # probability (held-out AUC 0.988-0.995 in the checkpoint record).
+            # It decides detection on its own below; counting it as one
+            # indicator out of a two-indicator rule meant a wind-only input in
+            # the trained (T=2) format could never be detected.
+            tc_probability = wind_result.get("neural_tc_probability")
 
+        # ``signal_data`` is reported (resonance score, harmonic patterns) but
+        # carries no decision weight: three generic spectral heuristics on an
+        # unspecified signal added up to 1.2 indicators, so white noise alone
+        # moved confidence from 0.40 to 0.64.
         if self.enable_resonance and "signal_data" in cyclone_data:
             assert self.resonance_amplifier is not None, "Resonance amplifier must be initialized"
             resonance_result = self.resonance_amplifier.amplify_signals(cyclone_data["signal_data"])
             result.resonance_score = resonance_result["resonance_score"]
             result.frequency_amplification = resonance_result["amplification_factor"]
             result.harmonic_patterns = resonance_result["harmonic_patterns"]
-            if resonance_result["resonance_score"] > 0.5:
-                indicators_detected += 0.5
-
-        if self.enable_recursion and "signal_data" in cyclone_data:
-            hierarchical_features = self.recursion_engine.hierarchical_feature_extraction(
-                cyclone_data["signal_data"], num_levels=3
-            )
-            if len(hierarchical_features) > 0:
-                multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
-                if multi_scale_variance > 0.5:
-                    indicators_detected += 0.3
 
         if "signal_data" in cyclone_data:
             resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
                 cyclone_data["signal_data"], threshold_std=2.5
             )
             if resonance_anomalies["is_anomalous"]:
-                indicators_detected += 0.4
                 result.harmonic_patterns.extend(
                     [float(f) for f in resonance_anomalies["anomalous_frequencies"][:3]]
                 )
@@ -636,9 +691,26 @@ class HurricaneDetector:
             # on malformed u/v rather than capturing anything imputed.
             result.diagnostics = self._build_wind_diagnostics(cyclone_data["wind_field"])
 
-        result.cyclone_detected = indicators_detected >= 2
-        result.confidence = min(indicators_detected / 5.0, 1.0)
-        result.category = self._classify_category(result.max_wind_speed_kt)
+        # Physical evidence decides on its own (two indicators: a 20 hPa deficit
+        # alone, or SST + circulation); on the learned path the trained TC
+        # probability also decides at its natural 0.5 point. ``confidence`` is
+        # that probability when the trained analyzer ran (floored at the
+        # evidence fraction), else the evidence fraction, which is a count of
+        # indicators present and not a probability.
+        evidence_fraction = min(indicators_detected / 5.0, 1.0)
+        result.cyclone_detected = indicators_detected >= 2 or (
+            tc_probability is not None and tc_probability >= 0.5
+        )
+        result.confidence = (
+            evidence_fraction if tc_probability is None else max(tc_probability, evidence_fraction)
+        )
+        # A Saffir-Simpson category describes a tropical cyclone; an area with
+        # no detected cyclone is "no_cyclone" whatever its peak wind.
+        result.category = (
+            self._classify_category(result.max_wind_speed_kt)
+            if result.cyclone_detected
+            else SaffirSimpsonCategory.NO_CYCLONE.value
+        )
         result.cyclone_type = self._determine_cyclone_type(cyclone_data.get("basin", "atlantic"))
 
         result.storm_surge_risk = self._assess_storm_surge(result)
@@ -669,31 +741,39 @@ class HurricaneDetector:
           core; 2e-3 s⁻¹ is treated as a closed circulation.
 
         Args:
-            wind_field: ``{"u": 2-D array, "v": 2-D array}`` wind components in
-                m/s, plus optional ``grid_spacing_m`` (defaults to 4000 m, a
-                typical analysis-grid resolution). A bare array is treated as a
-                wind-speed field in m/s: it can still raise the observed maximum
-                wind, but no vorticity is derivable from speed alone and none is
-                imputed.
+            wind_field: ``{"u": array, "v": array}`` wind components in m/s,
+                either one ``(H, W)`` field or a ``(T, H, W)`` sequence (oldest
+                first; vorticity is taken on the newest frame), plus
+                ``grid_spacing_m``. Vorticity scales inversely with the spacing,
+                so it is computed only when the spacing is stated: the former
+                4 km default inflated a 0.25° (27.75 km) ERA5 field sevenfold
+                and called a closed circulation that was not there. A bare
+                array is treated as a wind-speed field in m/s: it can still
+                raise the observed maximum wind, but no vorticity is derivable
+                from speed alone and none is imputed.
 
         Returns:
             ``max_wind_speed_kt``, ``max_relative_vorticity_s1``, and
-            ``closed_circulation``. Deterministic; missing/1-D components yield
-            zero vorticity rather than anything imputed.
+            ``closed_circulation``. Deterministic; missing/1-D components or an
+            unstated spacing yield zero vorticity rather than anything imputed.
+
+        Raises:
+            InvalidObservationError: On non-finite components, a non-positive
+                spacing, or speeds above 120 m/s (no surface wind on record
+                comes close; such values are knots or km/h).
         """
         if not isinstance(wind_field, dict):
             speed_ms = np.asarray(wind_field, dtype=float)
+            if speed_ms.size:
+                speed_ms = finite_array(speed_ms, "wind_speed", unit="m/s", lo=0.0, hi=120.0)
             return {
-                "max_wind_speed_kt": (
-                    float(np.nanmax(speed_ms) * 1.9438) if speed_ms.size else 0.0
-                ),
+                "max_wind_speed_kt": (float(np.max(speed_ms) * 1.9438) if speed_ms.size else 0.0),
                 "max_relative_vorticity_s1": 0.0,
                 "closed_circulation": False,
             }
 
         u = np.asarray(wind_field.get("u", []), dtype=float)
         v = np.asarray(wind_field.get("v", []), dtype=float)
-        spacing = float(wind_field.get("grid_spacing_m", 4000.0))
 
         if u.size == 0 or v.size == 0 or u.shape != v.shape:
             return {
@@ -702,15 +782,25 @@ class HurricaneDetector:
                 "closed_circulation": False,
             }
 
+        u = finite_array(u, "wind_field u", unit="m/s", lo=-120.0, hi=120.0)
+        v = finite_array(v, "wind_field v", unit="m/s", lo=-120.0, hi=120.0)
         speed_ms = np.sqrt(u**2 + v**2)
-        max_wind_kt = float(np.nanmax(speed_ms) * 1.9438)
+        if float(speed_ms.max()) > 120.0:
+            raise InvalidObservationError(
+                f"wind_field peak speed {float(speed_ms.max()):.1f} exceeds 120 m/s; "
+                "u and v must be in m/s"
+            )
+        max_wind_kt = float(np.max(speed_ms) * 1.9438)
 
+        spacing = wind_field.get("grid_spacing_m")
+        frame_u, frame_v = (u[-1], v[-1]) if u.ndim == 3 else (u, v)
         max_vorticity = 0.0
-        if u.ndim == 2 and min(u.shape) >= 2:
-            dv_dx = np.gradient(v, spacing, axis=1)
-            du_dy = np.gradient(u, spacing, axis=0)
+        if spacing is not None and frame_u.ndim == 2 and min(frame_u.shape) >= 2:
+            spacing_m = finite_scalar(spacing, "grid_spacing_m", unit="m", lo=1e-3)
+            dv_dx = np.gradient(frame_v, spacing_m, axis=1)
+            du_dy = np.gradient(frame_u, spacing_m, axis=0)
             zeta = dv_dx - du_dy
-            max_vorticity = float(np.nanmax(np.abs(zeta)))
+            max_vorticity = float(np.max(np.abs(zeta)))
 
         return {
             "max_wind_speed_kt": max_wind_kt,
@@ -805,15 +895,19 @@ class HurricaneDetector:
 
         Args:
             wind_field: Either a mapping with 2-D ``u`` and ``v`` component
-                arrays (m/s) plus optional ``grid_spacing_m``, or a single 2-D
-                array treated as a wind-speed field (no vorticity is derivable
-                from speed alone, and none is emitted).
+                arrays (m/s) plus ``grid_spacing_m``, or a single 2-D array
+                treated as a wind-speed field (no vorticity is derivable from
+                speed alone, and none is emitted). Without ``grid_spacing_m``
+                the vorticity field is omitted, as it is for detection: the
+                former 1 m default reported 5.55 s⁻¹ for a field whose
+                detection vorticity was 1.39e-3 s⁻¹.
 
         Returns:
             The hurricane :class:`HazardDiagnostics` payload.
 
         Raises:
-            ValueError: If the field is not 2-D or u/v shapes disagree.
+            ValueError: If the field is not 2-D, u/v shapes disagree, or the
+                spacing is not positive.
         """
         arrays: dict[str, np.ndarray[Any, Any]] = {}
         context: dict[str, Any] = {}
@@ -827,20 +921,23 @@ class HurricaneDetector:
                 raise ValueError(
                     f"wind_field u/v must be matching 2-D arrays, got {u.shape} and {v.shape}"
                 )
-            spacing = float(wind_field.get("grid_spacing_m", 1.0))
-            if spacing <= 0:
-                raise ValueError("wind_field grid_spacing_m must be positive")
             speed = np.hypot(u, v)
-            # Relative vorticity: dv/dx - du/dy. Rows are y, columns are x.
-            dv_dx = np.gradient(v, spacing, axis=1)
-            du_dy = np.gradient(u, spacing, axis=0)
-            vorticity = dv_dx - du_dy
             arrays["wind_u"] = u
             arrays["wind_v"] = v
-            arrays["vorticity_field"] = vorticity
-            context["grid_spacing_m"] = spacing
-            context["max_abs_vorticity"] = float(np.max(np.abs(vorticity)))
-            context["mean_vorticity"] = float(np.mean(vorticity))
+            if "grid_spacing_m" in wind_field:
+                spacing = finite_scalar(
+                    wind_field["grid_spacing_m"], "grid_spacing_m", unit="m", lo=1e-3
+                )
+                # Relative vorticity: dv/dx - du/dy. Rows are y, columns are x.
+                dv_dx = np.gradient(v, spacing, axis=1)
+                du_dy = np.gradient(u, spacing, axis=0)
+                vorticity = dv_dx - du_dy
+                arrays["vorticity_field"] = vorticity
+                context["grid_spacing_m"] = spacing
+                context["max_abs_vorticity"] = float(np.max(np.abs(vorticity)))
+                context["mean_vorticity"] = float(np.mean(vorticity))
+            else:
+                context["note"] = "grid_spacing_m not supplied; vorticity is not emitted"
         else:
             speed = np.asarray(wind_field, dtype=float)
             if speed.ndim != 2:
@@ -855,23 +952,31 @@ class HurricaneDetector:
         return HazardDiagnostics(hazard="hurricane", arrays=arrays, context=context)
 
     def _classify_category(self, max_wind_kt: float) -> str:
-        """Classify cyclone using Saffir-Simpson scale."""
-        if max_wind_kt >= 157:
-            return "category_5"
-        elif max_wind_kt >= 130:
-            return "category_4"
-        elif max_wind_kt >= 111:
-            return "category_3"
-        elif max_wind_kt >= 96:
-            return "category_2"
-        elif max_wind_kt >= 74:
-            return "category_1"
-        elif max_wind_kt >= 39:
-            return "tropical_storm"
-        elif max_wind_kt >= 23:
-            return "tropical_depression"
-        else:
-            return "no_cyclone"
+        """Classify a detected tropical cyclone by maximum sustained wind (knots).
+
+        NHC Saffir-Simpson Hurricane Wind Scale, in knots: Category 1 64-82,
+        2 83-95, 3 96-112, 4 113-136, 5 >= 137; tropical storm 34-63;
+        tropical depression <= 33. The previous ladder used the mph boundaries
+        (74/96/111/130/157) on a knot value, so a 100 kt storm (Category 3)
+        read Category 2 and 150 kt (Category 5) read Category 4.
+
+        Raises:
+            InvalidObservationError: If ``max_wind_kt`` is not finite.
+        """
+        wind_kt = finite_scalar(max_wind_kt, "max_wind_speed_kt", unit="kt", lo=0.0)
+        if wind_kt >= 137:
+            return SaffirSimpsonCategory.CATEGORY_5.value
+        if wind_kt >= 113:
+            return SaffirSimpsonCategory.CATEGORY_4.value
+        if wind_kt >= 96:
+            return SaffirSimpsonCategory.CATEGORY_3.value
+        if wind_kt >= 83:
+            return SaffirSimpsonCategory.CATEGORY_2.value
+        if wind_kt >= 64:
+            return SaffirSimpsonCategory.CATEGORY_1.value
+        if wind_kt >= 34:
+            return SaffirSimpsonCategory.TROPICAL_STORM.value
+        return SaffirSimpsonCategory.TROPICAL_DEPRESSION.value
 
     def _determine_cyclone_type(self, basin: str) -> str:
         """Determine cyclone type based on ocean basin."""

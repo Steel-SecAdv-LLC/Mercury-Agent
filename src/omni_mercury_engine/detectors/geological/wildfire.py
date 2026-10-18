@@ -35,6 +35,7 @@ from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
 
+from omni_mercury_engine.detectors._hazard_input import finite_array, finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -47,6 +48,26 @@ HOTSPOT_THRESHOLD_K = 350.0
 # only (see load_neural_weights); the reported confidence always stays the raw
 # sigmoid probability.
 FIRE_PROB_THRESHOLD_DEFAULT = 0.6
+
+
+def _is_firms_raster(raster: np.ndarray[Any, Any]) -> bool:
+    """Whether a ``(3, H, W)`` array has the ``wildfire-firms-v1`` channel meaning.
+
+    Channel 0 is the day's per-cell maximum VIIRS I4 brightness temperature in
+    kelvin, 0 where nothing was detected; channels 1 and 2 are ``log1p`` of the
+    3-day FRP sum (MW) and the 7-day detection count, so both stay below ~15
+    (``log1p`` of 3e6 MW). A brightness-temperature image carries hundreds of
+    kelvin in every band and fails the check.
+    """
+    bt, frp, count = raster[0], raster[1], raster[2]
+    detected = bt[bt != 0.0]
+    return bool(
+        (detected.size == 0 or (float(detected.min()) >= 200.0 and float(detected.max()) <= 700.0))
+        and float(frp.min()) >= 0.0
+        and float(frp.max()) <= 15.0
+        and float(count.min()) >= 0.0
+        and float(count.max()) <= 15.0
+    )
 
 
 class FireRiskLevel(Enum):
@@ -67,29 +88,35 @@ class WildfirePredictionResult:
     centroids of connected hotspot regions in the supplied thermal image. The
     detector has no geotransform, so it never fabricates lat/lon; callers that
     know the image georeferencing map pixels to WGS84 themselves (see
-    ``build_hazard_geojson``). ``fire_perimeter_km2`` is the hotspot-area
-    estimate ``hotspot_pixel_count * pixel_size_km**2`` and is populated only
-    when the caller supplies ``pixel_size_km`` in the wildfire data -- otherwise
-    it stays ``None`` rather than inventing a ground resolution.
+    ``build_hazard_geojson``). ``hotspot_area_km2`` is the hotspot-area
+    estimate ``hotspot_pixel_count * pixel_size_km**2`` (it was named
+    ``fire_perimeter_km2``, but it is an area) and is populated only when the
+    caller supplies ``pixel_size_km`` in the wildfire data -- otherwise it
+    stays ``None`` rather than inventing a ground resolution.
+
+    ``assessment`` says what ``fire_detected``/``confidence`` mean for this
+    input: ``"next_day_forecast"`` when the trained ``wildfire_firms`` model
+    scored a FIRMS-derived raster (probability of a confirmed fire detection
+    in the centre cells tomorrow), ``"active_fire"`` when the
+    brightness-temperature criteria assessed the scene as observed.
+
+    Smoke, fuel moisture, weather factors, evacuation zones and containment
+    strategy were declared here but never computed; they are removed rather
+    than served as permanent defaults.
     """
 
     fire_detected: bool
     confidence: float
     risk_level: str
 
+    assessment: str = "active_fire"
     ignition_locations: list[tuple[float, float]] = field(default_factory=list)
-    fire_perimeter_km2: float | None = None
+    hotspot_area_km2: float | None = None
     spread_rate_km_hr: float | None = None
     spread_direction_deg: float | None = None
 
     thermal_hotspots: int = 0
-    smoke_detected: bool = False
 
-    weather_factors: dict[str, float] = field(default_factory=dict)
-    fuel_moisture: float | None = None
-
-    evacuation_zones: list[str] = field(default_factory=list)
-    containment_strategy: list[str] = field(default_factory=list)
     early_warning_actions: list[str] = field(default_factory=list)
 
     # Populated only when the detector was built with keep_diagnostics=True.
@@ -753,10 +780,17 @@ class WildfireDetector:
         )
 
         if self.enable_ignition and "thermal_image" in wildfire_data:
-            ignition_result = self._detect_ignition(wildfire_data["thermal_image"])
+            # Refuse rather than score a raster that is not one: NaN made the
+            # confidence NaN, +inf made every pixel a hotspot, and a plain list
+            # raised AttributeError deep in the CNN path.
+            thermal = finite_array(
+                wildfire_data["thermal_image"], "thermal_image", unit="K", ndim=(1, 2, 3)
+            )
+            ignition_result = self._detect_ignition(thermal)
             result.fire_detected = ignition_result["fire_detected"]
             result.confidence = ignition_result["confidence"]
             result.thermal_hotspots = ignition_result["hotspot_count"]
+            result.assessment = ignition_result.get("assessment", "active_fire")
 
             # Populate the (previously never-filled) ignition fields from the
             # REAL hotspot mask: pixel-space (row, col) component centroids, and
@@ -766,9 +800,8 @@ class WildfireDetector:
             result.ignition_locations = [(float(r), float(c)) for r, c in centroids]
             pixel_size_km = wildfire_data.get("pixel_size_km")
             if pixel_size_km is not None:
-                result.fire_perimeter_km2 = float(
-                    ignition_result["hotspot_count"] * float(pixel_size_km) ** 2
-                )
+                pixel_km = finite_scalar(pixel_size_km, "pixel_size_km", unit="km", lo=1e-6)
+                result.hotspot_area_km2 = float(ignition_result["hotspot_count"] * pixel_km**2)
 
             # Capture only when the ignition path actually produced the spatial
             # intermediates; diagnostics stay transparently absent otherwise instead
@@ -793,7 +826,14 @@ class WildfireDetector:
                     context=context,
                 )
 
-        if self.enable_spread and "weather_data" in wildfire_data and self.spread_model is not None:
+        # A spread rate describes a fire; with none detected there is nothing
+        # to spread (it used to be computed from weather alone).
+        if (
+            result.fire_detected
+            and self.enable_spread
+            and "weather_data" in wildfire_data
+            and self.spread_model is not None
+        ):
             spread_result = self.spread_model.predict_spread(
                 wildfire_data.get("fire_data", {}), wildfire_data["weather_data"]
             )
@@ -857,11 +897,16 @@ class WildfireDetector:
         # raster -- a degenerate single-row field (e.g. (3, 1, W)) passes the
         # channel check but pools to height 0 and crashes, so off-contract
         # spatial dims fall back to physics too (solar geomag guard pattern).
+        # The channel MEANING is checked as well as the count: a plain 3-band
+        # brightness image (hundreds of kelvin in every band) is not the
+        # FIRMS raster the forecaster was trained on, and scoring it there gave
+        # p=0.078 for a 380 K fire the brightness criteria detect.
         if (
             thermal_image.ndim != 4
             or thermal_image.shape[1] != self.ignition_detector.thermal_cnn[0].in_channels
             or thermal_image.shape[2] < 4
             or thermal_image.shape[3] < 4
+            or not _is_firms_raster(thermal_image[0])
         ):
             return self._detect_ignition_physics(original_thermal)
 
@@ -906,6 +951,7 @@ class WildfireDetector:
         return {
             "fire_detected": fire_detected,
             "confidence": float(fire_prob[0].item()),
+            "assessment": "next_day_forecast",
             "hotspot_count": hotspot_count,
             "thermal_image_k": thermal_2d,
             "hotspot_mask": hotspot_mask,
@@ -995,6 +1041,7 @@ class WildfireDetector:
         return {
             "fire_detected": fire_detected,
             "confidence": confidence if fire_detected else min(confidence, 0.5),
+            "assessment": "active_fire",
             "hotspot_count": hotspot_count,
             "method": "physics_brightness_temperature",
             "thermal_image_k": thermal_2d,
@@ -1007,30 +1054,40 @@ class WildfireDetector:
     def _assess_fire_risk(
         self, wildfire_data: dict[str, Any], result: WildfirePredictionResult
     ) -> str:
-        """Assess fire risk level."""
-        risk_score = 0.0
+        """Assess fire risk level from a detected fire and three weather factors.
 
-        if result.fire_detected:
-            risk_score += 0.4
+        Integer points (fire 2, each of strong wind, low humidity and heat 1)
+        keep the ladder exact: summed as 0.2 floats, the three weather factors
+        alone came to 0.6000000000000001 > 0.6 and read "very_high" with no
+        fire. Weather values are range-checked in their documented units.
+        """
+        points = 2 if result.fire_detected else 0
 
         weather = wildfire_data.get("weather_data", {})
-        if weather.get("wind_speed_kmh", 0) > 30:
-            risk_score += 0.2
-        if weather.get("relative_humidity_pct", 100) < 20:
-            risk_score += 0.2
-        if weather.get("temperature_c", 0) > 35:
-            risk_score += 0.2
+        wind = finite_scalar(
+            weather.get("wind_speed_kmh", 0), "wind_speed_kmh", unit="km/h", lo=0.0, hi=500.0
+        )
+        humidity = finite_scalar(
+            weather.get("relative_humidity_pct", 100),
+            "relative_humidity_pct",
+            unit="%",
+            lo=0.0,
+            hi=100.0,
+        )
+        temperature = finite_scalar(
+            weather.get("temperature_c", 0), "temperature_c", unit="degC", lo=-90.0, hi=60.0
+        )
+        points += int(wind > 30) + int(humidity < 20) + int(temperature > 35)
 
-        if risk_score > 0.8:
+        if points >= 5:
             return FireRiskLevel.EXTREME.value
-        elif risk_score > 0.6:
+        if points == 4:
             return FireRiskLevel.VERY_HIGH.value
-        elif risk_score > 0.4:
+        if points == 3:
             return FireRiskLevel.HIGH.value
-        elif risk_score > 0.2:
+        if points == 2:
             return FireRiskLevel.MODERATE.value
-        else:
-            return FireRiskLevel.LOW.value
+        return FireRiskLevel.LOW.value
 
     def _generate_warnings(self, result: WildfirePredictionResult) -> list[str]:
         """Generate early warnings."""
