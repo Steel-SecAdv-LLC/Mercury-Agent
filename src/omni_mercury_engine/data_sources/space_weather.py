@@ -193,6 +193,27 @@ class NASADONKISource(DataSourceBase):
         except (TypeError, ValueError):
             return AlertLevel.NONE
 
+    @staticmethod
+    def _peak_kp(all_kp_index: Any) -> float | None:
+        """The storm's peak Kp: the largest parsable ``kpIndex`` in ``allKpIndex``.
+
+        DONKI lists a storm's 3-hourly Kp in time order, so the first entry
+        is its onset, not its peak (the 2024-05-10 storm opens at 7.67 and
+        reaches 9.0, G5). Entries that do not parse as a Kp are skipped, as
+        :meth:`_parse_kp_index` reads an unparsable Kp as no storm.
+
+        Returns:
+            The largest Kp, or None when no entry parses.
+        """
+        peak: float | None = None
+        for entry in all_kp_index or ():
+            try:
+                kp = parse_kp(entry.get("kpIndex") if isinstance(entry, dict) else None)
+            except (TypeError, ValueError):
+                continue
+            peak = kp if peak is None else max(peak, kp)
+        return peak
+
     async def _fetch_event_type(
         self,
         event_type: DONKIEventType,
@@ -266,7 +287,7 @@ class NASADONKISource(DataSourceBase):
                 confidence = 0.95  # Well-observed events
 
             elif event_type == DONKIEventType.GEOMAGNETIC_STORM:
-                kp_index = event.get("kpIndex") or event.get("allKpIndex", [{}])[0].get("kpIndex")
+                kp_index = event.get("kpIndex") or self._peak_kp(event.get("allKpIndex"))
                 alert_level = self._parse_kp_index(kp_index)
 
             elif event_type == DONKIEventType.CME:

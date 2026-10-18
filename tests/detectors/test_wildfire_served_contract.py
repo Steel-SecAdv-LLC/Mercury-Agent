@@ -6,7 +6,8 @@ Each test fails on the detector as it was before: any 3-channel array went to
 the next-day FIRMS forecaster (a brightness image with a 380 K fire read
 p=0.078, not detected), NaN and inf passed through, the risk ladder summed
 floats so three weather flags with no fire read "very_high", spread was
-modelled with no fire, fuel moisture was a fixed 10% whatever the weather,
+modelled with no fire, fuel moisture was a fixed 10% whatever the weather
+(and then the "NFDRS" value from shelter weather, not the air at the fuel),
 and smoke read "not detected" without being assessed.
 """
 
@@ -27,6 +28,9 @@ from omni_mercury_engine.detectors.geological.wildfire import (
     WildfirePredictionResult,
 )
 from omni_mercury_engine.ml.hazard_training import wildfire_ignition as wf
+
+#: The documented ``weather_data`` key of the NFDRS state-of-weather code.
+SOW = "nfdrs_state_of_weather"
 
 FIXTURE_CSV = (
     Path(__file__).resolve().parents[1] / "fixtures" / "hazard_training" / "wildfire"
@@ -148,11 +152,18 @@ def test_equilibrium_moisture_follows_nfdrs(
 def test_fuel_moisture_is_estimated_from_the_weather_and_drives_spread(
     served: WildfireDetector,
 ) -> None:
-    weather = {"temperature_c": 32.0, "relative_humidity_pct": 12.0, "wind_speed_kmh": 25.0}
+    weather = {
+        "temperature_c": 32.0,
+        "relative_humidity_pct": 12.0,
+        "wind_speed_kmh": 25.0,
+        SOW: 0,  # clear
+    }
     result = served.predict_wildfire(
         {"thermal_image": _brightness_scene(), "weather_data": weather}
     )
-    emc = wildfire.equilibrium_moisture_content(32.0, 12.0)
+    # GTR INT-169 Table 6, clear: +25 degF and RH x 0.75 at the fuel (h = 9 < 10).
+    t_f, h = 32.0 * 9 / 5 + 32 + 25, 12.0 * 0.75
+    emc = 0.03299 + 0.281073 * h - 0.000578 * h * t_f
     assert result.weather_factors["equilibrium_moisture_pct"] == pytest.approx(emc)
     assert result.weather_factors["wind_speed_kmh"] == 25.0
     assert "wind_direction_deg" not in result.weather_factors  # not supplied, not invented
@@ -168,6 +179,85 @@ def test_fuel_moisture_is_estimated_from_the_weather_and_drives_spread(
     assert fixed.fuel_moisture == 10.0
     assert result.spread_rate_km_hr is not None and fixed.spread_rate_km_hr is not None
     assert result.spread_rate_km_hr > fixed.spread_rate_km_hr
+
+
+@pytest.mark.parametrize(
+    ("state_of_weather", "add_f", "humidity_factor"),
+    # GTR INT-169 Table 6: clear, scattered, broken, overcast.
+    [(0, 25.0, 0.75), (1, 19.0, 0.83), (2, 12.0, 0.91), (3, 5.0, 1.0)],
+)
+def test_nfdrs_fuel_moisture_uses_the_air_at_the_fuel(
+    served: WildfireDetector, state_of_weather: int, add_f: float, humidity_factor: float
+) -> None:
+    # Shelter 25 degC (77 degF), 30% RH: the 10 <= h < 50 regression (eq. C-2).
+    weather = {
+        "temperature_c": 25.0,
+        "relative_humidity_pct": 30.0,
+        SOW: state_of_weather,
+    }
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "weather_data": weather}
+    )
+    t_f, h = 77.0 + add_f, 30.0 * humidity_factor
+    emc = 2.22749 + 0.160107 * h - 0.01478 * t_f
+    assert result.fuel_moisture == pytest.approx(1.03 * emc)
+    assert result.weather_factors == pytest.approx(
+        {
+            "temperature_c": 25.0,
+            "relative_humidity_pct": 30.0,
+            SOW: float(state_of_weather),
+            "fuel_interface_temperature_c": (t_f - 32.0) * 5.0 / 9.0,
+            "fuel_interface_relative_humidity_pct": h,
+            "equilibrium_moisture_pct": emc,
+        }
+    )
+
+
+def test_hot_shelter_reading_under_clear_sky_is_estimated(served: WildfireDetector) -> None:
+    # 48 degC in the shelter is about 62 degC at the fuel, past the 60 degC
+    # limit on a shelter temperature; it is still a valid observation.
+    weather = {"temperature_c": 48.0, "relative_humidity_pct": 10.0, SOW: 0}
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "weather_data": weather}
+    )
+    t_f, h = 48.0 * 9 / 5 + 32 + 25, 7.5
+    emc = 0.03299 + 0.281073 * h - 0.000578 * h * t_f
+    assert result.weather_factors["fuel_interface_temperature_c"] == pytest.approx(
+        48.0 + 25 * 5 / 9
+    )
+    assert result.fuel_moisture == pytest.approx(1.03 * emc)
+
+
+def test_shelter_weather_alone_gives_no_nfdrs_fuel_moisture(served: WildfireDetector) -> None:
+    weather = {"temperature_c": 32.0, "relative_humidity_pct": 12.0, "wind_speed_kmh": 25.0}
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "weather_data": weather}
+    )
+    assert result.fuel_moisture is None
+    assert result.weather_factors == weather  # what was supplied, nothing derived
+    # The spread model keeps the fixed 10% it used before any EMC was computed.
+    fixed = served.predict_wildfire(
+        {
+            "thermal_image": _brightness_scene(),
+            "weather_data": weather,
+            "fire_data": {"fuel_moisture_pct": 10.0},
+        }
+    )
+    assert result.spread_rate_km_hr is not None
+    assert result.spread_rate_km_hr == fixed.spread_rate_km_hr
+
+
+@pytest.mark.parametrize("code", [4, 6, 1.5, -1, "clear"])
+def test_state_of_weather_without_an_interface_adjustment_is_refused(
+    served: WildfireDetector, code: object
+) -> None:
+    weather = {
+        "temperature_c": 32.0,
+        "relative_humidity_pct": 12.0,
+        SOW: code,
+    }
+    with pytest.raises(InvalidObservationError, match=SOW):
+        served.predict_wildfire({"thermal_image": _brightness_scene(), "weather_data": weather})
 
 
 def test_unassessed_fields_say_so(served: WildfireDetector) -> None:

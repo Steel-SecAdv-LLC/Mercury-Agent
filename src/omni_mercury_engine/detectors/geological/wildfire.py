@@ -35,7 +35,11 @@ from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
 
-from omni_mercury_engine.detectors._hazard_input import finite_array, finite_scalar
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -95,11 +99,16 @@ class WildfirePredictionResult:
     ground resolution.
 
     ``weather_factors`` holds the supplied weather values the detector used,
-    in their units, and ``equilibrium_moisture_pct`` when temperature and
-    relative humidity are both supplied (:func:`equilibrium_moisture_content`).
+    in their units. When temperature, relative humidity and the NFDRS state
+    of weather (:data:`STATE_OF_WEATHER_KEY`) are all supplied it also holds
+    that code (as a float), the fuel-atmosphere interface temperature and
+    humidity, and the EMC there, ``equilibrium_moisture_pct``
+    (:func:`fuel_interface_moisture`).
     ``fuel_moisture`` is the 1-hour dead fuel moisture (%): the caller's
     measured ``fire_data["fuel_moisture_pct"]`` if given, else the NFDRS
-    estimate 1.03 x EMC, else ``None``; the spread model receives it.
+    estimate 1.03 x interface EMC, else ``None``; the spread model receives
+    it. Shelter temperature and humidity without a state of weather do not
+    give the NFDRS value, so the spread model then keeps its fixed 10%.
 
     ``smoke_detected`` is ``None``: no smoke-sensitive band or smoke product
     reaches the detector, so it is not assessed (``False`` claimed "no
@@ -141,9 +150,28 @@ class WildfirePredictionResult:
 
 
 #: NFDRS 1-hour dead fuel moisture at a midafternoon observation, as a
-#: multiple of the equilibrium moisture content (Bradshaw et al. 1983, USDA
-#: Forest Service GTR INT-169, eq. 26).
+#: multiple of the equilibrium moisture content at the fuel-atmosphere
+#: interface (Bradshaw et al. 1983, USDA Forest Service GTR INT-169, eq. 26).
 ONE_HOUR_FUEL_MOISTURE_PER_EMC = 1.03
+
+#: ``weather_data`` key of the NFDRS state-of-weather code at the observation:
+#: 0 clear, 1 scattered clouds, 2 broken clouds, 3 overcast.
+STATE_OF_WEATHER_KEY = "nfdrs_state_of_weather"
+
+#: NFDRS state-of-weather code -> (degF added to the shelter dry-bulb
+#: temperature, factor on the shelter relative humidity) for the air at the
+#: fuel-atmosphere interface: GTR INT-169 Table 6 (from Haltiner 1975), whose
+#: columns are clear (sky cover 0.0-0.1), scattered (0.1-0.5), broken
+#: (0.6-0.9) and overcast (0.9-1.0). Cohen & Deeming (1985, GTR PSW-82,
+#: "Fuels: 1-Hour Timelag") list the same temperature corrections by code
+#: 0-3, which assigns each column its code; they print 0.92 for code 2, where
+#: this module follows INT-169, the source of its other NFDRS equations.
+FUEL_INTERFACE_ADJUSTMENT: dict[int, tuple[float, float]] = {
+    0: (25.0, 0.75),
+    1: (19.0, 0.83),
+    2: (12.0, 0.91),
+    3: (5.0, 1.0),
+}
 
 #: Supplied weather values reported in ``weather_factors``: key -> (unit, lo, hi).
 _WEATHER_INPUTS = {
@@ -152,6 +180,15 @@ _WEATHER_INPUTS = {
     "relative_humidity_pct": ("%", 0.0, 100.0),
     "temperature_c": ("degC", -90.0, 60.0),
 }
+
+
+def _simard_emc(t_f: float, h: float) -> float:
+    """EMC (%) by GTR INT-169 eqs. C-1 to C-3, for T in degF and h in %."""
+    if h < 10.0:
+        return 0.03299 + 0.281073 * h - 0.000578 * h * t_f
+    if h < 50.0:
+        return 2.22749 + 0.160107 * h - 0.01478 * t_f
+    return 21.0606 + 0.005565 * h**2 - 0.00035 * h * t_f - 0.483199 * h
 
 
 def equilibrium_moisture_content(temperature_c: float, relative_humidity_pct: float) -> float:
@@ -176,11 +213,62 @@ def equilibrium_moisture_content(temperature_c: float, relative_humidity_pct: fl
         + 32.0
     )
     h = finite_scalar(relative_humidity_pct, "relative_humidity_pct", unit="%", lo=0.0, hi=100.0)
-    if h < 10.0:
-        return 0.03299 + 0.281073 * h - 0.000578 * h * t_f
-    if h < 50.0:
-        return 2.22749 + 0.160107 * h - 0.01478 * t_f
-    return 21.0606 + 0.005565 * h**2 - 0.00035 * h * t_f - 0.483199 * h
+    return _simard_emc(t_f, h)
+
+
+def _state_of_weather_code(value: Any) -> int:
+    """An NFDRS state-of-weather code that has a fuel-interface adjustment."""
+    code = finite_scalar(value, STATE_OF_WEATHER_KEY, unit="NFDRS code")
+    if not code.is_integer() or int(code) not in FUEL_INTERFACE_ADJUSTMENT:
+        raise InvalidObservationError(
+            f"{STATE_OF_WEATHER_KEY}={code:g}: only the sky-cover codes 0 (clear) to "
+            "3 (overcast) have a fuel-interface adjustment (GTR INT-169 Table 6)"
+        )
+    return int(code)
+
+
+def fuel_interface_moisture(
+    temperature_c: float, relative_humidity_pct: float, state_of_weather: int
+) -> dict[str, float]:
+    """Equilibrium moisture content at the fuel-atmosphere interface, NFDRS.
+
+    The EMC behind the NFDRS 1-hour fuel moisture (GTR INT-169 eq. 26) is
+    that of the air in contact with the fuel, not of the instrument shelter
+    (4.5 ft): the shelter dry-bulb temperature is raised and the relative
+    humidity scaled by the sky cover the state of weather reports
+    (:data:`FUEL_INTERFACE_ADJUSTMENT`), then the regressions of
+    :func:`equilibrium_moisture_content` apply. The temperature correction
+    is in degF, so it adds ``5/9`` of that in degC; the interface may exceed
+    the 60 degC limit on the shelter reading (up to 25 degF more).
+
+    Args:
+        temperature_c: Shelter air temperature, degC.
+        relative_humidity_pct: Shelter relative humidity, %.
+        state_of_weather: NFDRS state-of-weather code, 0 (clear) to 3
+            (overcast).
+
+    Returns:
+        ``fuel_interface_temperature_c``,
+        ``fuel_interface_relative_humidity_pct`` and
+        ``equilibrium_moisture_pct``, the EMC (%) at the interface.
+
+    Raises:
+        InvalidObservationError: If a weather value is not finite or out of
+            range, or the state of weather is not one of the codes 0-3.
+    """
+    t_f = (
+        finite_scalar(temperature_c, "temperature_c", unit="degC", lo=-90.0, hi=60.0) * 9.0 / 5.0
+        + 32.0
+    )
+    h = finite_scalar(relative_humidity_pct, "relative_humidity_pct", unit="%", lo=0.0, hi=100.0)
+    add_f, humidity_factor = FUEL_INTERFACE_ADJUSTMENT[_state_of_weather_code(state_of_weather)]
+    interface_t_f = t_f + add_f
+    interface_h = h * humidity_factor
+    return {
+        "fuel_interface_temperature_c": (interface_t_f - 32.0) * 5.0 / 9.0,
+        "fuel_interface_relative_humidity_pct": interface_h,
+        "equilibrium_moisture_pct": _simard_emc(interface_t_f, interface_h),
+    }
 
 
 class FireIgnitionDetector(nn.Module):
@@ -828,7 +916,13 @@ class WildfireDetector:
         """Comprehensive wildfire prediction.
 
         Args:
-            wildfire_data: Thermal imagery, weather, vegetation data
+            wildfire_data: Thermal imagery, weather, vegetation data.
+                ``weather_data`` takes the shelter ``temperature_c`` and
+                ``relative_humidity_pct``, ``wind_speed_kmh``,
+                ``wind_direction_deg`` and the NFDRS state-of-weather code
+                :data:`STATE_OF_WEATHER_KEY` (0 clear, 1 scattered clouds,
+                2 broken clouds, 3 overcast), which the NFDRS fuel moisture
+                estimate needs.
 
         Returns:
             Wildfire prediction with risk assessment
@@ -892,10 +986,18 @@ class WildfireDetector:
             for name, (unit, lo, hi) in _WEATHER_INPUTS.items()
             if name in weather
         }
-        if "temperature_c" in weather and "relative_humidity_pct" in weather:
-            result.weather_factors["equilibrium_moisture_pct"] = equilibrium_moisture_content(
-                weather["temperature_c"], weather["relative_humidity_pct"]
-            )
+        if STATE_OF_WEATHER_KEY in weather:
+            state_of_weather = _state_of_weather_code(weather[STATE_OF_WEATHER_KEY])
+            # NFDRS takes the EMC of the air at the fuel, not at the shelter:
+            # without the sky cover there is no interface EMC and no NFDRS
+            # fuel moisture.
+            if "temperature_c" in weather and "relative_humidity_pct" in weather:
+                result.weather_factors[STATE_OF_WEATHER_KEY] = float(state_of_weather)
+                result.weather_factors.update(
+                    fuel_interface_moisture(
+                        weather["temperature_c"], weather["relative_humidity_pct"], state_of_weather
+                    )
+                )
 
         fire_data = dict(wildfire_data.get("fire_data", {}))
         if "fuel_moisture_pct" in fire_data:
@@ -906,7 +1008,7 @@ class WildfireDetector:
             result.fuel_moisture = (
                 ONE_HOUR_FUEL_MOISTURE_PER_EMC * result.weather_factors["equilibrium_moisture_pct"]
             )
-            # The spread model used a fixed 10% when no moisture was measured.
+            # With no moisture known the spread model keeps its fixed 10%.
             fire_data["fuel_moisture_pct"] = result.fuel_moisture
 
         result.evacuation_zones = [str(z) for z in wildfire_data.get("evacuation_zones", [])]

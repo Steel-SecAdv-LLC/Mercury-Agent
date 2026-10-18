@@ -9,11 +9,13 @@ an aftershock "probability" of min(0.9, M/10), a DC offset hid a clear event
 from STA/LTA, a batch was cut to its first row, a 40 Hz trace ran through the
 100 Hz CNN, and a global catalog told everyone to "Take protective action".
 A magnitude now comes from the IASPEI standard on a calibrated amplitude, and
-an aftershock probability from Reasenberg-Jones given regional parameters.
+an aftershock probability from Reasenberg-Jones given regional parameters. A
+new result field no longer shifts the released positional order.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -210,3 +212,36 @@ def test_live_aftershock_window_starts_at_as_of() -> None:
     )
     # Omori decay: the following week is less likely than the first.
     assert 0.0 < week_later.aftershock_probability < at_event.aftershock_probability
+
+
+#: EarthquakePredictionResult fields in their released (origin/main) order.
+RELEASED_EARTHQUAKE_FIELDS = [
+    "earthquake_detected",
+    "confidence",
+    "estimated_magnitude",
+    "magnitude_class",
+    "p_wave_detected",
+    "s_wave_detected",
+    "p_wave_arrival_time",
+    "s_wave_arrival_time",
+    "epicenter_distance_km",
+    "depth_km",
+    "resonance_score",
+    "spectral_anomalies",
+    "warning_actions",
+    "aftershock_probability",
+    "source_id",
+    "data_provenance",
+    "live_context",
+    "diagnostics",
+]
+
+
+def test_released_positional_field_order_is_kept() -> None:
+    names = [f.name for f in dataclasses.fields(dd.EarthquakePredictionResult)]
+    assert names[: len(RELEASED_EARTHQUAKE_FIELDS)] == RELEASED_EARTHQUAKE_FIELDS
+    positional = dd.EarthquakePredictionResult(
+        True, 0.9, 5.0, "moderate", True, False, 1.0, None, None, None, 0.0, [], [], 0.0, "usgs"
+    )
+    assert positional.source_id == "usgs"
+    assert positional.detection_method == "physics_sta_lta"

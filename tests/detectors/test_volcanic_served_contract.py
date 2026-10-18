@@ -8,11 +8,14 @@ carried across calls and volcanoes), a bare array returned a silent
 all-clear, baseline gas raised the forecast, a forecast eruption could carry
 the alert level "normal", VEI / eruption type / time to eruption were read
 off precursor strength, WATCH advised evacuation and promised an eruption
-within 24 h, and ELF "correlation" added to the decision.
+within 24 h, ELF "correlation" added to the decision, an inverse-rate fit
+the data contradict read "eruption in 0 h", and a new field shifted the
+released positional order.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 import numpy as np
@@ -163,6 +166,62 @@ def test_constant_count_rate_is_not_an_acceleration() -> None:
         for seed in range(100)
     )
     assert accepted <= 10  # the 5% test level, with sampling slack
+
+
+def _rate_still_finite_past_the_fitted_failure() -> tuple[np.ndarray, np.ndarray]:
+    """1/R falls, then levels off above zero: the line hits 0 at 40.8 h (R^2 0.90)."""
+    t = np.arange(0.0, 54.0, 6.0)
+    inverse = np.array([10.0, 8.0, 6.0, 4.0, 2.0, 1.0, 0.5, 0.3, 0.2])
+    return t, 1.0 / inverse
+
+
+def test_failure_time_before_the_last_sample_is_no_forecast() -> None:
+    t, rate = _rate_still_finite_past_the_fitted_failure()
+    # The rate at 48 h is finite, so a failure at 40.8 h is contradicted.
+    assert volcanic.failure_forecast(t, rate) is None
+
+
+def test_detector_serves_no_time_to_eruption_from_a_contradicted_fit(
+    physics: VolcanicEruptionDetector,
+) -> None:
+    t, rate = _rate_still_finite_past_the_fitted_failure()
+    result = physics.predict_eruption({"precursor_rate": {"times_h": t, "rate": rate}})
+    assert (result.time_to_eruption_hours, result.time_to_eruption_fit) == (None, None)
+
+
+#: VolcanicPredictionResult fields in their released (origin/main) order.
+RELEASED_VOLCANIC_FIELDS = [
+    "eruption_imminent",
+    "confidence",
+    "alert_level",
+    "eruption_type",
+    "time_to_eruption_hours",
+    "vei_estimate",
+    "seismic_swarm_detected",
+    "thermal_anomaly_detected",
+    "gas_flux_anomaly",
+    "deformation_detected",
+    "schumann_elf_correlation",
+    "hazard_zones",
+    "ashfall_forecast",
+    "lahar_risk",
+    "early_warning_actions",
+    "evacuation_recommendations",
+    "source_id",
+    "data_provenance",
+    "live_context",
+    "diagnostics",
+]
+
+
+def test_released_positional_field_order_is_kept() -> None:
+    names = [f.name for f in dataclasses.fields(volcanic.VolcanicPredictionResult)]
+    assert names[: len(RELEASED_VOLCANIC_FIELDS)] == RELEASED_VOLCANIC_FIELDS
+    positional = volcanic.VolcanicPredictionResult(
+        False, 0.1, "normal", "no_eruption", None, None, True
+    )
+    assert positional.seismic_swarm_detected is True
+    assert positional.forecast_method is None
 
 
 def test_steady_or_declining_rate_has_no_failure_time() -> None:

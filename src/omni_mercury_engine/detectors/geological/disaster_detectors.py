@@ -275,9 +275,6 @@ class EarthquakePredictionResult:
     warning_actions: list[str] = field(default_factory=list)
     # 0.0 means "not estimated": no calibrated aftershock model exists.
     aftershock_probability: float = 0.0
-    # Which path decided: "learned_seismic_stead", "physics_sta_lta", or
-    # "usgs_catalog" (detect_live).
-    detection_method: str = "physics_sta_lta"
 
     # Live-ingestion provenance (populated only by detect_live()).
     source_id: str | None = None
@@ -286,6 +283,11 @@ class EarthquakePredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # Which path decided: "learned_seismic_stead", "physics_sta_lta", or
+    # "usgs_catalog" (detect_live). Added after the released fields so
+    # positional construction keeps their order.
+    detection_method: str = "physics_sta_lta"
 
 
 @dataclass

@@ -84,10 +84,12 @@ def failure_forecast(times_h: Any, rates: Any) -> dict[str, float] | None:
 
     Returns:
         ``failure_time_h`` (same clock as ``times_h``),
-        ``time_to_failure_h`` (after the last sample; 0 if already passed),
+        ``time_to_failure_h`` (after the last sample, positive),
         ``r_squared`` and ``n_points``; None when the inverse rate is not
-        falling (no acceleration) or the line fits worse than
-        :data:`FFM_MIN_R2`.
+        falling (no acceleration), the line fits worse than
+        :data:`FFM_MIN_R2`, or the line reaches zero at or before the last
+        sample, where the observed rate is still finite and so contradicts
+        the fit.
 
     Raises:
         InvalidObservationError: On non-finite or non-positive rates,
@@ -109,9 +111,13 @@ def failure_forecast(times_h: Any, rates: Any) -> dict[str, float] | None:
     if slope >= 0.0 or r_squared < FFM_MIN_R2:
         return None
     failure_time = float(-intercept / slope)
+    if failure_time <= float(t[-1]):
+        # The data still show a finite rate there: no forecast, rather than
+        # the "eruption in 0 h" the clamp used to report.
+        return None
     return {
         "failure_time_h": failure_time,
-        "time_to_failure_h": max(failure_time - float(t[-1]), 0.0),
+        "time_to_failure_h": failure_time - float(t[-1]),
         "r_squared": r_squared,
         "n_points": float(t.size),
     }
@@ -240,9 +246,6 @@ class VolcanicPredictionResult:
     # "VEI 6, hawaiian_effusive, eruption in 6 h".
     time_to_eruption_hours: float | None = None
     vei_estimate: int | None = None  # Volcanic Explosivity Index
-    # Which eruption forecast ran: "neural", "physics", or None when the
-    # observations did not call for one.
-    forecast_method: str | None = None
 
     seismic_swarm_detected: bool = False
     thermal_anomaly_detected: bool = False
@@ -269,6 +272,11 @@ class VolcanicPredictionResult:
     # :func:`failure_forecast` or :func:`failure_forecast_poisson` plus its
     # ``method``.
     time_to_eruption_fit: dict[str, Any] | None = None
+
+    # Which eruption forecast ran: "neural", "physics", or None when the
+    # observations did not call for one. Added after the released fields so
+    # positional construction keeps their order.
+    forecast_method: str | None = None
 
 
 class SeismicSwarmDetector(nn.Module):

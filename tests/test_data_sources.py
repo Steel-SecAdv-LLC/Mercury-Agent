@@ -12,6 +12,8 @@ This test suite covers:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -340,6 +342,36 @@ class TestNASADONKISource:
         assert source._parse_kp_index(6) == AlertLevel.MODERATE
         assert source._parse_kp_index(5) == AlertLevel.MINOR
         assert source._parse_kp_index(4) == AlertLevel.NONE
+
+    def test_storm_level_is_its_peak_kp(self) -> None:
+        """The recorded 2024-05-10 storm opens at Kp 7.67 (G4) and peaks at 9.0 (G5)."""
+        fixture = Path(__file__).parent / "fixtures" / "space_weather" / "donki_gst_2024_05.json"
+        events = {e["gstID"]: e for e in json.loads(fixture.read_text())["data"]}
+        point = NASADONKISource()._parse_event(
+            events["2024-05-10T15:00:00-GST-001"],
+            DONKIEventType.GEOMAGNETIC_STORM,
+            DataSourceType.GEOMAGNETIC_STORM,
+        )
+        assert point is not None
+        assert point.alert_level == AlertLevel.EXTREME
+
+    def test_storm_peak_skips_kp_entries_that_do_not_parse(self) -> None:
+        """Unparsable or off-scale Kp entries are skipped, not read as the storm."""
+        event = {
+            "startTime": "2024-05-10T15:00Z",
+            "allKpIndex": [
+                {"kpIndex": "n/a"},
+                {"kpIndex": None},
+                {"kpIndex": 6.0},
+                {"kpIndex": "8-"},
+                {"kpIndex": 12.0},
+            ],
+        }
+        point = NASADONKISource()._parse_event(
+            event, DONKIEventType.GEOMAGNETIC_STORM, DataSourceType.GEOMAGNETIC_STORM
+        )
+        assert point is not None
+        assert point.alert_level == AlertLevel.SEVERE  # 8- = 7.67, G4
 
 
 class TestNASANeoWsSource:
