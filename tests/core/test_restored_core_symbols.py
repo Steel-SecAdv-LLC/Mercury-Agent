@@ -108,14 +108,19 @@ class TestComputeBenchmarkMetrics:
         )
         assert metrics.morans_i == pytest.approx(-1.0 / (n - 1))  # complete-graph value
 
-    @pytest.mark.parametrize(
-        ("domain", "kwargs"), [("medical", {}), ("spatial", {}), ("graph", {"y_prob": None})]
-    )
-    def test_unknown_or_underspecified_domain_raises(
-        self, domain: str, kwargs: dict[str, Any]
+    @pytest.mark.parametrize("domain", ["dimensional", "statistical", "medical"])
+    def test_other_domains_get_the_standard_suite(self, domain: str) -> None:
+        general = compute_benchmark_metrics(self.y_true, self.y_pred)
+        other = compute_benchmark_metrics(self.y_true, self.y_pred, domain=domain)
+        assert other.to_dict() == general.to_dict()
+
+    def test_spatial_without_weights_says_what_is_missing(
+        self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with pytest.raises(ValueError, match="domain"):
-            compute_benchmark_metrics(self.y_true, self.y_pred, domain=domain, **kwargs)
+        with caplog.at_level("WARNING"):
+            metrics = compute_benchmark_metrics(self.y_true, self.y_pred, domain="spatial")
+        assert metrics.morans_i is None
+        assert "spatial_weights" in caplog.text
 
 
 def test_reliability_pool_dispatches_and_rejects_unknown_modes() -> None:
@@ -158,18 +163,30 @@ class TestSafeCholesky:
 
 
 class TestLegacyThreeR:
-    def test_names_resolve_to_the_live_classes(self) -> None:
+    def test_identical_names_resolve_to_the_live_classes(self) -> None:
         for name in (
-            "OmniAvaEquation",
             "RecursionEngine",
             "ResonanceEngine",
             "AnomalyDetectionMethod",
             "IssueType",
             "IssueSeverity",
             "EvolutionStrategy",
-            "RefactoringConfig",
         ):
             assert getattr(trm, f"_Legacy{name}") is getattr(trm, name)
+
+    def test_legacy_equation_keeps_its_released_behaviour(self) -> None:
+        """The live equation drops eta**Phi and uses other default weights."""
+        equation = trm._LegacyOmniAvaEquation()
+        assert equation.weights == pytest.approx(
+            {"w_R": 0.5, "w_H": 0.3090169943749474, "w_O": 0.19098300562505255}
+        )
+        result = equation.compute(0.8, 0.6, 0.4)
+        assert result.fusion_score == pytest.approx(0.6195027602420753)  # released value
+        assert "baseline_comparison" in equation.get_dominance_proof()
+
+    def test_legacy_refactoring_config_keeps_its_field_order(self) -> None:
+        config = trm._LegacyRefactoringConfig(True, False)
+        assert (config.apply_refactorings, config.create_backup) == (True, False)
 
     @staticmethod
     def _data(seed: int) -> tuple[np.ndarray, np.ndarray]:

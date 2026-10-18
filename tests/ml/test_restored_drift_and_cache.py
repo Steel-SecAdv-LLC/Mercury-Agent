@@ -43,11 +43,26 @@ def test_one_sigma_shift_is_detected_promptly(seed: int) -> None:
     data = _stream(seed, n=1400, shift_at=1000)
     first = next((i, r) for i, row in enumerate(data) if (r := detector.update(row)) is not None)
     index, result = first
-    assert 1000 <= index < 1100  # 20-72 samples measured over 20 seeds
+    assert 1000 <= index < 1200  # 80-169 samples over 20 seeds, at any scale
     assert result.details["feature"] == 1
     assert result.details["method"] == "adwin0"
     assert result.test_statistic > result.threshold
     assert len(detector.window) < 1000  # the pre-change part was dropped
+
+
+@pytest.mark.parametrize("scale", [0.01, 1000.0])
+def test_detection_does_not_depend_on_units(scale: float) -> None:
+    """Fails on the bound for [0, 1] data applied to raw units (no drift found at
+    x0.01, false drifts at x100)."""
+
+    def first_drift(factor: float) -> int | None:
+        detector = OnlineDriftDetector()
+        for i, row in enumerate(_stream(3, n=1400, shift_at=1000) * factor):
+            if detector.update(row) is not None:
+                return i
+        return None
+
+    assert first_drift(scale) == first_drift(1.0) is not None
 
 
 def test_reset_clears_state() -> None:
@@ -87,6 +102,17 @@ def test_cache_keeps_a_none_result_and_types_scalars() -> None:
     record(1.0)
     record(True)
     assert calls == [1, 1.0, True]
+
+
+def test_cache_does_not_key_masked_arrays_by_their_data() -> None:
+    @memory_efficient_lru_cache()
+    def mean(x: np.ndarray) -> float:
+        return float(np.ma.mean(x))
+
+    data = np.arange(200.0)
+    partly_masked = np.ma.masked_array(data, mask=data >= 100)
+    assert mean(np.ma.masked_array(data)) == pytest.approx(99.5)
+    assert mean(partly_masked) == pytest.approx(49.5)  # the same bytes, another mask
 
 
 def test_cache_bypasses_arguments_without_an_exact_key() -> None:

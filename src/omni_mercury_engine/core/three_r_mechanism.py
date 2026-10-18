@@ -19,6 +19,7 @@ import tempfile
 import textwrap
 import threading
 import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -45,6 +46,7 @@ from omni_mercury_engine.core.three_r.types import (
     RefactoringConfig,
     RefactoringResult,
 )
+from omni_mercury_engine.utils.constants import MathematicalConstants
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -78,18 +80,361 @@ __all__ = [
 # Backward-compatible alias for AvaDominanceEquation
 AvaDominanceEquation: type[OmniAvaEquation] = OmniAvaEquation
 
-# The pre-split copies kept their ``_Legacy*`` names. The live classes in
-# ``three_r/`` are the same enums and config, and supersets of the engines and
-# the equation (keyword arguments added, none removed), so the names resolve
-# to them.
-_LegacyOmniAvaEquation = OmniAvaEquation
+# The pre-split copies kept their ``_Legacy*`` names. The enums are identical
+# to the live ones in ``three_r/`` and the engines behave identically on the
+# same inputs, so those names resolve to the live classes. The equation and
+# the refactoring config differ from their live successors (the legacy
+# equation scales by eta**Phi and has other default weights; the legacy
+# config has another field order), so their released bodies are kept below.
 _LegacyRecursionEngine = RecursionEngine
 _LegacyResonanceEngine = ResonanceEngine
 _LegacyAnomalyDetectionMethod = AnomalyDetectionMethod
 _LegacyIssueType = IssueType
 _LegacyIssueSeverity = IssueSeverity
 _LegacyEvolutionStrategy = EvolutionStrategy
-_LegacyRefactoringConfig = RefactoringConfig
+
+
+class _LegacyOmniAvaEquation:
+    """Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
+
+    Implements the mathematical framework:
+    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
+
+    What this equation is:
+    1. An attention-weighted combination of the three 3R component scores.
+       No superiority over baselines is claimed: the measured head-to-head
+       figures are in ``CAPABILITY_MATRIX.md``, which currently records Mercury
+       fusion *below* every PyOD baseline on the ADBench quick subset. The
+       "NSL-KDD F1=0.797 -> target 0.92+" line that stood here was a target, not
+       a result, and read as one.
+    2. A Lyapunov-style decay *schedule* (reference envelope)
+       V(S_t) <= epsilon * e^(-0.25t) — a design target the system *monitors*,
+       NOT a proven guarantee (see verify_lyapunov_stability).
+    3. Golden-ratio (Φ) weight proportions across the three components.
+
+    What it is NOT: an ethical gate. The ``η_Ethical^Φ`` factor is removed from
+    the live equation (``core/three_r/fusion.py``) — η is a configured constant
+    on every production path, so it rescaled scores without adding
+    discrimination. Enforcement is ``cognitive/decision_gate.py``.
+
+    The weights w_R, w_H, w_O are learned via attention fusion and sum to 1.0.
+    Default initialization uses golden ratio proportions for optimal harmony.
+    """
+
+    def __init__(
+        self,
+        ethical_compliance_threshold: float = 0.96,
+        convergence_rate: float = CONVERGENCE_RATE_PARAMETER,
+        initial_weights: dict[str, float] | None = None,
+        # Backward-compatible parameter aliases
+        sigma_immutable: float | None = None,
+        lambda_lyapunov: float | None = None,
+    ):
+        """Initialize Omni-Ava Equation (OAE).
+
+        Args:
+            ethical_compliance_threshold: Ethical compliance threshold η_Ethical (0.93-0.96)
+            convergence_rate: Convergence rate parameter for stability (default 0.25)
+            initial_weights: Optional initial weights {w_R, w_H, w_O}
+            sigma_immutable: Deprecated alias for ethical_compliance_threshold
+            lambda_lyapunov: Deprecated alias for convergence_rate
+        """
+        # Handle backward-compatible parameter aliases
+        if sigma_immutable is not None:
+            ethical_compliance_threshold = sigma_immutable
+        if lambda_lyapunov is not None:
+            convergence_rate = lambda_lyapunov
+
+        self.ethical_compliance_threshold = max(0.90, min(0.99, ethical_compliance_threshold))
+        self.convergence_rate_param = convergence_rate
+        self.golden_ratio = GOLDEN_RATIO_CONSTANT
+        self.logger = logging.getLogger(__name__)
+
+        # Backward-compatible aliases
+        self.sigma_immutable = self.ethical_compliance_threshold
+        self.lambda_lyapunov = self.convergence_rate_param
+        self.phi = self.golden_ratio
+
+        # Initialize weights using golden ratio proportions if not provided
+        if initial_weights is None:
+            # Golden ratio proportions: phi, 1, 1/phi normalized to sum=1
+            phi_sum = self.phi + 1.0 + (1.0 / self.phi)
+            self.weights = {
+                "w_R": self.phi / phi_sum,  # ~0.447 (Recursion)
+                "w_H": 1.0 / phi_sum,  # ~0.276 (Resonance/Harmonic)
+                "w_O": (1.0 / self.phi) / phi_sum,  # ~0.276 (Optimization)
+            }
+        else:
+            # Normalize provided weights to sum to 1
+            total = sum(initial_weights.values())
+            self.weights = {k: v / total for k, v in initial_weights.items()}
+
+        # Track convergence history for Lyapunov analysis
+        self.convergence_history: list[float] = []
+        self.time_step: int = 0
+
+    def compute(
+        self,
+        recursion_score: float,
+        resonance_score: float,
+        optimization_score: float,
+        ethical_threshold_override: float | None = None,
+        # Backward-compatible parameter alias
+        sigma_immutable_override: float | None = None,
+    ) -> AnomalyFusionResult:
+        """Compute Omni-Ava Equation (OAE) score.
+
+        Args:
+            recursion_score: R(x) from hierarchical feature extraction
+            resonance_score: H(omega) from frequency-domain analysis
+            optimization_score: O(theta) from adaptive enhancement
+            ethical_threshold_override: Optional override for η_Ethical threshold
+            sigma_immutable_override: Deprecated alias for ethical_threshold_override
+
+        Returns:
+            AnomalyFusionResult with all component scores and metadata
+        """
+        # Handle backward-compatible parameter alias
+        if sigma_immutable_override is not None:
+            ethical_threshold_override = sigma_immutable_override
+
+        eta = (
+            ethical_threshold_override
+            if ethical_threshold_override is not None
+            else self.ethical_compliance_threshold
+        )
+
+        # Compute weighted sum of components
+        weighted_sum = (
+            self.weights["w_R"] * recursion_score
+            + self.weights["w_H"] * resonance_score
+            + self.weights["w_O"] * optimization_score
+        )
+
+        # Apply η_Ethical^Φ scaling for ethical gating
+        # This provides ~10-15% false positive reduction via stricter ethical gating
+        ethical_scaling = eta**self.golden_ratio
+
+        # Final fusion score
+        fusion_score = weighted_sum * ethical_scaling
+
+        # Decay-schedule reference envelope (target) epsilon * e^(-lambda*t),
+        # NOT a measured/guaranteed bound; verify_lyapunov_stability() measures
+        # whether the recent scores actually contract.
+        self.time_step += 1
+        epsilon = 1.0  # Initial envelope value
+        lyapunov_bound = epsilon * np.exp(-self.convergence_rate_param * self.time_step)
+
+        # Track convergence
+        self.convergence_history.append(fusion_score)
+
+        return AnomalyFusionResult(
+            fusion_score=fusion_score,
+            recursion_score=recursion_score,
+            resonance_score=resonance_score,
+            optimization_score=optimization_score,
+            ethical_compliance_threshold=eta,
+            fusion_weights=self.weights.copy(),
+            lyapunov_bound=lyapunov_bound,
+            convergence_rate=self.convergence_rate_param,
+        )
+
+    def update_weights(
+        self,
+        attention_weights: NDArray[Any],
+        learning_rate: float = 0.01,
+    ) -> None:
+        """Update weights via attention fusion.
+
+        Args:
+            attention_weights: Attention scores from fusion layer [w_R, w_H, w_O]
+            learning_rate: Learning rate for weight update
+        """
+        if len(attention_weights) != 3:
+            self.logger.warning(f"Expected 3 attention weights, got {len(attention_weights)}")
+            return
+
+        # Exponential moving average update
+        for i, key in enumerate(["w_R", "w_H", "w_O"]):
+            self.weights[key] = (1 - learning_rate) * self.weights[
+                key
+            ] + learning_rate * attention_weights[i]
+
+        # Renormalize to sum to 1
+        total = sum(self.weights.values())
+        self.weights = {k: v / total for k, v in self.weights.items()}
+
+    def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
+        """Monitor recent score-trajectory contraction (NOT a guarantee).
+
+        Estimates the empirical decay rate from the variance ratio of recent vs.
+        initial fusion scores and reports whether the observed trajectory is
+        actually contracting at rate O(e^{-lambda*t}).  This is a *measured*
+        property of the scores, not a proof.  With insufficient history it
+        returns ``is_stable=False`` rather than assuming stability.
+
+        Args:
+            window_size: Number of recent samples to analyze
+
+        Returns:
+            Tuple of (is_stable, estimated_decay_rate)
+        """
+        if len(self.convergence_history) < window_size:
+            return False, self.lambda_lyapunov  # insufficient data to assert contraction
+
+        recent = np.array(self.convergence_history[-window_size:])
+
+        # Compute variance decay
+        if len(recent) < 2:
+            return False, self.lambda_lyapunov
+
+        # Estimate decay rate from variance
+        variance = np.var(recent)
+        initial_variance = np.var(
+            self.convergence_history[: min(window_size, len(self.convergence_history))]
+        )
+
+        if initial_variance > 0:
+            # Estimated decay: V(t) / V(0) = e^(-lambda*t)
+            ratio = variance / initial_variance
+            if ratio > 0:
+                estimated_lambda = -np.log(ratio) / self.time_step
+            else:
+                estimated_lambda = self.lambda_lyapunov
+        else:
+            estimated_lambda = self.lambda_lyapunov
+
+        # Stable if estimated decay rate is positive and close to target
+        is_stable = bool(estimated_lambda > 0 and estimated_lambda >= self.lambda_lyapunov * 0.5)
+
+        return is_stable, float(estimated_lambda)
+
+    def get_dominance_proof(self) -> dict[str, Any]:
+        """Generate mathematical proof of fusion equation dominance over baselines.
+
+        Returns:
+            Dictionary containing proof elements for MATH_DERIVATIONS.md
+        """
+        is_stable, estimated_lambda = self.verify_lyapunov_stability()
+
+        return {
+            "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ",
+            "equation_name": "Omni-Ava Equation (OAE)",
+            "golden_ratio_constant": self.golden_ratio,
+            "ethical_compliance_threshold": self.ethical_compliance_threshold,
+            "fusion_weights": self.weights,
+            "lyapunov_stability": {
+                "is_stable": is_stable,
+                "target_convergence_rate": self.convergence_rate_param,
+                "estimated_convergence_rate": estimated_lambda,
+                "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.convergence_rate_param}*t)",
+            },
+            "baseline_comparison": {
+                "nsl_kdd_f1": 0.797,
+                "target_f1": 0.92,
+                "improvement_factor": 0.92 / 0.797,  # ~1.154 (15.4% improvement)
+            },
+            "ethical_scaling": {
+                "eta_ethical_phi": self.ethical_compliance_threshold**self.golden_ratio,
+                "fp_reduction_estimate": "10-15% via stricter ethical gating",
+            },
+            # Backward-compatible keys
+            "phi": self.phi,
+            "sigma_immutable": self.sigma_immutable,
+            "weights": self.weights,
+        }
+
+
+@dataclass
+class _LegacyRefactoringConfig:
+    """Configuration for automatic refactoring operations.
+
+    Mathematical constants are sourced from the centralized MathematicalConstants module for
+    precision and consistency.
+    """
+
+    apply_refactorings: bool = False
+    create_backup: bool = True
+    require_confirmation: bool = True
+    backup_suffix: str = ".bak"
+    max_complexity_threshold: int = 10
+    max_nesting_threshold: int = 4
+
+    enable_caching: bool = True
+    enable_harmonics: bool = True
+    enable_quantum_paths: bool = True
+    enable_pattern_resonance: bool = True
+    enable_neurosymbolic: bool = True
+    quantum_num_paths: int = 1
+    enable_parallel_processing: bool = False
+    enable_resonance_feedback: bool = False
+    resonance_feedback_depth: int = 3
+    enable_multiverse_optimization: bool = False
+
+    # Mathematical constants from centralized module
+    golden_ratio: float = field(
+        default_factory=lambda: MathematicalConstants.GOLDEN_RATIO_CONJUGATE.value
+    )
+    catalan_constant: float = field(default_factory=lambda: MathematicalConstants.CATALAN.value)
+    euler_mascheroni: float = field(
+        default_factory=lambda: MathematicalConstants.EULER_MASCHERONI.value
+    )
+    feigenbaum_delta: float = field(
+        default_factory=lambda: MathematicalConstants.FEIGENBAUM_DELTA.value
+    )
+    omega_constant: float = field(default_factory=lambda: MathematicalConstants.OMEGA.value)
+
+    enable_spherical_harmonics: bool = False
+    spherical_harmonic_degree: int = 4
+    enable_rotation_invariance: bool = False
+
+    enable_quantum_superposition: bool = False
+    superposition_paths: int = 3
+
+    enable_federated_learning: bool = False
+    federated_num_clients: int = 5
+    federated_learning_rate: float = 0.001
+    federated_local_epochs: int = 5
+    federated_aggregation: str = "fedavg"
+
+    enable_symbolic_reasoning: bool = False
+    symbolic_temporal_logic: bool = True
+    symbolic_graph_based: bool = True
+    symbolic_explainability_threshold: float = 0.7
+
+    enable_info_geometry: bool = False
+    info_geom_distance_metric: str = "fisher_rao"
+    info_geom_manifold_dim: int = 10
+    info_geom_approximation: str = "closed_form"
+
+    enable_quantum_kernels: bool = False
+    quantum_kernel_type: str = "quantum_inspired"
+    quantum_num_qubits: int = 4
+    quantum_entanglement_depth: int = 2
+    quantum_gamma: float = 1.0
+
+    enable_novel_class_discovery: bool = False
+    ncd_enable_mebin: bool = True
+    ncd_num_clusters: int = 5
+    ncd_low_semantics_mode: bool = True
+    ncd_non_prominence_mode: bool = True
+
+    enable_multivariate_ts: bool = False
+    mvts_window_size: int = 100
+    mvts_lstm_hidden_dim: int = 64
+    mvts_temporal_conv_filters: int = 32
+    mvts_graph_conv_layers: int = 2
+
+    enable_chaos_creativity: bool = False
+    chaos_creativity_intensity: float = 0.1
+    chaos_creativity_num_hypotheses: int = 10
+
+    enable_chaos_optimization: bool = False
+    chaos_population_size: int = 30
+    chaos_max_iterations: int = 100
+    chaos_map_type: str = "logistic"
+    chaos_alpha: float = 0.8
+    chaos_beta: float = 0.2
 
 
 class _LegacyOAEWeightOptimizer:

@@ -542,7 +542,11 @@ class ParallelDetectorExecutor:
     finished results are kept (the released loop raised ``TimeoutError`` and
     lost them). A detector runs on the pool only when it declares
     ``parallel_safe = True``, the rule the engine applies; the others run in
-    the calling thread, in order, outside the deadline.
+    the calling thread, in order, outside the deadline, and so does every
+    detector when ``max_workers`` is 1. (The released executor ran every
+    detector on the pool but enforced no deadline either: it raised at the
+    timeout only after waiting for the slow detector, and lost the finished
+    results.)
     """
 
     def __init__(self, max_workers: int = 4, timeout: float = 30.0):

@@ -1251,12 +1251,14 @@ class OnlineDriftDetector:
     into an older part ``W0`` and a newer part ``W1`` is tested, and drift is
     declared when the means differ by more than
 
-        eps_cut = sqrt(2 / m * var * ln(2 / d')) + 2 / (3 m) * ln(2 / d'),
+        eps_cut = sqrt(2 / m * var * ln(2 / d')) + 2 R / (3 m) * ln(2 / d'),
 
     with ``m`` the harmonic mean of the part sizes, ``var`` the window
-    variance and ``d' = delta / (n * features)`` (the paper's bound, its
-    ``delta / n`` correction for testing every split, and a Bonferroni share
-    per feature). The older part is then dropped. ``significance_level`` is
+    variance, ``R`` the window's range and ``d' = delta / (n * features)``
+    (the paper's bound, its ``delta / n`` correction for testing every
+    split, and a Bonferroni share per feature). The paper takes values in
+    [0, 1]; ``R`` carries the bound to any units, so the same stream raises
+    the same drifts in metres or millimetres. The older part is then dropped. ``significance_level`` is
     ``delta``; ADWIN computes no p-value, so a result's ``p_value`` carries
     ``delta``. The former check ran a KS test per feature at ``delta`` on
     every update with no correction, so a stationary 3-feature stream raised
@@ -1294,6 +1296,7 @@ class OnlineDriftDetector:
         variance = float(values.var())
         if variance == 0.0:
             return None
+        value_range = float(values.max() - values.min())
         cumulative = np.cumsum(values)
         total = cumulative[-1]
         cuts = np.arange(min_part, n - min_part + 1)
@@ -1303,7 +1306,7 @@ class OnlineDriftDetector:
         mean1 = (total - cumulative[cuts - 1]) / n1
         m = 1.0 / (1.0 / n0 + 1.0 / n1)
         log_term = np.log(2.0 / (self.significance_level / (n * self._n_features)))
-        eps = np.sqrt(2.0 / m * variance * log_term) + 2.0 / (3.0 * m) * log_term
+        eps = np.sqrt(2.0 / m * variance * log_term) + 2.0 * value_range / (3.0 * m) * log_term
         exceeded = np.flatnonzero(np.abs(mean0 - mean1) > eps)
         if exceeded.size == 0:
             return None

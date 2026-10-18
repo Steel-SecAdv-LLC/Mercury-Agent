@@ -630,7 +630,8 @@ def _exact_cache_key(obj: Any) -> str:
     Arrays are keyed by dtype, shape and a SHA-256 digest of their bytes;
     ``str()`` of an array over 1000 elements is abbreviated, so different
     arrays shared a key. Scalars carry their type, so ``1``, ``1.0`` and
-    ``True`` stay distinct. Other objects (model instances, tensors, frames)
+    ``True`` stay distinct. Other objects (model instances, tensors, frames,
+    and ndarray subclasses such as masked arrays, whose bytes omit the mask)
     raise :class:`_UncacheableArgumentError`: their ``repr`` is neither exact
     nor stable.
     """
@@ -638,7 +639,7 @@ def _exact_cache_key(obj: Any) -> str:
         return f"{type(obj).__name__}:{obj!r}"
     if isinstance(obj, np.generic):
         return f"np.{obj.dtype.str}:{obj.item()!r}"
-    if isinstance(obj, np.ndarray):
+    if type(obj) is np.ndarray:
         if obj.dtype.hasobject:
             raise _UncacheableArgumentError("object-dtype array")
         digest = hashlib.sha256(np.ascontiguousarray(obj).tobytes()).hexdigest()

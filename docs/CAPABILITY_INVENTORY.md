@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,959
-- **Capability-bearing classes:** 1,957 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,961
+- **Capability-bearing classes:** 1,958 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 49
 - **Refined via base-class analysis:** 88 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,156 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,157 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1156 |
-| Support types (config / result / enum / error) | 1002 |
+| Other capability classes | 1157 |
+| Support types (config / result / enum / error) | 1003 |
 | Detection | 175 |
 | Neural models & layers | 161 |
 | Data sources & loaders | 103 |
@@ -657,7 +657,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 359 classes (229 capability)
+### `core/` — 361 classes (230 capability)
 
 **Adapters & backends**
 
@@ -890,6 +890,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `VietorisRipsFiltration` (`core.topological_analysis`) — Build a Vietoris-Rips simplicial complex and compute persistent homology.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
+- `_LegacyOmniAvaEquation` (`core.three_r_mechanism`) — Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 - `_UnionFind` (`core.topological_analysis`) — Weighted union-find with path compression.
 
 **Prediction & forecasting**
@@ -921,9 +922,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
-<details><summary>Support types (130)</summary>
+<details><summary>Support types (131)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
 
 </details>
 
