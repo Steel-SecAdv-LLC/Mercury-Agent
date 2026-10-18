@@ -79,7 +79,9 @@ def test_geoelectric_field_is_causal() -> None:
     assert float(np.max(np.abs(ey1[-5:] - ey0[-5:]))) > 0.1
 
 
-def _source_with(payload: Any, *, fail: bool = False) -> tuple[USGSGeomagnetismSource, list]:
+def _source_with(
+    payload: Any, *, fail: bool = False
+) -> tuple[USGSGeomagnetismSource, list[tuple[str, dict[str, Any] | None]]]:
     calls: list[tuple[str, dict[str, Any] | None]] = []
 
     class _Response:
@@ -93,7 +95,7 @@ def _source_with(payload: Any, *, fail: bool = False) -> tuple[USGSGeomagnetismS
         return _Response()
 
     source = USGSGeomagnetismSource()
-    source._http_get = _get  # type: ignore[method-assign]
+    source._http_get = _get  # type: ignore[method-assign,assignment]
     return source, calls
 
 

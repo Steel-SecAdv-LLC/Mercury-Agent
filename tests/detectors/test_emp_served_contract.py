@@ -16,7 +16,7 @@ pulse duration and source location were declared but never computed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -320,6 +320,6 @@ def test_tdoa_refuses_too_few_or_collinear_sensors() -> None:
         {"sensor_data": {"waveform_vm": [1.0] * 32}},
     ],
 )
-def test_non_physical_measurements_are_refused(detector: EMPDetector, data: dict) -> None:
+def test_non_physical_measurements_are_refused(detector: EMPDetector, data: dict[str, Any]) -> None:
     with pytest.raises(InvalidObservationError):
         detector.predict_emp(data)

@@ -50,7 +50,7 @@ def physics() -> EarthquakeDetector:
 
 
 def _event(stead: dict[str, np.ndarray]) -> np.ndarray:
-    return stead["z"][int(np.flatnonzero(stead["label"] == 1)[0])].astype(np.float64)
+    return np.asarray(stead["z"][int(np.flatnonzero(stead["label"] == 1)[0])], dtype=np.float64)
 
 
 def test_one_nan_sample_is_refused(served: EarthquakeDetector, stead: dict[str, Any]) -> None:
@@ -103,7 +103,7 @@ def test_global_catalog_does_not_order_protective_action() -> None:
     async def _get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
         return _Response()
 
-    source._http_get = _get  # type: ignore[method-assign]
+    source._http_get = _get  # type: ignore[method-assign,assignment]
     result = EarthquakeDetector(data_source=source).detect_live()
     assert result.estimated_magnitude == pytest.approx(5.8)
     assert result.warning_actions == ["Monitor official earthquake information"]
@@ -194,12 +194,13 @@ def test_live_aftershock_window_starts_at_as_of() -> None:
 
     def _detector() -> EarthquakeDetector:
         source = USGSEarthquakeSource(min_magnitude=4.5)
-        source._http_get = _get  # type: ignore[method-assign]
+        source._http_get = _get  # type: ignore[method-assign,assignment]
         return EarthquakeDetector(
             data_source=source, aftershock_parameters=dd.REASENBERG_JONES_GENERIC_CALIFORNIA
         )
 
     first = _detector().detect_live()
+    assert first.live_context is not None
     strongest = first.live_context["strongest_event"]
     t0 = datetime.fromisoformat(str(strongest["time"]).replace("Z", "+00:00"))
     at_event = _detector().detect_live(as_of=t0)

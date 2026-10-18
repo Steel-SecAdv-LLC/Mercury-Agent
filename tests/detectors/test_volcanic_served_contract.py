@@ -179,7 +179,7 @@ def test_steady_or_declining_rate_has_no_failure_time() -> None:
         ([0, 6, 12, 18], [5, 6, 7, 9]),  # too few samples
     ],
 )
-def test_failure_forecast_refuses_unusable_series(times: list, rates: list) -> None:
+def test_failure_forecast_refuses_unusable_series(times: list[float], rates: list[float]) -> None:
     with pytest.raises(InvalidObservationError):
         volcanic.failure_forecast(times, rates)
 
@@ -200,4 +200,5 @@ def test_detector_reports_the_failure_forecast() -> None:
     )
     assert counted.time_to_eruption_fit is not None
     assert counted.time_to_eruption_fit["method"] == "ffm_poisson_mle"
+    assert counted.time_to_eruption_hours is not None
     assert 0.0 < counted.time_to_eruption_hours < 40.0

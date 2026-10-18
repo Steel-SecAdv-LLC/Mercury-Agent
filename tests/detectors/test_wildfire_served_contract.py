@@ -166,6 +166,7 @@ def test_fuel_moisture_is_estimated_from_the_weather_and_drives_spread(
         }
     )
     assert fixed.fuel_moisture == 10.0
+    assert result.spread_rate_km_hr is not None and fixed.spread_rate_km_hr is not None
     assert result.spread_rate_km_hr > fixed.spread_rate_km_hr
 
 

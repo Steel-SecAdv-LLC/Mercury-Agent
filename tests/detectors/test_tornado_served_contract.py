@@ -31,7 +31,7 @@ FIXTURE = (
 def sector() -> np.ndarray:
     """KTLX lowest-sweep velocity sector around the 2013-05-20 Moore EF5 report."""
     with np.load(FIXTURE, allow_pickle=False) as z:
-        window = z["expected_sector"].astype(np.float64)
+        window = np.asarray(z["expected_sector"], dtype=np.float64)
     assert 0.3 < float(np.isfinite(window).mean()) < 1.0  # real, partly masked
     return window
 

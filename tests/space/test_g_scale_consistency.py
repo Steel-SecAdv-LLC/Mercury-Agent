@@ -11,6 +11,8 @@ as a quiet feed (an empty list).
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -52,9 +54,9 @@ def test_swpc_fetch_failure_is_not_a_quiet_feed() -> None:
 
     source = NOAASWPCSource()
 
-    async def _down(endpoint: str, params: dict | None = None) -> None:
+    async def _down(endpoint: str, params: dict[str, Any] | None = None) -> None:
         raise DataSourceError("HTTP 503", source_id="noaa_swpc")
 
-    source._http_get = _down  # type: ignore[method-assign]
+    source._http_get = _down  # type: ignore[method-assign,assignment]
     with pytest.raises(DataSourceError):
         asyncio.run(source._fetch_impl())

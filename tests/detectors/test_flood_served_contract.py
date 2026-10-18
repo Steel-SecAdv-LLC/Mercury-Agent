@@ -15,7 +15,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -48,12 +48,13 @@ def _replay(source: Any, payload: Any) -> Any:
 
 
 def _alerts(payload: Any) -> NWSWeatherAlertsSource:
-    return _replay(NWSWeatherAlertsSource(), payload)
+    return cast("NWSWeatherAlertsSource", _replay(NWSWeatherAlertsSource(), payload))
 
 
 @pytest.fixture(scope="module")
 def recorded_alerts() -> dict[str, Any]:
-    return json.loads((FIXTURES / "nws_alerts_flood.json").read_text())
+    payload: dict[str, Any] = json.loads((FIXTURES / "nws_alerts_flood.json").read_text())
+    return payload
 
 
 def test_empty_record_is_no_flood() -> None:
@@ -120,6 +121,7 @@ def test_signal_noise_carries_no_decision_weight() -> None:
 def test_recorded_flood_warning_counts(recorded_alerts: dict[str, Any]) -> None:
     result = FloodDetector(alerts_source=_alerts(recorded_alerts)).detect_live()
     assert result.flood_likely is True
+    assert result.live_context is not None
     assert result.live_context["flood_alert_events"] == ["Flood Warning"]
     assert "Coastal Flood Advisory" in result.live_context["other_flood_products"]
     assert result.flood_type == FloodType.RIVER.value
@@ -143,6 +145,7 @@ def test_quiet_gauges_report_no_stage() -> None:
     result = FloodDetector(gauge_source=_replay(NOAANWPSSource(), gauges)).detect_live()
     assert result.flood_likely is False
     assert result.river_stage_ft == 0.0
+    assert result.live_context is not None
     assert "worst_gauge" not in result.live_context
 
 
@@ -161,6 +164,7 @@ def test_every_gauge_in_the_box_is_read() -> None:
     many["gauges"][59]["status"]["observed"]["floodCategory"] = "major"
     source = _replay(NOAANWPSSource(bbox=(-96.0, 28.0, -93.0, 31.0)), many)
     result = FloodDetector(gauge_source=source).detect_live()
+    assert result.live_context is not None
     assert result.live_context["gauge_count"] == 60
     assert result.severity == "major"
 
@@ -220,4 +224,5 @@ def test_live_worst_gauge_reports_its_observed_flow() -> None:
     gauges = json.loads((FIXTURES / "nwps_gauges.json").read_text())
     gauges["gauges"][0]["status"]["observed"]["floodCategory"] = "minor"
     result = FloodDetector(gauge_source=_replay(NOAANWPSSource(), gauges)).detect_live()
+    assert result.live_context is not None
     assert result.live_context["worst_gauge"]["observed_flow_cfs"] == pytest.approx(1_340.0)
