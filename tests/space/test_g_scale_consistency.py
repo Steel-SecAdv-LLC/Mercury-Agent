@@ -57,6 +57,6 @@ def test_swpc_fetch_failure_is_not_a_quiet_feed() -> None:
     async def _down(endpoint: str, params: dict[str, Any] | None = None) -> None:
         raise DataSourceError("HTTP 503", source_id="noaa_swpc")
 
-    source._http_get = _down  # type: ignore[method-assign,assignment]
+    source._http_get = _down  # type: ignore[assignment, method-assign, unused-ignore]
     with pytest.raises(DataSourceError):
         asyncio.run(source._fetch_impl())

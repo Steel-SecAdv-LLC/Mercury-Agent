@@ -5,7 +5,7 @@
 The package was deleted (740da10a) for defects these tests pin; each fails on
 the restored-but-unfixed code. The VQE fit discarded its training data
 (held-out AUROC 0.51-0.58 on the data below), at most four features reached
-any circuit (an anomaly in feature 6 alone scored at chance, 0.52 on the
+any circuit (an anomaly in feature 6 alone scored AUROC 0.56-0.68 on the
 kernel path), every scored batch was rescaled to itself (a batch of
 anomalies and a batch of normals were both flagged 60 of 60), and the IBM
 hardware path was not refused under MERCURY_OFFLINE.
@@ -77,7 +77,8 @@ def test_kernel_path_projects_rather_than_truncates() -> None:
     detector = QuantumAnomalyDetector(shots=256, error_mitigation=None)
     detector.fit(train, method="quantum_kernel", num_qubits=2)
     scores = detector.detect(np.vstack([normal, anomalous])).anomaly_scores
-    assert _auc(scores[:15], scores[15:]) > 0.9  # 1.0 measured
+    # Shot noise is unseeded: 0.86-0.95 over 40 runs (truncation: 0.56-0.68 over 20).
+    assert _auc(scores[:15], scores[15:]) > 0.8
 
 
 def test_ibm_hardware_is_refused_offline(monkeypatch: pytest.MonkeyPatch) -> None:

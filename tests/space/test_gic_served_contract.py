@@ -95,7 +95,7 @@ def _source_with(
         return _Response()
 
     source = USGSGeomagnetismSource()
-    source._http_get = _get  # type: ignore[method-assign,assignment]
+    source._http_get = _get  # type: ignore[assignment, method-assign, unused-ignore]
     return source, calls
 
 

@@ -103,7 +103,7 @@ def test_global_catalog_does_not_order_protective_action() -> None:
     async def _get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
         return _Response()
 
-    source._http_get = _get  # type: ignore[method-assign,assignment]
+    source._http_get = _get  # type: ignore[assignment, method-assign, unused-ignore]
     result = EarthquakeDetector(data_source=source).detect_live()
     assert result.estimated_magnitude == pytest.approx(5.8)
     assert result.warning_actions == ["Monitor official earthquake information"]
@@ -194,7 +194,7 @@ def test_live_aftershock_window_starts_at_as_of() -> None:
 
     def _detector() -> EarthquakeDetector:
         source = USGSEarthquakeSource(min_magnitude=4.5)
-        source._http_get = _get  # type: ignore[method-assign,assignment]
+        source._http_get = _get  # type: ignore[assignment, method-assign, unused-ignore]
         return EarthquakeDetector(
             data_source=source, aftershock_parameters=dd.REASENBERG_JONES_GENERIC_CALIFORNIA
         )
