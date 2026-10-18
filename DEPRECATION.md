@@ -56,6 +56,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
 | `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
 | `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
+| `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v2.1** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
 
 ---
 
@@ -362,7 +363,8 @@ silently degrade).  Each entry records the criterion that overrode
 preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
-were removed across the v2.1 improvement and live-wiring passes.
+were removed across the v2.1 improvement and live-wiring passes, and §6.11
+with the AMA Cryptography v5 migration.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -542,6 +544,29 @@ added. New code must use the `compliance.` import path.
   gated only the dead attribute).
 * **Regression test:**
   `tests/detectors/test_live_wiring_geological.py::TestFloodDetectorLiveWiring::test_dead_runoff_network_is_gone`
+
+### 6.11 `security.pqc_backends.slhdsa_sign_internal`
+
+* **Removed by:** the AMA Cryptography v4.0.0 -> v5.0.0 pin migration
+  (October 2026)
+* **Override criterion:** §1 (Security Vulnerability). The wrapper called
+  the FIPS 205 §9.2 *internal* signing interface, which signs the raw
+  message: under one key its signatures cross-verified with the §10.2 API,
+  making it a signing oracle for pure signatures on attacker-chosen
+  `(ctx, M)` pairs. FIPS 205 §9 says the internal functions must not be
+  exposed to applications other than for testing. AMA v5 compiles them only
+  under `AMA_TESTING_MODE`, and its INVARIANT-50 names "legacy" and
+  "compatibility" entry points as no exemption, so Mercury keeps no shim
+  under the old name either (AMA's own `pqc_backends` asserts the name is
+  absent).
+* **Replacement:** `slhdsa_sign_addrnd(message, secret_key, addrnd, ctx=b"",
+  param_set=...)`, the §10.2 hedged signature with a caller-supplied
+  `addrnd`; it applies the `M' = 0x00 || len(ctx) || ctx || M` wrapper
+  itself, so callers pass the raw message. Production code uses
+  `slhdsa_sign` (randomness from an approved RBG) or
+  `slhdsa_sign_deterministic`.
+* **Regression test:**
+  `tests/security/test_pqc_guards_smoke.py::test_slhdsa_internal_interface_is_not_exposed`
 
 ---
 
