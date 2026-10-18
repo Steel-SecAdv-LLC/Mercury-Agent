@@ -11,8 +11,9 @@ Architecture:
   the hive's consensus is graded in the anomaly score rather than a single
   cut (identical workers made the whole hierarchy equal to ``score > 0.7``).
 - Supervisor nodes: Each supervises its own group of workers (round robin)
-  and votes block when the trust-weighted share of its workers voting block
-  reaches ``consensus_threshold``.
+  and votes block when at least one of its workers votes block and the
+  trust-weighted share of its workers voting block reaches
+  ``consensus_threshold``.
 - Queen node: Blocks when the trust-weighted majority of supervisors votes
   block.
 
@@ -21,8 +22,10 @@ positive raises the thresholds and lowers the trust of the nodes that voted
 to block it (it used to lower every threshold, so a borderline score that
 was allowed before a false-positive report was blocked after it); a reported
 missed threat lowers the thresholds of the nodes that voted to allow it.
-Thresholds stay within [0.01, 0.99] and trust within (0, 1]. Votes are kept
-per signature (bounded) so feedback reaches the nodes that cast them.
+Thresholds stay within [0.01, 0.99] and trust within [TRUST_FLOOR, 1]. Votes
+are kept per signature (bounded) so feedback reaches the nodes that cast
+them, and a report consumes them: one decision gets feedback once. An
+allowlisted signature is allowed without a vote.
 
 Reference: Immune system-inspired computing architectures.
 """
@@ -30,6 +33,7 @@ Reference: Immune system-inspired computing architectures.
 from __future__ import annotations
 
 import hashlib
+import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -39,6 +43,12 @@ import numpy as np
 
 #: Bounds on an adapted worker threshold.
 THRESHOLD_BOUNDS = (0.01, 0.99)
+
+#: Lowest trust a node can fall to. Positive, so a trust-weighted share never
+#: divides by zero (trust that decayed to 0.0 made every share 0/0 = NaN); low
+#: enough that a node at the floor barely counts, and it is back to full trust
+#: after about 135 correct votes at the default ``trust_decay`` of 0.95.
+TRUST_FLOOR = 1e-3
 
 
 @dataclass
@@ -103,8 +113,12 @@ class HiveFirewall:
             num_worker_nodes: Number of worker detection nodes
             num_supervisor_nodes: Number of supervisor aggregation nodes
             consensus_threshold: Trust-weighted share of a supervisor's
-                workers that must vote block for it to vote block (0.0-1.0)
+                workers that must vote block for it to vote block (0.0-1.0).
+                A supervisor never votes block unless at least one of its
+                workers does, so 0.0 means any one of them.
             trust_decay: Factor applied to a node's trust when it votes wrong
+                (and divided out when it votes right), in (0, 1]; 1.0 keeps
+                trust fixed
             base_threshold: Centre of the worker thresholds
             threshold_spread: Half-width of the worker thresholds around
                 ``base_threshold``
@@ -113,15 +127,28 @@ class HiveFirewall:
                 dropped first)
 
         Raises:
-            ValueError: On a non-positive node count or a parameter outside
-                its range.
+            ValueError: On a non-positive node count, more supervisors than
+                workers, or a parameter outside its range.
         """
         if num_worker_nodes < 1 or num_supervisor_nodes < 1:
             raise ValueError("the hive needs at least one worker and one supervisor")
         if num_supervisor_nodes > num_worker_nodes:
-            raise ValueError("each supervisor needs at least one worker")
-        if not 0.0 < consensus_threshold <= 1.0 or not 0.0 < trust_decay < 1.0:
-            raise ValueError("consensus_threshold must be in (0, 1] and trust_decay in (0, 1)")
+            raise ValueError(
+                "each supervisor aggregates its own group of workers, so "
+                f"{num_supervisor_nodes} supervisors need at least {num_supervisor_nodes} "
+                f"workers (got {num_worker_nodes}): a supervisor without workers has no "
+                "votes to weigh"
+            )
+        if not 0.0 <= consensus_threshold <= 1.0:
+            raise ValueError(
+                "consensus_threshold is a share of a supervisor's workers and must be in "
+                f"[0, 1], got {consensus_threshold!r}"
+            )
+        if not 0.0 < trust_decay <= 1.0:
+            raise ValueError(
+                "trust_decay must be in (0, 1]: trust is multiplied by it after a wrong vote "
+                f"and divided by it after a right one, got {trust_decay!r}"
+            )
         lo, hi = base_threshold - threshold_spread, base_threshold + threshold_spread
         if threshold_spread < 0.0 or lo < THRESHOLD_BOUNDS[0] or hi > THRESHOLD_BOUNDS[1]:
             raise ValueError(f"worker thresholds [{lo:g}, {hi:g}] must lie in {THRESHOLD_BOUNDS}")
@@ -162,13 +189,80 @@ class HiveFirewall:
         self.threat_stats = defaultdict[str, int](int)
 
         self._vote_log: dict[str, _VoteRecord] = {}
+        #: Blocked signatures whose block the hive issued (not report_missed_threat).
+        self._hive_blocks: set[str] = set()
         self._blocks_issued = 0
         self._blocks_reported_false = 0
 
     def _compute_signature_hash(self, data: np.ndarray[Any, Any]) -> str:
-        """Compute O(1) signature hash for threat data (dtype-independent)."""
-        data_bytes = np.ascontiguousarray(data, dtype=np.float64).tobytes()
-        return hashlib.sha3_256(data_bytes).hexdigest()[:16]
+        """Compute O(1) signature hash for threat data.
+
+        Bool, integer and floating data whose values float64 holds exactly is
+        hashed as float64, so ``[1, 2, 3]`` and ``[1.0, 2.0, 3.0]`` share a
+        signature; so is an object array of such real numbers. Other data
+        (strings, bytes, complex, integers float64 would round) is hashed as
+        its own dtype and raw bytes. Either way the dtype is hashed with the
+        little-endian bytes, so the signature is the same across runs, byte
+        orders and memory layouts.
+
+        Raises:
+            TypeError: If the data holds Python objects other than real
+                numbers float64 holds exactly: their raw bytes are memory
+                addresses, not content.
+        """
+        array = np.asarray(data)
+        exact = self._exact_float64(array)
+        if exact is None and array.dtype.hasobject:
+            raise TypeError(
+                "an object array is hashed only when every element is a real number "
+                "float64 holds exactly: the raw bytes of other objects are memory "
+                "addresses, so they have no stable signature"
+            )
+        canonical = array if exact is None else exact
+        canonical = np.ascontiguousarray(canonical, dtype=canonical.dtype.newbyteorder("<"))
+        # The NUL ends the dtype string, so no dtype's bytes can pass for another's.
+        payload = canonical.dtype.str.encode() + b"\0" + canonical.tobytes()
+        return hashlib.sha3_256(payload).hexdigest()[:16]
+
+    @staticmethod
+    def _exact_float64(array: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """``array`` as float64 if that holds every value exactly, else None."""
+        kind = array.dtype.kind
+        if kind == "O":
+            return HiveFirewall._exact_float64_of_objects(array)
+        if kind not in "biuf":
+            return None
+        with np.errstate(over="ignore"):  # a longdouble past float64 becomes inf: inexact
+            as_float = array.astype(np.float64, copy=False)
+        if kind in "iu":
+            # A value float64 rounds up to 2**bits (2**(bits - 1) if signed) is
+            # outside the dtype, so it is inexact, and casting it back overflows.
+            info = np.iinfo(array.dtype)
+            if not np.all(as_float < 2.0 ** (info.bits - 1 if info.min < 0 else info.bits)):
+                return None
+        round_trip = as_float.astype(array.dtype, copy=False)
+        return as_float if np.array_equal(round_trip, array, equal_nan=kind == "f") else None
+
+    @staticmethod
+    def _exact_float64_of_objects(array: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """Object ``array`` as float64 if each element is a real number it holds exactly."""
+        values: list[float] = []
+        with np.errstate(over="ignore"):  # a longdouble past float64 becomes inf: inexact
+            for item in array.flat:
+                if not isinstance(item, (int, float, np.bool_, np.integer, np.floating)) or (
+                    isinstance(item, np.timedelta64)  # an np.integer, but its unit would be lost
+                ):
+                    return None
+                # Compare integers as Python ints: numpy would compare them in float64.
+                exact = int(item) if isinstance(item, (int, np.integer)) else item
+                try:
+                    value = float(item)
+                except OverflowError:  # an int past float64's range
+                    return None
+                if value != exact and not math.isnan(value):
+                    return None
+                values.append(value)
+        return np.array(values, dtype=np.float64).reshape(array.shape)
 
     def is_blocked(self, data: np.ndarray[Any, Any]) -> tuple[bool, ThreatBlocking | None]:
         """Check if data matches blocked threat signature (O(1) lookup).
@@ -194,9 +288,11 @@ class HiveFirewall:
         """Hierarchical threat detection and blocking decision.
 
         Process:
-        1. Workers vote against their own thresholds
-        2. Supervisors aggregate their worker groups (trust-weighted)
-        3. Queen blocks on a trust-weighted supervisor majority
+        1. An allowlisted signature (allow_pattern, report_false_positive) is
+           allowed, and a blocked one returned, without a vote
+        2. Workers vote against their own thresholds
+        3. Supervisors aggregate their worker groups (trust-weighted)
+        4. Queen blocks on a trust-weighted supervisor majority
 
         Args:
             data: Input data
@@ -208,10 +304,16 @@ class HiveFirewall:
         Raises:
             ValueError: If the score is not finite or outside [0, 1].
         """
-        score = float(anomaly_score)
-        if not np.isfinite(score) or not 0.0 <= score <= 1.0:
-            raise ValueError(f"anomaly_score must be in [0, 1], got {anomaly_score!r}")
+        score = self._validate_score(anomaly_score)
         signature = self._compute_signature_hash(data)
+
+        if signature in self.allowed_patterns:
+            return ThreatBlocking(
+                signature_hash=signature,
+                block_decision=False,
+                confidence=0.0,
+                reasoning="Allowlisted pattern: allowed without a vote",
+            )
 
         existing = self.is_blocked(data)
         if existing[0] and existing[1] is not None:
@@ -237,9 +339,18 @@ class HiveFirewall:
         if block_decision:
             self.blocked_threats[signature] = threat_block
             self.threat_stats[signature] += 1
+            self._hive_blocks.add(signature)
             self._blocks_issued += 1
 
         return threat_block
+
+    @staticmethod
+    def _validate_score(anomaly_score: float) -> float:
+        """Return ``anomaly_score`` as a float, refusing one not finite in [0, 1]."""
+        score = float(anomaly_score)
+        if not np.isfinite(score) or not 0.0 <= score <= 1.0:
+            raise ValueError(f"anomaly_score must be in [0, 1], got {anomaly_score!r}")
+        return score
 
     def _record_votes(self, signature: str, record: _VoteRecord) -> None:
         self._vote_log.pop(signature, None)
@@ -280,6 +391,9 @@ class HiveFirewall:
     def _supervisor_consensus(self, worker_results: dict[str, Any]) -> dict[str, Any]:
         """Supervisor nodes aggregate their worker groups.
 
+        A supervisor votes block when at least one of its workers votes block
+        and their trust-weighted share reaches ``consensus_threshold``.
+
         Args:
             worker_results: Results from worker consensus
 
@@ -292,7 +406,7 @@ class HiveFirewall:
             share = self._weighted_share(
                 [self.worker_nodes[i] for i in group], [worker_votes[i] for i in group]
             )
-            supervisor_votes.append(share >= self.consensus_threshold)
+            supervisor_votes.append(share > 0.0 and share >= self.consensus_threshold)
 
         supervisor_consensus = self._weighted_share(self.supervisor_nodes, supervisor_votes)
 
@@ -340,6 +454,7 @@ class HiveFirewall:
 
         if signature in self.blocked_threats:
             del self.blocked_threats[signature]
+        self._hive_blocks.discard(signature)
 
     def _adapt(self, record: _VoteRecord, *, blocking_was_wrong: bool) -> None:
         """Move each voter toward the reported truth."""
@@ -347,7 +462,7 @@ class HiveFirewall:
         for worker, voted_block in zip(self.worker_nodes, record.worker_votes, strict=True):
             if voted_block == blocking_was_wrong:
                 # Wrong vote: lose trust; move the threshold away from the error.
-                worker.trust_score *= self.trust_decay
+                worker.trust_score = max(TRUST_FLOOR, worker.trust_score * self.trust_decay)
                 step = self.adaptation_step if blocking_was_wrong else -self.adaptation_step
                 worker.threshold = float(np.clip(worker.threshold + step, lo, hi))
                 if blocking_was_wrong:
@@ -358,7 +473,7 @@ class HiveFirewall:
             self.supervisor_nodes, record.supervisor_votes, strict=True
         ):
             if voted_block == blocking_was_wrong:
-                supervisor.trust_score *= self.trust_decay
+                supervisor.trust_score = max(TRUST_FLOOR, supervisor.trust_score * self.trust_decay)
             else:
                 supervisor.trust_score = min(1.0, supervisor.trust_score / self.trust_decay)
 
@@ -366,8 +481,9 @@ class HiveFirewall:
         """Report false positive and update trust scores.
 
         The nodes that voted to block lose trust and raise their thresholds;
-        those that voted to allow gain trust. A pattern the hive never
-        decided is only allowlisted: there are no votes to correct.
+        those that voted to allow gain trust. The report consumes the votes,
+        so repeating it only keeps the pattern allowlisted. A pattern the
+        hive never decided is only allowlisted: there are no votes to correct.
 
         Args:
             data: Data that was incorrectly blocked
@@ -376,11 +492,13 @@ class HiveFirewall:
 
         if signature in self.blocked_threats:
             del self.blocked_threats[signature]
+        if signature in self._hive_blocks:
+            self._hive_blocks.remove(signature)
             self._blocks_reported_false += 1
 
         self.allowed_patterns.add(signature)
 
-        record = self._vote_log.get(signature)
+        record = self._vote_log.pop(signature, None)
         if record is not None:
             self._adapt(record, blocking_was_wrong=True)
 
@@ -390,21 +508,27 @@ class HiveFirewall:
         The nodes that voted to allow it lose trust and lower their
         thresholds; those that voted to block gain trust. Without a recorded
         decision the votes are those the hive would cast at ``anomaly_score``.
+        The report consumes the votes, and a signature already blocked gets
+        none cast for it, so repeating the report changes no node again.
 
         Args:
             data: Data that should have been blocked
             anomaly_score: Its anomaly score (0.0-1.0)
+
+        Raises:
+            ValueError: If the score is not finite or outside [0, 1].
         """
+        score = self._validate_score(anomaly_score)
         signature = self._compute_signature_hash(data)
-        record = self._vote_log.get(signature)
-        if record is None:
-            score = float(anomaly_score)
+        record = self._vote_log.pop(signature, None)
+        if record is None and signature not in self.blocked_threats:
             worker_votes = [score >= w.threshold for w in self.worker_nodes]
             supervisor_votes = self._supervisor_consensus(
                 {"vote_list": worker_votes, "consensus": 0.0}
             )["vote_list"]
             record = _VoteRecord(score, worker_votes, supervisor_votes)
-        self._adapt(record, blocking_was_wrong=False)
+        if record is not None:
+            self._adapt(record, blocking_was_wrong=False)
 
         self.allowed_patterns.discard(signature)
         self.blocked_threats[signature] = ThreatBlocking(
@@ -429,14 +553,16 @@ class HiveFirewall:
                 if success:
                     node.trust_score = min(1.0, node.trust_score * 1.05)
                 else:
-                    node.trust_score *= self.trust_decay
+                    node.trust_score = max(TRUST_FLOOR, node.trust_score * self.trust_decay)
                 break
 
     def get_firewall_stats(self) -> dict[str, Any]:
         """Get comprehensive firewall statistics.
 
-        ``detection_accuracy`` is the share of issued blocks not reported as
-        false positives (1.0 when nothing was blocked is not claimed: 0.0).
+        ``detection_accuracy`` is the share of the blocks the hive issued that
+        were not reported as false positives, in [0, 1] (1.0 when nothing was
+        blocked is not claimed: 0.0). A block report_missed_threat made is the
+        operator's: neither it nor its retraction is counted.
         """
         total_blocked = len(self.blocked_threats)
         total_allowed = len(self.allowed_patterns)
@@ -472,6 +598,7 @@ class HiveFirewall:
         self.allowed_patterns.clear()
         self.threat_stats.clear()
         self._vote_log.clear()
+        self._hive_blocks.clear()
         self._blocks_issued = 0
         self._blocks_reported_false = 0
 
