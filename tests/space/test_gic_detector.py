@@ -59,14 +59,14 @@ class TestRiskTiers:
         ("peak", "expected"),
         [
             (0.0, "low"),
-            (99.9, "low"),
-            (100.0, "moderate"),
+            (89.9, "low"),
+            (90.0, "moderate"),  # 1.5 nT/s, top GEM validation threshold
             (299.9, "moderate"),
-            (300.0, "high"),
-            (400.0, "high"),  # task anchor: 400 nT/min -> high tier
-            (480.0, "high"),  # March 1989 Hydro-Québec-scale disturbance
-            (500.0, "severe"),
-            (5000.0, "severe"),  # Carrington-class benchmark context
+            (300.0, "high"),  # lower end of the 1989 US grid-impact range
+            (400.0, "high"),
+            (479.9, "high"),
+            (480.0, "severe"),  # March 1989 Hydro-Québec collapse level
+            (5000.0, "severe"),  # Meta-R-321: possible in an extreme storm
         ],
     )
     def test_operational_tiers(self, peak: float, expected: str) -> None:

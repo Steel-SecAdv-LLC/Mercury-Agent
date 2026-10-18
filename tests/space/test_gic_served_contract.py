@@ -1,0 +1,116 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""What ``GICDetector`` and its USGS source serve, on real Gannon-storm data.
+
+Each test fails on the code as it was before: 1-second data were differenced
+at 1 s (FRD read 765 nT/min "severe" where 1-minute data read ~55), a field
+in tesla read "low", the circular FFT put a late step's field at sample 0, a
+5-minute series was scored as if it were 1-minute, and the USGS source called
+a 404 endpoint and returned an empty list labelled "live".
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pytest
+
+from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.data_sources.base import DataSourceError
+from omni_mercury_engine.data_sources.geomagnetic import USGSGeomagnetismSource
+from omni_mercury_engine.space.gic_detector import GICDetector
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "space_weather"
+
+
+def _load(name: str) -> tuple[list[datetime], np.ndarray, np.ndarray]:
+    data = json.loads((FIXTURES / name).read_text())["data"]
+    times = [datetime.fromisoformat(t.replace("Z", "+00:00")) for t in data["times"]]
+    series = {v["id"]: np.asarray(v["values"], dtype=float) for v in data["values"]}
+    return times, series["X"], series["Y"]
+
+
+def test_one_second_data_is_assessed_at_one_minute() -> None:
+    times, bx, by = _load("usgs_geomag_frd_1s_2024_05_10.json")
+    raw_peak = float(np.max(np.hypot(np.diff(bx), np.diff(by)))) * 60.0
+    assert raw_peak > 700.0  # what 1-second differencing reads
+    result = GICDetector().assess(times, bx, by, observatory="FRD")
+    assert result.n_samples == 21
+    assert 30.0 < result.peak_dbdt_nt_per_min < 90.0
+    assert result.risk_level == "low"
+    assert any("1-minute means" in note for note in result.notes)
+
+
+def test_minute_data_pass_through_unchanged() -> None:
+    times, bx, by = _load("usgs_geomag_bou_2024_05_10.json")
+    result = GICDetector().assess(times, bx, by, observatory="BOU")
+    expected = float(np.nanmax(np.hypot(np.diff(bx), np.diff(by))))
+    assert result.peak_dbdt_nt_per_min == pytest.approx(expected)
+    assert result.risk_level == "moderate"  # ~254 nT/min, below the 300 nT/min tier
+
+
+def test_field_in_tesla_is_refused() -> None:
+    times, bx, by = _load("usgs_geomag_bou_2024_05_10.json")
+    with pytest.raises(InvalidObservationError, match="nT"):
+        GICDetector().assess(times, bx * 1e-9, by * 1e-9)
+
+
+def test_coarser_than_minute_cadence_is_refused() -> None:
+    times, bx, by = _load("usgs_geomag_bou_2024_05_10.json")
+    with pytest.raises(InvalidObservationError, match="cadence"):
+        GICDetector().assess(times[::5], bx[::5], by[::5])
+
+
+def test_geoelectric_field_is_causal() -> None:
+    times, bx, by = _load("usgs_geomag_bou_2024_05_10.json")
+    det = GICDetector()
+    stepped = bx.copy()
+    stepped[-5:] += 500.0  # a step in the last five minutes
+    ex0, ey0 = det.geoelectric_plane_wave_v_per_km(bx, by, 60.0)
+    ex1, ey1 = det.geoelectric_plane_wave_v_per_km(stepped, by, 60.0)
+    early = slice(0, len(bx) - 5)
+    np.testing.assert_allclose(ex1[early], ex0[early], atol=1e-9)
+    np.testing.assert_allclose(ey1[early], ey0[early], atol=1e-9)
+    assert float(np.max(np.abs(ey1[-5:] - ey0[-5:]))) > 0.1
+
+
+def _source_with(payload: Any, *, fail: bool = False) -> tuple[USGSGeomagnetismSource, list]:
+    calls: list[tuple[str, dict[str, Any] | None]] = []
+
+    class _Response:
+        def json(self) -> Any:
+            return payload
+
+    async def _get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
+        calls.append((endpoint, params))
+        if fail:
+            raise DataSourceError("HTTP 503", source_id="usgs_geomagnetism")
+        return _Response()
+
+    source = USGSGeomagnetismSource()
+    source._http_get = _get  # type: ignore[method-assign]
+    return source, calls
+
+
+def test_source_requests_the_live_endpoint_with_vector_components() -> None:
+    payload = json.loads((FIXTURES / "usgs_geomag_bou_2024_05_10.json").read_text())["data"]
+    source, calls = _source_with(payload)
+    end = datetime(2024, 5, 10, 18, tzinfo=UTC)
+    points = asyncio.run(source._fetch_impl(start_time=end - timedelta(hours=1), end_time=end))
+    endpoint, params = calls[0]
+    assert endpoint == "data/"
+    assert params is not None and params["sampling_period"] == "60"
+    assert params["elements"].split(",")[:2] == ["X", "Y"]
+    assert points and {"X", "Y"} <= set(points[0].data["elements"])
+
+
+def test_source_failure_is_not_an_empty_live_feed() -> None:
+    source, _calls = _source_with(None, fail=True)
+    end = datetime(2024, 5, 10, 18, tzinfo=UTC)
+    with pytest.raises(DataSourceError):
+        asyncio.run(source._fetch_impl(start_time=end - timedelta(hours=1), end_time=end))

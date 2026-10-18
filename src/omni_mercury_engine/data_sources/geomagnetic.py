@@ -66,6 +66,11 @@ class USGSObservatory(Enum):
     SAN_JUAN = "SJG"  # San Juan, Puerto Rico
 
 
+#: ``sampling`` names accepted by the source and the service's
+#: ``sampling_period`` (seconds) for each.
+_SAMPLING_PERIOD_S = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+
 class MagneticElement(Enum):
     """Magnetic field elements/channels."""
 
@@ -135,10 +140,21 @@ class USGSGeomagnetismSource(DataSourceBase):
 
         Args:
             observatories: Observatories to fetch from (None = Boulder)
-            elements: Magnetic elements to fetch (None = H, D, Z, F)
-            sampling: Data sampling rate (minute, second, hour, day)
+            elements: Magnetic elements to fetch (None = X, Y, Z, F: the
+                horizontal vector X/Y is what dB/dt and GIC need; the former
+                H, D, Z, F default forced the scalar-H path, which under-reads
+                dB/dt)
+            sampling: Data sampling rate (minute, second, hour, day), sent to
+                the service as ``sampling_period`` in seconds
             config: Optional base configuration
+
+        Raises:
+            ValueError: On an unknown ``sampling`` name.
         """
+        if sampling not in _SAMPLING_PERIOD_S:
+            raise ValueError(
+                f"sampling must be one of {sorted(_SAMPLING_PERIOD_S)}, got {sampling!r}"
+            )
         base_config = config or DataSourceConfig()
         base_config.rate_limit = RateLimitConfig(
             requests_per_hour=0,  # No stated limit
@@ -150,8 +166,8 @@ class USGSGeomagnetismSource(DataSourceBase):
 
         self._observatories = observatories or [USGSObservatory.BOULDER]
         self._elements = elements or [
-            MagneticElement.H,
-            MagneticElement.D,
+            MagneticElement.X,
+            MagneticElement.Y,
             MagneticElement.Z,
             MagneticElement.F,
         ]
@@ -177,6 +193,8 @@ class USGSGeomagnetismSource(DataSourceBase):
         # Dst index approximation: -50 to -100 = moderate, -100 to -200 = strong, < -200 = severe
 
         h_value = values.get("H")
+        if h_value is None and "X" in values and "Y" in values:
+            h_value = float(np.hypot(values["X"], values["Y"]))
         if h_value is not None:
             # Rough approximation of storm intensity from H variation
             # Note: Actual storm detection requires baseline comparison
@@ -207,19 +225,25 @@ class USGSGeomagnetismSource(DataSourceBase):
             "starttime": start_time.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
             "endtime": end_time.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
             "elements": elements_str,
-            "sampling_period": self._sampling,
+            "sampling_period": str(_SAMPLING_PERIOD_S[self._sampling]),
             "format": "json",
             "type": "variation",
         }
 
-        try:
-            response = await self._http_get("edge/", params=params)
-            data = response.json()
-            return self._parse_response(observatory, data)
-
-        except Exception as e:
-            logger.warning(f"USGS Geomag {observatory.value} fetch failed: {e}")
-            return []
+        # The service is /ws/data/ with a numeric sampling_period (seconds);
+        # /ws/edge/ returns 404 and sampling_period="minute" returns 400. A
+        # failure propagates: it used to be logged and returned as an empty
+        # list with provenance "live", so a dead feed read as a quiet field.
+        response = await self._http_get("data/", params=params)
+        data = response.json()
+        if not isinstance(data, dict) or "times" not in data or "values" not in data:
+            raise DataSourceError(
+                f"USGS Geomag {observatory.value}: response has no times/values "
+                f"(got {type(data).__name__}); endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        return self._parse_response(observatory, data)
 
     def _parse_response(
         self,
