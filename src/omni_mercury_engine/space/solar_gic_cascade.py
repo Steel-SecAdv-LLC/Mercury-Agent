@@ -12,11 +12,17 @@ grid operators, mirroring the physical causal chain of a geomagnetic storm:
    Gopalswamy 2001 ESA + Vršnak 2013 DBM arrival windows).
 2. **WARNING** — the predicted CME arrival window is *open* (now inside
    [earliest, latest]) AND the magnetosphere is responding: an observed
-   planetary Kp at or above the watch threshold (default Kp >= 5, NOAA G1;
-   NOAA SWPC Kp product or DONKI GST ``allKpIndex``).
+   planetary Kp at or above the watch threshold (NOAA SWPC Kp product or
+   DONKI GST ``allKpIndex``). The default is the NOAA G1 bound of
+   :data:`~omni_mercury_engine.evaluation.hazard_metrics.G_SCALE_THRESHOLDS`
+   (Kp 4.5: Kp is reported in thirds and SWPC files 5- = 4.67 under G1), so
+   the watch level agrees with
+   :func:`~omni_mercury_engine.evaluation.hazard_metrics.noaa_g_scale`, the
+   SWPC source and the solar-storm detector.
 3. **STORM_IN_PROGRESS** — ground truth: *measured* magnetometer dB/dt at
-   or above the GIC-relevant tier (default >= 100 nT/min, the "moderate"
-   operational tier of
+   or above the GIC-relevant tier (default the "moderate" tier of
+   :data:`~omni_mercury_engine.space.gic_detector.DBDT_RISK_TIERS_NT_PER_MIN`,
+   90 nT/min, of
    :class:`~omni_mercury_engine.space.gic_detector.GICDetector`).
 
 Each stage requires its REAL upstream signal — the machine never escalates
@@ -43,11 +49,16 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_THRESHOLDS, noaa_g_scale
 from omni_mercury_engine.space.cme_arrival_detector import (
     CMEArrivalDetector,
     CMEArrivalPrediction,
 )
-from omni_mercury_engine.space.gic_detector import GICAssessment, GICDetector
+from omni_mercury_engine.space.gic_detector import (
+    DBDT_RISK_TIERS_NT_PER_MIN,
+    GICAssessment,
+    GICDetector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +80,12 @@ FLARE_LOOKBACK_HOURS: float = 72.0
 #: Maximum age of a Kp observation to count as "current", hours (Kp is a
 #: 3-hourly index; 6 h tolerates one missed cadence).
 KP_MAX_AGE_HOURS: float = 6.0
+#: Default WARNING Kp: the NOAA G1 lower bound (4.5, between 4+ and 5-).
+KP_WATCH_THRESHOLD: float = next(kp for kp, name in G_SCALE_THRESHOLDS if name == "G1")
+#: Default STORM_IN_PROGRESS dB/dt: GICDetector's "moderate" tier, nT/min.
+DBDT_STORM_THRESHOLD_NT_PER_MIN: float = next(
+    nt for nt, name in DBDT_RISK_TIERS_NT_PER_MIN if name == "moderate"
+)
 
 
 @dataclass
@@ -172,8 +189,8 @@ class SolarGICCascadeDetector:
         self,
         cme_detector: CMEArrivalDetector | None = None,
         gic_detector: GICDetector | None = None,
-        kp_watch_threshold: float = 5.0,
-        dbdt_storm_threshold_nt_per_min: float = 100.0,
+        kp_watch_threshold: float = KP_WATCH_THRESHOLD,
+        dbdt_storm_threshold_nt_per_min: float = DBDT_STORM_THRESHOLD_NT_PER_MIN,
     ) -> None:
         """Initialize the cascade detector.
 
@@ -182,11 +199,13 @@ class SolarGICCascadeDetector:
                 :class:`CMEArrivalDetector` when None).
             gic_detector: Ground-response model (default configuration of
                 :class:`GICDetector` when None).
-            kp_watch_threshold: Observed Kp required for WARNING
-                (default 5.0 = NOAA G1).
+            kp_watch_threshold: Observed Kp required for WARNING (default
+                :data:`KP_WATCH_THRESHOLD`, the NOAA G1 bound 4.5, so 5- =
+                4.67 is G1 as SWPC files it).
             dbdt_storm_threshold_nt_per_min: Measured peak dB/dt required
-                for STORM_IN_PROGRESS (default 100 nT/min, the moderate
-                GIC tier).
+                for STORM_IN_PROGRESS (default
+                :data:`DBDT_STORM_THRESHOLD_NT_PER_MIN`, GICDetector's
+                moderate tier, 90 nT/min).
 
         Raises:
             ValueError: On out-of-range thresholds.
@@ -289,7 +308,7 @@ class SolarGICCascadeDetector:
             warning_reason = (
                 f"{len(open_windows)} arrival window(s) open at now and observed "
                 f"Kp {kp_hit[1]:.2f} >= {self.kp_watch_threshold:.1f} "
-                "(G1 watch level)"
+                f"(NOAA G{noaa_g_scale(self.kp_watch_threshold)} watch level)"
             )
         elif not watch_satisfied:
             warning_reason = "upstream WATCH not satisfied"
@@ -500,8 +519,10 @@ class SolarGICCascadeDetector:
 
 
 __all__ = [
+    "DBDT_STORM_THRESHOLD_NT_PER_MIN",
     "FLARE_LOOKBACK_HOURS",
     "KP_MAX_AGE_HOURS",
+    "KP_WATCH_THRESHOLD",
     "CascadeAssessment",
     "CascadeInputs",
     "CascadeStage",

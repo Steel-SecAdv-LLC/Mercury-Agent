@@ -16,7 +16,11 @@ pulse duration and source location were declared but never computed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import dataclasses
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -28,13 +32,15 @@ import torch
 from omni_mercury_engine.core.exceptions import InvalidObservationError
 from omni_mercury_engine.detectors.energy import emp_detector as emp
 from omni_mercury_engine.detectors.energy.emp_detector import (
+    E3PulseDetector,
     EMPDetector,
+    EMPPredictionResult,
     EMPType,
     ThreatLevel,
 )
+from omni_mercury_engine.space.gic_detector import DBDT_RISK_TIERS_NT_PER_MIN, GICDetector
 
-if TYPE_CHECKING:
-    from pathlib import Path
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "space_weather"
 
 IEC_E1 = {"field_strength_vm": 50_000.0, "rise_time_ns": 2.47, "peak_frequency_mhz": 100.0}
 BLAST_WAVE = {"db_dt_nt_s": 4512.0 / 5.0, "duration_seconds": 5.0}
@@ -143,6 +149,133 @@ def test_severe_storm_is_a_critical_grid_disturbance_not_an_emp(
     assert "Load shedding to reduce transformer stress" in result.protective_actions
 
 
+@pytest.mark.parametrize(
+    ("tier", "threat"),
+    [
+        ("severe", ThreatLevel.THREAT),  # grid impact "critical": load shedding
+        ("high", ThreatLevel.SUSPICIOUS),
+        ("moderate", ThreatLevel.ANOMALOUS),
+    ],
+)
+def test_grid_impact_sets_a_threat_floor(
+    detector: EMPDetector, tier: str, threat: ThreatLevel
+) -> None:
+    # Each GIC tier's lower bound as a 1-minute rate (480 nT/min is the 1989
+    # Hydro-Quebec level), so the grid impact is that tier's.
+    nt_per_min = {name: bound for bound, name in DBDT_RISK_TIERS_NT_PER_MIN}[tier]
+    result = detector.predict_emp(
+        {"magnetometer_data": {"db_dt_nt_s": nt_per_min / 60.0, "duration_seconds": 600.0}}
+    )
+    assert result.emp_type == EMPType.SOLAR_GIC.value
+    assert result.threat_level == threat.value
+
+
+def test_threat_is_the_more_severe_of_verdict_and_grid_floor(detector: EMPDetector) -> None:
+    sensor = {"waveform_vm": _damped_sine(1.3e9, 10.0, 2000.0), "sample_rate_hz": 40e9}
+    moderate = {"db_dt_nt_s": 90.0 / 60.0, "duration_seconds": 600.0}
+    # Suspected IEMI (suspicious) is not lowered by a moderate storm's floor ...
+    result = detector.predict_emp({"sensor_data": sensor, "magnetometer_data": moderate})
+    assert result.threat_level == ThreatLevel.SUSPICIOUS.value
+    # ... and is raised by a critical one's.
+    result = detector.predict_emp({"sensor_data": sensor, "magnetometer_data": HYDRO_QUEBEC_1989})
+    assert result.threat_level == ThreatLevel.THREAT.value
+
+
+def _frd_one_second() -> tuple[list[datetime], np.ndarray, np.ndarray]:
+    data = json.loads((FIXTURES / "usgs_geomag_frd_1s_2024_05_10.json").read_text())["data"]
+    times = [datetime.fromisoformat(t.replace("Z", "+00:00")) for t in data["times"]]
+    series = {v["id"]: np.asarray(v["values"], dtype=float) for v in data["values"]}
+    return times, series["X"], series["Y"]
+
+
+@pytest.mark.parametrize("cadence_s", [1.0, 300.0])
+def test_rate_at_another_cadence_is_not_graded_on_minute_tiers(
+    detector: EMPDetector, cadence_s: float
+) -> None:
+    times, bx, by = _frd_one_second()
+    peak_1s = float(np.max(np.hypot(np.diff(bx), np.diff(by))))  # nT/s, 12.75
+    assert GICDetector().assess(times, bx, by).risk_level == "low"
+    result = detector.predict_emp(
+        {
+            "magnetometer_data": {
+                "db_dt_nt_s": peak_1s,
+                "duration_seconds": 1.0,
+                "dbdt_cadence_s": cadence_s,
+            }
+        }
+    )
+    assert result.grid_impact_assessment == "unassessed"
+    assert result.emp_type == EMPType.NONE.value
+    assert result.threat_level == ThreatLevel.BENIGN.value
+    assert "Load shedding to reduce transformer stress" not in result.protective_actions
+
+
+def test_one_minute_rate_agrees_with_the_gic_detector(detector: EMPDetector) -> None:
+    times, bx, by = _frd_one_second()
+    gic = GICDetector().assess(times, bx, by)
+    result = detector.predict_emp(
+        {
+            "magnetometer_data": {
+                "db_dt_nt_s": gic.peak_dbdt_nt_per_min / 60.0,
+                "duration_seconds": 60.0,
+                "dbdt_cadence_s": 60.0,
+            }
+        }
+    )
+    assert result.grid_impact_assessment == gic.risk_level == "low"
+
+
+def test_non_positive_dbdt_cadence_is_refused(detector: EMPDetector) -> None:
+    with pytest.raises(InvalidObservationError, match="dbdt_cadence_s"):
+        detector.predict_emp({"magnetometer_data": {"db_dt_nt_s": 1.0, "dbdt_cadence_s": 0.0}})
+
+
+def test_released_result_fields_keep_their_positions() -> None:
+    released = [
+        "emp_detected",
+        "confidence",
+        "emp_type",
+        "threat_level",
+        "e1_component_detected",
+        "e2_component_detected",
+        "e3_component_detected",
+        "field_strength_vm",
+        "frequency_mhz",
+        "pulse_duration_ns",
+        "grid_impact_assessment",
+        "affected_infrastructure",
+        "source_localization",
+        "intentional_attack_probability",
+        "protective_actions",
+        "recovery_actions",
+    ]
+    names = [f.name for f in dataclasses.fields(EMPPredictionResult)]
+    assert names[: len(released)] == released
+    positional = EMPPredictionResult(
+        False, 0.0, "none", "benign", False, False, False, 1.0, 2.0, 3.0
+    )
+    assert positional.pulse_duration_ns == 3.0
+    assert positional.rise_time_ns is None
+
+
+def test_released_e3_key_is_kept_without_a_fabricated_value() -> None:
+    result = E3PulseDetector().detect_e3_pulse(HYDRO_QUEBEC_1989)
+    assert "gic_amplitude_a" in result
+    assert result["gic_amplitude_a"] is None
+
+
+@pytest.mark.parametrize("n_samples", [160, 240])
+def test_record_that_stops_before_the_pulse_falls_has_no_rise_time(n_samples: int) -> None:
+    # At 20 GS/s the benchmark peaks 9.84 ns into the record: 160 samples end
+    # on the rise, 240 end past the peak but above 90% of it.
+    cut = emp.analyze_field_waveform(_iec_e1_waveform(n=n_samples), 20e9)
+    assert cut["rise_time_ns"] is None
+    assert cut["peak_is_lower_bound"] is True
+    whole = emp.analyze_field_waveform(_iec_e1_waveform(), 20e9)
+    assert whole["peak_is_lower_bound"] is False
+    assert cut["peak_field_vm"] <= whole["peak_field_vm"]
+
+
 def test_e3_floor_sits_above_every_storm_estimate() -> None:
     # ~20 nT/s observed in March 1989; ~290 nT/s in simulated Carrington extremes.
     assert emp.E3_MIN_DBDT_NT_PER_S > 290.0
@@ -204,12 +337,26 @@ def test_field_at_or_below_hpem_level_is_not_iemi(detector: EMPDetector, peak_vm
 
 
 def test_lightning_band_field_is_not_iemi(detector: EMPDetector) -> None:
-    fs = 50e6
-    t = np.arange(10_000) / fs
-    lightning = np.concatenate([np.zeros(10), 5e3 * (np.exp(-1.5e4 * t) - np.exp(-6e6 * t))])
+    # 10 GS/s: the Nyquist frequency reaches the top of the IEMI band, so the
+    # band screen, not the sampling, decides.
+    fs = 10e9
+    assert fs / 2.0 >= emp.IEMI_BAND_MHZ[1] * 1e6
+    # The IEC 60060-1 1.2/50 us lightning impulse (double-exponential fit,
+    # tau = 68.22 us and 0.4074 us) at 5 kV/m: above the 100 V/m HPEM level,
+    # below the 10 kV/m E1 floor; 2**21 samples hold it to 5% of its peak.
+    t = np.arange(2**21) / fs
+    shape = np.exp(-t / 68.22e-6) - np.exp(-t / 0.4074e-6)
+    lightning = 5e3 * shape / shape.max()
+    metrics = emp.analyze_field_waveform(lightning, fs)
+    assert metrics["band_high_mhz"] < 20.0  # lightning-band content only
     result = detector.predict_emp({"sensor_data": {"waveform_vm": lightning, "sample_rate_hz": fs}})
-    assert result.emp_type == EMPType.NONE.value
+    assert result.hpem_environment is True
     assert result.e1_component_detected is False
+    assert result.emp_type == EMPType.NONE.value
+    # The same field strength in the IEMI band, at the same rate, is flagged.
+    in_band = _damped_sine(1.3e9, 10.0, 5e3, fs=fs)
+    flagged = detector.predict_emp({"sensor_data": {"waveform_vm": in_band, "sample_rate_hz": fs}})
+    assert flagged.emp_type == EMPType.INTENTIONAL_EMI.value
 
 
 def test_untrained_network_is_not_consulted() -> None:

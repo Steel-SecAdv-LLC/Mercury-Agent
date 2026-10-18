@@ -17,10 +17,17 @@ What it assesses, from the measurements a caller supplies:
   1-10 s, i.e. 450-4500 nT/s, while the largest geomagnetic storm rates are
   ~20 nT/s observed (March 1989) and ~290 nT/s in simulated Carrington
   extremes; the floor separates the two.
-* **Geomagnetic disturbance (GIC)** below the E3 floor: the grid impact uses
-  the same cited 1-minute dB/dt tiers as
-  :class:`~omni_mercury_engine.space.gic_detector.GICDetector`, so the two
-  detectors agree on the same storm.
+* **Geomagnetic disturbance (GIC)** below the E3 floor: the grid impact
+  grades ``db_dt_nt_s`` x 60 on the cited 1-minute dB/dt tiers of
+  :class:`~omni_mercury_engine.space.gic_detector.GICDetector`, so it takes
+  the rate to be a 1-minute one (from values a minute apart). Only then do
+  the two detectors agree on a storm: dB/dt grows with sampling rate, and a
+  sub-minute rate overstates the tiers (over 17:00-17:20Z of the FRD
+  2024-05-10 1-second record the peak 1-second rate, 12.75 nT/s, would grade
+  "critical", while GICDetector's 1-minute means of the same samples peak at
+  53.3 nT/min, "low"). A caller that states another cadence in
+  ``dbdt_cadence_s`` gets the grid impact "unassessed" rather than a grade
+  on tiers it was not measured on.
 * **Intentional EMI (IEMI)** after IEC 61000-2-13 and Giri & Tesche (IEEE
   Trans. EMC 46(3), 2004): a radiated high-power (HPEM) environment is a
   peak field above 100 V/m; its band class follows the band ratio
@@ -64,7 +71,11 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_scalar,
 )
 from omni_mercury_engine.security.safe_torch import safe_torch_load
-from omni_mercury_engine.space.gic_detector import classify_dbdt_risk
+from omni_mercury_engine.space.gic_detector import (
+    DBDT_CADENCE_S,
+    DBDT_CADENCE_TOLERANCE,
+    classify_dbdt_risk,
+)
 
 #: E2 (HEMP intermediate-time) amplitude floor and window after the burst,
 #: microseconds (DOE 2021 HEMP memo: 10-100 V/m for ~0.01 us to 1 ms).
@@ -129,7 +140,11 @@ class ThreatLevel(Enum):
 
 @dataclass
 class EMPPredictionResult:
-    """EMP prediction results."""
+    """EMP prediction results.
+
+    The fields through ``recovery_actions`` keep their released order, so
+    positional construction is unchanged; fields added since follow them.
+    """
 
     emp_detected: bool
     confidence: float
@@ -142,26 +157,32 @@ class EMPPredictionResult:
 
     field_strength_vm: float | None = None
     frequency_mhz: float | None = None
-    rise_time_ns: float | None = None
     #: Full width at half maximum of |E|, ns.
     pulse_duration_ns: float | None = None
-    peak_dbdt_nt_per_s: float | None = None
 
-    #: IEC 61000-2-13: peak field above 100 V/m.
-    hpem_environment: bool = False
-    band_ratio: float | None = None
-    band_class: str | None = None
-
+    #: ``none`` (dB/dt = 0), ``low`` / ``moderate`` / ``high`` / ``critical``
+    #: (the 1-minute GIC tiers), or ``unassessed`` (a stated dB/dt cadence
+    #: other than 1 minute; see the module docstring).
     grid_impact_assessment: str = "none"
     affected_infrastructure: list[str] = field(default_factory=list)
 
     #: From :func:`localize_tdoa` when a sensor array is supplied.
     source_localization: dict[str, float] | None = None
     #: The trained IEMI network's probability; None until weights are loaded.
+    #: (The released 0.0 default, and the random-weight output it was
+    #: replaced by, claimed a probability no classifier had computed; see
+    #: DEPRECATION.md section 6.12.)
     intentional_attack_probability: float | None = None
 
     protective_actions: list[str] = field(default_factory=list)
     recovery_actions: list[str] = field(default_factory=list)
+
+    rise_time_ns: float | None = None
+    peak_dbdt_nt_per_s: float | None = None
+    #: IEC 61000-2-13: peak field above 100 V/m.
+    hpem_environment: bool = False
+    band_ratio: float | None = None
+    band_class: str | None = None
 
 
 def classify_band_ratio(band_ratio: float) -> str:
@@ -197,9 +218,13 @@ def analyze_field_waveform(field_vm: Any, sample_rate_hz: Any) -> dict[str, Any]
         sample_rate_hz: Sampling rate, Hz.
 
     Returns:
-        ``peak_field_vm``; ``rise_time_ns`` (10-90% of the peak of |E|) and
-        ``pulse_duration_ns`` (FWHM of |E|), each None when the record cuts
-        the pulse; ``center_frequency_mhz`` (spectral peak);
+        ``peak_field_vm``; ``peak_is_lower_bound``, True when |E| does not
+        fall back below 90% of that maximum before the record ends (the
+        record stops before the pulse peaks, or on its crest); ``rise_time_ns``
+        (10-90% of the peak of |E|), None when the record starts after the
+        pulse onset or ``peak_is_lower_bound`` (its 90% level is unknown);
+        ``pulse_duration_ns`` (FWHM of |E|), None when the record cuts the
+        pulse; ``center_frequency_mhz`` (spectral peak);
         ``band_low_mhz``/``band_high_mhz`` (narrowest band holding 90% of the
         energy); ``band_ratio`` (inf when the band reaches DC) and
         ``band_class``; ``record_duration_ns``.
@@ -218,10 +243,14 @@ def analyze_field_waveform(field_vm: Any, sample_rate_hz: Any) -> dict[str, Any]
         raise InvalidObservationError("field waveform is identically zero")
     ns_per_sample = 1e9 / fs
     p = int(np.argmax(magnitude))
+    # Unless |E| falls back below the 90% level after its maximum, the record
+    # may end before the pulse peaks: the maximum under-reads the peak and
+    # the 90% point of the rise is not known.
+    peak_is_lower_bound = not bool(np.any(magnitude[p + 1 :] < 0.9 * peak))
 
     rise_time_ns: float | None = None
     below = np.flatnonzero(magnitude[:p] < 0.1 * peak)
-    if below.size:
+    if below.size and not peak_is_lower_bound:
         i10 = int(below[-1])
         i90 = i10 + 1 + int(np.argmax(magnitude[i10 + 1 : p + 1] >= 0.9 * peak))
         t10 = _crossing(magnitude, i10, 0.1 * peak)
@@ -249,6 +278,7 @@ def analyze_field_waveform(field_vm: Any, sample_rate_hz: Any) -> dict[str, Any]
 
     return {
         "peak_field_vm": peak,
+        "peak_is_lower_bound": peak_is_lower_bound,
         "rise_time_ns": rise_time_ns,
         "pulse_duration_ns": pulse_duration_ns,
         "center_frequency_mhz": float(freqs[int(np.argmax(amplitude))]) / 1e6,
@@ -536,10 +566,26 @@ class E3PulseDetector:
         """Detect E3 pulse (GIC).
 
         Args:
-            magnetometer_data: Geomagnetic field measurements
+            magnetometer_data: ``db_dt_nt_s`` (|dB/dt|, nT/s),
+                ``duration_seconds`` and optionally ``dbdt_cadence_s``, the
+                spacing (s) of the samples the rate was taken from. Without
+                it the rate is taken to be a 1-minute rate (see the module
+                docstring).
 
         Returns:
-            E3 pulse detection results
+            ``e3_detected``; ``peak_dbdt_nt_per_s``; ``grid_impact``: ``none``
+            for dB/dt = 0, else the 1-minute GIC tier of ``db_dt_nt_s`` x 60
+            (``low`` / ``moderate`` / ``high`` / ``critical``), or
+            ``unassessed`` when ``dbdt_cadence_s`` is not 1 minute; and
+            ``gic_amplitude_a``, always None: a GIC in amperes follows from
+            the geoelectric field through a model of the network, not from
+            dB/dt alone, and the released 0.1 x |dB/dt| had neither a source
+            nor a unit (kept as a key for released callers; DEPRECATION.md
+            section 6.12).
+
+        Raises:
+            InvalidObservationError: On non-finite values, a negative
+                duration, or a non-positive ``dbdt_cadence_s``.
         """
         db_dt_nt_s = abs(
             finite_scalar(magnetometer_data.get("db_dt_nt_s", 0.0), "db_dt_nt_s", unit="nT/s")
@@ -547,16 +593,28 @@ class E3PulseDetector:
         duration_seconds = finite_scalar(
             magnetometer_data.get("duration_seconds", 0.0), "duration_seconds", unit="s", lo=0.0
         )
+        cadence_s: float | None = None
+        if magnetometer_data.get("dbdt_cadence_s") is not None:
+            cadence_s = finite_scalar(
+                magnetometer_data["dbdt_cadence_s"], "dbdt_cadence_s", unit="s", lo=0.0
+            )
+            if cadence_s == 0.0:
+                raise InvalidObservationError("dbdt_cadence_s must be positive")
 
         # The former rule (> 2400 nT/s for more than 60 s) matched neither E3
         # phase: the blast wave lasts 1-10 s, the heave is slower.
         e3_detected = db_dt_nt_s >= E3_MIN_DBDT_NT_PER_S and duration_seconds >= E3_MIN_DURATION_S
 
-        # Grid impact on the GIC detector's cited 1-minute dB/dt tiers, so a
-        # storm reads the same here and there. (The former "GIC amplitude"
-        # was 0.1 x |dB/dt| in an undefined unit.)
+        # Grid impact on the GIC detector's cited 1-minute dB/dt tiers. A rate
+        # stated at another cadence is not graded on them: a sub-minute rate
+        # overstates them and a coarser one under-reads them (GICDetector
+        # averages the first and refuses the second).
         if db_dt_nt_s == 0.0:
             grid_impact = "none"
+        elif cadence_s is not None and (
+            abs(cadence_s - DBDT_CADENCE_S) > DBDT_CADENCE_TOLERANCE * DBDT_CADENCE_S
+        ):
+            grid_impact = "unassessed"
         else:
             grid_impact = _GRID_IMPACT[classify_dbdt_risk(db_dt_nt_s * 60.0)]
 
@@ -564,11 +622,23 @@ class E3PulseDetector:
             "e3_detected": e3_detected,
             "peak_dbdt_nt_per_s": float(db_dt_nt_s),
             "grid_impact": grid_impact,
+            "gic_amplitude_a": None,
         }
 
 
 #: GIC dB/dt tier -> grid impact wording.
 _GRID_IMPACT = {"low": "low", "moderate": "moderate", "high": "high", "severe": "critical"}
+
+#: The least threat level each grid impact warrants (see
+#: :meth:`EMPDetector._assess_threat_level`).
+_GRID_IMPACT_THREAT = {
+    "moderate": ThreatLevel.ANOMALOUS,
+    "high": ThreatLevel.SUSPICIOUS,
+    "critical": ThreatLevel.THREAT,
+}
+
+#: Threat levels from least to most severe (the enum's definition order).
+_THREAT_ORDER = tuple(ThreatLevel)
 
 
 class IntentionalEMIDetector(nn.Module):
@@ -796,8 +866,9 @@ class EMPDetector:
                   ``sample_rate_hz``) or ``field_strength_vm`` (V/m),
                   ``rise_time_ns``, ``peak_frequency_mhz``,
                   ``pulse_width_ns``; and ``e2_field_vm`` with ``e2_time_us``
-                - magnetometer_data: ``db_dt_nt_s`` (|dB/dt|, nT/s) and
-                  ``duration_seconds``
+                - magnetometer_data: ``db_dt_nt_s`` (|dB/dt|, nT/s),
+                  ``duration_seconds`` and optionally ``dbdt_cadence_s``
+                  (see :meth:`E3PulseDetector.detect_e3_pulse`)
                 - signature_data: ``repetition_rate_hz``; and
                   ``signature_features`` (``iemi-signature-v1``) for the
                   trained network, otherwise derived from the record
@@ -959,16 +1030,33 @@ class EMPDetector:
         iemi_suspected: bool = False,
         attack: bool = False,
     ) -> str:
-        """Assess overall threat level from the measured components."""
+        """Assess overall threat level from the measured components.
+
+        The level is the more severe of the EMP/IEMI verdict (critical for a
+        confirmed E1 + E3 burst, threat for a detected EMP or a confirmed
+        attack, suspicious for suspected IEMI, anomalous for a field above
+        1 kV/m) and the floor the grid impact sets on its own:
+
+        * ``critical`` (grid relays and load shedding advised) -> ``threat``,
+          the highest level short of ``critical``, which is reserved for a
+          confirmed burst and adds the EMP actions (hardened backups,
+          Faraday-cage protocols) that a storm does not call for;
+        * ``high`` (the same grid actions, one tier lower) -> ``suspicious``;
+        * ``moderate`` -> ``anomalous``;
+        * ``low``, ``none`` and ``unassessed`` set no floor.
+        """
         if result.emp_type == EMPType.NUCLEAR_EMP.value:
-            return ThreatLevel.CRITICAL.value
-        if result.emp_detected or attack:
-            return ThreatLevel.THREAT.value
-        if iemi_suspected:
-            return ThreatLevel.SUSPICIOUS.value
-        if result.field_strength_vm and result.field_strength_vm > 1000:
-            return ThreatLevel.ANOMALOUS.value
-        return ThreatLevel.BENIGN.value
+            level = ThreatLevel.CRITICAL
+        elif result.emp_detected or attack:
+            level = ThreatLevel.THREAT
+        elif iemi_suspected:
+            level = ThreatLevel.SUSPICIOUS
+        elif result.field_strength_vm and result.field_strength_vm > 1000:
+            level = ThreatLevel.ANOMALOUS
+        else:
+            level = ThreatLevel.BENIGN
+        floor = _GRID_IMPACT_THREAT.get(result.grid_impact_assessment, ThreatLevel.BENIGN)
+        return max(level, floor, key=_THREAT_ORDER.index).value
 
     def _identify_affected_infrastructure(self, result: EMPPredictionResult) -> list[str]:
         """Identify affected critical infrastructure."""

@@ -250,7 +250,14 @@ class USGSGeomagnetismSource(DataSourceBase):
         observatory: USGSObservatory,
         data: dict[str, Any],
     ) -> list[DataPoint]:
-        """Parse USGS Geomagnetism response."""
+        """Parse a USGS Geomagnetism response into one DataPoint per sample.
+
+        Every sample of the requested window is returned (samples with no
+        element value are skipped). The former cap at the last 100 kept 100
+        of the 1201 samples of a 20-minute 1-second request, so dB/dt and
+        GIC saw only its last 100 seconds; the caller bounds the volume with
+        the window and ``sampling`` it requests.
+        """
         data_points: list[DataPoint] = []
 
         values = data.get("values", [])
@@ -273,11 +280,8 @@ class USGSGeomagnetismSource(DataSourceBase):
             if elem_id:
                 elements.append(elem_id)
 
-        for i, time_str in enumerate(times[-100:]):  # Last 100 data points
+        for idx, time_str in enumerate(times):
             try:
-                # Adjust index for slicing
-                idx = len(times) - 100 + i if len(times) > 100 else i
-
                 timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
 
                 # Extract values for each element

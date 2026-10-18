@@ -58,6 +58,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
 | `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
 | `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v2.1** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
+| `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v2.1** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
 
 ---
 
@@ -365,7 +366,8 @@ preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
 were removed across the v2.1 improvement and live-wiring passes, and §6.11
-with the AMA Cryptography v5 migration.
+with the AMA Cryptography v5 migration. §6.12 records a value change, not a
+removal: the surfaces stay, their fabricated values do not.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -568,6 +570,40 @@ added. New code must use the `compliance.` import path.
   `slhdsa_sign_deterministic`.
 * **Regression test:**
   `tests/security/test_pqc_guards_smoke.py::test_slhdsa_internal_interface_is_not_exposed`
+
+### 6.12 EMP detector: `intentional_attack_probability` and `gic_amplitude_a` values
+
+* **Changed by:** the v2.1 EMP detector rework (October 2026). The
+  `EMPPredictionResult` field and the `detect_e3_pulse()` key keep their
+  released names and positions; only the value is now `None`, so code that
+  compares it with a number (`> 0.7`) or does arithmetic with it raises
+  `TypeError` instead of acting on a fabricated number.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine.
+  - `intentional_attack_probability` (released `float = 0.0`): whenever
+    `signature_data` was supplied it was the output of
+    `IntentionalEMIDetector` with random, never-trained weights (given only a
+    1 MHz repetition rate, "critical" in 52 of torch seeds 0-99), and `0.0`
+    otherwise, which states "no attack" although no classifier ran. No
+    public labelled IEMI corpus exists, so no weights ship; without a trained
+    network no probability is truthful, `0.0` included.
+  - `detect_e3_pulse()["gic_amplitude_a"]` (released `float`):
+    `0.1 × |dB/dt|`, labelled amperes. The coefficient has no source and the
+    product no defined unit: a GIC in amperes follows from the geoelectric
+    field through a model of the network and its grounding, not from dB/dt
+    alone.
+* **Replacement:** `intentional_attack_probability` is the trained
+  network's probability once `EMPDetector.load_neural_weights` loads an
+  `iemi-signature-v1` checkpoint (`train_iemi_network`); until then the
+  physics IEMI screen reports through `hpem_environment`, `band_class`,
+  `emp_type` and `threat_level`. For E3/GIC, `detect_e3_pulse()` reports
+  the measured `peak_dbdt_nt_per_s` and the 1-minute-tier `grid_impact`;
+  `space.gic_detector.GICDetector` gives the plane-wave geoelectric field
+  (`geoelectric_peak_v_per_km`).
+* **Regression tests:**
+  `tests/detectors/test_emp_served_contract.py::test_nothing_measured_is_benign`,
+  `::test_untrained_network_is_not_consulted` and
+  `::test_released_e3_key_is_kept_without_a_fabricated_value`
 
 ---
 

@@ -13,9 +13,11 @@ Geomagnetism web service, ``/ws/data``) and produces:
   variation is the primary driver of GIC in transmission networks (Viljanen
   et al. 2001, Ann. Geophys. 19; Pulkkinen et al. 2013, Space Weather 11).
   dB/dt grows with sampling rate (on the same two hours of 2024 Gannon-storm
-  data FRD read 765 nT/min at 1 s but 74 nT/min at 1 min), so sub-minute
-  data are averaged to 1-minute means first, the cadence of the published
-  thresholds; coarser data are refused because they under-read.
+  data, 17-19Z on 10 May, FRD read 765 nT/min from 1-second differences but
+  55 nT/min from 1-minute means; every 60th sample alone reads 57-84 nT/min,
+  depending on which second is kept), so sub-minute data are averaged to
+  1-minute means first, the cadence of the published thresholds; coarser
+  data are refused because they under-read.
 
 * **Geoelectric-field proxy** — the standard plane-wave (magnetotelluric)
   relation over a uniform half-space (Cagniard 1953, Geophysics 18;
@@ -91,6 +93,10 @@ DBDT_RISK_TIERS_NT_PER_MIN: tuple[tuple[float, str], ...] = (
 #: Cadence (s) at which dB/dt is computed and the tiers are defined.
 DBDT_CADENCE_S: float = 60.0
 
+#: Relative tolerance on :data:`DBDT_CADENCE_S` within which a series counts
+#: as 1-minute data (finer is averaged, coarser refused).
+DBDT_CADENCE_TOLERANCE: float = 0.05
+
 #: Rolling window for the sustained metric: 10 one-minute samples.
 SUSTAINED_WINDOW_SAMPLES: int = 10
 
@@ -140,7 +146,10 @@ class GICAssessment:
         conductivity_model: Named ground model used for the proxy.
         sigma_s_per_m: Conductivity value used, S/m.
         n_samples: Samples assessed (after averaging sub-minute data to 1 min).
-        n_gaps: Count of non-finite input samples excluded from dB/dt.
+        n_gaps: Count of non-finite input samples (X and Y each counted),
+            before any averaging. Sub-minute samples are skipped within their
+            minute's mean; minute bins left with no finite sample are counted
+            separately in ``notes``.
         single_component: True when only one horizontal component was
             available (H-only assessment).
         notes: Explicit data-quality / scope notes.
@@ -206,12 +215,12 @@ def _to_minute_cadence(
     if np.any(steps <= 0.0):
         raise ValueError("Timestamps must be strictly ascending.")
     cadence = float(np.median(steps))
-    if cadence > DBDT_CADENCE_S * 1.05:
+    if cadence > DBDT_CADENCE_S * (1.0 + DBDT_CADENCE_TOLERANCE):
         raise InvalidObservationError(
             f"magnetometer cadence is {cadence:g} s; dB/dt and its tiers are defined on "
             f"{DBDT_CADENCE_S:g} s data and a coarser series under-reads them"
         )
-    if cadence >= DBDT_CADENCE_S * 0.95:
+    if cadence >= DBDT_CADENCE_S * (1.0 - DBDT_CADENCE_TOLERANCE):
         return times, bx, by
     first = times[0]
     start = first - timedelta(seconds=first.second, microseconds=first.microsecond)
@@ -428,8 +437,17 @@ class GICDetector:
             raise ValueError(f"times ({len(times)}) and B ({bx.size}) lengths differ.")
         _check_field_units(bx, by, single_component)
 
+        def _non_finite(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> int:
+            return int(
+                np.sum(~np.isfinite(x)) + (0 if single_component else np.sum(~np.isfinite(y)))
+            )
+
+        # Counted on the input, before any averaging to 1-minute means.
+        n_gaps = _non_finite(bx, by)
         notes: list[str] = []
-        times, bx, by = _to_minute_cadence(times, bx, by, notes)
+        minute_times, bx, by = _to_minute_cadence(times, bx, by, notes)
+        averaged = minute_times is not times  # 1-minute data come back as is
+        times = minute_times
 
         dbdt_x = self.compute_dbdt_nt_per_min(times, bx)
         dbdt_y = self.compute_dbdt_nt_per_min(times, by)
@@ -441,11 +459,18 @@ class GICDetector:
                 f"{observatory or 'series'}: every dB/dt step falls in a data "
                 "gap; refusing to report a risk level from no usable data."
             )
-        n_gaps = int(
-            np.sum(~np.isfinite(bx)) + (0 if single_component else np.sum(~np.isfinite(by)))
-        )
-        if n_gaps:
-            notes.append(f"{n_gaps} non-finite input samples excluded pairwise from dB/dt.")
+        if not averaged:
+            if n_gaps:
+                notes.append(f"{n_gaps} non-finite input samples excluded pairwise from dB/dt.")
+        else:
+            if n_gaps:
+                notes.append(f"{n_gaps} non-finite input samples skipped in the 1-minute means.")
+            empty_bins = _non_finite(bx, by)
+            if empty_bins:
+                notes.append(
+                    f"{empty_bins} minute bins (X and Y each counted) with no finite "
+                    "sample excluded pairwise from dB/dt."
+                )
         if single_component:
             notes.append(
                 "Single-component (H-only) assessment: dB/dt and the geoelectric proxy "

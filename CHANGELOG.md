@@ -541,6 +541,16 @@ Principle, and the new contract tests fail on the previous code.
   class; the DOE 2021 E1 benchmark measures 2.47 / 22.98 ns against
   2.5 / 23 ns), detects E2 after E1, locates a source by TDOA, and keeps
   `IntentionalEMIDetector`, trainable and not consulted until weights load.
+  The threat level is at least what the grid impact warrants (a storm with
+  critical grid impact read "benign"); grid impact is graded on its
+  1-minute tiers only for a 1-minute rate (`dbdt_cadence_s`); a record that
+  ends before the pulse falls reports no rise time; the released field
+  order is a prefix again, and `intentional_attack_probability` and
+  `gic_amplitude_a` keep their places with the value `None` (DEPRECATION.md
+  §6.12). The USGS source returns the whole requested window (it kept the
+  last 100 samples, 1.5 minutes of a 1-second fetch), and the solar → GIC
+  cascade takes the GIC moderate tier (90 nT/min) and the NOAA G1 bound
+  (Kp 5-) instead of 100 nT/min and Kp 5.0.
 - Hazard fields: wildfire fuel moisture (NFDRS 1-hour, 1.03 × the EMC at
   the fuel-atmosphere interface, GTR INT-169 eq. 26 and Table 6; it needs
   the `nfdrs_state_of_weather` code, without which the spread model keeps

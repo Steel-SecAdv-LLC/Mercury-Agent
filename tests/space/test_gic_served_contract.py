@@ -46,6 +46,16 @@ def test_one_second_data_is_assessed_at_one_minute() -> None:
     assert any("1-minute means" in note for note in result.notes)
 
 
+def test_gaps_are_counted_on_the_input_samples() -> None:
+    times, bx, by = _load("usgs_geomag_frd_1s_2024_05_10.json")
+    bx[100:400:3] = np.nan  # 100 X samples, scattered over minutes 1-6
+    by[600:660] = np.nan  # 60 Y samples: all of 17:10
+    result = GICDetector().assess(times, bx, by, observatory="FRD")
+    assert result.n_gaps == 160
+    assert "160 non-finite input samples skipped in the 1-minute means." in result.notes
+    assert any(note.startswith("1 minute bins") for note in result.notes)
+
+
 def test_minute_data_pass_through_unchanged() -> None:
     times, bx, by = _load("usgs_geomag_bou_2024_05_10.json")
     result = GICDetector().assess(times, bx, by, observatory="BOU")
@@ -80,7 +90,7 @@ def test_geoelectric_field_is_causal() -> None:
 
 
 def _source_with(
-    payload: Any, *, fail: bool = False
+    payload: Any, *, fail: bool = False, sampling: str = "minute"
 ) -> tuple[USGSGeomagnetismSource, list[tuple[str, dict[str, Any] | None]]]:
     calls: list[tuple[str, dict[str, Any] | None]] = []
 
@@ -94,7 +104,7 @@ def _source_with(
             raise DataSourceError("HTTP 503", source_id="usgs_geomagnetism")
         return _Response()
 
-    source = USGSGeomagnetismSource()
+    source = USGSGeomagnetismSource(sampling=sampling)
     source._http_get = _get  # type: ignore[assignment, method-assign, unused-ignore]
     return source, calls
 
@@ -109,6 +119,23 @@ def test_source_requests_the_live_endpoint_with_vector_components() -> None:
     assert params is not None and params["sampling_period"] == "60"
     assert params["elements"].split(",")[:2] == ["X", "Y"]
     assert points and {"X", "Y"} <= set(points[0].data["elements"])
+
+
+def test_source_returns_the_whole_requested_window() -> None:
+    payload = json.loads((FIXTURES / "usgs_geomag_frd_1s_2024_05_10.json").read_text())["data"]
+    source, calls = _source_with(payload, sampling="second")
+    start = datetime(2024, 5, 10, 17, tzinfo=UTC)
+    points = asyncio.run(
+        source._fetch_impl(start_time=start, end_time=start + timedelta(minutes=20))
+    )
+    assert calls[0][1] is not None and calls[0][1]["sampling_period"] == "1"
+    assert len(points) == len(payload["times"]) == 1201
+    assert (points[0].timestamp, points[-1].timestamp) == (
+        start,
+        start + timedelta(minutes=20),
+    )
+    (result,) = GICDetector().assess_from_datapoints(points).values()
+    assert result.n_samples == 21  # every minute of the window, not the last 100 s
 
 
 def test_source_failure_is_not_an_empty_live_feed() -> None:
