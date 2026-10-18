@@ -11,8 +11,8 @@ Covers:
   points at ``AdaptiveDefenseSystem``, ``__all__`` is exact, the
   ``SelfHealingDeprecationWarning`` fires on import, and
   ``MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS`` suppresses it
-- ``anomaly/__init__.py``: the placeholder fusion package imports cleanly and
-  deliberately exports nothing
+- ``anomaly/__init__.py``: the cross-domain fusion package imports without
+  torch and exports the shipped cascades, identical to their domain modules
 """
 
 from __future__ import annotations
@@ -186,7 +186,7 @@ class TestSelfHealingShim:
 
 
 # ---------------------------------------------------------------------------
-# anomaly package placeholder
+# anomaly package: home of the cross-domain cascades
 # ---------------------------------------------------------------------------
 
 
@@ -195,9 +195,36 @@ class TestAnomalyPackageShim:
         module = importlib.import_module("omni_mercury_engine.anomaly")
         assert module is not None
 
-    def test_exports_nothing_by_design(self) -> None:
+    def test_exports_the_cross_domain_cascades(self) -> None:
+        # It exported nothing while three cross-domain cascades shipped
+        # elsewhere; each is now exported, one implementation.
         module = importlib.import_module("omni_mercury_engine.anomaly")
-        assert module.__all__ == []
+        canonical = {
+            "EqTsunamiCascadeDetector": "omni_mercury_engine.detectors.geological.eq_tsunami_cascade",
+            "SolarGICCascadeDetector": "omni_mercury_engine.space.solar_gic_cascade",
+            "SurgeFloodCascade": "omni_mercury_engine.detectors.meteorological.surge_flood_cascade",
+        }
+        assert sorted(module.__all__) == sorted(canonical)
+        for name, home in canonical.items():
+            assert getattr(module, name) is getattr(importlib.import_module(home), name)
+
+    def test_import_does_not_load_the_cascades(self) -> None:
+        import subprocess
+        import sys
+
+        code = (
+            "import sys, omni_mercury_engine.anomaly;"
+            "print('omni_mercury_engine.space.solar_gic_cascade' in sys.modules)"
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=True
+        )
+        assert out.stdout.strip() == "False"
+
+    def test_unknown_name_raises_attribute_error(self) -> None:
+        module = importlib.import_module("omni_mercury_engine.anomaly")
+        with pytest.raises(AttributeError):
+            module.NotACascade  # noqa: B018
 
     def test_docstring_documents_the_architectural_intent(self) -> None:
         module = importlib.import_module("omni_mercury_engine.anomaly")
