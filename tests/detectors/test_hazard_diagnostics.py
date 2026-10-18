@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pytest
 
+from omni_mercury_engine.core.exceptions import InvalidObservationError
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -158,15 +160,13 @@ class TestEarthquakeDiagnostics:
         p_idx = diag.context["p_arrival_index"]
         assert p_idx is None or 0 <= p_idx < len(series)
 
-    def test_short_record_has_no_sta_lta(self) -> None:
+    def test_short_record_is_refused(self) -> None:
+        # 256 samples < one STA+LTA window at 100 Hz: there is no trigger
+        # ratio to assess, so the record is refused rather than reported as
+        # "no earthquake".
         detector = EarthquakeDetector(keep_diagnostics=True)
-        result = detector.predict_earthquake(_seismic_series(n=256))
-        diag = result.diagnostics
-        assert diag is not None
-        # 256 samples < one STA+LTA window at 100 Hz: no ratio series exists,
-        # and the payload says so instead of inventing one.
-        assert "sta_lta_ratio" not in diag.arrays
-        assert diag.context["sta_lta_available"] is False
+        with pytest.raises(InvalidObservationError, match="STA \\+ LTA window"):
+            detector.predict_earthquake(_seismic_series(n=256))
 
 
 class TestTsunamiDiagnostics:
@@ -185,7 +185,7 @@ class TestTsunamiDiagnostics:
         power = diag.arrays["fft_power"]
         assert freqs.shape == (256,) and power.shape == (256,)
         assert np.isfinite(power).all() and (power >= 0).all()
-        assert diag.context["sampling_rate_hz"] == 1.0
+        assert diag.context["sampling_rate_hz"] == pytest.approx(1.0 / 900.0)  # DART rate
 
 
 class TestMeteorDiagnostics:

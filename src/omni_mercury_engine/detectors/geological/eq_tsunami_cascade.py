@@ -87,6 +87,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InvalidObservationError
+
 logger = logging.getLogger(__name__)
 
 #: PTWC information-bulletin magnitude floor (IOC TS No. 87 §4.3.2).
@@ -480,7 +482,7 @@ class EqTsunamiCascadeDetector:
 
         supplementary: dict[str, Any] | None = None
         if run_spectral_analysis:
-            supplementary = self._supplementary_spectral(series)
+            supplementary = self._supplementary_spectral(series, sampling_interval_s)
 
         self._water_level = WaterLevelConfirmation(
             confirmed=confirmed,
@@ -569,7 +571,9 @@ class EqTsunamiCascadeDetector:
         """Append one evidence record."""
         self._evidence.append({"kind": kind, "stage_after": stage_after.value, "detail": detail})
 
-    def _supplementary_spectral(self, series: np.ndarray[Any, Any]) -> dict[str, Any] | None:
+    def _supplementary_spectral(
+        self, series: np.ndarray[Any, Any], sampling_interval_s: float
+    ) -> dict[str, Any] | None:
         """Attach TsunamiDetector deterministic resonance evidence if possible.
 
         Only the deterministic FFT outputs (resonance score, dominant
@@ -578,22 +582,30 @@ class EqTsunamiCascadeDetector:
 
         Args:
             series: Water-level series.
+            sampling_interval_s: The series' sampling interval. The detector
+                used to run at its own default rate, so every reported
+                frequency was scaled by the wrong factor.
 
         Returns:
             Evidence dict, or None when torch/TsunamiDetector is
-            unavailable (recorded transparently by the caller as absent).
+            unavailable or refuses the series (recorded transparently by the
+            caller as absent).
         """
         try:
             from omni_mercury_engine.detectors.geological.disaster_detectors import (
                 TsunamiDetector,
             )
 
-            result = TsunamiDetector().predict_tsunami(series.astype(np.float32))
+            detector = TsunamiDetector(sampling_rate=1.0 / sampling_interval_s)
+            result = detector.predict_tsunami(series.astype(np.float32))
         except ImportError:
             self.logger.info(
                 "TsunamiDetector unavailable (torch not installed); skipping "
                 "supplementary spectral evidence."
             )
+            return None
+        except InvalidObservationError as exc:
+            self.logger.info("TsunamiDetector refused the series (%s); no spectral evidence", exc)
             return None
         return {
             "resonance_score": float(result.resonance_score),

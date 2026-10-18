@@ -288,9 +288,13 @@ def run_hazard_detector(
         from omni_mercury_engine.detectors.geological.disaster_detectors import TsunamiDetector
 
         series = _series_input(arrays, "series")
-        detector_t = TsunamiDetector(
-            sampling_rate=float(params.get("sampling_rate_hz", 1.0)),
-            keep_diagnostics=True,
+        # Without an explicit rate the detector's default (DART standard
+        # mode, 1/900 Hz) applies; a hard-coded 1 Hz matched no sea-level
+        # product.
+        detector_t = (
+            TsunamiDetector(sampling_rate=float(params["sampling_rate_hz"]), keep_diagnostics=True)
+            if "sampling_rate_hz" in params
+            else TsunamiDetector(keep_diagnostics=True)
         )
         diagnostics = detector_t.predict_tsunami(series.astype(np.float32)).diagnostics
     elif hazard == "schumann":

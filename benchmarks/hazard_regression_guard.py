@@ -453,8 +453,10 @@ def _run_earthquake(path: Path) -> dict[str, float]:
     (``load_shipped_weights=False``) is the surface every install gets when
     the checkpoint is absent and carries the untrained honesty tripwire; the
     default construction serves the shipped merit-gated ``seismic_stead``
-    checkpoint and is pinned as ``trained_*`` metrics with its own
-    capability tripwire (a trained station must estimate magnitudes).
+    checkpoint and is pinned as ``trained_*`` metrics. Both lanes carry the
+    same honesty tripwire: no magnitude, because the trained head reads an
+    amplitude-free (z-normalised) spectrogram and local magnitude is defined
+    on absolute amplitude and distance.
     """
     from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
 
@@ -497,20 +499,22 @@ def _run_earthquake(path: Path) -> dict[str, float]:
             "seismic_stead checkpoint; the merit-gated winner is not serving"
         )
     t_true, t_pred = [], []
-    n_magnitudes = 0
     for i in range(len(data["labels"])):
         result = trained.predict_earthquake(data["traces"][i])
+        if result.estimated_magnitude is not None:
+            raise RuntimeError(
+                "earthquake: trained detector served a magnitude "
+                f"({result.estimated_magnitude}) from an amplitude-free head on scenario {i}"
+            )
+        if result.detection_method != "learned_seismic_stead":
+            raise RuntimeError(
+                f"earthquake: trained lane ran {result.detection_method!r} on an on-contract "
+                f"scenario {i}; the merit-gated winner is not serving"
+            )
         label = int(data["labels"][i])
         t_true.append(label)
         t_pred.append(int(result.earthquake_detected))
-        if result.earthquake_detected and result.estimated_magnitude is not None:
-            n_magnitudes += 1
     trained_rates = _detection_rates(t_true, t_pred, "earthquake (trained)")
-    if sum(t_pred) > 0 and n_magnitudes == 0:
-        raise RuntimeError(
-            "earthquake: trained detector alerted without estimating a single "
-            "magnitude; the calibrated magnitude head is not serving"
-        )
     metrics["trained_pod"] = trained_rates["pod"]
     metrics["trained_far"] = trained_rates["far"]
     metrics["trained_csi"] = trained_rates["csi"]

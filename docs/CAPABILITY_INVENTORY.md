@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,913
+- **Total top-level classes:** 2,914
 - **Capability-bearing classes:** 1,926 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 48
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1138 |
-| Support types (config / result / enum / error) | 987 |
+| Support types (config / result / enum / error) | 988 |
 | Detection | 169 |
 | Neural models & layers | 160 |
 | Data sources & loaders | 103 |
@@ -655,7 +655,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 355 classes (226 capability)
+### `core/` — 356 classes (226 capability)
 
 **Adapters & backends**
 
@@ -916,9 +916,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `PlattScalingCalibrator` (`core.adaptive_domain_thresholding`) — Platt scaling for probability calibration.
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 
-<details><summary>Support types (129)</summary>
+<details><summary>Support types (130)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`
 
 </details>
 

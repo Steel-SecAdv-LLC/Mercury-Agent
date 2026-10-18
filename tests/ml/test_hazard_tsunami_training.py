@@ -294,14 +294,16 @@ class TestOperatingPointConsumption:
 class TestMeasuredWaveHeight:
     """estimated_wave_height_m is a MEASUREMENT on both paths.
 
-    The peak sea-level deviation from the median baseline is what the DART
-    record itself shows; the NN wave-height head (held-out MAE ~4x the
-    measurement's) is surfaced only as the diagnostic ``nn_wave_height_m``.
+    The peak of the detided residual is what the DART record itself shows; the
+    NN wave-height head (held-out MAE ~4x the measurement's) is surfaced only
+    as the diagnostic ``nn_wave_height_m``. The fixture window is already
+    detided with the detector's own tide model, so its residual is itself
+    (detiding is a projection) and the measurement is its peak magnitude.
     """
 
     def test_learned_path_reports_measured_peak_deviation(self, tmp_path: Path) -> None:
         residual = _tohoku_residual()
-        measured = float(np.max(np.abs(residual - np.median(residual))))
+        measured = float(np.max(np.abs(residual)))
 
         detector = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
         detector.load_neural_weights(
@@ -314,7 +316,7 @@ class TestMeasuredWaveHeight:
 
     def test_physics_path_reports_same_measurement_without_nn_diagnostic(self) -> None:
         residual = _tohoku_residual()
-        measured = float(np.max(np.abs(residual - np.median(residual))))
+        measured = float(np.max(np.abs(residual)))
         physics = TsunamiDetector(sampling_rate=1.0 / tw.SAMPLE_PERIOD_S)
         out = physics.predict_tsunami(residual)
         assert out.estimated_wave_height_m == pytest.approx(measured, rel=1e-6)

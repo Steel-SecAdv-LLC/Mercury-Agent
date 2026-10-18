@@ -284,18 +284,22 @@ class TestDetectorCheckpointWiring:
         assert physics._neural_trained is False
         assert learned._neural_trained is True
 
-        eq_indices = np.flatnonzero(stead_fixture["label"] == 1)
+        # Events and noise: on clear events both paths saturate at 1.0 since
+        # the STA/LTA runs on band-passed traces, so the noise traces carry
+        # the difference; ``detection_method`` proves which path decided.
         confidences: dict[str, list[float]] = {"physics": [], "learned": []}
-        for i in eq_indices:
+        for i in range(len(stead_fixture["label"])):
             trace = stead_fixture["z"][int(i)]
             res_p = physics.predict_earthquake(trace)
             res_l = learned.predict_earthquake(trace)
             confidences["physics"].append(res_p.confidence)
             confidences["learned"].append(res_l.confidence)
-            # Physics abstains from magnitude; the learned path estimates one.
+            # Neither path serves a magnitude: the learned head reads an
+            # amplitude-free spectrogram (local magnitude needs absolute
+            # amplitude and distance).
             assert res_p.estimated_magnitude is None
-            assert res_l.estimated_magnitude is not None
-            assert np.isfinite(res_l.estimated_magnitude)
+            assert res_l.estimated_magnitude is None
+            assert res_l.detection_method == "learned_seismic_stead"
         assert confidences["physics"] != confidences["learned"]
 
     def test_shipped_checkpoint_operating_point_is_ratified_and_consumed(self) -> None:

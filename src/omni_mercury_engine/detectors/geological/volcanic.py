@@ -41,6 +41,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.data_sources.base import DataSourceType
 from omni_mercury_engine.data_sources.live_ingestion import (
     LiveDataError,
@@ -48,6 +49,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors._hazard_input import finite_array, finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
@@ -66,9 +68,17 @@ class VolcanicActivityLevel(Enum):
 
 
 class EruptionType(Enum):
-    """Eruption classifications."""
+    """Eruption classifications.
+
+    The detector reports ``no_eruption`` or ``undetermined``: eruption style
+    and size (VEI) are assigned from the erupted deposit, and forecasting them
+    from precursors is an open problem (National Academies 2017,
+    https://nap.nationalacademies.org/24650). The style values are kept for
+    callers that record an observed eruption.
+    """
 
     NO_ERUPTION = "no_eruption"
+    UNDETERMINED = "undetermined"
     PHREATIC = "phreatic_steam"
     STROMBOLIAN = "strombolian"
     VULCANIAN = "vulcanian"
@@ -85,8 +95,14 @@ class VolcanicPredictionResult:
     alert_level: str
     eruption_type: str
 
+    # Not forecast (None): the former values were 168 * (1 - p) hours and a
+    # VEI read off the strongest precursor, so gas at 5x baseline alone gave
+    # "VEI 6, hawaiian_effusive, eruption in 6 h".
     time_to_eruption_hours: float | None = None
     vei_estimate: int | None = None  # Volcanic Explosivity Index
+    # Which eruption forecast ran: "neural", "physics", or None when the
+    # observations did not call for one.
+    forecast_method: str | None = None
 
     seismic_swarm_detected: bool = False
     thermal_anomaly_detected: bool = False
@@ -180,10 +196,13 @@ class ThermalHotspotDetector:
         Returns:
             Thermal anomaly detection results
         """
-        brightness_temp_k = thermal_data.get("brightness_temperature_k", np.array([]))
-
-        if len(brightness_temp_k) == 0:
+        raw = thermal_data.get("brightness_temperature_k", np.array([]))
+        if np.size(raw) == 0:
             return {"anomaly_detected": False, "max_temp_k": self.baseline_temp_k}
+        # An inf pixel used to raise a WARNING-level "plinian" forecast.
+        brightness_temp_k = finite_array(
+            raw, "brightness_temperature_k", unit="K", lo=150.0, hi=2000.0
+        ).ravel()
 
         max_temp = np.max(brightness_temp_k)
         mean_temp = np.mean(brightness_temp_k)
@@ -195,7 +214,9 @@ class ThermalHotspotDetector:
 
         hotspot_pixels = np.sum(brightness_temp_k > (mean_temp + 3 * std_temp))
 
-        radiant_heat_mw = thermal_data.get("radiant_heat_mw", 0.0)
+        radiant_heat_mw = finite_scalar(
+            thermal_data.get("radiant_heat_mw", 0.0), "radiant_heat_mw", unit="MW", lo=0.0
+        )
 
         intensity = "low"
         if max_temp > 400:
@@ -237,8 +258,20 @@ class GasEmissionAnalyzer:
         Returns:
             Gas emission anomaly analysis
         """
-        so2_flux = gas_data.get("so2_tons_per_day", self.baseline_so2_tons_day)
-        co2_flux = gas_data.get("co2_tons_per_day", self.baseline_co2_tons_day)
+        if not isinstance(gas_data, dict):
+            raise InputModalityError("gas_data must be a mapping of fluxes in t/day")
+        so2_flux = finite_scalar(
+            gas_data.get("so2_tons_per_day", self.baseline_so2_tons_day),
+            "so2_tons_per_day",
+            unit="t/day",
+            lo=0.0,
+        )
+        co2_flux = finite_scalar(
+            gas_data.get("co2_tons_per_day", self.baseline_co2_tons_day),
+            "co2_tons_per_day",
+            unit="t/day",
+            lo=0.0,
+        )
 
         so2_ratio = so2_flux / self.baseline_so2_tons_day
         co2_ratio = co2_flux / self.baseline_co2_tons_day
@@ -286,8 +319,14 @@ class InSARDeformationDetector:
         Returns:
             Deformation analysis
         """
-        vertical_displacement_cm = insar_data.get("vertical_displacement_cm", 0.0)
-        horizontal_displacement_cm = insar_data.get("horizontal_displacement_cm", 0.0)
+        vertical_displacement_cm = finite_scalar(
+            insar_data.get("vertical_displacement_cm", 0.0), "vertical_displacement_cm", unit="cm"
+        )
+        horizontal_displacement_cm = finite_scalar(
+            insar_data.get("horizontal_displacement_cm", 0.0),
+            "horizontal_displacement_cm",
+            unit="cm",
+        )
 
         total_displacement = np.sqrt(vertical_displacement_cm**2 + horizontal_displacement_cm**2)
 
@@ -295,7 +334,9 @@ class InSARDeformationDetector:
 
         deformation_type = "inflation" if vertical_displacement_cm > 0 else "deflation"
 
-        deformation_rate_cm_day = insar_data.get("deformation_rate_cm_day", 0.0)
+        deformation_rate_cm_day = finite_scalar(
+            insar_data.get("deformation_rate_cm_day", 0.0), "deformation_rate_cm_day", unit="cm/day"
+        )
 
         if total_displacement > 20.0:
             severity = "critical"
@@ -765,6 +806,7 @@ class VolcanicEruptionDetector:
         data_source: USGSVolcanoSource | None = None,
         keep_diagnostics: bool = False,
         load_shipped_weights: bool = True,
+        persist_hmm_state: bool = False,
     ):
         """Initialize volcanic eruption detector.
 
@@ -797,8 +839,16 @@ class VolcanicEruptionDetector:
                 False for the pure multi-precursor physics configuration (the
                 honesty-contract tests). Absence of the checkpoint falls open to
                 physics; an invalid checkpoint still fails loud.
+            persist_hmm_state: Carry the activity-state HMM belief from one
+                ``predict_eruption`` call to the next. Off by default: each call
+                then starts from the HMM prior, so the same observation gives
+                the same answer whatever was scored before (the evaluation
+                resets the HMM per case, so that is the behaviour it measured).
+                Turn it on only for one detector instance per volcano, fed in
+                time order.
         """
         self.keep_diagnostics = keep_diagnostics
+        self.persist_hmm_state = persist_hmm_state
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
         self.enable_gas = enable_gas
@@ -1070,6 +1120,23 @@ class VolcanicEruptionDetector:
         Returns:
             Volcanic eruption prediction with alert level and recommendations
         """
+        if not isinstance(volcano_data, dict):
+            # A bare array used to return a silent all-clear ("normal").
+            raise InputModalityError(
+                "predict_eruption expects a mapping of monitoring streams "
+                f"(seismic_sequence, thermal_data, gas_data, insar_data, ...), got "
+                f"{type(volcano_data).__name__}"
+            )
+        if "seismic_sequence" in volcano_data:
+            volcano_data = {
+                **volcano_data,
+                "seismic_sequence": finite_array(
+                    volcano_data["seismic_sequence"], "seismic_sequence", unit="counts"
+                ),
+            }
+        if self.state_hmm is not None and not self.persist_hmm_state:
+            self.state_hmm.reset()
+
         result = VolcanicPredictionResult(
             eruption_imminent=False,
             confidence=0.0,
@@ -1090,6 +1157,15 @@ class VolcanicEruptionDetector:
         swarm_probability: float | None = None
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
+            # The learned LSTM is trained on the eruption-onset label, not on
+            # swarms, so the swarm flag is always the amplitude rule that the
+            # name describes; the LSTM output stays in the diagnostics.
+            if seismic_result.get("method") != "physics":
+                physics_swarm = self._detect_swarm_physics(volcano_data["seismic_sequence"])
+                seismic_result = {
+                    **seismic_result,
+                    "swarm_detected": physics_swarm["swarm_detected"],
+                }
             result.seismic_swarm_detected = seismic_result["swarm_detected"]
             signals["seismic_confidence"] = seismic_result["confidence"]
             hmm_observations[0] = seismic_result["swarm_detected"]
@@ -1142,12 +1218,12 @@ class VolcanicEruptionDetector:
                 indicators_detected += 1
 
         if self.enable_schumann and "schumann_elf" in volcano_data:
-            schumann_corr = self._correlate_schumann_elf(volcano_data["schumann_elf"])
-            result.schumann_elf_correlation = schumann_corr
-            if schumann_corr > 0.6:
-                # ELF correlation contributes a bounded 0.5 indicator bonus
-                # (exploratory evidence)
-                indicators_detected += 0.5
+            # Reported only. ELF anomalies are not validated eruption
+            # precursors, and the score is a deviation from 7.83 Hz, not a
+            # correlation; it no longer adds to the decision.
+            result.schumann_elf_correlation = self._correlate_schumann_elf(
+                finite_array(volcano_data["schumann_elf"], "schumann_elf", unit="Hz")
+            )
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}
@@ -1175,9 +1251,12 @@ class VolcanicEruptionDetector:
             eruption_forecast = self._forecast_eruption(volcano_data, indicators_detected, signals)
             result.eruption_imminent = eruption_forecast["eruption_imminent"]
             result.confidence = max(result.confidence, eruption_forecast["confidence"])
-            result.time_to_eruption_hours = eruption_forecast["time_to_eruption_hours"]
-            result.vei_estimate = eruption_forecast["vei_estimate"]
-            result.eruption_type = eruption_forecast["eruption_type"]
+            result.forecast_method = eruption_forecast["method"]
+            result.eruption_type = (
+                EruptionType.UNDETERMINED.value
+                if result.eruption_imminent
+                else EruptionType.NO_ERUPTION.value
+            )
 
         # Apply 3R Refactoring adaptive optimization
         if self.enable_refactoring and self.refactoring_optimizer:
@@ -1208,6 +1287,15 @@ class VolcanicEruptionDetector:
             )
 
         result.alert_level = self._determine_alert_level(indicators_detected, result.confidence)
+        # A forecast eruption with an alert of "normal" (120 of 120 learned
+        # "imminent" cases before) is raised to WATCH: USGS "heightened or
+        # escalating unrest with increased potential of eruption, timeframe
+        # uncertain". WARNING stays reserved for the multi-indicator rule.
+        if result.eruption_imminent and result.alert_level in (
+            VolcanicActivityLevel.NORMAL.value,
+            VolcanicActivityLevel.ADVISORY.value,
+        ):
+            result.alert_level = VolcanicActivityLevel.WATCH.value
         result.hazard_zones = self._identify_hazard_zones(result)
         result.early_warning_actions = self._generate_early_warning(result)
         result.evacuation_recommendations = self._generate_evacuation_plan(result)
@@ -1350,18 +1438,11 @@ class VolcanicEruptionDetector:
                 imminent = prob >= self._operating_point["eruption_prob_threshold"]
             else:
                 imminent = prob > 0.7
-            vei_estimate = int(torch.argmax(torch.softmax(vei_logits[0], dim=0)).item())
-            eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
-            return {
-                "eruption_imminent": imminent,
-                "confidence": prob,
-                "time_to_eruption_hours": float(time_norm[0].item()) * 168.0,
-                "vei_estimate": vei_estimate,
-                "eruption_type": eruption_types[min(vei_estimate // 2, 3)],
-                "method": "neural",
-            }
+            del vei_logits, time_norm  # heads not trained on size or timing labels
+            return {"eruption_imminent": imminent, "confidence": prob, "method": "neural"}
 
-        self._warn_untrained_once()
+        if not self._neural_trained:
+            self._warn_untrained_once()
         return self._forecast_eruption_physics(signals)
 
     @staticmethod
@@ -1380,7 +1461,10 @@ class VolcanicEruptionDetector:
         output, no RNG.
         """
         seismic = min(max(signals.get("seismic_confidence", 0.0), 0.0), 1.0)
-        gas = min(max(signals.get("degassing_index", 0.0) / 5.0, 0.0), 1.0)
+        # Excess over baseline: index 1 (baseline) is 0, 5x baseline saturates.
+        # Dividing the raw index by 5 made baseline gas, or an empty gas
+        # record, add 0.2 to the noisy-OR.
+        gas = min(max((signals.get("degassing_index", 1.0) - 1.0) / 4.0, 0.0), 1.0)
         deform = min(max(signals.get("total_displacement_cm", 0.0) / 20.0, 0.0), 1.0)
         thermal = min(max(signals.get("radiant_heat_mw", 0.0) / 1000.0, 0.0), 1.0)
         hmm = min(max(signals.get("hmm_eruption_prob", 0.0), 0.0), 1.0)
@@ -1392,19 +1476,9 @@ class VolcanicEruptionDetector:
         eruption_probability = 1.0 - complement
         eruption_imminent = eruption_probability > 0.7
 
-        peak_severity = max(terms)
-        vei_estimate = int(min(max(round(1 + peak_severity * 5), 1), 6)) if eruption_imminent else 0
-        time_hours = float(np.clip(168.0 * (1.0 - eruption_probability), 6.0, 168.0))
-        eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
-        eruption_type = (
-            eruption_types[min(vei_estimate // 2, 3)] if vei_estimate > 0 else "no_eruption"
-        )
         return {
             "eruption_imminent": eruption_imminent,
             "confidence": float(eruption_probability),
-            "time_to_eruption_hours": time_hours,
-            "vei_estimate": vei_estimate,
-            "eruption_type": eruption_type,
             "method": "physics",
         }
 
@@ -1440,16 +1514,22 @@ class VolcanicEruptionDetector:
         """Generate early warning actions."""
         actions = []
 
+        # Wording follows the USGS Volcano Alert Level definitions
+        # (https://www.usgs.gov/natural-hazards/volcano-hazards/about-alert-levels);
+        # WATCH used to say "Eruption likely within 24 hours", which it is not.
         if result.alert_level == "warning":
-            actions.append("VOLCANIC WARNING: Eruption imminent or in progress")
+            actions.append("VOLCANIC WARNING: hazardous eruption imminent, underway or suspected")
             actions.append("Activate emergency response protocols")
             actions.append("Close access to volcano")
         elif result.alert_level == "watch":
-            actions.append("VOLCANIC WATCH: Eruption likely within 24 hours")
+            actions.append(
+                "VOLCANIC WATCH: heightened or escalating unrest, increased potential "
+                "of eruption, timeframe uncertain"
+            )
             actions.append("Prepare evacuation plans")
             actions.append("Position emergency resources")
         elif result.alert_level == "advisory":
-            actions.append("Volcanic Advisory: Elevated unrest")
+            actions.append("Volcanic Advisory: elevated unrest above known background")
             actions.append("Increase monitoring frequency")
 
         return actions
@@ -1458,7 +1538,8 @@ class VolcanicEruptionDetector:
         """Generate evacuation recommendations."""
         recs = []
 
-        if result.alert_level in ["warning", "watch"]:
+        # Evacuation is advised only at WARNING; WATCH means preparation.
+        if result.alert_level == "warning":
             recs.append("Evacuate high-risk zones immediately")
             recs.append("Establish emergency shelters outside hazard zones")
             recs.append("Prepare for ashfall, lahars, and pyroclastic flows")
