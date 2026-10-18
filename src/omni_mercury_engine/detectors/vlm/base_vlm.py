@@ -353,3 +353,40 @@ class BaseVLMDetector(BaseDetector):
             description: Normal behavior description
         """
         self.vlm_config.normal_description = description
+
+
+class VQAResult:
+    """Container for Visual Question Answering results."""
+
+    def __init__(
+        self,
+        is_anomaly: bool,
+        confidence: float,
+        explanation: str,
+        raw_response: str,
+        frame_indices: list[int] | None = None,
+    ):
+        """Initialize VQA result.
+
+        Args:
+            is_anomaly: Whether anomaly was detected
+            confidence: Confidence score [0, 1]
+            explanation: Natural language explanation
+            raw_response: Raw model response
+            frame_indices: Relevant frame indices for video
+        """
+        self.is_anomaly = is_anomaly
+        self.confidence = confidence
+        self.explanation = explanation
+        self.raw_response = raw_response
+        self.frame_indices = frame_indices or []
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "is_anomaly": self.is_anomaly,
+            "confidence": self.confidence,
+            "explanation": self.explanation,
+            "raw_response": self.raw_response,
+            "frame_indices": self.frame_indices,
+        }

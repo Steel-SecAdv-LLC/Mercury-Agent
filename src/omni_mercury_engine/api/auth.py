@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import os
 import secrets
 import threading
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -70,12 +72,14 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastapi import HTTPException, Request, status
+    from fastapi.responses import JSONResponse
     from fastapi.security import APIKeyHeader, HTTPBearer
 
     from omni_mercury_engine.api.key_store import KeyStore
 else:
     try:
         from fastapi import HTTPException, Request, status
+        from fastapi.responses import JSONResponse
         from fastapi.security import APIKeyHeader, HTTPBearer
     except ImportError:
         _FASTAPI_HINT = (
@@ -107,6 +111,7 @@ else:
                 raise RuntimeError(_FASTAPI_HINT)
 
         HTTPException = _RequiresFastAPI
+        JSONResponse = _RequiresFastAPI
         APIKeyHeader = _RequiresFastAPI
         HTTPBearer = _RequiresFastAPI
         status = _FastAPIStatusUnavailable()
@@ -1229,6 +1234,7 @@ class RequestRateLimiter:
             "limit": info.limit,
             "remaining": info.remaining,
             "reset": info.reset_at,
+            "retry_after": info.retry_after,
         }
 
 
@@ -1355,3 +1361,78 @@ class AuthConfig(BaseModel):
     rate_limit_enabled: bool = True
     rate_limit_requests_per_minute: int = 100
     rate_limit_burst: int = 20
+
+
+class AuthProvider(ABC):
+    """Abstract base class for authentication providers."""
+
+    @abstractmethod
+    async def authenticate(self, credentials: Any) -> User:
+        """Authenticate credentials and return user.
+
+        Args:
+            credentials: Authentication credentials.
+
+        Returns:
+            Authenticated user.
+
+        Raises:
+            AuthenticationError: If authentication fails.
+        """
+        pass
+
+    @abstractmethod
+    async def validate_token(self, token: str) -> User | None:
+        """Validate a token and return user if valid.
+
+        Args:
+            token: Token to validate.
+
+        Returns:
+            User if valid, None otherwise.
+        """
+        pass
+
+
+async def rate_limit_middleware(
+    request: Request,
+    call_next: Callable[..., Any],
+) -> Any:
+    """Rate limiting middleware for ``app.middleware("http")``.
+
+    An over-limit request gets a 429 with the ``X-RateLimit-*`` headers and
+    ``Retry-After`` (RFC 9110 delay-seconds, rounded up, at least 1). The 429
+    is returned as a response: an ``HTTPException`` raised from an ``http``
+    middleware never reaches FastAPI's exception handlers, which run inside
+    the middleware stack, so the client received a 500 instead.
+
+    Args:
+        request: FastAPI request.
+        call_next: Next middleware/handler.
+
+    Returns:
+        Response.
+    """
+    limiter = get_rate_limiter()
+    user = getattr(request.state, "user", None) if hasattr(request, "state") else None
+
+    allowed, info = limiter.is_allowed(request, user)
+    headers = {
+        "X-RateLimit-Limit": str(info["limit"]),
+        "X-RateLimit-Remaining": str(max(0, info["remaining"])),
+        "X-RateLimit-Reset": str(info["reset"]),
+    }
+
+    if not allowed:
+        retry_after = info.get("retry_after")
+        if retry_after is not None:
+            headers["Retry-After"] = str(max(1, math.ceil(retry_after)))
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Rate limit exceeded"},
+            headers=headers,
+        )
+
+    response = await call_next(request)
+    response.headers.update(headers)
+    return response

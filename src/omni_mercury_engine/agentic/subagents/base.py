@@ -60,6 +60,7 @@ from omni_mercury_engine.utils.constants import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
 
     from omni_mercury_engine.agentic.subagents.roster import RosterEntry
 
@@ -413,3 +414,16 @@ class SubAgent(MercuryAgent):
         reasoning = str(analysis.get("reasoning", {}).get("conclusion", "analysis complete"))
         confidence = float(analysis.get("plan_confidence", 0.0))
         return analysis, confidence, reasoning
+
+
+def make_capability(
+    specialty: str,
+    domains: Iterable[DomainType],
+    keywords: Iterable[str],
+) -> SubAgentCapability:
+    """Build a :class:`SubAgentCapability` from loose iterables (test/helper use)."""
+    return SubAgentCapability(
+        specialty=specialty,
+        domains=frozenset(domains),
+        keywords=frozenset(k.lower() for k in keywords),
+    )

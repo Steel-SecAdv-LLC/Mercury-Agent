@@ -114,7 +114,7 @@ from the roster; the structural invariants are gated by
 | 10 | **Demeter_X** | Cognitive evolution / growth | `cognitive`, `emergent` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 11 | **Hephaestus_XI** | Infrastructure / auto-scaling | `scaling`, `infrastructure` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 12 | **Eleos_XII** | Empathy / survivor support | `narrative`, `medical` | OMNI_BENEVOLENT (Σϵ) | 0.95 | coordinator |  |
-| 13 | **Dionysus_XIII** | Pattern / emergent recognition | `detectors`, `harmonics`, `emergent` | OMNI_DIRECTIONAL (👁∞) | 0.95 | deep |  |
+| 13 | **Dionysus_XIII** | Pattern / emergent recognition | `anomaly`, `detectors`, `harmonics`, `emergent` | OMNI_DIRECTIONAL (👁∞) | 0.95 | deep |  |
 | 14 | **Ares_XIV** | Security / defense / instant bans | `security`, `safeguards` | OMNI_INDIVISIBLE (Φϖ) | 0.847 | deep |  |
 | 15 | **Hades_XV** | Compression / deep (cold) storage | `data`, `crypto`, `utils` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 16 | **Selene_XVI** | Night/cron scheduling / temporal coordination | `streaming`, `scaling` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |

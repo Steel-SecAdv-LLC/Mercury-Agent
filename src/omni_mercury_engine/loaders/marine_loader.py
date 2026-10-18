@@ -893,3 +893,49 @@ def _compute_richness_by_cell(
         richness[str(cell)] = float(group["scientificName"].nunique())
 
     return richness
+
+
+#: Indicator genera the field record ranks highly susceptible to thermal
+#: bleaching: the acroporids (*Acropora*, *Montipora*) and pocilloporids
+#: (*Pocillopora*, *Seriatopora*, *Stylophora*). Marshall & Baird (2000, Coral
+#: Reefs 19:155) found most acroporids and pocilloporids highly susceptible on
+#: the Great Barrier Reef in 1998, with *Turbinaria* largely spared; Pratchett
+#: et al. (2013, PLoS ONE 8:e70443) found *Acropora* and *Montipora* bleaching
+#: far more often than *Porites* over four events at Moorea. *Porites*,
+#: *Goniastrea*, *Platygyra* and *Turbinaria* are the tolerant indicators;
+#: *Fungia* is ranked in neither set.
+_BLEACHING_SUSCEPTIBLE_GENERA: frozenset[str] = frozenset(
+    {"Acropora", "Montipora", "Pocillopora", "Seriatopora", "Stylophora"}
+)
+
+
+def _compute_sst_anomaly_proxy(cell_data: pd.DataFrame) -> float:
+    """Compute a thermal-stress proxy from species occurrence patterns.
+
+    The proxy is the share of a cell's occurrences whose genus is in
+    :data:`_BLEACHING_SUSCEPTIBLE_GENERA`. It is a biological proxy, not a
+    temperature: heat stress removes the susceptible genera first, so a drop
+    against the same cell's baseline suggests elevated temperatures.
+
+    The released proxy took the first half of :data:`_REEF_INDICATOR_SPECIES`
+    as the sensitive set. That counted *Porites*, among the most tolerant
+    genera, and left out *Seriatopora*, a highly susceptible pocilloporid. It
+    also matched genus names as substrings anywhere in the name; the genus is
+    now the first word of ``scientificName``.
+
+    Args:
+        cell_data: DataFrame of occurrences within a single grid cell.
+
+    Returns:
+        Float in ``[0.0, 1.0]``, the susceptible-genus share.
+        Returns ``0.0`` if no species data is available.
+    """
+    if cell_data.empty or "scientificName" not in cell_data.columns:
+        return 0.0
+
+    names = cell_data["scientificName"].dropna().astype(str)
+    if names.empty:
+        return 0.0
+
+    genera = names.str.strip().str.split().str[0]
+    return float(genera.isin(_BLEACHING_SUSCEPTIBLE_GENERA).mean())

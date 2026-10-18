@@ -442,3 +442,76 @@ class ParetoOptimizer:
             n_objectives=self.n_objectives,
             objective_names=names,
         )
+
+
+def optimize_benevolent_detector(
+    model_fn: Callable[[np.ndarray[Any, Any]], Any],
+    X_train: np.ndarray[Any, Any],
+    y_train: np.ndarray[Any, Any],
+    parameter_bounds: list[tuple[float, float]],
+    sensitive_attrs: np.ndarray[Any, Any] | None = None,
+    benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
+    n_generations: int = 50,
+    seed: int = 42,
+) -> tuple[np.ndarray[Any, Any], ParetoFront]:
+    """Optimize detector parameters for benevolence.
+
+    Args:
+        model_fn: Function that takes parameters and returns fitted model
+        X_train: Training features
+        y_train: Training labels
+        parameter_bounds: Bounds for each parameter
+        sensitive_attrs: Sensitive attributes for fairness
+        benevolence_threshold: Minimum benevolence score
+        n_generations: Number of optimization generations
+        seed: Random seed
+
+    Returns:
+        Tuple of (best_parameters, pareto_front)
+    """
+    mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
+
+    def objective(params: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
+        try:
+            model = model_fn(params)
+            model.fit(X_train, y_train)
+            predictions = model.predict_proba(X_train)
+            if predictions.ndim == 2:
+                predictions = predictions[:, 1]
+        except Exception as e:
+            logger.warning(f"Model evaluation failed: {e}")
+            return np.array([1.0, 1.0, 1.0])  # Worst case
+
+        result = mo_loss.compute(predictions, y_train, sensitive_attrs)
+
+        return np.array(
+            [
+                result.detection_loss,
+                1 - result.benevolence_score,
+                1 - result.fairness_score,
+            ]
+        )
+
+    optimizer = ParetoOptimizer(
+        objective_fn=objective,
+        n_objectives=3,
+        n_generations=n_generations,
+        seed=seed,
+    )
+
+    front = optimizer.optimize(parameter_bounds, benevolence_threshold)
+
+    best_solution = front.get_best_benevolent()
+    if best_solution is None:
+        best_solution = front.get_best_balanced()
+
+    best_params = best_solution.parameters if best_solution else np.zeros(len(parameter_bounds))
+
+    logger.info(
+        f"Benevolent optimization complete: "
+        f"best_params={best_params}, "
+        f"front_size={len(front.solutions)}"
+    )
+
+    return best_params, front

@@ -51,6 +51,48 @@ def _regularize(
     return matrix + tikhonov_lambda * np.eye(n, dtype=matrix.dtype)
 
 
+#: Doublings of the diagonal shift before :func:`_safe_cholesky` gives up;
+#: from 1e-6, 64 doublings pass 1e13.
+_MAX_SHIFT_DOUBLINGS = 64
+
+
+def _safe_cholesky(
+    matrix: np.ndarray[Any, Any],
+    tikhonov_lambda: float = _DEFAULT_TIKHONOV,
+) -> np.ndarray[Any, Any]:
+    """Cholesky decomposition with automatic Tikhonov fallback.
+
+    Returns the lower-triangular factor *L* such that ``L @ L.T == matrix +
+    tau * I``, with ``tau = 0`` when ``matrix`` is positive definite. Otherwise
+    ``tau`` starts at ``max(tikhonov_lambda, tikhonov_lambda - min(diag))`` and
+    doubles until the factorization succeeds (Cholesky with added multiple of
+    the identity, Nocedal & Wright, *Numerical Optimization*, 2nd ed., Alg.
+    3.3), so it lands within a factor of two of the smallest shift that works.
+    A single fixed shift, as released, still failed on any matrix with an
+    eigenvalue below ``-tikhonov_lambda``.
+
+    Raises:
+        ValueError: ``matrix`` is not square or holds a non-finite value.
+        numpy.linalg.LinAlgError: no shift up to ``2**64 * tau`` worked.
+    """
+    matrix = _ensure_2d_square(matrix, "matrix")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("matrix holds a non-finite value")
+    try:
+        result: np.ndarray[Any, Any] = sp_linalg.cholesky(matrix, lower=True)
+        return result
+    except sp_linalg.LinAlgError:
+        pass
+    tau = max(tikhonov_lambda, tikhonov_lambda - float(np.min(np.diag(matrix))))
+    for _ in range(_MAX_SHIFT_DOUBLINGS):
+        try:
+            result = sp_linalg.cholesky(_regularize(matrix, tau), lower=True)
+            return result
+        except sp_linalg.LinAlgError:
+            tau *= 2.0
+    raise np.linalg.LinAlgError(f"no diagonal shift up to {tau:g} made the matrix factorable")
+
+
 # =========================================================================
 # FisherInformationMatrix
 # =========================================================================

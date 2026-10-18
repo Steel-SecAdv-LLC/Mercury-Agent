@@ -25,6 +25,7 @@ in-memory deployment sweeps empty stores at zero cost.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -32,7 +33,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -190,3 +191,17 @@ def start_maintenance_task() -> asyncio.Task[None] | None:
     if interval <= 0:
         return None
     return asyncio.get_running_loop().create_task(_maintenance_loop(interval))
+
+
+@contextlib.contextmanager
+def maintenance_disabled_for_tests() -> Iterator[None]:
+    """Context manager tests use to switch the periodic loop off."""
+    previous = os.environ.get("MERCURY_MAINTENANCE_INTERVAL_SECONDS")
+    os.environ["MERCURY_MAINTENANCE_INTERVAL_SECONDS"] = "0"
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("MERCURY_MAINTENANCE_INTERVAL_SECONDS", None)
+        else:
+            os.environ["MERCURY_MAINTENANCE_INTERVAL_SECONDS"] = previous

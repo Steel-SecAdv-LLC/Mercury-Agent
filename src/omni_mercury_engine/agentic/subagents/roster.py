@@ -237,7 +237,7 @@ ROSTER: tuple[RosterEntry, ...] = (
     RosterEntry(
         id="Dionysus_XIII",
         role="Pattern / emergent recognition",
-        subsystems=("detectors", "harmonics", "emergent"),
+        subsystems=("anomaly", "detectors", "harmonics", "emergent"),
         anchor="OMNI_DIRECTIONAL",
         keywords=(
             "pattern",

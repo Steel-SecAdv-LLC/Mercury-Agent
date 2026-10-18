@@ -847,3 +847,42 @@ class AffectiveStateModel:
             features_list.append(features)
 
         return np.array(features_list, dtype=np.float32)
+
+
+def create_enhanced_model(
+    model_type: str,
+    config: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> QuantumFeatureModel | MultimodalBiometricModel | AffectiveStateModel:
+    """Factory function to create enhanced model instances.
+
+    Args:
+        model_type: Type of model ("quantum", "biometric", "affective")
+        config: Model configuration
+        **kwargs: Additional arguments
+
+    Returns:
+        Enhanced model instance
+    """
+    config = config or {}
+
+    if model_type == "quantum":
+        return QuantumFeatureModel(
+            num_qubits=config.get("num_qubits", 8),
+            decoherence_rate=config.get("decoherence_rate", 0.01),
+            **kwargs,
+        )
+    elif model_type == "biometric":
+        return MultimodalBiometricModel(
+            enforce_fairness=config.get("enforce_fairness", True),
+            fairness_threshold=config.get("fairness_threshold", 0.8),
+            **kwargs,
+        )
+    elif model_type == "affective":
+        return AffectiveStateModel(
+            n_emotions=config.get("n_emotions", 6),
+            temporal_window=config.get("temporal_window", 10),
+            **kwargs,
+        )
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")

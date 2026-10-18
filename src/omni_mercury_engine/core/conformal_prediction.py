@@ -1406,3 +1406,58 @@ def _compute_statistical_anomaly_scores(X: np.ndarray[Any, Any]) -> np.ndarray[A
     ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
     return np.asarray(np.clip(ensemble_scores, 0.0, 1.0))  # type: ignore[no-any-return, unused-ignore]
+
+
+def add_conformal_to_detector(
+    detector: Any,
+    X_cal: np.ndarray[Any, Any],
+    coverage: float = 0.95,
+    method: str = "split",
+) -> tuple[SplitConformalPredictor | CrossConformalPredictor, float]:
+    """Add conformal prediction to an existing fitted detector.
+
+    Implements a robust fallback cascade to extract anomaly scores from any
+    detector type, enabling conformal prediction regardless of detector API.
+
+    Args:
+        detector: Fitted anomaly detector (any scikit-learn compatible).
+        X_cal: Calibration data for conformal threshold estimation.
+        coverage: Target coverage level (default 0.95 = 95% coverage).
+        method: Conformal method ("split" or "cross").
+
+    Returns:
+        Tuple of (conformal_predictor, anomaly_threshold).
+
+    Raises:
+        ValueError: If no valid scoring method can be found, or ``method`` is
+            neither ``"split"`` nor ``"cross"``.
+
+    Example:
+        >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+        >>> detector = MercuryAnomalyDetector()
+        >>> detector.fit(X_train)
+        >>> conformal, threshold = add_conformal_to_detector(detector, X_cal)
+    """
+    if method not in ("split", "cross"):
+        raise ValueError(f"method must be 'split' or 'cross', got {method!r}")
+
+    # Get calibration scores with robust fallback cascade
+    scores = _extract_detector_scores(detector, X_cal)
+
+    # Fit conformal predictor
+    conformal: SplitConformalPredictor | CrossConformalPredictor
+    if method == "split":
+        conformal = SplitConformalPredictor(coverage=coverage)
+        conformal.fit(scores)
+    else:
+        cross_conformal = CrossConformalPredictor(coverage=coverage)
+
+        def score_fn(
+            X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+        ) -> np.ndarray[Any, Any]:
+            return _extract_detector_scores(detector, X)
+
+        cross_conformal.fit(X_cal, score_fn)
+        conformal = cross_conformal
+
+    return conformal, conformal.get_anomaly_threshold()

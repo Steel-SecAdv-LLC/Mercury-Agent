@@ -664,3 +664,51 @@ class DomainSpecificMetrics:
         """Compute graph domain metrics."""
         # Use adjacency as spatial weights
         return DomainSpecificMetrics.compute_spatial_metrics(node_scores, adjacency_matrix)
+
+
+#: Domains :func:`compute_benchmark_metrics` specializes for.
+BENCHMARK_DOMAINS = ("general", "statistical", "temporal", "spatial", "graph")
+
+
+def compute_benchmark_metrics(
+    y_true: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any],
+    y_prob: np.ndarray[Any, Any] | None = None,
+    domain: str = "general",
+    **kwargs: Any,
+) -> ComprehensiveMetrics:
+    """Convenience function to compute metrics for benchmarking.
+
+    ``domain`` selects the specialized metrics: ``"temporal"`` always computes
+    the event metrics (otherwise they need ``timestamps`` or more than 100
+    samples), and ``"spatial"`` / ``"graph"`` compute Moran's I and Geary's C
+    from ``spatial_weights`` / ``adjacency_matrix`` and ``y_prob``.
+    ``"general"`` and ``"statistical"`` compute the standard suite.
+
+    Args:
+        y_true: Ground truth labels
+        y_pred: Binary predictions
+        y_prob: Probability predictions
+        domain: One of :data:`BENCHMARK_DOMAINS`
+        **kwargs: Passed to :meth:`MetricsCalculator.compute_all_metrics`
+            (``protected_attrs``, ``timestamps``, ``spatial_weights``);
+            ``adjacency_matrix`` is accepted for ``domain="graph"``.
+
+    Returns:
+        ComprehensiveMetrics instance
+
+    Raises:
+        ValueError: ``domain`` is not in :data:`BENCHMARK_DOMAINS`, or a
+            spatial or graph domain is missing its weights or ``y_prob``.
+    """
+    if domain not in BENCHMARK_DOMAINS:
+        raise ValueError(f"domain must be one of {BENCHMARK_DOMAINS}, got {domain!r}")
+    if domain == "graph" and "adjacency_matrix" in kwargs:
+        kwargs["spatial_weights"] = kwargs.pop("adjacency_matrix")
+    if domain in ("spatial", "graph") and (kwargs.get("spatial_weights") is None or y_prob is None):
+        weights = "adjacency_matrix" if domain == "graph" else "spatial_weights"
+        raise ValueError(f"domain={domain!r} needs {weights} and y_prob")
+    if domain == "temporal" and kwargs.get("timestamps") is None:
+        kwargs["timestamps"] = np.arange(len(y_true))
+    calculator = MetricsCalculator()
+    return calculator.compute_all_metrics(y_true, y_pred, y_prob, **kwargs)

@@ -13,6 +13,7 @@ Enhancements to base domain detectors:
 
 from __future__ import annotations
 
+import functools
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -531,6 +532,79 @@ class SpatialAutocorrelation:
         return float(C)
 
 
+class ParallelDetectorExecutor:
+    """Parallel execution of multiple detectors for efficiency.
+
+    The released interface over
+    :class:`omni_mercury_engine.core.parallel_detectors.ParallelDetectorExecutor`.
+    ``timeout`` is a wall-clock budget for one :meth:`execute_detectors` call:
+    a detector still running at the deadline is reported as an error and the
+    finished results are kept (the released loop raised ``TimeoutError`` and
+    lost them). A detector runs on the pool only when it declares
+    ``parallel_safe = True``, the rule the engine applies; the others run in
+    the calling thread, in order, outside the deadline.
+    """
+
+    def __init__(self, max_workers: int = 4, timeout: float = 30.0):
+        """Initialize parallel executor.
+
+        Args:
+            max_workers: Maximum number of parallel workers
+            timeout: Wall-clock budget for one call (seconds)
+        """
+        from omni_mercury_engine.core.parallel_detectors import (
+            ParallelDetectorExecutor as _Executor,
+        )
+
+        self.max_workers = max_workers
+        self.timeout = timeout
+        self._executor = _Executor(max_workers=max_workers, timeout_s=timeout)
+
+    def execute_detectors(
+        self,
+        detectors: dict[str, Any],
+        data: np.ndarray[Any, Any],
+        method: str = "detect",
+    ) -> dict[str, Any]:
+        """Execute multiple detectors in parallel.
+
+        Args:
+            detectors: Dictionary of detector name to detector instance
+            data: Input data
+            method: Method to call on each detector; detectors without it
+                are left out of the result
+
+        Returns:
+            Dictionary of detector name to result, in ``detectors`` order. A
+            detector that raised or overran the budget maps to
+            ``{"error": message}``.
+        """
+        from omni_mercury_engine.core.parallel_detectors import DetectorTask, OutcomeStatus
+
+        tasks = []
+        for name, detector in detectors.items():
+            func = getattr(detector, method, None)
+            if func is None:
+                continue
+            safe = getattr(detector, "parallel_safe", False) is True and not (
+                method == "detect" and getattr(detector, "thread_bound_state", False) is True
+            )
+            tasks.append(DetectorTask(name, functools.partial(func, data), parallel_safe=safe))
+
+        results: dict[str, Any] = {}
+        for outcome in self._executor.run(tasks):
+            if outcome.ok:
+                results[outcome.name] = outcome.value
+                continue
+            if outcome.status is OutcomeStatus.TIMEOUT:
+                message = f"timeout after {self.timeout:g} s"
+            else:
+                message = str(outcome.error)
+            logger.warning(f"Detector {outcome.name} failed: {message}")
+            results[outcome.name] = {"error": message}
+        return results
+
+
 class BaseDomainDetector:
     """Enhanced base detector with adaptive thresholds and domain metrics.
 
@@ -756,3 +830,24 @@ class BaseDomainDetector:
                 pass
 
         return metrics
+
+
+def create_enhanced_detector(
+    detector_class: type,
+    domain: str,
+    config: dict[str, Any] | None = None,
+    **enhancement_kwargs: Any,
+) -> BaseDomainDetector:
+    """Factory function to create enhanced detector.
+
+    Args:
+        detector_class: Base detector class
+        domain: Domain type
+        config: Configuration for base detector
+        **enhancement_kwargs: Additional args for BaseDomainDetector
+
+    Returns:
+        Enhanced detector instance
+    """
+    base_detector = detector_class(config)
+    return BaseDomainDetector(base_detector, domain=domain, **enhancement_kwargs)

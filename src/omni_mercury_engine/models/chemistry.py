@@ -680,3 +680,28 @@ class ChemistryAnomalyDetector:
             "confidence": result.confidence,
             "element_count": len(result.element_anomalies),
         }
+
+
+def create_omni_chemistry_scalars() -> dict[str, float]:
+    """Create doctorate-level chemistry scalars for truth deciphering.
+
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
+    Returns:
+        Dictionary of omni-chemistry scalars
+    """
+    phi = 1.618
+
+    return {
+        "omni_elemental_purity": 1.44 * phi,
+        "omni_isotopic_stability": 1.47 * phi,
+        "omni_reaction_equilibrium": 1.41 * phi,
+        "omni_periodic_harmony": 1.43 * phi,
+        "omni_molecular_integrity": 1.45 * phi,
+        "omni_catalytic_efficiency": 1.39 * phi,
+        "omni_thermodynamic_optimization": 1.42 * phi,
+        "omni_quantum_coherence": 1.46 * phi,
+        "omni_classical_metals_correlation": 1.38 * phi,
+        "omni_nuclear_stability": 1.48 * phi,
+    }

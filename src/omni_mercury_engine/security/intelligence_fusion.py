@@ -38,6 +38,7 @@ import hashlib
 import json
 import logging
 import math
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -423,6 +424,8 @@ class IntelligenceFusionEngine:
         self,
         enable_neurosymbolic: bool = True,
         enable_cryptanalysis: bool = True,
+        golden_ratio_weights: bool | None = None,
+        *,
         counterintelligence: bool = True,
         merit_log: MeritAttemptLog | str | Path | None = None,
     ):
@@ -431,6 +434,11 @@ class IntelligenceFusionEngine:
         Args:
             enable_neurosymbolic: Enable symbolic threat reasoning
             enable_cryptanalysis: Enable pattern-based cryptanalysis
+            golden_ratio_weights: Deprecated and without effect, kept in its
+                released third position so positional calls keep their
+                meaning. It scaled the untrained network's logits and the
+                detection threshold by phi; decisions now come from the
+                reported evidence or a measured checkpoint. Passing it warns.
             counterintelligence: Screen reports before evidence scoring:
                 derivative and circular reports lose their weight,
                 corroboration counts independent origins rather than
@@ -443,6 +451,14 @@ class IntelligenceFusionEngine:
                 set, else counts on this instance only.
         """
         self.logger = logging.getLogger(__name__)
+        if golden_ratio_weights is not None:
+            warnings.warn(
+                "IntelligenceFusionEngine(golden_ratio_weights=...) has no effect: "
+                "decisions come from the reported evidence or a measured checkpoint "
+                "(load_trained_weights). Drop the argument.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self.enable_neurosymbolic = enable_neurosymbolic
         self.enable_cryptanalysis = enable_cryptanalysis
 
@@ -1608,3 +1624,31 @@ class IntelligenceFusionEngine:
             "confidence": result.confidence,
             "intel_sources": result.primary_intel_sources,
         }
+
+
+def create_omni_intelligence_scalars() -> dict[str, float]:
+    """Create doctorate-level intelligence scalars for truth deciphering.
+
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
+    Returns:
+        Dictionary of omni-intelligence scalars
+    """
+    phi = 1.618
+
+    return {
+        "omni_source_credibility": 1.45 * phi,
+        "omni_corroboration_strength": 1.42 * phi,
+        "omni_temporal_correlation": 1.38 * phi,
+        "omni_geospatial_precision": 1.40 * phi,
+        "omni_threat_anticipation": 1.47 * phi,
+        "omni_cryptographic_insight": 1.43 * phi,
+        "omni_human_factor_analysis": 1.36 * phi,
+        "omni_signal_clarity": 1.41 * phi,
+        "omni_financial_tracing": 1.39 * phi,
+        "omni_cyber_attribution": 1.44 * phi,
+        "omni_all_source_synthesis": 1.48 * phi,
+        "omni_counterintelligence": 1.46 * phi,
+        "omni_predictive_analysis": 1.43 * phi,
+    }

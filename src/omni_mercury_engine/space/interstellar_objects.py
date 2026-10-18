@@ -638,3 +638,26 @@ class InterstellarObjectDetector:
             base_significance *= 1.3
 
         return min(1.0, base_significance)
+
+
+def create_omni_interstellar_scalars() -> dict[str, float]:
+    """Create doctorate-level interstellar object analysis scalars.
+
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
+    Returns:
+        Dictionary of interstellar scalars
+    """
+    phi = 1.618
+
+    return {
+        "omni_orbital_precision": 1.44 * phi,
+        "omni_spectroscopic_sensitivity": 1.42 * phi,
+        "omni_morphological_analysis": 1.40 * phi,
+        "omni_acceleration_detection": 1.48 * phi,
+        "omni_comparative_assessment": 1.38 * phi,
+        "omni_hypothesis_evaluation": 1.43 * phi,
+        "omni_follow_up_prioritization": 1.41 * phi,
+        "omni_scientific_significance": 1.46 * phi,
+    }

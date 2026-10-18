@@ -46,6 +46,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `lambda_lyapunov` param | `convergence_rate` | **Preserved** - Alias mapping active |
 | `enable_quantum_terms` | `enable_optimization_terms` | **Preserved** - Alias mapping active |
 | `AnomalyFusionEquation` / `AAFE*` | `OmniAvaEquation` / `OAE*` | **Preserved** - Alias mapping active |
+| `IntelligenceFusionEngine(golden_ratio_weights=...)` | _none needed_ (decisions come from the reported evidence or a measured checkpoint) | **Preserved** - accepted in its released position, no effect, `DeprecationWarning` |
 | `compliance.tlp_handler` (was `security.tlp_handler`) | `omni_mercury_engine.compliance.tlp_handler` | **Relocated** - governance lives in `compliance/`; `security/` is reserved for implementation primitives |
 | `SafeHTTPClient(..., allow_untrusted=True)` | `SafeHTTPClient(..., user_configured=True[, allow_private=True])` | **Removed in v1.7** - security exception (see §6) |
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |

@@ -78,6 +78,251 @@ __all__ = [
 # Backward-compatible alias for AvaDominanceEquation
 AvaDominanceEquation: type[OmniAvaEquation] = OmniAvaEquation
 
+# The pre-split copies kept their ``_Legacy*`` names. The live classes in
+# ``three_r/`` are the same enums and config, and supersets of the engines and
+# the equation (keyword arguments added, none removed), so the names resolve
+# to them.
+_LegacyOmniAvaEquation = OmniAvaEquation
+_LegacyRecursionEngine = RecursionEngine
+_LegacyResonanceEngine = ResonanceEngine
+_LegacyAnomalyDetectionMethod = AnomalyDetectionMethod
+_LegacyIssueType = IssueType
+_LegacyIssueSeverity = IssueSeverity
+_LegacyEvolutionStrategy = EvolutionStrategy
+_LegacyRefactoringConfig = RefactoringConfig
+
+
+class _LegacyOAEWeightOptimizer:
+    """Supervised optimizer for OAE weights: maximize F1 on labeled data.
+
+    Finds weights (w_R, w_H, w_O) on the simplex (non-negative, summing to 1)
+    that maximize the F1 score of ``(w_R*R + w_H*H + w_O*O) * eta**Phi >=
+    threshold``, with the domain's ethical threshold ``eta``. Unlike
+    :class:`OAEWeightOptimizer`, which regresses continuous targets, this
+    fits binary anomaly labels.
+
+    F1 is piecewise constant in the weights, so its gradient is zero almost
+    everywhere. The released SLSQP fit therefore stopped after one iteration
+    at the initial weights and reported success (F1 0.335 kept where a grid
+    reaches 1.0 on data whose signal is all in ``O``). The fit here is
+    derivative-free: the simplex lattice at step 0.05, then a local search
+    that halves its step down to ``tolerance``. The initial weights are a
+    candidate, so the fit never ends below the baseline.
+
+    Example:
+        optimizer = _LegacyOAEWeightOptimizer(domain="medical")
+        result = optimizer.optimize(X_train, y_train)  # X: (n, 3) [R, H, O]
+        print(result["weights"], result["optimized_f1"])
+    """
+
+    # Domain-specific ethical thresholds (sigma_Immutable)
+    DOMAIN_THRESHOLDS: dict[str, float] = {
+        "medical": 0.93,
+        "security": 0.96,
+        "humanitarian": 0.95,
+        "infrastructure": 0.995,
+        "default": 0.96,
+    }
+
+    #: Step of the coarse simplex lattice.
+    COARSE_STEP = 0.05
+
+    def __init__(
+        self,
+        domain: str = "default",
+        golden_ratio_init: bool = True,
+        max_iterations: int = 100,
+        tolerance: float = 1e-6,
+    ) -> None:
+        """Initialize OAE weight optimizer.
+
+        Args:
+            domain: Domain for ethical threshold selection
+            golden_ratio_init: If True, initialize with golden ratio weights
+            max_iterations: Maximum local-search rounds after the lattice
+            tolerance: Smallest local-search step
+        """
+        self.domain = domain
+        self.ethical_threshold = self.DOMAIN_THRESHOLDS.get(
+            domain, self.DOMAIN_THRESHOLDS["default"]
+        )
+        self.golden_ratio = GOLDEN_RATIO_CONSTANT
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
+        self.logger = logging.getLogger(__name__)
+
+        if golden_ratio_init:
+            phi_sum = self.golden_ratio + 1.0 + (1.0 / self.golden_ratio)
+            self.initial_weights = np.array(
+                [
+                    self.golden_ratio / phi_sum,  # w_R
+                    1.0 / phi_sum,  # w_H
+                    (1.0 / self.golden_ratio) / phi_sum,  # w_O
+                ]
+            )
+        else:
+            self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+
+        self.optimized_weights: NDArray[np.float64] | None = None
+        self.optimization_history: list[dict[str, Any]] = []
+
+    def _compute_oae_scores(
+        self,
+        weights: NDArray[np.float64],
+        X: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Compute OAE scores ``A = (w_R*R + w_H*H + w_O*O) * eta**Phi``.
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+
+        Returns:
+            Array of OAE scores
+        """
+        ethical_scaling = self.ethical_threshold**self.golden_ratio
+        return np.asarray(X @ weights * ethical_scaling, dtype=np.float64)
+
+    def _objective_function(
+        self,
+        weights: NDArray[np.float64],
+        X: NDArray[np.float64],
+        y: NDArray[Any],
+        threshold: float = 0.5,
+    ) -> float:
+        """Negative F1 score of the thresholded OAE scores (for minimization).
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold
+
+        Returns:
+            Negative F1 score
+        """
+        predictions = self._compute_oae_scores(weights, X) >= threshold
+        positives = y == 1
+        tp = int(np.sum(predictions & positives))
+        fp = int(np.sum(predictions & ~positives))
+        fn = int(np.sum(~predictions & positives))
+        return -(2.0 * tp / (2 * tp + fp + fn)) if tp else 0.0
+
+    def _search(
+        self, X: NDArray[np.float64], y: NDArray[Any], threshold: float
+    ) -> tuple[NDArray[np.float64], float, int]:
+        """Best simplex weights by lattice then local search: (weights, F1, evaluations)."""
+        best_w = self.initial_weights.astype(np.float64)
+        best_f1 = -self._objective_function(best_w, X, y, threshold)
+        evaluations = 1
+
+        def consider(w_r: float, w_h: float) -> None:
+            nonlocal best_w, best_f1, evaluations
+            w = np.array([w_r, w_h, 1.0 - w_r - w_h])
+            if np.any(w < -1e-12):
+                return
+            f1 = -self._objective_function(np.clip(w, 0.0, 1.0), X, y, threshold)
+            evaluations += 1
+            if f1 > best_f1:
+                best_w, best_f1 = np.clip(w, 0.0, 1.0), f1
+
+        lattice = np.round(np.arange(0.0, 1.0 + 1e-9, self.COARSE_STEP), 10)
+        for w_r in lattice:
+            for w_h in lattice[lattice <= 1.0 - w_r + 1e-9]:
+                consider(float(w_r), float(w_h))
+
+        step = self.COARSE_STEP / 2
+        for _ in range(self.max_iterations):
+            if step < self.tolerance:
+                break
+            before = best_f1
+            centre = best_w.copy()
+            for d_r in (-step, 0.0, step):
+                for d_h in (-step, 0.0, step):
+                    consider(float(centre[0] + d_r), float(centre[1] + d_h))
+            if best_f1 <= before:
+                step /= 2
+        return best_w, best_f1, evaluations
+
+    def optimize(
+        self,
+        X: list[tuple[float, float, float]] | NDArray[np.float64],
+        y: list[int] | NDArray[Any],
+        threshold: float = 0.5,
+    ) -> dict[str, Any]:
+        """Optimize OAE weights on labeled data.
+
+        Args:
+            X: Training data - list of (R, H, O) score tuples or array
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold for F1 computation
+
+        Returns:
+            Dict with optimized weights, metrics, and improvement stats
+
+        Raises:
+            ValueError: ``X`` is not (n, 3), or ``y`` does not match it.
+        """
+        X_arr = np.asarray(X, dtype=np.float64)
+        y_arr = np.asarray(y)
+        if X_arr.ndim != 2 or X_arr.shape[1] != 3:
+            raise ValueError("X must have 3 columns: [R, H, O] scores")
+        if y_arr.shape != (X_arr.shape[0],):
+            raise ValueError(f"y must have shape ({X_arr.shape[0]},), got {y_arr.shape}")
+
+        baseline_f1 = -self._objective_function(self.initial_weights, X_arr, y_arr, threshold)
+        weights, optimized_f1, evaluations = self._search(X_arr, y_arr, threshold)
+        self.optimized_weights = weights
+        f1_improvement = (optimized_f1 - baseline_f1) / baseline_f1 if baseline_f1 > 0 else 0.0
+
+        optimization_result = {
+            "weights": {
+                "w_R": float(weights[0]),
+                "w_H": float(weights[1]),
+                "w_O": float(weights[2]),
+            },
+            "initial_weights": {
+                "w_R": float(self.initial_weights[0]),
+                "w_H": float(self.initial_weights[1]),
+                "w_O": float(self.initial_weights[2]),
+            },
+            "baseline_f1": baseline_f1,
+            "optimized_f1": optimized_f1,
+            "f1_improvement": f1_improvement,
+            "domain": self.domain,
+            "ethical_threshold": self.ethical_threshold,
+            "convergence": {
+                "success": True,
+                "iterations": evaluations,
+                "message": "simplex lattice and local search",
+            },
+        }
+
+        self.optimization_history.append(optimization_result)
+        self.logger.info(
+            f"OAE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
+            f"({f1_improvement:+.2%})"
+        )
+        return optimization_result
+
+    def get_optimized_equation(self) -> OmniAvaEquation | None:
+        """Get OmniAvaEquation instance with optimized weights.
+
+        Returns:
+            OmniAvaEquation with optimized weights, or None if not optimized
+        """
+        if self.optimized_weights is None:
+            return None
+
+        return OmniAvaEquation(
+            ethical_compliance_threshold=self.ethical_threshold,
+            initial_weights={
+                "w_R": float(self.optimized_weights[0]),
+                "w_H": float(self.optimized_weights[1]),
+                "w_O": float(self.optimized_weights[2]),
+            },
+        )
+
 
 class CognitiveComplexityVisitor(ast.NodeVisitor):
     """AST visitor that calculates cognitive complexity following SonarQube rules.

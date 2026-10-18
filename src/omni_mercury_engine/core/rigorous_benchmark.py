@@ -578,3 +578,57 @@ class RigorousBenchmarkHarness:
                 ),
             },
         }
+
+
+def run_baseline_benchmarks(
+    X: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
+    dataset_name: str = "Dataset",
+    n_folds: int = 10,
+    seed: int = GLOBAL_SEED,
+) -> dict[str, BenchmarkResult]:
+    """Run Mercury-native benchmarks.
+
+    Benchmarks Mercury's own MercuryAnomalyDetector.  Third-party detectors
+    (sklearn OneClassSVM, LOF, EllipticEnvelope) are **not** part of
+    Mercury's detection pipeline and are intentionally excluded.  For
+    comparison against third-party baselines, see
+    ``benchmarks/baseline_results.json`` which stores pre-computed results.
+
+    Args:
+        X: Feature matrix
+        y: Binary labels
+        dataset_name: Name of dataset
+        n_folds: Number of CV folds
+        seed: Random seed
+
+    Returns:
+        Dictionary mapping detector name to BenchmarkResult
+    """
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+    harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
+    results = {}
+
+    # Mercury MercuryAnomalyDetector
+    class MercuryWrapper:
+        def __init__(self) -> None:
+            """Initialize the instance."""
+            self.detector = MercuryAnomalyDetector()
+
+        def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None) -> None:
+            self.detector.fit(X)
+
+        def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            result = self.detector.detect(X)
+            return np.asarray(result["is_anomaly"].astype(int))  # type: ignore[no-any-return, unused-ignore]
+
+        def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            result = self.detector.detect(X)
+            return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
+
+    results["Mercury-Agent"] = harness.benchmark_detector(
+        MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
+    )
+
+    return results

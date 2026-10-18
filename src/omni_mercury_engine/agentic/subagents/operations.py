@@ -1350,3 +1350,8 @@ OPERATIONS: dict[str, Adapter] = {
     "Hyperion_XXXII": _op_hyperion,
     "Rhea_XXXIII": _op_rhea,
 }
+
+
+def operation_for(pantheon_id: str) -> Adapter | None:
+    """Return the real-entrypoint adapter for a coordinator, or ``None`` if none."""
+    return OPERATIONS.get(pantheon_id)

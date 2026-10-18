@@ -15,13 +15,17 @@ Runtime target: ~50min benchmarks → ~25min with optimizations.
 from __future__ import annotations
 
 import gc
+import hashlib
 import logging
 import os
 import sys
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from functools import wraps
+from typing import Any, Protocol, TypeVar, cast
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -109,14 +113,14 @@ class MemoryEfficientCache:
         else:
             return sys.getsizeof(obj)
 
-    def get(self, key: str) -> Any | None:
-        """Get item from cache."""
+    def get(self, key: str, default: Any = None) -> Any | None:
+        """Get item from cache, or ``default`` when ``key`` is not cached."""
         if key in self.cache:
             self.cache.move_to_end(key)
             self.hits += 1
             return self.cache[key][0]
         self.misses += 1
-        return None
+        return default
 
     def put(self, key: str, value: Any) -> None:
         """Put item in cache with automatic eviction."""
@@ -595,3 +599,171 @@ def apply_all_optimizations(
     )
 
     return components
+
+
+class _CachedCallable(Protocol):
+    """A callable decorated by :func:`memory_efficient_lru_cache`.
+
+    Declares the cache-introspection attributes the decorator attaches, so the
+    wrapper can expose them as a checked structural type instead of forcing an
+    ``attr-defined`` suppression at each assignment.
+    """
+
+    cache: MemoryEfficientCache
+    cache_clear: Callable[[], None]
+    cache_stats: Callable[[], dict[str, Any]]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class _UncacheableArgumentError(TypeError):
+    """An argument has no exact cache key; the call bypasses the cache."""
+
+
+#: Marks a cache miss, so a cached ``None`` result is a hit.
+_CACHE_MISS = object()
+
+
+def _exact_cache_key(obj: Any) -> str:
+    """A key equal for two arguments exactly when their values are equal.
+
+    Arrays are keyed by dtype, shape and a SHA-256 digest of their bytes;
+    ``str()`` of an array over 1000 elements is abbreviated, so different
+    arrays shared a key. Scalars carry their type, so ``1``, ``1.0`` and
+    ``True`` stay distinct. Other objects (model instances, tensors, frames)
+    raise :class:`_UncacheableArgumentError`: their ``repr`` is neither exact
+    nor stable.
+    """
+    if obj is None or isinstance(obj, (bool, int, float, complex, str, bytes)):
+        return f"{type(obj).__name__}:{obj!r}"
+    if isinstance(obj, np.generic):
+        return f"np.{obj.dtype.str}:{obj.item()!r}"
+    if isinstance(obj, np.ndarray):
+        if obj.dtype.hasobject:
+            raise _UncacheableArgumentError("object-dtype array")
+        digest = hashlib.sha256(np.ascontiguousarray(obj).tobytes()).hexdigest()
+        return f"ndarray:{obj.dtype.str}:{obj.shape}:{digest}"
+    if isinstance(obj, (tuple, list)):
+        inner = ",".join(_exact_cache_key(x) for x in obj)
+        return f"{type(obj).__name__}({inner})"
+    if isinstance(obj, (set, frozenset)):
+        return f"{type(obj).__name__}({','.join(sorted(_exact_cache_key(x) for x in obj))})"
+    if isinstance(obj, dict):
+        items = sorted(f"{_exact_cache_key(k)}={_exact_cache_key(v)}" for k, v in obj.items())
+        return f"dict({','.join(items)})"
+    raise _UncacheableArgumentError(type(obj).__name__)
+
+
+def memory_efficient_lru_cache(
+    max_size_mb: float = 128.0,
+    max_entries: int = 128,
+) -> Callable[[F], _CachedCallable]:
+    """Decorator for memory-efficient LRU caching.
+
+    Calls are keyed by the exact value of their arguments (see
+    :func:`_exact_cache_key`); a call with an argument that has no exact key,
+    such as a model instance, runs uncached. Cached results are returned as
+    stored, so a caller that mutates a returned array mutates the cached copy.
+
+    Args:
+        max_size_mb: Maximum cache size in MB
+        max_entries: Maximum number of entries
+
+    Returns:
+        Decorated function with memory-aware caching (a :class:`_CachedCallable`
+        exposing ``.cache`` / ``.cache_clear`` / ``.cache_stats``).
+    """
+    cache = MemoryEfficientCache(max_size_mb, max_entries)
+
+    def decorator(func: F) -> _CachedCallable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                key = _exact_cache_key((args, kwargs))
+            except _UncacheableArgumentError:
+                return func(*args, **kwargs)
+
+            result = cache.get(key, _CACHE_MISS)
+            if result is not _CACHE_MISS:
+                return result
+
+            result = func(*args, **kwargs)
+            cache.put(key, result)
+            return result
+
+        typed_wrapper = cast("_CachedCallable", wrapper)
+        typed_wrapper.cache = cache
+        typed_wrapper.cache_clear = cache.clear
+        typed_wrapper.cache_stats = lambda: cache.stats
+        return typed_wrapper
+
+    return decorator
+
+
+# Convenience functions
+def parallel_map(
+    func: Any,
+    items: list[Any],
+    n_jobs: int = -1,
+    **kwargs: Any,
+) -> list[Any]:
+    """Convenience function for parallel mapping.
+
+    Args:
+        func: Function to apply
+        items: Items to process
+        n_jobs: Number of parallel jobs
+        **kwargs: Additional function arguments
+
+    Returns:
+        List of results
+    """
+    executor = ParallelExecutor(n_jobs=n_jobs)
+    return executor.map(func, items, **kwargs)
+
+
+def get_optimal_batch_size(
+    model: Any,
+    input_shape: tuple[int, ...],
+    max_memory_fraction: float = 0.8,
+) -> int:
+    """Estimate optimal batch size based on available memory.
+
+    Args:
+        model: PyTorch model
+        input_shape: Shape of single input (excluding batch)
+        max_memory_fraction: Maximum fraction of GPU memory to use
+
+    Returns:
+        Recommended batch size
+    """
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return 32  # Default for CPU
+
+        # Get available memory
+        total_memory = torch.cuda.get_device_properties(0).total_memory
+        available = int(total_memory * max_memory_fraction)
+
+        # Estimate model memory
+        param_memory = sum(p.numel() * p.element_size() for p in model.parameters())
+
+        # Estimate input memory (float32)
+        input_memory = int(np.prod(input_shape)) * 4
+
+        # Estimate gradient memory (roughly 2x parameters)
+        gradient_memory = param_memory * 2
+
+        # Available for batch
+        batch_memory = available - param_memory - gradient_memory
+
+        # Estimate batch size
+        batch_size = max(1, batch_memory // (input_memory * 3))  # 3x for activations
+
+        return int(min(batch_size, 256))  # Cap at 256
+
+    except Exception as e:
+        logger.debug("Batch size estimation failed, using default: %s", e)
+        return 32  # Default fallback

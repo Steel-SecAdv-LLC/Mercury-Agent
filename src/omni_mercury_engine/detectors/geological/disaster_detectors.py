@@ -3249,3 +3249,66 @@ def train_all_disaster_networks(
     logger.info("All disaster detection networks trained successfully.")
 
     return results
+
+
+def load_noaa_tsunami_records(
+    min_year: int = 2000,
+    max_records: int = 1000,
+) -> list[dict[str, Any]] | None:
+    """Load historical tsunami event records from NOAA NCEI HazEL.
+
+    Data source: NOAA National Centers for Environmental Information
+    https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
+
+    HazEL pages its results (``itemsPerPage`` up to 200, ``page`` from 1, with
+    ``totalPages`` in each response) and ignores any other size parameter, so
+    the records are read page by page until ``max_records`` or the last page.
+
+    Args:
+        min_year: Minimum year for historical records
+        max_records: Maximum number of records to fetch
+
+    Returns:
+        Up to ``max_records`` tsunami event dictionaries, or None if the
+        service is unavailable or returned no events.
+
+    Raises:
+        OfflineModeError: ``MERCURY_OFFLINE`` is set. The air-gap refusal is
+            raised, not reported as an unavailable service.
+        ValueError: ``max_records`` is not positive.
+    """
+    from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+    if max_records < 1:
+        raise ValueError(f"max_records must be positive, got {max_records}")
+    enforce_offline_egress(NOAA_TSUNAMI_API_URL)
+    circuit_breaker = get_data_loader_breaker("noaa_tsunami")
+    per_page = min(200, max_records)
+
+    def _fetch_tsunami_records() -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        page, total_pages = 1, 1
+        while page <= total_pages and len(events) < max_records:
+            data = SafeHTTPClient.get_json(
+                NOAA_TSUNAMI_API_URL,
+                params={
+                    "minYear": str(min_year),
+                    "itemsPerPage": str(per_page),
+                    "page": str(page),
+                },
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
+            events.extend(data.get("items", []))
+            total_pages = int(data.get("totalPages", 0))
+            page += 1
+        if not events:
+            raise RuntimeError("NOAA Tsunami API returned no events")
+        return events[:max_records]
+
+    try:
+        result: list[dict[str, Any]] = circuit_breaker.call(_fetch_tsunami_records)
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to load NOAA tsunami records: {e}; returning None.")
+        return None

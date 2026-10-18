@@ -132,3 +132,12 @@ def pgd_flip_distance(
     # which would silently satisfy ``>=`` comparisons and mask the fact that
     # the probe never crossed the price boundary.
     return float(np.linalg.norm(x - x0))
+
+
+def precision_sqrt(precision: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Return symmetric PSD ``A`` such that ``A.T @ A ~= precision``."""
+    theta = np.asarray(precision, dtype=np.float64)
+    theta = 0.5 * (theta + theta.T)
+    vals, vecs = np.linalg.eigh(theta)
+    vals = np.clip(vals, 0.0, None)
+    return (vecs * np.sqrt(vals)) @ vecs.T

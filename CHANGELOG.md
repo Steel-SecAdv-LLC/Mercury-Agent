@@ -530,37 +530,91 @@ generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
 3.3 against the v5.0.0 pin), and `REPOSITORY_REFINEMENT_AUDIT.md` (a branch
 audit log with no references). Git history keeps all four.
 
-**Removed — dead code with no caller anywhere (≈1,950 lines).** Every
-symbol was confirmed to have zero references across `src/`, `tests/`,
-`scripts/`, `benchmarks/`, `examples/`, `docs/`, `research/` and `tools/`,
-and none was in an `__all__` or lazy-export map:
-- the nine `_Legacy*` classes in `core/three_r_mechanism.py` (763 lines;
-  the live copies are in `core/three_r/`);
-- `OnlineDriftDetector`, `TextLogAnomalyDetector`,
-  `optimize_benevolent_detector`, `MultiScaleFeatureAggregator`,
-  `PatchEmbedding`, `ParallelDetectorExecutor`, `create_enhanced_detector`,
-  `create_enhanced_model`, `RegulatoryIntelligence` and
-  `run_baseline_benchmarks`;
-- the five input-free `create_omni_{medical,chemistry,psi,resonance,interstellar}_scalars`
-  constant tables;
-- `add_conformal_to_detector`, `memory_efficient_lru_cache`, `parallel_map`,
-  `get_optimal_batch_size`, `ThresholdDefaults` and `load_configuration`;
-- `AuthProvider` and `rate_limit_middleware` (superseded by the mounted
-  `RateLimitMiddleware`);
-- `_compute_sst_anomaly_proxy`, `optimize_gosnn`, `reliability_pool`,
-  `precision_sqrt`, `_safe_cholesky` and `compute_benchmark_metrics`;
-- `create_int_source_registry`, `make_capability`, `operation_for`,
-  `maintenance_disabled_for_tests`, `VQAResult`, `IntegratedPhysicsResult`
-  and `load_noaa_tsunami_records`;
-- the `enable_ci` flag (nothing read it once counterintelligence was
-  removed).
+**Restored — removed result fields and modules, computed from cited
+methods.** Earlier commits on this branch removed released fields and modules
+that were never computed or were wrong; each is back under the Preservation
+Principle, and the new contract tests fail on the previous code.
+- Power: GIC averages 1-second data to 1-minute means before dB/dt (the
+  Gannon-storm FRD record read 765 nT/min at 1 s, ~55 at 1 minute) with
+  tiers 90/300/480 nT/min, and a causal geoelectric field. EMP measures a
+  sampled field (peak, 10–90 % rise, FWHM, 90 %-energy band, IEC 61000-2-13
+  class; the DOE 2021 E1 benchmark measures 2.47 / 22.98 ns against
+  2.5 / 23 ns), detects E2 after E1, locates a source by TDOA, and keeps
+  `IntentionalEMIDetector`, trainable and not consulted until weights load.
+- Hazard fields: wildfire fuel moisture (NFDRS EMC, GTR INT-169), flood
+  peak discharge and time to peak, hurricane intensification rate (≥ 30 kt /
+  24 h is rapid; Milton 70 → 150 kt in HURDAT2), earthquake IASPEI ML and
+  Reasenberg–Jones aftershock probability, volcanic time to eruption by the
+  failure forecast method (Poisson MLE, Bell et al. 2013); `None` where the
+  inputs do not allow a value.
+- Space: one NOAA G/R/S definition in Kp thirds replaces five ladders that
+  disagreed (5- read no storm, 9- read G5); an SWPC fetch failure raises
+  instead of reading as a quiet feed. The shipped `solar_storm_geomag`
+  checkpoint was trained on Kp ≥ 5.0 labels and needs a retrain to match.
+- `security/hive_firewall`: feedback reaches the nodes that voted (a
+  reported false positive had lowered every threshold), and workers hold
+  distinct thresholds under trust-weighted supervisors and a queen majority.
+- `quantum_computing`: the VQE detector minimises the encoded training
+  samples' 1 − P(|0…0⟩) (held-out AUROC 0.942, was 0.51–0.58), encodes
+  every feature, scales by the training data, and refuses IBM hardware
+  under `MERCURY_OFFLINE`; `cobyla` is SciPy's COBYLA.
+- `slhdsa_sign_internal` stays removed as a security exception, aligned with
+  AMA Cryptography v5 (DEPRECATION.md §6.11).
 
-The empty `anomaly/` package is kept: it is the documented placeholder for
-future cross-domain fusion, and `tests/test_compat_shims.py` pins it.
-`Dionysus_XIII` no longer lists it as a bound subsystem, though, because
-binding an empty package raised its binding confidence without binding
-anything. The TCP transport's two response serializers are now wired into
-the send path in place of inline `asdict` calls, so the codec is symmetric.
+**Restored — the symbols an earlier cleanup on this branch removed as
+uncalled, each with its defect fixed.** The removals (7ab59916, f498866a,
+f07b724e) are reverted under the Preservation Principle: every symbol is back
+under its released name and signature with a test, and the defect tests fail
+on the released code.
+- `OnlineDriftDetector` is ADWIN0 (Bifet & Gavaldà 2007) with a Bonferroni
+  share per feature: no false drifts on stationary 3-feature streams, where
+  the per-feature KS check raised 12–31 per 2,000 samples; a 1σ shift is
+  found in 20–72 samples.
+- `ParallelDetectorExecutor` runs on `core.parallel_detectors`: a detector
+  past the timeout is reported and the finished results are kept (the
+  released loop raised `TimeoutError` and lost them).
+- `rate_limit_middleware` returns its 429 with `Retry-After`; raising
+  `HTTPException` from an `http` middleware reached clients as a 500.
+- `load_noaa_tsunami_records` pages HazEL with `itemsPerPage`/`page` (it sent
+  `maxSize`, which HazEL ignores) and raises `OfflineModeError` offline.
+- `memory_efficient_lru_cache` keys arrays by digest: `str()` abbreviates
+  arrays past 1,000 elements, so a changed array was served the old result.
+- `_LegacyOAEWeightOptimizer` fits F1 without derivatives (SLSQP stopped at
+  the initial weights after one iteration; held-out F1 0.34 → 0.99 on data
+  whose signal is in O). The other eight `_Legacy*` names alias the live
+  `core/three_r` classes, which are the same or supersets.
+- `_safe_cholesky` doubles its diagonal shift until the factorization
+  succeeds; the single 1e-6 shift failed for any eigenvalue below −1e-6.
+- `_compute_sst_anomaly_proxy` counts the bleaching-susceptible acroporid and
+  pocilloporid genera (Marshall & Baird 2000; Pratchett et al. 2013); the
+  released "first half of the list" counted the tolerant *Porites* and
+  missed *Seriatopora*.
+- `compute_benchmark_metrics` uses `domain`, which it ignored;
+  `reliability_pool`, `add_conformal_to_detector` and
+  `MultiScaleFeatureAggregator` reject an unknown mode, method or missing
+  layer instead of substituting a default.
+- `IntelligenceFusionEngine` accepts `golden_ratio_weights` again in its
+  released third position, without effect and with a `DeprecationWarning`;
+  `counterintelligence` and `merit_log` are keyword-only, so a released
+  positional call no longer switches counterintelligence off.
+- Also back: `TextLogAnomalyDetector` (now taking an `adapter`),
+  `optimize_benevolent_detector`, `PatchEmbedding`,
+  `create_enhanced_detector`, `create_enhanced_model`,
+  `RegulatoryIntelligence`, `run_baseline_benchmarks`, `parallel_map`,
+  `get_optimal_batch_size`, `ThresholdDefaults`, `load_configuration`,
+  `AuthProvider`, `optimize_gosnn`, `precision_sqrt`,
+  `create_int_source_registry`, `make_capability`, `operation_for`,
+  `maintenance_disabled_for_tests`, `VQAResult`, `IntegratedPhysicsResult`,
+  `EngineConfig.enable_ci`, `OmniMercuryEngine.MAX_WORKERS` /
+  `optimization_config` / `parallel_executor`, `TIDE_PERIODS_H` in
+  `tsunami_waveform`, and the six `create_omni_*_scalars` tables, documented
+  as hand-set constants rather than optimized ones.
+
+The `anomaly/` package exports the three shipped cross-domain cascades
+(`EqTsunamiCascadeDetector`, `SolarGICCascadeDetector`, `SurgeFloodCascade`),
+so `Dionysus_XIII` binds it again. The TCP transport's two response
+serializers are wired into the send path in place of inline `asdict` calls,
+so the codec is symmetric.
 The `omni_ci_ethical_threshold` / `omni_chaos_lambda_bifurcation` scalars are
 kept for now: the fusion 𝐇 term averages every float `EthicalScalars` field,
 so removing them would move its target (1.2968 → 1.2997).
@@ -1296,7 +1350,8 @@ measured; five modules whose output was wrong or fabricated are removed.
 
 **Removed** (`security/quantum_risk_cyber`, `truth_decipher` and
 `security/counterintelligence` were later rebuilt from scratch on
-`steel/version-cov4`; see the review and restoration rounds above):
+`steel/version-cov4`, and `security/hive_firewall` and `quantum_computing`
+restored with their defects fixed; see the rounds above):
 `security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
 signs with, as quantum-vulnerable; scored SIKE/Rainbow as post-quantum),
 `truth_decipher` (hard-coded "true" ethics inputs; every case recorded as a

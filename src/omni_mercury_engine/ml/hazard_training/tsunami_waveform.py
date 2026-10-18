@@ -81,6 +81,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.geological import sea_level as _sea_level
 from omni_mercury_engine.detectors.geological.sea_level import detide
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -107,6 +108,10 @@ HOOK_NAME = "tsunami_dart"
 CHECKPOINT_NAME = "tsunami_dart"
 FEATURE_SPEC_VERSION = "tsunami-dart-v1"
 DETIDE_METHOD = "ols-m2s2k1o1+linear"
+
+#: The tidal constituent periods moved to ``sea_level`` with ``detide``;
+#: the name is kept here for importers of this module.
+TIDE_PERIODS_H = _sea_level.TIDE_PERIODS_H
 
 DART_INDEX_URL = "https://www.ndbc.noaa.gov/data/historical/dart/"
 DART_FILE_URL = "https://www.ndbc.noaa.gov/data/historical/dart/{station}t{year}.txt.gz"

@@ -146,3 +146,23 @@ def trimmed_logodds(
     kept_w = kept_w / np.clip(kept_w.sum(axis=1, keepdims=True), _EPS, None)
     pooled = np.sum(kept_logits * kept_w, axis=1)
     return _sigmoid(pooled)
+
+
+def reliability_pool(
+    probs: np.ndarray[Any, Any],
+    weights: np.ndarray[Any, Any],
+    *,
+    mode: str = "clipped",
+    c: float = 2.0,
+    t: int = 1,
+) -> np.ndarray[Any, Any]:
+    """Dispatch to the clipped (default) or trimmed bounded-influence pool.
+
+    Raises:
+        ValueError: ``mode`` is neither ``"clipped"`` nor ``"trimmed"``.
+    """
+    if mode == "trimmed":
+        return trimmed_logodds(probs, weights, t=t)
+    if mode == "clipped":
+        return clipped_logodds(probs, weights, c=c)
+    raise ValueError(f"mode must be 'clipped' or 'trimmed', got {mode!r}")

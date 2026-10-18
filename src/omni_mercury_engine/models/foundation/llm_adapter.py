@@ -822,3 +822,80 @@ def create_llm_detector(
         return ZeroShotAnomalyDetector(config, adapter=_create_non_hf_adapter(config))
 
     return ZeroShotAnomalyDetector(config)
+
+
+class TextLogAnomalyDetector:
+    """Specialized detector for text and log anomalies.
+
+    Uses LLM understanding of log patterns, error messages, and text semantics for anomaly
+    detection.
+    """
+
+    def __init__(
+        self,
+        config: LLMConfig | None = None,
+        log_format: str | None = None,
+        known_patterns: list[str] | None = None,
+        adapter: BaseLLMAdapter | None = None,
+    ):
+        """Initialize text/log anomaly detector.
+
+        Args:
+            config: LLM configuration. The default provider is the mock,
+                which refuses construction; configure a real provider or
+                pass ``adapter``.
+            log_format: Expected log format description
+            known_patterns: List of known normal patterns
+            adapter: Pre-configured adapter, passed to
+                :class:`ZeroShotAnomalyDetector`
+        """
+        self.config = config or LLMConfig()
+        self.log_format = log_format
+        self.known_patterns = known_patterns or []
+        self.detector = ZeroShotAnomalyDetector(self.config, adapter=adapter)
+
+    def detect_log_anomaly(
+        self,
+        log_entry: str,
+        surrounding_entries: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Detect anomalies in log entries.
+
+        Args:
+            log_entry: Log entry to analyze
+            surrounding_entries: Context from nearby log entries
+
+        Returns:
+            Detection result
+        """
+        context = {
+            "type": "log_entry",
+            "format": self.log_format,
+            "known_normal_patterns": self.known_patterns[:5],  # Include sample patterns
+        }
+
+        if surrounding_entries:
+            context["surrounding_context"] = surrounding_entries[:3]
+
+        return self.detector.detect(log_entry, context)
+
+    def detect_text_anomaly(
+        self,
+        text: str,
+        expected_domain: str | None = None,
+    ) -> dict[str, Any]:
+        """Detect anomalies in text content.
+
+        Args:
+            text: Text to analyze
+            expected_domain: Expected content domain
+
+        Returns:
+            Detection result
+        """
+        context = {
+            "type": "text_content",
+            "expected_domain": expected_domain,
+        }
+
+        return self.detector.detect(text, context)

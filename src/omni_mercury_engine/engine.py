@@ -136,6 +136,7 @@ from omni_mercury_engine.core.metrics import (
     update_model_metrics,
 )
 from omni_mercury_engine.core.parallel_detectors import (
+    DEFAULT_MAX_WORKERS,
     DetectorTask,
     OutcomeStatus,
     ParallelDetectorExecutor,
@@ -979,6 +980,10 @@ class OmniMercuryEngine(LoggerMixin):
     # Default batch size for processing
     DEFAULT_BATCH_SIZE = 32
 
+    # Default worker cap of the released engine. The pools are sized by
+    # EngineConfig.num_workers, whose default is the same.
+    MAX_WORKERS = DEFAULT_MAX_WORKERS
+
     def __init__(
         self,
         config: EngineConfig | None = None,
@@ -1492,6 +1497,9 @@ class OmniMercuryEngine(LoggerMixin):
         Components initialized:
             - drift_detector: Ensemble drift detector for distribution monitoring
             - fairness_auditor: Bias auditing and fairness assessment
+            - optimization_config: Performance optimization settings
+            - parallel_executor: General-purpose parallel map for callers'
+              own work (detectors run through ``detector_executor``)
             - llm_detector: Zero-shot LLM-based anomaly detection (optional)
         """
         # Drift detection is ON by default (EngineConfig.drift_detection;
@@ -1557,6 +1565,18 @@ class OmniMercuryEngine(LoggerMixin):
         # When set via enable_decision_layer(ledger=...), every detection's
         # decision is recorded; None keeps the serve path stateless.
         self.decision_ledger: DecisionLedger | None = None
+
+        from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
+
+        workers = max(1, int(self.config.num_workers))
+        self.optimization_config = OptimizationConfig(
+            enable_joblib=True,
+            n_jobs=workers,
+            enable_torch_compile=False,
+            enable_memory_tracking=True,
+            memory_threshold_mb=self.memory_monitor.threshold_mb,
+        )
+        self.parallel_executor = ParallelExecutor(n_jobs=workers)
 
         logger.debug("Runtime pipeline modules initialized")
 
