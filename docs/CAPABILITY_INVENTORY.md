@@ -7,24 +7,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,919
-- **Capability-bearing classes:** 1,930 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 48
+- **Total top-level classes:** 2,946
+- **Capability-bearing classes:** 1,948 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 49
 - **Refined via base-class analysis:** 86 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,141 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,152 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1141 |
-| Support types (config / result / enum / error) | 989 |
-| Detection | 170 |
+| Other capability classes | 1152 |
+| Support types (config / result / enum / error) | 998 |
+| Detection | 173 |
 | Neural models & layers | 160 |
 | Data sources & loaders | 103 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 60 |
-| Training & optimization | 59 |
+| Adapters & backends | 62 |
+| Training & optimization | 61 |
 | Analysis & scoring | 59 |
 | Monitoring | 25 |
 | Prediction & forecasting | 21 |
@@ -2402,6 +2402,44 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <details><summary>Support types (1)</summary>
 
 `DepthLevel`
+
+</details>
+
+### `quantum_computing/` — 27 classes (18 capability)
+
+**Adapters & backends**
+
+- `IBMQuantumBackend` (`quantum_computing.executor`) — IBM Quantum hardware backend.
+- `SimulatorBackend` (`quantum_computing.executor`) — Local quantum simulator backend.
+
+**Detection**
+
+- `QAOAAnomalyDetector` (`quantum_computing.hybrid`) — Quantum Approximate Optimization Algorithm for anomaly detection.
+- `QuantumAnomalyDetector` (`quantum_computing.detector`) — Quantum-enhanced anomaly detection.
+- `VQEAnomalyDetector` (`quantum_computing.hybrid`) — Variational one-class anomaly detector.
+
+**Other capability classes**
+
+- `AnomalyEncodingCircuit` (`quantum_computing.circuits`) — Encode classical data into quantum states for anomaly detection.
+- `BatchExecutor` (`quantum_computing.executor`) — Execute multiple circuits in batches for efficiency.
+- `ErrorMitigationCircuit` (`quantum_computing.circuits`) — Error mitigation techniques for NISQ devices.
+- `QuantumCircuitBuilder` (`quantum_computing.circuits`) — Build quantum circuits for anomaly detection.
+- `QuantumExecutor` (`quantum_computing.executor`) — Unified quantum execution interface.
+- `QuantumFeatureMap` (`quantum_computing.circuits`) — Quantum feature map for kernel-based learning.
+- `QuantumJob` (`quantum_computing.executor`) — Manages a quantum job submitted for execution.
+- `QuantumKernel` (`quantum_computing.hybrid`) — Quantum kernel for kernel-based machine learning.
+- `QuantumResourceEstimate` (`quantum_computing.detector`) — Estimate of quantum resources required.
+- `SimulatedQuantumCircuit` (`quantum_computing.circuits`) — Simulated quantum circuit for when Qiskit is not available.
+- `VariationalCircuit` (`quantum_computing.circuits`) — Variational quantum circuit for trainable quantum models.
+
+**Training & optimization**
+
+- `ClassicalOptimizer` (`quantum_computing.hybrid`) — Classical optimizer for variational parameter updates.
+- `HybridOptimizer` (`quantum_computing.hybrid`) — Hybrid quantum-classical optimizer.
+
+<details><summary>Support types (9)</summary>
+
+`BackendConfig`, `BackendType`, `CircuitMetadata`, `EncodingType`, `ExecutionResult`, `JobStatus`, `OptimizationResult`, `QuantumDetectionResult`, `VariationalAnsatz`
 
 </details>
 

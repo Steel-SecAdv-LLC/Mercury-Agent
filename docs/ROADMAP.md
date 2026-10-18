@@ -67,7 +67,7 @@ table in the same commit.
 > |---|------------|:--------:|:-------:|:----------:|-------|
 > | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The previously-unimplemented network path is closed: the `NotImplementedError` raises that remain in `raft_consensus.py` are the abstract `MessageTransport` contract methods, and both concrete transports (`InMemoryTransport`, `TCPMessageTransport`) implement them; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
 > | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (~700 LOC), `fingerprint_recognition.py` (~1,100 LOC), `voice_recognition.py` (~870 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). HuggingFace additionally requires an explicit `llm_model_name`; remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
-> | 3 | Real Quantum Computing | ✓ | — | — | Removed: the in-tree `quantum_computing` package was deleted because its VQE `fit` discarded the training data (chance-level AUROC on held-out anomalies) and its IBM cloud path bypassed the offline egress gate. Nothing in-tree implements this item. |
+> | 3 | Real Quantum Computing | ✓ | — | partial | `quantum_computing` runs on a local simulator by default (Qiskit Aer when installed, a NumPy statevector otherwise). The VQE detector trains on the data (one-class compression objective; held-out AUROC 0.942 on the package's synthetic test, where the earlier fit scored 0.51-0.58), every feature is encoded, and the IBM hardware path is refused under `MERCURY_OFFLINE`. Real hardware requires user credentials and is not exercised in CI. |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,170 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
 > | 6 | Federated Learning | ✓ | — | ✓ | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. **Bidirectional GOSNN coupling closed (2026-06-02):** `FederatedServer._execute_round` routes every round's weights through `GOSNNCoupling{Server,Client}` (`publish → ingest → aggregate → receive`, SHA3-256 + shape + round integrity, fail-closed), so the prior one-way (aggregator → GOSNN) gap is gone. Conformal prediction in `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer returns `confidence_intervals=None` on failure — the silent path is closed by `ConformalMisconfigurationError`. Regression: `tests/federated/test_no_silent_failure.py::test_federated_server_round_drives_gosnn_digested_fedavg_path`. |
@@ -111,7 +111,7 @@ Mercury Agent is evolving toward a distributed, privacy-preserving, and explaina
 
 1. **Distributed Processing** — Multi-node deployment for horizontal scalability — *Functional; native pure-stdlib `TCPMessageTransport` with per-message Ed25519 signatures (2026-06-02)*
 2. **Additional Biometric Modalities** — Iris, fingerprint, and voice authentication — *Iris/fingerprint Functional; narrative-voice LLM now opt-in via explicit `llm_provider=` (no Mock fallback in any mode)*
-3. **Real Quantum Computing** — Qiskit integration for production quantum workloads — *Not implemented (the earlier simulator package was removed: it did not learn from data)*
+3. **Real Quantum Computing** — Qiskit integration for production quantum workloads — *Simulator functional; real hardware untested in-tree*
 4. **Advanced Harmonics** — Higher l_max spherical harmonic analysis for 3D data — *Functional*
 5. **AutoML** — Automatic hyperparameter tuning and model selection — *Functional*
 6. **Federated Learning** — Privacy-preserving distributed training — *Functional; bidirectional GOSNN coupling wired into `FederatedServer._execute_round` (2026-06-02); silent conformal failure closed by `ConformalMisconfigurationError`*
@@ -377,13 +377,19 @@ class BiometricAnomalyDetector:
 
 ## 3. Real Quantum Computing Integration
 
-> **Status: Not implemented.** The earlier `quantum_computing` package
-> was removed: its VQE `fit` discarded the training data (chance-level
-> AUROC on held-out anomalies), it encoded at most four features, and
-> its IBM cloud path was not covered by the offline egress gate. The
-> design below is the target for a future implementation.
+> **Status: Functional (simulator); untested in-tree (real hardware).**
+> `quantum_computing/executor.py` defaults to `BackendType.SIMULATOR`
+> (Qiskit Aer when installed, a NumPy statevector otherwise). The VQE
+> detector minimises the mean `1 - P(|0...0>)` of the encoded training
+> samples (the quantum-autoencoder compression objective) and encodes
+> every feature in layers; the kernel path projects onto the training
+> data's principal axes. The IBM hardware path requires credentials, is
+> refused under `MERCURY_OFFLINE`, and is not exercised in CI. The design
+> below was written pre-implementation; actual API may differ.
 
 ### Current State
+- Simulated quantum operations via NumPy (exact statevectors) or Qiskit Aer
+- Variational one-class detector, quantum kernel and QAOA paths
 - PQC (Post-Quantum Cryptography) via AMA Cryptography (ML-KEM, ML-DSA, SLH-DSA)
 
 ### Strategic Vision
