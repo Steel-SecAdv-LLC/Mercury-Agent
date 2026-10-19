@@ -27,6 +27,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
+
+**Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**
+Training labels, the physics recall floor and the dual-rule Kp check of the
+solar-storm pipeline, the Schumann disturbed-hour labels, the Schumann
+weak-supervision storm windows, the scintillation and disaster-precursor risk
+levels and the energy loader's bands all used a literal `Kp >= 5.0` (or integer
+ladders), which called every 5- (4.67) hour quiet although NOAA files 5-, 5o
+and 5+ alike under G1. All of them now classify through
+`evaluation.hazard_metrics.noaa_g_scale`. The `solar_storm_geomag` checkpoint
+is retrained on the corrected labels (test-years storm fraction 2.63% → 3.90%)
+through a merit gate whose physics baseline is now forced to the true
+Boyle-index fallback — a default-constructed detector auto-loads the committed
+checkpoint, so once one shipped the "physics" baseline had silently become the
+incumbent network (measured "physics" Kp MAE 0.574, the incumbent's own score,
+against Boyle's real 1.054). Retrained result on 25,846 held-out hours
+(2022-2024): Kp MAE 0.5746 vs physics 1.0537, deployed-rule recall 0.770 vs
+0.611, FAR 0.0363 vs 0.0477, storm AUC 0.966 vs 0.816; every ship constraint
+passes. The stale hazard-domain baseline value (`kp_g_bucket_accuracy` 0.8727,
+which predated the G-scale consistency round) is re-pinned at the measured
+0.8545. The DONKI-based space-weather loader keeps its `Kp >= 5.0` window rule:
+api.nasa.gov served 503 for every attempt this round, so the kpIndex encoding
+could not be checked against the live service.
+
+**Added/Changed — GDACS rules settled against GDACS's own live outputs.**
+A 2018-2026 sweep of the live earthquake alerts (262 events) and all 84
+orange/red tropical cyclones of 2023-2026 (2,302 track points):
+
+- Cross-border earthquakes: reported coefficients are the exposed countries'
+  terms AVERAGED (exact on AFG+PAK, PHL+IDN and the three-country Atacama 2024
+  event: Chile with two global-model neighbours) and the reported coping
+  factor is their factors SUMMED — four of six sums decompose exactly into
+  single-country factors recorded in the same fixture sample. GDACS's final
+  cross-border score is NOT that model times that sum (1544720: 1.86 reported
+  vs 5.24 multiplied), so `apply_coping_capacity` accepts the real
+  zero-exposure factor 0 (only with score 0) and refuses sums with the reason.
+  GDACS keys terms by shaken territory, not event iso3 (a live Taiwan entry
+  absent from the 2017 table, vulnerability −0.56; Kashgar filed under KGZ but
+  scored with China's terms). `EarthquakeCoefficients` accepts numpy numbers.
+- The "EQ parameters" model is unexercised by the live feed: no-final-shakemap
+  events are scored with the shakemap formula on a PRELIMINARY shakemap (event
+  1499045 reproduces to full precision); the published formula on the event's
+  own SUMPOP radii is irreconcilable with the reported scores.
+- Live flood levels do NOT follow the published models_fl thresholds (25 of 56
+  orange/red events of 2024-2026 match against their own Sendai tallies, with
+  Orange at single-digit death tolls); `flood_alert_level` now says it
+  classifies on the published scale and does not reproduce live levels.
+- Cyclones: the table reproduces 2,278 of 2,302 live points with no country
+  population; the 24 others confirm the manual's "(100k or 10% poptot)"
+  reading on small territories (Guam, Northern Marianas, Turks and Caicos,
+  Vanuatu) once census populations are supplied. Storm surge stays
+  manual-only: the public API exposes surge only as map resources.
+- 10 new earthquake fixtures + the previously unrecordable 1511252;
+  `scripts/record_gdacs_fixtures.py` records the set reproducibly. Red
+  1474477 publishes no shakemap at all; the Venezuela pair's getimpact
+  resources time out server-side on every attempt.
+
+**Fixed — detectors refuse unmeasurable input and fabricate no measurements.**
+Each defect reproduced on the previous code, each fix pinned by a test:
+
+- GIC: structurally partial edge minutes are dropped, not passed off as
+  1-minute means (a series starting at :30 misread a steady 60 nT/min ramp as
+  45; the FRD fixture's 17:20 "minute" was one second of data).
+- Solar flare: the class is defined on the GOES long band alone (was
+  `max(short, long)` with a benign-A default); NaN/negative flux is refused
+  (it graded as a quiet A); `predict_live` now requests the integral-protons
+  product so the live S level is measured, never fabricates 0.0 observations,
+  and the flare result carries `radio_blackout_level`/`radiation_storm_level`.
+- USGS geomagnetism: disturbance grades against the fetched window's own
+  median H, not a fixed 20,000 nT reference that called every quiet sample of
+  the real Gannon-storm fixtures STRONG or SEVERE.
+- Tornado: NaN CAPE graded a supercell environment "low", and a pascal
+  pressure series read as a 1300 mb crash — both refused with the unit named.
+- Realtime threat: a NaN row graded "no threat" (failing OPEN); non-finite or
+  wrong-width input is refused with the reason.
+- Financial crisis: empty input reported fabricated measurements (VIX 20, CDS
+  100 bps), a NaN VIX graded "stable", banking stress alone was typed
+  "systemic_crisis", and a randomly-initialised FraudDetector was consulted;
+  absent metrics now come back `None` with `missing_inputs` named, and the
+  fraud network is quarantined until `load_fraud_weights()`.
+- Hurricane: an absent central pressure was served as a measured 1013 hPa /
+  0 kt estimate; the wind-pressure relation is the cited Atkinson & Holliday
+  (1977) form (was labelled "Dvorak" with a drifted 1013 reference).
+- Wildfire spread needs a measured wind speed and never fabricates a due-north
+  direction; flood soil products need the moisture and soil class, and an
+  unknown soil class is refused instead of silently reading as loam.
+- Fusion: 4 of the quantum model's 16 feature columns were constants (the full
+  pure-state entropy is identically 0; three repeated a config value) — they
+  now carry measured per-row quantities (bipartite Schmidt entropy,
+  participation ratio, phase coherence, amplitude entropy). Detectors whose
+  fitted state came from a loaded checkpoint are refit by explicit new
+  training data (a width-8 retrain kept the shipped width-16 spatial fit, so
+  drift reported "incomparable" forever). `default_fusion.pt` regenerated on
+  the fixed pipeline (it predated the round-14 look-ahead fix).
+- Incidence fit: a forecast day whose calibration cannot reach the 95% target
+  inside the 1 − 1e-9 nominal cap falls back to a one-sided interval that
+  covers by construction instead of returning the capped nominal as achieved;
+  the mean band's docstring carries its measured 86-92% coverage (the basic,
+  log-basic, Beran-recycled and log-t variants measure 85.8-87.4%, so no cheap
+  calibration is shipped).
+
+**Docs.** The unbacked "30 detection engines" headline and the "~500 ms / ~50 ms
+RTX 4090" latency tables are replaced by the measured counts (89 detector
+classes, CI-gated; 94 manifest entries; 5 default) and the committed
+fusion-latency measurements; no GPU figure is claimed because none is
+committed. The NAB harness pins its corpus to a commit and stamps run
+provenance.
+
+
 ### GDACS tropical cyclones, GDACS's own scores as the test, and faster, better-calibrated detection (branch `steel/version-cov4`)
 
 An adversarial review of the first version reproduced 6 should-fix defects and
