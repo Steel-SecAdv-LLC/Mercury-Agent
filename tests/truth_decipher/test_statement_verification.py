@@ -1322,3 +1322,11 @@ def test_statement_stamps_claims_and_freezes_collections() -> None:
     assert str(A_CAR) == "A.car"
     item = EvidenceItem("e", asserted=Claim("A", "car", "r"), time=TimeInterval(1, 2))
     assert item.effective_time == TimeInterval(1, 2) and item.key == A_CAR
+
+
+def test_released_decipher_api_is_not_restored() -> None:
+    """DEPRECATION §6.14: only the name survives, as an alias of StatementVerifier."""
+    import omni_mercury_engine.truth_decipher as module
+
+    assert not hasattr(module.TruthDecipherFramework, "decipher_truth")
+    assert not hasattr(module, "TruthDecipherResult")

@@ -366,3 +366,17 @@ class TestMercurySelfAudit:
         assert audit["hybrid public-key encryption (KEM/DEM)"].cnsa2_noncompliant == ()
         assert "ML-DSA-65" in audit["FINDΩYOU™ evidence packets"].cnsa2_noncompliant
         assert "Ed25519" in audit["sovereign emergency tier"].cnsa2_noncompliant
+
+
+def test_released_classes_are_not_restored() -> None:
+    """DEPRECATION §6.15: the released classes flagged ML-DSA and passed SIKE/Rainbow."""
+    import omni_mercury_engine.security.quantum_risk_cyber as module
+
+    for name in (
+        "QuantumRiskCyber",
+        "PostQuantumMigrationPlanner",
+        "QuantumThreat",
+        "ThreatLevel",
+        "CryptoSystem",
+    ):
+        assert not hasattr(module, name), name

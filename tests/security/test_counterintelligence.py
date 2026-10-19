@@ -1818,3 +1818,11 @@ class TestOutcomeWeightFit:
         assert result["fit"]["n_outcomes"] == 8401
         low, _high = result["fit"]["break_even_ci"]
         assert low >= MAX_OUTCOME_WEIGHT
+
+
+def test_overwatch_nexus_is_not_restored() -> None:
+    """DEPRECATION §6.13: the released class scored reports it fabricated itself."""
+    import omni_mercury_engine.security.counterintelligence as module
+
+    assert not hasattr(module, "OverwatchNexus")
+    assert not hasattr(module, "OverwatchNexusResult")

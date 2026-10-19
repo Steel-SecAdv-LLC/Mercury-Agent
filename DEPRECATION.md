@@ -59,6 +59,9 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
 | `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v2.1** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
 | `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v2.1** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
+| `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult` | `security.counterintelligence.CounterintelligenceAssessor` | **Removed in v2.1** - correctness exception: scored reports it fabricated itself (see §6.13) |
+| `truth_decipher.TruthDecipherFramework.decipher_truth` / `TruthDecipherResult` | `truth_decipher.StatementVerifier` (the `TruthDecipherFramework` name is kept as its alias) | **Removed in v2.1** - correctness exception: fixed ethics inputs, every case recorded as a success (see §6.14) |
+| `security.quantum_risk_cyber.QuantumRiskCyber` / `PostQuantumMigrationPlanner` / `QuantumThreat` / `ThreatLevel` / `CryptoSystem` | `security.quantum_risk_cyber.classify_algorithm` / `assess_asset` / `prioritize` / `read_cbom` / `audit_mercury_posture` | **Removed in v2.1** - security exception: flagged ML-DSA as quantum-vulnerable, counted SIKE and Rainbow as post-quantum (see §6.15) |
 
 ---
 
@@ -367,7 +370,10 @@ that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
 were removed across the v2.1 improvement and live-wiring passes, and §6.11
 with the AMA Cryptography v5 migration. §6.12 records a value change, not a
-removal: the surfaces stay, their fabricated values do not.
+removal: the surfaces stay, their fabricated values do not. §6.13-6.15 record
+three modules removed on `steel/version-cov3` and rebuilt from scratch on
+`steel/version-cov4` under their released module paths; the released classes
+are not restored.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -604,6 +610,75 @@ added. New code must use the `compliance.` import path.
   `tests/detectors/test_emp_served_contract.py::test_nothing_measured_is_benign`,
   `::test_untrained_network_is_not_consulted` and
   `::test_released_e3_key_is_kept_without_a_fabricated_value`
+
+### 6.13 `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult`
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. With `enable_ci=False` (the default)
+  `proactive_ci` returned a fixed "CI module disabled" result. With it on, the
+  class scored intelligence reports it made up itself
+  (`_generate_synthetic_intel`: constant OSINT/SIGINT/CYBINT entries with
+  `threat_score` 0.5 and indicators `"synthetic_indicator_1/2"`), so the risk
+  never depended on the input: zeros, unit noise and x1000 noise all gave
+  `risk=0.2766` on the released code. Its "QBM" bio-threat flag meant
+  `mean(data) > 2.0`, its ethical rollback could not trigger (the purity
+  value is at least 1.055 for any input), and its humanitarian impact was a
+  lookup table of casualty counts. Nothing in the released tree called it,
+  and the maintainer decided it is not coming back.
+* **Replacement:** `security.counterintelligence.CounterintelligenceAssessor`
+  (Admiralty-code source posteriors, MinHash near-duplicate provenance, a scan
+  statistic for coordinated reporting, digit-based fabrication screens). It
+  assesses only the reports it is given and never synthesises one.
+  `EngineConfig.enable_ci` stays as an inert field so existing configurations
+  still load.
+* **Regression tests:**
+  `tests/security/test_counterintelligence.py::test_overwatch_nexus_is_not_restored`
+  and `::TestAssessor::test_empty_input_yields_no_finding`
+
+### 6.14 `truth_decipher.TruthDecipherFramework` API / `TruthDecipherResult`
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine and the ethical gate contract. `determine_ethics`
+  passed the ethics governor a context with `has_rollback`, `has_benchmarks`,
+  `is_transparent`, `is_open_source`, `audit_enabled` and `is_extensible` set
+  to `True` and `test_coverage` 0.85 for every action, so the gate judged fixed
+  claims about the system instead of the action. `resolve_with_measures` set
+  `applied=True` unconditionally, so every resolution was stored for
+  case-based reasoning as `CaseOutcome.SUCCESS` with score 1.0 whatever
+  happened, which trained later decisions on outcomes nobody observed.
+* **Replacement:** `truth_decipher.StatementVerifier` (claim-level
+  corroboration with source reliability and independence clusters, temporal
+  and spatial contradiction checks, consent-gated Concealed Information Test).
+  The name `TruthDecipherFramework` is kept as an alias of `StatementVerifier`;
+  the released `decipher_truth` API and `TruthDecipherResult` are not restored.
+* **Regression tests:**
+  `tests/truth_decipher/test_statement_verification.py::test_alias_and_duplicate_ids`
+  and `::test_released_decipher_api_is_not_restored`
+
+### 6.15 `security.quantum_risk_cyber` released classes (`QuantumRiskCyber`, `PostQuantumMigrationPlanner`, `QuantumThreat`, `ThreatLevel`, `CryptoSystem`)
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §1 (Security Vulnerability): the classes gave wrong
+  cryptographic advice. Vulnerability was a substring match against a list
+  containing `"DSA"`, so `PostQuantumMigrationPlanner.assess_algorithm_vulnerability`
+  reported ML-DSA-65 and SLH-DSA-SHA2-128s, the FIPS 204/205 post-quantum
+  signatures AMA Cryptography signs with, as `vulnerable_to_quantum=True`.
+  `QuantumRiskCyber.post_quantum_readiness_check` counted SIKE and Rainbow,
+  both broken classically in 2022, as post-quantum and returned readiness 1.0
+  for them (all three results reproduced on the released code).
+* **Replacement:** the rebuilt module's `classify_algorithm` (exact names and
+  aliases, broken schemes as `BROKEN`), `assess_asset` / `prioritize` (Mosca
+  inequality against a stated CRQC assumption), `read_cbom` (CycloneDX CBOM)
+  and `audit_mercury_posture`.
+* **Regression tests:**
+  `tests/security/test_quantum_risk_cyber.py::TestClassification::test_ml_dsa_is_never_read_as_dsa`,
+  `::TestClassification::test_exact_names_and_aliases` and
+  `::test_released_classes_are_not_restored`
 
 ---
 

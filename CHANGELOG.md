@@ -116,6 +116,19 @@ That screen matches category words, not every identity term, which is why no
 unrecognised string is ever reported as a threat indicator. Every action begins
 with trained human review. Free-text reports must be coded first.
 
+**Documented — three released-module removals (`DEPRECATION.md` §6.13-6.15).**
+This branch removes released public classes from three modules without
+restoring them: `security.counterintelligence.OverwatchNexus` /
+`OverwatchNexusResult` (scored reports it fabricated: the same risk, 0.2766,
+for zeros, noise and x1000 noise), the `truth_decipher.TruthDecipherFramework`
+API and `TruthDecipherResult` (fixed "true" ethics inputs; every resolution
+stored as a success; the name stays as an alias of `StatementVerifier`), and
+`security.quantum_risk_cyber`'s `QuantumRiskCyber`, `PostQuantumMigrationPlanner`,
+`QuantumThreat`, `ThreatLevel` and `CryptoSystem` (ML-DSA-65 and SLH-DSA flagged
+as quantum-vulnerable; SIKE and Rainbow counted as post-quantum). Each defect
+was reproduced on `main`; each entry names its replacement and a test that
+keeps the old surface from returning.
+
 ### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
 
 Found by running the shipped system against a native AMA v5.0.0 build and
