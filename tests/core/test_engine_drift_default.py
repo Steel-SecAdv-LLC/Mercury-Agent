@@ -225,6 +225,30 @@ def test_detect_records_its_inference_auto_fit() -> None:
     assert drift["status"] == "no_baseline" and engine._drift_reference is None
 
 
+def test_training_replaces_a_checkpoint_fit_at_a_new_width() -> None:
+    """Explicit training data replaces detector fits restored from a checkpoint.
+
+    Regression: fit_fusion on width-8 data kept the shipped checkpoint's
+    width-16 spatial fit (``is_fitted`` was true), so the detector extracted
+    training features from another corpus and the drift reference stayed 16
+    wide — every later drift check on the retrained model reported
+    ``incomparable``.
+    """
+    engine = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=True)
+    assert "spatial" in engine._checkpoint_fit_detectors
+    rng = np.random.default_rng(54)
+    train = rng.normal(size=(120, 8))
+    labels = np.zeros(len(train), dtype=np.int64)
+    labels[:12] = 1
+    engine.fit_fusion(train, labels, epochs=2)
+    spatial: Any = engine.detectors["spatial"]
+    assert np.asarray(spatial.get_fitted_state()["lof_points"]).shape[1] == 8
+    assert "spatial" not in engine._checkpoint_fit_detectors
+    result = engine.detect_with_fusion(rng.normal(size=(60, 8)))
+    drift = result.get("drift_detection") or {}
+    assert drift.get("status") != "incomparable"
+
+
 def test_training_replaces_an_inference_auto_fit() -> None:
     engine = OmniMercuryEngine(mode="fusion")
     scored = _normals(60, seed=52) + 5.0

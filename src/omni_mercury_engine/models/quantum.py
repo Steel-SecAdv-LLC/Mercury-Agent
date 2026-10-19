@@ -93,9 +93,42 @@ class QuantumAnomalyModel:
         entropy needs a dot product, not the O(d^3) eigendecomposition of a
         d x d matrix per row (769 ms for 512 rows at d = 128). Eigenvalues at or
         below 1e-10 are dropped, as before.
+
+        For a NORMALISED state this is identically 0 (a pure state's density
+        matrix has entropy 0), so it cannot serve as a feature; the feature
+        matrix carries :meth:`_schmidt_entropy` instead.
         """
         weight = np.sum(states.real**2 + states.imag**2, axis=1)
         return np.where(weight > 1e-10, -weight * np.log2(weight + 1e-10), 0.0)
+
+    @staticmethod
+    def _schmidt_entropy(states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Bipartite entanglement entropy of each row, in bits.
+
+        The standard entanglement measure of a pure state: embed the
+        d-dimensional state in a ceil(sqrt(d))^2 space (zero amplitudes; the
+        non-zero Schmidt spectrum is unchanged), reshape it into a square
+        matrix (an equal bipartition) and take the Shannon entropy of the
+        squared singular values. A product state gives 0; the maximum is
+        log2(ceil(sqrt(d))). Unlike the full pure-state entropy (identically
+        0 on normalised states), this varies with the row's structure.
+        """
+        arr = np.asarray(states)
+        if arr.ndim == 1:
+            arr = arr[None, :]
+        n, d = arr.shape
+        side = int(np.ceil(np.sqrt(d)))
+        if side < 2:
+            return np.zeros(n, dtype=np.float64)
+        padded = np.zeros((n, side * side), dtype=np.complex128)
+        padded[:, :d] = arr
+        singular = np.linalg.svd(padded.reshape(n, side, side), compute_uv=False)
+        probs = singular**2
+        total = probs.sum(axis=1, keepdims=True)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            probs = np.where(total > 1e-12, probs / total, 0.0)
+            terms = np.where(probs > 1e-12, -probs * np.log2(probs), 0.0)
+        return np.asarray(terms.sum(axis=1), dtype=np.float64)
 
     def _measure_entanglement(self, state: np.ndarray[Any, Any]) -> float:
         """Measure quantum entanglement in state using von Neumann entropy."""
@@ -124,40 +157,74 @@ class QuantumAnomalyModel:
         if phases.shape[1] < 4:
             phases = np.pad(phases, ((0, 0), (0, 4 - phases.shape[1])), mode="constant")
 
-        entanglement = self._pure_state_entropy(quantum_states).reshape(-1, 1).astype(np.float32)
+        # Columns 12-15 are measured per-row quantities. They replace four
+        # constant columns (the full pure-state entropy, identically 0 on a
+        # normalised state, and the entanglement_strength config value
+        # repeated three times), which carried no information into fusion.
+        probs = amplitudes.astype(np.float64) ** 2
+        total = probs.sum(axis=1, keepdims=True)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            probs = np.where(total > 1e-12, probs / total, 0.0)
+        dim = probs.shape[1]
+        entanglement = self._schmidt_entropy(quantum_states).reshape(-1, 1)
+        # Effective dimension (participation ratio / d), in (0, 1].
+        sum_sq = (probs**2).sum(axis=1)
+        participation = np.where(sum_sq > 1e-12, 1.0 / (sum_sq * dim), 0.0).reshape(-1, 1)
+        # Phase coherence: length of the probability-weighted mean phasor.
+        phasors = (probs * np.exp(1j * np.angle(quantum_states))).sum(axis=1)
+        coherence = np.abs(phasors).reshape(-1, 1)
+        # Normalised Shannon entropy of the amplitude distribution, in [0, 1].
+        with np.errstate(divide="ignore", invalid="ignore"):
+            shannon_terms = np.where(probs > 1e-12, -probs * np.log2(probs), 0.0)
+        shannon = shannon_terms.sum(axis=1).reshape(-1, 1)
+        if dim > 1:
+            shannon = shannon / np.log2(dim)
 
         features = np.concatenate(
             [
                 amplitudes[:, :8],
                 phases[:, :4],
-                entanglement,
-                np.ones((batch_size, 3)) * self.entanglement_strength,
+                entanglement.astype(np.float32),
+                participation.astype(np.float32),
+                coherence.astype(np.float32),
+                shannon.astype(np.float32),
             ],
             axis=1,
         )
 
         return features
 
-    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """Predict anomalies using quantum state analysis."""
-        features = self.extract_features(data)
+    @staticmethod
+    def _score_feature_matrix(features: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Score a 16-column quantum feature matrix (shared by both predict paths).
 
+        The entanglement contribution is ``1 - 2**(-E)`` with E the bipartite
+        Schmidt entropy in bits: 0 for a product state, monotone and bounded
+        in [0, 1) without needing the state dimension. ``coherence`` is the
+        measured phase coherence (feature column 14) — the previous value was
+        identically 0 because it was derived from the constant full-state
+        entropy.
+        """
         amplitudes = features[:, :8]
         phases = features[:, 8:12]
-        entanglement = features[:, 12:13]
+        entanglement = features[:, 12]
 
         amp_anomaly = np.std(amplitudes, axis=1)
         phase_anomaly = np.std(phases, axis=1)
-        ent_anomaly = np.abs(entanglement.squeeze() - 1.0)
+        ent_anomaly = 1.0 - np.exp2(-np.maximum(entanglement, 0.0))
 
         anomaly_scores = (amp_anomaly + phase_anomaly + ent_anomaly) / 3.0
 
         return {
             "anomaly_scores": anomaly_scores.astype(np.float32),
             "quantum_states": features[:, :8],
-            "coherence": (1.0 - ent_anomaly).astype(np.float32),
+            "coherence": features[:, 14].astype(np.float32),
             "energy_levels": amplitudes[:, :3].astype(np.float32),
         }
+
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
+        """Predict anomalies using quantum state analysis."""
+        return self._score_feature_matrix(self.extract_features(data))
 
     def apply_decoherence_resilience(
         self, noise_level: float = 0.01, error_correction: bool = True
@@ -508,22 +575,7 @@ class QuantumAnomalyModel:
             features[:, :8] = np.real(quantum_states)
 
         # Continue with normal prediction using (possibly corrected) features
-        amplitudes = features[:, :8]
-        phases = features[:, 8:12]
-        entanglement = features[:, 12:13]
-
-        amp_anomaly = np.std(amplitudes, axis=1)
-        phase_anomaly = np.std(phases, axis=1)
-        ent_anomaly = np.abs(entanglement.squeeze() - 1.0)
-
-        anomaly_scores = (amp_anomaly + phase_anomaly + ent_anomaly) / 3.0
-
-        result: dict[str, Any] = {
-            "anomaly_scores": anomaly_scores.astype(np.float32),
-            "quantum_states": features[:, :8],
-            "coherence": (1.0 - ent_anomaly).astype(np.float32),
-            "energy_levels": amplitudes[:, :3].astype(np.float32),
-        }
+        result: dict[str, Any] = self._score_feature_matrix(features)
 
         # Add decoherence metrics if enabled
         if self._decoherence_config is not None:

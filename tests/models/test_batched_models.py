@@ -59,13 +59,43 @@ class TestQuantum:
                 _reference_entanglement(state), abs=1e-12
             )
 
-    def test_features_match_for_float32(self) -> None:
+    def test_feature_column_12_is_the_schmidt_entropy(self) -> None:
+        """Column 12 carries the bipartite Schmidt entropy, checked against SVD by hand."""
         model = QuantumAnomalyModel()
         data = _data((50, 12))
         states = model._create_quantum_state(data)
         features = model.extract_features(data)
-        want = np.array([_reference_entanglement(s) for s in states])
+        side = 4  # ceil(sqrt(12))
+        want = []
+        for state in states:
+            padded = np.zeros(side * side, dtype=np.complex128)
+            padded[:12] = state
+            probs = np.linalg.svd(padded.reshape(side, side), compute_uv=False) ** 2
+            probs = probs / probs.sum()
+            probs = probs[probs > 1e-12]
+            want.append(float(-np.sum(probs * np.log2(probs))))
         np.testing.assert_allclose(features[:, 12], want, rtol=0, atol=1e-5)
+
+    def test_quantum_feature_columns_are_not_constant(self) -> None:
+        """Regression: columns 12-15 were constants (full pure-state entropy is
+        identically 0 on a normalised state; three columns repeated the
+        entanglement_strength config value), so 4 of the model's 16 feature
+        columns carried nothing into fusion."""
+        features = QuantumAnomalyModel().extract_features(_data((80, 12)))
+        for column in range(12, 16):
+            assert float(np.std(features[:, column])) > 1e-6, column
+        # and they are measured, bounded quantities
+        assert np.all(features[:, 12] >= 0.0)  # Schmidt entropy, bits
+        assert np.all((features[:, 13] > 0.0) & (features[:, 13] <= 1.0 + 1e-6))
+        assert np.all((features[:, 14] >= 0.0) & (features[:, 14] <= 1.0 + 1e-6))
+        assert np.all((features[:, 15] >= 0.0) & (features[:, 15] <= 1.0 + 1e-6))
+
+    def test_predict_coherence_is_measured_not_constant(self) -> None:
+        """Regression: predict()'s coherence was identically 0 (1 - |0 - 1|)."""
+        result = QuantumAnomalyModel().predict(_data((80, 12)))
+        coherence = np.asarray(result["coherence"])
+        assert float(np.std(coherence)) > 1e-6
+        assert np.all((coherence >= 0.0) & (coherence <= 1.0 + 1e-6))
 
     def test_wide_input_is_not_cubic(self) -> None:
         """Width 512 is 134M density-matrix cells per row; this must stay instant."""

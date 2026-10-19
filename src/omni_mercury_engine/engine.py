@@ -1063,6 +1063,14 @@ class OmniMercuryEngine(LoggerMixin):
         # surface (warning + result-dict key) works for every engine mode,
         # not only ``mode='fusion'``.
         self._inference_auto_fit_detectors: set[str] = set()
+        # Detectors whose fitted state came from a loaded checkpoint. Serving
+        # uses that state as-is, but explicit new training data must replace
+        # it: a fit kept from another corpus leaves the detector extracting
+        # training features (and supplying the drift reference's "training
+        # rows") from data of a different shape and distribution, so a
+        # width-8 retrain still carried the shipped checkpoint's width-16
+        # rows and every later drift check reported "incomparable".
+        self._checkpoint_fit_detectors: set[str] = set()
         # Fail-loud on an unfit detector at inference instead of leaking the
         # first batch as its reference distribution (see __init__ docstring).
         self._require_explicit_fit: bool = require_explicit_fit
@@ -4299,15 +4307,22 @@ class OmniMercuryEngine(LoggerMixin):
         """Fit ``detector`` on training rows unless it already holds a training fit.
 
         A detector auto-fit on an inference batch is refit, so training never
-        keeps a reference that came from scored data.
+        keeps a reference that came from scored data; one whose fit came from
+        a loaded checkpoint is refit too, so training never keeps another
+        corpus's reference (its rows can even have a different width).
 
         Returns:
             Whether the detector was fitted.
         """
-        if detector.is_fitted() and name not in self._inference_auto_fit_detectors:
+        if (
+            detector.is_fitted()
+            and name not in self._inference_auto_fit_detectors
+            and name not in self._checkpoint_fit_detectors
+        ):
             return False
         detector.fit(X)
         self._inference_auto_fit_detectors.discard(name)
+        self._checkpoint_fit_detectors.discard(name)
         return True
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
@@ -6883,6 +6898,9 @@ class OmniMercuryEngine(LoggerMixin):
                 # any future auto-fit) stays truthful. Legacy loads restore
                 # nothing, so a surviving contamination keeps its record.
                 self._inference_auto_fit_detectors.discard(det_name)
+                # Serving uses this state as-is; explicit new training data
+                # replaces it (see _fit_for_training).
+                self._checkpoint_fit_detectors.add(det_name)
 
             # Torch-module domain models: their randomly-initialized feature
             # extractors are part of the serve-time transform, so reload
