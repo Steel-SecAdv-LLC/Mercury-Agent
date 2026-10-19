@@ -146,6 +146,46 @@ def test_constant_baseline_is_rejected() -> None:
         PathogenDetector({"energy_threshold": 10.0}).fit(np.ones((50, _DIM)))
 
 
+def test_a_constant_channel_is_named() -> None:
+    baseline = _sensor_data(0, 400)
+    baseline[:, 2] = 7.0
+    with pytest.raises(ValueError, match=r"channel\(s\) \[2\] have no variance"):
+        PathogenDetector().fit(baseline)
+
+
+def test_verdict_does_not_depend_on_units() -> None:
+    """Fails on a ridge scaled to the mean variance (a 20 sd spike was missed)."""
+    rng = np.random.default_rng(5)
+    counts = rng.normal(5e4, 5e3, 1000)
+    fraction = rng.normal(0.02, 0.005, 1000)
+    temperature = rng.normal(20.0, 2.0, 1000)
+    baseline = np.column_stack([counts, fraction, temperature])
+    spike = np.array([5e4, 0.12, 20.0])  # fluorescent fraction 20 sd high
+    as_fraction = PathogenDetector().fit(baseline)
+    units = np.array([1.0, 100.0, 1.0])  # the same channel in percent
+    as_percent = PathogenDetector().fit(baseline * units)
+    a, b = as_fraction.detect_pathogen(spike), as_percent.detect_pathogen(spike * units)
+    assert a.threat_detected and b.threat_detected
+    assert a.energy_score == pytest.approx(b.energy_score, rel=1e-9)
+    assert a.bio_signatures[0].startswith("channel 1: +20.")
+
+
+def test_refit_recalibrates() -> None:
+    """Fails when a second fit keeps the first threshold."""
+    rng = np.random.default_rng(6)
+    detector = PathogenDetector().fit(rng.normal(size=(1000, 4)))
+    heavy = rng.standard_t(3, size=(1000, 4))
+    refitted = detector.fit(heavy).energy_threshold
+    assert refitted == PathogenDetector().fit(heavy).energy_threshold
+
+
+@pytest.mark.parametrize("threshold", [-0.5, float("inf"), float("nan")])
+def test_legacy_or_invalid_fixed_threshold_is_rejected(threshold: float) -> None:
+    """The released -0.5 meant ``E < -0.5``; energies are now >= 0."""
+    with pytest.raises(ValueError, match="energy_threshold"):
+        PathogenDetector({"energy_threshold": threshold})
+
+
 def test_fixed_threshold_skips_calibration() -> None:
     detector = PathogenDetector({"energy_threshold": 1e9}).fit(_sensor_data(0, 20))
     assert not detector.detect_pathogen(_sensor_data(1, 1)[0] + 5.0).threat_detected

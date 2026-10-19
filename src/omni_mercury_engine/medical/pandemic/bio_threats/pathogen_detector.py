@@ -12,10 +12,14 @@ Mathematical Foundation:
   field, the continuous counterpart of the Ising model; the couplings are
   J_ij = -Λ_ij. It is classical: no quantum term is involved.
 - Fit: μ and Λ = Σ⁻¹ from the first 70% of the baseline, with Σ shrunk toward
-  its diagonal (as in :mod:`omni_mercury_engine.detectors.energy_based`).
+  its diagonal and each channel's variance inflated by the same relative ridge.
+  Both steps commute with a change of units per channel, so the energy and the
+  verdict do not depend on the units a sensor reports in.
 - Threshold: E > E_critical, where E_critical is the split-conformal quantile
-  of the remaining 30% of baseline energies, so a normal snapshot is flagged
-  with probability at most ``false_alarm_rate`` (Vovk et al. 2005).
+  of the remaining 30% of baseline energies. A normal snapshot is then flagged
+  with probability at most ``false_alarm_rate`` on average over the calibration
+  draw (Vovk et al. 2005); one baseline's realised rate varies around it (up to
+  about 3% at a 1% target with 300 held-out snapshots).
 
 An alarm is presumptive. Sensor readings cannot identify an agent: the type is
 taken from a MASINT report when one names a known agent, and laboratory
@@ -70,8 +74,11 @@ class PathogenDetector:
         Args:
             config: Configuration dict: ``false_alarm_rate`` (default 0.01),
                 ``shrinkage`` toward the diagonal covariance (default 0.1),
-                ``ridge`` (default 1e-6, relative to the mean variance), and an
-                optional fixed ``energy_threshold`` that replaces calibration.
+                ``ridge`` (default 1e-6, relative to each channel's variance),
+                and an optional fixed ``energy_threshold`` (an energy, so >= 0;
+                an alarm is ``E > energy_threshold``) that replaces calibration.
+                The released detector's -0.5 default meant ``E < -0.5`` and is
+                rejected.
 
         Raises:
             ValueError: If a setting is out of range.
@@ -85,7 +92,9 @@ class PathogenDetector:
         self.false_alarm_rate = float(self.config.get("false_alarm_rate", 0.01))
         self.shrinkage = float(self.config.get("shrinkage", 0.1))
         self.ridge = float(self.config.get("ridge", 1e-6))
-        self.energy_threshold: float | None = self.config.get("energy_threshold")
+        fixed = self.config.get("energy_threshold")
+        self._fixed_threshold: float | None = None if fixed is None else float(fixed)
+        self.energy_threshold: float | None = self._fixed_threshold
 
         if not 0.0 < self.false_alarm_rate < 1.0:
             raise ValueError(f"false_alarm_rate must be in (0, 1), got {self.false_alarm_rate}")
@@ -93,6 +102,13 @@ class PathogenDetector:
             raise ValueError(f"shrinkage must be in [0, 1), got {self.shrinkage}")
         if not self.ridge > 0.0:
             raise ValueError(f"ridge must be > 0, got {self.ridge}")
+        if self._fixed_threshold is not None and not (
+            np.isfinite(self._fixed_threshold) and self._fixed_threshold >= 0.0
+        ):
+            raise ValueError(
+                f"energy_threshold is an energy (>= 0, alarm when E exceeds it), "
+                f"got {self._fixed_threshold}"
+            )
 
         # A ``seed`` key is accepted for compatibility; fitting is deterministic.
         self.mean_: np.ndarray[Any, Any] | None = None
@@ -126,7 +142,7 @@ class PathogenDetector:
 
         Raises:
             ValueError: If the baseline is not a finite 2-D array of at least two
-                snapshots, has no variance, or is too short to calibrate
+                snapshots, a channel has no variance, or it is too short to calibrate
                 ``false_alarm_rate`` (the held-out 30% needs at least
                 ``1/false_alarm_rate - 1`` snapshots).
         """
@@ -136,7 +152,7 @@ class PathogenDetector:
         if not np.all(np.isfinite(data)):
             raise ValueError("baseline must be finite")
         n, d = data.shape
-        calibrate = self.energy_threshold is None
+        calibrate = self._fixed_threshold is None
         split = int(_FIT_FRACTION * n) if calibrate else n
         needed = int(np.ceil(1.0 / self.false_alarm_rate - 1.0))
         if calibrate and (split < 2 or n - split < needed):
@@ -150,10 +166,14 @@ class PathogenDetector:
         cov = np.atleast_2d(np.cov(fit_rows, rowvar=False))
         diag = np.diag(np.diag(cov))
         cov = (1.0 - self.shrinkage) * cov + self.shrinkage * diag
-        mean_variance = float(np.mean(np.diag(cov)))
-        if not mean_variance > 0.0:
-            raise ValueError("baseline has no variance in any channel")
-        cov = cov + self.ridge * mean_variance * np.eye(d)
+        variances = np.diag(cov).copy()
+        constant = np.flatnonzero(~(variances > 0.0))
+        if constant.size:
+            raise ValueError(
+                f"baseline channel(s) {constant.tolist()} have no variance; "
+                "repair or drop them before fitting"
+            )
+        cov = cov + self.ridge * np.diag(variances)
 
         self.state_dim = d
         self.mean_ = fit_rows.mean(axis=0)
@@ -165,6 +185,9 @@ class PathogenDetector:
             energies = np.array([self._energy(row) for row in data[split:]])
             self._calibration_energies = np.sort(energies)
             self.energy_threshold = conformal_threshold(energies, alpha=self.false_alarm_rate)
+        else:
+            self._calibration_energies = None
+            self.energy_threshold = self._fixed_threshold
         self.logger.info(
             f"PathogenDetector fitted on {n} snapshots x {d} channels "
             f"(E_critical={self.energy_threshold:.3f})"
@@ -254,9 +277,13 @@ class PathogenDetector:
         return float(0.5 * deviation @ self.precision_ @ deviation)
 
     def _significance(self, energy: float) -> float:
-        """1 - conformal p-value of ``energy`` against the held-out baseline."""
+        """1 - conformal p-value of ``energy`` against the held-out baseline.
+
+        With a fixed ``energy_threshold`` there is no calibration set, so this is
+        1.0 for an alarm and 0.0 otherwise.
+        """
         cal = self._calibration_energies
-        if cal is None:  # a fixed ``energy_threshold`` was configured
+        if cal is None:
             return 1.0 if energy > float(self.energy_threshold or 0.0) else 0.0
         at_least = cal.size - int(np.searchsorted(cal, energy, side="left"))
         return float(1.0 - (1 + at_least) / (cal.size + 1))

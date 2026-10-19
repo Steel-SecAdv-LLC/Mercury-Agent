@@ -30,7 +30,13 @@ _CRISIS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"tornado\w*)\b"
         ),
     ),
-    ("pandemic", re.compile(r"\b(pandemic|epidemic|outbreaks?|disease\w*)\b")),
+    (
+        "pandemic",
+        re.compile(
+            r"\b(pandemic|epidemic|disease\w*|"
+            r"outbreaks?(?!\s+of\s+(violence|fighting|hostilities|conflict|war|unrest|riots?)))\b"
+        ),
+    ),
     (
         "infrastructure_failure",
         re.compile(r"\b(infrastructure|power outages?|blackouts?|grid failure|dam failure)\b"),
@@ -269,6 +275,8 @@ class CrisisMonitor:
 
 def _unit_score(value: Any) -> float:
     """A report score clipped to [0, 1]; missing, non-numeric or non-finite is 0."""
+    if isinstance(value, bool):
+        return 0.0
     try:
         score = float(value)
     except (TypeError, ValueError):

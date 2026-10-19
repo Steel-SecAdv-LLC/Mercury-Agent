@@ -34,7 +34,9 @@ their original logic: a terrorism detector that ignored its indicators, a "QBM"
 pathogen detector driven by a random matrix, a crisis monitor that invented
 population figures, and an SEIR forecaster with a wrong R0. Each now rests on a
 published method; every test the new files mark as such fails on the previous
-tree.
+tree. An adversarial review of the first rebuild (`499c08af`) found 2 blocking
+and 5 should-fix defects; all are fixed below, each with a test that fails on
+that commit.
 
 **Fixed — `medical.pandemic.forecasting.EpidemicForecaster`.** R0 was
 β/(σ+γ), 1.67 for the default rates whose true R0 is 5 (the simulated final
@@ -43,31 +45,45 @@ outbreak that infected 89%. R0 is now β/γ, the next-generation-matrix value
 (van den Driessche & Watmough 2002). `chaos_score` is now Λ, the dominant
 eigenvalue of the infection subsystem at the disease-free state: the early
 growth rate per day (0.170 against an observed 0.169) and positive exactly above
-the epidemic threshold, so `bifurcation_detected` (default `chaos_threshold`
-0.0) no longer depends on population size or fires below threshold. Deaths,
-hospitalisations and cost scale with cumulative infections (993,023 by default)
-instead of peak prevalence (305,010), with the ratios configurable and reported
-under `assumptions`. The grid is daily (`forecast_days + 1` points), so
-`peak_day` is a day. New `estimate_r0_from_incidence` fits the growth rate by
-Poisson regression and converts it with R = (1 + r/σ)(1 + r/γ) (Wallinga &
-Lipsitch 2007); it recovers 5.0 within 5% from simulated counts. Invalid rates
-and initial counts raise `ValueError`; `simulate_intervention_effect` restores
-β even on error.
+the epidemic threshold, so `bifurcation_detected` no longer depends on
+population size or fires below threshold. `chaos_threshold` is now in Λ's
+units (per day, default 0.0, the threshold); a value set for the released
+unitless score (its default was 1.28) never fires and should be removed.
+Deaths, hospitalisations and cost scale with cumulative infections (993,023 by
+default) instead of peak prevalence (305,010), with the ratios configurable and
+reported under `assumptions`. The grid is daily (`forecast_days + 1` points),
+so `peak_day` is a day, and "rapid intervention" is recommended only above the
+threshold. New `estimate_r0_from_incidence` fits the growth rate by Poisson
+regression and converts it with R = (1 + r/σ)(1 + r/γ) (Wallinga & Lipsitch
+2007, eq. 3.2); it recovers 5.0 within 5% from simulated counts. Non-numeric,
+infinite or out-of-range settings and initial counts raise `ValueError`.
+`simulate_intervention_effect` validates `effectiveness`, restores β even on
+error, and its 0.5 floor no longer raises an R0 that was already below it.
 
 **Fixed — `medical.pandemic.bio_threats.PathogenDetector`.** The released
 detector binarised readings at their own median and scored them with an
-unseeded random coupling matrix: about 18% of fresh detectors flagged the same
-input, and x, 1000x and x + 500 gave the same energy. It now needs `fit(baseline)`
-(snapshots x channels) and scores E = ½(x-μ)ᵀΛ(x-μ), the energy of a Gaussian
-Markov random field with couplings `J_matrix = -Λ` off the diagonal, fitted as in
-`detectors.energy_based`. The threshold is the split-conformal quantile of
-held-out baseline energies (`false_alarm_rate`, default 0.01; 0.45% measured on
-20,000 normal snapshots), and `confidence` is one minus the conformal p-value.
-Shifts, rescalings, single-channel spikes and correlation changes are flagged;
-signatures name the channels beyond 3 sd. The type comes from a MASINT report
-naming a known agent, otherwise `unclassified_anomaly`, and every alarm starts
-with laboratory confirmation, as BioWatch requires. An unfitted detector, a
-wrong-length snapshot or a baseline too short for the rate raises.
+unseeded random coupling matrix: about one fresh detector in six flagged the
+same input, and x, 1000x and x + 500 gave the same energy. It now needs
+`fit(baseline)` (snapshots x channels) and scores E = ½(x-μ)ᵀΛ(x-μ), the energy
+of a Gaussian Markov random field with couplings `J_matrix = -Λ` off the
+diagonal. The covariance is shrunk toward its diagonal and each channel's
+variance gets the same relative ridge, so the fit commutes with a change of
+units: a fluorescent fraction spiked 20 sd high is flagged whether it is
+reported as a fraction or in percent (the first rebuild scaled the ridge to the
+mean variance and missed it beside a channel of particle counts). A channel with
+no variance is named and refused. The threshold is the split-conformal quantile
+of held-out baseline energies (`false_alarm_rate`, default 0.01): the guarantee
+holds on average over the calibration draw (300 recalibrations averaged
+0.0100), while one baseline's realised rate varies (0.45% on the fixed test
+baseline; up to about 3% across 60 baselines). `confidence` is one minus the
+conformal p-value. Refitting recalibrates. A fixed `energy_threshold` is now an
+energy (>= 0, alarm when exceeded); the released -0.5 meant the opposite
+comparison and is refused. Shifts, rescalings, single-channel spikes and
+correlation changes are flagged; signatures name the channels beyond 3 sd. The
+type comes from a MASINT report naming a known agent, otherwise
+`unclassified_anomaly`, and every alarm starts with laboratory confirmation, as
+in the BioWatch process. An unfitted detector, a wrong-length snapshot or a
+baseline too short for the rate raises.
 
 **Fixed — `infrastructure.humanitarian.crisis_monitoring.CrisisMonitor`.** A
 lone score of 0.8 reported 80,000 affected (a default density of 10,000 x
@@ -75,9 +91,9 @@ score x 10). `affected_population` is now the exposure the GEOINT report
 supplies (`affected_population`, or `population_density` x `affected_area_km2`,
 the keys this module's tests already passed) and `None` without it, with a
 response step to obtain it. OSINT indicators now type the crisis, matching is per
-indicator on word boundaries, `mass_casualty` is reachable, and non-finite or
-out-of-range scores are clipped or ignored. `CrisisAlert.affected_population` is
-`int | None`.
+indicator on word boundaries ("outbreak of violence" is not a pandemic),
+`mass_casualty` is reachable, and non-finite, boolean or out-of-range scores are
+clipped or ignored. `CrisisAlert.affected_population` is `int | None`.
 
 **Fixed — `security.anti_terrorism.TerrorismPatternDetector`.** The stage was
 `max(threat_score)` bucketed, with the indicators unread: "school bake sale" at
@@ -85,12 +101,20 @@ out-of-range scores are clipped or ignored. `CrisisAlert.affected_population` is
 *US Violent Extremist Mobilization Indicators* (NCTC, FBI and DHS, 2025), as
 codes or booklet numbers, and the stage is the most advanced one reported:
 mobilization is `imminent_action`, preparation `action_planning`, intent-type
-motivation `indoctrination`, other motivation `identification` (never a threat
-alone). The score is the source's confidence, combined by noisy-OR across
-reports, and never sets the stage. Indicators naming a legally protected
-characteristic are excluded and listed in the new `excluded_indicators`, as the
-booklet requires; `matched_indicators` lists what was recognised. Every action
-begins with trained human review. Free-text reports must be coded first.
+motivation `indoctrination`, other motivation `identification`. The score is
+the source's confidence, combined by noisy-OR across reports, and never sets
+the stage. `threat_detected` needs a preparation or mobilization indicator, or a
+direct threat (#28, #30, #31), and a stated source confidence: the booklet says
+the other motivation indicators "should not serve as the sole basis for any
+investigative activity", so acceptance of violence (#34) alone is staged but
+not alarmed, and an unscored report asks for corroboration instead of urgent
+action. `threat_indicators` lists only recognised codes; other strings go to the
+new `unrecognised_indicators`, and those naming a protected characteristic's
+category (race, age, religion, ...) to `excluded_indicators`, following the
+booklet's caveat that action should never rest solely on such characteristics.
+That screen matches category words, not every identity term, which is why no
+unrecognised string is ever reported as a threat indicator. Every action begins
+with trained human review. Free-text reports must be coded first.
 
 ### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
 

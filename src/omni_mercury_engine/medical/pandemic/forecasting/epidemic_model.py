@@ -85,38 +85,29 @@ class EpidemicForecaster:
         self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
-        self.beta = self.config.get("beta", 0.5)
-        self.sigma = self.config.get("sigma", 0.2)
-        self.gamma = self.config.get("gamma", 0.1)
+        self.beta = _finite(self.config, "beta", 0.5, lower=0.0)
+        self.sigma = _finite(self.config, "sigma", 0.2, lower=0.0, strict=True)
+        self.gamma = _finite(self.config, "gamma", 0.1, lower=0.0, strict=True)
 
-        self.population = self.config.get("population", 1000000)
-        self.forecast_days = self.config.get("forecast_days", 365)
+        self.population = _finite(self.config, "population", 1000000, lower=0.0, strict=True)
+        days = _finite(self.config, "forecast_days", 365, lower=1.0)
+        if not days.is_integer():
+            raise ValueError(f"forecast_days must be a whole number, got {days}")
+        self.forecast_days = int(days)
 
-        self.chaos_threshold = self.config.get("chaos_threshold", 0.0)
+        # Λ per day; 0.0 is the epidemic threshold (the released score was unitless).
+        self.chaos_threshold = _finite(self.config, "chaos_threshold", 0.0)
 
         # Illustrative planning assumptions, not properties of any pathogen.
-        self.infection_fatality_ratio = self.config.get("infection_fatality_ratio", 0.01)
-        self.hospitalization_ratio = self.config.get("hospitalization_ratio", 0.05)
-        self.cost_per_infection_usd = self.config.get("cost_per_infection_usd", 50000.0)
-
-        if not (np.isfinite(self.beta) and self.beta >= 0.0):
-            raise ValueError(f"beta must be finite and >= 0, got {self.beta}")
-        for name in ("sigma", "gamma"):
-            value = getattr(self, name)
-            if not (np.isfinite(value) and value > 0.0):
-                raise ValueError(f"{name} must be finite and > 0, got {value}")
-        if not self.population > 0:
-            raise ValueError(f"population must be > 0, got {self.population}")
-        if int(self.forecast_days) != self.forecast_days or self.forecast_days < 1:
-            raise ValueError(f"forecast_days must be a positive integer, got {self.forecast_days}")
-        for name in ("infection_fatality_ratio", "hospitalization_ratio"):
-            value = getattr(self, name)
-            if not 0.0 <= value <= 1.0:
-                raise ValueError(f"{name} must be in [0, 1], got {value}")
-        if not (np.isfinite(self.cost_per_infection_usd) and self.cost_per_infection_usd >= 0.0):
-            raise ValueError(
-                f"cost_per_infection_usd must be finite and >= 0, got {self.cost_per_infection_usd}"
-            )
+        self.infection_fatality_ratio = _finite(
+            self.config, "infection_fatality_ratio", 0.01, lower=0.0, upper=1.0
+        )
+        self.hospitalization_ratio = _finite(
+            self.config, "hospitalization_ratio", 0.05, lower=0.0, upper=1.0
+        )
+        self.cost_per_infection_usd = _finite(
+            self.config, "cost_per_infection_usd", 50000.0, lower=0.0
+        )
 
         self.logger.info(
             f"EpidemicForecaster initialized (β={self.beta}, σ={self.sigma}, γ={self.gamma})"
@@ -153,7 +144,7 @@ class EpidemicForecaster:
         y0 = [initial_susceptible, initial_exposed, initial_infected, initial_recovered]
 
         # One point per day, so an index on the grid is a day number.
-        t = np.arange(int(self.forecast_days) + 1, dtype=float)
+        t = np.arange(self.forecast_days + 1, dtype=float)
 
         solution = odeint(self._seir_derivatives, y0, t)
 
@@ -389,7 +380,7 @@ class EpidemicForecaster:
             if peak_infections > 0.01 * self.population:
                 interventions.append("Activate international coordination (WHO, CDC, ECDC)")
 
-        if peak_day < 90:
+        if bifurcation_detected and peak_day < 90:
             interventions.append(f"Rapid intervention required - peak expected in {peak_day} days")
 
         if not interventions:
@@ -408,7 +399,12 @@ class EpidemicForecaster:
 
         Returns:
             Dict with r0_reduction, peak_reduction, delay_days, lives_saved_estimate
+
+        Raises:
+            ValueError: If ``effectiveness`` is outside [0, 1].
         """
+        if not 0.0 <= effectiveness <= 1.0:
+            raise ValueError(f"effectiveness must be in [0, 1], got {effectiveness}")
         r0_original = self._estimate_r0()
 
         if intervention_type == "vaccination":
@@ -422,7 +418,8 @@ class EpidemicForecaster:
         else:
             r0_reduction = 0.0
 
-        r0_new = max(r0_original * (1 - r0_reduction), 0.5)
+        # The 0.5 floor keeps residual transmission; it never raises R0.
+        r0_new = max(r0_original * (1 - r0_reduction), min(0.5, r0_original))
 
         baseline_forecast = self.forecast_pandemic()
         baseline_peak = baseline_forecast.peak_infections
@@ -453,3 +450,27 @@ class EpidemicForecaster:
             "delay_days": float(delay_days),
             "lives_saved_estimate": int(infections_averted * self.infection_fatality_ratio),
         }
+
+
+def _finite(
+    config: dict[str, Any],
+    name: str,
+    default: float,
+    *,
+    lower: float | None = None,
+    upper: float | None = None,
+    strict: bool = False,
+) -> float:
+    """A finite numeric setting within bounds (``strict`` excludes ``lower``)."""
+    value = config.get(name, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"{name} must be a number, got {value!r}")
+    number = float(value)
+    in_range = np.isfinite(number)
+    if lower is not None:
+        in_range = in_range and (number > lower if strict else number >= lower)
+    if upper is not None:
+        in_range = in_range and number <= upper
+    if not in_range:
+        raise ValueError(f"{name} is out of range: {value!r}")
+    return number

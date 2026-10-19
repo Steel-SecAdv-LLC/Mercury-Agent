@@ -6,14 +6,17 @@ Stages reported behaviour against the 42 observable indicators of *US Violent
 Extremist Mobilization Indicators* (NCTC, FBI and DHS, 2025 edition; the
 numbering matches the 2021 edition). The booklet groups them into three
 behaviour stages, mobilization, preparation and motivation, and types them as
-financial, ideology, intent, relationship, tactics or travel.
+finance, ideology, intent, relationship, tactics or travel.
 
 The stage comes only from recognised indicators: a caller's ``threat_score``
 sets the confidence, never the stage, because a number is not an observed
-behaviour. Indicators naming a legally protected characteristic are excluded,
-following the booklet's caveat that action "should never be taken solely on the
-basis of constitutionally protected activities" or of such characteristics.
-Every result is a referral for trained human review, not a determination.
+behaviour. Only recognised indicator codes are reported as threat indicators;
+anything else is returned separately and never scored. Strings naming a legally
+protected characteristic are also listed as excluded (a best-effort screen of
+category words, not of every identity term), following the booklet's caveat
+that action "should never be taken solely on the basis of constitutionally
+protected activities" or of such characteristics. Every result is a referral
+for trained human review, not a determination.
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ MOBILIZATION_INDICATORS: dict[str, tuple[int, str, str]] = {
     "martyrdom_or_final_statement": (3, "mobilization", "intent"),
     "attack_dry_run_or_target_access": (4, "mobilization", "tactics"),
     "stated_attack_details": (5, "mobilization", "intent"),
-    "unusual_asset_disposal": (6, "mobilization", "financial"),
+    "unusual_asset_disposal": (6, "mobilization", "finance"),
     "unusual_goodbyes": (7, "mobilization", "relationship"),
     "communicated_violent_intent": (8, "preparation", "intent"),
     "explosives_research_or_testing": (9, "preparation", "tactics"),
@@ -48,7 +51,7 @@ MOBILIZATION_INDICATORS: dict[str, tuple[int, str, str]] = {
     "weapons_acquisition_for_crime": (20, "preparation", "tactics"),
     "weapons_training_for_crime": (21, "preparation", "tactics"),
     "suspicious_travel_activity": (22, "preparation", "travel"),
-    "unexplained_resources_with_violent_extremists": (23, "preparation", "financial"),
+    "unexplained_resources_with_violent_extremists": (23, "preparation", "finance"),
     "violent_extremist_group_membership": (24, "preparation", "relationship"),
     "target_or_tactic_research": (25, "preparation", "tactics"),
     "exploiting_sensitive_access": (26, "preparation", "tactics"),
@@ -72,10 +75,22 @@ MOBILIZATION_INDICATORS: dict[str, tuple[int, str, str]] = {
 
 _CODE_BY_NUMBER = {number: code for code, (number, _, _) in MOBILIZATION_INDICATORS.items()}
 
-# Legally protected characteristics named in the booklet's caveat.
+# Direct threats of violence against a person, place or law enforcement. Alone
+# among motivation indicators these raise ``threat_detected``: the others may be
+# lawful or constitutionally protected and "should not serve as the sole basis
+# for any investigative activity" (booklet, motivation section).
+_DIRECT_THREATS = frozenset(
+    {
+        "intent_to_harm_if_confronted",
+        "threat_against_physical_target",
+        "threat_against_individuals",
+    }
+)
+
+# Category words for the legally protected characteristics in the booklet's caveat.
 _PROTECTED = re.compile(
-    r"\b(race|racial|age|ethnic\w*|national origin|nationality|religio\w*|faith|sex|gender|"
-    r"gender identity|sexual orientation)\b"
+    r"\b(races?|racial|ages?|aged|ethnic\w*|national origins?|nationalit\w*|religio\w*|"
+    r"faiths?|sex|sexes|genders?|gender identit\w*|sexual orientations?)\b"
 )
 
 
@@ -90,6 +105,7 @@ class TerrorismThreatResult:
     recommended_actions: list[str]
     matched_indicators: list[str] = field(default_factory=list)
     excluded_indicators: list[str] = field(default_factory=list)
+    unrecognised_indicators: list[str] = field(default_factory=list)
 
 
 class TerrorismPatternDetector:
@@ -106,10 +122,13 @@ class TerrorismPatternDetector:
     - ``action_planning``: preparation indicators (weeks before an attack)
     - ``imminent_action``: mobilization indicators (days or hours before)
 
-    ``threat_detected`` is ``indoctrination`` or later. Indicators are the codes
-    in :data:`MOBILIZATION_INDICATORS` (case, spaces and hyphens are ignored)
-    or the booklet's numbers 1-42; other strings are kept but not scored, so
-    free-text reports must be coded first.
+    ``threat_detected`` needs a preparation or mobilization indicator, or a
+    direct threat (#28, #30, #31), from a report that states a source confidence
+    (``threat_score`` > 0); an unscored report is staged but flagged for
+    corroboration instead. Indicators are the codes in
+    :data:`MOBILIZATION_INDICATORS` (case, spaces and hyphens are ignored) or
+    the booklet's numbers 1-42; other strings go to ``unrecognised_indicators``
+    and are not scored, so free-text reports must be coded first.
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -142,7 +161,7 @@ class TerrorismPatternDetector:
         Returns:
             TerrorismThreatResult with threat assessment
         """
-        supplied: list[Any] = []
+        unrecognised: list[str] = []
         excluded: list[str] = []
         evidence: list[tuple[str, int, float]] = []
         for source, report in enumerate((osint_data, comint_data)):
@@ -150,27 +169,34 @@ class TerrorismPatternDetector:
                 continue
             reliability = _unit_score(report.get("threat_score"))
             for indicator in _as_list(report.get("indicators")):
-                text = re.sub(r"[_\-]+", " ", str(indicator)).lower()
-                if _PROTECTED.search(text):
-                    excluded.append(str(indicator))
-                    continue
-                supplied.append(indicator)
-                code = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
-                if code.isdigit():
-                    code = _CODE_BY_NUMBER.get(int(code), code)
+                code = _indicator_code(indicator)
                 if code in MOBILIZATION_INDICATORS:
                     evidence.append((code, source, reliability))
+                elif _PROTECTED.search(re.sub(r"[_\-]+", " ", _text(indicator)).lower()):
+                    excluded.append(_text(indicator))
+                else:
+                    unrecognised.append(_text(indicator))
 
-        stage = self._classify_radicalization_stage([code for code, _, _ in evidence])
+        codes = list(dict.fromkeys(code for code, _, _ in evidence))
+        stage = self._classify_radicalization_stage(codes)
         rank = self.radicalization_stages.index(stage)
-        threat_detected = rank >= self.radicalization_stages.index("indoctrination")
 
         # Noisy-OR over the reliabilities of the reports behind the stage.
         at_stage = {src: r for code, src, r in evidence if self._stage_of(code) == stage}
         confidence = 1.0 - math.prod(1.0 - r for r in at_stage.values()) if at_stage else 0.0
 
+        actionable = rank >= self.radicalization_stages.index("action_planning") or any(
+            code in _DIRECT_THREATS for code in codes
+        )
+        threat_detected = actionable and confidence > 0.0
+
         actions = self._recommend_actions(stage, confidence)
-        if supplied and not evidence:
+        if actionable and confidence == 0.0:
+            actions.insert(
+                0, "Source reliability not stated: corroborate the report before any action"
+            )
+            actions = [a for a in actions if not a.startswith("URGENT")]
+        if unrecognised and not evidence:
             actions.append("No recognised behavioural indicator: a score alone is not evidence")
         if excluded:
             self.logger.warning(
@@ -181,13 +207,14 @@ class TerrorismPatternDetector:
             threat_detected=threat_detected,
             radicalization_stage=stage,
             confidence=confidence,
-            threat_indicators=supplied[:10],
+            threat_indicators=codes[:10],
             recommended_actions=actions,
             matched_indicators=[
                 f"{code} ({MOBILIZATION_INDICATORS[code][1]} #{MOBILIZATION_INDICATORS[code][0]})"
-                for code in dict.fromkeys(code for code, _, _ in evidence)
+                for code in codes
             ],
             excluded_indicators=excluded,
+            unrecognised_indicators=unrecognised,
         )
 
         if threat_detected:
@@ -232,7 +259,7 @@ class TerrorismPatternDetector:
             actions.append("Continue monitoring the reported behaviours within legal authority")
 
         elif stage == "indoctrination":
-            actions.append("Assess the expressed intent with a trained threat-assessment team")
+            actions.append("Assess any expressed intent with a trained threat-assessment team")
             actions.append("Warn and protect any person or place threatened")
             actions.append(
                 "Offer off-ramps: community-based prevention and counter-narrative programs"
@@ -251,8 +278,27 @@ class TerrorismPatternDetector:
         return actions
 
 
+def _text(indicator: Any) -> str:
+    """An indicator as text; bytes are decoded."""
+    if isinstance(indicator, bytes):
+        return indicator.decode("utf-8", errors="replace")
+    return str(indicator)
+
+
+def _indicator_code(indicator: Any) -> str:
+    """Normalised code of an indicator: a code, a booklet number, or other text."""
+    if isinstance(indicator, float) and indicator.is_integer():
+        indicator = int(indicator)
+    code = re.sub(r"[^a-z0-9]+", "_", _text(indicator).lower()).strip("_")
+    if code.isdigit():
+        return _CODE_BY_NUMBER.get(int(code), code)
+    return code
+
+
 def _unit_score(value: Any) -> float:
     """A source confidence clipped to [0, 1]; missing or invalid is 0."""
+    if isinstance(value, bool):
+        return 0.0
     try:
         score = float(value)
     except (TypeError, ValueError):

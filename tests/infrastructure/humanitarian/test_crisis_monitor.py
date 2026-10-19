@@ -484,9 +484,16 @@ class TestCrisisMonitorCorrectness:
             "natural_disaster"
         )
 
+    def test_outbreak_of_violence_is_not_a_pandemic(self) -> None:
+        monitor = CrisisMonitor()
+        for text in ("outbreak of violence", "outbreak_of_fighting", "outbreak of hostilities"):
+            assert monitor._classify_crisis({}, {"indicators": [text]}) != "pandemic"
+        assert monitor._classify_crisis({"indicators": ["cholera outbreak"]}, None) == "pandemic"
+
     def test_invalid_scores_are_clipped_or_ignored(self) -> None:
         monitor = CrisisMonitor()
         assert monitor.monitor_crisis(geoint_data={"threat_score": 1.5}).severity == "critical"
         assert monitor.monitor_crisis(geoint_data={"threat_score": float("nan")}).severity == "low"
         assert monitor.monitor_crisis(geoint_data={"threat_score": "high"}).severity == "low"
         assert monitor.monitor_crisis(geoint_data={"threat_score": -2}).severity == "low"
+        assert monitor.monitor_crisis(geoint_data={"threat_score": True}).severity == "low"

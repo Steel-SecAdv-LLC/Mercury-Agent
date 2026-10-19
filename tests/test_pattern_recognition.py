@@ -102,7 +102,8 @@ class TestTerrorismPatternDetector:
         }
         result = detector.detect_radicalization(comint_data=comint_data)
         assert result.threat_detected
-        assert "encrypted_comms" in result.threat_indicators
+        assert result.threat_indicators == ["communicated_violent_intent"]
+        assert result.unrecognised_indicators == ["encrypted_comms"]
         assert result.matched_indicators == ["communicated_violent_intent (preparation #8)"]
 
     def test_detect_radicalization_combined_data(self) -> None:
@@ -191,6 +192,64 @@ class TestBehaviourBasedStaging:
         assert result.radicalization_stage == "imminent_action"
         assert result.confidence == 0.0
 
+    def test_unscored_report_is_staged_but_not_actioned(self) -> None:
+        """A report without a stated source confidence needs corroboration first."""
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={"indicators": ["unusual_goodbyes"]}
+        )
+        assert result.radicalization_stage == "imminent_action"
+        assert not result.threat_detected
+        assert result.recommended_actions[0].startswith("Source reliability not stated")
+        assert not any(a.startswith("URGENT") for a in result.recommended_actions)
+
+    @pytest.mark.parametrize(
+        ("code", "detected"),
+        [
+            ("violence_accepted_as_necessary", False),  # 34: may be protected speech
+            ("willing_to_die_or_seek_notoriety_through_violence", False),  # 29
+            ("threat_against_individuals", True),  # 31: a direct threat
+            ("threat_against_physical_target", True),  # 30
+            ("intent_to_harm_if_confronted", True),  # 28
+        ],
+    )
+    def test_only_direct_threats_raise_a_motivation_alarm(self, code: str, detected: bool) -> None:
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={"threat_score": 0.3, "indicators": [code]}
+        )
+        assert result.radicalization_stage == "indoctrination"
+        assert result.threat_detected is detected
+
+    def test_identity_terms_are_never_threat_indicators(self) -> None:
+        identity = ["Muslim convert", "attends mosque", "Somali immigrant", "aged 19", "races"]
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={
+                "threat_score": 0.9,
+                "indicators": [*identity, "threat_against_individuals"],
+            }
+        )
+        assert result.threat_indicators == ["threat_against_individuals"]
+        assert result.excluded_indicators == ["aged 19", "races"]
+        assert result.unrecognised_indicators == identity[:3]
+
+    def test_recognised_codes_are_not_crowded_out(self) -> None:
+        noise = [f"note {i}" for i in range(15)]
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={"threat_score": 0.5, "indicators": [*noise, "target_surveillance"]}
+        )
+        assert result.threat_indicators == ["target_surveillance"]
+
+    def test_numeric_and_bytes_indicators(self) -> None:
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={"threat_score": 0.5, "indicators": [15.0, b"unusual_goodbyes"]}
+        )
+        assert result.threat_indicators == ["target_surveillance", "unusual_goodbyes"]
+
+    def test_boolean_score_is_not_a_confidence(self) -> None:
+        result = TerrorismPatternDetector().detect_radicalization(
+            osint_data={"threat_score": True, "indicators": ["target_surveillance"]}
+        )
+        assert result.confidence == 0.0 and not result.threat_detected
+
     def test_protected_characteristics_are_excluded(self) -> None:
         """Identity is never an indicator (booklet caveat)."""
         result = TerrorismPatternDetector().detect_radicalization(
@@ -231,6 +290,14 @@ class TestBehaviourBasedStaging:
         assert [
             n for c, (n, _, _) in MOBILIZATION_INDICATORS.items() if stages[c] == "preparation"
         ] == list(range(8, 28))
+
+    def test_indicator_types_match_the_booklet(self) -> None:
+        intent = {n for n, _, kind in MOBILIZATION_INDICATORS.values() if kind == "intent"}
+        assert intent == {2, 3, 5, 8, 28, 29, 30, 31, 34}
+        finance = {n for n, _, kind in MOBILIZATION_INDICATORS.values() if kind == "finance"}
+        assert finance == {6, 23}
+        travel = {n for n, _, kind in MOBILIZATION_INDICATORS.values() if kind == "travel"}
+        assert travel == {1, 10, 11, 22}
 
     def test_invalid_scores_count_as_no_confidence(self) -> None:
         result = TerrorismPatternDetector().detect_radicalization(

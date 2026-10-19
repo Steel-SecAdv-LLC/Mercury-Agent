@@ -149,3 +149,37 @@ def test_invalid_configuration_is_rejected(config: dict[str, float]) -> None:
 def test_invalid_initial_counts_are_rejected() -> None:
     with pytest.raises(ValueError):
         EpidemicForecaster({"population": 100}).forecast_pandemic(initial_infected=200)
+
+
+def test_intervention_never_raises_transmission() -> None:
+    """Fails on the released 0.5 floor, which raised R0 = 0.4 to 0.5."""
+    effect = EpidemicForecaster({"beta": 0.04}).simulate_intervention_effect("quarantine", 0.5)
+    assert effect["peak_reduction"] >= 0.0
+
+
+@pytest.mark.parametrize("effectiveness", [-1.0, 1.5])
+def test_intervention_effectiveness_is_validated(effectiveness: float) -> None:
+    with pytest.raises(ValueError, match="effectiveness"):
+        EpidemicForecaster().simulate_intervention_effect("vaccination", effectiveness)
+
+
+def test_no_rapid_intervention_below_threshold() -> None:
+    """Fails on the released recommender ("peak expected in 8 days" at R0 0.5)."""
+    result = EpidemicForecaster({"beta": 0.05}).forecast_pandemic()
+    assert not any("Rapid intervention" in step for step in result.recommended_interventions)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"beta": None},
+        {"beta": "0.5"},
+        {"forecast_days": float("inf")},
+        {"population": float("inf")},
+        {"forecast_days": 10.5},
+        {"sigma": True},
+    ],
+)
+def test_non_numeric_or_infinite_settings_are_value_errors(config: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        EpidemicForecaster(config)
