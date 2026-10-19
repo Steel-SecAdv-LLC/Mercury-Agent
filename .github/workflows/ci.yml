@@ -719,6 +719,7 @@ jobs:
             scripts/render_prometheus_rules.py \
             scripts/check_torch_load_safety.py \
             scripts/ci_gate_watchdog.py \
+            scripts/record_gdacs_fixtures.py \
             --show-error-codes \
             --pretty
 

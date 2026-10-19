@@ -23,10 +23,6 @@ _EVENT = {
 }
 
 
-def _series():
-    return EnergyLoader()._generate_synthetic_kp_series(_EVENT)
-
-
 def test_g_levels_follow_noaa_g_scale() -> None:
     kp = np.array([4.33, 4.67, 6.33, 6.67, 8.67, 9.0])
     assert _g_levels(kp).tolist() == [noaa_g_scale(k) for k in kp]

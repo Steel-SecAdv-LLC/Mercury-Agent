@@ -31,6 +31,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 BASE = "https://www.gdacs.org/gdacsapi/api"
 FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "gdacs"
@@ -42,7 +43,8 @@ def _get(url: str, tries: int = 5) -> bytes | None:
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(url, timeout=45) as resp:  # noqa: S310 - fixed https host
-                return resp.read()
+                body: bytes = resp.read()
+                return body
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             print(f"  retry {attempt + 1}/{tries} ({exc}) {url}", file=sys.stderr)
             time.sleep(delay)
@@ -50,7 +52,7 @@ def _get(url: str, tries: int = 5) -> bytes | None:
     return None
 
 
-def _alert_parameters(impact: dict) -> dict[str, str]:
+def _alert_parameters(impact: dict[str, Any]) -> dict[str, str]:
     """Flatten the impact's scalar table to {name: value}."""
     scalars: dict[str, str] = {}
     for group in impact.get("datums", []):
