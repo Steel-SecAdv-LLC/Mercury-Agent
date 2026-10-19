@@ -239,7 +239,32 @@ def _to_minute_cadence(
         "(the cadence the tiers are defined on)."
     )
     minute_times = [start + timedelta(seconds=DBDT_CADENCE_S * k) for k in range(n_bins)]
-    return minute_times, _mean(bx), _mean(by)
+    mean_bx, mean_by = _mean(bx), _mean(by)
+
+    # A structurally partial edge bin (the series starts after its first
+    # wall-clock minute begins, or ends before its last one does) is NOT a
+    # 1-minute mean: its centre sits off the minute's middle, so the first
+    # or last dB/dt step spans less than a minute of signal and misreads a
+    # steady ramp by the missing fraction (a series starting at :50 turns a
+    # ramp's r nT/min into 0.58 r across the first step). The tiers are
+    # defined on full 1-minute means, so partial edge bins are dropped.
+    slack = DBDT_CADENCE_S * DBDT_CADENCE_TOLERANCE
+    lead_missing = (first - start).total_seconds()
+    covered_end = lead_missing + float(offsets[-1]) + cadence
+    tail_missing = n_bins * DBDT_CADENCE_S - covered_end
+    trimmed = []
+    if lead_missing > slack:
+        trimmed.append("first")
+        minute_times, mean_bx, mean_by = minute_times[1:], mean_bx[1:], mean_by[1:]
+    if tail_missing > slack and len(minute_times) > 1:
+        trimmed.append("last")
+        minute_times, mean_bx, mean_by = minute_times[:-1], mean_bx[:-1], mean_by[:-1]
+    if trimmed:
+        notes.append(
+            f"partial edge minute(s) dropped ({' and '.join(trimmed)}): a "
+            "partial bin is not a 1-minute mean and would misread dB/dt."
+        )
+    return minute_times, mean_bx, mean_by
 
 
 class GICDetector:

@@ -67,8 +67,16 @@ class IncidenceForecast:
         log_likelihood: Log-likelihood of the observed counts at the fit.
         fitted: Expected daily incidence over the observed days.
         forecast_mean: Expected daily incidence over the forecast horizon.
-        mean_lower: Lower bound of the band of the mean.
-        mean_upper: Upper bound of the band of the mean.
+        mean_lower: Lower bound of the band of the mean. An UNCALIBRATED
+            percentile-bootstrap band: measured on simulated R0 = 3 outbreaks
+            with known truth it covers 86-92% of forecast days at a 95%
+            target (the parametric bootstrap understates refit variance when
+            the fitted dispersion runs high), and the basic, log-basic,
+            Beran-recycled and log-t variants measure no better (85.8-87.4%).
+            A correct calibration needs a nested (double) bootstrap at ~B
+            times the fit cost and is not shipped. For calibrated uncertainty
+            use ``prediction_lower``/``prediction_upper``.
+        mean_upper: Upper bound of the band of the mean (see ``mean_lower``).
         prediction_lower: Lower prediction bound for future daily counts.
         prediction_upper: Upper prediction bound for future daily counts.
         prediction_level: Calibrated nominal level of each day's plug-in
@@ -315,8 +323,19 @@ def _calibrated_prediction(
         enough = coverage(mid) >= level
         high = np.where(enough, mid, high)
         low = np.where(enough, low, mid)
-    lower = nbinom.ppf((1.0 - high) / 2.0, size, truth_p)
-    upper = nbinom.ppf((1.0 + high) / 2.0, size, truth_p)
+    # A day can need a nominal level beyond the 1 - 1e-9 search cap (the
+    # bootstrap refits' distributions sit too far from the fitted truth, e.g.
+    # when their means collapse toward 0 on a far horizon day). Bisection
+    # then stops AT the cap with its target coverage unmet, and the capped
+    # nominal would be returned as if it had been achieved. Such days fall
+    # back to the one-sided upper interval under the fitted truth, whose
+    # coverage is >= ``level`` by construction, reported at ``level``.
+    short = coverage(high) < level
+    lower = np.where(short, 0.0, nbinom.ppf((1.0 - high) / 2.0, size, truth_p))
+    upper = np.where(
+        short, nbinom.ppf(level, size, truth_p), nbinom.ppf((1.0 + high) / 2.0, size, truth_p)
+    )
+    high = np.where(short, level, high)
     return lower, upper, high
 
 

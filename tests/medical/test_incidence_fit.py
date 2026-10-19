@@ -225,6 +225,23 @@ def test_calibration_resolves_levels_near_one() -> None:
     assert _coverage(lower, upper, mean, size)[0] >= 0.95
 
 
+def test_an_unreachable_target_falls_back_to_a_covering_interval() -> None:
+    """A day whose needed nominal exceeds the 1 - 1e-9 cap still covers the target.
+
+    Regression: with bootstrap means collapsed toward 0 while the fitted
+    truth sits at 50, no nominal level inside the search range reaches 95%
+    coverage; bisection stopped at the cap and returned the capped nominal
+    as if achieved, with an interval whose true coverage was ~0.
+    """
+    mean, size = np.array([50.0]), 10.0
+    lower, upper, nominal = _calibrated_prediction(
+        mean, size, np.full((40, 1), 0.01), np.full(40, size), 0.95
+    )
+    assert _coverage(lower, upper, mean, size)[0] >= 0.95
+    assert nominal[0] == pytest.approx(0.95)
+    assert lower[0] == 0.0
+
+
 def test_forecast_continues_the_fitted_curve(forecast: IncidenceForecast) -> None:
     """The mean is one trajectory: the forecast starts where the fit ends."""
     step = forecast.fitted[-1] / forecast.fitted[-2]

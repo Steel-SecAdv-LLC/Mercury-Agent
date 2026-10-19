@@ -754,8 +754,13 @@ class EnergyLoader(BaseDomainLoader):
 
         Creates a plausible multi-week Kp profile with a background of
         quiet/unsettled conditions punctuated by the documented major
-        storm.  Solar wind and X-ray parameters are correlated with Kp
-        using empirical relationships.
+        storm. Solar wind speed and density are correlated with the
+        simultaneous Kp (a CME arrival raises both at once); X-ray flare
+        activity instead LEADS the storm by the Sun-Earth CME transit time
+        (1-3 days for storm-capable CMEs), because flares happen at eruption
+        while Kp responds only at arrival -- a synthetic series where
+        X-ray class tracked instantaneous Kp taught the anti-physical
+        shortcut that flares and storms are simultaneous.
 
         For extended time windows, minor storms (Kp 4-5) are sprinkled
         throughout the quiet period to provide realistic baseline variance.
@@ -795,13 +800,26 @@ class EnergyLoader(BaseDomainLoader):
         sw_density = base_density + rng.normal(0, 2, size=n_steps)
         sw_density = np.clip(sw_density, 0.5, 50.0)
 
-        # X-ray class: elevated during storm peaks, banded on the NOAA G scale
+        # X-ray class: flares LEAD each geomagnetic disturbance by the CME
+        # transit time (storm-capable CMEs reach Earth in 1-3 days), so the
+        # flare window of a storm step sits 8-24 three-hour steps EARLIER.
+        # The flare magnitude still scales with how strong the storm will
+        # be (bigger CMEs from bigger flares), banded on the NOAA G scale.
         g_levels = _g_levels(kp_values)
-        xray = np.zeros(n_steps, dtype=np.float64)
-        xray[g_levels >= _SEVERE_G_LEVEL] = 5.0  # X-class during G3+ storms
-        xray[(g_levels >= _STORM_G_LEVEL) & (g_levels < _SEVERE_G_LEVEL)] = 4.0  # M-class, G1-G2
-        xray[(g_levels < _STORM_G_LEVEL) & (kp_values >= 3)] = 3.0  # C-class, active sub-storm
-        xray[kp_values < 3] = 1.0  # A-class background
+        xray = np.ones(n_steps, dtype=np.float64)  # A-class background
+        xray[rng.random(n_steps) < 0.05] = 3.0  # sporadic C-class, no storm follows
+        # One eruption per storm EPISODE (contiguous G1+ run): the CME that
+        # causes it erupts 8-24 three-hour steps (1-3 days) before onset.
+        storm_mask = g_levels >= _STORM_G_LEVEL
+        onsets = np.flatnonzero(storm_mask & ~np.concatenate(([False], storm_mask[:-1])))
+        for onset in onsets:
+            run_end = onset
+            while run_end + 1 < n_steps and storm_mask[run_end + 1]:
+                run_end += 1
+            transit_steps = int(rng.integers(8, 25))
+            eruption = max(int(onset) - transit_steps, 0)
+            severe = bool(np.any(g_levels[onset : run_end + 1] >= _SEVERE_G_LEVEL))
+            xray[eruption] = 5.0 if severe else 4.0
 
         df = pd.DataFrame(
             {

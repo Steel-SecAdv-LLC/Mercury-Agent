@@ -40,10 +40,34 @@ def test_one_second_data_is_assessed_at_one_minute() -> None:
     raw_peak = float(np.max(np.hypot(np.diff(bx), np.diff(by)))) * 60.0
     assert raw_peak > 700.0  # what 1-second differencing reads
     result = GICDetector().assess(times, bx, by, observatory="FRD")
-    assert result.n_samples == 21
+    # 21 wall-clock minutes are touched, but the 17:20 bin holds a single
+    # second of data -- a spot sample, not a 1-minute mean -- so it is
+    # dropped rather than differenced against the 17:19 mean.
+    assert result.n_samples == 20
     assert 30.0 < result.peak_dbdt_nt_per_min < 90.0
     assert result.risk_level == "low"
     assert any("1-minute means" in note for note in result.notes)
+    assert any("partial edge minute" in note for note in result.notes)
+
+
+def test_partial_edge_minutes_are_dropped_not_scored_as_means() -> None:
+    """A partial first/last wall-clock minute must not enter the dB/dt steps.
+
+    Regression: bins were labelled at their wall-clock minute start and a
+    series starting at :30 put a half-minute mean in the first bin, so the
+    first dB/dt step of a steady 60 nT/min ramp read ~45 nT/min (the two
+    "minute" centres sit 45 s apart but the step divides by 60 s).
+    """
+    start = datetime(2024, 5, 10, 17, 0, 30, tzinfo=UTC)  # mid-minute start
+    n = 60 * 4 + 40  # ends mid-minute too (17:04:50)
+    times = [start + timedelta(seconds=i) for i in range(n)]
+    ramp = np.arange(n, dtype=np.float64)  # 1 nT/s = 60 nT/min, exactly
+    result = GICDetector().assess(times, ramp, np.zeros(n), observatory="FRD")
+    # Only the full minutes 17:01-17:04 remain; every step reads the true rate.
+    assert result.n_samples == 4
+    assert result.peak_dbdt_nt_per_min == pytest.approx(60.0)
+    assert result.sustained_dbdt_nt_per_min is None or result.sustained_dbdt_nt_per_min <= 60.0
+    assert any("partial edge minute" in note for note in result.notes)
 
 
 def test_gaps_are_counted_on_the_input_samples() -> None:
@@ -135,7 +159,9 @@ def test_source_returns_the_whole_requested_window() -> None:
         start + timedelta(minutes=20),
     )
     (result,) = GICDetector().assess_from_datapoints(points).values()
-    assert result.n_samples == 21  # every minute of the window, not the last 100 s
+    # Every full minute of the window (not just the last 100 s); the 21st
+    # mark is a 1-second partial bin and is dropped, not scored as a mean.
+    assert result.n_samples == 20
 
 
 def test_source_failure_is_not_an_empty_live_feed() -> None:
