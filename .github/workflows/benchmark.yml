@@ -99,7 +99,8 @@ jobs:
   benchmark:
     name: Run Mercury Benchmarks
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # The gating benchmark step alone took 77-115 min on this branch, and 120 cut one run off.
+    timeout-minutes: 180
     # Defence-in-depth self-trigger guard.  GitHub already honours
     # ``[skip ci]`` in commit messages (see the auto-commit step at the
     # bottom of this file), but `paths`-filtered ``push`` triggers can
