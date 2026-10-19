@@ -129,7 +129,7 @@ __all__ = [
 _LCC_MIN, _LCC_MAX = 0.9, 9.3
 
 
-def _finite(name: str, value: float) -> float:
+def _finite(name: str, value: float | np.integer | np.floating) -> float:
     """``value`` as a finite float; booleans, non-numbers and overflow raise ``ValueError``."""
     if isinstance(value, (bool, np.bool_)):
         raise ValueError(f"{name} must be a number, not a boolean")
