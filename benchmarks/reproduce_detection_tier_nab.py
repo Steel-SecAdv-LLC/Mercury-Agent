@@ -57,8 +57,13 @@ import numpy as np
 # Canonical NAB real categories + files, mirrored from
 # omni_mercury_engine.datasets.timeseries.NABLoader so this harness downloads the
 # exact same series the repo loader would, without importing the datasets stack.
-NAB_DATA_URL = "https://raw.githubusercontent.com/numenta/NAB/master/data/"
-NAB_LABELS_URL = "https://raw.githubusercontent.com/numenta/NAB/master/labels/combined_windows.json"
+# Pinned to a commit so the measured corpus cannot drift under the harness
+# (numenta/NAB master head, resolved 2026-10-19; the repository is archived).
+NAB_COMMIT = "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140"
+NAB_DATA_URL = f"https://raw.githubusercontent.com/numenta/NAB/{NAB_COMMIT}/data/"
+NAB_LABELS_URL = (
+    f"https://raw.githubusercontent.com/numenta/NAB/{NAB_COMMIT}/labels/combined_windows.json"
+)
 NAB_FILES: dict[str, list[str]] = {
     "realKnownCause": [
         "ambient_temperature_system_failure.csv",
@@ -270,8 +275,32 @@ def run(
     # "after"  = the new default: rank/ECDF calibration + robust consensus combiner.
     before_sum = summarise(before, "ensemble_average")
     after_sum = summarise(after, "ensemble_consensus")
+    import hashlib
+    import subprocess
+
+    cache = _cache_dir()
+    data_sha256 = {
+        str(path.relative_to(cache)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(cache.rglob("*"))
+        if path.is_file()
+    }
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=Path(__file__).resolve().parent,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        commit = None
+
     return {
         "data_source": source,
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "git_commit": commit,
+        "nab_commit": NAB_COMMIT,
+        "data_sha256": data_sha256,
         "seed": seed,
         "max_len": max_len,
         "n_datasets": len(datasets),

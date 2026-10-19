@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Record GDACS earthquake events as test fixtures (tests/fixtures/gdacs).
+r"""Record GDACS earthquake events as test fixtures (tests/fixtures/gdacs).
 
 Fetches each event's details (``geteventdata``) and shakemap impact
 (``getimpact``) from the public GDACS API, re-serialises the JSON with
