@@ -39,7 +39,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.exceptions import InputModalityError
-from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_NAMES, noaa_g_scale
+from omni_mercury_engine.evaluation.hazard_metrics import (
+    G_SCALE_NAMES,
+    noaa_g_scale,
+    noaa_r_scale,
+    noaa_s_scale,
+)
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -95,6 +100,14 @@ class GeostormScale(Enum):
     G5 = "extreme"
 
 
+def _flux(value: Any) -> float | None:
+    """A finite, non-negative flux as a float; anything else is ``None`` (not supplied)."""
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float, np.number)):
+        return None
+    number = float(value)
+    return number if np.isfinite(number) and number >= 0.0 else None
+
+
 @dataclass
 class SolarStormPredictionResult:
     """Solar storm prediction results."""
@@ -115,8 +128,15 @@ class SolarStormPredictionResult:
     dst_index: float | None = None
     geomagnetic_storm_level: str = "G0"
 
+    # NOAA scales: R (radio blackout) from the 0.1-0.8 nm X-ray flux and S
+    # (radiation storm) from the >= 10 MeV proton flux. ``radio_blackout`` is an
+    # R3 or stronger blackout (an X flare); ``radiation_storm`` is S1 or more
+    # when a proton flux is supplied, else an M or X flare (a proxy: flares and
+    # proton events often, but not always, coincide).
     radiation_storm: bool = False
     radio_blackout: bool = False
+    radio_blackout_level: int = 0
+    radiation_storm_level: int | None = None
 
     power_grid_risk: str = "low"
     satellite_risk: str = "low"
@@ -994,6 +1014,8 @@ class SolarStormDetector:
         Args:
             storm_data: Multi-parameter space weather data including:
                 - xray_data: Solar X-ray flux measurements
+                - proton_flux_pfu: >= 10 MeV integral proton flux (pfu), for
+                  the NOAA S level
                 - cme_data: CME observations from coronagraph
                 - magnetosphere_data: Solar wind, IMF, magnetometer
                 - infrastructure_data: Power grid, satellite locations
@@ -1041,8 +1063,19 @@ class SolarStormDetector:
 
         result.storm_severity = result.geomagnetic_storm_level
 
-        result.radiation_storm = result.flare_class in ["M", "X"]
-        result.radio_blackout = result.flare_class == "X"
+        xray = storm_data.get("xray_data")
+        long_flux = _flux(xray.get("flux_long_wm2")) if isinstance(xray, dict) else None
+        if long_flux is not None:
+            result.radio_blackout_level = noaa_r_scale(long_flux)
+            result.radio_blackout = result.radio_blackout_level >= 3
+        else:
+            result.radio_blackout = result.flare_class == "X"
+        proton = _flux(storm_data.get("proton_flux_pfu"))
+        if proton is not None:
+            result.radiation_storm_level = noaa_s_scale(proton)
+            result.radiation_storm = result.radiation_storm_level >= 1
+        else:
+            result.radiation_storm = result.flare_class in ["M", "X"]
 
         result.power_grid_risk = self._assess_grid_risk(result)
         result.satellite_risk = self._assess_satellite_risk(result)

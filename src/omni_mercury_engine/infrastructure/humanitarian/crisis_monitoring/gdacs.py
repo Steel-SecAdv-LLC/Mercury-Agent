@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""GDACS alert scores for earthquakes and alert levels for floods.
+"""GDACS alert levels for earthquakes, floods and tropical cyclones.
 
 Implements the published Global Disaster Alert and Coordination System
 (EC JRC / UN OCHA) models, which aim to classify events "according to the
@@ -22,15 +22,37 @@ will require humanitarian intervention":
 - Floods, https://www.gdacs.org/Knowledge/models_fl.aspx: Red for more than
   1,000 dead or 800,000 displaced, Orange for more than 100 dead or 80,000
   displaced, Green otherwise.
+- Tropical cyclones, GDACS MHEWS user manual (JRC141661, 2025; version of
+  23/09/2026), section 4.7: the wind level of each track point from its
+  Saffir-Simpson class, the people in its 34 kt and 64 kt wind buffers and the
+  exposed country's vulnerability (Table 1, :func:`tropical_cyclone_point_level`);
+  the storm takes its highest point; a Red more than three days ahead is reduced
+  to Orange; scores 0.5, 1.5 and 2.5. The storm-surge level (Red >= 3 m, Orange
+  >= 1 m) is reported beside it and is not in the score.
 
-Country terms come from GDACS's published table
+Earthquake country terms come from GDACS's published table
 (gdacs.org/Documents/2017_GDACS_EQ_algorithm_coefficients.xlsx, © European
 Union, CC BY 4.0): the 38 countries with their own calibration are in
 :data:`COUNTRY_COEFFICIENTS`; every other country uses the global model, as
-GDACS does. The table's INFORM LCC column is from 2017 and is not included;
-callers supply a current LCC. The formulas are implemented as published; they
-have not been checked against GDACS's own event scores. GDACS calls its scores
-empirical and "intended to give a fast and rough warning".
+GDACS does. The table's 2017 INFORM LCC column is not included: GDACS's live
+factors use newer LCC values with the same normalisation, so callers supply a
+current LCC.
+
+Checked against GDACS's own outputs (tests/fixtures/gdacs):
+
+- Earthquakes: given GDACS's ``ScaledPopulation`` and coping factor,
+  :func:`shakemap_score` reproduces GDACS's shakemap ``AlertScore`` for every
+  single-country event in the sample. GDACS combines the terms of several
+  countries for cross-border events by a rule it does not publish (it averages
+  their coefficients and sums their coping factors), and its live
+  ``ScaledPopulation`` is not the band formula above applied to its own MMI
+  band totals (-0.27 to +0.17 apart in log10 over the sample's 21 scored
+  single-country events), so scores from :func:`earthquake_shakemap_score`
+  approximate GDACS's: they give GDACS's level for 19 of the 21.
+- Tropical cyclones: the look-up table reproduces GDACS's level at every track
+  point of the sample's five storms.
+
+GDACS calls its scores empirical and "intended to give a fast and rough warning".
 """
 
 from __future__ import annotations
@@ -43,11 +65,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
 
 __all__ = [
     "COUNTRY_COEFFICIENTS",
     "GLOBAL_COEFFICIENTS",
+    "TC_VULNERABILITY",
+    "CyclonePoint",
     "EarthquakeCoefficients",
     "alert_level",
     "apply_coping_capacity",
@@ -56,6 +80,13 @@ __all__ = [
     "earthquake_parameter_score",
     "earthquake_shakemap_score",
     "flood_alert_level",
+    "shakemap_score",
+    "storm_surge_level",
+    "tropical_cyclone_category",
+    "tropical_cyclone_level",
+    "tropical_cyclone_point_level",
+    "tropical_cyclone_score",
+    "tropical_cyclone_vulnerability",
 ]
 
 # The 2017 table normalises INFORM LCC linearly from its 0.9 minimum to its
@@ -186,7 +217,26 @@ def earthquake_shakemap_score(
     p7 = _population("population_mmi_vii", population_mmi_vii)
     p8 = _population("population_mmi_viii", population_mmi_viii)
     p9 = _population("population_mmi_ix", population_mmi_ix)
-    scaled = 10.0 * p9 + p8 + 0.1 * p7
+    return shakemap_score(10.0 * p9 + p8 + 0.1 * p7, coefficients)
+
+
+def shakemap_score(
+    scaled_population: float, coefficients: EarthquakeCoefficients = GLOBAL_COEFFICIENTS
+) -> float:
+    """GDACS shakemap score from a scaled population, before coping capacity.
+
+    GDACS reports ``ScaledPopulation`` with each shakemap alert as its log10,
+    or as 0 when nobody is shaken at MMI VII or above (``PopulationOverVII``
+    0). Passing 10**that value, or 0 in that case, reproduces GDACS's score.
+
+    Args:
+        scaled_population: Intensity-weighted exposed population.
+        coefficients: Country terms (:func:`earthquake_coefficients`).
+
+    Returns:
+        The score; 0 when the scaled population is 0.
+    """
+    scaled = _population("scaled_population", scaled_population)
     if scaled <= 0.0:
         return 0.0
     c = coefficients
@@ -286,3 +336,215 @@ def flood_alert_level(deaths: float, displaced: float) -> str:
     if dead > 100 or moved > 80_000:
         return "orange"
     return "green"
+
+
+# --- Tropical cyclones -------------------------------------------------------
+
+# Saffir-Simpson Hurricane Wind Scale on 1-minute sustained wind in knots, as
+# GDACS (models_tc.aspx) and NHC band it. Keep in step with
+# detectors.geological.hurricane_detector, which a test checks knot by knot.
+_SSHS_KT: tuple[tuple[float, str], ...] = (
+    (137.0, "category_5"),
+    (113.0, "category_4"),
+    (96.0, "category_3"),
+    (83.0, "category_2"),
+    (64.0, "category_1"),
+    (34.0, "tropical_storm"),
+)
+
+_TC_VULNERABILITY_CLASSES = ("low", "medium", "high")
+
+# GDACS's published tropical-cyclone vulnerability classes (Giovanna report,
+# EUR 25629, 2012, section 2.1.3; every other country is Low), with the two
+# classes GDACS's live feed reported differently for 2023-2026 events
+# (Tanzania Medium, Yemen High); the other 49 countries seen in that feed match.
+TC_VULNERABILITY: Mapping[str, str] = MappingProxyType(
+    {
+        **dict.fromkeys(
+            (
+                "ABW", "AIA", "ASM", "BLZ", "CHN", "COK", "CPV", "CRI", "DOM", "FJI", "GUM",
+                "HND", "JAM", "LAO", "MEX", "MNP", "MUS", "MYS", "NCL", "NIC", "PAK", "PHL",
+                "PLW", "PRI", "REU", "SWZ", "TCA", "THA", "TON", "TTO", "TZA", "VCT", "VGB",
+                "VUT", "WSM",
+            ),
+            "medium",
+        ),
+        **dict.fromkeys(
+            (
+                "BGD", "COM", "GTM", "HTI", "IND", "KHM", "MDG", "MHL", "MMR", "MOZ", "MSR",
+                "NIU", "PNG", "PRK", "PYF", "SLB", "SLV", "VNM", "YEM",
+            ),
+            "high",
+        ),
+    }
+)  # fmt: skip
+
+_TC_SCORE = {"green": 0.5, "orange": 1.5, "red": 2.5}
+_LEVEL_ORDER = ("green", "orange", "red")
+# GDACS reduces a Red more than three days ahead of the forecast to Orange.
+_TC_RED_HORIZON_HOURS = 72.0
+
+
+@dataclass(frozen=True)
+class CyclonePoint:
+    """One track point of a tropical cyclone, as GDACS assesses it.
+
+    Attributes:
+        max_wind_kt: 1-minute maximum sustained wind, knots.
+        population_34kt: People inside the 34 kt (39 mph) wind buffer.
+        population_64kt: People inside the 64 kt (74 mph) wind buffer.
+        vulnerability: The exposed country's class, ``low``, ``medium`` or
+            ``high`` (:func:`tropical_cyclone_vulnerability`).
+        country_population: The country's total population, for the "10% of
+            the population" thresholds; ``None`` applies only the absolute ones.
+        lead_time_hours: Hours ahead of the latest advisory; 0 for observed points.
+    """
+
+    max_wind_kt: float
+    population_34kt: float
+    population_64kt: float
+    vulnerability: str = "low"
+    country_population: float | None = None
+    lead_time_hours: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate the point and store its numbers as floats."""
+        wind = _finite("max_wind_kt", self.max_wind_kt)
+        if wind < 0.0:
+            raise ValueError(f"max_wind_kt must be >= 0, got {wind}")
+        numbers = {
+            "max_wind_kt": wind,
+            "population_34kt": _population("population_34kt", self.population_34kt),
+            "population_64kt": _population("population_64kt", self.population_64kt),
+            "lead_time_hours": _finite("lead_time_hours", self.lead_time_hours),
+        }
+        if self.vulnerability not in _TC_VULNERABILITY_CLASSES:
+            raise ValueError(
+                f"vulnerability must be one of {_TC_VULNERABILITY_CLASSES}, got {self.vulnerability!r}"
+            )
+        if self.country_population is not None:
+            numbers["country_population"] = _population(
+                "country_population", self.country_population
+            )
+        for name, value in numbers.items():
+            object.__setattr__(self, name, value)  # frozen: set once, here
+
+
+def tropical_cyclone_category(max_wind_kt: float) -> str:
+    """Saffir-Simpson class of a 1-minute sustained wind in knots.
+
+    Returns:
+        ``tropical_depression`` (<= 33 kt), ``tropical_storm`` (34-63 kt), or
+        ``category_1`` to ``category_5`` (64, 83, 96, 113 and 137 kt and up).
+    """
+    wind = _finite("max_wind_kt", max_wind_kt)
+    if wind < 0.0:
+        raise ValueError(f"max_wind_kt must be >= 0, got {wind}")
+    for floor, category in _SSHS_KT:
+        if wind >= floor:
+            return category
+    return "tropical_depression"
+
+
+def tropical_cyclone_vulnerability(iso3: str) -> str:
+    """GDACS tropical-cyclone vulnerability class of a country (:data:`TC_VULNERABILITY`)."""
+    code = str(iso3).strip().upper()
+    if len(code) != 3 or not code.isalpha():
+        raise ValueError(f"expected an ISO 3166-1 alpha-3 code, got {iso3!r}")
+    return TC_VULNERABILITY.get(code, "low")
+
+
+def tropical_cyclone_point_level(point: CyclonePoint) -> str:
+    """GDACS wind level of one track point, by the MHEWS look-up table.
+
+    GDACS MHEWS user manual (JRC141661, 2025; version of 23/09/2026), section
+    4.7, Table 1, where "(100k or 10% poptot)" reads as more than 100,000 people
+    or more than 10% of the country's population in the 64 kt buffer:
+
+    - Tropical depression: Green.
+    - Tropical storm: Orange for High vulnerability with > 10M in the 34 kt
+      buffer; else Green.
+    - Category 1 and 2 (threshold 100k for Category 1, 50k for Category 2):
+      Low Green; Medium Orange above the threshold; High Red above 1M, Orange
+      above the threshold or with > 10M in the 34 kt buffer.
+    - Category 3: Low Orange above 500k; Medium/High Red above 100k (or 10%),
+      Orange above 20k.
+    - Category 4 and 5: Low Red above 1M, Orange above 100k (or 10%);
+      Medium/High Red above 100k (or 10%), Orange above 20k.
+
+    Anything else is Green, and a Red more than 72 hours ahead becomes Orange.
+    """
+    category = tropical_cyclone_category(point.max_wind_kt)
+    p34, p64 = float(point.population_34kt), float(point.population_64kt)
+    vulnerable = point.vulnerability in ("medium", "high")
+
+    def exceeds(threshold: float) -> bool:
+        share = point.country_population
+        return p64 > threshold or (share is not None and share > 0 and p64 > 0.1 * share)
+
+    level = "green"
+    if category == "tropical_storm":
+        if point.vulnerability == "high" and p34 > 10e6:
+            level = "orange"
+    elif category in ("category_1", "category_2"):
+        threshold = 100e3 if category == "category_1" else 50e3
+        if point.vulnerability == "medium" and exceeds(threshold):
+            level = "orange"
+        elif point.vulnerability == "high":
+            if p64 > 1e6:
+                level = "red"
+            elif exceeds(threshold) or p34 > 10e6:
+                level = "orange"
+    elif category == "category_3":
+        if not vulnerable:
+            level = "orange" if p64 > 500e3 else "green"
+        elif exceeds(100e3):
+            level = "red"
+        elif p64 > 20e3:
+            level = "orange"
+    elif category in ("category_4", "category_5"):
+        if not vulnerable:
+            if p64 > 1e6:
+                level = "red"
+            elif exceeds(100e3):
+                level = "orange"
+        elif exceeds(100e3):
+            level = "red"
+        elif p64 > 20e3:
+            level = "orange"
+    if level == "red" and point.lead_time_hours > _TC_RED_HORIZON_HOURS:
+        level = "orange"
+    return level
+
+
+def tropical_cyclone_level(points: Iterable[CyclonePoint]) -> str:
+    """GDACS level of a storm: the highest level over its track points."""
+    levels = [tropical_cyclone_point_level(point) for point in points]
+    if not levels:
+        raise ValueError("a tropical cyclone level needs at least one track point")
+    return max(levels, key=_LEVEL_ORDER.index)
+
+
+def tropical_cyclone_score(level: str) -> float:
+    """GDACS tropical-cyclone score of a wind level: 0.5, 1.5 or 2.5.
+
+    GDACS's API reports these as 1, 2 and 3.
+    """
+    if level not in _TC_SCORE:
+        raise ValueError(f"level must be green, orange or red, got {level!r}")
+    return _TC_SCORE[level]
+
+
+def storm_surge_level(max_surge_m: float) -> str | None:
+    """GDACS storm-surge level: Red >= 3 m, Orange >= 1 m, Green above 0, else ``None``.
+
+    GDACS reports it beside the wind level; it does not enter the score.
+    """
+    surge = _finite("max_surge_m", max_surge_m)
+    if surge < 0.0:
+        raise ValueError(f"max_surge_m must be >= 0, got {surge}")
+    if surge >= 3.0:
+        return "red"
+    if surge >= 1.0:
+        return "orange"
+    return "green" if surge > 0.0 else None

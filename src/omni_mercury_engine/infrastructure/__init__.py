@@ -7,11 +7,16 @@ World Bank economic sectors, and emerging technologies for anomalies.
 
 Includes a filtering/selection system to run any subset of the registered
 modules for flexible STEAM applications.
+
+``SpaceExplorationAnalyzer`` and the streaming names load on first use: they
+pull in torch and the broker clients (about 2.3 s), which the other modules, the
+humanitarian ones among them, never need.
 """
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+import importlib
+from typing import TYPE_CHECKING, Any, TypedDict
 
 
 class _ModuleInfo(TypedDict):
@@ -23,7 +28,6 @@ class _ModuleInfo(TypedDict):
     description: str
 
 
-from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
 from .chemical_nuclear import ChemicalNuclearDetector, CISASector
 from .communications_it import CommunicationsITDetector
 from .cyber.cross_border_intel import CrossBorderIntelligence
@@ -36,16 +40,54 @@ from .humanitarian.essential_workers import EssentialWorkersMonitor
 from .humanitarian.government_facilities import GovernmentFacilitiesMonitor
 from .resilience.ncf_monitor import NCFMonitor
 from .scientific.emerging_tech_monitor import EmergingTechMonitor
-from .streaming import (
-    CircuitBreaker,
-    CircuitState,
-    StreamConfig,
-    StreamConsumerFactory,
-    StreamingAnomalyPipeline,
-    StreamingBackend,
-    StreamMessage,
-    StreamProducerFactory,
-)
+
+if TYPE_CHECKING:
+    from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
+    from .streaming import (
+        CircuitBreaker,
+        CircuitState,
+        StreamConfig,
+        StreamConsumerFactory,
+        StreamingAnomalyPipeline,
+        StreamingBackend,
+        StreamMessage,
+        StreamProducerFactory,
+    )
+
+# Lazily loaded names and the modules that define them.
+_LAZY = {
+    "SpaceExplorationAnalyzer": "omni_mercury_engine.space.space_exploration_analyzer",
+    **dict.fromkeys(
+        (
+            "CircuitBreaker",
+            "CircuitState",
+            "StreamConfig",
+            "StreamConsumerFactory",
+            "StreamingAnomalyPipeline",
+            "StreamingBackend",
+            "StreamMessage",
+            "StreamProducerFactory",
+        ),
+        "omni_mercury_engine.infrastructure.streaming",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Load a lazily imported name (or the ``streaming`` subpackage) on first use."""
+    if name == "streaming":
+        value: Any = importlib.import_module(f"{__name__}.streaming")
+    elif name in _LAZY:
+        value = getattr(importlib.import_module(_LAZY[name]), name)
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Expose both eager and lazy names to ``dir()`` / tab-completion."""
+    return sorted(set(globals()) | set(_LAZY) | {"streaming"})
 
 
 class InfrastructureCoordinator:
@@ -71,6 +113,8 @@ class InfrastructureCoordinator:
 
     def __init__(self) -> None:
         """Initialize module registry with all available modules."""
+        from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
+
         self.modules: dict[str, _ModuleInfo] = {
             "energy_dams": {
                 "class_": EnergyDamsDetector,

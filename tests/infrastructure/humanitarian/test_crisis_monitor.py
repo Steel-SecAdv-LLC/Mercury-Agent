@@ -645,8 +645,8 @@ class TestCrisisMonitorGdacs:
         )
         assert alert.gdacs_level is None
         assert (
-            "GDACS earthquake level needs population_by_mmi, or magnitude, depth_km and "
-            "population_within_km"
+            "GDACS earthquake level needs shakemap_scaled_population, population_by_mmi, "
+            "or magnitude, depth_km and population_within_km"
         ) in alert.recommended_response
         flood = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "flood"})
         assert "GDACS flood level needs deaths or displaced" in flood.recommended_response
@@ -689,6 +689,132 @@ class TestCrisisMonitorGdacs:
             r.startswith("GDACS level not computed") and reason in r
             for r in alert.recommended_response
         )
+
+    # Melissa (2025) at Jamaica: 125 kt, 996,963 people in the 64 kt buffer; GDACS Red.
+    _JAMAICA = {
+        "max_wind_kt": 125,
+        "population_34kt": 2_500_000,
+        "population_64kt": 996_963,
+        "country_iso3": "JAM",
+    }
+
+    def test_one_cyclone_point_on_the_report(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "Hurricane", **self._JAMAICA})
+        assert (alert.gdacs_level, alert.gdacs_score) == ("red", 2.5)
+        assert (alert.severity, alert.crisis_type) == ("critical", "natural_disaster")
+        assert alert.crisis_detected
+        assert alert.recommended_response[0].startswith("GDACS Red tropical cyclone (wind)")
+        assert any("10%-of-country thresholds not applied" in r for r in alert.recommended_response)
+
+    def test_track_points_take_the_highest_and_cap_far_reds(self) -> None:
+        far_red = {**self._JAMAICA, "lead_time_hours": 93}
+        weak = {
+            "max_wind_kt": 45,
+            "population_34kt": 1e5,
+            "population_64kt": 0,
+            "country_iso3": "JAM",
+        }
+        monitor = CrisisMonitor()
+        capped = monitor.monitor_crisis(
+            geoint_data={"cyclone_points": [weak, far_red], "country_population": 2.8e6}
+        )
+        assert capped.gdacs_level == "orange"
+        assert not any("10%" in r for r in capped.recommended_response)
+        landfall = monitor.monitor_crisis(geoint_data={"cyclone_points": [weak, self._JAMAICA]})
+        assert landfall.gdacs_level == "red"
+
+    def test_storm_surge_is_reported_beside_the_wind_level(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"indicators": ["Typhoon"], **self._JAMAICA, "max_storm_surge_m": 3.4}
+        )
+        assert alert.gdacs_score == 2.5
+        assert (
+            "GDACS storm surge level red (3.4 m), reported beside the wind level and outside "
+            "its score"
+        ) in alert.recommended_response
+
+    @pytest.mark.parametrize(
+        ("geoint", "reason"),
+        [
+            ({"hazard": "typhoon"}, "GDACS tropical cyclone level needs cyclone_points"),
+            (
+                {"max_wind_kt": 120, "population_34kt": 1e6, "population_64kt": 2e5},
+                "needs country_iso3 or tc_vulnerability",
+            ),
+            ({"cyclone_points": {"max_wind_kt": 120}}, "must be a list"),
+            ({"cyclone_points": [{"max_wind_kt": 120}]}, "needs population_34kt, population_64kt"),
+            ({**_JAMAICA, "tc_vulnerability": "extreme"}, "vulnerability must be one of"),
+        ],
+    )
+    def test_cyclone_inputs_are_checked(self, geoint: dict[str, object], reason: str) -> None:
+        alert = CrisisMonitor().monitor_crisis(geoint_data=geoint)
+        assert alert.gdacs_level is None
+        assert any(reason in r for r in alert.recommended_response)
+
+    def test_open_ocean_points_need_no_country(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "cyclone_points": [{"max_wind_kt": 140, "population_34kt": 0, "population_64kt": 0}]
+            }
+        )
+        assert alert.gdacs_level == "green" and alert.gdacs_score == 0.5
+
+    def test_gdacs_scaled_population_is_accepted(self) -> None:
+        """GDACS's own ScaledPopulation reproduces its score (event 1508467, AFG: 3.048)."""
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "hazard": "earthquake",
+                "shakemap_scaled_population": 10**3.69931730102138,
+                "country_iso3": "AFG",
+                "coping_capacity_factor": 1.28571428571429,
+            }
+        )
+        assert alert.gdacs_score == pytest.approx(3.04796336083887, rel=1e-12)
+        assert alert.gdacs_level == "red"
+
+    def test_explicit_none_scaled_population_falls_through(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "shakemap_scaled_population": None,
+                "population_by_mmi": self._MMI,
+                "country_iso3": "TUR",
+                "inform_lcc": 5,
+            }
+        )
+        assert alert.gdacs_level == "red"
+
+    @pytest.mark.parametrize("surge", [-1.0, "high", math.nan])
+    def test_a_bad_storm_surge_keeps_the_wind_level(self, surge: object) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={**self._JAMAICA, "max_storm_surge_m": surge}
+        )
+        assert (alert.gdacs_level, alert.gdacs_score) == ("red", 2.5)
+        assert any(
+            r.startswith("GDACS storm surge level not computed") for r in alert.recommended_response
+        )
+
+    def test_none_on_a_point_falls_back_to_the_report(self) -> None:
+        point = {**self._JAMAICA, "country_iso3": None, "country_population": None}
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "cyclone_points": [point],
+                "country_iso3": "JAM",
+                "country_population": 2.8e6,
+            }
+        )
+        assert alert.gdacs_level == "red"
+        assert not any("10%" in r for r in alert.recommended_response)
+
+    def test_earthquake_and_cyclone_inputs_need_the_hazard_named(self) -> None:
+        both = {**self._JAMAICA, "population_by_mmi": self._MMI}
+        monitor = CrisisMonitor()
+        unresolved = monitor.monitor_crisis(geoint_data=both)
+        assert unresolved.gdacs_level is None
+        assert any("state hazard" in r for r in unresolved.recommended_response)
+        named = monitor.monitor_crisis(geoint_data={**both, "indicators": ["earthquake"]})
+        assert named.recommended_response[0].startswith("GDACS Red earthquake")
+        stated = monitor.monitor_crisis(geoint_data={**both, "hazard": "hurricane"})
+        assert stated.recommended_response[0].startswith("GDACS Red tropical cyclone")
 
     def test_bool_counts_are_not_numbers(self) -> None:
         alert = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "flood", "deaths": True})

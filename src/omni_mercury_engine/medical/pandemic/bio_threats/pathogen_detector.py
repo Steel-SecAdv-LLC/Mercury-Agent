@@ -19,7 +19,11 @@ Mathematical Foundation:
   of the remaining 30% of baseline energies. A normal snapshot is then flagged
   with probability at most ``false_alarm_rate`` on average over the calibration
   draw (Vovk et al. 2005); one baseline's realised rate varies around it (up to
-  about 3% at a 1% target with 300 held-out snapshots).
+  about 3% at a 1% target with 300 held-out snapshots). With
+  ``false_alarm_confidence`` set, E_critical is instead the training-conditional
+  quantile (Vovk 2012): the fitted baseline's own rate is at most
+  ``false_alarm_rate`` with that probability, at the cost of a lower average
+  rate and so less sensitivity.
 - Sequential test (:meth:`PathogenDetector.monitor`): a conformal
   Shiryaev-Roberts test on the stream of energies
   (:mod:`omni_mercury_engine.core.conformal_martingale`), seeded with the
@@ -44,7 +48,11 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.conformal_martingale import ConformalChangeDetector
-from omni_mercury_engine.detectors.detection_tier import conformal_threshold
+from omni_mercury_engine.detectors.detection_tier import (
+    conformal_threshold,
+    pac_conformal_threshold,
+    pac_minimum_calibration_size,
+)
 
 _FIT_FRACTION = 0.7
 _SIGNATURE_SD = 3.0
@@ -95,6 +103,10 @@ class PathogenDetector:
                 rejected. ``mean_snapshots_to_false_alarm`` (default 1000) is
                 the threshold of the sequential test in :meth:`monitor`, and
                 ``seed`` (an integer, default None) seeds that test.
+                ``false_alarm_confidence`` (default None, in (0, 1)) makes the
+                calibrated threshold training-conditional: the realised
+                false-alarm rate is at most ``false_alarm_rate`` with this
+                probability.
 
         Raises:
             ValueError: If a setting is out of range.
@@ -111,6 +123,10 @@ class PathogenDetector:
         self.mean_snapshots_to_false_alarm = float(
             self.config.get("mean_snapshots_to_false_alarm", 1000.0)
         )
+        confidence = self.config.get("false_alarm_confidence")
+        self.false_alarm_confidence: float | None = (
+            None if confidence is None else float(confidence)
+        )
         fixed = self.config.get("energy_threshold")
         self._fixed_threshold: float | None = None if fixed is None else float(fixed)
         self.energy_threshold: float | None = self._fixed_threshold
@@ -121,6 +137,10 @@ class PathogenDetector:
             raise ValueError(f"shrinkage must be in [0, 1), got {self.shrinkage}")
         if not self.ridge > 0.0:
             raise ValueError(f"ridge must be > 0, got {self.ridge}")
+        if self.false_alarm_confidence is not None and not 0.0 < self.false_alarm_confidence < 1.0:
+            raise ValueError(
+                f"false_alarm_confidence must be in (0, 1), got {self.false_alarm_confidence}"
+            )
         if not (
             np.isfinite(self.mean_snapshots_to_false_alarm)
             and self.mean_snapshots_to_false_alarm > 1.0
@@ -177,7 +197,8 @@ class PathogenDetector:
             ValueError: If the baseline is not a finite 2-D array of at least two
                 snapshots, a channel has no variance, or it is too short to calibrate
                 ``false_alarm_rate`` (the held-out 30% needs at least
-                ``1/false_alarm_rate - 1`` snapshots).
+                ``1/false_alarm_rate - 1`` snapshots, or ln(1 - confidence) /
+                ln(1 - false_alarm_rate) with ``false_alarm_confidence``).
         """
         data = np.asarray(baseline, dtype=np.float64)
         if data.ndim != 2 or data.shape[0] < 2 or data.shape[1] < 1:
@@ -187,7 +208,12 @@ class PathogenDetector:
         n, d = data.shape
         calibrate = self._fixed_threshold is None
         split = int(_FIT_FRACTION * n) if calibrate else n
-        needed = int(np.ceil(1.0 / self.false_alarm_rate - 1.0))
+        if self.false_alarm_confidence is None:
+            needed = int(np.ceil(1.0 / self.false_alarm_rate - 1.0))
+        else:
+            needed = pac_minimum_calibration_size(
+                self.false_alarm_rate, 1.0 - self.false_alarm_confidence
+            )
         if calibrate and (split < 2 or n - split < needed):
             raise ValueError(
                 f"baseline has {n} snapshots; calibrating false_alarm_rate="
@@ -217,7 +243,14 @@ class PathogenDetector:
         if calibrate:
             energies = np.array([self._energy(row) for row in data[split:]])
             self._calibration_energies = np.sort(energies)
-            self.energy_threshold = conformal_threshold(energies, alpha=self.false_alarm_rate)
+            if self.false_alarm_confidence is None:
+                self.energy_threshold = conformal_threshold(energies, alpha=self.false_alarm_rate)
+            else:
+                self.energy_threshold = pac_conformal_threshold(
+                    energies,
+                    alpha=self.false_alarm_rate,
+                    delta=1.0 - self.false_alarm_confidence,
+                )
             self._monitor = ConformalChangeDetector(
                 energies,
                 mean_time_to_false_alarm=self.mean_snapshots_to_false_alarm,

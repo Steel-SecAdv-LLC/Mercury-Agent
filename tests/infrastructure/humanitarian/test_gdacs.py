@@ -1,17 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""``crisis_monitoring.gdacs``: the published GDACS earthquake and flood models.
+"""``crisis_monitoring.gdacs``: the published GDACS earthquake, flood and cyclone models.
 
-Expected values are worked by hand from gdacs.org/Knowledge/models_eq.aspx and
-models_fl.aspx; country terms are spot-checked against GDACS's 2017
-coefficient table (2017_GDACS_EQ_algorithm_coefficients.xlsx).
+Expected values are worked by hand from gdacs.org/Knowledge/models_eq.aspx,
+models_fl.aspx and the GDACS MHEWS user manual's cyclone table; country terms
+are spot-checked against GDACS's 2017 coefficient table; and the module is
+checked against GDACS's own scores and levels for real events
+(tests/fixtures/gdacs).
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
 
+import numpy as np
 import pytest
 
 from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring import gdacs
@@ -164,3 +172,308 @@ def test_populations_are_validated(population: float) -> None:
         gdacs.earthquake_shakemap_score(population, 0, 0)
     with pytest.raises(ValueError):
         gdacs.flood_alert_level(population, 0)
+
+
+# --- Real GDACS events (tests/fixtures/gdacs, see PROVENANCE.json) -----------
+
+_FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "gdacs"
+
+
+def _alert_parameters(path: Path) -> dict[str, str]:
+    scalars: dict[str, str] = {}
+    for group in json.loads(path.read_text())["datums"]:
+        for datum in group["datum"]:
+            for scalar in (datum.get("scalars") or {}).get("scalar", []):
+                scalars[scalar["name"]] = scalar["value"]
+    return scalars
+
+
+def _shakemap_events() -> list[tuple[str, str, dict[str, str]]]:
+    events = []
+    for path in sorted(_FIXTURES.glob("eq_shakemap_alert_*.json")):
+        event_id = path.stem.rsplit("_", 1)[1]
+        details = json.loads((_FIXTURES / f"eq_event_{event_id}.json").read_text())
+        events.append((event_id, details["properties"]["iso3"], _alert_parameters(path)))
+    return events
+
+
+# Cross-border events: GDACS averaged the countries' coefficients (AFG-PAK
+# reproduces its -1.855/0.845, PHL-IDN its -0.65/0.53) and summed their coping
+# factors, a rule its pages do not publish.
+_CROSS_BORDER = {"1498339", "1526507", "1544720"}
+
+
+def test_cross_border_events_are_the_ones_with_summed_factors() -> None:
+    """Exactly these events carry a coping factor above GDACS's published 1.5 maximum."""
+    summed = {e for e, _, alert in _shakemap_events() if float(alert["LccNormalised"]) > 1.5}
+    assert summed == _CROSS_BORDER
+
+
+def test_country_terms_match_gdacs_live_coefficients() -> None:
+    """GDACS's reported intercept and slope are the 2017 table's for each country."""
+    checked = 0
+    for event_id, iso3, alert in _shakemap_events():
+        if event_id in _CROSS_BORDER or float(alert["ScaledPopulation"]) == 0.0:
+            continue
+        terms = gdacs.earthquake_coefficients(iso3)
+        assert float(alert["CoeffIntersept"]) == pytest.approx(-0.59 + terms.c1_shakemap), event_id
+        assert float(alert["CoeffSlope"]) == pytest.approx(0.53 + terms.c2_shakemap), event_id
+        checked += 1
+    assert checked == 21
+
+
+def test_shakemap_scores_reproduce_gdacs() -> None:
+    """GDACS's own scaled population and coping factor give GDACS's own score."""
+    reproduced = 0
+    for event_id, iso3, alert in _shakemap_events():
+        if event_id in _CROSS_BORDER:
+            continue
+        log_scaled = float(alert["ScaledPopulation"])
+        score = gdacs.shakemap_score(
+            0.0 if log_scaled == 0.0 else 10.0**log_scaled, gdacs.earthquake_coefficients(iso3)
+        )
+        level = alert["AlertLevel"].lower()
+        if log_scaled == 0.0:  # nobody above MMI VI: GDACS records 0 or 0.01, Green
+            assert score == 0.0 and level == "green", event_id
+            continue
+        final = gdacs.apply_coping_capacity(score, float(alert["LccNormalised"]))
+        assert final == pytest.approx(float(alert["AlertScore"]), rel=1e-9), event_id
+        assert gdacs.alert_level(final) == level, event_id
+        reproduced += 1
+    assert reproduced == 21
+
+
+_COUNTRY_ISO3 = {
+    "Bahamas": "BHS",
+    "Bermuda": "BMU",
+    "Canada": "CAN",
+    "China": "CHN",
+    "Cuba": "CUB",
+    "Greenland": "GRL",
+    "Guam": "GUM",
+    "Haiti": "HTI",
+    "India": "IND",
+    "Jamaica": "JAM",
+    "Japan": "JPN",
+    "Northern Mariana Islands": "MNP",
+    "Philippines": "PHL",
+    "Russian Federation": "RUS",
+    "Sri Lanka": "LKA",
+    "United States": "USA",
+}
+
+
+def _advisory_time(text: str) -> datetime:
+    return datetime.strptime(text, "%d %b %Y %H:%M")
+
+
+def test_cyclone_levels_reproduce_gdacs_track_points() -> None:
+    """Every GDACS track point of five storms.
+
+    One is a Red more than three days ahead that GDACS lowered to Orange
+    (MELISSA-25 over Jamaica, 28 Oct 2025 06:00); the 72 h rule must give the same.
+    """
+    points = 0
+    lowered = []
+    for path in sorted(_FIXTURES.glob("tc_timeline_*.json")):
+        items = json.loads(path.read_text())["items"]
+        now = _advisory_time(next(i["advisory_datetime"] for i in items if i["current"] == "true"))
+        for item in items:
+            forecast = item["actual"] != "True"
+            lead = (_advisory_time(item["advisory_datetime"]) - now).total_seconds() / 3600
+            country = _COUNTRY_ISO3.get(item["country"])
+            point = gdacs.CyclonePoint(
+                max_wind_kt=round(float(item["wind_speed"]) / 0.514444),  # m/s from whole knots
+                population_34kt=float(item["pop39"]),
+                population_64kt=float(item["pop74"]),
+                vulnerability=(
+                    "low" if country is None else gdacs.tropical_cyclone_vulnerability(country)
+                ),
+                lead_time_hours=max(lead, 0.0) if forecast else 0.0,
+            )
+            level = gdacs.tropical_cyclone_point_level(point)
+            assert level == item["alertcolor"].lower(), (path.name, item["advisory_datetime"])
+            points += 1
+            observed = dataclasses.replace(point, lead_time_hours=0.0)
+            if gdacs.tropical_cyclone_point_level(observed) == "red" and level == "orange":
+                assert item["alertdecreased"] == "true"
+                lowered.append((item["country"], item["advisory_datetime"]))
+    assert points == 152
+    assert lowered == [("Jamaica", "28 Oct 2025 06:00")]
+
+
+# --- Tropical cyclones --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("wind", "category"),
+    [
+        (0, "tropical_depression"),
+        (33, "tropical_depression"),
+        (34, "tropical_storm"),
+        (63, "tropical_storm"),
+        (64, "category_1"),
+        (82, "category_1"),
+        (83, "category_2"),
+        (95, "category_2"),
+        (96, "category_3"),
+        (112, "category_3"),
+        (113, "category_4"),
+        (136, "category_4"),
+        (137, "category_5"),
+    ],
+)
+def test_saffir_simpson_classes_in_knots(wind: float, category: str) -> None:
+    assert gdacs.tropical_cyclone_category(wind) == category
+
+
+def test_ladder_matches_the_hurricane_detector() -> None:
+    """One Saffir-Simpson definition across the codebase."""
+    pytest.importorskip("torch")
+    from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+
+    detector = HurricaneDetector()
+    for wind in np.arange(0.0, 200.5, 0.5):
+        assert gdacs.tropical_cyclone_category(wind) == detector._classify_category(wind), wind
+
+
+_TD, _TS, _C1, _C2, _C3, _C4, _C5 = 30, 50, 70, 90, 100, 120, 150
+
+
+@pytest.mark.parametrize(
+    ("wind", "vulnerability", "p34", "p64", "country", "level"),
+    [
+        (_TD, "high", 2e7, 2e6, None, "green"),
+        (_TS, "high", 10_000_000, 0, None, "green"),
+        (_TS, "high", 10_000_001, 0, None, "orange"),
+        (_TS, "medium", 2e7, 0, None, "green"),
+        (_C1, "low", 2e7, 5e6, None, "green"),
+        (_C1, "medium", 0, 100_000, None, "green"),
+        (_C1, "medium", 0, 100_001, None, "orange"),
+        (_C1, "medium", 0, 50_001, 500_000, "orange"),  # over 10% of the country
+        (_C1, "high", 0, 1_000_001, None, "red"),
+        (_C1, "high", 0, 1_000_000, None, "orange"),
+        (_C1, "high", 10_000_001, 0, None, "orange"),
+        (_C1, "high", 0, 1_000, None, "green"),
+        (_C2, "medium", 0, 50_001, None, "orange"),
+        (_C2, "medium", 0, 50_000, None, "green"),
+        (_C2, "high", 0, 1_000_001, None, "red"),
+        (_C2, "high", 0, 60_000, None, "orange"),
+        (_C3, "low", 0, 500_001, None, "orange"),
+        (_C3, "low", 0, 500_000, None, "green"),
+        (_C3, "low", 0, 400_000, 100_000, "green"),  # no 10% rule for Low at Cat 3
+        (_C3, "medium", 0, 100_001, None, "red"),
+        (_C3, "medium", 0, 100_000, None, "orange"),
+        (_C3, "high", 0, 20_000, None, "green"),
+        (_C3, "high", 0, 15_001, 150_000, "red"),
+        (_C4, "low", 0, 1_000_001, None, "red"),
+        (_C4, "low", 0, 1_000_000, None, "orange"),
+        (_C4, "low", 0, 100_000, None, "green"),
+        (_C4, "low", 0, 60_000, 500_000, "orange"),
+        (_C5, "medium", 0, 100_001, None, "red"),
+        (_C5, "high", 0, 20_001, None, "orange"),
+        (_C5, "high", 0, 20_000, None, "green"),
+    ],
+)
+def test_mhews_table_cells(
+    wind: float, vulnerability: str, p34: float, p64: float, country: float | None, level: str
+) -> None:
+    point = gdacs.CyclonePoint(wind, p34, p64, vulnerability, country)
+    assert gdacs.tropical_cyclone_point_level(point) == level
+
+
+def test_red_more_than_three_days_out_is_orange() -> None:
+    red: dict[str, Any] = {
+        "max_wind_kt": _C4,
+        "population_34kt": 0,
+        "population_64kt": 2e5,
+        "vulnerability": "medium",
+    }
+    assert (
+        gdacs.tropical_cyclone_point_level(gdacs.CyclonePoint(**red, lead_time_hours=72)) == "red"
+    )
+    assert gdacs.tropical_cyclone_point_level(gdacs.CyclonePoint(**red, lead_time_hours=72.5)) == (
+        "orange"
+    )
+    orange: dict[str, Any] = {**red, "population_64kt": 3e4}
+    assert gdacs.tropical_cyclone_point_level(
+        gdacs.CyclonePoint(**orange, lead_time_hours=100)
+    ) == ("orange")
+
+
+def test_storm_level_is_its_highest_point() -> None:
+    track = [
+        gdacs.CyclonePoint(_TS, 1e6, 0, "medium"),
+        gdacs.CyclonePoint(_C3, 2e6, 3e4, "medium"),
+        gdacs.CyclonePoint(_C1, 1e6, 1e4, "medium"),
+    ]
+    assert gdacs.tropical_cyclone_level(track) == "orange"
+    assert gdacs.tropical_cyclone_score("orange") == 1.5
+    with pytest.raises(ValueError, match="at least one"):
+        gdacs.tropical_cyclone_level([])
+
+
+@pytest.mark.parametrize(("level", "score"), [("green", 0.5), ("orange", 1.5), ("red", 2.5)])
+def test_cyclone_scores(level: str, score: float) -> None:
+    assert gdacs.tropical_cyclone_score(level) == score
+
+
+@pytest.mark.parametrize(
+    ("surge", "level"),
+    [(0.0, None), (0.5, "green"), (1.0, "orange"), (2.99, "orange"), (3.0, "red")],
+)
+def test_storm_surge_levels(surge: float, level: str | None) -> None:
+    assert gdacs.storm_surge_level(surge) == level
+
+
+def test_vulnerability_classes() -> None:
+    table = gdacs.TC_VULNERABILITY
+    assert sum(v == "medium" for v in table.values()) == 35
+    assert sum(v == "high" for v in table.values()) == 19
+    assert gdacs.tropical_cyclone_vulnerability("jam") == "medium"
+    assert gdacs.tropical_cyclone_vulnerability("HTI") == "high"
+    assert gdacs.tropical_cyclone_vulnerability("CUB") == "low"
+    assert gdacs.tropical_cyclone_vulnerability("TZA") == "medium"  # GDACS live feed
+    assert gdacs.tropical_cyclone_vulnerability("YEM") == "high"  # GDACS live feed
+    with pytest.raises(ValueError, match="alpha-3"):
+        gdacs.tropical_cyclone_vulnerability("Jamaica")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"max_wind_kt": -1.0}, "max_wind_kt"),
+        ({"max_wind_kt": math.nan}, "max_wind_kt"),
+        ({"population_64kt": -5.0}, "population_64kt"),
+        ({"vulnerability": "severe"}, "vulnerability"),
+        ({"country_population": math.inf}, "country_population"),
+        ({"lead_time_hours": math.nan}, "lead_time_hours"),
+    ],
+)
+def test_cyclone_point_is_validated(kwargs: dict[str, Any], match: str) -> None:
+    point = {"max_wind_kt": 70.0, "population_34kt": 0.0, "population_64kt": 0.0} | kwargs
+    with pytest.raises(ValueError, match=match):
+        gdacs.CyclonePoint(**point)
+
+
+def test_cyclone_point_stores_its_numbers_as_floats() -> None:
+    """Numeric strings and Decimals pass validation and are compared as floats afterwards."""
+    point = gdacs.CyclonePoint(
+        70,
+        Decimal("0"),  # type: ignore[arg-type]
+        "60000",  # type: ignore[arg-type]
+        "medium",
+        country_population="500000",  # type: ignore[arg-type]
+        lead_time_hours="100",  # type: ignore[arg-type]
+    )
+    assert all(
+        type(value) is float
+        for value in (
+            point.max_wind_kt,
+            point.population_34kt,
+            point.population_64kt,
+            point.country_population,
+            point.lead_time_hours,
+        )
+    )
+    assert gdacs.tropical_cyclone_point_level(point) == "orange"  # 60,000 > 10% of 500,000

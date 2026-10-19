@@ -68,6 +68,8 @@ __all__ = [
     "conformal_flags",
     "conformal_threshold",
     "localize_root_cause",
+    "pac_conformal_threshold",
+    "pac_minimum_calibration_size",
     "rca_localize",
     "run_tier_ensemble",
     "store_tier_features",
@@ -714,6 +716,87 @@ def conformal_threshold(
     predictor = SplitConformalPredictor(coverage=1.0 - alpha)
     predictor.fit(scores)
     return float(predictor.get_anomaly_threshold())
+
+
+def pac_minimum_calibration_size(alpha: float, delta: float) -> int:
+    """Fewest calibration scores for which :func:`pac_conformal_threshold` exists.
+
+    The largest score is the least demanding threshold; its rate is Beta(1, n), so
+    n must satisfy 1 - (1 - alpha)^n >= 1 - delta, i.e. n >= ln(delta)/ln(1 - alpha).
+    The count is checked with the Beta CDF the threshold uses, so the two agree at
+    the boundary.
+
+    Args:
+        alpha: Target false-positive rate in ``(0, 1)``.
+        delta: Allowed probability, in ``(0, 1)``, that the rate exceeds ``alpha``.
+
+    Returns:
+        The minimum number of calibration scores.
+
+    Raises:
+        ValueError: If ``alpha`` or ``delta`` is outside ``(0, 1)``.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    if not 0.0 < delta < 1.0:
+        raise ValueError(f"delta must be in (0, 1), got {delta}")
+    from scipy.stats import beta as beta_distribution
+
+    def enough(n: int) -> bool:
+        return bool(beta_distribution.cdf(alpha, 1, n) >= 1.0 - delta)
+
+    n = max(1, int(np.ceil(np.log(delta) / np.log1p(-alpha))))
+    while n > 1 and enough(n - 1):
+        n -= 1
+    while not enough(n):
+        n += 1
+    return n
+
+
+def pac_conformal_threshold(
+    calibration_scores: np.ndarray[Any, Any],
+    alpha: float = 0.05,
+    delta: float = 0.1,
+) -> float:
+    """Threshold whose own false-positive rate is at most ``alpha`` with probability 1 - ``delta``.
+
+    :func:`conformal_threshold` bounds the false-positive rate on average over
+    calibration draws; the rate a single calibration delivers varies around it.
+    This training-conditional version (Vovk 2012, "Conditional validity of
+    inductive conformal predictors", PMLR 25) uses that, for n exchangeable
+    continuous scores, the rate of the k-th smallest as a threshold is
+    Beta(n - k + 1, k), and returns the smallest order statistic with
+    P(rate <= alpha) >= 1 - delta. Ties only lower the rate.
+
+    Args:
+        calibration_scores: Anomaly scores of known-normal points.
+        alpha: Target false-positive rate in ``(0, 1)``.
+        delta: Allowed probability, in ``(0, 1)``, that the rate exceeds ``alpha``.
+
+    Returns:
+        The score threshold (flag scores above it).
+
+    Raises:
+        ValueError: If ``alpha`` or ``delta`` is outside ``(0, 1)``, a score is not
+            finite, or there are fewer than
+            :func:`pac_minimum_calibration_size` scores, too few for any order
+            statistic to reach the guarantee.
+    """
+    needed = pac_minimum_calibration_size(alpha, delta)
+    scores = np.sort(np.asarray(calibration_scores, dtype=np.float64).ravel())
+    if not np.all(np.isfinite(scores)):
+        raise ValueError("calibration_scores must be finite")
+    n = scores.size
+    from scipy.stats import beta as beta_distribution
+
+    ranks = np.arange(1, n + 1)
+    confident = beta_distribution.cdf(alpha, n - ranks + 1, ranks) >= 1.0 - delta
+    if not confident.any():
+        raise ValueError(
+            f"{n} calibration scores cannot bound the rate at {alpha} with confidence "
+            f"{1 - delta}; at least {needed} are needed"
+        )
+    return float(scores[int(np.argmax(confident))])
 
 
 def conformal_flags(

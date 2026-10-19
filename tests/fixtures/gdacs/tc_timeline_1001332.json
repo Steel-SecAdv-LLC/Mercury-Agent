@@ -1,0 +1,516 @@
+{
+ "source_url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=806853",
+ "storm_name": "TWENTYSIX-26",
+ "items": [
+  {
+   "advisory_number": "1",
+   "advisory_datetime": "30 Sep 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "12.86",
+   "storm_status": [
+    "Tropical Depression",
+    "Tropical Depression"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "2",
+   "advisory_datetime": "30 Sep 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "15.432",
+   "storm_status": [
+    "Tropical Depression",
+    "Tropical Depression"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "3",
+   "advisory_datetime": "30 Sep 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "18.004",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "4",
+   "advisory_datetime": "30 Sep 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "18.004",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "5",
+   "advisory_datetime": "01 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "48285",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "6",
+   "advisory_datetime": "01 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "48285",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "7",
+   "advisory_datetime": "01 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "25.72",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "50254",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "01 Oct 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "25.72",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "50254",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "9",
+   "advisory_datetime": "02 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "28.292",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "48285",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "10",
+   "advisory_datetime": "02 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "30.864",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "225517",
+   "pop74": "0",
+   "country": "Guam",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "11",
+   "advisory_datetime": "02 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "36.008",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "50254",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "12",
+   "advisory_datetime": "02 Oct 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "38.58",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "48285",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "13",
+   "advisory_datetime": "03 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "43.724",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "50257",
+   "pop74": "0",
+   "country": "Guam",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "14",
+   "advisory_datetime": "03 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "41.152",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "48285",
+   "pop74": "0",
+   "country": "Northern Mariana Islands",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "15",
+   "advisory_datetime": "03 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "46.296",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "16",
+   "advisory_datetime": "03 Oct 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "48.868",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "17",
+   "advisory_datetime": "04 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "56.584",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "18",
+   "advisory_datetime": "04 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "64.3",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "986",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "19",
+   "advisory_datetime": "04 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "69.444",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "20",
+   "advisory_datetime": "04 Oct 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "69.444",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "21",
+   "advisory_datetime": "05 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "66.872",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "22",
+   "advisory_datetime": "05 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "59.156",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "23",
+   "advisory_datetime": "05 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "56.584",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "24",
+   "advisory_datetime": "05 Oct 2026 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "54.012",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3113",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "25",
+   "advisory_datetime": "06 Oct 2026 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "48.868",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "10256",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "26",
+   "advisory_datetime": "06 Oct 2026 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "43.724",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "10807",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "27",
+   "advisory_datetime": "06 Oct 2026 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "41.152",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "28",
+   "advisory_datetime": "06 Oct 2026 18:00",
+   "actual": "True",
+   "current": "true",
+   "wind_speed": "38.58",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "41",
+   "pop74": "0",
+   "country": "Russian Federation",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "28",
+   "advisory_datetime": "07 Oct 2026 06:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "36.008",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "250676",
+   "pop74": "0",
+   "country": "United States",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "28",
+   "advisory_datetime": "07 Oct 2026 18:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "33.436",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  }
+ ]
+}

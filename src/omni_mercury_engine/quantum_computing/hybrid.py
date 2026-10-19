@@ -347,9 +347,10 @@ class QuantumKernel:
         num_qubits: int,
         feature_map_reps: int = 2,
         executor: QuantumExecutor | None = None,
+        seed: int | None = None,
     ) -> None:
-        """Initialize the quantum kernel."""
-        self._feature_map = QuantumFeatureMap(num_qubits, feature_map_reps)
+        """Initialize the quantum kernel; ``seed`` seeds the measurement shots."""
+        self._feature_map = QuantumFeatureMap(num_qubits, feature_map_reps, seed=seed)
         self._executor = executor or QuantumExecutor()
         self._num_qubits = num_qubits
 
@@ -357,14 +358,15 @@ class QuantumKernel:
         self,
         X: np.ndarray[Any, Any],
         Y: np.ndarray[Any, Any] | None = None,
-        shots: int = 1024,
+        shots: int | None = 1024,
     ) -> np.ndarray[Any, Any]:
         """Compute quantum kernel matrix.
 
         Args:
             X: First data matrix (n_samples, n_features)
             Y: Second data matrix (default: X)
-            shots: Number of shots for kernel estimation
+            shots: Number of shots for kernel estimation, or ``None`` for the
+                exact fidelity on the built-in simulator
 
         Returns:
             Kernel matrix K[i,j] = k(X[i], Y[j])

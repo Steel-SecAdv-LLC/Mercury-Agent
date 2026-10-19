@@ -25,6 +25,7 @@ import pytest
 
 from omni_mercury_engine.quantum_computing.detector import QuantumAnomalyDetector
 from omni_mercury_engine.quantum_computing.executor import QuantumExecutor
+from omni_mercury_engine.quantum_computing.hybrid import QuantumKernel
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -77,13 +78,36 @@ def test_batches_are_scaled_by_the_training_data(vqe: QuantumAnomalyDetector) ->
     assert flagged_normals <= 6  # 3 of 60 measured; contamination 0.05
 
 
-def test_kernel_path_projects_rather_than_truncates() -> None:
+def _kernel_scores(seed: int) -> NDArray[np.float64]:
     train, normal, anomalous = _data(slice(5, 6), n_train=30, n_test=15)
-    detector = QuantumAnomalyDetector(shots=256, error_mitigation=None)
+    detector = QuantumAnomalyDetector(shots=256, error_mitigation=None, seed=seed)
     detector.fit(train, method="quantum_kernel", num_qubits=2)
-    scores = detector.detect(np.vstack([normal, anomalous])).anomaly_scores
-    # Shot noise is unseeded: 0.85-0.96 over 40 runs (truncation: 0.57-0.66 over 20).
+    return np.asarray(detector.detect(np.vstack([normal, anomalous])).anomaly_scores)
+
+
+def test_kernel_path_projects_rather_than_truncates() -> None:
+    scores = _kernel_scores(seed=0)
+    # 0.922 at seed 0, 0.862-0.938 over seeds 0-19 (truncation: 0.57-0.66 over 20 runs).
     assert _auc(scores[:15], scores[15:]) > 0.8
+
+
+def test_seeded_kernel_is_reproducible() -> None:
+    """Fails on the unseeded shot sampler, whose scores changed run to run."""
+    assert np.array_equal(_kernel_scores(seed=3), _kernel_scores(seed=3))
+
+
+def test_exact_kernel_is_the_fidelity() -> None:
+    """``shots=None`` gives |<phi(x1)|phi(x2)>|^2 exactly; shots estimate it."""
+    kernel = QuantumKernel(2, seed=1)
+    points = np.random.default_rng(4).uniform(0.0, 1.0, (5, 2))
+    exact = kernel.compute_kernel_matrix(points, shots=None)
+    assert np.allclose(np.diag(exact), 1.0)
+    assert np.allclose(exact, exact.T)
+    assert np.all((exact >= 0.0) & (exact <= 1.0 + 1e-12))
+    shots = 4096
+    sampled = kernel.compute_kernel_matrix(points, shots=shots)
+    standard_error = np.sqrt(exact * (1.0 - exact) / shots) + 1e-12
+    assert np.all(np.abs(sampled - exact) <= 5.0 * standard_error + 1.0 / shots)
 
 
 @pytest.mark.parametrize("ranges_out", [2.0, 4.0])

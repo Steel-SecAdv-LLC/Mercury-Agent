@@ -485,3 +485,34 @@ class TestSolarStormDetector:
         alerts = detector._generate_infrastructure_alerts(result)
         assert len(alerts) > 0
         assert any("EXTREME" in alert for alert in alerts)
+
+
+class TestNoaaRadioAndRadiationLevels:
+    """R and S levels from the canonical NOAA scales (evaluation.hazard_metrics)."""
+
+    @pytest.mark.parametrize(
+        ("flux", "level", "blackout"),
+        [(5e-6, 0, False), (1e-5, 1, False), (6e-5, 2, False), (1e-4, 3, True), (2.5e-3, 5, True)],
+    )
+    def test_radio_blackout_level(self, flux: float, level: int, blackout: bool) -> None:
+        result = SolarStormDetector().predict_solar_storm(
+            {"xray_data": {"flux_long_wm2": flux, "flux_short_wm2": flux / 10}}
+        )
+        assert result.radio_blackout_level == level
+        assert result.radio_blackout is blackout  # R3 or stronger, as before (X flares)
+
+    def test_radiation_storm_follows_the_proton_flux(self) -> None:
+        """With protons supplied, an M flare without an S1 event is no radiation storm."""
+        detector = SolarStormDetector()
+        m_flare = {"xray_data": {"flux_long_wm2": 3e-5, "flux_short_wm2": 3e-6}}
+        quiet = detector.predict_solar_storm({**m_flare, "proton_flux_pfu": 2.0})
+        assert quiet.radiation_storm_level == 0 and not quiet.radiation_storm
+        s2 = detector.predict_solar_storm({**m_flare, "proton_flux_pfu": 250.0})
+        assert s2.radiation_storm_level == 2 and s2.radiation_storm
+        proxy = detector.predict_solar_storm(m_flare)
+        assert proxy.radiation_storm_level is None and proxy.radiation_storm  # flare proxy
+
+    @pytest.mark.parametrize("bad", [float("nan"), -1.0, "high", True, None])
+    def test_unusable_proton_flux_is_not_supplied(self, bad: object) -> None:
+        result = SolarStormDetector().predict_solar_storm({"proton_flux_pfu": bad})
+        assert result.radiation_storm_level is None

@@ -16,6 +16,7 @@ import pytest
 
 pytest.importorskip("torch", reason="bio_threats package imports torch")
 
+from omni_mercury_engine.detectors.detection_tier import pac_conformal_threshold
 from omni_mercury_engine.medical.pandemic.bio_threats.pathogen_detector import (
     PathogenDetector,
 )
@@ -272,3 +273,29 @@ def test_seed_must_be_an_integer(seed: object) -> None:
 def test_mean_time_to_false_alarm_is_validated(value: float) -> None:
     with pytest.raises(ValueError, match="mean_snapshots_to_false_alarm"):
         PathogenDetector({"mean_snapshots_to_false_alarm": value})
+
+
+def test_confident_threshold_is_the_training_conditional_quantile() -> None:
+    """``false_alarm_confidence`` swaps in the PAC quantile of the held-out energies."""
+    baseline = _sensor_data(0, 1000)
+    plain = PathogenDetector().fit(baseline)
+    confident = PathogenDetector({"false_alarm_confidence": 0.9}).fit(baseline)
+    energies = confident._calibration_energies
+    assert energies is not None
+    assert confident.energy_threshold == pac_conformal_threshold(energies, alpha=0.01, delta=0.1)
+    assert confident.energy_threshold is not None and plain.energy_threshold is not None
+    assert confident.energy_threshold >= plain.energy_threshold
+
+
+def test_confident_threshold_needs_enough_held_out_snapshots() -> None:
+    """At 1% and 90% confidence 230 held-out snapshots are needed (700 do not suffice)."""
+    detector = PathogenDetector({"false_alarm_confidence": 0.9})
+    with pytest.raises(ValueError, match="needs 230 held-out snapshots"):
+        detector.fit(_sensor_data(0, 700))
+    detector.fit(_sensor_data(0, 800))
+
+
+@pytest.mark.parametrize("confidence", [0.0, 1.0, float("nan")])
+def test_false_alarm_confidence_is_validated(confidence: float) -> None:
+    with pytest.raises(ValueError, match="false_alarm_confidence"):
+        PathogenDetector({"false_alarm_confidence": confidence})

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy.special import gammaln
 from scipy.stats import nbinom
 
 from omni_mercury_engine.medical.pandemic.forecasting import (
@@ -19,8 +20,12 @@ from omni_mercury_engine.medical.pandemic.forecasting import (
     fit_seir_incidence,
 )
 from omni_mercury_engine.medical.pandemic.forecasting.incidence_fit import (
+    _bounds,
     _calibrated_prediction,
+    _fit as _optimise,
+    _objective,
     _SEIRIncidence,
+    _starting_points,
 )
 
 _N, _SIGMA, _GAMMA = 1e6, 0.2, 0.1
@@ -55,6 +60,75 @@ def _fit(cases: np.ndarray, seed: int = 0) -> IncidenceForecast:
 @pytest.fixture(scope="module")
 def forecast() -> IncidenceForecast:
     return _fit(_outbreak(1))
+
+
+@pytest.mark.parametrize("recovered", [0.0, 0.5 * _N])
+def test_gradient_is_exact(recovered: float) -> None:
+    """The sensitivity-equation gradient equals central differences of the likelihood."""
+    model = _SEIRIncidence(_N, _SIGMA, _GAMMA, recovered)
+    counts = _outbreak(5)[:_DAYS].astype(float)
+    log_factorials = gammaln(counts + 1.0)
+    theta = np.log([0.31, 18.0, 25.0])
+    _, gradient = _objective(theta, counts, log_factorials, model)
+    step = 1e-5
+    numeric = [
+        (_objective(theta + e, counts, log_factorials, model)[0]
+         - _objective(theta - e, counts, log_factorials, model)[0]) / (2 * step)
+        for e in np.eye(3) * step
+    ]  # fmt: skip
+    assert gradient == pytest.approx(numeric, rel=1e-4, abs=1e-6)
+
+
+def test_likelihood_is_the_negative_binomial() -> None:
+    """The closed-form log-pmf equals scipy's on the same mean, and both solves agree."""
+    model = _SEIRIncidence(_N, _SIGMA, _GAMMA, 0.0)
+    counts = _outbreak(6)[:_DAYS].astype(float)
+    solved = model.expected_with_sensitivities(0.3, 20.0, _DAYS)
+    plain = model.expected(0.3, 20.0, _DAYS)
+    assert solved is not None and plain is not None
+    assert solved[0] == pytest.approx(plain, rel=1e-6)
+    expected = -np.sum(nbinom.logpmf(counts, 15.0, 15.0 / (15.0 + solved[0])))
+    value, _ = _objective(np.log([0.3, 20.0, 15.0]), counts, gammaln(counts + 1.0), model)
+    assert value == pytest.approx(expected, rel=1e-12)
+
+
+@pytest.mark.parametrize(
+    ("sigma", "gamma", "recovered"),
+    [(0.2, 0.1, 0.0), (0.1, 0.5, 0.0), (1.0, 0.05, 0.0), (0.2, 0.1, 0.95 * _N)],
+)
+def test_every_point_of_the_search_box_is_a_valid_state(
+    sigma: float, gamma: float, recovered: float
+) -> None:
+    """S0 falls as β and a rise, so S0 > 0 at the box's corner holds everywhere in it."""
+    model = _SEIRIncidence(_N, sigma, gamma, recovered)
+    (_, log_beta), (_, log_amplitude), _ = _bounds(model)
+    susceptible, _, _ = model.initial_state(np.exp(log_beta), np.exp(log_amplitude))
+    assert susceptible > 0.0
+
+
+def test_refit_started_at_the_dispersion_bound_reaches_the_optimum() -> None:
+    """A near-Poisson bootstrap refit started at the fit, with k at its upper bound.
+
+    With a capped only at N/10, L-BFGS-B's first step reached an infeasible box
+    corner, the penalty there shrank the line search to nothing, and the refit
+    stopped at its start (negative log-likelihood 126.49; the optimum is 125.15).
+    """
+    model = _SEIRIncidence(_N, _SIGMA, _GAMMA, 0.0)
+    mean = model.expected(_BETA, _AMPLITUDE, _DAYS)
+    assert mean is not None
+    counts = np.random.default_rng(15).negative_binomial(1e5, 1e5 / (1e5 + mean)).astype(float)
+    bounds = _bounds(model)
+    theta, _ = _optimise(counts, model, _starting_points(counts, model), bounds)
+    beta, amplitude, size = np.exp(theta)
+    assert size == pytest.approx(1e6)
+    fitted = model.expected(beta, amplitude, _DAYS)
+    assert fitted is not None
+    rng = np.random.default_rng(1)
+    for _ in range(150):
+        replicate = rng.negative_binomial(size, size / (size + fitted)).astype(float)
+    start, _ = _objective(theta, replicate, gammaln(replicate + 1.0), model)
+    _, refit = _optimise(replicate, model, [theta], bounds)
+    assert refit < start - 1.0
 
 
 def test_noise_free_incidence_recovers_beta() -> None:
@@ -136,6 +210,19 @@ def test_calibration_widens_when_refits_understate_dispersion() -> None:
     )
     assert np.all(nominal > 0.95)
     assert np.all(_coverage(lower, upper, mean, size) >= 0.95)
+
+
+def test_calibration_resolves_levels_near_one() -> None:
+    """Near-Poisson refits of a k = 5.5e4 truth need level 1 - 1.7e-8, short of the 1 - 1e-9 cap.
+
+    Twenty bisection steps (2^-20 in level) stopped at the cap, 8% wider.
+    """
+    mean, size = np.array([4e5]), 5.5e4
+    lower, upper, nominal = _calibrated_prediction(
+        mean, size, np.tile(mean, (40, 1)), np.full(40, 1e9), 0.95
+    )
+    assert 1e-8 < 1.0 - nominal[0] < 1e-7
+    assert _coverage(lower, upper, mean, size)[0] >= 0.95
 
 
 def test_forecast_continues_the_fitted_curve(forecast: IncidenceForecast) -> None:

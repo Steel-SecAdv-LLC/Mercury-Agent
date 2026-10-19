@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,967
-- **Capability-bearing classes:** 1,962 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,968
+- **Capability-bearing classes:** 1,963 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 49
 - **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,160 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,161 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1160 |
+| Other capability classes | 1161 |
 | Support types (config / result / enum / error) | 1005 |
 | Detection | 176 |
 | Neural models & layers | 161 |
@@ -1635,7 +1635,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `infrastructure/` — 61 classes (40 capability)
+### `infrastructure/` — 62 classes (41 capability)
 
 **Detection**
 
@@ -1671,6 +1671,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CircuitBreaker` (`infrastructure.streaming`) — Circuit breaker for streaming connections.
 - `CrisisAlert` (`infrastructure.humanitarian.crisis_monitoring.crisis_monitor`) — Alert from crisis monitoring.
 - `CrossBorderIntelligence` (`infrastructure.cyber.cross_border_intel`) — Cross-border threat intelligence correlation.
+- `CyclonePoint` (`infrastructure.humanitarian.crisis_monitoring.gdacs`) — One track point of a tropical cyclone, as GDACS assesses it.
 - `DistributedTracer` (`infrastructure.observability`) — Distributed tracing with OpenTelemetry support.
 - `EarthquakeCoefficients` (`infrastructure.humanitarian.crisis_monitoring.gdacs`) — Country terms of the GDACS earthquake models; the defaults are the global model.
 - `FileAuditHandler` (`infrastructure.observability`) — File-based audit log handler with rotation and proper resource management.

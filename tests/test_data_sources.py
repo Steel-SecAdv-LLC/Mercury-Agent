@@ -325,13 +325,21 @@ class TestNASADONKISource:
         assert source._event_type_to_source_type(DONKIEventType.CME) == DataSourceType.CME
 
     def test_flare_class_parsing(self) -> None:
-        """Test solar flare class parsing."""
+        """Flare classes on the NOAA R scale: R1-R5 start at M1, M5, X1, X10 and X20.
+
+        The previous ladder read X10 as Extreme (R4 is Severe), X5 as Severe
+        (it is R3), M1 as Moderate (R1) and C flares as Minor (below R1).
+        """
         source = NASADONKISource()
-        assert source._parse_flare_class("X10.0") == AlertLevel.EXTREME
-        assert source._parse_flare_class("X5.0") == AlertLevel.SEVERE
+        assert source._parse_flare_class("X20.0") == AlertLevel.EXTREME
+        assert source._parse_flare_class("X10.0") == AlertLevel.SEVERE
+        assert source._parse_flare_class("X5.0") == AlertLevel.STRONG
         assert source._parse_flare_class("X1.0") == AlertLevel.STRONG
         assert source._parse_flare_class("M5.0") == AlertLevel.MODERATE
-        assert source._parse_flare_class("C3.0") == AlertLevel.MINOR
+        assert source._parse_flare_class("M1.5") == AlertLevel.MINOR
+        assert source._parse_flare_class("C3.0") == AlertLevel.NONE
+        assert source._parse_flare_class("X") == AlertLevel.STRONG  # magnitude unreadable: 1
+        assert source._parse_flare_class("Q9") == AlertLevel.NONE
 
     def test_kp_index_parsing(self) -> None:
         """Test Kp index parsing."""
@@ -401,6 +409,22 @@ class TestNASANeoWsSource:
 
 class TestNOAASWPCSource:
     """Tests for NOAA SWPC data source."""
+
+    @pytest.mark.parametrize(
+        ("flux", "level"),
+        [
+            (9.99e-6, AlertLevel.NONE),  # C9.9: below R1 (was Minor)
+            (1e-5, AlertLevel.MINOR),  # M1 = R1 (was Minor only above it)
+            (4.9e-5, AlertLevel.MINOR),  # M4.9 (was Moderate)
+            (5e-5, AlertLevel.MODERATE),  # M5 = R2
+            (1e-4, AlertLevel.STRONG),  # X1 = R3 (was Moderate at exactly X1)
+            (1e-3, AlertLevel.SEVERE),  # X10 = R4 (was Strong)
+            (2e-3, AlertLevel.EXTREME),  # X20 = R5 (was Strong)
+            (float("nan"), AlertLevel.NONE),
+        ],
+    )
+    def test_xray_flux_is_on_the_noaa_r_scale(self, flux: float, level: AlertLevel) -> None:
+        assert NOAASWPCSource._xray_alert_level(flux) == level
 
     def test_initialization(self) -> None:
         """Test source initialization."""

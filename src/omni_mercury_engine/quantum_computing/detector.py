@@ -112,6 +112,7 @@ class QuantumAnomalyDetector:
         error_mitigation: str | None = "zne",
         optimization_level: int = 3,
         api_token: str | None = None,
+        seed: int | None = None,
     ) -> None:
         """Initialize the quantum anomaly detector.
 
@@ -121,7 +122,11 @@ class QuantumAnomalyDetector:
             error_mitigation: Error mitigation method (None, "zne", "pec")
             optimization_level: Circuit optimization level
             api_token: IBM Quantum API token
+            seed: Seed for the quantum kernel's shots and the VQE and QAOA
+                initial parameters; ``None`` keeps their defaults (VQE seeds
+                with 0, the kernel and QAOA use OS entropy)
         """
+        self._seed = seed
         self._executor = QuantumExecutor(
             backend=backend,
             shots=shots,
@@ -382,6 +387,7 @@ class QuantumAnomalyDetector:
             self._num_qubits,
             feature_map_reps=kwargs.get("reps", 2),
             executor=self._executor,
+            seed=self._seed,
         )
 
         if y_train is None:
@@ -397,6 +403,7 @@ class QuantumAnomalyDetector:
             ansatz=kwargs.get("ansatz", VariationalAnsatz.REAL_AMPLITUDES),
             reps=kwargs.get("reps", 2),
             executor=self._executor,
+            seed=0 if self._seed is None else self._seed,
         )
         detector.fit(X_train, maxiter=kwargs.get("maxiter", 50))
         return detector
@@ -409,6 +416,7 @@ class QuantumAnomalyDetector:
             self._num_qubits,
             p=kwargs.get("p", 2),
             executor=self._executor,
+            seed=self._seed,
         )
         detector.fit(adjacency, maxiter=kwargs.get("maxiter", 50))
         return detector

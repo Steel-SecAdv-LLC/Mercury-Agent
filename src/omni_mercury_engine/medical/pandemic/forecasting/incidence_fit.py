@@ -10,7 +10,8 @@ Method (Chowell, Bleichrodt & Luo 2024, *Stat. Med.* 43:1826-1848; King et al.
   day j, the daily increment of C with C' = σE. Cumulative counts are never
   fitted (King et al. 2015, principle 1).
 - Parameters: β, an initial amplitude a and k, by maximum likelihood from
-  several starting points; σ, γ and the population are fixed. The initial state
+  several starting points, with the exact gradient from the forward
+  sensitivity equations; σ, γ and the population are fixed. The initial state
   lies on the dominant eigenvector of the (E, I) system linearised at the
   disease-free state S = N - R (R = ``initial_recovered``, so β acts as
   β(N - R)/N), E0 = (Λ+γ)·a/σ and I0 = a, because in the growth phase only that
@@ -38,6 +39,7 @@ from typing import Any
 import numpy as np
 from scipy.integrate import odeint
 from scipy.optimize import minimize
+from scipy.special import digamma, gammaln
 from scipy.stats import nbinom
 
 __all__ = ["IncidenceForecast", "fit_seir_incidence"]
@@ -121,11 +123,11 @@ class _SEIRIncidence:
         susceptible, exposed, infectious = self.initial_state(beta, amplitude)
         if not (susceptible > 0.0 and math.isfinite(exposed)):
             return None
-        n, s, g = self.population, self.sigma, self.gamma
+        rate, s, g = beta / self.population, self.sigma, self.gamma
 
         def rhs(y: np.ndarray[Any, Any], _t: float) -> list[float]:
-            sus, exp_, inf = y[0], y[1], y[2]
-            force = beta * sus * inf / n
+            sus, exp_, inf, _ = y.tolist()  # Python floats: faster than numpy scalars
+            force = rate * sus * inf
             return [-force, force - s * exp_, s * exp_ - g * inf, s * exp_]
 
         days = np.arange(n_days + 1, dtype=float)
@@ -135,16 +137,90 @@ class _SEIRIncidence:
             return None
         return np.maximum(mean, 1e-10)
 
+    def expected_with_sensitivities(
+        self, beta: float, amplitude: float, n_days: int
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
+        """Expected incidence and its exact derivatives in β and the amplitude.
 
-def _negative_log_likelihood(
-    theta: np.ndarray[Any, Any], counts: np.ndarray[Any, Any], model: _SEIRIncidence
-) -> float:
-    beta, amplitude, size = np.exp(theta)
-    mean = model.expected(float(beta), float(amplitude), counts.size)
-    if mean is None:
-        return _PENALTY
-    value = -float(np.sum(nbinom.logpmf(counts, size, size / (size + mean))))
-    return value if math.isfinite(value) else _PENALTY
+        Integrates the forward sensitivity equations s' = (∂f/∂y)s + ∂f/∂p
+        alongside the SEIR system, started from the derivatives of the
+        eigenvector initial state, so one solve gives the likelihood's gradient.
+        """
+        susceptible, exposed, infectious = self.initial_state(beta, amplitude)
+        if not (susceptible > 0.0 and math.isfinite(exposed)):
+            return None
+        n, s, g = self.population, self.sigma, self.gamma
+        fraction = (n - self.recovered) / n
+        root = math.sqrt((s - g) ** 2 + 4.0 * s * beta * fraction)
+        d_exposed_d_beta = amplitude * fraction / root  # a/σ · dΛ/dβ, dΛ/dβ = σ f / root
+        d_exposed_d_amp = (self.growth_rate(beta) + g) / s
+        initial = [
+            susceptible, exposed, infectious, 0.0,
+            -d_exposed_d_beta, d_exposed_d_beta, 0.0, 0.0,
+            -d_exposed_d_amp - 1.0, d_exposed_d_amp, 1.0, 0.0,
+        ]  # fmt: skip
+        rate = beta / n
+
+        def rhs(y: np.ndarray[Any, Any], _t: float) -> list[float]:
+            sus, exp_, inf, _, b_s, b_e, b_i, _, a_s, a_e, a_i, _ = y.tolist()
+            force = rate * sus * inf
+            # Linearised force of infection along each sensitivity; β also enters directly.
+            b_force = rate * (inf * b_s + sus * b_i) + sus * inf / n
+            a_force = rate * (inf * a_s + sus * a_i)
+            return [
+                -force, force - s * exp_, s * exp_ - g * inf, s * exp_,
+                -b_force, b_force - s * b_e, s * b_e - g * b_i, s * b_e,
+                -a_force, a_force - s * a_e, s * a_e - g * a_i, s * a_e,
+            ]  # fmt: skip
+
+        days = np.arange(n_days + 1, dtype=float)
+        solution = odeint(rhs, initial, days, rtol=1e-8, atol=1e-6)
+        mean = np.diff(solution[:, 3])
+        if not np.all(np.isfinite(solution)):
+            return None
+        floored = mean < 1e-10
+        d_beta = np.where(floored, 0.0, np.diff(solution[:, 7]))
+        d_amp = np.where(floored, 0.0, np.diff(solution[:, 11]))
+        return np.maximum(mean, 1e-10), d_beta, d_amp
+
+
+def _objective(
+    theta: np.ndarray[Any, Any],
+    counts: np.ndarray[Any, Any],
+    log_factorials: np.ndarray[Any, Any],
+    model: _SEIRIncidence,
+) -> tuple[float, np.ndarray[Any, Any]]:
+    """Negative log-likelihood and its exact gradient in θ = log(β, a, k).
+
+    With m the mean and k the size, the NB2 log-pmf is ln Γ(y+k) - ln Γ(k) -
+    ln y! + k ln(k/(k+m)) + y ln(m/(k+m)); its derivatives are y/m - (y+k)/(k+m)
+    in m and ψ(y+k) - ψ(k) + ln(k/(k+m)) + (m-y)/(k+m) in k.
+    """
+    beta, amplitude, size = (float(v) for v in np.exp(theta))
+    solved = model.expected_with_sensitivities(beta, amplitude, counts.size)
+    if solved is None:
+        return _PENALTY, np.zeros(3)
+    mean, d_beta, d_amp = solved
+    total = size + mean
+    log_ratio = np.log(size / total)
+    log_pmf = (
+        gammaln(counts + size)
+        - gammaln(size)
+        - log_factorials
+        + size * log_ratio
+        + counts * np.log(mean / total)
+    )
+    value = -float(np.sum(log_pmf))
+    if not math.isfinite(value):
+        return _PENALTY, np.zeros(3)
+    d_mean = -(counts / mean - (counts + size) / total)
+    d_size = -float(
+        np.sum(digamma(counts + size) - digamma(size) + log_ratio + (mean - counts) / total)
+    )
+    gradient = np.array(
+        [beta * float(d_mean @ d_beta), amplitude * float(d_mean @ d_amp), size * d_size]
+    )
+    return value, gradient
 
 
 def _starting_points(
@@ -167,6 +243,24 @@ def _starting_points(
     return starts
 
 
+def _bounds(model: _SEIRIncidence) -> list[tuple[float, float]]:
+    """Box bounds on θ = log(β, a, k) inside which every initial state has S0 > 0.
+
+    E0 + I0 = a(Λ+γ+σ)/σ and Λ grows with β, so capping a below (N - R)σ/(Λ+γ+σ)
+    at the largest β keeps S0 positive across the box. Without the cap the box
+    corner that L-BFGS-B's first step reaches can be infeasible, and the penalty
+    there collapses the line search onto the starting point.
+    """
+    largest = model.growth_rate(_BETA_BOUNDS[1]) + model.gamma + model.sigma
+    # 1 - 1e-9 keeps S0 > 0 through the rounding of E0 and I0.
+    feasible = (model.population - model.recovered) * model.sigma / largest * (1.0 - 1e-9)
+    return [
+        (math.log(_BETA_BOUNDS[0]), math.log(_BETA_BOUNDS[1])),
+        (math.log(1e-6), math.log(min(model.population / 10.0, feasible))),
+        (math.log(_K_BOUNDS[0]), math.log(_K_BOUNDS[1])),
+    ]
+
+
 def _fit(
     counts: np.ndarray[Any, Any],
     model: _SEIRIncidence,
@@ -175,11 +269,13 @@ def _fit(
 ) -> tuple[np.ndarray[Any, Any], float]:
     """Best L-BFGS-B fit over the starting points: (log parameters, NLL)."""
     best_theta, best_value = starts[0], math.inf
+    log_factorials = gammaln(counts + 1.0)
     for start in starts:
         result = minimize(
-            _negative_log_likelihood,
+            _objective,
             np.clip(start, [b[0] for b in bounds], [b[1] for b in bounds]),
-            args=(counts, model),
+            args=(counts, log_factorials, model),
+            jac=True,
             method="L-BFGS-B",
             bounds=bounds,
         )
@@ -301,11 +397,7 @@ def fit_seir_incidence(
             f"observed cases ({initial_recovered + counts.sum():g})"
         )
     model = _SEIRIncidence(population, sigma, gamma, initial_recovered)
-    bounds = [
-        (math.log(_BETA_BOUNDS[0]), math.log(_BETA_BOUNDS[1])),
-        (math.log(1e-6), math.log(population / 10.0)),
-        (math.log(_K_BOUNDS[0]), math.log(_K_BOUNDS[1])),
-    ]
+    bounds = _bounds(model)
     theta, nll = _fit(counts, model, _starting_points(counts, model), bounds)
     beta, amplitude, size = (float(v) for v in np.exp(theta))
     full_mean = model.expected(beta, amplitude, counts.size + horizon)

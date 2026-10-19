@@ -185,15 +185,16 @@ class SimulatedQuantumCircuit:
         probabilities = np.abs(state) ** 2
         return probabilities / np.sum(probabilities)
 
-    def simulate(self, shots: int = 1024) -> dict[str, int]:
+    def simulate(self, shots: int = 1024, rng: np.random.Generator | None = None) -> dict[str, int]:
         """Simulate the circuit and return measurement counts.
 
-        Uses statevector simulation with NumPy.
+        Uses statevector simulation with NumPy. ``rng`` draws the shots
+        instead of this circuit's own generator.
         """
         n = self.num_qubits
         probabilities = self.probabilities()
 
-        outcomes = self._rng.choice(2**n, size=shots, p=probabilities)
+        outcomes = (rng or self._rng).choice(2**n, size=shots, p=probabilities)
         counts: dict[str, int] = {}
         for outcome in outcomes:
             bitstring = format(outcome, f"0{n}b")
@@ -707,11 +708,21 @@ class QuantumFeatureMap:
         num_qubits: int,
         reps: int = 2,
         entanglement: str = "full",
+        seed: int | None = None,
     ) -> None:
-        """Initialize the feature map."""
+        """Initialize the feature map.
+
+        Args:
+            num_qubits: Number of qubits.
+            reps: Feature-map repetitions.
+            entanglement: Entanglement structure.
+            seed: Seed for the shots of :meth:`compute_kernel`; ``None`` uses
+                OS entropy.
+        """
         self._num_qubits = num_qubits
         self._reps = reps
         self._entanglement = entanglement
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         self._encoder = AnomalyEncodingCircuit(
             num_qubits,
             EncodingType.ZZ_FEATURE_MAP,
@@ -733,19 +744,24 @@ class QuantumFeatureMap:
         self,
         x1: np.ndarray[Any, Any],
         x2: np.ndarray[Any, Any],
-        shots: int = 1024,
+        shots: int | None = 1024,
     ) -> float:
         """Compute quantum kernel between two data points.
 
-        Uses fidelity estimation: K(x1, x2) = |<phi(x1)|phi(x2)>|^2
+        Uses fidelity estimation: K(x1, x2) = |<phi(x1)|phi(x2)>|^2, the
+        probability that U(x2)† U(x1) returns |0...0⟩.
 
         Args:
             x1: First data point
             x2: Second data point
-            shots: Number of measurement shots
+            shots: Number of measurement shots, or ``None`` for the exact
+                fidelity from the built-in statevector simulator
 
         Returns:
             Kernel value between 0 and 1
+
+        Raises:
+            ValueError: If ``shots`` is ``None`` on a Qiskit circuit.
         """
         circuit1 = self.map(x1)
         circuit2 = self.map(x2)
@@ -753,7 +769,11 @@ class QuantumFeatureMap:
         combined = self._create_kernel_circuit(circuit1, circuit2)
 
         if isinstance(combined, SimulatedQuantumCircuit):
-            counts = combined.simulate(shots)
+            if shots is None:
+                return float(combined.probabilities()[0])
+            counts = combined.simulate(shots, rng=self._rng)
+        elif shots is None:
+            raise ValueError("the exact kernel needs the built-in statevector simulator")
         else:
             counts = self._simulate_qiskit_circuit(combined, shots)
 

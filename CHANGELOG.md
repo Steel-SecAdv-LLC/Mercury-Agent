@@ -27,6 +27,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### GDACS tropical cyclones, GDACS's own scores as the test, and faster, better-calibrated detection (branch `steel/version-cov4`)
+
+An adversarial review of the first version reproduced 6 should-fix defects and
+10 nits; all are fixed, with tests, before this push.
+
+**Added — GDACS tropical-cyclone levels (`crisis_monitoring.gdacs`, `CrisisMonitor`).**
+The published GDACS cyclone page gives only a sparse risk matrix (no Category 5,
+no Category 4 at Medium or High vulnerability). The complete table is Table 1 of
+GDACS's MHEWS user manual (JRC141661, 2025; version of 23/09/2026; section 4.7),
+and it is implemented as printed: each track point's level from its
+Saffir-Simpson class, the people in its 34 kt and 64 kt wind buffers and its
+country's vulnerability, with the "100k or 10% of the country" thresholds; the
+storm takes its highest point; a Red more than three days ahead becomes Orange;
+scores 0.5, 1.5 and 2.5. Storm-surge levels (Red >= 3 m, Orange >= 1 m) are
+reported beside the wind level, outside the score, as GDACS does. Country
+classes are GDACS's published 2012 list with the two classes its live feed now
+reports differently (Tanzania Medium, Yemen High); the other 49 countries seen
+in that feed for 2023-2026 storms match. On the 152 track points of five real
+storms (MELISSA-25 twice, CHAMPI-26, DITWAH-25, TAPAH-25, CHOI-WAN-26) the table
+reproduces GDACS's level at every point, including the one Red GDACS lowered to
+Orange for being more than three days ahead (MELISSA-25 over Jamaica).
+`CrisisMonitor` takes `cyclone_points` (or one point on the report) and
+`max_storm_surge_m`; a point with exposure but no country is refused rather than
+assumed Low. The Saffir-Simpson ladder is checked knot by knot against the
+hurricane detector's. GDACS sets volcano, drought and forest-fire levels by
+expert judgement, with no published formula, so those are not implemented.
+
+**Checked against GDACS's own scores (earthquakes).** The module's earthquake
+docstring said its scores "have not been checked against GDACS's own event
+scores". 26 real events (2023-2026, recorded from GDACS's API under
+`tests/fixtures/gdacs`) now check it: given GDACS's own scaled population and
+coping factor, `shakemap_score` reproduces GDACS's score for all 21 scored
+single-country events (to 7e-15), and the 2017 table's intercept and slope are
+GDACS's live ones for each of their countries. Found along the way: GDACS's live
+coping factors use newer INFORM values with the published normalisation (China
+0.821 against the 2017 table's 0.833), which confirms leaving the 2017 column
+out; cross-border events average the countries' coefficients and sum their
+coping factors (3 events, factors up to 2.36, outside the published 0.5-1.5); and
+GDACS's live scaled population is not the published band formula on its own
+band totals (-0.27 to +0.17 in log10; the same level for 19 of 21). New
+`shakemap_score` and the `shakemap_scaled_population` input take GDACS's value.
+
+**Faster — epidemic fit with exact gradients.** `fit_seir_incidence` now
+integrates the forward sensitivity equations with the SEIR system, so each
+likelihood evaluation also gives its exact gradient (matching central
+differences to 1e-4); the negative-binomial log-likelihood is written out in
+closed form. On three simulated outbreaks the estimates and intervals match the
+finite-difference version to 8e-6 (relative) and the prediction bounds to one
+count, about 3.3x faster: 6.8-7.2 s to 2.1 s per fit at B = 200 on one core. The
+amplitude's upper bound is now also capped so that every point of the search box
+starts with S0 > 0: L-BFGS-B's first step goes to the box's corner, which could
+be an invalid state, and the penalty there stopped some bootstrap refits at
+their starting point.
+
+**Added — a training-conditional false-alarm bound.** The split-conformal
+threshold bounds the false-alarm rate only on average over calibrations: with
+300 uniform scores and a 1% target, 43% of single calibrations exceeded 1%.
+`detection_tier.pac_conformal_threshold` (Vovk 2012) picks the order statistic
+whose own rate exceeds the target with probability at most delta (measured 5.0%
+at delta = 10%); `pac_minimum_calibration_size` gives the fewest scores it needs
+(230 for a 1% target at delta = 10%), and fewer raise rather than return a
+weaker threshold. `PathogenDetector` takes it as `false_alarm_confidence`: over
+60 baselines the share above a 1% rate fell from 27% to 2%, at the cost of a
+lower average rate (0.83% to 0.28%), so less sensitivity.
+
+**Faster — importing the humanitarian modules.** `infrastructure/__init__` now
+loads `SpaceExplorationAnalyzer` and the streaming names on first use, through
+module `__getattr__` with the names kept visible to type checkers; importing
+`gdacs` or `CrisisMonitor` fell from 2.37 s to 0.20 s. Every package name still
+resolves.
+
+**Fixed — a reproducible quantum kernel.** The kernel path drew its shots from
+a fresh, unseeded generator per kernel entry, so `QuantumAnomalyDetector`'s
+scores changed run to run (AUROC 0.85-0.96 over 40 runs, as the PR noted).
+`QuantumAnomalyDetector(seed=...)` now seeds the kernel's shots and the QAOA
+initial parameters (VQE keeps its seed 0 unless given one): the same seed gives
+identical scores, and seeds 0-19 span 0.862-0.938. `QuantumKernel` and
+`QuantumFeatureMap` also take `shots=None` for the exact fidelity on the
+built-in statevector simulator, with no shot noise.
+
+**Fixed — radio-blackout and radiation-storm levels on NOAA's scales.** Three
+hand-written ladders now go through `evaluation.hazard_metrics.noaa_r_scale` /
+`noaa_s_scale`, the branch's single definitions. The SWPC X-ray level read M1 as
+Moderate (it is R1, Minor), C flares as Minor (they are below R1), exactly X1 as
+Moderate (R3) and X10/X20 as Strong (R4 Severe, R5 Extreme); DONKI flare classes
+read X10 as Extreme and X5 as Severe (R4 and R3). The SWPC proton ladder already
+matched S1-S5 and now uses the same function. `SolarStormPredictionResult` gains
+`radio_blackout_level` (R 0-5 from the 0.1-0.8 nm flux) and
+`radiation_storm_level` (S 0-5 from a supplied `proton_flux_pfu`); with protons
+supplied, `radiation_storm` follows S1 instead of the flare class, so an M flare
+without a proton event is no longer a radiation storm. `radio_blackout` keeps its
+released meaning, now stated as R3 or stronger. The test that pinned the old
+DONKI ladder pins NOAA's.
+
+**Measured, not adopted.** For the sequential pathogen test, an average of Simple
+Jumpers over jump rates 0.01, 0.1 and 1 found a 0.5 sd shift 29% sooner (median
+264 against 374 snapshots, 80 runs) but 0.75-1 sd shifts about 8% later, at the
+same false-alarm guarantee; the single rate stays the default.
+
 ### Public-safety upgrades: sequential pathogen detection, fitted epidemic forecasts, GDACS alert levels (branch `steel/version-cov4`)
 
 Three capabilities on top of the rebuilt components below, each from a published
