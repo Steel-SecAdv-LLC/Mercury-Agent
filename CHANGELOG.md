@@ -27,6 +27,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Four public-safety components rebuilt on published methods (branch `steel/version-cov4`)
+
+Four modules inherited from Omni-AXA (2025-10-15) were still exported with
+their original logic: a terrorism detector that ignored its indicators, a "QBM"
+pathogen detector driven by a random matrix, a crisis monitor that invented
+population figures, and an SEIR forecaster with a wrong R0. Each now rests on a
+published method; every test the new files mark as such fails on the previous
+tree.
+
+**Fixed — `medical.pandemic.forecasting.EpidemicForecaster`.** R0 was
+β/(σ+γ), 1.67 for the default rates whose true R0 is 5 (the simulated final
+size implies 5.0001); at β = 0.25 it reported 0.83, "dies out", beside an
+outbreak that infected 89%. R0 is now β/γ, the next-generation-matrix value
+(van den Driessche & Watmough 2002). `chaos_score` is now Λ, the dominant
+eigenvalue of the infection subsystem at the disease-free state: the early
+growth rate per day (0.170 against an observed 0.169) and positive exactly above
+the epidemic threshold, so `bifurcation_detected` (default `chaos_threshold`
+0.0) no longer depends on population size or fires below threshold. Deaths,
+hospitalisations and cost scale with cumulative infections (993,023 by default)
+instead of peak prevalence (305,010), with the ratios configurable and reported
+under `assumptions`. The grid is daily (`forecast_days + 1` points), so
+`peak_day` is a day. New `estimate_r0_from_incidence` fits the growth rate by
+Poisson regression and converts it with R = (1 + r/σ)(1 + r/γ) (Wallinga &
+Lipsitch 2007); it recovers 5.0 within 5% from simulated counts. Invalid rates
+and initial counts raise `ValueError`; `simulate_intervention_effect` restores
+β even on error.
+
+**Fixed — `medical.pandemic.bio_threats.PathogenDetector`.** The released
+detector binarised readings at their own median and scored them with an
+unseeded random coupling matrix: about 18% of fresh detectors flagged the same
+input, and x, 1000x and x + 500 gave the same energy. It now needs `fit(baseline)`
+(snapshots x channels) and scores E = ½(x-μ)ᵀΛ(x-μ), the energy of a Gaussian
+Markov random field with couplings `J_matrix = -Λ` off the diagonal, fitted as in
+`detectors.energy_based`. The threshold is the split-conformal quantile of
+held-out baseline energies (`false_alarm_rate`, default 0.01; 0.45% measured on
+20,000 normal snapshots), and `confidence` is one minus the conformal p-value.
+Shifts, rescalings, single-channel spikes and correlation changes are flagged;
+signatures name the channels beyond 3 sd. The type comes from a MASINT report
+naming a known agent, otherwise `unclassified_anomaly`, and every alarm starts
+with laboratory confirmation, as BioWatch requires. An unfitted detector, a
+wrong-length snapshot or a baseline too short for the rate raises.
+
+**Fixed — `infrastructure.humanitarian.crisis_monitoring.CrisisMonitor`.** A
+lone score of 0.8 reported 80,000 affected (a default density of 10,000 x
+score x 10). `affected_population` is now the exposure the GEOINT report
+supplies (`affected_population`, or `population_density` x `affected_area_km2`,
+the keys this module's tests already passed) and `None` without it, with a
+response step to obtain it. OSINT indicators now type the crisis, matching is per
+indicator on word boundaries, `mass_casualty` is reachable, and non-finite or
+out-of-range scores are clipped or ignored. `CrisisAlert.affected_population` is
+`int | None`.
+
+**Fixed — `security.anti_terrorism.TerrorismPatternDetector`.** The stage was
+`max(threat_score)` bucketed, with the indicators unread: "school bake sale" at
+0.95 was `imminent_action`. Indicators are now the 42 observable behaviours of
+*US Violent Extremist Mobilization Indicators* (NCTC, FBI and DHS, 2025), as
+codes or booklet numbers, and the stage is the most advanced one reported:
+mobilization is `imminent_action`, preparation `action_planning`, intent-type
+motivation `indoctrination`, other motivation `identification` (never a threat
+alone). The score is the source's confidence, combined by noisy-OR across
+reports, and never sets the stage. Indicators naming a legally protected
+characteristic are excluded and listed in the new `excluded_indicators`, as the
+booklet requires; `matched_indicators` lists what was recognised. Every action
+begins with trained human review. Free-text reports must be coded first.
+
 ### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
 
 Found by running the shipped system against a native AMA v5.0.0 build and

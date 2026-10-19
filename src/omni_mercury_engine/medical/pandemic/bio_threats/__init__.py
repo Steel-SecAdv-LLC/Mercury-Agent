@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Bio-Threat Detection Module (Medical Interdiction).
 
-Detects biological threats using QBM-based pathogen energy modeling
-and multi-INT fusion (MASINT bio-signatures, OSINT disease outbreaks).
+Flags sensor snapshots whose Gaussian energy against a fitted baseline exceeds
+a false-alarm-calibrated threshold, with MASINT agent reports for typing.
 
 Part of Medical Interdiction and Intervention framework.
 """

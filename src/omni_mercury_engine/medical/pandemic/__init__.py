@@ -4,8 +4,8 @@
 
 Comprehensive pandemic detection integrating:
 - Real-time case surveillance and mutation tracking
-- SEIR epidemiological forecasting with chaos detection
-- QBM-based pathogen detection with MASINT fusion
+- SEIR epidemiological forecasting with R0 and an epidemic-threshold test
+- Baseline-calibrated pathogen alarms with MASINT fusion
 
 Part of Mercury Agent Medical Interdiction framework.
 """

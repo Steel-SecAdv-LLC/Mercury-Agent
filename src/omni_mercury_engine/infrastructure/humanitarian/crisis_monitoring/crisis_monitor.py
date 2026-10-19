@@ -2,17 +2,41 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Crisis Monitoring for Humanitarian CI.
 
-Integrates GEOINT (Geospatial Intelligence) for natural disaster,
-humanitarian crisis, and essential worker protection monitoring.
+Fuses GEOINT (Geospatial Intelligence) and OSINT reports on natural disasters,
+outbreaks, infrastructure failures and mass-casualty incidents.
 
-Prioritisation weighted toward the people most exposed, using ethical scalars.
+Severity is the highest validated report score. The crisis type comes from the
+indicators of both reports. The affected population is the exposure the GEOINT
+report supplies (``affected_population``, or ``population_density`` per km²
+times ``affected_area_km2``), the quantity GDACS-style impact estimates rest
+on; without exposure data it is ``None`` rather than a guess.
 """
 
 from __future__ import annotations
 
 import logging
+import math
+import re
 from dataclasses import dataclass
 from typing import Any
+
+# Word-boundary patterns per crisis type, checked in this order.
+_CRISIS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "natural_disaster",
+        re.compile(
+            r"\b(earthquakes?|flood\w*|tsunamis?|hurricanes?|cyclones?|typhoons?|"
+            r"tropical storms?|wildfires?|volcan\w*|eruptions?|droughts?|landslides?|"
+            r"tornado\w*)\b"
+        ),
+    ),
+    ("pandemic", re.compile(r"\b(pandemic|epidemic|outbreaks?|disease\w*)\b")),
+    (
+        "infrastructure_failure",
+        re.compile(r"\b(infrastructure|power outages?|blackouts?|grid failure|dam failure)\b"),
+    ),
+    ("mass_casualty", re.compile(r"\b(mass casualt\w*|mci|multiple casualties)\b")),
+)
 
 
 @dataclass
@@ -22,7 +46,7 @@ class CrisisAlert:
     crisis_detected: bool
     crisis_type: str
     severity: str
-    affected_population: int
+    affected_population: int | None
 
     vulnerable_groups: list[str]
     survivor_priorities: list[str]
@@ -34,10 +58,9 @@ class CrisisMonitor:
     """Humanitarian Crisis Monitor (most-exposed-first counter-intelligence).
 
     Features:
-    - GEOINT fusion for disaster detection
+    - GEOINT and OSINT report fusion for crisis detection and typing
+    - Affected population from supplied exposure data, never invented
     - Vulnerable population prioritization
-    - Essential worker protection
-    - Real-time alerts that prioritise the people most at risk
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -65,8 +88,11 @@ class CrisisMonitor:
         """Monitor for humanitarian crises using multi-INT fusion.
 
         Args:
-            geoint_data: Geospatial intelligence data
-            osint_data: Open-source intelligence data
+            geoint_data: Geospatial intelligence data: ``threat_score`` in [0, 1],
+                ``indicators``, and exposure as ``affected_population`` or
+                ``population_density`` (per km²) with ``affected_area_km2``
+            osint_data: Open-source intelligence data: ``threat_score`` and
+                ``indicators``
 
         Returns:
             CrisisAlert with response recommendations
@@ -82,7 +108,7 @@ class CrisisMonitor:
 
         severity = self._determine_severity(crisis_score)
 
-        affected_population = self._estimate_affected_population(geoint_data, crisis_score)
+        affected_population = self._estimate_affected_population(geoint_data)
 
         vulnerable_groups = self._identify_vulnerable_groups(crisis_type, severity)
 
@@ -104,9 +130,9 @@ class CrisisMonitor:
         )
 
         if crisis_detected:
+            affected = "unknown" if affected_population is None else f"{affected_population:,}"
             self.logger.warning(
-                f"Crisis detected: {crisis_type} "
-                f"(severity={severity}, affected={affected_population:,})"
+                f"Crisis detected: {crisis_type} (severity={severity}, affected={affected})"
             )
 
         return alert
@@ -114,28 +140,36 @@ class CrisisMonitor:
     def _compute_crisis_score(
         self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
     ) -> float:
-        """Compute crisis severity score from multi-INT sources."""
-        score = geoint_data.get("threat_score", 0.0)
+        """Highest report score, each clipped to [0, 1]; invalid scores count as 0.
+
+        Severity takes the most severe credible report rather than accumulating
+        reports, which would inflate the severity of one event.
+        """
+        score = _unit_score(geoint_data.get("threat_score"))
 
         if osint_data:
-            score = max(score, osint_data.get("threat_score", 0.0))
+            score = max(score, _unit_score(osint_data.get("threat_score")))
 
-        return float(min(score, 1.0))
+        return score
 
     def _classify_crisis(
         self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
     ) -> str:
-        """Classify crisis type."""
-        indicators = geoint_data.get("indicators", [])
+        """Classify crisis type from GEOINT and OSINT indicators.
 
-        if "earthquake" in str(indicators).lower() or "flood" in str(indicators).lower():
-            return "natural_disaster"
-        elif "pandemic" in str(indicators).lower() or "disease" in str(indicators).lower():
-            return "pandemic"
-        elif "infrastructure" in str(indicators).lower():
-            return "infrastructure_failure"
-        else:
-            return "humanitarian_emergency"
+        Each indicator is matched on word boundaries (``_`` and ``-`` read as
+        spaces). Cause-based types win over ``mass_casualty``; with no match the
+        type is ``humanitarian_emergency``.
+        """
+        indicators = list(_as_list(geoint_data.get("indicators")))
+        if osint_data:
+            indicators.extend(_as_list(osint_data.get("indicators")))
+        texts = [re.sub(r"[_\-]+", " ", str(ind)).lower() for ind in indicators]
+
+        for crisis_type, pattern in _CRISIS_PATTERNS:
+            if any(pattern.search(text) for text in texts):
+                return crisis_type
+        return "humanitarian_emergency"
 
     def _determine_severity(self, crisis_score: float) -> str:
         """Determine crisis severity level."""
@@ -148,13 +182,21 @@ class CrisisMonitor:
         else:
             return "low"
 
-    def _estimate_affected_population(
-        self, geoint_data: dict[str, Any], crisis_score: float
-    ) -> int:
-        """Estimate affected population (simulated)."""
-        base_population = geoint_data.get("population_density", 10000)
-        affected = int(base_population * crisis_score * 10)
-        return affected
+    def _estimate_affected_population(self, geoint_data: dict[str, Any]) -> int | None:
+        """Exposed population from the GEOINT report, or ``None`` if not supplied.
+
+        Uses ``affected_population`` when given, else ``population_density``
+        (people per km²) times ``affected_area_km2``. Negative or non-finite
+        values are ignored. The crisis score does not scale the count.
+        """
+        direct = _non_negative(geoint_data.get("affected_population"))
+        if direct is not None:
+            return round(direct)
+        density = _non_negative(geoint_data.get("population_density"))
+        area = _non_negative(geoint_data.get("affected_area_km2"))
+        if density is None or area is None:
+            return None
+        return round(density * area)
 
     def _identify_vulnerable_groups(self, crisis_type: str, severity: str) -> list[str]:
         """Identify vulnerable population groups."""
@@ -186,11 +228,10 @@ class CrisisMonitor:
 
     def _extract_geoint_indicators(self, geoint_data: dict[str, Any]) -> list[str]:
         """Extract GEOINT indicators."""
-        indicators = geoint_data.get("indicators", [])
-        return [str(ind) for ind in indicators]
+        return [str(ind) for ind in _as_list(geoint_data.get("indicators"))]
 
     def _recommend_response(
-        self, crisis_type: str, severity: str, affected_population: int
+        self, crisis_type: str, severity: str, affected_population: int | None
     ) -> list[str]:
         """Recommend humanitarian response actions."""
         response = []
@@ -200,9 +241,18 @@ class CrisisMonitor:
             response.append("Deploy search and rescue teams")
             response.append("Establish emergency medical facilities")
 
-        if affected_population > 100000:
+        if affected_population is None:
+            response.append(
+                "Estimate the exposed population (gridded population over the hazard "
+                "footprint) before scaling the response"
+            )
+        elif affected_population > 100000:
             response.append("Request international humanitarian aid")
             response.append("Coordinate with UN agencies (UNHCR, WHO, WFP)")
+
+        if crisis_type == "mass_casualty":
+            response.append("Activate mass-casualty incident triage (e.g., START)")
+            response.append("Coordinate hospital surge capacity and patient distribution")
 
         if crisis_type == "natural_disaster":
             response.append("Distribute emergency supplies (food, water, blankets)")
@@ -215,3 +265,37 @@ class CrisisMonitor:
         response.append("Prioritize vulnerable populations in all response efforts")
 
         return response
+
+
+def _unit_score(value: Any) -> float:
+    """A report score clipped to [0, 1]; missing, non-numeric or non-finite is 0."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(score):
+        return 0.0
+    return min(max(score, 0.0), 1.0)
+
+
+def _non_negative(value: Any) -> float | None:
+    """A finite, non-negative number, else ``None``."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number >= 0.0 else None
+
+
+def _as_list(value: Any) -> list[Any]:
+    """Indicators as a list; a single string counts as one indicator."""
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)):
+        return [value]
+    try:
+        return list(value)
+    except TypeError:
+        return [value]

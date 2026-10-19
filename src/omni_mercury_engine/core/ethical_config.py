@@ -260,7 +260,7 @@ class EngineConfig:
     fusion_mode: str = "hybrid"
     enable_neurosymbolic: bool = True
     enable_multiverse: bool = True
-    enable_ci: bool = False  # counterintelligence (OverwatchNexus); off by default
+    enable_ci: bool = False  # inert: nothing reads it; kept so existing configs still load
 
     num_universes: int = 10
     multiverse_state_dim: int = 50

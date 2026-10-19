@@ -353,7 +353,7 @@ class TestCrisisMonitorAffectedPopulation:
             "severity": 0.9,
         }
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
-        assert alert.affected_population >= 0
+        assert alert.affected_population == 500_000
 
 
 class TestCrisisMonitorSeverityLevels:
@@ -422,3 +422,71 @@ class TestCrisisMonitorEdgeCases:
         }
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert, CrisisAlert)
+
+
+class TestCrisisMonitorCorrectness:
+    """Exposure comes from the report, and both reports type the crisis.
+
+    The released monitor multiplied a default density of 10,000 by the score
+    (a lone score of 0.8 meant 80,000 affected), ignored OSINT indicators and
+    the ``affected_area_km2`` the tests above pass, and could never return
+    ``mass_casualty``. The tests marked as such fail on the released code.
+    """
+
+    def test_score_alone_gives_unknown_exposure(self) -> None:
+        """Fails on the released monitor (80,000)."""
+        alert = CrisisMonitor().monitor_crisis(geoint_data={"threat_score": 0.8})
+        assert alert.crisis_detected
+        assert alert.affected_population is None
+        assert any("exposed population" in r for r in alert.recommended_response)
+
+    def test_density_times_area(self) -> None:
+        """Fails on the released monitor (density x score x 10)."""
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"threat_score": 0.8, "population_density": 1000, "affected_area_km2": 100}
+        )
+        assert alert.affected_population == 100_000
+
+    def test_supplied_exposure_wins_and_invalid_values_are_ignored(self) -> None:
+        monitor = CrisisMonitor()
+        direct = {"affected_population": 2500, "population_density": 10, "affected_area_km2": 1}
+        assert monitor.monitor_crisis(geoint_data=direct).affected_population == 2500
+        bad = {"affected_population": -100, "population_density": float("nan")}
+        assert monitor.monitor_crisis(geoint_data=bad).affected_population is None
+
+    def test_osint_indicators_type_the_crisis(self) -> None:
+        """Fails on the released monitor (``humanitarian_emergency``)."""
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"threat_score": 0.95}, osint_data={"indicators": ["Earthquake M7.1"]}
+        )
+        assert alert.crisis_type == "natural_disaster"
+
+    def test_mass_casualty_is_reachable(self) -> None:
+        """Fails on the released monitor, which never returned it."""
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"threat_score": 0.95, "indicators": ["mass_casualty_incident"]}
+        )
+        assert alert.crisis_type == "mass_casualty"
+        assert any("triage" in r for r in alert.recommended_response)
+
+    def test_cause_wins_over_mass_casualty(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"indicators": ["mass casualties", "tsunami inundation"]}
+        )
+        assert alert.crisis_type == "natural_disaster"
+
+    def test_matching_is_per_indicator_and_on_word_boundaries(self) -> None:
+        monitor = CrisisMonitor()
+        assert monitor._classify_crisis({"indicators": ["commercial fire"]}, None) == (
+            "humanitarian_emergency"
+        )
+        assert monitor._classify_crisis({"indicators": "flash flooding"}, None) == (
+            "natural_disaster"
+        )
+
+    def test_invalid_scores_are_clipped_or_ignored(self) -> None:
+        monitor = CrisisMonitor()
+        assert monitor.monitor_crisis(geoint_data={"threat_score": 1.5}).severity == "critical"
+        assert monitor.monitor_crisis(geoint_data={"threat_score": float("nan")}).severity == "low"
+        assert monitor.monitor_crisis(geoint_data={"threat_score": "high"}).severity == "low"
+        assert monitor.monitor_crisis(geoint_data={"threat_score": -2}).severity == "low"

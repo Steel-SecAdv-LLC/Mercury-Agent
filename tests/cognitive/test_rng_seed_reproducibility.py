@@ -376,8 +376,10 @@ def test_pathogen_detector_seed_reproducible() -> None:
         PathogenDetector,
     )
 
-    a = PathogenDetector(config={"state_dim": 8, "seed": 7})
-    b = PathogenDetector(config={"state_dim": 8, "seed": 7})
+    # The couplings are fitted, not drawn, so they are identical for any seed.
+    baseline = np.random.default_rng(3).normal(size=(400, 8))
+    a = PathogenDetector(config={"seed": 7}).fit(baseline)
+    b = PathogenDetector(config={"seed": 8}).fit(baseline)
     assert a.J_matrix.tolist() == b.J_matrix.tolist()
 
 

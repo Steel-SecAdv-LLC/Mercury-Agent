@@ -1856,7 +1856,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `EndocrinologyDetector` (`medical.endocrinology_detector`) — Integrated endocrine anomaly detector.
 - `MedicalImagingAnomalyDetector` (`medical.medical_cure_predictor`) — Medical imaging anomaly detection using DeepFace-like approach.
 - `PandemicDetector` (`medical.pandemic.pandemic_detector`) — Comprehensive pandemic and outbreak detection system.
-- `PathogenDetector` (`medical.pandemic.bio_threats.pathogen_detector`) — QBM-Based Pathogen Detector (Medical Interdiction).
+- `PathogenDetector` (`medical.pandemic.bio_threats.pathogen_detector`) — Baseline-calibrated pathogen detector (Medical Interdiction).
 - `SepsisDetector` (`medical.critical_care.sepsis_detector`) — Comprehensive sepsis detection system integrating SOFA, qSOFA, and temporal progression.
 - `StrokeDetector` (`medical.critical_care.neurocritical_care`) — Neural network for stroke detection and classification.
 - `TemporalVitalSignsDetector` (`medical.medical_cure_predictor`) — Temporal vital signs anomaly detector using LSTM.
