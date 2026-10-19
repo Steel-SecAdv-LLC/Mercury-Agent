@@ -50,7 +50,11 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
-from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
@@ -222,11 +226,29 @@ class AtmosphericInstabilityAnalyzer:
         Returns:
             Instability analysis results
         """
-        cape = atmospheric_data.get("cape_j_kg", 0.0)
-        cin = atmospheric_data.get("cin_j_kg", 0.0)
-        helicity = atmospheric_data.get("srh_m2_s2", 0.0)
-        bulk_shear = atmospheric_data.get("bulk_shear_kt", 0.0)
-        lcl_height = atmospheric_data.get("lcl_m", 2000.0)
+        # A supplied value must be a physical measurement: a NaN CAPE used to
+        # flow through the STP terms (every comparison False) and grade a
+        # supercell environment "low". Absent keys keep the documented quiet
+        # defaults; bad values are refused, never graded.
+        cape = finite_scalar(
+            atmospheric_data.get("cape_j_kg", 0.0), "cape_j_kg", unit="J/kg", lo=0.0, hi=10_000.0
+        )
+        cin = finite_scalar(
+            atmospheric_data.get("cin_j_kg", 0.0), "cin_j_kg", unit="J/kg", lo=-2_000.0, hi=0.0
+        )
+        helicity = finite_scalar(
+            atmospheric_data.get("srh_m2_s2", 0.0),
+            "srh_m2_s2",
+            unit="m^2/s^2",
+            lo=-500.0,
+            hi=2_000.0,
+        )
+        bulk_shear = finite_scalar(
+            atmospheric_data.get("bulk_shear_kt", 0.0), "bulk_shear_kt", unit="kt", lo=0.0, hi=200.0
+        )
+        lcl_height = finite_scalar(
+            atmospheric_data.get("lcl_m", 2000.0), "lcl_m", unit="m", lo=0.0, hi=6_000.0
+        )
         # lfc_height reserved for future convective initiation analysis
         _ = atmospheric_data.get("lfc_m", 3000.0)
 
@@ -303,6 +325,12 @@ class PressureGradientMonitor:
                 "max_pressure_drop": 0.0,
                 "pressure_trend": "stable",
             }
+        # The thresholds are in millibar. A series in pascal (101300 for sea
+        # level) used to read as a 1300 mb crash; the 300-1100 mb bound names
+        # the unit instead of grading it, and refuses NaN.
+        pressure_series = finite_array(
+            pressure_series, "pressure_mb", unit="mb", ndim=1, lo=300.0, hi=1100.0
+        )
 
         pressure_changes = np.diff(pressure_series)
         max_drop = abs(min(pressure_changes)) if len(pressure_changes) > 0 else 0.0

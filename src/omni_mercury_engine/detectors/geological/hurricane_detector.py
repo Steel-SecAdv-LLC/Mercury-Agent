@@ -360,8 +360,20 @@ class PressureTracker:
         # The lowest sea-level pressure on record is 870 hPa (Typhoon Tip, 1979);
         # a central pressure outside [850, 1050] hPa is a unit error (95 is kPa,
         # 101325 is Pa) and produced a 200 kt Category 5 before.
+        # An absent central pressure yields no pressure products: 1013 hPa
+        # used to stand in and be reported (and served) as the measured
+        # minimum pressure with a 0 kt wind estimate.
+        if "central_pressure_mb" not in pressure_data:
+            return {
+                "central_pressure_mb": None,
+                "pressure_deficit_mb": None,
+                "pressure_change_24h_mb": None,
+                "rapid_intensification": False,
+                "estimated_max_wind_kt": None,
+                "missing_inputs": ["central_pressure_mb"],
+            }
         central_pressure = finite_scalar(
-            pressure_data.get("central_pressure_mb", 1013.0),
+            pressure_data["central_pressure_mb"],
             "central_pressure_mb",
             unit="hPa",
             lo=850.0,
@@ -404,16 +416,19 @@ class PressureTracker:
             "pressure_change_24h_mb": pressure_change_24h,
             "rapid_intensification": rapid_intensification,
             "estimated_max_wind_kt": float(estimated_wind),
+            "missing_inputs": [],
         }
 
     def _pressure_wind_relationship(self, pressure: float) -> float:
-        """Estimate max wind from central pressure using Dvorak relationship.
+        """Estimate max wind from central pressure (Atkinson & Holliday 1977).
 
-        V_max = 6.7 * (1013 - P)^0.644
+        V_max(kt) = 6.7 * (1010 - P)^0.644, the published western-North-Pacific
+        wind-pressure relation. It was previously labelled "Dvorak" and used a
+        1010 -> 1013 reference drift that read 13.6 kt at 1010 hPa.
         """
-        if pressure >= 1013:
+        if pressure >= 1010.0:
             return 0.0
-        deficit = 1013 - pressure
+        deficit = 1010.0 - pressure
         wind = 6.7 * (deficit**0.644)
         return float(min(wind, 200.0))
 
@@ -662,14 +677,18 @@ class HurricaneDetector:
         if self.enable_pressure and "pressure_data" in cyclone_data:
             assert self.pressure_tracker is not None, "Pressure tracker must be initialized"
             pressure_result = self.pressure_tracker.analyze_pressure(cyclone_data["pressure_data"])
-            result.min_pressure_mb = pressure_result["central_pressure_mb"]
-            result.max_wind_speed_kt = pressure_result["estimated_max_wind_kt"]
+            # Without a measured central pressure the result keeps its
+            # documented defaults; nothing is served as a measurement.
+            if pressure_result["central_pressure_mb"] is not None:
+                result.min_pressure_mb = pressure_result["central_pressure_mb"]
+                result.max_wind_speed_kt = pressure_result["estimated_max_wind_kt"]
             result.rapid_intensification = pressure_result["rapid_intensification"]
             result.pressure_change_24h_mb = pressure_result["pressure_change_24h_mb"]
 
-            if pressure_result["pressure_deficit_mb"] > 20:
+            deficit = pressure_result["pressure_deficit_mb"]
+            if deficit is not None and deficit > 20:
                 indicators_detected += 2
-            elif pressure_result["pressure_deficit_mb"] > 10:
+            elif deficit is not None and deficit > 10:
                 indicators_detected += 1
 
             if pressure_result["rapid_intensification"]:

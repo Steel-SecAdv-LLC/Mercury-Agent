@@ -20,7 +20,10 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
-from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    HurricaneDetector,
+    PressureTracker,
+)
 from omni_mercury_engine.ml.hazard_training import hurricane_wind as hw
 
 FIXTURE = (
@@ -235,3 +238,29 @@ def test_short_signal_features_do_not_raise() -> None:
     det = HurricaneDetector(load_shipped_weights=False)
     features = det.extract_features(np.ones((4, 64)))
     assert features.shape[-1] == 20
+
+
+class TestPressureHonesty:
+    """Absent measurements are never served as pressure products (regressions)."""
+
+    def test_absent_central_pressure_yields_no_products(self) -> None:
+        """Regression: {} came back as central 1013.0 hPa, wind 0 kt — served
+        as min_pressure_mb / max_wind_speed_kt measurements."""
+        tracker = PressureTracker()
+        out = tracker.analyze_pressure({})
+        assert out["central_pressure_mb"] is None
+        assert out["estimated_max_wind_kt"] is None
+        assert out["pressure_deficit_mb"] is None
+        assert out["missing_inputs"] == ["central_pressure_mb"]
+
+    def test_wind_pressure_relation_is_atkinson_holliday(self) -> None:
+        """V = 6.7 (1010 - P)^0.644 kt; 0 at and above the 1010 reference.
+
+        Regression: the relation was labelled Dvorak and referenced 1013,
+        reading 13.6 kt for a storm-free 1010 hPa.
+        """
+        tracker = PressureTracker()
+        assert tracker._pressure_wind_relationship(1010.0) == 0.0
+        assert tracker._pressure_wind_relationship(950.0) == pytest.approx(
+            6.7 * 60.0**0.644, rel=1e-9
+        )

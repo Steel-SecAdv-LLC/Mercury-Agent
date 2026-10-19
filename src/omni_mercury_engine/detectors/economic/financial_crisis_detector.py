@@ -37,6 +37,31 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors._hazard_input import finite_scalar
+from omni_mercury_engine.security.safe_torch import safe_torch_load
+
+
+def _supplied(
+    data: dict[str, Any],
+    key: str,
+    *,
+    unit: str,
+    lo: float | None = None,
+    hi: float | None = None,
+    missing: list[str] | None = None,
+) -> float | None:
+    """The supplied value validated as a finite number in range, or ``None``.
+
+    An absent key is recorded in ``missing`` and returns ``None`` — never a
+    fabricated default reported as a measurement. A supplied-but-bad value
+    (NaN, inf, bool, a string) is refused: a NaN VIX used to grade "stable".
+    """
+    if key not in data or data[key] is None:
+        if missing is not None:
+            missing.append(key)
+        return None
+    return finite_scalar(data[key], key, unit=unit, lo=lo, hi=hi)
+
 
 class CrisisType(Enum):
     """Financial crisis classifications."""
@@ -104,16 +129,33 @@ class MarketCrashDetector:
         Returns:
             Market crash detection results
         """
-        price_change_pct = market_data.get("price_change_pct", 0.0)
-        volatility_index = market_data.get("vix", 20.0)
-        volume_surge = market_data.get("volume_vs_average", 1.0)
+        missing: list[str] = []
+        price_change_pct = _supplied(
+            market_data, "price_change_pct", unit="%", lo=-100.0, hi=100.0, missing=missing
+        )
+        volatility_index = _supplied(
+            market_data, "vix", unit="index", lo=0.0, hi=200.0, missing=missing
+        )
+        volume_surge = _supplied(
+            market_data, "volume_vs_average", unit="ratio", lo=0.0, missing=missing
+        )
 
         crash_threshold_pct = -5.0
         vix_threshold = 30.0
 
-        crash_detected = price_change_pct < crash_threshold_pct and volatility_index > vix_threshold
+        # Each judgment uses only supplied measurements; an absent one is
+        # named in missing_inputs, never replaced by a quiet default (a
+        # fabricated VIX of 20 used to be reported as the measured level).
+        crash_detected = (
+            price_change_pct is not None
+            and volatility_index is not None
+            and price_change_pct < crash_threshold_pct
+            and volatility_index > vix_threshold
+        )
 
-        if volatility_index > 50:
+        if volatility_index is None:
+            severity = "unknown"
+        elif volatility_index > 50:
             severity = "extreme"
         elif volatility_index > 35:
             severity = "high"
@@ -122,14 +164,20 @@ class MarketCrashDetector:
         else:
             severity = "low"
 
-        panic_selling = volume_surge > 2.0 and price_change_pct < -3.0
+        panic_selling = (
+            volume_surge is not None
+            and price_change_pct is not None
+            and volume_surge > 2.0
+            and price_change_pct < -3.0
+        )
 
         return {
             "crash_detected": crash_detected,
-            "vix": float(volatility_index),
-            "price_change_pct": float(price_change_pct),
+            "vix": None if volatility_index is None else float(volatility_index),
+            "price_change_pct": None if price_change_pct is None else float(price_change_pct),
             "severity": severity,
             "panic_selling": panic_selling,
+            "missing_inputs": missing,
         }
 
 
@@ -149,34 +197,40 @@ class BankingStressDetector:
         Returns:
             Banking stress detection results
         """
-        cds_spread_bps = banking_data.get("cds_spread_bps", 100.0)
-        default_rate_pct = banking_data.get("default_rate_pct", 1.0)
-        liquidity_ratio = banking_data.get("liquidity_ratio", 1.2)
+        missing: list[str] = []
+        cds_spread_bps = _supplied(
+            banking_data, "cds_spread_bps", unit="bps", lo=0.0, missing=missing
+        )
+        default_rate_pct = _supplied(
+            banking_data, "default_rate_pct", unit="%", lo=0.0, hi=100.0, missing=missing
+        )
+        liquidity_ratio = _supplied(
+            banking_data, "liquidity_ratio", unit="ratio", lo=0.0, missing=missing
+        )
         cds_threshold = 300.0
         default_threshold = 3.0
         liquidity_threshold = 0.8
 
-        banking_stress = (
-            cds_spread_bps > cds_threshold
-            or default_rate_pct > default_threshold
-            or liquidity_ratio < liquidity_threshold
-        )
-
+        # Stress is judged from supplied measurements only; absent metrics
+        # are named, never filled with healthy-looking defaults (CDS 100 bps
+        # and a 1.2 liquidity ratio used to be reported for empty input).
         stress_score = 0.0
-        if cds_spread_bps > cds_threshold:
+        if cds_spread_bps is not None and cds_spread_bps > cds_threshold:
             stress_score += 0.4
-        if default_rate_pct > default_threshold:
+        if default_rate_pct is not None and default_rate_pct > default_threshold:
             stress_score += 0.3
-        if liquidity_ratio < liquidity_threshold:
+        if liquidity_ratio is not None and liquidity_ratio < liquidity_threshold:
             stress_score += 0.3
+        banking_stress = stress_score > 0.0
 
-        liquidity_crisis = liquidity_ratio < 0.5
+        liquidity_crisis = liquidity_ratio is not None and liquidity_ratio < 0.5
 
         return {
             "banking_stress": banking_stress,
             "stress_score": float(stress_score),
             "liquidity_crisis": liquidity_crisis,
-            "cds_spread_bps": float(cds_spread_bps),
+            "cds_spread_bps": None if cds_spread_bps is None else float(cds_spread_bps),
+            "missing_inputs": missing,
         }
 
 
@@ -228,22 +282,67 @@ class SystemicRiskAnalyzer:
         Returns:
             Systemic risk assessment
         """
-        interconnectedness = network_data.get("interconnectedness_score", 0.5)
-        concentration_ratio = network_data.get("concentration_ratio", 0.3)
-        cross_border_exposure = network_data.get("cross_border_exposure", 0.2)
+        missing: list[str] = []
+        components = {
+            "interconnectedness_score": (
+                0.4,
+                _supplied(
+                    network_data,
+                    "interconnectedness_score",
+                    unit="[0, 1]",
+                    lo=0.0,
+                    hi=1.0,
+                    missing=missing,
+                ),
+            ),
+            "concentration_ratio": (
+                0.3,
+                _supplied(
+                    network_data,
+                    "concentration_ratio",
+                    unit="[0, 1]",
+                    lo=0.0,
+                    hi=1.0,
+                    missing=missing,
+                ),
+            ),
+            "cross_border_exposure": (
+                0.3,
+                _supplied(
+                    network_data,
+                    "cross_border_exposure",
+                    unit="[0, 1]",
+                    lo=0.0,
+                    hi=1.0,
+                    missing=missing,
+                ),
+            ),
+        }
+        supplied = {k: (w, v) for k, (w, v) in components.items() if v is not None}
 
-        systemic_risk_score = (
-            0.4 * interconnectedness + 0.3 * concentration_ratio + 0.3 * cross_border_exposure
-        )
+        # The score is the weighted mean over SUPPLIED components, weights
+        # renormalised; nothing is scored at all when no component was
+        # measured (0.5/0.3/0.2 defaults used to stand in as measurements).
+        if supplied:
+            total_weight = sum(w for w, _ in supplied.values())
+            systemic_risk_score = sum(w * v for w, v in supplied.values()) / total_weight
+            contagion_probability = min(systemic_risk_score * 1.5, 1.0)
+        else:
+            systemic_risk_score = None
+            contagion_probability = None
 
-        contagion_probability = min(systemic_risk_score * 1.5, 1.0)
-
-        too_big_to_fail = concentration_ratio > 0.5
+        concentration = components["concentration_ratio"][1]
+        too_big_to_fail = concentration is not None and concentration > 0.5
 
         return {
-            "systemic_risk_score": float(systemic_risk_score),
-            "contagion_probability": float(contagion_probability),
+            "systemic_risk_score": (
+                None if systemic_risk_score is None else float(systemic_risk_score)
+            ),
+            "contagion_probability": (
+                None if contagion_probability is None else float(contagion_probability)
+            ),
             "too_big_to_fail": too_big_to_fail,
+            "missing_inputs": missing,
         }
 
 
@@ -271,7 +370,37 @@ class FinancialCrisisDetector:
         self.fraud_detector = FraudDetector() if enable_fraud_detection else None
         self.systemic_analyzer = SystemicRiskAnalyzer() if enable_systemic_analysis else None
 
+        # Anti-theater guard (mirrors EMP's IntentionalEMIDetector): the
+        # FraudDetector ships with random weights and no labelled fraud
+        # corpus. Until real weights load via load_fraud_weights(), its
+        # output is noise, so _detect_fraud must NOT consult it — random
+        # init could append "Algorithmic manipulation detected" to a result.
+        self._fraud_trained = False
+        self._warned_untrained_fraud = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_fraud_weights(self, checkpoint_path: str) -> None:
+        """Load trained FraudDetector weights; only then is the network consulted.
+
+        Args:
+            checkpoint_path: Torch checkpoint holding the module state dict
+                (or a dict with a ``fraud_detector`` state dict).
+
+        Raises:
+            RuntimeError: If fraud detection is disabled on this detector.
+        """
+        if self.fraud_detector is None:
+            raise RuntimeError("fraud detection is disabled on this detector")
+        checkpoint = safe_torch_load(checkpoint_path, map_location="cpu")
+        state = (
+            checkpoint.get("fraud_detector", checkpoint)
+            if isinstance(checkpoint, dict)
+            else checkpoint
+        )
+        self.fraud_detector.load_state_dict(state)
+        self.fraud_detector.eval()
+        self._fraud_trained = True
 
     def predict_financial_crisis(
         self, financial_data: dict[str, Any]
@@ -328,7 +457,11 @@ class FinancialCrisisDetector:
             if banking_result["banking_stress"]:
                 crisis_indicators += 1
                 result.confidence = max(result.confidence, 0.8)
-                if result.crisis_type == "market_crash":
+                # Banking stress ON TOP OF a detected market crash is
+                # systemic; banking stress alone is a banking crisis. The
+                # former check compared crisis_type against its default
+                # string, so banking stress alone read "systemic_crisis".
+                if result.market_crash_detected:
                     result.crisis_type = CrisisType.SYSTEMIC_CRISIS.value
                 else:
                     result.crisis_type = CrisisType.BANKING_CRISIS.value
@@ -347,16 +480,20 @@ class FinancialCrisisDetector:
             systemic_result = self.systemic_analyzer.assess_systemic_risk(
                 financial_data["network_data"]
             )
-            result.systemic_risk_score = systemic_result["systemic_risk_score"]
-            result.contagion_probability = systemic_result["contagion_probability"]
-
-            if systemic_result["systemic_risk_score"] > 0.7:
-                crisis_indicators += 1
-                result.crisis_type = CrisisType.SYSTEMIC_CRISIS.value
+            if systemic_result["systemic_risk_score"] is not None:
+                result.systemic_risk_score = systemic_result["systemic_risk_score"]
+                result.contagion_probability = systemic_result["contagion_probability"]
+                if systemic_result["systemic_risk_score"] > 0.7:
+                    crisis_indicators += 1
+                    result.crisis_type = CrisisType.SYSTEMIC_CRISIS.value
 
         if "currency_data" in financial_data:
-            currency_volatility = financial_data["currency_data"].get("volatility", 0.0)
-            result.currency_instability = currency_volatility > 0.15
+            currency_volatility = _supplied(
+                financial_data["currency_data"], "volatility", unit="fraction", lo=0.0
+            )
+            result.currency_instability = (
+                currency_volatility is not None and currency_volatility > 0.15
+            )
             if result.currency_instability:
                 crisis_indicators += 0.5
 
@@ -371,9 +508,19 @@ class FinancialCrisisDetector:
         return result
 
     def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
-        """Detect fraudulent trading patterns."""
+        """Detect fraudulent trading patterns (trained network only)."""
         if self.fraud_detector is None:
-            return {"fraud_detected": False, "fraud_probability": 0.0}
+            return {"fraud_detected": False, "fraud_probability": None, "consulted": False}
+
+        if not self._fraud_trained:
+            if not self._warned_untrained_fraud:
+                self.logger.warning(
+                    "FraudDetector is untrained (no checkpoint loaded); fraud is not "
+                    "assessed. A randomly-initialised network's verdicts are noise, "
+                    "not detections — call load_fraud_weights() once weights exist."
+                )
+                self._warned_untrained_fraud = True
+            return {"fraud_detected": False, "fraud_probability": None, "consulted": False}
 
         if "trading_features" in trading_data:
             features = trading_data["trading_features"]
@@ -393,6 +540,7 @@ class FinancialCrisisDetector:
         return {
             "fraud_detected": fraud_detected,
             "fraud_probability": float(fraud_prob[0].item()),
+            "consulted": True,
         }
 
     def _determine_severity(

@@ -379,3 +379,34 @@ class TestRealtimeCalibrationFixes:
         out = det.predict(rng.normal(size=(10, 4)))
         assert out["scores"].shape == (10,)
         assert out["is_anomaly"].dtype == bool
+
+
+class TestThreatInputGuards:
+    """Unmeasurable input is refused, never graded safe (regression tests)."""
+
+    def _fitted(self) -> RealTimeThreatDetector:
+        rng = np.random.default_rng(7)
+        detector = RealTimeThreatDetector()
+        detector.fit(rng.normal(size=(300, 6)))
+        return detector
+
+    def test_nan_rows_fail_closed(self) -> None:
+        """A NaN row used to grade LOW / no threat — a detector failing open."""
+        detector = self._fitted()
+        batch = np.random.default_rng(8).normal(size=(5, 6))
+        batch[2, 3] = np.nan
+        with pytest.raises(ValueError, match="NOT a 'no threat' result"):
+            detector.detect_threat(batch)
+
+    def test_wrong_width_is_named(self) -> None:
+        """A width mismatch names both widths instead of 'all sub-detectors errored'."""
+        detector = self._fitted()
+        with pytest.raises(ValueError, match=r"9 features.*fitted on 6"):
+            detector.detect_threat(np.zeros((4, 9)))
+
+    def test_non_finite_training_data_is_refused(self) -> None:
+        detector = RealTimeThreatDetector()
+        bad = np.zeros((50, 4))
+        bad[10, 1] = np.inf
+        with pytest.raises(ValueError, match="non-finite"):
+            detector.fit(bad)

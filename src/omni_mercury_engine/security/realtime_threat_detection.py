@@ -245,6 +245,46 @@ class RealTimeThreatDetector(LoggerMixin):
 
     _MAD_TO_SIGMA = 1.4826  # MAD → σ for a normal distribution.
 
+    def _validated_input(self, X: Any, *, fitting: bool) -> np.ndarray[Any, Any]:
+        """A finite 2-D float array of the fitted width, or a loud refusal.
+
+        A NaN row used to flow through every sub-detector (each comparison
+        False) and come back graded LOW / no threat — a security detector
+        failing OPEN on an unmeasurable input. A wrong feature width surfaced
+        only as the generic "all sub-detectors errored". Both are refused
+        with the reason; neither is a "no threat" result.
+
+        Raises:
+            ValueError: On non-numeric, non-2-D, empty, non-finite input, or
+                (at detection) a width differing from the training width.
+        """
+        try:
+            arr = np.asarray(X, dtype=np.float64)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"threat input must be numeric, got {type(X).__name__}") from exc
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        if arr.ndim != 2 or arr.size == 0:
+            raise ValueError(
+                f"threat input must be a non-empty (n_samples, n_features) array, "
+                f"got shape {arr.shape}"
+            )
+        if not np.isfinite(arr).all():
+            bad = int(np.sum(~np.isfinite(arr).all(axis=1)))
+            raise ValueError(
+                f"threat input carries {bad} row(s) with non-finite values; threat "
+                "cannot be assessed from unmeasurable data. This is NOT a 'no "
+                "threat' result — clean or drop those rows explicitly."
+            )
+        if fitting:
+            self._n_features = int(arr.shape[1])
+        elif getattr(self, "_n_features", None) is not None and arr.shape[1] != self._n_features:
+            raise ValueError(
+                f"threat input has {arr.shape[1]} features; the detector was "
+                f"fitted on {self._n_features}"
+            )
+        return arr
+
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """Fit detectors on normal (non-threatening) data.
 
@@ -269,6 +309,7 @@ class RealTimeThreatDetector(LoggerMixin):
         Returns:
             Self
         """
+        X = self._validated_input(X, fitting=True)
         fitted_count = 0
         for name, detector in self.detectors.items():
             try:
@@ -372,6 +413,7 @@ class RealTimeThreatDetector(LoggerMixin):
         """
         if not self.is_fitted:
             raise ValueError("Detector must be fitted before detection")
+        X = self._validated_input(X, fitting=False)
 
         predictions: dict[str, Any] = {}
         standardized: dict[str, np.ndarray[Any, Any]] = {}

@@ -100,3 +100,38 @@ def test_empty_window_is_refused(served: td.TornadoDetector) -> None:
 
 def test_finite_gate_floor_matches_the_training_set() -> None:
     assert td.MIN_FINITE_GATE_FRACTION == tornado_radar.MIN_FINITE_FRACTION
+
+
+class TestAtmosphericAndPressureGuards:
+    """Supplied-but-bad inputs are refused, never graded (regression tests)."""
+
+    def test_nan_cape_is_refused_not_graded_low(self) -> None:
+        """A NaN CAPE used to flow through the STP and grade 'low'."""
+        from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
+        from omni_mercury_engine.detectors.geological.tornado_detector import (
+            AtmosphericInstabilityAnalyzer,
+        )
+
+        analyzer = AtmosphericInstabilityAnalyzer()
+        with pytest.raises(InvalidObservationError, match="cape_j_kg"):
+            analyzer.analyze_instability({"cape_j_kg": float("nan")})
+        # Absent keys keep the documented quiet defaults.
+        quiet = analyzer.analyze_instability({})
+        assert quiet["tornado_potential"] == "low"
+
+    def test_pascal_series_is_refused_not_read_as_millibar_crash(self) -> None:
+        """A pressure series in Pa used to read as a 1300 mb drop ('slight')."""
+        import numpy as np
+
+        from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
+        from omni_mercury_engine.detectors.geological.tornado_detector import (
+            PressureGradientMonitor,
+        )
+
+        monitor = PressureGradientMonitor()
+        with pytest.raises(InvalidObservationError, match=r"pressure_mb.*mb"):
+            monitor.analyze_pressure({"pressure_mb": np.array([101300.0, 100000.0])})
+        with pytest.raises(InvalidObservationError):
+            monitor.analyze_pressure({"pressure_mb": np.array([1013.0, float("nan")])})
+        ok = monitor.analyze_pressure({"pressure_mb": np.array([1013.0, 1008.0])})
+        assert bool(ok["rapid_drop_detected"]) is True  # 5 mb drop > 4 mb threshold
