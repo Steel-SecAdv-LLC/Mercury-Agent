@@ -183,32 +183,41 @@ class USGSGeomagnetismSource(DataSourceBase):
         """Default source types."""
         return [DataSourceType.MAGNETOMETER]
 
-    def _calculate_disturbance_level(self, values: dict[str, float]) -> AlertLevel:
-        """Calculate disturbance level from magnetic field values.
-
-        Uses deviation from quiet-time baseline to estimate geomagnetic activity.
-        """
-        # Typical quiet-time ranges (nT)
-        # H variations > 100 nT indicate storm conditions
-        # Dst index approximation: -50 to -100 = moderate, -100 to -200 = strong, < -200 = severe
-
+    @staticmethod
+    def _horizontal_intensity(values: dict[str, float]) -> float | None:
+        """The sample's horizontal field H in nT, from H or from X/Y; ``None`` if absent."""
         h_value = values.get("H")
         if h_value is None and "X" in values and "Y" in values:
             h_value = float(np.hypot(values["X"], values["Y"]))
-        if h_value is not None:
-            # Rough approximation of storm intensity from H variation
-            # Note: Actual storm detection requires baseline comparison
-            h_deviation = abs(h_value - 20000)  # Typical mid-latitude H value
+        if h_value is None or not np.isfinite(h_value):
+            return None
+        return float(h_value)
 
-            if h_deviation > 500:
-                return AlertLevel.SEVERE
-            elif h_deviation > 300:
-                return AlertLevel.STRONG
-            elif h_deviation > 150:
-                return AlertLevel.MODERATE
-            elif h_deviation > 50:
-                return AlertLevel.MINOR
+    def _calculate_disturbance_level(
+        self, values: dict[str, float], baseline_h: float | None
+    ) -> AlertLevel:
+        """Disturbance level of one sample against the window's own H baseline.
 
+        The deviation bands (50/150/300/500 nT, Dst-like magnitudes) are
+        graded against ``baseline_h``, the median H of the fetched window.
+        Each observatory's quiet-time H differs by hundreds of nT (about
+        20,700 nT at Boulder, 21,700 nT at Fredericksburg), so the former
+        fixed 20,000 nT reference called every quiet sample of the real
+        Gannon-storm fixtures STRONG or SEVERE. With no baseline (no finite
+        H in the window) no level is claimed.
+        """
+        h_value = self._horizontal_intensity(values)
+        if h_value is None or baseline_h is None:
+            return AlertLevel.NONE
+        h_deviation = abs(h_value - baseline_h)
+        if h_deviation > 500:
+            return AlertLevel.SEVERE
+        elif h_deviation > 300:
+            return AlertLevel.STRONG
+        elif h_deviation > 150:
+            return AlertLevel.MODERATE
+        elif h_deviation > 50:
+            return AlertLevel.MINOR
         return AlertLevel.NONE
 
     async def _fetch_observatory(
@@ -280,42 +289,50 @@ class USGSGeomagnetismSource(DataSourceBase):
             if elem_id:
                 elements.append(elem_id)
 
+        parsed: list[tuple[datetime, dict[str, float]]] = []
         for idx, time_str in enumerate(times):
             try:
                 timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
 
-                # Extract values for each element
+                # Extract values for each element (non-finite samples skipped:
+                # a NaN H would otherwise grade as a disturbance level).
                 point_values: dict[str, float] = {}
                 for j, elem_data in enumerate(values):
                     elem_id = elem_data.get("id", f"elem_{j}")
                     elem_values = elem_data.get("values", [])
                     if idx < len(elem_values) and elem_values[idx] is not None:
-                        point_values[elem_id] = float(elem_values[idx])
+                        value = float(elem_values[idx])
+                        if np.isfinite(value):
+                            point_values[elem_id] = value
 
-                if not point_values:
-                    continue
-
-                data_points.append(
-                    DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.MAGNETOMETER,
-                        event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
-                        timestamp=timestamp,
-                        data={
-                            "observatory": observatory.value,
-                            "elements": point_values,
-                            "sampling": self._sampling,
-                        },
-                        location=location,
-                        alert_level=self._calculate_disturbance_level(point_values),
-                        confidence=0.95,
-                        metadata={"format": "IAGA2002", "type": "variation"},
-                    )
-                )
-
+                if point_values:
+                    parsed.append((timestamp, point_values))
             except (ValueError, IndexError, KeyError) as e:
                 logger.debug(f"Failed to parse USGS data point: {e}")
                 continue
+
+        # The window's own quiet reference: the median horizontal intensity.
+        h_series = [h for _, pv in parsed if (h := self._horizontal_intensity(pv)) is not None]
+        baseline_h = float(np.median(h_series)) if h_series else None
+
+        for timestamp, point_values in parsed:
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=DataSourceType.MAGNETOMETER,
+                    event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
+                    timestamp=timestamp,
+                    data={
+                        "observatory": observatory.value,
+                        "elements": point_values,
+                        "sampling": self._sampling,
+                    },
+                    location=location,
+                    alert_level=self._calculate_disturbance_level(point_values, baseline_h),
+                    confidence=0.95,
+                    metadata={"format": "json", "type": "variation"},
+                )
+            )
 
         return data_points
 

@@ -638,24 +638,52 @@ class TestUSGSGeomagnetismSource:
         assert USGSObservatory.BOULDER in coords
         assert coords[USGSObservatory.BOULDER] == (40.137, -105.237)
 
-    def test_disturbance_level(self) -> None:
-        """Test magnetic disturbance level calculation."""
+    def test_disturbance_level_is_relative_to_the_window_baseline(self) -> None:
+        """Deviation bands grade against the window's own H baseline.
+
+        Regression: a fixed 20,000 nT reference called every quiet sample
+        SEVERE/STRONG at observatories whose quiet H sits at 20,700 nT
+        (Boulder) or 21,700 nT (Fredericksburg).
+        """
+        source = USGSGeomagnetismSource()
+        baseline = 20700.0
+        assert source._calculate_disturbance_level({"H": 20700}, baseline) == AlertLevel.NONE
+        assert source._calculate_disturbance_level({"H": 19700}, baseline) == AlertLevel.SEVERE
+        assert source._calculate_disturbance_level({"H": 20350}, baseline) == AlertLevel.STRONG
+        assert source._calculate_disturbance_level({"H": 20500}, baseline) == AlertLevel.MODERATE
+        assert source._calculate_disturbance_level({"H": 20625}, baseline) == AlertLevel.MINOR
+        # No baseline, or no finite H: no level is claimed.
+        assert source._calculate_disturbance_level({"H": 19000}, None) == AlertLevel.NONE
+        assert source._calculate_disturbance_level({"H": float("nan")}, baseline) == (
+            AlertLevel.NONE
+        )
+
+    def test_real_quiet_samples_are_not_graded_severe(self) -> None:
+        """On the recorded Gannon-storm fixtures, quiet samples stop reading SEVERE.
+
+        The 2-hour FRD window precedes the storm arrival (quiet): no sample
+        may grade above MINOR. The 12-hour BOU window contains the arrival
+        and main phase: disturbed samples still grade, quiet ones do not.
+        """
+        import json
+        from collections import Counter
+        from pathlib import Path
+
+        fixtures = Path(__file__).parent / "fixtures" / "space_weather"
         source = USGSGeomagnetismSource()
 
-        # Normal conditions (within 50 nT of typical 20000)
-        assert source._calculate_disturbance_level({"H": 20000}) == AlertLevel.NONE
+        payload = json.loads((fixtures / "usgs_geomag_frd_1s_2024_05_10.json").read_text())
+        points = source._parse_response(USGSObservatory.FREDERICKSBURG, payload["data"])
+        levels = Counter(p.alert_level for p in points)
+        assert levels[AlertLevel.SEVERE] == 0 and levels[AlertLevel.STRONG] == 0
+        assert levels[AlertLevel.NONE] > len(points) * 0.9
 
-        # Storm conditions - deviation of 1000 nT triggers SEVERE (>500)
-        assert source._calculate_disturbance_level({"H": 19000}) == AlertLevel.SEVERE
-
-        # Strong storm - deviation around 350 nT (>300)
-        assert source._calculate_disturbance_level({"H": 19650}) == AlertLevel.STRONG
-
-        # Moderate storm - deviation around 200 nT (>150)
-        assert source._calculate_disturbance_level({"H": 19800}) == AlertLevel.MODERATE
-
-        # Minor - deviation around 75 nT (>50)
-        assert source._calculate_disturbance_level({"H": 19925}) == AlertLevel.MINOR
+        payload = json.loads((fixtures / "usgs_geomag_bou_2024_05_10.json").read_text())
+        points = source._parse_response(USGSObservatory.BOULDER, payload["data"])
+        levels = Counter(p.alert_level for p in points)
+        assert levels[AlertLevel.NONE] + levels[AlertLevel.MINOR] > len(points) * 0.5
+        assert levels[AlertLevel.MODERATE] + levels[AlertLevel.STRONG] > 0  # the storm shows
+        assert points and points[0].metadata["format"] == "json"
 
 
 class TestINTERMAGNETSource:
