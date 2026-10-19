@@ -420,6 +420,18 @@
       "recorded_utc": "2026-10-19T20:36:52Z",
       "method": "GET; the JSON response parsed and re-serialised with json.dumps",
       "note": "event filed under KGZ, scored entirely with China's terms and factor"
+    },
+    "eq_event_1499045.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1499045",
+      "recorded_utc": "2026-10-19T22:02:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Orange AFG event with no final shakemap: GDACS scored its PRELIMINARY shakemap with the shakemap model"
+    },
+    "eq_shakemap_prelim_1499045.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=697760",
+      "recorded_utc": "2026-10-19T22:02:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "The shake_preliminary impact whose Alert Parameters carry the event's score: the shakemap formula on the preliminary map (reproduced to full precision), not the 'EQ parameters' model"
     }
   }
 }

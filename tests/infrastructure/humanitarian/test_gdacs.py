@@ -319,8 +319,14 @@ def test_cross_border_coefficients_are_country_averages() -> None:
         return (-0.59 + terms.c1_shakemap, 0.53 + terms.c2_shakemap)
 
     cases = {
-        "1498339": [live(gdacs.COUNTRY_COEFFICIENTS["AFG"]), live(gdacs.COUNTRY_COEFFICIENTS["PAK"])],
-        "1544720": [live(gdacs.COUNTRY_COEFFICIENTS["PHL"]), live(gdacs.COUNTRY_COEFFICIENTS["IDN"])],
+        "1498339": [
+            live(gdacs.COUNTRY_COEFFICIENTS["AFG"]),
+            live(gdacs.COUNTRY_COEFFICIENTS["PAK"]),
+        ],
+        "1544720": [
+            live(gdacs.COUNTRY_COEFFICIENTS["PHL"]),
+            live(gdacs.COUNTRY_COEFFICIENTS["IDN"]),
+        ],
         "1437973": [
             live(gdacs.COUNTRY_COEFFICIENTS["CHL"]),
             live(gdacs.GLOBAL_COEFFICIENTS),
@@ -330,8 +336,56 @@ def test_cross_border_coefficients_are_country_averages() -> None:
     for event_id, terms in cases.items():
         alert = by_id[event_id]
         n = len(terms)
-        assert float(alert["CoeffIntersept"]) == pytest.approx(sum(t[0] for t in terms) / n), event_id
+        assert float(alert["CoeffIntersept"]) == pytest.approx(
+            sum(t[0] for t in terms) / n
+        ), event_id
         assert float(alert["CoeffSlope"]) == pytest.approx(sum(t[1] for t in terms) / n), event_id
+
+
+def test_live_flood_levels_do_not_follow_the_published_model() -> None:
+    """The recorded 2024-2026 flood sample pins the documented 25/56 agreement.
+
+    GDACS's models_fl page gives deaths/displaced thresholds; its live
+    levels demonstrably come from something else (Orange events with
+    single-digit death tolls). flood_alert_level implements the published
+    model and must keep saying so rather than claiming live parity.
+    """
+    recorded = json.loads((_FIXTURES / "fl_levels_vs_sendai_2024_2026.json").read_text())
+    events = recorded["events"]
+    assert len(events) == 56
+    agree = sum(
+        gdacs.flood_alert_level(e["death"], e["displaced"]) == e["level"].lower() for e in events
+    )
+    assert agree == 25
+    assert "does not reproduce GDACS's live level" in (gdacs.flood_alert_level.__doc__ or "")
+
+
+def test_no_final_shakemap_events_are_scored_on_the_preliminary_shakemap() -> None:
+    """GDACS scores a no-final-shakemap event with the shakemap model anyway.
+
+    Event 1499045 (Orange, Afghanistan 2025-09-05) lists no final shakemap;
+    its score comes from the ``shake_preliminary`` impact, and it is the
+    SHAKEMAP formula on the preliminary map — Afghanistan's terms including
+    the 1.0 shakemap vulnerability, times Afghanistan's coping factor — not
+    the published "EQ parameters" model (whose formula on the event's own
+    published SUMPOP radii gives 1.65 before coping, irreconcilable with the
+    reported score). No event in a 2018-2026 sweep of GDACS's live alerts
+    carried a score the parameters model reproduces, so that model is
+    implemented from gdacs.org/Knowledge/models_eq.aspx but unexercised by
+    the live feed.
+    """
+    alert = _alert_parameters(_FIXTURES / "eq_shakemap_prelim_1499045.json")
+    afg = gdacs.earthquake_coefficients("AFG")
+    score = gdacs.shakemap_score(10.0 ** float(alert["ScaledPopulation"]), afg)
+    final = gdacs.apply_coping_capacity(score, float(alert["LccNormalised"]))
+    assert final == pytest.approx(float(alert["AlertScore"]), rel=1e-9)
+    assert gdacs.alert_level(final) == alert["AlertLevel"].lower()
+    details = json.loads((_FIXTURES / "eq_event_1499045.json").read_text())["properties"]
+    resources: dict[str, str] = {}
+    for impact in details["impacts"]:
+        resources.update(impact.get("resource") or {})
+    assert "shakemap" not in resources and "shake_preliminary" in resources
+    assert float(details["episodealertscore"]) == pytest.approx(final)
 
 
 def test_territory_keyed_events_use_the_shaken_territorys_terms() -> None:

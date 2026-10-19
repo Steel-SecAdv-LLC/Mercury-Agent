@@ -16,19 +16,32 @@ will require humanitarian intervention":
     2·(P50-P20) + 0.5·(P75-P50) + 0.1·(P100-P75), with Px the population within
     x km of the epicentre; Raw = -7.75 + 0.82·Mw - 0.53·log10(depth km) +
     0.72·log10(Scaled Population); Score = C1·Raw + C2 + country vulnerability.
+    Implemented from the published page, but UNEXERCISED by GDACS's live
+    feed: a 2018-2026 sweep found no alert this formula reproduces — events
+    without a final shakemap are scored with the shakemap model on a
+    PRELIMINARY shakemap (event 1499045 reproduces to full precision), even
+    though the SUMPOP radii this model needs are published per event.
   - Final score = model score x the coping-capacity factor, INFORM Lack of
     Coping Capacity normalised to 0.5 (Switzerland) - 1.5 (South Sudan).
   - Level: Red >= 2, Orange >= 1, Green below 1.
 - Floods, https://www.gdacs.org/Knowledge/models_fl.aspx: Red for more than
   1,000 dead or 800,000 displaced, Orange for more than 100 dead or 80,000
-  displaced, Green otherwise.
+  displaced, Green otherwise. This is the PUBLISHED model only: GDACS's live
+  flood levels demonstrably do not follow it (25 of 56 orange/red events of
+  2024-2026 match it against their own Sendai casualty tallies, with Orange
+  granted at single-digit death tolls — the live levels come from GDACS's
+  flood-impact forecasting, which it does not publish; see
+  tests/fixtures/gdacs/fl_levels_vs_sendai_2024_2026.json).
 - Tropical cyclones, GDACS MHEWS user manual (JRC141661, 2025; version of
   23/09/2026), section 4.7: the wind level of each track point from its
   Saffir-Simpson class, the people in its 34 kt and 64 kt wind buffers and the
   exposed country's vulnerability (Table 1, :func:`tropical_cyclone_point_level`);
   the storm takes its highest point; a Red more than three days ahead is reduced
   to Orange; scores 0.5, 1.5 and 2.5. The storm-surge level (Red >= 3 m, Orange
-  >= 1 m) is reported beside it and is not in the score.
+  >= 1 m) is reported beside it and is not in the score; the manual is its only
+  source — GDACS's public API exposes surge solely as map resources
+  (surge_maxheight_* images on TC events), with no numeric height or surge
+  colour to check the thresholds against.
 
 Earthquake country terms come from GDACS's published table
 (gdacs.org/Documents/2017_GDACS_EQ_algorithm_coefficients.xlsx, © European
@@ -370,7 +383,14 @@ def alert_level(score: float) -> str:
 
 
 def flood_alert_level(deaths: float, displaced: float) -> str:
-    """GDACS flood level from reported deaths and displaced people."""
+    """Flood level per GDACS's PUBLISHED model (models_fl.aspx) from casualty counts.
+
+    GDACS's live flood alert levels do not follow this rule (25 of 56
+    recorded 2024-2026 orange/red events match it against their own Sendai
+    tallies; the live levels come from unpublished flood-impact
+    forecasting), so this classifies reported impacts on the published
+    scale — it does not reproduce GDACS's live level for an event.
+    """
     dead = _population("deaths", deaths)
     moved = _population("displaced", displaced)
     if dead > 1000 or moved > 800_000:
