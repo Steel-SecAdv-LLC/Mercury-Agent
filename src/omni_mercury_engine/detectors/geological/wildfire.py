@@ -344,13 +344,77 @@ class FireSpreadModel:
         Returns:
             Fire spread prediction
         """
-        wind_speed_kmh = weather_data.get("wind_speed_kmh", 10.0)
-        wind_direction_deg = weather_data.get("wind_direction_deg", 0.0)
-        relative_humidity = weather_data.get("relative_humidity_pct", 50.0)
-        temperature_c = weather_data.get("temperature_c", 25.0)
-
-        fuel_load = fire_data.get("fuel_load_tons_ha", 20.0)
-        fuel_moisture = fire_data.get("fuel_moisture_pct", 10.0)
+        # Wind drives the heuristic: without a measured wind speed no spread
+        # is predicted (an empty weather dict used to yield a 0.835 km/h
+        # spread toward due north built entirely from defaults). The other
+        # factors keep their released defaults when absent - the fixed 10%
+        # fuel moisture is a recorded maintainer decision - but a SUPPLIED
+        # value must be a finite physical measurement, and the direction is
+        # only ever the measured wind direction, never a fabricated 0.0.
+        if "wind_speed_kmh" not in weather_data:
+            return {
+                "spread_rate_km_hr": None,
+                "spread_direction_deg": None,
+                "wind_driven": False,
+                "missing_inputs": ["wind_speed_kmh"],
+            }
+        wind_speed_kmh = finite_scalar(
+            weather_data["wind_speed_kmh"], "wind_speed_kmh", unit="km/h", lo=0.0, hi=300.0
+        )
+        missing = [
+            key
+            for source, key in (
+                (weather_data, "wind_direction_deg"),
+                (weather_data, "relative_humidity_pct"),
+                (weather_data, "temperature_c"),
+                (fire_data, "fuel_load_tons_ha"),
+                (fire_data, "fuel_moisture_pct"),
+            )
+            if key not in source
+        ]
+        wind_direction_deg = (
+            finite_scalar(
+                weather_data["wind_direction_deg"],
+                "wind_direction_deg",
+                unit="deg",
+                lo=0.0,
+                hi=360.0,
+            )
+            if "wind_direction_deg" in weather_data
+            else None
+        )
+        relative_humidity = (
+            finite_scalar(
+                weather_data["relative_humidity_pct"],
+                "relative_humidity_pct",
+                unit="%",
+                lo=0.0,
+                hi=100.0,
+            )
+            if "relative_humidity_pct" in weather_data
+            else 50.0
+        )
+        temperature_c = (
+            finite_scalar(
+                weather_data["temperature_c"], "temperature_c", unit="degC", lo=-60.0, hi=60.0
+            )
+            if "temperature_c" in weather_data
+            else 25.0
+        )
+        fuel_load = (
+            finite_scalar(
+                fire_data["fuel_load_tons_ha"], "fuel_load_tons_ha", unit="t/ha", lo=0.0, hi=500.0
+            )
+            if "fuel_load_tons_ha" in fire_data
+            else 20.0
+        )
+        fuel_moisture = (
+            finite_scalar(
+                fire_data["fuel_moisture_pct"], "fuel_moisture_pct", unit="%", lo=0.0, hi=100.0
+            )
+            if "fuel_moisture_pct" in fire_data
+            else 10.0
+        )
 
         base_spread_rate = 0.5  # km/hr
 
@@ -373,8 +437,11 @@ class FireSpreadModel:
 
         return {
             "spread_rate_km_hr": float(spread_rate_km_hr),
-            "spread_direction_deg": float(wind_direction_deg),
+            "spread_direction_deg": (
+                None if wind_direction_deg is None else float(wind_direction_deg)
+            ),
             "wind_driven": wind_speed_kmh > 20.0,
+            "missing_inputs": missing,
         }
 
 
@@ -1027,8 +1094,9 @@ class WildfireDetector:
             spread_result = self.spread_model.predict_spread(
                 fire_data, wildfire_data["weather_data"]
             )
-            result.spread_rate_km_hr = spread_result["spread_rate_km_hr"]
-            result.spread_direction_deg = spread_result["spread_direction_deg"]
+            if spread_result["spread_rate_km_hr"] is not None:
+                result.spread_rate_km_hr = spread_result["spread_rate_km_hr"]
+                result.spread_direction_deg = spread_result["spread_direction_deg"]
 
         result.risk_level = self._assess_fire_risk(wildfire_data, result)
         result.early_warning_actions = self._generate_warnings(result)

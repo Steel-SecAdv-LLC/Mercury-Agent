@@ -269,3 +269,23 @@ def test_unassessed_fields_say_so(served: WildfireDetector) -> None:
         {"thermal_image": _brightness_scene(), "evacuation_zones": ["Zone 4B"]}
     )
     assert official.evacuation_zones == ["Zone 4B"]
+
+
+def test_spread_is_never_fabricated_from_defaults() -> None:
+    """Regression: an empty weather dict yielded 0.835 km/h toward due north."""
+    from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
+
+    model = FireSpreadModel()
+    out = model.predict_spread({}, {})
+    assert out["spread_rate_km_hr"] is None
+    assert out["spread_direction_deg"] is None
+    assert out["missing_inputs"] == ["wind_speed_kmh"]
+
+    # With a measured wind speed but no direction, a rate is predicted and
+    # the absent factors are named; the direction is never a fabricated 0.0.
+    out = model.predict_spread({}, {"wind_speed_kmh": 25.0})
+    assert out["spread_rate_km_hr"] is not None
+    assert out["spread_direction_deg"] is None
+    assert "wind_direction_deg" in out["missing_inputs"]
+    with pytest.raises(InvalidObservationError, match="wind_speed_kmh"):
+        model.predict_spread({}, {"wind_speed_kmh": float("nan")})

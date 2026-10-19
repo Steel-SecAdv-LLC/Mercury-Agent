@@ -226,3 +226,17 @@ def test_live_worst_gauge_reports_its_observed_flow() -> None:
     result = FloodDetector(gauge_source=_replay(NOAANWPSSource(), gauges)).detect_live()
     assert result.live_context is not None
     assert result.live_context["worst_gauge"]["observed_flow_cfs"] == pytest.approx(1_340.0)
+
+
+def test_soil_products_are_never_fabricated_from_defaults() -> None:
+    """Regression: empty soil input was served as a measured 50%-moist loam
+    with a 0.8 runoff coefficient; an unknown soil class read as loam."""
+    from omni_mercury_engine.detectors.geological.flood_detector import SoilSaturationModel
+
+    model = SoilSaturationModel()
+    out = model.analyze_soil_conditions({})
+    assert out["runoff_coefficient"] is None
+    assert out["saturation_status"] == "unknown"
+    assert set(out["missing_inputs"]) == {"soil_moisture_pct", "soil_type"}
+    with pytest.raises(InvalidObservationError, match="soil_type"):
+        model.analyze_soil_conditions({"soil_moisture_pct": 60.0, "soil_type": "basalt"})

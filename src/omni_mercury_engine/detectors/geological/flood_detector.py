@@ -354,18 +354,37 @@ class SoilSaturationModel:
         Returns:
             Soil analysis results
         """
-        # A percentage outside [0, 100] gave a runoff coefficient above 1.
-        soil_moisture_pct = finite_scalar(
-            soil_data.get("soil_moisture_pct", 50.0),
-            "soil_moisture_pct",
-            unit="%",
-            lo=0.0,
-            hi=100.0,
+        # A supplied-but-bad value is refused before anything else: a
+        # percentage outside [0, 100] gave a runoff coefficient above 1.
+        supplied_moisture = (
+            finite_scalar(
+                soil_data["soil_moisture_pct"], "soil_moisture_pct", unit="%", lo=0.0, hi=100.0
+            )
+            if "soil_moisture_pct" in soil_data
+            else None
         )
-        soil_type = soil_data.get("soil_type", "loam")
+        # Both the moisture and the soil class must be supplied: a 50%-moist
+        # loam used to be invented for empty input and served as a measured
+        # 0.8 runoff coefficient.
+        missing = [k for k in ("soil_moisture_pct", "soil_type") if k not in soil_data]
+        if missing:
+            return {
+                "soil_moisture_pct": None,
+                "soil_type": soil_data.get("soil_type"),
+                "infiltration_rate_in_hr": None,
+                "runoff_coefficient": None,
+                "saturation_status": "unknown",
+                "high_runoff_potential": False,
+                "missing_inputs": missing,
+            }
+        soil_moisture_pct = float(supplied_moisture)  # type: ignore[arg-type]
+        soil_type = soil_data["soil_type"]
         # antecedent_moisture used for future soil memory modeling
-        _ = soil_data.get("antecedent_moisture_pct", 40.0)
+        _ = soil_data.get("antecedent_moisture_pct")
 
+        # Basic intake classes consistent with USDA NRCS ranges (in/hr):
+        # sand > 0.75, loam ~ 0.35-0.5, clay < 0.15. An unrecognised class is
+        # refused, not silently read as loam.
         infiltration_rates = {
             "sand": 0.8,
             "sandy_loam": 0.6,
@@ -373,7 +392,11 @@ class SoilSaturationModel:
             "clay_loam": 0.25,
             "clay": 0.1,
         }
-        base_infiltration = infiltration_rates.get(soil_type, 0.4)
+        if soil_type not in infiltration_rates:
+            raise InvalidObservationError(
+                f"soil_type must be one of {sorted(infiltration_rates)}, got {soil_type!r}"
+            )
+        base_infiltration = infiltration_rates[soil_type]
 
         saturation_factor = 1.0 - (soil_moisture_pct / 100.0)
         effective_infiltration = base_infiltration * saturation_factor
@@ -398,6 +421,7 @@ class SoilSaturationModel:
             "runoff_coefficient": float(runoff_coefficient),
             "saturation_status": saturation_status,
             "high_runoff_potential": runoff_coefficient > 0.6,
+            "missing_inputs": [],
         }
 
 
@@ -620,8 +644,9 @@ class FloodDetector:
 
         if self.enable_soil and "soil_data" in flood_data and self.soil_model is not None:
             soil_result = self.soil_model.analyze_soil_conditions(flood_data["soil_data"])
-            result.soil_saturation_pct = soil_result["soil_moisture_pct"]
-            result.runoff_coefficient = soil_result["runoff_coefficient"]
+            if soil_result["soil_moisture_pct"] is not None:
+                result.soil_saturation_pct = soil_result["soil_moisture_pct"]
+                result.runoff_coefficient = soil_result["runoff_coefficient"]
 
             if soil_result["high_runoff_potential"]:
                 indicators_detected += 0.5
