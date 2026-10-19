@@ -641,3 +641,41 @@ def test_cyclone_point_stores_its_numbers_as_floats() -> None:
         )
     )
     assert gdacs.tropical_cyclone_point_level(point) == "orange"  # 60,000 > 10% of 500,000
+
+
+def test_small_territories_need_the_ten_percent_rule() -> None:
+    """The manual's "(100k or 10% poptot)" reading, confirmed on live points.
+
+    Sweeping all 84 orange/red storms of 2023-2026 (2,302 track points), the
+    table reproduces GDACS's colour everywhere except small-territory points
+    whose 64 kt population exceeds 10% of the territory's population — there
+    GDACS upgrades although the absolute thresholds are not met. With the
+    census populations supplied, those points grade to GDACS's colour; a
+    caller omitting ``country_population`` under-grades them. Two recorded
+    exceptions stay open: a Vanuatu pair fits only a dated (~250k)
+    population grid, and one Tanzania tropical-storm point needs either a
+    High class for Tanzania or the 10M rule at Medium.
+    """
+    recorded = json.loads((_FIXTURES / "tc_small_territory_points.json").read_text())
+    populations = {k: v["population"] for k, v in recorded["populations"].items()}
+    checked = 0
+    for point in recorded["points"]:
+        iso3 = point["iso3"]
+        if iso3 not in ("GUM", "MNP", "TCA", "VUT") or not point["gdacs"]:
+            continue
+        population = populations[iso3]
+        if point["p64"] <= 0.1 * population:
+            continue  # the two Vanuatu marginals: below 10% of the census count
+        with_population = gdacs.CyclonePoint(
+            point["wind_kt"],
+            point["p34"],
+            point["p64"],
+            point["vul"],
+            country_population=population,
+            lead_time_hours=point["lead_h"],
+        )
+        assert gdacs.tropical_cyclone_point_level(with_population) == point["gdacs"], point
+        without = dataclasses.replace(with_population, country_population=None)
+        assert gdacs.tropical_cyclone_point_level(without) == point["ours"], point
+        checked += 1
+    assert checked >= 18

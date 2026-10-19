@@ -76,7 +76,16 @@ Checked against GDACS's own outputs (tests/fixtures/gdacs):
   :func:`earthquake_shakemap_score` approximate GDACS's: they give GDACS's
   level for 19 of the 21.
 - Tropical cyclones: the look-up table reproduces GDACS's level at every track
-  point of the sample's five storms.
+  point of the sample's five storms, and at 2,278 of the 2,302 points of all
+  84 orange/red storms of 2023-2026 with no country population supplied. The
+  other 24 points confirm the manual's "(100k or 10% poptot)" reading on live
+  data: they lie in small territories (Guam, the Northern Marianas, Turks and
+  Caicos, Vanuatu) whose 64 kt population tops 10% of the territory's
+  population, and grade to GDACS's colour once ``country_population`` is
+  supplied — so callers must supply it for small countries (see
+  tests/fixtures/gdacs/tc_small_territory_points.json; one Tanzania
+  tropical-storm point and a dated-population Vanuatu pair stay recorded as
+  open).
 
 GDACS calls its scores empirical and "intended to give a fast and rough warning".
 """
