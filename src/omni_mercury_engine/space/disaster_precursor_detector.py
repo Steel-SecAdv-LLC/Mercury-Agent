@@ -49,6 +49,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
@@ -157,14 +158,19 @@ class GeomageticCorrelator:
         """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
+        # Sub-storm bands on the Kp-thirds decision-bound convention (quiet
+        # Kp 0-2, unsettled Kp 3, active Kp 4); storm statuses come from the
+        # NOAA G scale via noaa_g_scale, so minor_storm starts at G1 (Kp 5-,
+        # 4.67) rather than a literal Kp 5.0.
         self.kp_thresholds = {
-            "quiet": (0, 3),
-            "unsettled": (3, 4),
-            "active": (4, 5),
-            "minor_storm": (5, 6),
-            "major_storm": (6, 7),
-            "severe_storm": (7, 9),
+            "quiet": (0.0, 2.5),
+            "unsettled": (2.5, 3.5),
+            "active": (3.5, 4.5),
         }
+        self.g_scale_statuses = {
+            1: "minor_storm",  # G1
+            2: "major_storm",  # G2
+        }  # G3 and stronger report severe_storm
 
     def correlate_geomagnetic(
         self, schumann_anomaly: dict[str, Any], geomagnetic_data: dict[str, float] | None = None
@@ -196,9 +202,10 @@ class GeomageticCorrelator:
 
         space_weather_factor = 1.0
         if kp is not None:
-            if kp > 7.0:
+            g_level = noaa_g_scale(float(np.clip(kp, 0.0, 9.0)))
+            if g_level >= 3:  # G3 (strong) and up
                 space_weather_factor = 1.6
-            elif kp > 5.0:
+            elif g_level >= 1:  # G1 onset, Kp 5- (4.67)
                 space_weather_factor = 1.3
 
         dst_disturbance = dst is not None and dst < -50
@@ -227,7 +234,7 @@ class GeomageticCorrelator:
             indicators.append("strong_geomagnetic_correlation")
         if dst_disturbance:
             indicators.append("ionospheric_current_disturbance")
-        if kp is not None and kp > 6:
+        if kp is not None and noaa_g_scale(float(np.clip(kp, 0.0, 9.0))) >= 3:
             indicators.append("severe_space_weather")
 
         return {
@@ -240,11 +247,15 @@ class GeomageticCorrelator:
         }
 
     def _classify_geomagnetic_activity(self, kp: float) -> str:
-        """Classify geomagnetic activity level."""
+        """Classify geomagnetic activity level (storms via the NOAA G scale)."""
+        g_level = noaa_g_scale(float(np.clip(kp, 0.0, 9.0)))
+        if g_level >= 1:
+            return self.g_scale_statuses.get(g_level, "severe_storm")
+        kp = float(np.clip(kp, 0.0, 9.0))
         for status, (min_kp, max_kp) in self.kp_thresholds.items():
             if min_kp <= kp < max_kp:
                 return status
-        return "severe_storm"
+        return "active"  # the bands tile [0, 4.5); defensive default
 
 
 class IonosphericDisturbanceDetector:

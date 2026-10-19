@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -56,10 +57,21 @@ _FLARE_CLASS_MAP: dict[str, float] = {
 }
 
 # ---------------------------------------------------------------------------
-# Geomagnetic storm thresholds
+# Geomagnetic storm thresholds: NOAA G levels via hazard_metrics.noaa_g_scale
+# (storm = G1, Kp 5- and up; severe = G3, Kp 7- and up). Literal integer Kp
+# cutoffs (5, 7) dropped every "minus"-third storm hour.
 # ---------------------------------------------------------------------------
-_KP_STORM_THRESHOLD = 5
-_KP_SEVERE_THRESHOLD = 7
+_STORM_G_LEVEL = 1
+_SEVERE_G_LEVEL = 3
+
+
+def _g_levels(kp_values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """NOAA G level per Kp value (values outside [0, 9] are clipped first)."""
+    clipped = np.clip(np.asarray(kp_values, dtype=np.float64), 0.0, 9.0)
+    return np.fromiter(
+        (noaa_g_scale(float(k)) for k in clipped), dtype=np.int64, count=clipped.size
+    )
+
 
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
@@ -297,11 +309,11 @@ class EnergyLoader(BaseDomainLoader):
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Generate binary anomaly labels for a historical event.
 
-        Labeling strategy:
+        Labeling strategy (NOAA G scale via ``noaa_g_scale``):
 
-        * **Kp >= 7** (severe geomagnetic storm): labeled anomaly (``1``).
-        * **Kp < 5** (quiet/unsettled): labeled normal (``0``).
-        * **Kp 5-6** (minor storm): labeled normal (``0``) for
+        * **G3 and stronger** (Kp 7- and up): labeled anomaly (``1``).
+        * **Below G1** (quiet/unsettled/active): labeled normal (``0``).
+        * **G1-G2** (minor/moderate storm): labeled normal (``0``) for
           conservative labeling to reduce false-positive contamination.
 
         For the ``texas_2021`` grid event, anomaly labels are based on
@@ -332,9 +344,9 @@ class EnergyLoader(BaseDomainLoader):
             # For grid events, anomaly = demand exceeds supply capacity
             labels = self._label_grid_anomalies(df)
         else:
-            # For geomagnetic events, anomaly = Kp >= 7
+            # For geomagnetic events, anomaly = NOAA G3+ (severe; Kp 7- and up)
             kp_values = df["kp"].values.astype(np.float64)
-            labels = (kp_values >= _KP_SEVERE_THRESHOLD).astype(np.int64)
+            labels = (_g_levels(kp_values) >= _SEVERE_G_LEVEL).astype(np.int64)
 
         logger.info(
             "Ground truth for '%s': %d anomalies / %d total.",
@@ -783,11 +795,12 @@ class EnergyLoader(BaseDomainLoader):
         sw_density = base_density + rng.normal(0, 2, size=n_steps)
         sw_density = np.clip(sw_density, 0.5, 50.0)
 
-        # X-ray class: elevated during storm peaks
+        # X-ray class: elevated during storm peaks, banded on the NOAA G scale
+        g_levels = _g_levels(kp_values)
         xray = np.zeros(n_steps, dtype=np.float64)
-        xray[kp_values >= 7] = 5.0  # X-class during severe storms
-        xray[(kp_values >= 5) & (kp_values < 7)] = 4.0  # M-class
-        xray[(kp_values >= 3) & (kp_values < 5)] = 3.0  # C-class
+        xray[g_levels >= _SEVERE_G_LEVEL] = 5.0  # X-class during G3+ storms
+        xray[(g_levels >= _STORM_G_LEVEL) & (g_levels < _SEVERE_G_LEVEL)] = 4.0  # M-class, G1-G2
+        xray[(g_levels < _STORM_G_LEVEL) & (kp_values >= 3)] = 3.0  # C-class, active sub-storm
         xray[kp_values < 3] = 1.0  # A-class background
 
         df = pd.DataFrame(

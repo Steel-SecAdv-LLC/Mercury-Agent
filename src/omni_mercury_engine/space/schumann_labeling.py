@@ -7,7 +7,9 @@ sub-net. That is false: independent, **public-domain** geophysical catalogs
 physically perturb the ionosphere -- and therefore the Schumann-resonance
 parameters -- on documented timescales, so they can be used as *weak* labels:
 
-* **NOAA SWPC planetary Kp index** -- ``Kp >= 5`` marks a geomagnetic storm.
+* **NOAA SWPC planetary Kp index** -- NOAA G1 or stronger (Kp 5- and up, via
+  :func:`~omni_mercury_engine.evaluation.hazard_metrics.noaa_g_scale`) marks a
+  geomagnetic storm.
 * **NOAA SWPC GOES X-ray long band (0.1-0.8 nm)** -- ``>= 1e-5 W/m^2`` is an
   M-class flare, ``>= 1e-4`` an X-class flare. Flares drive prompt Sudden
   Ionospheric Disturbances (SID) in the D-region.
@@ -32,13 +34,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from omni_mercury_engine.datasets.base import http_get_with_retry
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale, parse_kp
 
 # Public-domain NOAA SWPC endpoints (no auth; host is trusted-allowlisted).
 KP_URL = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
 XRAY_URL = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
 
-# A-priori thresholds (documented, fixed before evaluation).
-KP_STORM_THRESHOLD = 5.0  # NOAA G1 geomagnetic-storm onset
+# A-priori thresholds (documented, fixed before evaluation). The storm
+# threshold is the NOAA G1 onset, Kp 5- (14/3 ~ 4.667): classification goes
+# through hazard_metrics.noaa_g_scale, never a literal "Kp >= 5.0" (which
+# would depend on the feed's integer-filing convention).
+KP_STORM_THRESHOLD = 14.0 / 3.0  # NOAA G1 onset, Kp 5- (documentation; see noaa_g_scale)
 FLARE_M_CLASS = 1e-5  # W/m^2, GOES long band
 FLARE_X_CLASS = 1e-4
 
@@ -54,6 +60,25 @@ def _parse_time(s: str) -> datetime:
     s = s.replace("Z", "").strip()
     dt = datetime.fromisoformat(s)
     return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+
+def _row_kp(row: dict[str, Any]) -> float | None:
+    """The most precise Kp a SWPC 1-minute feed row carries, or ``None``.
+
+    Preference order: the thirds string (``"5M"`` = 5- = 4.667), then
+    ``estimated_kp`` (already a thirds float), then ``kp_index`` -- SWPC's
+    filing integer, under which every third of 5 (5-, 5o, 5+) files as 5, so
+    old snapshots that carry only it still classify to the same G level.
+    """
+    for key in ("kp", "estimated_kp", "kp_index"):
+        value = row.get(key)
+        if value is None:
+            continue
+        try:
+            return parse_kp(value)
+        except ValueError:
+            continue
+    return None
 
 
 @dataclass
@@ -134,16 +159,14 @@ def fetch_catalogs(
 
     windows: list[EventWindow] = []
 
-    # --- Geomagnetic storms (Kp >= 5) ---
+    # --- Geomagnetic storms (NOAA G1 or stronger) ---
     for row in kp_json:
-        kp = row.get("kp_index")
+        kp = _row_kp(row)
         if kp is None:
             continue
-        if float(kp) >= KP_STORM_THRESHOLD:
+        if noaa_g_scale(kp) >= 1:
             t = _parse_time(row["time_tag"])
-            windows.append(
-                EventWindow(t - STORM_LEAD, t + STORM_LAG, "geomagnetic_storm", float(kp))
-            )
+            windows.append(EventWindow(t - STORM_LEAD, t + STORM_LAG, "geomagnetic_storm", kp))
 
     # --- Solar flares (GOES long band) ---
     for row in xray_json:

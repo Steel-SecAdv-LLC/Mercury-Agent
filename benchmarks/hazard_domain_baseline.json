@@ -7,7 +7,7 @@
         "far": 0.0,
         "hss": 1.0,
         "pod": 1.0,
-        "sp_distance_mae_km": 0.324,
+        "sp_distance_mae_km": 0.48,
         "sp_distance_n": 14.0,
         "trained_csi": 0.142857,
         "trained_far": 0.0,
@@ -47,7 +47,7 @@
       "metrics": {
         "flare_class_exact_accuracy": 1.0,
         "flare_class_within_one_accuracy": 1.0,
-        "kp_g_bucket_accuracy": 0.872727,
+        "kp_g_bucket_accuracy": 0.854545,
         "kp_mae": 1.089151
       },
       "scenario_files": {
@@ -92,7 +92,7 @@
     }
   },
   "metadata": {
-    "commit": "ebf02c4f117f2bad0efc082ff1d1d09a7dd1f8a6",
+    "commit": "0f484ef37da39bbca25102d73fe5a9c8d75b3f3b",
     "guard": "benchmarks/hazard_regression_guard.py",
     "honesty_tripwires": [
       "earthquake: estimated_magnitude must stay None on the physics lane (load_shipped_weights=False); the trained lane must estimate magnitudes",
@@ -107,9 +107,9 @@
       "rate_abs": 0.05,
       "sp_distance_mae_min_abs": 0.25
     },
-    "numpy": "2.4.6",
+    "numpy": "2.5.3",
     "purpose": "Deterministic regression guard for the hazard detectors' physics paths (post honesty-wave). Offline: committed, hash-pinned scenario sets only. Real recorded SWPC data for solar; seeded constructed physics scenarios elsewhere (see hazard_scenarios/manifest.json for per-set provenance).",
-    "python": "3.11.15",
+    "python": "3.13.16",
     "scenario_manifest": "benchmarks/hazard_scenarios/manifest.json",
     "scenario_seeds": {
       "earthquake": 4208,

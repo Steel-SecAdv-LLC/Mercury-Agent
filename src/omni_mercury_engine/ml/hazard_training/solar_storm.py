@@ -16,10 +16,11 @@ Data source (hook #11, ``SolarStormDetector.load_neural_weights``):
   column parsing recovers the same Kp values for a fixed storm window
   (2023-04-20..30, which contains the 2023-04-23 G4 storm).
 
-Task: nowcast Kp (and storm probability, Kp >= 5) from the same instantaneous
-solar wind / IMF observations the detector's deterministic Boyle-index physics
-fallback consumes. The merit gate compares the trained network against that
-physics fallback *through the public detector API* on held-out test years.
+Task: nowcast Kp (and storm probability, NOAA G1 or stronger: Kp 5- and up,
+``noaa_g_scale(kp) >= 1``) from the same instantaneous solar wind / IMF
+observations the detector's deterministic Boyle-index physics fallback
+consumes. The merit gate compares the trained network against that physics
+fallback *through the public detector API* on held-out test years.
 
 Temporal split (never random -- Kp autocorrelates over days and solar-cycle
 years): train 2005-2018, validation 2019-2021, test 2022-2024. The test span
@@ -59,6 +60,21 @@ from omni_mercury_engine.ml.hazard_training.features import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_g1_storm(kp: np.ndarray) -> np.ndarray:
+    """Storm mask (NOAA G1 or stronger) via :func:`noaa_g_scale` per value.
+
+    G1 starts at Kp 5- (4.67); ``kp >= 5.0`` would mislabel every 5- hour
+    as quiet. OMNI2 stores thirds one-decimal encoded (5- as 4.7), which
+    the G-scale decision bounds classify correctly.
+    """
+    return np.fromiter(
+        (noaa_g_scale(float(k)) >= 1 for k in np.asarray(kp, dtype=np.float64)),
+        dtype=bool,
+        count=np.asarray(kp).size,
+    )
+
 
 HOOK_NAME = "solar_storm_geomag"
 CHECKPOINT_NAME = "solar_storm_geomag"
@@ -331,7 +347,7 @@ def build_dataset(ctx: PipelineContext) -> GeomagDataset:
     return GeomagDataset(
         features=feats,
         kp=kp,
-        storm=(kp >= 5.0).astype(np.float32),
+        storm=_is_g1_storm(kp).astype(np.float32),
         years=years,
         raw_fields=raw_fields,
         feature_fill=fill,
@@ -480,8 +496,8 @@ def _select_operating_point(
     """Choose the storm-onset threshold for the storm-probability head.
 
     Policy (documented for owner ratification): on the VALIDATION years
-    only, require the dual-rule decision ``(kp_pred >= 5) OR
-    (storm_prob >= tau)`` to reach a storm recall of at least
+    only, require the dual-rule decision ``(kp_pred reaches G1 per
+    noaa_g_scale) OR (storm_prob >= tau)`` to reach a storm recall of at least
     ``max(physics validation recall, 0.55)`` AND a false-alarm rate of at
     most ``0.8 * physics validation FAR`` (the 20% headroom guards the
     val->test distribution shift the ship gate's hard FAR constraint does
@@ -492,7 +508,7 @@ def _select_operating_point(
     rounding error and be refused (the first candidate did exactly that:
     test FAR 3.183% vs physics 3.139%). This machinery exists because the
     MSE-trained Kp point estimate regresses toward the mean on a ~3%-storm
-    dataset, so thresholding it at Kp>=5 halves recall versus physics even
+    dataset, so thresholding it at G1 onset halves recall versus physics even
     though its ranking (AUC) is far better; the BCE-trained storm head
     carries that ranking and must drive the onset decision.
 
@@ -515,13 +531,16 @@ def _select_operating_point(
     kp_pred = kp_pred_t.squeeze(-1).numpy().astype(np.float64)
 
     kp_phys = np.array([_boyle_kp(ds.raw_fields[i]) for i in val_idx])
-    phys_detect = kp_phys >= 5.0
+    # Both detection rules mirror the deployed decision exactly: the detector
+    # classifies its Kp (physics or regressed) through noaa_g_scale, whose G1
+    # decision bound admits 5- (4.67) storms that a literal kp >= 5.0 missed.
+    phys_detect = _is_g1_storm(kp_phys)
     physics_recall = float(np.mean(phys_detect[storm_true]))
     physics_far = float(np.mean(phys_detect[~storm_true]))
 
     recall_floor = max(physics_recall, 0.55)
     far_ceiling = 0.8 * physics_far
-    kp_detect = kp_pred >= 5.0
+    kp_detect = _is_g1_storm(kp_pred)
 
     def _dual_metrics(tau: float) -> tuple[float, float, float]:
         detect = kp_detect | (storm_prob >= tau)
@@ -583,9 +602,9 @@ def _select_operating_point(
         )
     return {
         **chosen,
-        "policy": "dual-rule (kp_pred>=5 OR storm_prob>=tau); tau maximizes val CSI "
-        "subject to val recall >= max(physics val recall, 0.55) AND "
-        "val FAR <= 0.8 * physics val FAR",
+        "policy": "dual-rule (noaa_g_scale(kp_pred)>=1 OR storm_prob>=tau); tau "
+        "maximizes val CSI subject to val recall >= max(physics val recall, 0.55) "
+        "AND val FAR <= 0.8 * physics val FAR",
         "recall_floor": recall_floor,
         "recall_floor_met": floor_met,
         "far_ceiling": far_ceiling,
@@ -599,6 +618,36 @@ def _g_bucket(kp: float) -> str:
     return G_SCALE_NAMES[noaa_g_scale(kp)]
 
 
+def _evaluation_detectors(candidate_path: Any) -> tuple[Any, Any]:
+    """The (physics, learned) detector pair the merit gate compares.
+
+    ``load_shipped_weights=False`` on both: a default-constructed detector
+    auto-loads the committed checkpoint, which would silently turn the
+    "physics" baseline into the previously shipped NETWORK the moment one
+    exists -- the merit gate would then compare the candidate against the
+    incumbent model and call it physics (observed: "physics" Kp MAE 0.574,
+    the incumbent's score, instead of Boyle's 1.054). The physics path must
+    be the deterministic Boyle-index fallback, always; only the learned
+    detector loads weights, and those are the candidate's.
+    """
+    from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
+
+    physics_det = SolarStormDetector(
+        enable_flare_detection=False,
+        enable_cme_tracking=False,
+        enable_geomag_prediction=True,
+        load_shipped_weights=False,
+    )
+    learned_det = SolarStormDetector(
+        enable_flare_detection=False,
+        enable_cme_tracking=False,
+        enable_geomag_prediction=True,
+        load_shipped_weights=False,
+    )
+    learned_det.load_neural_weights(str(candidate_path))
+    return physics_det, learned_det
+
+
 def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     """Compare learned vs physics through the public detector API.
 
@@ -610,8 +659,6 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     Returns:
         The evaluation outcome (primary metric: Kp MAE, lower is better).
     """
-    from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
-
     ds = build_dataset(ctx)
     _, _, test_mask = SPLIT.masks(ds.years)
     test_idx = np.flatnonzero(test_mask)
@@ -622,13 +669,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     if not cand_path.exists():
         raise FileNotFoundError(f"no candidate checkpoint at {cand_path}; run --train first")
 
-    physics_det = SolarStormDetector(
-        enable_flare_detection=False, enable_cme_tracking=False, enable_geomag_prediction=True
-    )
-    learned_det = SolarStormDetector(
-        enable_flare_detection=False, enable_cme_tracking=False, enable_geomag_prediction=True
-    )
-    learned_det.load_neural_weights(str(cand_path))
+    physics_det, learned_det = _evaluation_detectors(cand_path)
 
     kp_true = ds.kp[test_idx]
     storm_true = ds.storm[test_idx]
@@ -647,9 +688,10 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             results[label]["kp"].append(float(out.kp_index))
             results[label]["conf"].append(float(out.confidence))
             buckets[label].append(out.geomagnetic_storm_level)
-            # The deployed storm-onset decision is the emitted level: physics
-            # thresholds its Kp at 5; the learned path applies the dual rule
-            # (regressed Kp OR storm-probability >= ratified threshold).
+            # The deployed storm-onset decision is the emitted level: both
+            # paths classify their Kp through noaa_g_scale (G1 from 5-), and
+            # the learned path adds the dual rule (storm-probability >=
+            # ratified threshold).
             detected[label].append(out.geomagnetic_storm_level != "none")
 
     bucket_true = [_g_bucket(float(k)) for k in kp_true]
@@ -670,10 +712,10 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
                 np.mean([p == t for p, t in zip(bucket_pred, bucket_true, strict=True)])
             ),
             "storm_auc": binary_auc(storm_true, conf),
-            "storm_recall_kp5": float(
-                np.mean(kp_pred[is_storm] >= 5.0) if is_storm.any() else np.nan
+            "storm_recall_kp_g1": float(
+                np.mean(_is_g1_storm(kp_pred[is_storm])) if is_storm.any() else np.nan
             ),
-            "false_alarm_rate_kp5": float(np.mean(kp_pred[~is_storm] >= 5.0)),
+            "false_alarm_rate_kp_g1": float(np.mean(_is_g1_storm(kp_pred[~is_storm]))),
             "storm_recall_op": float(tp / max(tp + fn, 1.0)),
             "false_alarm_rate_op": float(fp / max(float(np.sum(~is_storm)), 1.0)),
             "storm_csi_op": float(tp / max(tp + fn + fp, 1.0)),
@@ -692,8 +734,9 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
             "comparison": "identical held-out OMNI2 hours through "
             "SolarStormDetector.predict_solar_storm, physics fallback vs loaded checkpoint",
             "operating_point": "learned storm onset uses the dual rule carried by the "
-            "checkpoint (see payload['operating_point']); physics onset is its Kp>=5 "
-            "threshold — each path is scored on its own deployed decision rule",
+            "checkpoint (see payload['operating_point']); physics onset is G1 per "
+            "noaa_g_scale on its Kp — each path is scored on its own deployed decision "
+            "rule",
         },
         constraints=[
             {

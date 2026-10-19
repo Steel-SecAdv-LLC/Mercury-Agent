@@ -54,6 +54,8 @@ from typing import Any
 import numpy as np
 from scipy.signal import butter, filtfilt
 
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
+
 logger = logging.getLogger(__name__)
 
 #: Standard scintillation-intensity class boundaries (S4 dimensionless,
@@ -372,8 +374,8 @@ class IonosphericScintillationDetector:
         Logic (citations in the module docstring):
 
         * High latitude: if |mlat| is poleward of the Kp-driven auroral
-          boundary (Gussenhoven et al. 1983), risk is ``high`` for Kp >= 5
-          (storm-time oval) else ``moderate``.
+          boundary (Gussenhoven et al. 1983), risk is ``high`` at NOAA G1 or
+          stronger (Kp 5- and up, via ``noaa_g_scale``) else ``moderate``.
         * Equatorial belt (|mlat| <= 20°): ``moderate`` risk inside the
           post-sunset 19-01 LT plasma-bubble window (Aarons 1982), raised
           to ``high`` in equinox months (scintillation season; Basu et
@@ -409,13 +411,17 @@ class IonosphericScintillationDetector:
         risk = "low"
 
         if abs_mlat >= boundary:
-            risk = "high" if kp >= 5.0 else "moderate"
+            storm = noaa_g_scale(min(kp, 9.0)) >= 1
+            risk = "high" if storm else "moderate"
             factors.append(
                 f"|mlat| {abs_mlat:.1f}° poleward of the Kp={kp:.1f} auroral "
                 f"boundary {boundary:.1f}° (Gussenhoven et al. 1983)"
             )
-            if kp >= 5.0:
-                factors.append("storm-level Kp >= 5: expanded oval, phase-scintillation regime")
+            if storm:
+                factors.append(
+                    "storm-level Kp (NOAA G1+, from Kp 5-): expanded oval, "
+                    "phase-scintillation regime"
+                )
         elif abs_mlat <= _EQUATORIAL_BELT_DEG:
             in_window = (
                 local_time_hours >= _EQUATORIAL_LT_START_H

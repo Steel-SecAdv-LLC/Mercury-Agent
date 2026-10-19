@@ -118,8 +118,10 @@ HOUR_FILE_BYTES = 921_600 * 2
 GROUP_GAP_BYTES = 8 * (1 << 20)
 GROUP_SPAN_BYTES = 64 * (1 << 20)
 
-#: Kp class thresholds: disturbed >= 5, quiet <= 2; 2 < Kp < 5 excluded.
-KP_DISTURBED = 5.0
+#: Kp class thresholds: disturbed = NOAA G1 or stronger (Kp 5- and up, via
+#: ``noaa_g_scale``), quiet <= 2; hours between the classes are excluded.
+#: GFZ reports definitive Kp in exact thirds, so the G-scale decision bound
+#: (4.5) admits every 5- (4.667) bin that a literal ``Kp >= 5.0`` dropped.
 KP_QUIET = 2.0
 #: Validation recall floor for operating-point selection: a threshold that
 #: detects almost nothing can be technically non-regressing when physics
@@ -673,11 +675,11 @@ def _label_hour(t0: _dt.datetime, kp_by_bin: dict[int, float]) -> tuple[str, flo
     if any(k is None for k in kps):
         return "missing_kp", float("nan")
     vals = [float(k) for k in kps if k is not None]
-    if all(k >= KP_DISTURBED for k in vals):
+    if all(noaa_g_scale(k) >= 1 for k in vals):
         return "disturbed", max(vals)
     if all(k <= KP_QUIET for k in vals):
         return "quiet", max(vals)
-    if all(k > KP_QUIET for k in vals) or all(k < KP_DISTURBED for k in vals):
+    if all(k > KP_QUIET for k in vals) or all(noaa_g_scale(k) == 0 for k in vals):
         return "intermediate", max(vals)
     return "mixed", max(vals)
 

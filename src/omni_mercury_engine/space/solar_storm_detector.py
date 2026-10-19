@@ -24,8 +24,9 @@ Research sources:
 - ESA Space Weather Service
 
 Measured evaluation: on 25,846 held-out OMNI2 hours (test years 2022-2024) the
-shipped solar_storm_geomag checkpoint reaches Kp MAE 0.574 versus 1.054 for the
-physics fallback; see src/omni_mercury_engine/models/checkpoints/
+shipped solar_storm_geomag checkpoint reaches Kp MAE 0.575 versus 1.054 for the
+physics fallback, with G1-onset storm labels per noaa_g_scale (Kp 5- and up);
+see src/omni_mercury_engine/models/checkpoints/
 solar_storm_geomag.provenance.json.
 """
 
@@ -892,8 +893,8 @@ class SolarStormDetector:
         # (see solar_storm.py _select_operating_point): the storm-probability
         # head drives storm ONSET via a validation-selected threshold, because
         # the MSE-trained Kp point estimate regresses toward the mean and
-        # thresholding it at Kp>=5 halves recall. None until a checkpoint that
-        # declares one is loaded (then the dual rule applies).
+        # thresholding it at G1 onset halves recall. None until a checkpoint
+        # that declares one is loaded (then the dual rule applies).
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
@@ -1267,7 +1268,7 @@ class SolarStormDetector:
         ):
             # Dual-rule storm onset: the BCE-trained storm-probability head
             # crossed its validation-selected (owner-ratified) threshold while
-            # the regressed Kp stayed below 5. The LEVEL is an alert decision,
+            # the regressed Kp stayed below G1. The LEVEL is an alert decision,
             # so the onset floor (G1/"minor") comes from the classifier;
             # kp_index remains the honest regression estimate and severity
             # above G1 still requires the regressed Kp to earn it.
