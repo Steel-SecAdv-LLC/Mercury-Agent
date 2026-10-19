@@ -626,7 +626,7 @@ The infrastructure modules implement several specialized capabilities:
 
 ### Integration with Core Engines
 
-Infrastructure modules integrate seamlessly with the core 30 detection engines:
+Infrastructure modules integrate seamlessly with the core detector classes:
 
 - **NCF Monitor** → Uses temporal, statistical, and spatial detectors for pattern analysis
 - **Space Infrastructure** → Leverages quantum and astrophysical models for orbital anomalies
@@ -785,7 +785,7 @@ enable with `set_profiling_enabled(True)`. See
 - **AC-2**: Account Management (rate limiting)
 - **AU-2**: Audit Events (threat logging with Banish logic)
 - **SC-13**: Cryptographic Protection (AES-256-GCM / ChaCha20-Poly1305, Argon2id, ML-DSA-65 / ML-KEM-1024 / SLH-DSA via AMA Cryptography)
-- **SI-4**: Information System Monitoring (all 30 detection engines)
+- **SI-4**: Information System Monitoring (every detector class)
 
 ### Threat Detection Pipeline
 
@@ -1062,20 +1062,16 @@ detector_profiler`` (provenance-stamped JSON, schema
 
 ### Inference Latency (CPU)
 
-| Configuration | Latency | Notes |
+| Measurement (CPU, 4 cores) | Latency | Notes |
 |---------------|---------|-------|
-| Full (30 engines) | ~500ms | All deep features enabled |
-| Standard | ~250ms | Core detectors |
-| Fast (statistical only) | ~100ms | Only statistical + temporal |
+| `detect_with_fusion`, 64 rows x 8 features | 0.038 s | seeded synthetic, 3 repeats |
+| `detect_with_fusion`, 1,024 rows x 8 features | 0.182 s | seeded synthetic, 3 repeats |
+| `detect_with_fusion`, 4,096 rows x 8 features | 0.397 s | seeded synthetic, 3 repeats |
 
-### Inference Latency (GPU)
-
-| Configuration | Latency | Notes |
-|---------------|---------|-------|
-| Full (30 engines) | ~50ms | RTX 4090 |
-| Batch 32 | ~5ms/sample | Amortized |
-
-The tables above are the historical snapshot. The fusion path on the current
+Measured by `benchmarks/fusion_latency.py`; committed results with host
+provenance in `benchmarks/results/fusion_latency.json` (Python 3.13, numpy
+2.5, 4-CPU host). No GPU measurement is committed, so no GPU figure is
+claimed. The fusion path on the current
 tree (`detect_with_fusion` for 64 to 4,096 rows, engine import and construction
 time, and the domain-model stage per model) is measured by
 `benchmarks/fusion_latency.py`; results are committed in
@@ -1401,7 +1397,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 ## Conclusion
 
-The Mercury Agent integrates **30 detection engines** with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent integrates **89 detector classes** (the measured, CI-gated count) with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
