@@ -144,8 +144,6 @@ class QuantumAnomalyModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        batch_size = data.shape[0]
-
         quantum_states = self._create_quantum_state(data)
 
         amplitudes = np.abs(quantum_states).astype(np.float32)
