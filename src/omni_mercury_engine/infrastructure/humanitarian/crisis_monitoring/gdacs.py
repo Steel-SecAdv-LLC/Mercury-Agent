@@ -42,13 +42,26 @@ Checked against GDACS's own outputs (tests/fixtures/gdacs):
 
 - Earthquakes: given GDACS's ``ScaledPopulation`` and coping factor,
   :func:`shakemap_score` reproduces GDACS's shakemap ``AlertScore`` for every
-  single-country event in the sample. GDACS combines the terms of several
-  countries for cross-border events by a rule it does not publish (it averages
-  their coefficients and sums their coping factors), and its live
-  ``ScaledPopulation`` is not the band formula above applied to its own MMI
-  band totals (-0.27 to +0.17 apart in log10 over the sample's 21 scored
-  single-country events), so scores from :func:`earthquake_shakemap_score`
-  approximate GDACS's: they give GDACS's level for 19 of the 21.
+  single-country event in the sample (27 of 27). On cross-border events GDACS
+  reports the exposed countries' coefficients averaged and their coping
+  factors summed — checked on six recorded events (a 2018-2026 sweep of its
+  live alerts found no counterexample), including a three-country event
+  (1437973, Atacama 2024: Chile's terms averaged with two global-model
+  neighbours'), and four of the six summed factors decompose exactly into
+  single-country factors recorded in this same sample. But GDACS's final
+  cross-border ``AlertScore`` is NOT the averaged-coefficient score times the
+  summed factor (1544720: 1.86 reported vs 5.24 multiplied) and the rule it
+  does use is unpublished, so this module scores single-country exposure
+  only. GDACS keys the terms by the shaken territory, not the event's
+  ``iso3``: a Taiwan event files under CHN with a live Taiwan entry absent
+  from the 2017 table (global intercept/slope, shakemap vulnerability
+  -0.56), and an event can file under a border country (1202436, Kashgar,
+  filed KGZ) while being scored entirely with its neighbour's terms and
+  factor. Its live ``ScaledPopulation`` is also not the band formula above
+  applied to its own MMI band totals (-0.27 to +0.17 apart in log10 over 21
+  scored single-country events), so scores from
+  :func:`earthquake_shakemap_score` approximate GDACS's: they give GDACS's
+  level for 19 of the 21.
 - Tropical cyclones: the look-up table reproduces GDACS's level at every track
   point of the sample's five storms.
 
@@ -128,11 +141,16 @@ class EarthquakeCoefficients:
     vulnerability_classic: float = 0.0
 
     def __post_init__(self) -> None:
-        """Reject a term that is not a finite number."""
+        """Reject a term that is not a finite number and store it as a float.
+
+        numpy numbers do not all subclass ``int``/``float`` (np.int64 and
+        np.float32 do not), so they are accepted explicitly; strings and
+        other non-numbers stay rejected.
+        """
         for name, value in vars(self).items():
-            if not isinstance(value, (int, float)):
+            if not isinstance(value, (int, float, np.integer, np.floating)):
                 raise ValueError(f"{name} must be a number, got {value!r}")
-            _finite(name, value)
+            object.__setattr__(self, name, _finite(name, value))  # frozen: set once, here
 
 
 GLOBAL_COEFFICIENTS = EarthquakeCoefficients()
@@ -310,10 +328,34 @@ def apply_coping_capacity(score: float, factor: float) -> float:
     GDACS also sets a final score to 1 when a model score above 2 falls below 1
     through coping capacity; with factors in the published 0.5-1.5 range that
     cannot happen, so no floor is applied.
+
+    Two values outside the published range appear in GDACS's own alerts:
+
+    - 0, reported (with score 0) when nobody is shaken above MMI VI. Accepted
+      here only alongside a zero score, where the product is still 0.
+    - Sums of several countries' factors on cross-border events (observed up
+      to 2.36). Refused: GDACS's recorded alerts prove its final score is NOT
+      the model score times that sum (event 1544720 reports 1.857, while its
+      averaged-coefficient model score times its summed factor is 5.24), and
+      GDACS does not publish the combination it uses, so multiplying here
+      would fabricate a score far above GDACS's own.
     """
     score, factor = _finite("score", score), _finite("factor", factor)
+    if factor == 0.0:
+        if score != 0.0:
+            raise ValueError(
+                "a coping-capacity factor of 0 is only reported by GDACS for "
+                f"zero-exposure alerts (score 0), got score {score}"
+            )
+        return 0.0
     if not 0.5 <= factor <= 1.5:
-        raise ValueError(f"the coping-capacity factor must be in [0.5, 1.5], got {factor}")
+        raise ValueError(
+            f"the coping-capacity factor must be in [0.5, 1.5], got {factor}. "
+            "GDACS reports factors above 1.5 on cross-border events as the SUM "
+            "of the countries' factors; its recorded alerts show the final "
+            "score is not the model score times that sum, and the rule it "
+            "does use is unpublished, so this module refuses to guess."
+        )
     return score * factor
 
 

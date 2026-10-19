@@ -94,10 +94,18 @@ def test_bad_country_code_is_rejected(code: str) -> None:
         gdacs.earthquake_coefficients(code)
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), True, "1"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), True, "1", np.bool_(True)])
 def test_bad_coefficient_is_rejected(value: object) -> None:
     with pytest.raises(ValueError, match="c1_shakemap"):
         gdacs.EarthquakeCoefficients(c1_shakemap=value)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("value", [np.int64(1), np.float32(1.0), np.float64(1.0), 1])
+def test_numpy_numbers_are_accepted_and_stored_as_floats(value: object) -> None:
+    """numpy integers do not subclass int; the table must still take them."""
+    coefficients = gdacs.EarthquakeCoefficients(c1_shakemap=value)  # type: ignore[arg-type]
+    assert type(coefficients.c1_shakemap) is float
+    assert coefficients.c1_shakemap == 1.0
 
 
 @pytest.mark.parametrize(
@@ -117,6 +125,19 @@ def test_lcc_outside_its_scale_is_rejected(lcc: float) -> None:
 def test_coping_capacity_multiplies() -> None:
     assert gdacs.apply_coping_capacity(2.5, 0.5) == pytest.approx(1.25)
     assert gdacs.apply_coping_capacity(1.8, 1.5) == pytest.approx(2.7)
+
+
+def test_zero_exposure_factor_zero_is_accepted() -> None:
+    """GDACS reports factor 0 with score 0 on zero-exposure alerts (event 1568948)."""
+    assert gdacs.apply_coping_capacity(0.0, 0.0) == 0.0
+    with pytest.raises(ValueError, match="zero-exposure"):
+        gdacs.apply_coping_capacity(1.2, 0.0)
+
+
+def test_summed_cross_border_factor_is_refused_with_the_reason() -> None:
+    """A factor above 1.5 is a cross-border sum GDACS does not multiply by."""
+    with pytest.raises(ValueError, match="cross-border"):
+        gdacs.apply_coping_capacity(3.62, 2.35714285714286)  # event 1498339's values
 
 
 @pytest.mark.parametrize(("score", "factor"), [(1.0, 0.4), (1.0, 1.6), (float("nan"), 1.0)])
@@ -197,10 +218,24 @@ def _shakemap_events() -> list[tuple[str, str, dict[str, str]]]:
     return events
 
 
-# Cross-border events: GDACS averaged the countries' coefficients (AFG-PAK
-# reproduces its -1.855/0.845, PHL-IDN its -0.65/0.53) and summed their coping
-# factors, a rule its pages do not publish.
-_CROSS_BORDER = {"1498339", "1526507", "1544720"}
+# Cross-border events: GDACS reports the exposed countries' coefficients
+# averaged (AFG-PAK reproduces its -1.855/0.845, PHL-IDN its -0.65/0.53, and
+# the three-country CHL event its -0.78/0.5333) and their coping factors
+# summed, a rule its pages do not publish. The sums decompose exactly into
+# single-country factors recorded in this same sample (see
+# test_cross_border_factors_are_sums_of_single_country_factors).
+_CROSS_BORDER = {"1365556", "1437973", "1492605", "1498339", "1526507", "1544720"}
+
+# GDACS keys the terms by the shaken territory, not the event's iso3:
+# 1338219 (Chihshang, Taiwan) files under CHN but is scored with a Taiwan
+# entry absent from the published 2017 table — the global intercept and slope
+# with shakemap vulnerability exactly -0.56 (backed out of this event's
+# score to 1.5e-15) — and China's coping factor; 1202436 (Kashgar) files
+# under KGZ but is scored entirely with China's terms and factor.
+_TERRITORY_KEYED = {
+    "1338219": gdacs.EarthquakeCoefficients(vulnerability_shakemap=-0.56),
+    "1202436": gdacs.COUNTRY_COEFFICIENTS["CHN"],
+}
 
 
 def test_cross_border_events_are_the_ones_with_summed_factors() -> None:
@@ -213,13 +248,15 @@ def test_country_terms_match_gdacs_live_coefficients() -> None:
     """GDACS's reported intercept and slope are the 2017 table's for each country."""
     checked = 0
     for event_id, iso3, alert in _shakemap_events():
-        if event_id in _CROSS_BORDER or float(alert["ScaledPopulation"]) == 0.0:
+        if event_id in _CROSS_BORDER or event_id in _TERRITORY_KEYED:
+            continue
+        if float(alert["ScaledPopulation"]) == 0.0:
             continue
         terms = gdacs.earthquake_coefficients(iso3)
         assert float(alert["CoeffIntersept"]) == pytest.approx(-0.59 + terms.c1_shakemap), event_id
         assert float(alert["CoeffSlope"]) == pytest.approx(0.53 + terms.c2_shakemap), event_id
         checked += 1
-    assert checked == 21
+    assert checked == 25
 
 
 def test_shakemap_scores_reproduce_gdacs() -> None:
@@ -228,10 +265,9 @@ def test_shakemap_scores_reproduce_gdacs() -> None:
     for event_id, iso3, alert in _shakemap_events():
         if event_id in _CROSS_BORDER:
             continue
+        coefficients = _TERRITORY_KEYED.get(event_id) or gdacs.earthquake_coefficients(iso3)
         log_scaled = float(alert["ScaledPopulation"])
-        score = gdacs.shakemap_score(
-            0.0 if log_scaled == 0.0 else 10.0**log_scaled, gdacs.earthquake_coefficients(iso3)
-        )
+        score = gdacs.shakemap_score(0.0 if log_scaled == 0.0 else 10.0**log_scaled, coefficients)
         level = alert["AlertLevel"].lower()
         if log_scaled == 0.0:  # nobody above MMI VI: GDACS records 0 or 0.01, Green
             assert score == 0.0 and level == "green", event_id
@@ -240,7 +276,81 @@ def test_shakemap_scores_reproduce_gdacs() -> None:
         assert final == pytest.approx(float(alert["AlertScore"]), rel=1e-9), event_id
         assert gdacs.alert_level(final) == level, event_id
         reproduced += 1
-    assert reproduced == 21
+    assert reproduced == 27
+
+
+def _factor(event_id: str) -> float:
+    """The recorded LccNormalised of one fixture event."""
+    for eid, _iso3, alert in _shakemap_events():
+        if eid == event_id:
+            return float(alert["LccNormalised"])
+    raise AssertionError(f"no fixture for event {event_id}")
+
+
+def test_cross_border_factors_are_sums_of_single_country_factors() -> None:
+    """Each cross-border factor equals the sum of the countries' own recorded factors.
+
+    Every addend is a single-country event's LccNormalised from this same
+    fixture sample, so the sum rule is verified from GDACS's own outputs
+    alone (to the full precision GDACS reports).
+    """
+    sums = {
+        "1498339": ("1498907", "1487880"),  # AFG + PAK, both 2025
+        "1526507": ("1511252", "1500178"),  # BGD + IND
+        "1544720": ("1504796", "1496100"),  # PHL + IDN
+        "1365556": ("1478853", "1376865"),  # ECU + PER
+    }
+    for cross, parts in sums.items():
+        total = sum(_factor(part) for part in parts)
+        assert total == pytest.approx(_factor(cross), abs=1e-9), cross
+
+
+def test_cross_border_coefficients_are_country_averages() -> None:
+    """Reported cross-border intercept/slope average the countries' terms.
+
+    Two-country events average two tabled countries' terms; 1437973 (the
+    2024 Atacama M7.4 near the Chile-Bolivia-Argentina triple border)
+    averages Chile's terms with TWO global-model countries, pinning the rule
+    for three countries.
+    """
+    by_id = {eid: alert for eid, _iso3, alert in _shakemap_events()}
+
+    def live(terms: gdacs.EarthquakeCoefficients) -> tuple[float, float]:
+        return (-0.59 + terms.c1_shakemap, 0.53 + terms.c2_shakemap)
+
+    cases = {
+        "1498339": [live(gdacs.COUNTRY_COEFFICIENTS["AFG"]), live(gdacs.COUNTRY_COEFFICIENTS["PAK"])],
+        "1544720": [live(gdacs.COUNTRY_COEFFICIENTS["PHL"]), live(gdacs.COUNTRY_COEFFICIENTS["IDN"])],
+        "1437973": [
+            live(gdacs.COUNTRY_COEFFICIENTS["CHL"]),
+            live(gdacs.GLOBAL_COEFFICIENTS),
+            live(gdacs.GLOBAL_COEFFICIENTS),
+        ],
+    }
+    for event_id, terms in cases.items():
+        alert = by_id[event_id]
+        n = len(terms)
+        assert float(alert["CoeffIntersept"]) == pytest.approx(sum(t[0] for t in terms) / n), event_id
+        assert float(alert["CoeffSlope"]) == pytest.approx(sum(t[1] for t in terms) / n), event_id
+
+
+def test_territory_keyed_events_use_the_shaken_territorys_terms() -> None:
+    """GDACS keys coefficients by the shaken territory, not the event's iso3.
+
+    1338219 (Chihshang, Taiwan; iso3 CHN) carries the GLOBAL intercept and
+    slope, not China's calibrated ones; 1202436 (Kashgar; iso3 KGZ) carries
+    China's. Both carry China's coping factor and reproduce GDACS's score
+    with those terms (checked in test_shakemap_scores_reproduce_gdacs).
+    """
+    by_id = {eid: (iso3, alert) for eid, iso3, alert in _shakemap_events()}
+    iso3, alert = by_id["1338219"]
+    assert iso3 == "CHN"
+    assert float(alert["CoeffIntersept"]) == pytest.approx(-0.59)  # global, not CHN's -0.37
+    iso3, alert = by_id["1202436"]
+    assert iso3 == "KGZ"
+    chn = gdacs.COUNTRY_COEFFICIENTS["CHN"]
+    assert float(alert["CoeffIntersept"]) == pytest.approx(-0.59 + chn.c1_shakemap)
+    assert float(alert["CoeffSlope"]) == pytest.approx(0.53 + chn.c2_shakemap)
 
 
 _COUNTRY_ISO3 = {

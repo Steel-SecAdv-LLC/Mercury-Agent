@@ -1,7 +1,7 @@
 {
   "description": "Recorded real GDACS data. Earthquake files hold the JSON of the named public GDACS API responses, parsed and re-serialised with json.dumps (JSON-equal to the response bodies, not byte-identical); tropical cyclone timelines keep, unedited, the named fields of every track point of the response. Nothing is synthetic.",
   "source": "Global Disaster Alert and Coordination System (EC Joint Research Centre / UN OCHA), https://www.gdacs.org. Content (c) European Union, reused under CC BY 4.0 (https://commission.europa.eu/legal-notice_en#copyright-notice).",
-  "selection": "Earthquakes: the first 15 Red, 15 Orange and 8 Green events of GDACS's event lists for 2023-01-01 to 2026-10-01 (geteventlist/SEARCH?eventlist=EQ&alertlevel=<level>, recorded 2026-10-19). 30 of the 38 list a 'shakemap' impact; 26 are included. The other four (Red 1474477, 1548377, 1548473; Orange 1511252) could not be recorded: GDACS reset the connection or timed out on every attempt. Tropical cyclones: one Red (MELISSA-25, latest episode and episode 12), one Red JTWC (CHAMPI-26), two Orange (DITWAH-25, TAPAH-25) and one Green (CHOI-WAN-26) event, 152 track points.",
+  "selection": "Earthquakes: the first 15 Red, 15 Orange and 8 Green events of GDACS's event lists for 2023-01-01 to 2026-10-01 (geteventlist/SEARCH?eventlist=EQ&alertlevel=<level>, recorded 2026-10-19). 30 of the 38 list a 'shakemap' impact; 26 are included. Extended the same day from a 2018-2026 red/orange sweep plus targeted country searches (262 events examined): three more cross-border events (1365556, 1437973, 1492605), five single-country events whose factors decompose the cross-border sums (1511252 - previously unrecordable, now recorded - 1500178, 1478853, 1376865, 1487880), and two territory-keyed events (1338219, 1202436). Still unrecordable: Red 1474477 lists no shakemap impact at all (its sibling event 1474479 is in the sample), and the Venezuela Red pair 1548377/1548473's getimpact resources (764533, 763666) time out server-side on every attempt across sessions. Tropical cyclones: one Red (MELISSA-25, latest episode and episode 12), one Red JTWC (CHAMPI-26), two Orange (DITWAH-25, TAPAH-25) and one Green (CHOI-WAN-26) event, 152 track points.",
   "content": "eq_event_<id>.json: GDACS event details (country, affected countries, alert level and score). eq_shakemap_alert_<id>.json: GDACS shakemap impact model output, whose 'Alert Parameters' datum carries AlertLevel, AlertScore, ScaledPopulation (log10), CoeffIntersept, CoeffSlope, CountryVuln, LccNormalised and MaxMMI, and whose 'Pop' datum carries population by MMI band (ep3..ep9).",
   "notes": "Used by tests/infrastructure/humanitarian/test_gdacs.py to check the module against GDACS's own scores. GDACS's CountryVuln field reads 0 even where its score applies the 2017 table's country vulnerability. The tropical cyclone timelines check the GDACS MHEWS user manual's Table 1 (JRC141661, 2025; version of 23/09/2026) per track point.",
   "fixtures": {
@@ -300,6 +300,126 @@
       "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=805259",
       "recorded_utc": "2026-10-19T16:26:54Z",
       "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1437973.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1437973",
+      "recorded_utc": "2026-10-19T21:11:17Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "three-country cross-border (CHL+BOL+ARG per the averaged coefficients)"
+    },
+    "eq_shakemap_alert_1437973.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=609546",
+      "recorded_utc": "2026-10-19T21:11:29Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "three-country cross-border (CHL+BOL+ARG per the averaged coefficients)"
+    },
+    "eq_event_1365556.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1365556",
+      "recorded_utc": "2026-10-19T21:18:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border ECU+PER"
+    },
+    "eq_shakemap_alert_1365556.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=530697",
+      "recorded_utc": "2026-10-19T21:19:06Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border ECU+PER"
+    },
+    "eq_event_1492605.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1492605",
+      "recorded_utc": "2026-10-19T21:04:29Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border GTM+neighbour"
+    },
+    "eq_shakemap_alert_1492605.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=685418",
+      "recorded_utc": "2026-10-19T21:04:31Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border GTM+neighbour"
+    },
+    "eq_event_1511252.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1511252",
+      "recorded_utc": "2026-10-19T20:57:37Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country BGD (previously unrecordable; completes the BGD+IND sum)"
+    },
+    "eq_shakemap_alert_1511252.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=713281",
+      "recorded_utc": "2026-10-19T20:58:19Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country BGD (previously unrecordable; completes the BGD+IND sum)"
+    },
+    "eq_event_1500178.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1500178",
+      "recorded_utc": "2026-10-19T21:02:19Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country IND 2025 (completes the BGD+IND sum)"
+    },
+    "eq_shakemap_alert_1500178.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=698561",
+      "recorded_utc": "2026-10-19T21:02:21Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country IND 2025 (completes the BGD+IND sum)"
+    },
+    "eq_event_1478853.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1478853",
+      "recorded_utc": "2026-10-19T21:05:13Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country ECU 2025 (completes the ECU+PER sum)"
+    },
+    "eq_shakemap_alert_1478853.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=669517",
+      "recorded_utc": "2026-10-19T21:05:14Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country ECU 2025 (completes the ECU+PER sum)"
+    },
+    "eq_event_1376865.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1376865",
+      "recorded_utc": "2026-10-19T21:18:39Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PER 2023 (completes the ECU+PER sum)"
+    },
+    "eq_shakemap_alert_1376865.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=542116",
+      "recorded_utc": "2026-10-19T21:18:40Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PER 2023 (completes the ECU+PER sum)"
+    },
+    "eq_event_1487880.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1487880",
+      "recorded_utc": "2026-10-19T21:28:26Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PAK 2025 (completes the AFG+PAK sum); zero-exposure Green"
+    },
+    "eq_shakemap_alert_1487880.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=677803",
+      "recorded_utc": "2026-10-19T21:28:28Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PAK 2025 (completes the AFG+PAK sum); zero-exposure Green"
+    },
+    "eq_event_1338219.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1338219",
+      "recorded_utc": "2026-10-19T20:26:47Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Taiwan event filed under CHN, scored with the global coefficients"
+    },
+    "eq_shakemap_alert_1338219.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=498578",
+      "recorded_utc": "2026-10-19T20:26:50Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Taiwan event filed under CHN, scored with the global coefficients"
+    },
+    "eq_event_1202436.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1202436",
+      "recorded_utc": "2026-10-19T20:36:51Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "event filed under KGZ, scored entirely with China's terms and factor"
+    },
+    "eq_shakemap_alert_1202436.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=345425",
+      "recorded_utc": "2026-10-19T20:36:52Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "event filed under KGZ, scored entirely with China's terms and factor"
     }
   }
 }
