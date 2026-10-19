@@ -10,6 +10,16 @@ indicators of both reports. The affected population is the exposure the GEOINT
 report supplies (``affected_population``, or ``population_density`` per km²
 times ``affected_area_km2``), the quantity GDACS-style impact estimates rest
 on; without exposure data it is ``None`` rather than a guess.
+
+When a GEOINT report carries the inputs of a published GDACS model (see
+:mod:`.gdacs`), the alert also carries the GDACS level: earthquake scores from
+the shakemap or "EQ parameters" model, and flood levels from reported deaths and
+displaced people. An Orange or Red level counts as a detected crisis and raises
+severity to at least ``high`` or to ``critical``, this module's reading of
+GDACS's descriptions (Orange: national capacity may need support; Red:
+international intervention likely); the hazard makes the type
+``natural_disaster``. Incomplete or invalid GDACS inputs are named in the
+response instead of being guessed.
 """
 
 from __future__ import annotations
@@ -17,8 +27,52 @@ from __future__ import annotations
 import logging
 import math
 import re
-from dataclasses import dataclass
-from typing import Any
+from collections.abc import Mapping
+from dataclasses import dataclass, fields, replace
+from typing import Any, NamedTuple
+
+import numpy as np
+
+from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring import gdacs
+
+# Earthquake scores are calibrated to casualties: below 1 under about 10, 1-2
+# about 10-100, 2 and above more than 100 (gdacs.org/Knowledge/models_eq.aspx);
+# flood levels are thresholds on reported deaths and displacement (models_fl).
+_GDACS_RESPONSE = {
+    ("earthquake", "red"): (
+        "GDACS Red earthquake: humanitarian intervention likely needed "
+        "(score calibrated to 100+ casualties)"
+    ),
+    ("earthquake", "orange"): (
+        "GDACS Orange earthquake: national capacity may need support "
+        "(score calibrated to 10-100 casualties)"
+    ),
+    ("earthquake", "green"): "GDACS Green earthquake: within national coping capacity",
+    ("flood", "red"): "GDACS Red flood: more than 1,000 dead or 800,000 displaced",
+    ("flood", "orange"): "GDACS Orange flood: more than 100 dead or 80,000 displaced",
+    ("flood", "green"): "GDACS Green flood: below the Orange thresholds",
+}
+_SEVERITIES = ("low", "medium", "high", "critical")
+_GDACS_SEVERITY = {"orange": "high", "red": "critical"}
+_EARTHQUAKE_INPUTS = ("population_by_mmi", "magnitude", "depth_km", "population_within_km")
+_FLOOD_INPUTS = ("deaths", "displaced")
+_GDACS_INPUTS = (
+    "hazard",
+    *_EARTHQUAKE_INPUTS,
+    *_FLOOD_INPUTS,
+    "inform_lcc",
+    "coping_capacity_factor",
+    "country_iso3",
+    "gdacs_coefficients",
+)
+
+
+class _GdacsAssessment(NamedTuple):
+    hazard: str
+    level: str | None
+    score: float | None
+    notes: list[str]
+
 
 # Word-boundary patterns per crisis type, checked in this order.
 _CRISIS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -58,6 +112,8 @@ class CrisisAlert:
     survivor_priorities: list[str]
     geoint_indicators: list[str]
     recommended_response: list[str]
+    gdacs_level: str | None = None
+    gdacs_score: float | None = None
 
 
 class CrisisMonitor:
@@ -96,7 +152,16 @@ class CrisisMonitor:
         Args:
             geoint_data: Geospatial intelligence data: ``threat_score`` in [0, 1],
                 ``indicators``, and exposure as ``affected_population`` or
-                ``population_density`` (per km²) with ``affected_area_km2``
+                ``population_density`` (per km²) with ``affected_area_km2``.
+                Optional GDACS inputs: ``hazard`` (``earthquake`` or
+                ``flood``, else inferred from the inputs and indicators);
+                ``population_by_mmi`` (``{"VII": n, "VIII": n, "IX": n}``) or
+                ``magnitude``, ``depth_km`` and ``population_within_km``
+                (``{20: n, 50: n, 75: n, 100: n}``); ``deaths`` and
+                ``displaced``; ``inform_lcc`` or ``coping_capacity_factor``;
+                ``country_iso3`` for GDACS's country terms; and
+                ``gdacs_coefficients`` overriding them by
+                :class:`~.gdacs.EarthquakeCoefficients` field name
             osint_data: Open-source intelligence data: ``threat_score`` and
                 ``indicators``
 
@@ -108,11 +173,22 @@ class CrisisMonitor:
 
         crisis_score = self._compute_crisis_score(geoint_data, osint_data)
 
-        crisis_detected = crisis_score > self.severity_threshold
-
         crisis_type = self._classify_crisis(geoint_data, osint_data)
 
+        assessment = self._gdacs_assessment(geoint_data, osint_data)
+        gdacs_level, gdacs_score = assessment.level, assessment.score
+        if assessment.hazard in ("earthquake", "flood"):
+            crisis_type = "natural_disaster"
+
+        crisis_detected = crisis_score > self.severity_threshold or gdacs_level in (
+            "orange",
+            "red",
+        )
+
         severity = self._determine_severity(crisis_score)
+        floor = _GDACS_SEVERITY.get(gdacs_level or "")
+        if floor and _SEVERITIES.index(floor) > _SEVERITIES.index(severity):
+            severity = floor
 
         affected_population = self._estimate_affected_population(geoint_data)
 
@@ -123,6 +199,9 @@ class CrisisMonitor:
         geoint_indicators = self._extract_geoint_indicators(geoint_data)
 
         response = self._recommend_response(crisis_type, severity, affected_population)
+        if gdacs_level is not None:
+            response.insert(0, _GDACS_RESPONSE[(assessment.hazard, gdacs_level)])
+        response.extend(assessment.notes)
 
         alert = CrisisAlert(
             crisis_detected=crisis_detected,
@@ -133,6 +212,8 @@ class CrisisMonitor:
             survivor_priorities=survivor_priorities,
             geoint_indicators=geoint_indicators,
             recommended_response=response,
+            gdacs_level=gdacs_level,
+            gdacs_score=gdacs_score,
         )
 
         if crisis_detected:
@@ -142,6 +223,118 @@ class CrisisMonitor:
             )
 
         return alert
+
+    def _gdacs_assessment(
+        self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
+    ) -> _GdacsAssessment:
+        """GDACS hazard, level, score and notes from the report's inputs.
+
+        The level is ``None`` when the report carries no GDACS inputs, or when
+        they are incomplete or invalid, which a note then explains.
+        """
+        hazard = self._gdacs_hazard(geoint_data, osint_data)
+        if hazard not in ("earthquake", "flood"):
+            return _GdacsAssessment(hazard, None, None, [])
+        stated = any(key in geoint_data for key in _GDACS_INPUTS)
+        notes: list[str] = []
+        try:
+            if hazard == "flood":
+                if not any(key in geoint_data for key in _FLOOD_INPUTS):
+                    missing = ["GDACS flood level needs deaths or displaced"] if stated else []
+                    return _GdacsAssessment(hazard, None, None, missing)
+                level = gdacs.flood_alert_level(
+                    _number(geoint_data.get("deaths", 0)), _number(geoint_data.get("displaced", 0))
+                )
+                return _GdacsAssessment(hazard, level, None, notes)
+            by_mmi = geoint_data.get("population_by_mmi")
+            if by_mmi is not None:
+                by_mmi = _mapping("population_by_mmi", by_mmi)
+                unknown = set(by_mmi) - {"VII", "VIII", "IX"}
+                if unknown:
+                    raise ValueError(
+                        f"population_by_mmi takes VII, VIII and IX, not {sorted(map(str, unknown))}"
+                    )
+                score = gdacs.earthquake_shakemap_score(
+                    _number(by_mmi.get("VII", 0)),
+                    _number(by_mmi.get("VIII", 0)),
+                    _number(by_mmi.get("IX", 0)),
+                    self._gdacs_coefficients(geoint_data, notes),
+                )
+            elif "magnitude" in geoint_data and "population_within_km" in geoint_data:
+                radii = _radii(geoint_data["population_within_km"])
+                score = gdacs.earthquake_parameter_score(
+                    _number(geoint_data["magnitude"]),
+                    _number(geoint_data.get("depth_km")),
+                    radii,
+                    self._gdacs_coefficients(geoint_data, notes),
+                )
+            else:
+                missing = (
+                    [
+                        "GDACS earthquake level needs population_by_mmi, or magnitude, "
+                        "depth_km and population_within_km"
+                    ]
+                    if stated
+                    else []
+                )
+                return _GdacsAssessment(hazard, None, None, missing)
+            factor = geoint_data.get("coping_capacity_factor")
+            if factor is None and geoint_data.get("inform_lcc") is not None:
+                factor = gdacs.coping_capacity_factor(_number(geoint_data["inform_lcc"]))
+            if factor is None:
+                notes.append("GDACS score uses no coping-capacity factor (no INFORM LCC supplied)")
+                return _GdacsAssessment(hazard, gdacs.alert_level(score), score, notes)
+            final = gdacs.apply_coping_capacity(score, _number(factor))
+            return _GdacsAssessment(hazard, gdacs.alert_level(final), final, notes)
+        except (TypeError, ValueError) as error:
+            return _GdacsAssessment(hazard, None, None, [f"GDACS level not computed: {error}"])
+
+    def _gdacs_hazard(self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None) -> str:
+        """The stated ``hazard``, else the one whose model inputs the report carries."""
+        stated = geoint_data.get("hazard")
+        if stated is not None:
+            return str(stated).strip().lower()
+        if any(key in geoint_data for key in _EARTHQUAKE_INPUTS if key != "depth_km"):
+            return "earthquake"
+        indicated = self._infer_hazards(geoint_data, osint_data)
+        if "flood" in indicated and any(key in geoint_data for key in _FLOOD_INPUTS):
+            return "flood"
+        for hazard in ("earthquake", "flood"):
+            if hazard in indicated:
+                return hazard
+        return ""
+
+    @staticmethod
+    def _gdacs_coefficients(
+        geoint_data: dict[str, Any], notes: list[str]
+    ) -> gdacs.EarthquakeCoefficients:
+        """Terms from GDACS's table for ``country_iso3``, overridden by ``gdacs_coefficients``."""
+        iso3 = geoint_data.get("country_iso3")
+        overrides = _mapping("gdacs_coefficients", geoint_data.get("gdacs_coefficients") or {})
+        if iso3 is None:
+            base = gdacs.GLOBAL_COEFFICIENTS
+            if not overrides:
+                notes.append("GDACS score uses the global model (no country_iso3 supplied)")
+        else:
+            base = gdacs.earthquake_coefficients(iso3)
+        unknown = set(overrides) - {f.name for f in fields(base)}
+        if unknown:
+            raise ValueError(f"unknown gdacs_coefficients {sorted(map(str, unknown))}")
+        return replace(base, **{name: _number(value) for name, value in overrides.items()})
+
+    @staticmethod
+    def _infer_hazards(geoint_data: dict[str, Any], osint_data: dict[str, Any] | None) -> set[str]:
+        """The GDACS hazards (``earthquake``, ``flood``) the indicators name."""
+        indicators = list(_as_list(geoint_data.get("indicators")))
+        if osint_data:
+            indicators.extend(_as_list(osint_data.get("indicators")))
+        text = " ".join(re.sub(r"[_\-]+", " ", str(i)).lower() for i in indicators)
+        hazards = set()
+        if re.search(r"\bearthquakes?\b", text):
+            hazards.add("earthquake")
+        if re.search(r"\bflood\w*", text):
+            hazards.add("flood")
+        return hazards
 
     def _compute_crisis_score(
         self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
@@ -307,3 +500,38 @@ def _as_list(value: Any) -> list[Any]:
         return list(value)
     except TypeError:
         return [value]
+
+
+def _mapping(name: str, value: Any) -> Mapping[Any, Any]:
+    """``value`` if it is a mapping, else ``ValueError`` naming ``name``."""
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{name} must be a mapping, got {type(value).__name__}")
+    return value
+
+
+def _number(value: Any) -> float:
+    """A finite float, else ``ValueError`` (booleans are not numbers here)."""
+    if value is None or isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"expected a number, got {value!r}")
+    try:
+        number = float(value)
+    except OverflowError:
+        raise ValueError(
+            f"expected a finite number, got {type(value).__name__} too large for a float"
+        ) from None
+    if not math.isfinite(number):
+        raise ValueError(f"expected a finite number, got {value!r}")
+    return number
+
+
+def _radii(value: Any) -> dict[int, float]:
+    """``population_within_km`` keyed by whole-km radius, each radius once."""
+    radii: dict[int, float] = {}
+    for key, population in _mapping("population_within_km", value).items():
+        radius = _number(key)
+        if not radius.is_integer():
+            raise ValueError(f"population_within_km radius {key!r} is not a whole number of km")
+        if int(radius) in radii:
+            raise ValueError(f"population_within_km gives the {int(radius)} km radius twice")
+        radii[int(radius)] = _number(population)
+    return radii

@@ -158,13 +158,13 @@ class MedicalCoordinator:
                 "class_": EpidemicForecaster,
                 "category": "pandemic",
                 "priority": "high",
-                "description": "SEIR forecasting with R0 and an epidemic-threshold test",
+                "description": "SEIR forecasting: R0, an epidemic-threshold test, fitted forecasts",
             },
             "pathogen_detector": {
                 "class_": PathogenDetector,
                 "category": "pandemic",
                 "priority": "high",
-                "description": "Baseline-calibrated pathogen alarms with MASINT fusion",
+                "description": "Calibrated pathogen alarms, a sequential test, MASINT fusion",
             },
             # Critical Care
             "sepsis_detector": {

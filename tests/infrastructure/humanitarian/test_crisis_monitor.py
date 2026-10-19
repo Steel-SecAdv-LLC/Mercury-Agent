@@ -4,6 +4,11 @@
 
 from __future__ import annotations
 
+import math
+
+import numpy as np
+import pytest
+
 from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring.crisis_monitor import (
     CrisisAlert,
     CrisisMonitor,
@@ -497,3 +502,201 @@ class TestCrisisMonitorCorrectness:
         assert monitor.monitor_crisis(geoint_data={"threat_score": "high"}).severity == "low"
         assert monitor.monitor_crisis(geoint_data={"threat_score": -2}).severity == "low"
         assert monitor.monitor_crisis(geoint_data={"threat_score": True}).severity == "low"
+
+
+class TestCrisisMonitorGdacs:
+    """GDACS levels from the inputs of its published models (see ``test_gdacs``)."""
+
+    _MMI = {"VII": 0, "VIII": 0, "IX": 1_000_000}  # global score -0.59 + 0.53 x 7 = 3.12
+
+    def test_red_earthquake_is_a_crisis_without_a_report_score(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"hazard": "Earthquake", "population_by_mmi": self._MMI, "inform_lcc": 5.1}
+        )
+        assert alert.gdacs_level == "red"
+        assert alert.gdacs_score == pytest.approx(3.12)
+        assert alert.crisis_detected
+        assert alert.recommended_response[0].startswith("GDACS Red")
+
+    def test_country_terms_and_coping_capacity_apply(self) -> None:
+        exposure = {"VII": 100_000, "VIII": 20_000, "IX": 1_000}  # global score 1.849
+        base = {"hazard": "earthquake", "population_by_mmi": exposure, "inform_lcc": 5.1}
+        monitor = CrisisMonitor()
+        assert monitor.monitor_crisis(geoint_data=base).gdacs_level == "orange"
+        japan = monitor.monitor_crisis(geoint_data={**base, "country_iso3": "JPN"})
+        assert japan.gdacs_level == "green"
+        assert not japan.crisis_detected
+        fragile = monitor.monitor_crisis(geoint_data={**base, "coping_capacity_factor": 1.5})
+        assert fragile.gdacs_level == "red"
+        assert fragile.gdacs_score == pytest.approx(1.5 * (-0.59 + 0.53 * math.log10(40_000)))
+
+    def test_overrides_replace_country_terms(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "hazard": "earthquake",
+                "population_by_mmi": {"VII": 100_000, "VIII": 20_000, "IX": 1_000},
+                "country_iso3": "JPN",
+                "gdacs_coefficients": {"vulnerability_shakemap": 0.0},
+                "inform_lcc": 5.1,
+            }
+        )
+        assert alert.gdacs_level == "orange"
+
+    def test_missing_country_and_coping_capacity_are_stated(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"hazard": "earthquake", "population_by_mmi": self._MMI}
+        )
+        assert "GDACS score uses the global model (no country_iso3 supplied)" in (
+            alert.recommended_response
+        )
+        assert any("no coping-capacity factor" in r for r in alert.recommended_response)
+
+    def test_parameter_model_without_shakemap(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={
+                "indicators": ["earthquake M7.0"],
+                "magnitude": 7.0,
+                "depth_km": 10.0,
+                "population_within_km": {
+                    "20": 50_000,
+                    "50": 200_000,
+                    "75": 400_000,
+                    "100": 600_000,
+                },
+                "country_iso3": "USA",
+                "inform_lcc": 5.1,
+            }
+        )
+        assert alert.gdacs_level == "orange"
+        assert alert.gdacs_score == pytest.approx(1.753927, abs=1e-6)
+
+    def test_flood_level_from_deaths_or_displaced(self) -> None:
+        monitor = CrisisMonitor()
+        orange = monitor.monitor_crisis(
+            geoint_data={"indicators": ["river flooding"], "deaths": 150}
+        )
+        assert orange.gdacs_level == "orange" and orange.crisis_detected
+        assert orange.gdacs_score is None
+        red = monitor.monitor_crisis(geoint_data={"hazard": "flood", "displaced": 900_000})
+        assert red.gdacs_level == "red"
+
+    @pytest.mark.parametrize(
+        ("extra", "reason"),
+        [
+            ({"population_by_mmi": {"7": 100}}, "takes VII, VIII and IX"),
+            ({"population_by_mmi": [1, 2, 3]}, "must be a mapping"),
+            ({"population_by_mmi": {"IX": 10}, "gdacs_coefficients": {"c3": 1}}, "unknown"),
+            ({"population_by_mmi": {"IX": 10}, "country_iso3": "Japan"}, "alpha-3"),
+            ({"population_by_mmi": {"IX": 10}, "inform_lcc": 12}, "inform_lcc"),
+            ({"magnitude": 7.0, "population_within_km": [20, 50]}, "must be a mapping"),
+            (
+                {"magnitude": 7.0, "population_within_km": dict.fromkeys((20, 50, 75, 100), 1)},
+                "number",
+            ),
+        ],
+    )
+    def test_invalid_inputs_give_no_level_and_a_reason(
+        self, extra: dict[str, object], reason: str
+    ) -> None:
+        alert = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "earthquake", **extra})
+        assert alert.gdacs_level is None and alert.gdacs_score is None
+        assert any(
+            r.startswith("GDACS level not computed") and reason in r
+            for r in alert.recommended_response
+        )
+
+    def test_level_sets_severity_and_type(self) -> None:
+        """Red is critical and Orange high, with no score or indicators supplied."""
+        monitor = CrisisMonitor()
+        red = monitor.monitor_crisis(
+            geoint_data={"hazard": "earthquake", "population_by_mmi": self._MMI, "inform_lcc": 9.3}
+        )
+        assert (red.severity, red.crisis_type) == ("critical", "natural_disaster")
+        assert "Activate national emergency response (FEMA, Red Cross)" in red.recommended_response
+        assert "General population" in red.vulnerable_groups
+        orange = monitor.monitor_crisis(geoint_data={"hazard": "flood", "deaths": 150})
+        assert orange.severity == "high"
+        stronger = monitor.monitor_crisis(
+            geoint_data={"hazard": "flood", "deaths": 150, "threat_score": 0.95}
+        )
+        assert stronger.severity == "critical"  # the score can raise it further
+
+    def test_flood_levels_are_described_as_floods(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "flood", "deaths": 900})
+        assert alert.recommended_response[0] == (
+            "GDACS Orange flood: more than 100 dead or 80,000 displaced"
+        )
+
+    def test_hazard_follows_the_inputs(self) -> None:
+        monitor = CrisisMonitor()
+        quake = monitor.monitor_crisis(
+            geoint_data={"population_by_mmi": self._MMI, "country_iso3": "TUR", "inform_lcc": 5}
+        )
+        assert quake.gdacs_level == "red" and quake.crisis_type == "natural_disaster"
+        flood = monitor.monitor_crisis(
+            geoint_data={"indicators": ["earthquake", "flooding"], "deaths": 5000, "displaced": 1e6}
+        )
+        assert flood.gdacs_level == "red"
+        assert flood.recommended_response[0].startswith("GDACS Red flood")
+
+    def test_incomplete_inputs_are_named(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"hazard": "earthquake", "magnitude": 7.8, "depth_km": 10}
+        )
+        assert alert.gdacs_level is None
+        assert (
+            "GDACS earthquake level needs population_by_mmi, or magnitude, depth_km and "
+            "population_within_km"
+        ) in alert.recommended_response
+        flood = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "flood"})
+        assert "GDACS flood level needs deaths or displaced" in flood.recommended_response
+
+    @pytest.mark.parametrize(
+        ("geoint", "reason"),
+        [
+            ({"hazard": "flood", "deaths": 10**400}, "too large"),
+            ({"population_by_mmi": {"IX": 10**400}}, "too large"),
+            ({"population_by_mmi": {"IX": np.True_}}, "expected a number"),
+            (
+                {"magnitude": 7.0, "depth_km": 10, "population_within_km": {math.inf: 1}},
+                "finite",
+            ),
+            (
+                {
+                    "magnitude": 7.0,
+                    "depth_km": 10,
+                    "population_within_km": {20.9: 1, 50: 2, 75: 3, 100: 4},
+                },
+                "whole number",
+            ),
+            (
+                {
+                    "magnitude": 7.0,
+                    "depth_km": 10,
+                    "population_within_km": {20: 5, "20": 0, 50: 6, 75: 7, 100: 8},
+                },
+                "twice",
+            ),
+        ],
+    )
+    def test_hostile_numbers_give_a_reason_not_a_crash(
+        self, geoint: dict[str, object], reason: str
+    ) -> None:
+        """Fails on the first GDACS integration (OverflowError, silent truncation)."""
+        alert = CrisisMonitor().monitor_crisis(geoint_data=geoint)
+        assert alert.gdacs_level is None
+        assert any(
+            r.startswith("GDACS level not computed") and reason in r
+            for r in alert.recommended_response
+        )
+
+    def test_bool_counts_are_not_numbers(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(geoint_data={"hazard": "flood", "deaths": True})
+        assert alert.gdacs_level is None
+
+    def test_reports_without_gdacs_inputs_are_unchanged(self) -> None:
+        alert = CrisisMonitor().monitor_crisis(
+            geoint_data={"threat_score": 0.3, "indicators": ["earthquake"]}
+        )
+        assert alert.gdacs_level is None and not alert.crisis_detected
+        assert not any("GDACS" in r for r in alert.recommended_response)

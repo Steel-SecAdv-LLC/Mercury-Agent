@@ -18,12 +18,17 @@ Mathematical Foundation:
   Λ > 0, i.e. when R0·S0/N > 1, and Λ is the early exponential growth rate.
 - R from incidence: R = (1 + r/σ)(1 + r/γ) for an observed growth rate r
   (Wallinga & Lipsitch 2007, eq. 3.2), with r from a Poisson log-linear fit.
+- Fitted forecast: β fitted to daily incidence by negative-binomial maximum
+  likelihood, with parametric-bootstrap intervals for R0, the expected
+  incidence and future counts (:mod:`.incidence_fit`).
 
 References:
 - Kermack & McKendrick (1927); Anderson & May (1991)
 - van den Driessche & Watmough (2002), Math. Biosci. 180:29-48
 - Wallinga & Lipsitch (2007), Proc. R. Soc. B 274:599-604
 - Obadia, Haneef & Boëlle (2012), BMC Med. Inform. Decis. Mak. 12:147 (R0 package)
+- Chowell, Bleichrodt & Luo (2024), Stat. Med. 43:1826-1848
+- King, Domenech de Cellès, Magpantay & Rohani (2015), Proc. R. Soc. B 282:20150347
 """
 
 from __future__ import annotations
@@ -34,6 +39,11 @@ from typing import Any
 
 import numpy as np
 from scipy.integrate import odeint
+
+from omni_mercury_engine.medical.pandemic.forecasting.incidence_fit import (
+    IncidenceForecast,
+    fit_seir_incidence,
+)
 
 
 @dataclass
@@ -61,7 +71,8 @@ class EpidemicForecaster:
 
     Features:
     - SEIR compartmental model integration on a daily grid
-    - R0 = β/γ, and R estimated from observed daily incidence
+    - R0 = β/γ, R estimated from observed daily incidence, and β fitted to it
+      with forecast intervals (:meth:`fit_to_incidence`)
     - Epidemic-threshold test: ``chaos_score`` is Λ, the early growth rate per
       day; ``bifurcation_detected`` is ``Λ > chaos_threshold`` (default 0, the
       R_eff = 1 threshold)
@@ -297,6 +308,34 @@ class EpidemicForecaster:
         if growth_rate <= -min(self.sigma, self.gamma):
             raise ValueError(f"growth rate {growth_rate:.4f}/day is outside the model's range")
         return float((1.0 + growth_rate / self.sigma) * (1.0 + growth_rate / self.gamma))
+
+    def fit_to_incidence(
+        self,
+        daily_cases: np.ndarray[Any, Any],
+        *,
+        horizon_days: int = 14,
+        n_bootstrap: int = 200,
+        level: float = 0.95,
+        seed: int | None = None,
+        initial_recovered: float = 0.0,
+    ) -> IncidenceForecast:
+        """Fit β to observed daily incidence and forecast it with bootstrap intervals.
+
+        Uses this forecaster's σ, γ and population; see
+        :func:`~.incidence_fit.fit_seir_incidence` for the method, arguments
+        and errors. The fit does not change ``self.beta``.
+        """
+        return fit_seir_incidence(
+            daily_cases,
+            population=self.population,
+            sigma=self.sigma,
+            gamma=self.gamma,
+            horizon_days=horizon_days,
+            n_bootstrap=n_bootstrap,
+            level=level,
+            seed=seed,
+            initial_recovered=initial_recovered,
+        )
 
     def _assess_pandemic_impact(
         self, peak_infections: int, r0: float, total_infections: int

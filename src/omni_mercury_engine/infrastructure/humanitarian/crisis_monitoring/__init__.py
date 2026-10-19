@@ -3,7 +3,8 @@
 """Crisis Monitoring Module for Humanitarian CI.
 
 Fuses GEOINT (Geospatial Intelligence) and OSINT reports on natural
-disasters, outbreaks, infrastructure failures and mass-casualty incidents.
+disasters, outbreaks, infrastructure failures and mass-casualty incidents,
+with GDACS alert levels for earthquakes and floods (:mod:`.gdacs`).
 
 Part of Mercury Agent Infrastructure module.
 """

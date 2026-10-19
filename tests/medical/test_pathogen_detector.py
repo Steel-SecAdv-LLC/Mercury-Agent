@@ -194,3 +194,81 @@ def test_fixed_threshold_skips_calibration() -> None:
 def test_empty_input_is_no_threat(fitted: PathogenDetector) -> None:
     assert not fitted.detect_pathogen(np.array([])).threat_detected
     assert fitted.extract_features(np.array([])).shape == (_DIM,)
+
+
+def test_monitor_false_alarms_respect_the_mean_time() -> None:
+    """While the stream is like the baseline, sequential alarms are >= c apart on average.
+
+    About 400 gaps; 0.85 c is about 4 standard errors below the expected 1.05 c.
+    """
+    detector = PathogenDetector({"mean_snapshots_to_false_alarm": 50}).fit(_sensor_data(0, 1000))
+    stream = _sensor_data(7, 20_000)
+    alarms = [i for i, row in enumerate(stream, 1) if detector.monitor(row).sequential_alarm]
+    assert len(alarms) >= 300
+    assert alarms[-1] / len(alarms) >= 0.85 * 50
+
+
+def test_monitor_finds_a_shift_single_snapshots_miss() -> None:
+    """A persistent 1.5 sd shift on one channel: rare snapshot alarms, a sequential alarm."""
+    detector = PathogenDetector().fit(_sensor_data(0, 1000))
+    mean, scale = _stats(detector)
+    for row in _sensor_data(8, 100):
+        detector.monitor(row)
+    assert detector._monitor is not None
+    detector._monitor.reset()  # measure from the onset; null alarms are tested above
+    shifted = _sensor_data(9, 400)
+    shifted[:, 0] += 1.5 * scale[0]
+    results = [detector.monitor(row) for row in shifted]
+    assert np.mean([r.energy_score > (detector.energy_threshold or 0.0) for r in results]) < 0.2
+    first = next(r for r in results if r.sequential_alarm)
+    assert first.threat_detected
+    assert first.pathogen_type == "unclassified_anomaly"
+    assert first.bio_signatures[0].startswith("Sequential test: energies persistently above")
+    assert first.recommended_interdiction[0].startswith("Presumptive alarm")
+    assert first.change_statistic is not None and first.change_statistic >= np.log(1000)
+
+
+def test_detect_pathogen_leaves_the_monitor_alone(fitted: PathogenDetector) -> None:
+    result = fitted.detect_pathogen(_sensor_data(10, 1)[0])
+    assert not result.sequential_alarm and result.change_statistic is None
+
+
+def test_refit_restarts_the_monitor() -> None:
+    detector = PathogenDetector().fit(_sensor_data(0, 1000))
+    for row in _sensor_data(11, 50):
+        detector.monitor(row)
+    assert detector._monitor is not None and detector._monitor.bag_size == 350
+    detector.fit(_sensor_data(0, 1000))
+    assert detector._monitor is not None and detector._monitor.bag_size == 300
+
+
+def test_monitor_needs_a_calibrated_fit() -> None:
+    with pytest.raises(RuntimeError, match="calibrated"):
+        PathogenDetector().monitor(np.ones(_DIM))
+    fixed = PathogenDetector({"energy_threshold": 10.0}).fit(_sensor_data(0, 50))
+    with pytest.raises(RuntimeError, match="calibrated"):
+        fixed.monitor(np.ones(_DIM))
+
+
+def test_monitor_rejects_an_empty_snapshot(fitted: PathogenDetector) -> None:
+    with pytest.raises(ValueError, match="empty"):
+        fitted.monitor(np.array([]))
+
+
+def test_seeded_monitor_is_reproducible() -> None:
+    baseline, stream = _sensor_data(0, 1000), _sensor_data(12, 100)
+    runs = [PathogenDetector({"seed": 5}).fit(baseline) for _ in range(2)]
+    a, b = ([d.monitor(row).change_statistic for row in stream] for d in runs)
+    assert a == b
+
+
+@pytest.mark.parametrize("seed", ["7", 1.5, True])
+def test_seed_must_be_an_integer(seed: object) -> None:
+    with pytest.raises(ValueError, match="seed"):
+        PathogenDetector({"seed": seed})
+
+
+@pytest.mark.parametrize("value", [1.0, 0.5, float("nan"), float("inf")])
+def test_mean_time_to_false_alarm_is_validated(value: float) -> None:
+    with pytest.raises(ValueError, match="mean_snapshots_to_false_alarm"):
+        PathogenDetector({"mean_snapshots_to_false_alarm": value})

@@ -20,6 +20,13 @@ Mathematical Foundation:
   with probability at most ``false_alarm_rate`` on average over the calibration
   draw (Vovk et al. 2005); one baseline's realised rate varies around it (up to
   about 3% at a 1% target with 300 held-out snapshots).
+- Sequential test (:meth:`PathogenDetector.monitor`): a conformal
+  Shiryaev-Roberts test on the stream of energies
+  (:mod:`omni_mercury_engine.core.conformal_martingale`), seeded with the
+  held-out energies. It alarms on a persistent rise too small for one snapshot
+  to cross E_critical; while the stream is like the baseline, its alarms are at
+  least ``mean_snapshots_to_false_alarm`` snapshots apart on average. ``seed``
+  seeds the uniform draws of its smoothed p-values.
 
 An alarm is presumptive. Sensor readings cannot identify an agent: the type is
 taken from a MASINT report when one names a known agent, and laboratory
@@ -29,12 +36,14 @@ confirmation (as in the BioWatch PCR process) comes before any public action.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import numbers
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
 import torch
 
+from omni_mercury_engine.core.conformal_martingale import ConformalChangeDetector
 from omni_mercury_engine.detectors.detection_tier import conformal_threshold
 
 _FIT_FRACTION = 0.7
@@ -54,6 +63,10 @@ class BioThreatResult:
     masint_indicators: list[str]
     recommended_interdiction: list[str]
 
+    # Set by PathogenDetector.monitor; detect_pathogen leaves the defaults.
+    sequential_alarm: bool = False
+    change_statistic: float | None = None
+
 
 class PathogenDetector:
     """Baseline-calibrated pathogen detector (Medical Interdiction).
@@ -64,6 +77,7 @@ class PathogenDetector:
     Features:
     - Gaussian energy model fitted to the baseline (couplings in ``J_matrix``)
     - Split-conformal threshold bounding the false-alarm rate
+    - Sequential conformal change test over a stream (:meth:`monitor`)
     - Per-channel signatures relative to the baseline
     - MASINT agent reports for classification and escalation
     """
@@ -78,7 +92,9 @@ class PathogenDetector:
                 and an optional fixed ``energy_threshold`` (an energy, so >= 0;
                 an alarm is ``E > energy_threshold``) that replaces calibration.
                 The released detector's -0.5 default meant ``E < -0.5`` and is
-                rejected.
+                rejected. ``mean_snapshots_to_false_alarm`` (default 1000) is
+                the threshold of the sequential test in :meth:`monitor`, and
+                ``seed`` (an integer, default None) seeds that test.
 
         Raises:
             ValueError: If a setting is out of range.
@@ -92,6 +108,9 @@ class PathogenDetector:
         self.false_alarm_rate = float(self.config.get("false_alarm_rate", 0.01))
         self.shrinkage = float(self.config.get("shrinkage", 0.1))
         self.ridge = float(self.config.get("ridge", 1e-6))
+        self.mean_snapshots_to_false_alarm = float(
+            self.config.get("mean_snapshots_to_false_alarm", 1000.0)
+        )
         fixed = self.config.get("energy_threshold")
         self._fixed_threshold: float | None = None if fixed is None else float(fixed)
         self.energy_threshold: float | None = self._fixed_threshold
@@ -102,6 +121,14 @@ class PathogenDetector:
             raise ValueError(f"shrinkage must be in [0, 1), got {self.shrinkage}")
         if not self.ridge > 0.0:
             raise ValueError(f"ridge must be > 0, got {self.ridge}")
+        if not (
+            np.isfinite(self.mean_snapshots_to_false_alarm)
+            and self.mean_snapshots_to_false_alarm > 1.0
+        ):
+            raise ValueError(
+                "mean_snapshots_to_false_alarm must be finite and > 1, "
+                f"got {self.mean_snapshots_to_false_alarm}"
+            )
         if self._fixed_threshold is not None and not (
             np.isfinite(self._fixed_threshold) and self._fixed_threshold >= 0.0
         ):
@@ -110,12 +137,18 @@ class PathogenDetector:
                 f"got {self._fixed_threshold}"
             )
 
-        # A ``seed`` key is accepted for compatibility; fitting is deterministic.
+        # Fitting is deterministic; the seed is only used by the sequential test.
+        self.seed = self.config.get("seed")
+        if self.seed is not None and (
+            isinstance(self.seed, (bool, np.bool_)) or not isinstance(self.seed, numbers.Integral)
+        ):
+            raise ValueError(f"seed must be an integer or None, got {self.seed!r}")
         self.mean_: np.ndarray[Any, Any] | None = None
         self.scale_: np.ndarray[Any, Any] | None = None
         self.precision_: np.ndarray[Any, Any] | None = None
         self.J_matrix: np.ndarray[Any, Any] = np.zeros((self.state_dim, self.state_dim))
         self._calibration_energies: np.ndarray[Any, Any] | None = None
+        self._monitor: ConformalChangeDetector | None = None
 
         self.known_pathogens = {
             "viral": ["influenza", "coronavirus", "ebola", "marburg"],
@@ -185,9 +218,15 @@ class PathogenDetector:
             energies = np.array([self._energy(row) for row in data[split:]])
             self._calibration_energies = np.sort(energies)
             self.energy_threshold = conformal_threshold(energies, alpha=self.false_alarm_rate)
+            self._monitor = ConformalChangeDetector(
+                energies,
+                mean_time_to_false_alarm=self.mean_snapshots_to_false_alarm,
+                seed=None if self.seed is None else int(self.seed),
+            )
         else:
             self._calibration_energies = None
             self.energy_threshold = self._fixed_threshold
+            self._monitor = None
         self.logger.info(
             f"PathogenDetector fitted on {n} snapshots x {d} channels "
             f"(E_critical={self.energy_threshold:.3f})"
@@ -255,6 +294,58 @@ class PathogenDetector:
             )
 
         return result
+
+    def monitor(
+        self, bio_data: np.ndarray[Any, Any], masint_data: dict[str, Any] | None = None
+    ) -> BioThreatResult:
+        """Score the next snapshot of a stream and update the sequential test.
+
+        Feed snapshots in time order. The result is :meth:`detect_pathogen`'s,
+        plus the sequential test: ``threat_detected`` is also set when the
+        stream's energies have risen persistently (``sequential_alarm``), and
+        ``change_statistic`` is log R_n against the threshold
+        log(``mean_snapshots_to_false_alarm``). The test restarts after each
+        alarm; after a confirmed event, refit the baseline.
+
+        Raises:
+            RuntimeError: If the detector is not fitted with a calibrated
+                threshold (a fixed ``energy_threshold`` has no held-out energies).
+            ValueError: As :meth:`detect_pathogen`; an empty snapshot is too.
+        """
+        if self._monitor is None:
+            raise RuntimeError(
+                "sequential monitoring needs fit() with a calibrated threshold "
+                "(no fixed energy_threshold)"
+            )
+        if np.asarray(bio_data).size == 0:
+            raise ValueError("an empty snapshot cannot be monitored")
+        result = self.detect_pathogen(bio_data, masint_data)
+        status = self._monitor.update(result.energy_score)
+        result = replace(
+            result,
+            sequential_alarm=status.alarm,
+            change_statistic=status.log_statistic,
+        )
+        if not status.alarm:
+            return result
+        signature = (
+            "Sequential test: energies persistently above the baseline "
+            f"(Shiryaev-Roberts statistic reached {self.mean_snapshots_to_false_alarm:g})"
+        )
+        if result.threat_detected:
+            return replace(result, bio_signatures=[*result.bio_signatures, signature])
+        pathogen_type = self._classify_pathogen(True, masint_data)
+        channels = self._identify_bio_signatures(self._deviation(bio_data), False)
+        self.logger.warning(f"Presumptive bio-threat (sequential test): {pathogen_type}")
+        return replace(
+            result,
+            threat_detected=True,
+            pathogen_type=pathogen_type,
+            bio_signatures=[signature, *channels],
+            recommended_interdiction=self._recommend_interdiction(
+                pathogen_type, result.energy_score, result.masint_indicators
+            ),
+        )
 
     def _deviation(self, bio_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Validate a snapshot and return its deviation from the baseline mean."""

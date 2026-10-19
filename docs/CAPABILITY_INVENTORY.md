@@ -7,19 +7,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,961
-- **Capability-bearing classes:** 1,958 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,967
+- **Capability-bearing classes:** 1,962 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 49
-- **Refined via base-class analysis:** 88 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,157 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,160 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1157 |
-| Support types (config / result / enum / error) | 1003 |
-| Detection | 175 |
+| Other capability classes | 1160 |
+| Support types (config / result / enum / error) | 1005 |
+| Detection | 176 |
 | Neural models & layers | 161 |
 | Data sources & loaders | 103 |
 | Engines & orchestration | 101 |
@@ -657,7 +657,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `core/` — 361 classes (230 capability)
+### `core/` — 363 classes (231 capability)
 
 **Adapters & backends**
 
@@ -679,6 +679,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `BaseDetector` (`core.stacking_fusion`) — Protocol for base detectors in ensemble.
 - `BaseDomainDetector` (`core.base_domains`) — Enhanced base detector with adaptive thresholds and domain metrics.
 - `ConformalAnomalyDetector` (`core.conformal_prediction`) — Wrapper for anomaly detectors with conformal prediction.
+- `ConformalChangeDetector` (`core.conformal_martingale`) — Conformal Shiryaev-Roberts test for a rise in a stream of scores.
 - `CovarianceAwareDetector` (`core.adaptive_detector`) — Solves the batadal problem.
 - `InformationGeometryDetector` (`core.info_geometry`) — Information geometry-based OOD detector.
 - `MultivariateTSDetector` (`core.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
@@ -922,9 +923,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
-<details><summary>Support types (131)</summary>
+<details><summary>Support types (132)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `ChangeStatus`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
 
 </details>
 
@@ -1634,7 +1635,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `infrastructure/` — 59 classes (39 capability)
+### `infrastructure/` — 61 classes (40 capability)
 
 **Detection**
 
@@ -1671,6 +1672,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CrisisAlert` (`infrastructure.humanitarian.crisis_monitoring.crisis_monitor`) — Alert from crisis monitoring.
 - `CrossBorderIntelligence` (`infrastructure.cyber.cross_border_intel`) — Cross-border threat intelligence correlation.
 - `DistributedTracer` (`infrastructure.observability`) — Distributed tracing with OpenTelemetry support.
+- `EarthquakeCoefficients` (`infrastructure.humanitarian.crisis_monitoring.gdacs`) — Country terms of the GDACS earthquake models; the defaults are the global model.
 - `FileAuditHandler` (`infrastructure.observability`) — File-based audit log handler with rotation and proper resource management.
 - `InMemoryAuditHandler` (`infrastructure.observability`) — In-memory audit log handler for development/testing.
 - `InMemoryStreamBroker` (`infrastructure.streaming`) — In-memory message broker backing the ``memory`` streaming backend.
@@ -1687,9 +1689,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `StreamProducer` (`infrastructure.streaming`) — Abstract base class for stream producers.
 - `StreamProducerFactory` (`infrastructure.streaming`) — Factory for creating stream producers.
 
-<details><summary>Support types (20)</summary>
+<details><summary>Support types (21)</summary>
 
-`AuditAction`, `AuditEvent`, `AuditSeverity`, `CISASector`, `ClimateEvent`, `DamType`, `EconomicThreat`, `EducationThreat`, `EmergencyType`, `EnergySubsector`, `FoodSecurityThreat`, `NeuralThreat`, `PatientStatus`, `ResourceType`, `StreamConfig`, `StreamMessage`, `StreamingBackend`, `_CallBaseline`, `_ModuleInfo`, `_VitalSignRange`
+`AuditAction`, `AuditEvent`, `AuditSeverity`, `CISASector`, `ClimateEvent`, `DamType`, `EconomicThreat`, `EducationThreat`, `EmergencyType`, `EnergySubsector`, `FoodSecurityThreat`, `NeuralThreat`, `PatientStatus`, `ResourceType`, `StreamConfig`, `StreamMessage`, `StreamingBackend`, `_CallBaseline`, `_GdacsAssessment`, `_ModuleInfo`, `_VitalSignRange`
 
 </details>
 
@@ -1824,7 +1826,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `medical/` — 83 classes (52 capability)
+### `medical/` — 85 classes (54 capability)
 
 **Adapters & backends**
 
@@ -1888,12 +1890,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `CalibrationComparison` (`medical.clinical_calibration`) — Before/after reliability for one calibration method on a clinical score.
 - `ClinicalSafetyEnvelope` (`medical.safety`) — Safety metadata attached to every user/provider-facing medical result.
+- `IncidenceForecast` (`medical.pandemic.forecasting.incidence_fit`) — A fitted SEIR model, its forecast and their uncertainty.
 - `PandemicForecast` (`medical.pandemic.forecasting.epidemic_model`) — Result from pandemic forecasting.
 - `ReferenceCohort` (`medical.reference_cohorts`) — A labelled reference cohort: aligned score + outcome arrays.
 - `ReliabilityBin` (`medical.clinical_metrics`) — One bin of a reliability (calibration) curve.
 - `SignalCriteria` (`medical.clinical_signal_gate`) — Thresholds a clinical score must clear to be certified as signal.
 - `SignalVerdict` (`medical.clinical_signal_gate`) — Outcome of applying a :class:`SignalCriteria` to a metric report.
 - `ThresholdOperatingPoint` (`medical.emergency_thresholds`) — Operating characteristics of one decision threshold.
+- `_SEIRIncidence` (`medical.pandemic.forecasting.incidence_fit`) — Expected daily E→I transitions of an SEIR model started on its eigenvector.
 
 **Prediction & forecasting**
 

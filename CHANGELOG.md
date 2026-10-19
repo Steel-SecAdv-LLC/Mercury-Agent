@@ -27,6 +27,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Public-safety upgrades: sequential pathogen detection, fitted epidemic forecasts, GDACS alert levels (branch `steel/version-cov4`)
+
+Three capabilities on top of the rebuilt components below, each from a published
+method and measured on simulated data with a known truth. An adversarial review
+of the first version reproduced 8 should-fix defects and 6 nits; all are fixed,
+with tests, before this push.
+
+**Added — `core.conformal_martingale.ConformalChangeDetector` and
+`PathogenDetector.monitor`.** A snapshot test at a 1% false-alarm rate cannot see
+a small shift that persists. `monitor()` scores each snapshot as before and also
+feeds its energy to a conformal Shiryaev-Roberts test: smoothed conformal
+p-values against a bag seeded with the held-out baseline energies, the one-sided
+Simple Jumper betting martingale (Vovk et al. 2021), and the statistic
+R_n = Σ S_n/S_k, whose alarm R_n ≥ c restarts the test. Smoothed p-values are
+independent and uniform under exchangeability, ties included, so R_n - n is a
+martingale and alarms on a baseline-like stream average at least
+`mean_snapshots_to_false_alarm` (default 1000) snapshots apart, whatever the
+energy distribution: measured at 1.03-1.08 c for normal, Pareto and heavily tied
+scores. (The review showed that unsmoothed p-values break this proof when scores
+tie.) `seed` seeds the smoothing draws. On 12 correlated channels a shift of one
+channel by 1 sd left the snapshot alarm rate at the null 1.0% and was caught,
+counting from a restart at the onset, in a median of 71.5 snapshots (20 of 20
+runs; 1.5 sd: 33.5, 2 sd: 24.5, 3 sd: 17). A fall in energy alarms no more often
+than the null. The null is exchangeability, so drift or autocorrelation in a
+sensor also raises the statistic; after a confirmed event the baseline should be
+refitted. `BioThreatResult` gains `sequential_alarm` and `change_statistic`
+(log R_n); `detect_pathogen` is unchanged.
+
+**Added — `EpidemicForecaster.fit_to_incidence` and
+`forecasting.fit_seir_incidence`.** Fits β, the initial size and the
+negative-binomial dispersion k to observed daily incidence by maximum
+likelihood: the count on day j is NB with the model's E→I transitions that day
+as its mean, never cumulative counts (Chowell, Bleichrodt & Luo 2024; King et al.
+2015), and the initial state lies on the growth-phase eigenvector at S = N - R,
+so prior immunity (`initial_recovered`) enters as β(N - R)/N (the review found
+the first version ignored it: R0 3.047 with an interval above the true 3 at
+R = N/2; now 2.991). A parametric bootstrap (default B = 200) gives intervals for
+R0, the expected incidence and future counts. Over 120 simulated outbreaks
+(R0 = 3, k = 20, 40 observed days, 14 forecast) β was unbiased (mean 0.3000, sd
+0.012); the 95% R0 interval covered the truth 111 times (92.5%, exact CI
+86-97%) and the band of the mean covered 91.8% of forecast days (CI 87-96%). In
+the first version, prediction intervals drawn from the refits covered 91.1% of
+future counts (cluster-bootstrap CI 89.1-92.9%): k̂ runs high in small samples
+(median 23.5), which narrows the count noise. The prediction interval is now
+the plug-in interval calibrated per day by Beran's (1990) bootstrap method; on
+the same 120 outbreaks it covered 95.9% (CI 94.6-97.2%), at levels averaging
+0.988, and `prediction_level` reports the level each day needed. A
+population no larger than the observed cases plus the immune, non-finite rates
+and non-integer settings raise `ValueError`. A fit takes about 8 s at B = 200 on
+one core (6-10 s over 30 fits).
+
+**Added — `crisis_monitoring.gdacs` and GDACS levels in `CrisisMonitor`.** The
+GDACS earthquake shakemap and "EQ parameters" scores, the INFORM Lack of Coping
+Capacity factor, the Red/Orange/Green levels and the flood levels, implemented
+as published at gdacs.org. The coping-capacity map 0.5 + (LCC - 0.9)/8.4 matches
+all 191 rows of GDACS's 2017 coefficient table exactly, and the 38 countries with
+their own calibration are carried as `COUNTRY_COEFFICIENTS` (© European Union,
+CC BY 4.0); Japan's shakemap vulnerability of -1.0, for example, takes an
+exposure scored Orange by the global model to Green. GDACS's floor ("a score
+above 2 is not lowered below 1") cannot bind with factors in the published
+0.5-1.5 range and is not applied. When a GEOINT report carries a model's inputs
+(`population_by_mmi`, or `magnitude`, `depth_km` and `population_within_km`;
+`deaths`/`displaced` for floods; `inform_lcc`; `country_iso3`), the alert carries
+`gdacs_level` and `gdacs_score`; the hazard follows the inputs when not stated,
+and makes the type `natural_disaster`. Orange or Red counts as a detected
+crisis and raises severity to at least `high` or to `critical` (this module's
+reading of GDACS's "national capacity may need support" and "international
+intervention likely"), so a Red alert gets the national-response steps.
+Incomplete or invalid inputs, including numbers too large for a float, are
+named in the response instead of guessed or raised. The scores have not been
+checked against GDACS's own event scores.
+
 ### Four public-safety components rebuilt on published methods (branch `steel/version-cov4`)
 
 Four modules inherited from Omni-AXA (2025-10-15) were still exported with
