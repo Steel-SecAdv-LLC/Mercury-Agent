@@ -10,6 +10,8 @@ expected value below is read from the product, not invented.
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
 import gzip
 import json
 from datetime import UTC, datetime
@@ -153,3 +155,85 @@ class TestLiveQueryParsing:
                 "inundation_area",
                 datetime.now(UTC),
             )
+
+
+class TestMutationClosedGaps:
+    """Cases a 14-mutant sweep (42.9% killed) proved untested."""
+
+    def test_fetch_queries_polygons_then_lines(self) -> None:
+        """The live fetch reads layer 2 (polygons) then layer 1 (lines)."""
+        source = NHCPeakStormSurgeSource()
+        seen: list[str] = []
+        payloads = {
+            "/2/query": {
+                "features": [
+                    {
+                        "attributes": {
+                            "name": "Tampa Bay...10-15 ft",
+                            "idp_filedate": 1728432000000,
+                        }
+                    }
+                ]
+            },
+            "/1/query": {"features": []},
+        }
+
+        class _Response:
+            def __init__(self, payload: dict) -> None:
+                self._payload = payload
+
+            def json(self) -> dict:
+                return self._payload
+
+        async def _get(endpoint: str, params: dict | None = None) -> _Response:
+            seen.append(endpoint)
+            assert params is not None and params["f"] == "json"
+            return _Response(payloads[endpoint])
+
+        source._http_get = _get  # type: ignore[method-assign]
+        points = asyncio.run(source._fetch_impl())
+        assert seen == ["/2/query", "/1/query"]
+        (point,) = points
+        assert point.data["kind"] == "inundation_area"
+        assert point.data["area"] == "Tampa Bay"
+
+    def test_equal_range_bounds_are_a_valid_statement(self) -> None:
+        forecast = parse_peak_surge_name("Mobile Bay...3-3 ft", "inundation_area")
+        assert forecast is not None
+        assert (forecast.min_surge_ft, forecast.max_surge_ft) == (3.0, 3.0)
+
+    def test_zero_surge_grades_to_no_gdacs_level_and_alert_none(self) -> None:
+        forecast = parse_peak_surge_name("Dry Basin...0-0 ft", "inundation_area")
+        assert forecast is not None and forecast.gdacs_level() is None
+        source = NHCPeakStormSurgeSource()
+        (point,) = source._points_from_query(
+            {"features": [{"attributes": {"name": "Dry Basin...0-0 ft"}}]},
+            "inundation_area",
+            datetime.now(UTC),
+        )
+        assert point.data["gdacs_level"] is None
+        assert point.alert_level is AlertLevel.NONE
+
+    def test_kml_with_empty_data_folders_is_a_quiet_product(self) -> None:
+        kml = (
+            "<kml xmlns='http://www.opengis.net/kml/2.2'><Document>"
+            "<Folder><name>Polygons</name></Folder>"
+            "<Folder><name>Lines</name></Folder>"
+            "</Document></kml>"
+        )
+        assert parse_peak_surge_kml(kml.encode()) == []
+
+    def test_forecast_records_are_immutable(self) -> None:
+        forecast = parse_peak_surge_name("Tampa Bay...10-15 ft", "inundation_area")
+        assert forecast is not None
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            forecast.max_surge_ft = 99.0  # type: ignore[misc]
+
+    def test_document_without_data_folders_is_not_this_product(self) -> None:
+        kml = (
+            "<kml xmlns='http://www.opengis.net/kml/2.2'><Document>"
+            "<Folder><name>Breakpoints</name></Folder>"
+            "</Document></kml>"
+        )
+        with pytest.raises(ValueError, match="no Polygons or Lines folder"):
+            parse_peak_surge_kml(kml.encode())
