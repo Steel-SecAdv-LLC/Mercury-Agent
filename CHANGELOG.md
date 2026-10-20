@@ -82,6 +82,36 @@ residual deficit lives in the hard minority of outbreaks whose fitted law
 sits too far from the truth for any within-model resampling calibration to
 repair at these sample sizes.
 
+**Fixed — `fit()` trained nothing on datasets smaller than `batch_size`
+(`ml/distillation/dual_student.py`).** The training loader used
+`drop_last=True` at the configured batch size, so a dataset smaller than one
+batch yielded zero batches and `fit()` marked the model fitted without a
+single optimizer step — `detect()` then served scores from randomly
+initialized students. The batch size is now capped at the dataset size and
+an empty dataset raises `ValueError`. `feature_dim` (additive read-only
+property, mirroring `detectors/visual/base_visual.py`) exposes the
+aggregated teacher channel count previously written to a dead private
+field. Found by the per-module mutation program below.
+
+**Changed — the distillation tests pin behavior instead of shapes
+(`tests/test_distillation.py`; mutation kill rate 45.0% -> 91.3%).** First
+module hardened under the per-module mutation-floor program for trivia-only
+test files: sixteen behavioral tests now pin the exact cosine-distillation
+loss values, bilinear aggregation to (min height, min width) without corner
+alignment, the multiplicative attention gate, the residual second encoder,
+the frozen teacher, shuffled full batches with partial batches dropped, the
+exact per-epoch mean in the epoch-10 log line, and `detect()`'s
+squared-error discrepancy maps. Every surviving mutant is individually
+classified equivalent: seven `nn.ReLU(inplace=True)` flips (memory layout
+only; outputs bit-identical) and `data[:1] -> data[:2]` in network
+initialization (channel inference is batch-size invariant).
+`mutation-testing.yml` gains a path-filtered `distillation-mutation-floor`
+job (floor 80). `DualStudentConfig.temperature` and `alpha` remain
+documented but wired to nothing; their intended semantics cannot be settled
+from the module or its cited papers (there is no reconstruction term for
+`alpha` to weight, and temperature applies to logit, not cosine-feature,
+distillation), so they are reported to the owner rather than guess-wired.
+
 ### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
 
 **Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**

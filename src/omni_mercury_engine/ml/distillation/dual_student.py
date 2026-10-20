@@ -221,6 +221,11 @@ class DualStudentDistillation(nn.Module):
         self._is_fitted = False
         self._feature_dim: int = 0
 
+    @property
+    def feature_dim(self) -> int:
+        """Aggregated teacher feature channels (0 until networks are initialized)."""
+        return self._feature_dim
+
     def _initialize_networks(self, sample_input: torch.Tensor) -> None:
         """Initialize networks based on input dimensions.
 
@@ -311,12 +316,21 @@ class DualStudentDistillation(nn.Module):
     def fit(self, data: torch.Tensor) -> DualStudentDistillation:
         """Train students on normal data.
 
+        Datasets smaller than ``batch_size`` train as a single full batch;
+        they are never silently skipped by ``drop_last``.
+
         Args:
             data: Normal images [N, C, H, W]
 
         Returns:
             Self for method chaining
+
+        Raises:
+            ValueError: If ``data`` contains no samples.
         """
+        if len(data) == 0:
+            raise ValueError("fit() requires at least one sample; got an empty batch")
+
         if isinstance(data, torch.Tensor):
             data = data.to(self.device)
 
@@ -336,11 +350,13 @@ class DualStudentDistillation(nn.Module):
         optimizer = optim.Adam(params, lr=self.config.learning_rate)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.config.num_epochs)
 
-        # Data loader
+        # Data loader. Cap the batch size at the dataset size: with
+        # drop_last=True a smaller dataset would otherwise yield zero
+        # batches and fit() would mark itself fitted without training.
         dataset = torch.utils.data.TensorDataset(data)
         loader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=self.config.batch_size,
+            batch_size=min(self.config.batch_size, len(data)),
             shuffle=True,
             drop_last=True,
         )
