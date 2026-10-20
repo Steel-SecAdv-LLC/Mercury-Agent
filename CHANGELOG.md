@@ -112,6 +112,35 @@ from the module or its cited papers (there is no reconstruction term for
 `alpha` to weight, and temperature applies to logit, not cosine-feature,
 distillation), so they are reported to the owner rather than guess-wired.
 
+**Fixed — a cold snap is no longer reported as a heatwave, and a rainless
+window is no longer "normal" (`infrastructure/humanitarian/
+climate_resilience.py`).** The extreme-cold branch returned
+`event_type: "heatwave"`, steering heat-emergency guidance (cooling
+centers) during a freeze; `ClimateEvent.COLD_SNAP` (additive) now labels it
+with cold-weather recommendations. Separately, the drought cut was strict
+at `baseline - 2*std`, which the shipped baseline (100 +/- 50 mm) places
+exactly at 0 mm — no non-negative rainfall series could ever reach it, so
+a completely rainless window reported "normal / continue routine
+monitoring" and the `z < -3` severity arm was dead. The drought and flood
+boundaries are now inclusive, a 0 mm window detects as a high-severity
+drought, and both regressions are pinned by tests that fail on the old
+code.
+
+**Changed — the humanitarian detector tests pin behavior instead of
+existence (`tests/infrastructure/test_humanitarian_detectors.py`; mutation
+kill rate 100%).** The file was the weakest in the tree (15 of 15 tests
+trivia-only: instantiation, `callable`, `is not None`). It now holds 58
+behavioral tests pinning every documented threshold of the five detectors
+(agrifood, climate, economic, education, neuroscience) at its exact
+boundary and mid-band, every severity/risk/impact grading, exact
+recommendation lists, division-guard behavior under zero- and sub-unit
+baselines, and the seizure spike definition (3x the series' own sigma,
+risks 0.3/0.5/0.6 constructed exactly). Measured over all 312 enumerated
+mutation sites of the five modules: 312/312 killed — 100%, no equivalents
+left — from 59.9% after the first behavioral pass and effectively zero
+discrimination before it. `mutation-testing.yml` gains a path-filtered
+`humanitarian-mutation-floor` job (floor 90).
+
 ### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
 
 **Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**

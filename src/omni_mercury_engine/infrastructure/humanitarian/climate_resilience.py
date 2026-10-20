@@ -31,6 +31,7 @@ class ClimateEvent(Enum):
 
     NORMAL = "normal"
     HEATWAVE = "heatwave"
+    COLD_SNAP = "cold_snap"
     DROUGHT = "drought"
     FLOOD = "flood"
     HURRICANE = "hurricane"
@@ -93,7 +94,7 @@ class ClimateResilienceDetector:
             event_type = ClimateEvent.HEATWAVE
             severity = "critical"
         elif min_temp < baseline_mean - 3 * baseline_std:
-            event_type = ClimateEvent.HEATWAVE
+            event_type = ClimateEvent.COLD_SNAP
             severity = "high"
         elif abs(z_score) > 2:
             severity = "medium"
@@ -118,7 +119,14 @@ class ClimateResilienceDetector:
         precipitation_mm: np.ndarray[Any, Any],
         historical_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Detect droughts and floods from precipitation patterns."""
+        """Detect droughts and floods from precipitation patterns.
+
+        The drought boundary is inclusive: with the shipped baseline
+        (mean 100, std 50) the two-sigma deficit sits exactly at 0 mm,
+        so a strict comparison would make drought unreachable for any
+        non-negative rainfall series. A rainless window is the maximal
+        physical drought and grades "high".
+        """
         if len(precipitation_mm) == 0:
             return {"anomaly_detected": False}
 
@@ -131,15 +139,15 @@ class ClimateResilienceDetector:
         event_type = ClimateEvent.NORMAL
         severity = "low"
 
-        if total_precip < baseline - 2 * std:
+        if total_precip <= baseline - 2 * std:
             event_type = ClimateEvent.DROUGHT
-            severity = "high" if z_score < -3 else "medium"
-        elif total_precip > baseline + 2 * std:
+            severity = "high" if z_score < -3 or total_precip <= 0 else "medium"
+        elif total_precip >= baseline + 2 * std:
             event_type = ClimateEvent.FLOOD
             severity = "critical" if z_score > 3 else "high"
 
         return {
-            "anomaly_detected": abs(z_score) > 2,
+            "anomaly_detected": abs(z_score) >= 2,
             "event_type": event_type.value,
             "severity": severity,
             "metrics": {
@@ -172,6 +180,11 @@ class ClimateResilienceDetector:
             recommendations.append("Open cooling centers for vulnerable populations")
             if severity == "critical":
                 recommendations.append("URGENT: Issue heat warnings, restrict outdoor activities")
+        elif event_type == ClimateEvent.COLD_SNAP:
+            recommendations.append("Activate cold weather emergency protocols")
+            recommendations.append("Open warming centers for vulnerable populations")
+            if severity == "critical":
+                recommendations.append("URGENT: Issue cold warnings, check on isolated residents")
         elif event_type == ClimateEvent.DROUGHT:
             recommendations.append("Implement water conservation measures")
             recommendations.append("Monitor agricultural impacts and food security")
