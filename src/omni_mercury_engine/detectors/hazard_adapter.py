@@ -420,10 +420,13 @@ class GICMinuteSeriesAdapter(HazardRowAdapter):
         tier = float(self._TIERS.index(assessment.risk_level))
         score, flag = tier / 3.0, tier >= 1.0
         n = batch.shape[0]
+        # The 10-minute rolling metric is unmeasured on a shorter window; the
+        # detector reports None there, served as NaN, never as a quiet zero.
+        sustained = assessment.sustained_dbdt_nt_per_min
         features = np.tile(
             [
                 float(assessment.peak_dbdt_nt_per_min),
-                float(assessment.sustained_dbdt_nt_per_min),
+                float("nan") if sustained is None else float(sustained),
                 tier,
             ],
             (n, 1),

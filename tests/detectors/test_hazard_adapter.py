@@ -176,3 +176,57 @@ class TestGICMinuteSeries:
     def test_cadence_must_be_positive(self) -> None:
         with pytest.raises(ValueError, match="cadence_s"):
             GICMinuteSeriesAdapter(config={"cadence_s": 0.0})
+
+
+class TestMutationClosedGaps:
+    """Boundary and shape cases the first mutation run proved untested.
+
+    A 45-mutant sweep of hazard_adapter.py against this file measured a
+    66.7% kill rate; each test here kills real survivors (decision
+    boundaries mutated from >= to >, the market/banking column split, 1-D
+    input handling, the cadence guard) and one caught a genuine crash:
+    float(None) on the sustained metric for windows under 10 minutes.
+    """
+
+    def test_one_dimensional_row_is_one_sample(self) -> None:
+        adapter = TornadoConditionsAdapter()
+        flat = adapter.detect(np.array(SUPERCELL_SOUNDING))
+        square = adapter.detect(np.array([SUPERCELL_SOUNDING]))
+        assert flat["scores"].shape == (1,)
+        np.testing.assert_array_equal(flat["scores"], square["scores"])
+
+    def test_liquidity_shortage_alone_is_banking_stress_not_crisis(self) -> None:
+        calm_market_dry_liquidity = [0.2, 15.0, 1.0, 80.0, 1.0, 0.05]
+        adapter = FinancialStressAdapter()
+        features = adapter.extract_features(np.array([calm_market_dry_liquidity]))
+        confidence, crisis_imminent, market_crash, banking_stress = features[0]
+        assert (crisis_imminent, market_crash, banking_stress) == (0.0, 0.0, 1.0)
+        assert confidence == pytest.approx(0.8)
+
+    def test_exactly_g1_is_a_storm(self) -> None:
+        result = SolarWindGeomagAdapter().detect(np.array([[650.0, -15.0]]))
+        assert result["scores"][0] == pytest.approx(1 / 5)  # exactly G1
+        assert result["is_anomaly"] is True  # G1 IS a storm (NOAA), not G2+
+
+    def test_m1_flux_is_exactly_r1_and_c9_is_not(self) -> None:
+        result = XrayFlareAdapter().detect(np.array([[1e-5], [9e-6]]))
+        assert result["scores"][0] == pytest.approx(1 / 5)  # M1.0 is R1
+        assert result["scores"][1] == 0.0  # C9 is below R1
+        assert result["is_anomaly"] is True
+
+    def test_100_nt_per_min_is_exactly_the_moderate_tier(self) -> None:
+        series = np.column_stack([20000 + np.zeros(60), 1000 + np.zeros(60)])
+        series[30:, 0] += np.cumsum(np.full(30, 100.0))
+        result = GICMinuteSeriesAdapter().detect(series)
+        assert result["anomaly_score"] == pytest.approx(1 / 3)  # moderate
+        assert result["is_anomaly"] is True  # >= 90 nT/min acts, not > moderate
+
+    def test_second_cadence_is_averaged_and_short_sustained_is_nan(self) -> None:
+        quiet_3_minutes = np.column_stack([20000 + np.zeros(180), 1000 + np.zeros(180)])
+        adapter = GICMinuteSeriesAdapter(config={"cadence_s": 1.0})
+        result = adapter.detect(quiet_3_minutes)
+        assert result["anomaly_score"] == 0.0 and result["is_anomaly"] is False
+        features = adapter.extract_features(quiet_3_minutes)
+        # Regression: float(None) crashed here. The 10-minute rolling metric
+        # is unmeasured on a 3-minute window: NaN, never a quiet zero.
+        assert np.isfinite(features[0][0]) and np.isnan(features[0][1])
