@@ -62,7 +62,9 @@ class TestMiltonAdvisory17:
     ) -> None:
         levels: dict[str, int] = {}
         for forecast in milton_forecasts:
-            levels[forecast.gdacs_level()] = levels.get(forecast.gdacs_level(), 0) + 1
+            level = forecast.gdacs_level()
+            assert level is not None  # every Milton area states a positive surge
+            levels[level] = levels.get(level, 0) + 1
         # Red >= 3 m (>= 9.85 ft upper bound), Orange >= 1 m, Green below.
         assert levels == {"red": 5, "orange": 12, "green": 10}
         for forecast in milton_forecasts:
