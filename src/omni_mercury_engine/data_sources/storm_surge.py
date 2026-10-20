@@ -185,10 +185,12 @@ class NHCPeakStormSurgeSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Stable identifier of this source."""
         return "nhc_peak_storm_surge"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """The source types this source produces."""
         return [DataSourceType.STORM_SURGE]
 
     async def _fetch_impl(
@@ -215,7 +217,7 @@ class NHCPeakStormSurgeSource(DataSourceBase):
     def _points_from_query(
         self, payload: dict[str, Any], kind: str, fetched_at: datetime
     ) -> list[DataPoint]:
-        """DataPoints from one layer's ArcGIS query payload.
+        """Build the data points of one layer's ArcGIS query payload.
 
         Raises:
             DataSourceError: If the service answered with an error body.

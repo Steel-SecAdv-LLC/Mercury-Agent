@@ -134,6 +134,7 @@ class TornadoConditionsAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("confidence", "tornado_likely", "cape_value", "helicity_value")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -173,6 +174,7 @@ class HurricanePressureAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("confidence", "cyclone_detected", "max_wind_speed_kt", "min_pressure_mb")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -223,6 +225,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("confidence", "flood_likely", "precipitation_24h_inches")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -268,6 +271,7 @@ class FinancialStressAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("confidence", "crisis_imminent", "market_crash", "banking_stress")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -310,6 +314,7 @@ class SolarWindGeomagAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("kp_index", "g_level", "confidence")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -348,6 +353,7 @@ class XrayFlareAdapter(HazardRowAdapter):
     FEATURE_NAMES = ("flare_intensity", "r_level", "flare_detected")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)
         self._detector: Any = None
 
@@ -387,6 +393,7 @@ class GICMinuteSeriesAdapter(HazardRowAdapter):
     _TIERS = ("low", "moderate", "high", "severe")
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize; ``config["cadence_s"]`` declares the row cadence (60 s)."""
         super().__init__(config)
         self._detector: Any = None
         cadence = self._config.get("cadence_s", 60.0)
