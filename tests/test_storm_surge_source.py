@@ -16,6 +16,7 @@ import gzip
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -164,7 +165,7 @@ class TestMutationClosedGaps:
         """The live fetch reads layer 2 (polygons) then layer 1 (lines)."""
         source = NHCPeakStormSurgeSource()
         seen: list[str] = []
-        payloads = {
+        payloads: dict[str, dict[str, Any]] = {
             "/2/query": {
                 "features": [
                     {
@@ -179,13 +180,13 @@ class TestMutationClosedGaps:
         }
 
         class _Response:
-            def __init__(self, payload: dict) -> None:
+            def __init__(self, payload: dict[str, Any]) -> None:
                 self._payload = payload
 
-            def json(self) -> dict:
+            def json(self) -> dict[str, Any]:
                 return self._payload
 
-        async def _get(endpoint: str, params: dict | None = None) -> _Response:
+        async def _get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
             seen.append(endpoint)
             assert params is not None and params["f"] == "json"
             return _Response(payloads[endpoint])
