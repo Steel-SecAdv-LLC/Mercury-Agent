@@ -195,6 +195,14 @@ class TestMutationClosedGaps:
         assert flat["scores"].shape == (1,)
         np.testing.assert_array_equal(flat["scores"], square["scores"])
 
+    def test_even_width_one_dimensional_row_is_still_one_sample(self) -> None:
+        # Six columns divide evenly, so a wrong reshape would silently make
+        # two bogus three-column rows instead of erroring; pin one sample.
+        crisis = np.array([-9.0, 75.0, 4.0, 600.0, 9.0, 0.4])
+        result = FinancialStressAdapter().detect(crisis)
+        assert result["scores"].shape == (1,)
+        assert result["scores"][0] == pytest.approx(0.8)
+
     def test_liquidity_shortage_alone_is_banking_stress_not_crisis(self) -> None:
         calm_market_dry_liquidity = [0.2, 15.0, 1.0, 80.0, 1.0, 0.05]
         adapter = FinancialStressAdapter()
