@@ -111,7 +111,11 @@ def test_fusion_trainer_validation_step() -> None:
     labels = torch.randint(0, 2, (4,))
     batch = (features, labels)
 
+    before = [p.detach().clone() for p in trainer.parameters()]
     trainer.validation_step(batch, 0)
+    # Validation evaluates; it must not move any parameter.
+    after = list(trainer.parameters())
+    assert all(torch.equal(b, a) for b, a in zip(before, after))
 
 
 def test_fusion_trainer_configure_optimizers() -> None:
@@ -131,12 +135,17 @@ def test_ava_optimizer_base() -> None:
 
 def test_ava_optimizer_step() -> None:
     """Test Mercury optimizer step"""
+    torch.manual_seed(0)
     param = torch.randn(10, 10, requires_grad=True)
     optimizer = MercuryOptimizer([param], lr=0.001)
 
     loss = (param**2).sum()
     loss.backward()
+    before = param.detach().clone()
     optimizer.step()
+    # The step moved the parameter and kept it finite.
+    assert not torch.equal(param.detach(), before)
+    assert torch.isfinite(param).all()
 
 
 def test_ava_momentum_optimizer() -> None:

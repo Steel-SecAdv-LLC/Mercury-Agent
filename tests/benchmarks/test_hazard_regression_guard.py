@@ -85,9 +85,13 @@ def test_manifest_provenance_complete() -> None:
 
 def test_scenario_files_match_manifest() -> None:
     """Committed scenario bytes must match their pinned manifest hashes."""
+    verified = 0
     for spec in guard.HAZARD_METRICS.values():
         for name in spec["scenario_files"]:
             scenario_io.verify_file_against_manifest(name)
+            verified += 1
+    # Guard against a silently emptied manifest: the loop must do work.
+    assert verified > 0, "no scenario files were verified"
 
 
 def test_guard_set_is_fixed_and_exclusions_documented() -> None:

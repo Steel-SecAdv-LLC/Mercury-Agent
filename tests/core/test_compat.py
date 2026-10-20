@@ -45,17 +45,23 @@ class TestCompatNoSideEffects:
     """Verify _compat doesn't import heavy packages."""
 
     def test_torch_not_in_sys_modules_from_compat(self) -> None:
-        """_compat uses find_spec, not import, so torch shouldn't be forced in."""
-        import importlib
+        """_compat uses find_spec, not import, so torch must not be forced in.
+
+        Run in a fresh interpreter so the check holds even when the test
+        session itself (or the [ml] extra) already imported torch.
+        """
+        import subprocess
         import sys
 
-        # Reload _compat to test fresh
-        # Note: if torch was already imported by other tests, that's fine --
-        # we just verify _compat itself doesn't add it.
-        was_present = "torch" in sys.modules
-        importlib.reload(_compat)
-        # If torch wasn't loaded before, _compat shouldn't load it
-        if not was_present:
-            # This assertion only holds when torch genuinely isn't installed.
-            # In CI with [ml] installed, torch will be present.  Skip gracefully.
-            pass  # pragma: no cover
+        code = "import sys; " "import omni_mercury_engine._compat; " "print('torch' in sys.modules)"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+        assert result.stdout.strip() == "False", (
+            "importing _compat pulled torch into sys.modules: "
+            f"stdout={result.stdout!r} stderr={result.stderr[-500:]!r}"
+        )

@@ -283,8 +283,14 @@ class TestSimplePubSub:
         """Test publishing to topic with no subscribers."""
         pubsub = SimplePubSub()
 
-        # Should not raise
         pubsub.publish("empty_topic", "message")
+        # The unknown topic is not materialized as a side effect...
+        assert "empty_topic" not in pubsub.subscribers
+        # ...and the bus still delivers normally afterwards.
+        received: list[Any] = []
+        pubsub.subscribe("empty_topic", received.append)
+        pubsub.publish("empty_topic", "second")
+        assert received == ["second"]
 
     def test_publish_callback_exception(self) -> None:
         """Test publishing when callback raises exception."""
@@ -334,8 +340,13 @@ class TestSimplePubSub:
         """Test async publishing with no subscribers."""
         pubsub = SimplePubSub()
 
-        # Should not raise
         await pubsub.publish_async("empty", "message")
+        assert "empty" not in pubsub.subscribers
+        # The bus still delivers after the no-subscriber publish.
+        received: list[Any] = []
+        pubsub.subscribe("empty", received.append)
+        await pubsub.publish_async("empty", "second")
+        assert received == ["second"]
 
     @pytest.mark.asyncio
     async def test_publish_async_with_exception(self) -> None:

@@ -318,7 +318,11 @@ class TestScopedResolution:
         assert first is not second
 
     def test_dispose_unknown_scope_is_a_noop(self, container: ServiceContainer) -> None:
-        container.dispose_scope("never-created")  # must not raise
+        # Must not raise, and must not disturb an existing scope's cache.
+        container.register_scoped(Greeter)
+        cached = container.resolve(Greeter, scope_id="s")
+        container.dispose_scope("never-created")
+        assert container.resolve(Greeter, scope_id="s") is cached
 
     def test_create_scope_returns_service_scope(self, container: ServiceContainer) -> None:
         scope = container.create_scope("s1")

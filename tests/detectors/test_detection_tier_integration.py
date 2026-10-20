@@ -306,7 +306,11 @@ class TestObservability:
         # Metrics emission is fail-safe: a NaN/inf/out-of-range/non-numeric score
         # from a misbehaving detector must never raise into the hot streaming
         # path -- non-finite is dropped, out-of-range is clamped to [0, 1].
-        from omni_mercury_engine.core.metrics import record_detector_score
+        from omni_mercury_engine.core.metrics import (
+            DETECTOR_SCORE,
+            is_prometheus_available,
+            record_detector_score,
+        )
 
         bad_values: list[Any] = [
             float("nan"),
@@ -317,8 +321,23 @@ class TestObservability:
             "not-a-number",
             None,
         ]
+        label = "sr_bad_values_probe"
         for bad in bad_values:
-            record_detector_score("sr", bad)  # must not raise
+            record_detector_score(label, bad)  # must not raise
+        if is_prometheus_available():
+            # Non-finite / non-numeric are dropped; -0.5 and 1.5 are clamped
+            # to 0.0 and 1.0, so exactly two observations summing to 1.0 land.
+            count = total = 0.0
+            for metric in DETECTOR_SCORE.collect():
+                for sample in metric.samples:
+                    if sample.labels.get("detector_name") != label:
+                        continue
+                    if sample.name.endswith("_count"):
+                        count = sample.value
+                    elif sample.name.endswith("_sum"):
+                        total = sample.value
+            assert count == 2.0, f"expected 2 observed values, got {count}"
+            assert total == 1.0, f"expected clamped sum 1.0, got {total}"
 
 
 class TestEnsembleSeamNaNPolicy:

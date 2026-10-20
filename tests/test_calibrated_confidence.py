@@ -106,7 +106,9 @@ class TestCalibratedConfidence:
         s, y = _miscalibrated_data()
         cc = CalibratedConfidence(seed=0)
         report = cc.fit(s, y)
-        json.dumps(report.to_dict())  # must not raise
+        payload = report.to_dict()
+        # JSON-safe AND lossless: the round trip reproduces the dict.
+        assert json.loads(json.dumps(payload)) == payload
 
 
 class TestCrossValidatedHonesty:

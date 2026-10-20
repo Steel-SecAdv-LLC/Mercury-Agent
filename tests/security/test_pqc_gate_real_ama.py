@@ -35,7 +35,8 @@ import os
 # These imports are deliberately at module scope and unguarded:
 # if AMA Cryptography is not installed, this file fails to collect,
 # which is exactly the signal we want — no skip, no silence.
-import ama_cryptography.pqc_backends as ama_pqc_backends  # noqa: F401
+import ama_cryptography.pqc_backends as ama_pqc_backends
+import pytest
 from ama_cryptography.pqc_backends import (
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
@@ -226,11 +227,16 @@ class TestEnvVarsDoNotDisableAma:
         finally:
             self._restore(saved)
 
-    def test_explicit_false_does_not_disable_gate(self) -> None:
+    def test_explicit_false_does_not_disable_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The env var must not weaken enforcement: with AMA complete the
+        # gate passes, and with a backend flag missing it still raises.
         saved = self._clear()
         os.environ["MERCURY_ENV"] = "production"
         os.environ["AMA_REQUIRE_REAL_PQC"] = "false"
         try:
-            _enforce_pqc_production_gate()
+            _enforce_pqc_production_gate()  # AMA complete: must pass
+            monkeypatch.setattr(ama_pqc_backends, "SPHINCS_AVAILABLE", False, raising=False)
+            with pytest.raises(RuntimeError, match="incomplete"):
+                _enforce_pqc_production_gate()
         finally:
             self._restore(saved)

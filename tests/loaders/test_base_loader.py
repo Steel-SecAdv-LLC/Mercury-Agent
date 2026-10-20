@@ -86,7 +86,7 @@ class TestSSRFValidation:
         """A class-constant dataset URL on the allowlist passes."""
         # earthquake.usgs.gov is in TRUSTED_DOMAINS; this is the
         # canonical loader URL pattern.
-        self._validate("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        assert self._validate("https://earthquake.usgs.gov/fdsnws/event/1/query") is None
 
     def test_untrusted_host_blocked(self) -> None:
         """An HTTPS URL outside TRUSTED_DOMAINS is refused."""
@@ -388,9 +388,22 @@ class TestCaching:
 
     def test_write_cache_handles_unserializable(self, loader: Any) -> None:
         """Test cache write handles non-serializable data gracefully."""
-        # numpy array is not JSON-serializable
+        # numpy array is not JSON-serializable: the write is skipped (no
+        # partial/corrupt file) and a later read is a clean miss.
         loader._write_cache("bad_key", np.array([1, 2, 3]))
-        # Should not raise, just log debug
+        assert not loader._get_cache_path("bad_key").exists()
+        assert loader._read_cache("bad_key") is None
+
+    def test_failed_write_preserves_existing_entry(self, loader: Any) -> None:
+        """A failed serialization must not destroy a valid cached entry.
+
+        Regression: ``json.dump`` streamed into an already-opened ("w",
+        hence truncated) file, so an unserializable payload wiped the
+        previous good entry and left corrupt bytes behind.
+        """
+        loader._write_cache("key", {"good": [1, 2, 3]})
+        loader._write_cache("key", np.array([1, 2, 3]))  # fails to serialize
+        assert loader._read_cache("key") == {"good": [1, 2, 3]}
 
 
 # =============================================================================

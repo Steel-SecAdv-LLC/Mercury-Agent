@@ -618,8 +618,10 @@ class TestBayesianCalibrationIntegration:
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
-        # Should not raise
+        assert uq.bayesian_calibrator is None
         uq.update_bayesian("security", "detect", success=True)
+        # Still no calibrator, so Bayesian blending stays a pass-through.
+        assert uq.calibrate_with_bayesian(0.42, domain="security", goal="detect") == 0.42
 
     def test_update_bayesian_updates_posterior(self) -> None:
         """Test update_bayesian actually updates the calibrator."""

@@ -1101,6 +1101,7 @@ class TestNoSklearnImports:
 
         with open(source_file) as f:
             lines = f.readlines()
+        assert lines, f"empty source for {module_path}: nothing was scanned"
 
         for lineno, line in enumerate(lines, start=1):
             stripped = line.strip()
@@ -1142,6 +1143,7 @@ class TestNoSklearnImports:
 
         with open(source_file) as f:
             lines = f.readlines()
+        assert lines, "empty source for loaders.base: nothing was scanned"
 
         for lineno, line in enumerate(lines, start=1):
             stripped = line.strip()

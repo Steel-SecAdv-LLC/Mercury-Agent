@@ -65,10 +65,17 @@ class TestSyntheticGradientPredictor:
 
     def test_update_weights(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test weight update with target gradients."""
+        import numpy as np
+
         input_data = deterministic_rng.randn(1, 64)
         target_grad = deterministic_rng.randn(1, 64)
         predicted = predictor.forward(input_data)
-        predictor.update(predicted, target_grad)
+        error = predictor.update(predicted, target_grad)
+        # update() reports the prediction MSE: finite, non-negative, and
+        # equal to the mean squared difference it was handed.
+        expected = float(np.mean((np.asarray(predicted) - np.asarray(target_grad)) ** 2))
+        assert np.isfinite(error) and error >= 0.0
+        assert error == pytest.approx(expected, rel=1e-4)
 
     def test_prediction_improves(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test prediction improves with training."""

@@ -551,10 +551,11 @@ class TestMutationClosedGaps:
             distiller.fit(torch.randn(4, 3, 2, 2))
 
         epoch_logs = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Epoch ")]
-        # One batch per epoch contributing loss 0.5 + 0.5 = 1.0, so the
-        # per-epoch mean is exactly 1.0 (any denominator other than the
-        # true batch count shifts it) — and only epoch 10 logs.
-        assert epoch_logs == ["Epoch 10/10, Loss: 1.000000"]
+        # One batch per epoch contributing the alpha-weighted total
+        # 0.5 * 0.5 + 0.5 * 0.5 = 0.5, so the per-epoch mean is exactly 0.5
+        # (any denominator other than the true batch count shifts it) — and
+        # only epoch 10 logs.
+        assert epoch_logs == ["Epoch 10/10, Loss: 0.500000"]
 
     def test_detect_pins_discrepancy_values(self) -> None:
         """detect() returns per-student mean squared teacher discrepancies."""
@@ -577,3 +578,121 @@ class TestMutationClosedGaps:
         assert result["scores"] == pytest.approx([4.0, 4.0])
         # Scores equal the mean, and the anomaly cut is strictly greater-than.
         assert not result["is_anomaly"].any()
+
+
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
+class TestAlphaWiring:
+    """DualStudentConfig.alpha tilts training between the two students.
+
+    ``total_loss = alpha * loss1 + (1 - alpha) * loss2``: 1.0 trains only the
+    patch-level encoder-decoder student, 0.0 only the semantic
+    encoder-encoder student. These fail on the unweighted ``loss1 + loss2``.
+    """
+
+    @staticmethod
+    def _distiller(alpha: float) -> Any:
+        from omni_mercury_engine.ml.distillation import DualStudentDistillation
+        from omni_mercury_engine.ml.distillation.dual_student import (
+            EncoderDecoderStudent,
+            EncoderEncoderStudent,
+        )
+
+        torch.manual_seed(0)
+        base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
+        distiller = DualStudentDistillation(
+            config={
+                "device": "cpu",
+                "num_epochs": 3,
+                "batch_size": 8,
+                "learning_rate": 1e-2,
+                "alpha": alpha,
+            }
+        )
+        distiller.teacher = _make_stub_teacher(base)
+        distiller.student1 = EncoderDecoderStudent(3, 8)
+        distiller.student2 = EncoderEncoderStudent(3, 8)
+        return distiller
+
+    @staticmethod
+    def _params(module: Any) -> list[torch.Tensor]:
+        return [p.detach().clone() for p in module.parameters()]
+
+    @staticmethod
+    def _changed(before: list[torch.Tensor], module: Any) -> bool:
+        return any(not torch.equal(b, a) for b, a in zip(before, module.parameters(), strict=True))
+
+    def test_alpha_one_trains_only_the_patch_student(self) -> None:
+        distiller = self._distiller(alpha=1.0)
+        s1_before = self._params(distiller.student1)
+        s2_before = self._params(distiller.student2)
+        distiller.fit(torch.randn(8, 3, 2, 2))
+        assert self._changed(s1_before, distiller.student1)
+        # loss2's coefficient is 0: the semantic student gets no gradient.
+        assert not self._changed(s2_before, distiller.student2)
+
+    def test_alpha_zero_trains_only_the_semantic_student_and_descends(self) -> None:
+        """alpha=0 moves only student2, and MINIMIZES the semantic loss.
+
+        One fit carries both assertions (the mutation gate replays the
+        suite hundreds of times with four concurrent workers, where each
+        training run inflates to seconds under contention): the
+        parameter-motion check kills a swapped coefficient, the descent
+        check kills a sign-flip on either loss term.
+        """
+        distiller = self._distiller(alpha=0.0)
+        data = torch.randn(8, 3, 2, 2)
+        s1_before = self._params(distiller.student1)
+        distiller.student2.eval()  # compare like-for-like batch-norm statistics
+        with torch.no_grad():
+            teacher_agg = distiller._aggregate_features(distiller.teacher(data))
+            loss_before = float(
+                distiller._distillation_loss(teacher_agg, distiller.student2(teacher_agg))
+            )
+        distiller.fit(data)
+        assert not self._changed(s1_before, distiller.student1)
+        distiller.student2.eval()
+        with torch.no_grad():
+            loss_after = float(
+                distiller._distillation_loss(teacher_agg, distiller.student2(teacher_agg))
+            )
+        assert loss_after < loss_before
+
+    def test_default_alpha_trains_both_students(self) -> None:
+        distiller = self._distiller(alpha=0.5)
+        s1_before = self._params(distiller.student1)
+        s2_before = self._params(distiller.student2)
+        distiller.fit(torch.randn(8, 3, 2, 2))
+        assert self._changed(s1_before, distiller.student1)
+        assert self._changed(s2_before, distiller.student2)
+
+    @pytest.mark.parametrize("bad", [-0.1, 1.05, 1.5, float("nan"), float("inf")])
+    def test_alpha_outside_the_convex_range_is_refused(self, bad: float) -> None:
+        from omni_mercury_engine.ml.distillation.dual_student import DualStudentConfig
+
+        with pytest.raises(ValueError, match="alpha"):
+            DualStudentConfig(alpha=bad)
+
+    def test_alpha_bounds_are_valid(self) -> None:
+        from omni_mercury_engine.ml.distillation.dual_student import DualStudentConfig
+
+        assert DualStudentConfig(alpha=0.0).alpha == 0.0
+        assert DualStudentConfig(alpha=1.0).alpha == 1.0
+
+    def test_temperature_is_reserved_and_unwired(self) -> None:
+        """Cosine-feature distillation has no logits: T changes nothing.
+
+        Two trainings identical except for ``temperature`` produce
+        byte-identical students (maintainer decision: the knob is kept for
+        config compatibility and documented as reserved, never wired).
+        """
+        results = []
+        for temperature in (4.0, 0.5):
+            distiller = self._distiller(alpha=0.5)
+            distiller.config.temperature = temperature
+            torch.manual_seed(123)  # fix the loader shuffle order
+            distiller.fit(torch.randn(8, 3, 2, 2))
+            results.append(
+                [p.detach().clone() for p in distiller.student1.parameters()]
+                + [p.detach().clone() for p in distiller.student2.parameters()]
+            )
+        assert all(torch.equal(a, b) for a, b in zip(results[0], results[1], strict=True))

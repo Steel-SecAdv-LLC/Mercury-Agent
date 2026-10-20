@@ -76,7 +76,7 @@ class TestRequireRealComponent:
 
     def test_noop_in_development(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
-        # No raise.
+        # In development the gate is a no-op: a raise here fails the test.
         require_real_component("test component", remediation="set llm_provider")
 
     def test_raises_in_production(self, monkeypatch: pytest.MonkeyPatch) -> None:

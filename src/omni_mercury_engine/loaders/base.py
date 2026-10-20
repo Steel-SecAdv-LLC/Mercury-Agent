@@ -561,10 +561,21 @@ class BaseDomainLoader(ABC):
             data: Data to cache (must be JSON-serializable).
         """
         path = self._get_cache_path(key)
+        # Serialize BEFORE opening the file: json.dump streams into the
+        # handle, so a mid-dump TypeError used to leave a truncated JSON
+        # file behind — destroying any previously valid entry for this key
+        # (open(..., "w") truncates first) and parking a corrupt file in
+        # the cache slot. With dumps-then-write, a failed serialization
+        # writes nothing and the existing entry survives.
+        try:
+            payload = json.dumps({"timestamp": time.time(), "data": data})
+        except (TypeError, ValueError) as exc:
+            logger.debug("Cache write failed for %s: %s", key, exc)
+            return
         try:
             with open(path, "w") as f:
-                json.dump({"timestamp": time.time(), "data": data}, f)
-        except (TypeError, OSError) as exc:
+                f.write(payload)
+        except OSError as exc:
             logger.debug("Cache write failed for %s: %s", key, exc)
 
     # =========================================================================

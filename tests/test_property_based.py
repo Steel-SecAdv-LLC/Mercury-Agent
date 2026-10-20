@@ -632,20 +632,14 @@ class TestKnowledgeGraphProperties:
     @given(st.text(min_size=1, max_size=30, alphabet=st.characters(categories=["L", "N"])))
     @settings(max_examples=20)
     def test_query_nonexistent_node_handled(self, node_name: str) -> None:
-        """Querying non-existent nodes should be handled gracefully."""
+        """Querying non-existent nodes is graceful: None / empty, no raise."""
         knowledge_graph = pytest.importorskip("omni_mercury_engine.cognitive.knowledge_graph")
         KnowledgeGraph = knowledge_graph.KnowledgeGraph
 
         kg = KnowledgeGraph()
 
-        # Property: Querying non-existent node should not crash
-        try:
-            kg.query_node(node_name)
-            # Result should be None or empty for non-existent nodes
-        except (KeyError, ValueError):
-            pass  # Expected behavior
-        except Exception:
-            pass  # Other exceptions acceptable
+        assert kg.get_node(node_name) is None
+        assert kg.get_neighbors(node_name) == []
 
 
 # Run with: pytest tests/test_property_based.py -v

@@ -18,6 +18,7 @@ diversity for anomaly representation.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,8 +37,20 @@ class DualStudentConfig:
         hidden_dim: Hidden dimension for students
         learning_rate: Learning rate for training
         num_epochs: Number of training epochs
-        temperature: Distillation temperature
-        alpha: Weight for distillation loss vs reconstruction
+        temperature: RESERVED. Classical softened-logit distillation
+            (Hinton et al. 2015) divides teacher/student LOGITS by T before
+            the softmax; this distiller matches teacher FEATURES with a
+            cosine loss, so there are no logits and no principled place for
+            a temperature. The knob is kept for config compatibility and
+            deliberately unwired (maintainer decision); it is not validated
+            and changing it changes nothing.
+        alpha: Convex weight tilting training between the two students:
+            ``total_loss = alpha * loss1 + (1 - alpha) * loss2``, where
+            student 1 (encoder-decoder) is the patch-level/reconstruction
+            branch and student 2 (encoder-encoder) the semantic branch.
+            1.0 trains only student 1, 0.0 only student 2; the default 0.5
+            weights both equally (the historical unweighted-sum behaviour
+            up to the overall scale).
     """
 
     backbone: str = "resnet18"
@@ -48,6 +61,22 @@ class DualStudentConfig:
     alpha: float = 0.5
     batch_size: int = 32
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+
+    def __post_init__(self) -> None:
+        """Validate the student weighting.
+
+        Raises:
+            ValueError: If ``alpha`` is not a finite number in [0, 1] -- a
+                weight outside the convex range would train a student with a
+                negative loss coefficient (gradient ascent) silently.
+        """
+        alpha = float(self.alpha)
+        if not math.isfinite(alpha) or not 0.0 <= alpha <= 1.0:
+            raise ValueError(
+                f"alpha must be a finite weight in [0, 1], got {self.alpha!r}; "
+                "1.0 trains only the patch-level student, 0.0 only the semantic student"
+            )
+        self.alpha = alpha
 
 
 class EncoderDecoderStudent(nn.Module):
@@ -385,8 +414,13 @@ class DualStudentDistillation(nn.Module):
                 loss1 = self._distillation_loss(teacher_agg, student1_out)
                 loss2 = self._distillation_loss(teacher_agg, student2_out)
 
-                # Combined loss
-                total_loss = loss1 + loss2
+                # Combined loss: alpha tilts training between the patch-level
+                # student (loss1) and the semantic student (loss2). At the
+                # default 0.5 this is the historical loss1 + loss2 up to a
+                # constant 0.5 factor, which Adam's per-parameter scaling
+                # absorbs.
+                alpha = self.config.alpha
+                total_loss = alpha * loss1 + (1.0 - alpha) * loss2
 
                 optimizer.zero_grad()
                 total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]

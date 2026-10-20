@@ -69,5 +69,6 @@ def test_explanation_is_json_serialisable(
 
     monkeypatch.setattr(engine_mod, "_EXPLAIN_IG_STEPS", 6)
     result = loaded_engine.detect_with_fusion(_benign_batch(), domain="general", explain=True)
-    # Should not raise.
-    json.dumps(result["explanation"])
+    explanation = result["explanation"]
+    # JSON-safe AND lossless: the round trip reproduces the explanation.
+    assert json.loads(json.dumps(explanation)) == explanation

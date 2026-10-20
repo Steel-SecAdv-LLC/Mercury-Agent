@@ -78,12 +78,15 @@ def test_loopback_permitted_in_all_offline_modes(monkeypatch: pytest.MonkeyPatch
     """Loopback stays reachable offline regardless of the VPC opt-in."""
     for vpc in (False, True):
         _set_mode(monkeypatch, offline=True, vpc=vpc)
-        SafeHTTPClient.validate_url(
-            "http://127.0.0.1:11434/api/tags",
-            allow_http=True,
-            user_configured=True,
-            loopback_only=True,
-        )
+        assert (
+            SafeHTTPClient.validate_url(
+                "http://127.0.0.1:11434/api/tags",
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
+            )
+            is None
+        ), f"loopback refused offline with vpc={vpc}"
 
 
 def test_online_behavior_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:

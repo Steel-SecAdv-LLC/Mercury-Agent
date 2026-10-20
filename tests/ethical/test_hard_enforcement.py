@@ -929,6 +929,9 @@ class TestFederatedAggregatorBoundary:
         agg = self._aggregator()
         agg._benevolence_scorer.benevolence_threshold = 1.01
         agg.submit(self._stats("a", 1))  # must not raise
+        # The submission was actually admitted to the round, not dropped.
+        assert len(agg._submissions) == 1
+        assert agg._submissions[0].node_id == "a"
 
     def test_submit_raises_sigma_immutable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         agg = self._aggregator()

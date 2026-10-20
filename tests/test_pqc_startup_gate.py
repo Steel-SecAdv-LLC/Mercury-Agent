@@ -70,20 +70,28 @@ class TestGateRequiresAmaRegardlessOfEnv:
         finally:
             _restore_env(saved)
 
-    def test_explicit_false_does_not_disable_gate(self) -> None:
+    def test_explicit_false_does_not_disable_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # With AMA complete the gate passes; with a backend missing it must
+        # STILL raise -- the env var has no power to disable enforcement.
         saved = _scrub_real_pqc_env()
         os.environ["AMA_REQUIRE_REAL_PQC"] = "false"
         try:
-            _enforce_pqc_production_gate()
+            _enforce_pqc_production_gate()  # AMA complete: must pass
+            monkeypatch.setattr(ama_pqc_backends, "DILITHIUM_AVAILABLE", False, raising=False)
+            with pytest.raises(RuntimeError, match="incomplete"):
+                _enforce_pqc_production_gate()
         finally:
             os.environ.pop("AMA_REQUIRE_REAL_PQC", None)
             _restore_env(saved)
 
-    def test_legacy_false_does_not_disable_gate(self) -> None:
+    def test_legacy_false_does_not_disable_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
         saved = _scrub_real_pqc_env()
         os.environ["AVA_REQUIRE_REAL_PQC"] = "false"
         try:
-            _enforce_pqc_production_gate()
+            _enforce_pqc_production_gate()  # AMA complete: must pass
+            monkeypatch.setattr(ama_pqc_backends, "KYBER_AVAILABLE", False, raising=False)
+            with pytest.raises(RuntimeError, match="incomplete"):
+                _enforce_pqc_production_gate()
         finally:
             os.environ.pop("AVA_REQUIRE_REAL_PQC", None)
             _restore_env(saved)
@@ -146,7 +154,7 @@ class TestAmaVersionEnforcement:
         assert _AMA_REQUIRED_VERSION == "5.0.0"
 
     def test_real_installed_version_passes(self) -> None:
-        # The build under test installs the pinned version; the check is silent.
+        # The build under test installs the pinned version; a mismatch raises.
         _enforce_ama_version()
 
     def test_declared_env_mismatch_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,7 +164,7 @@ class TestAmaVersionEnforcement:
 
     def test_declared_env_match_passes_with_v_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(AMA_CRYPTO_VERSION_ENV, "v5.0.0")
-        _enforce_ama_version()
+        _enforce_ama_version()  # a mismatch raises
 
     def test_installed_version_mismatch_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(ama_cryptography, "__version__", "9.9.9", raising=False)
@@ -199,7 +207,7 @@ class TestAmaVersionEnforcement:
     ) -> None:
         # A post/local build of the pinned release must NOT be refused.
         monkeypatch.setattr(ama_cryptography, "__version__", "5.0.0.post1", raising=False)
-        _enforce_ama_version()  # must not raise
+        _enforce_ama_version()  # a refusal of the post-build raises
 
 
 class TestScopedGateContract:

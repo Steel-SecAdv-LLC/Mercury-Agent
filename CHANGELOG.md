@@ -27,6 +27,154 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Humanitarian capabilities instituted on published methods; no-check test triage; per-module mutation floors for the crisis monitor and the enhanced geological detectors (branch `steel/version-cov4`)
+
+**Added — five humanitarian `detect()` capabilities, each on a published
+method with cited thresholds
+(`infrastructure/humanitarian/{neuroscience,climate_resilience,economic_resilience,education_equity,agrifood_security}.py`).**
+The five detection types the dispatchers documented but silently routed to
+their default paths are implemented, and every previously unreachable enum
+member is now reachable and pinned by test:
+
+* `neuroscience` `mental_health` (flagship): scores three validated clinical
+  screening instruments by their published rules — PHQ-9 (Kroenke, Spitzer &
+  Williams 2001: bands 5/10/15/20, cutpoint ≥ 10 at 88%/88%
+  sensitivity/specificity), GAD-7 (Spitzer et al. 2006: bands 5/10/15,
+  cutpoint ≥ 10 at 89%/82%) and ASRS v1.1 Part A (Kessler et al. 2005:
+  per-item shaded thresholds, ≥ 4 positive items at 68.7%/99.5%). Any PHQ-9
+  item-9 endorsement escalates to `MENTAL_HEALTH_CRISIS` with immediate
+  urgency and a structured suicide-risk-assessment action, per the
+  instrument's published guidance (Simon et al. 2013); the crisis
+  recommendations branch is reachable, mis-scored instruments refuse with
+  `ValueError`, and every output carries a verbatim clinical disclaimer
+  deferring to licensed clinical review. A positive ASRS screen reports
+  `ATTENTION_DEFICIT`.
+* `climate` `sea_level`: tide-gauge trend by OLS with annual/semiannual
+  harmonics (Zervas 2009, NOAA CO-OPS 053) plus a quadratic acceleration
+  term (Church & White 2011), detected against the measured global-mean
+  altimetry references (3.4 mm/yr, 0.084 mm/yr²; Nerem et al. 2018).
+  Verified on a recorded NOAA CO-OPS fixture (The Battery, monthly MSL
+  2000-2024, 300 contiguous months): measured trend 6.32 mm/yr, above the
+  global mean, consistent with the documented post-2000 US-Northeast
+  acceleration. `HURRICANE` is reachable through a `wind` branch
+  (NHC/Saffir-Simpson: 64 kt force, 96 kt major) and `WILDFIRE` through a
+  `fire_weather` branch (Angström index, Chandler et al. 1983: < 2.0 very
+  likely, < 2.5 favorable).
+* `economic` `inflation`: the latest annual CPI rate graded on published
+  thresholds — ≥ 10% surge, ≥ 15% the Dornbusch-Fischer (1993) moderate
+  band, ≥ 40% the Bruno-Easterly (1998) crisis threshold — making
+  `INFLATION_SURGE` reachable; verified against the recorded World Bank
+  Türkiye series (72.3% in 2022 grades critical). A `gdp` branch implements
+  the technical-recession rule (two consecutive negative quarters, Shiskin
+  1974; the NBER-differs caveat is carried in the output), making
+  `RECESSION_RISK` reachable.
+* `education` `access`: out-of-school rates against the measured UNESCO UIS
+  world primary rate (10.3%, ROFST.1.CP "SDG: World", recorded fixture) —
+  `ACCESS_BARRIER` reachable at >1x/>2x/>4x the world rate. A `resources`
+  branch applies the UNESCO EFA 40:1 pupil-teacher benchmark
+  (`RESOURCE_INEQUITY`), and a `parity` branch the UIS adjusted
+  gender-parity band [0.97, 1.03] behind SDG 4.5.1 (`BIAS_DETECTED`, with
+  the disadvantaged group named).
+* `agrifood` `soil_health`: the four-indicator vector graded on published
+  thresholds — SOC < 2.0% (Loveland & Webb 2003), pH outside 5.5-7.5 (FAO),
+  bulk density > 1.6 g/cm³ (USDA NRCS), salinity ≥ 4 dS/m (USDA Handbook
+  60) — with two or more breaches a `CROP_FAILURE` risk. A `pest` branch
+  applies the FAO Desert Locust control trigger (≈ 500 hoppers/ha;
+  `PEST_OUTBREAK`), and a `supply` branch the FAO minimum safe cereal
+  stocks-to-use level (17%, with the 17-18% band tight;
+  `SUPPLY_DISRUPTION`).
+
+Recorded fixtures with provenance and sha256 under
+`tests/fixtures/humanitarian/`: NOAA CO-OPS 8518750 monthly MSL, UNESCO UIS
+world out-of-school, World Bank TUR CPI and WLD primary GPI, and the NOAA
+NCEI climatology below. 150+ behavioral boundary tests pin every published
+constant; the full mutation enumeration over the grown surface (644 sites,
+up from 312) measures 99.4% killed (640/644, the last three kills
+hand-verified), with the four survivors individually classified equivalent
+— the CI floor lane stays at 90.
+
+**Changed — the drought grading baseline is the measured NOAA climatology
+(`climate_resilience.py`; owner-approved).** The shipped 100 ± 50 mm
+placeholder put the 2σ deficit at exactly 0 mm, so only a fully rainless
+window could ever grade as drought and the moderate grade was unreachable.
+The baseline is now 66.2 ± 13.5 mm/month — the mean and population std of
+the 360 CONUS monthly totals, 1991-2020, NOAA NCEI Climate at a Glance
+(recorded fixture, recomputed by test) — so every drought grade is
+reachable from positive rainfall (2σ deficit at 39.2 mm, 3σ at 25.8 mm).
+
+**Changed — humanitarian detector type hygiene (owner-approved).** All five
+detectors return `anomaly_detected` as a Python `bool` (previously
+`np.bool_` leaked from bare numpy comparisons, failing `isinstance` checks
+and JSON serialization) and stamp results with timezone-aware UTC
+timestamps (previously naive local `datetime.now()`, against the repo-wide
+UTC convention). The volcanic detector had the same two `np.bool_` leaks
+(`thermal_anomaly_detected`, `deformation_detected`), fixed the same way.
+**Breaking change:** `result["timestamp"]` is now timezone-aware UTC;
+consumers comparing against naive datetimes must use aware datetimes.
+
+**Changed — `DualStudentConfig.alpha` is wired (owner-approved;
+`ml/distillation/dual_student.py`).** Training now minimizes
+`alpha * loss1 + (1 - alpha) * loss2`: `alpha` tilts the distiller between
+the patch-level encoder-decoder student (1.0 trains only it) and the
+semantic encoder-encoder student (0.0), with the default 0.5 reproducing
+the historical unweighted behaviour up to a constant factor Adam absorbs.
+`alpha` outside [0, 1] (or non-finite) is refused at construction.
+Behavioral tests pin both exclusive-training directions, descent of the
+weighted term, and the default. `temperature` is documented as RESERVED
+(owner decision): cosine-feature distillation has no logits and no
+principled place for a temperature; a test pins that changing it changes
+nothing. The wiring grew the module's mutation surface from 92 to 103
+sites; the re-measured kill rate is 95/103 (92.2%, one kill hand-verified),
+the 8 survivors the previously classified equivalents, floor 80 unchanged
+(the CI lane gains `--test-timeout 360`: the suite is seconds idle but
+measured past 150 s under the gate's own 4-way worker contention, inside
+which the 120 s default failed the green-baseline pre-check).
+
+**Fixed — a failed cache write destroyed the previous valid entry
+(`loaders/base.py`).** `json.dump` streamed into an already-truncated file,
+so an unserializable payload wiped the existing good cache entry for that
+key and left corrupt bytes behind. The payload is now serialized before the
+file is opened: a failed serialization writes nothing. Regression tests
+fail on the old code.
+
+**Changed — the no-check test census is closed (118 tests across 44
+files).** Measured by AST census under the repo's pytest collection rules:
+118 collectible tests performed no checks (the handoff's 131 included
+nested, never-collected defs); 47 of them checked through module-level
+helpers and 71 were genuinely vacuous — `try/except: pass` bodies, calls
+swallowed blind, and assertions on APIs that do not exist
+(`GlobalOmniScalarNetwork.forward`, `KnowledgeGraph.query_node`). All are
+upgraded to behavioral assertions against measured contracts; the census
+now reports zero. En route, latent test defects were fixed: the HUMINT
+tests passed `source_reliability` where the processor reads
+`source_rating` (the NATO ladder was never exercised), the COMINT test
+passed `encrypted` for `encryption_detected`, the plateau-scheduler test
+asserted a reduction one epoch before `ReduceLROnPlateau` can fire, and
+the volcanic high/low-risk tests passed `gas_emissions`/`deformation_mm`
+where `predict_eruption` reads `gas_data`/`insar_data`.
+
+**Changed — behavioral rewrites with per-module mutation floors
+(`tests/detectors/test_geological_detectors_3r.py`,
+`tests/infrastructure/humanitarian/test_crisis_monitor.py`).** The
+geological 3R suite (32 of 61 tests trivia-only) is rewritten to pin the
+trigger models' intensity-duration and PGA arithmetic, the geotechnical
+physics stability formula and failure-type ladder, the NFDRS fuel-moisture
+regressions and fuel-interface adjustment (GTR INT-169), the spread-model
+factors, NDVI metrics, brightness-temperature physics, the FIRMS raster
+contract, the HMM forward algorithm against its published matrices, and
+the USGS-style alert ladder — 159 tests. The crisis-monitor suite's 20
+trivia tests now pin the fusion threshold (strict), the severity ladder,
+exposure arithmetic, indicator typing, and group/response logic — 102
+tests; full enumeration measures 83.3% (60/72, every survivor classified
+equivalent), floored at 75 in a new CI lane. A geological floor lane runs
+the seven suites that cover the three modules: the full enumeration over
+all 1,302 sites measures 46.6% before the rewrite and 57.9% after
+(landslide 67.8%, wildfire 52.9%, volcanic 57.3%), floored at 50. The 548
+survivors are measured, not classified — they concentrate in
+constructor-default tables, the neural/live paths and the physics forecast
+internals; their classification and closure is the next ranked item of the
+hardening program.
+
 ### Hazard adapters on the engine contract; NHC peak storm surge as a numeric source; a calibrated mean band (branch `steel/version-cov4`)
 
 **Added — seven hazard adapters serve the full `BaseDetector` contract

@@ -285,9 +285,13 @@ class TestAPIKeyStore:
         assert api_key.last_used_at is not None
 
     def test_update_last_used_nonexistent(self) -> None:
-        """Test updating non-existent key is a no-op."""
+        """Updating a non-existent key is a true no-op on the store."""
         store = APIKeyStore()
-        store.update_last_used("nonexistent")  # Should not raise
+        _raw, api_key = store.create_key(user_id="u1", name="probe")
+        store.update_last_used("nonexistent")
+        # Nothing materialized and no other key's timestamp was touched.
+        assert store.get_by_id("nonexistent") is None
+        assert api_key.last_used_at is None
 
 
 # =============================================================================

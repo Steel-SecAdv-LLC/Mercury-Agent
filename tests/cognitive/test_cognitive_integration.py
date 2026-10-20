@@ -108,7 +108,12 @@ class TestMultiHopReasoner:
         assert stats["total_rules"] > 0  # Core rules initialized
 
     def test_deduction(self) -> None:
-        from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+        from omni_mercury_engine.cognitive.multi_hop_reasoner import (
+            InferenceRule,
+            MultiHopReasoner,
+            Proposition,
+            ReasoningType,
+        )
 
         reasoner = MultiHopReasoner()
 
@@ -116,9 +121,20 @@ class TestMultiHopReasoner:
             Proposition(prop_id="premise_1", content="It is raining", truth_value=1.0),
         ]
 
-        # Even without matching rules, deduction should complete
-        reasoner.deduce(premises)
-        # May or may not find derivations depending on knowledge base
+        # A matching rule must forward-chain to its conclusion.
+        reasoner.add_rule(
+            InferenceRule(
+                rule_id="rain_wets_ground",
+                premises=["premise_1"],
+                conclusion="ground_is_wet",
+                reasoning_type=ReasoningType.DEDUCTIVE,
+            )
+        )
+        before = reasoner.get_statistics()["deductive_inferences"]
+        chain = reasoner.deduce(premises)
+        assert chain is not None, "matching rule produced no reasoning chain"
+        assert any(step.rule_applied.rule_id == "rain_wets_ground" for step in chain.steps)
+        assert reasoner.get_statistics()["deductive_inferences"] == before + 1
 
     def test_abduction(self) -> None:
         from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition

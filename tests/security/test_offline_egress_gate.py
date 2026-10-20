@@ -84,17 +84,25 @@ class TestSafeHTTPClientOfflineGate:
             raise AssertionError("DNS resolution should not run for an IP literal")
 
         monkeypatch.setattr(socket, "getaddrinfo", _boom)
-        # No raise == permitted (on-box model stays reachable air-gapped).
-        SafeHTTPClient.validate_url(url, allow_http=True, user_configured=True, loopback_only=True)
+        # Permitted (on-box model stays reachable air-gapped), with no DNS.
+        assert (
+            SafeHTTPClient.validate_url(
+                url, allow_http=True, user_configured=True, loopback_only=True
+            )
+            is None
+        )
 
     def test_localhost_permitted(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``localhost`` is permitted (resolves locally via the hosts file)."""
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
-        SafeHTTPClient.validate_url(
-            "http://localhost:11434/api/generate",
-            allow_http=True,
-            user_configured=True,
-            loopback_only=True,
+        assert (
+            SafeHTTPClient.validate_url(
+                "http://localhost:11434/api/generate",
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
+            )
+            is None
         )
 
     def test_offline_off_leaves_external_to_normal_gates(
@@ -103,7 +111,9 @@ class TestSafeHTTPClientOfflineGate:
         """With the switch unset, a trusted external host validates as before."""
         monkeypatch.setenv("MERCURY_OFFLINE", "0")
         # A class-constant trusted URL passes the allowlist with no offline block.
-        SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        assert (
+            SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query") is None
+        )
 
     def test_offline_blocks_even_trusted_external(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Offline refuses even an allowlisted external host -- air-gap wins."""
@@ -284,14 +294,15 @@ class TestEnforceOfflineEgressHelper:
     ) -> None:
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
         _forbid_dns(monkeypatch)
-        # No raise == permitted (loopback sidecars stay reachable air-gapped).
+        # Permitted (loopback sidecars stay reachable air-gapped), with no
+        # DNS: a refusal or a resolver call raises and fails the test.
         enforce_offline_egress(url)
 
     def test_noop_when_online(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Online, the helper decides nothing -- and still never resolves."""
         monkeypatch.setenv("MERCURY_OFFLINE", "0")
         _forbid_dns(monkeypatch)
-        enforce_offline_egress("https://example.com/api")
+        enforce_offline_egress("https://example.com/api")  # no block, no DNS
 
     def test_schemeless_url_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A URL the parser cannot extract a host from is refused, not permitted."""

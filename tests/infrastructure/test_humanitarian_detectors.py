@@ -6,12 +6,15 @@ Every test pins exact outputs against the modules' documented baselines
 (z-scores, thresholds, severities, recommendations), replacing the
 previous instantiation-only checks. Values are hand-computed from the
 shipped baselines: agrifood yield 5.0 +/- 1.0 and price 100 +/- 15,
-climate temperature 15 +/- 10 and precipitation 100 +/- 50, economic
+climate temperature 15 +/- 10 and precipitation 66.2 +/- 13.5 (the measured
+NOAA 1991-2020 CONUS monthly climatology), economic
 market 100 +/- 15 and unemployment 5 +/- 2, education achievement
 75 +/- 10, neural activity 50 +/- 15.
 """
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -23,6 +26,9 @@ from omni_mercury_engine.infrastructure.humanitarian import (
     EducationEquityDetector,
     NeuroscienceDetector,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class TestAgriFoodSecurityDetector:
@@ -117,9 +123,12 @@ class TestAgriFoodSecurityDetector:
         default = detector.detect(np.array([5.0]))
         assert "mean_yield_tons_per_hectare" in default["metrics"]
 
-        # Documented-but-unimplemented types fall back to the yield path
-        # (shipped routing, reported to the owner).
-        fallback = detector.detect(np.array([5.0]), detection_type="soil_health")
+        # soil_health is implemented: it routes to the FAO-threshold path.
+        soil = detector.detect(np.array([2.5, 6.5, 1.3, 1.0]), detection_type="soil_health")
+        assert "thresholds_breached" in soil["metrics"]
+
+        # An unknown type still falls back to the yield path (shipped routing).
+        fallback = detector.detect(np.array([5.0]), detection_type="unknown_type")
         assert "mean_yield_tons_per_hectare" in fallback["metrics"]
 
     def test_price_threshold_boundaries(self) -> None:
@@ -216,25 +225,78 @@ class TestClimateResilienceDetector:
         assert result["recommendations"] == ["Continue routine climate monitoring"]
 
     def test_rainless_window_is_a_detected_drought(self) -> None:
-        """0 mm total rainfall is the maximal drought and grades high.
-
-        Regression: with baseline 100 +/- 50 the two-sigma deficit sits
-        exactly at 0 mm, so the previous strict comparison made drought
-        unreachable for any non-negative rainfall series — a bone-dry
-        window was reported normal with routine monitoring.
-        """
+        """0 mm total rainfall is the maximal drought and grades high."""
         result = ClimateResilienceDetector().detect_precipitation_anomaly(np.array([0.0, 0.0]))
 
         assert result["anomaly_detected"]
         assert result["event_type"] == "drought"
         assert result["severity"] == "high"
         assert result["metrics"]["total_precipitation_mm"] == pytest.approx(0.0)
-        assert result["metrics"]["z_score"] == pytest.approx(-2.0)
+        assert result["metrics"]["z_score"] == pytest.approx(-66.2 / 13.5)
         assert result["disaster_risk"] == "elevated"
         assert result["recommendations"] == [
             "Implement water conservation measures",
             "Monitor agricultural impacts and food security",
         ]
+
+    def test_graded_drought_is_reachable_from_positive_rainfall(self) -> None:
+        """The measured baseline opens the moderate and severe drought grades.
+
+        Regression: the 100 +/- 50 placeholder baseline put the two-sigma
+        deficit at exactly 0 mm, so no positive-rainfall series could ever
+        grade as drought and the "medium" grade was unreachable.
+        """
+        detector = ClimateResilienceDetector()
+
+        moderate = detector.detect_precipitation_anomaly(np.array([30.0]))
+        assert moderate["event_type"] == "drought"
+        assert moderate["severity"] == "medium"
+        assert moderate["anomaly_detected"]
+
+        severe = detector.detect_precipitation_anomaly(np.array([25.0]))
+        assert severe["event_type"] == "drought"
+        assert severe["severity"] == "high"
+        assert severe["metrics"]["z_score"] == pytest.approx((25.0 - 66.2) / 13.5)
+
+    def test_drought_boundary_is_inclusive_at_two_sigma(self) -> None:
+        """Exactly the 2-sigma deficit (39.2 mm) grades as moderate drought."""
+        detector = ClimateResilienceDetector()
+
+        at_boundary = detector.detect_precipitation_anomaly(np.array([39.2]))
+        assert at_boundary["event_type"] == "drought"
+        assert at_boundary["severity"] == "medium"
+        assert at_boundary["anomaly_detected"]
+        assert at_boundary["metrics"]["z_score"] == pytest.approx(-2.0)
+
+        just_inside = detector.detect_precipitation_anomaly(np.array([39.3]))
+        assert just_inside["event_type"] == "normal"
+        assert not just_inside["anomaly_detected"]
+
+    def test_baseline_constants_match_the_recorded_noaa_series(self) -> None:
+        """The shipped constants ARE the measurement, recomputed from the fixture.
+
+        tests/fixtures/humanitarian/noaa_cag_conus_pcp_199101_202012.csv is
+        NOAA NCEI Climate at a Glance (nClimGrid), contiguous U.S. monthly
+        precipitation, 1991-2020 (inches).
+        """
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "humanitarian"
+            / "noaa_cag_conus_pcp_199101_202012.csv"
+        )
+        values = []
+        for line in fixture.read_text().splitlines():
+            if line.startswith("#") or line.startswith("Date") or not line.strip():
+                continue
+            _date, value = line.split(",")
+            values.append(float(value) * 25.4)  # inches -> mm
+        assert len(values) == 360  # 30 years x 12 months
+        baseline = ClimateResilienceDetector().precip_baseline
+        assert baseline["mean"] == pytest.approx(np.mean(values), abs=0.05)
+        assert baseline["std"] == pytest.approx(np.std(values), abs=0.05)
 
     def test_flood_critical_above_three_sigma(self) -> None:
         """300 mm total (z = 4) is a critical flood with evacuations."""
@@ -251,8 +313,8 @@ class TestClimateResilienceDetector:
         ]
 
     def test_flood_boundary_is_inclusive(self) -> None:
-        """Exactly 200 mm (z = 2) detects as a high-severity flood."""
-        result = ClimateResilienceDetector().detect_precipitation_anomaly(np.array([200.0]))
+        """Exactly the 2-sigma surplus (93.2 mm) detects as a high-severity flood."""
+        result = ClimateResilienceDetector().detect_precipitation_anomaly(np.array([93.2]))
 
         assert result["anomaly_detected"]
         assert result["event_type"] == "flood"
@@ -305,18 +367,23 @@ class TestClimateResilienceDetector:
         """Dry and wet mid-bands stay normal; the critical cut is above z = 3."""
         detector = ClimateResilienceDetector()
 
-        dry_normal = detector.detect_precipitation_anomaly(np.array([30.0]))
+        dry_normal = detector.detect_precipitation_anomaly(np.array([45.0]))
         assert dry_normal["event_type"] == "normal"
         assert dry_normal["severity"] == "low"
         assert not dry_normal["anomaly_detected"]
 
-        wet_normal = detector.detect_precipitation_anomaly(np.array([170.0]))
+        wet_normal = detector.detect_precipitation_anomaly(np.array([80.0]))
         assert wet_normal["event_type"] == "normal"
         assert not wet_normal["anomaly_detected"]
 
-        flood_at_three_sigma = detector.detect_precipitation_anomaly(np.array([250.0]))
+        # z = 3 exactly (106.7 mm) is still "high"; critical needs z > 3.
+        flood_at_three_sigma = detector.detect_precipitation_anomaly(np.array([106.7]))
         assert flood_at_three_sigma["event_type"] == "flood"
         assert flood_at_three_sigma["severity"] == "high"
+        assert flood_at_three_sigma["metrics"]["z_score"] == pytest.approx(3.0)
+
+        flood_above_three_sigma = detector.detect_precipitation_anomaly(np.array([110.0]))
+        assert flood_above_three_sigma["severity"] == "critical"
 
     def test_degenerate_baselines_stay_finite(self) -> None:
         """Zero-variance baselines exercise both division guards."""
@@ -344,9 +411,8 @@ class TestClimateResilienceDetector:
     def test_drought_severity_with_wetter_baselines(self) -> None:
         """Drought severity grades on z = -3 or a fully rainless window.
 
-        The shipped baseline (100 +/- 50) pins the drought branch to its
-        0 mm edge, so wetter custom baselines open the branch and pin the
-        severity cuts directly.
+        Custom baselines pin the severity cuts at round numbers,
+        independent of the shipped measured climatology.
         """
         detector = ClimateResilienceDetector()
 
@@ -899,3 +965,1074 @@ class TestNeuroscienceDetector:
         assert result["metrics"]["z_score"] == pytest.approx(-2.0)
         assert not result["anomaly_detected"]
         assert result["neurological_risk"] == "low"
+
+
+class TestResultTypeHygiene:
+    """``anomaly_detected`` is a Python bool and timestamps are UTC-aware.
+
+    The bare numpy comparisons previously leaked ``np.bool_`` into the
+    results (which fails ``isinstance(..., bool)`` and does not survive
+    JSON), and ``datetime.now()`` produced naive local timestamps against
+    the repo-wide UTC convention. These fail on that code.
+    """
+
+    _CASES = [
+        pytest.param(
+            lambda: NeuroscienceDetector().detect(np.full(20, 50.0), "neural_activity"),
+            False,
+            id="neural_activity-normal",
+        ),
+        pytest.param(
+            lambda: NeuroscienceDetector().detect(np.full(20, 120.0), "neural_activity"),
+            True,
+            id="neural_activity-anomalous",
+        ),
+        pytest.param(
+            lambda: NeuroscienceDetector().detect(np.full(10, 0.9), "cognitive"),
+            False,
+            id="cognitive-normal",
+        ),
+        pytest.param(
+            lambda: NeuroscienceDetector().detect(np.full(10, 0.5), "cognitive"),
+            True,
+            id="cognitive-anomalous",
+        ),
+        pytest.param(
+            lambda: ClimateResilienceDetector().detect(np.full(10, 15.0), "temperature"),
+            False,
+            id="temperature-normal",
+        ),
+        pytest.param(
+            lambda: ClimateResilienceDetector().detect(np.full(10, 60.0), "temperature"),
+            True,
+            id="temperature-anomalous",
+        ),
+        pytest.param(
+            lambda: ClimateResilienceDetector().detect(np.full(10, 6.62), "precipitation"),
+            False,
+            id="precipitation-normal",
+        ),
+        pytest.param(
+            lambda: ClimateResilienceDetector().detect(np.zeros(3), "precipitation"),
+            True,
+            id="precipitation-anomalous",
+        ),
+        pytest.param(
+            lambda: EconomicResilienceDetector().detect(np.full(10, 100.0), "market"),
+            False,
+            id="market-normal",
+        ),
+        pytest.param(
+            lambda: EconomicResilienceDetector().detect(np.full(10, 20.0), "market"),
+            True,
+            id="market-anomalous",
+        ),
+        pytest.param(
+            lambda: EconomicResilienceDetector().detect(np.full(10, 5.0), "employment"),
+            False,
+            id="employment-normal",
+        ),
+        pytest.param(
+            lambda: EconomicResilienceDetector().detect(np.full(10, 12.0), "employment"),
+            True,
+            id="employment-anomalous",
+        ),
+        pytest.param(
+            lambda: EducationEquityDetector().detect(np.full(10, 75.0), "achievement"),
+            False,
+            id="achievement-normal",
+        ),
+        pytest.param(
+            lambda: EducationEquityDetector().detect(np.full(10, 40.0), "achievement"),
+            True,
+            id="achievement-anomalous",
+        ),
+        pytest.param(
+            lambda: EducationEquityDetector().detect(np.full(10, 0.9), "dropout_risk"),
+            False,
+            id="dropout-normal",
+        ),
+        pytest.param(
+            lambda: EducationEquityDetector().detect(np.full(10, 0.1), "dropout_risk"),
+            True,
+            id="dropout-anomalous",
+        ),
+        pytest.param(
+            lambda: AgriFoodSecurityDetector().detect(np.full(10, 5.0), "yield"),
+            False,
+            id="yield-normal",
+        ),
+        pytest.param(
+            lambda: AgriFoodSecurityDetector().detect(np.full(10, 2.0), "yield"),
+            True,
+            id="yield-anomalous",
+        ),
+        pytest.param(
+            lambda: AgriFoodSecurityDetector().detect(np.full(10, 100.0), "price"),
+            False,
+            id="price-normal",
+        ),
+        pytest.param(
+            lambda: AgriFoodSecurityDetector().detect(np.full(10, 150.0), "price"),
+            True,
+            id="price-anomalous",
+        ),
+    ]
+
+    @pytest.mark.parametrize(("run", "expected"), _CASES)
+    def test_anomaly_detected_is_a_python_bool(
+        self, run: Callable[[], dict[str, Any]], expected: bool
+    ) -> None:
+        result = run()
+        assert isinstance(result["anomaly_detected"], bool)
+        assert result["anomaly_detected"] is expected
+
+    @pytest.mark.parametrize(("run", "expected"), _CASES)
+    def test_timestamp_is_utc_aware(
+        self, run: Callable[[], dict[str, Any]], expected: bool
+    ) -> None:
+        from datetime import UTC
+
+        result = run()
+        assert result["timestamp"].tzinfo is UTC
+
+
+class TestMentalHealthScreening:
+    """PHQ-9 / GAD-7 / ASRS v1.1 scoring on their published rules.
+
+    Cutpoints, bands and per-item thresholds follow the instruments'
+    primary sources (Kroenke 2001; Spitzer 2006; Kessler 2005); PHQ-9
+    item 9 escalates per the instrument's published guidance.
+    """
+
+    def _phq9(self, total: int, item9: int = 0) -> dict[str, Any]:
+        items = np.zeros(9)
+        remaining = total - item9
+        for i in range(8):
+            items[i] = min(3, remaining)
+            remaining -= items[i]
+            if remaining <= 0:
+                break
+        items[8] = item9
+        assert items.sum() == total
+        return NeuroscienceDetector().detect(items, "mental_health")
+
+    @pytest.mark.parametrize(
+        ("total", "band", "anomaly"),
+        [
+            (0, "minimal", False),
+            (4, "minimal", False),
+            (5, "mild", False),
+            (9, "mild", False),
+            (10, "moderate", True),
+            (14, "moderate", True),
+            (15, "moderately_severe", True),
+            (19, "moderately_severe", True),
+            (20, "severe", True),
+        ],
+    )
+    def test_phq9_bands_and_cutpoint(self, total: int, band: str, anomaly: bool) -> None:
+        result = self._phq9(total)
+        assert result["metrics"]["severity_band"] == band
+        assert result["anomaly_detected"] is anomaly
+        assert result["metrics"]["cutpoint"] == 10
+
+    def test_phq9_item9_escalates_to_crisis(self) -> None:
+        """Any item-9 endorsement is a crisis, whatever the total score."""
+        result = self._phq9(1, item9=1)
+        assert result["threat_type"] == "mental_health_crisis"
+        assert result["severity"] == "critical"
+        assert result["intervention_urgency"] == "immediate"
+        assert result["metrics"]["crisis_item_positive"] is True
+        assert result["anomaly_detected"] is True
+        assert any("suicide-risk assessment" in r for r in result["recommendations"])
+
+    def test_phq9_severe_band_is_crisis_high(self) -> None:
+        result = self._phq9(20)
+        assert result["threat_type"] == "mental_health_crisis"
+        assert result["severity"] == "high"
+        assert result["intervention_urgency"] == "routine"
+        assert result["metrics"]["crisis_item_positive"] is False
+
+    def test_phq9_positive_screen_refers_to_clinician(self) -> None:
+        result = self._phq9(12)
+        assert result["threat_type"] == "normal"
+        assert result["severity"] == "medium"
+        assert result["recommendations"][0] == (
+            "Refer for clinical assessment by a licensed mental health professional"
+        )
+
+    def test_every_result_carries_the_clinical_disclaimer(self) -> None:
+        for total in (0, 12, 20):
+            result = self._phq9(total)
+            assert result["clinical_disclaimer"] == (
+                "Screening output only, not a diagnosis; defer to evaluation by a "
+                "licensed mental health clinician."
+            )
+            assert result["metrics"]["published_sensitivity"] == 0.88
+            assert result["metrics"]["published_specificity"] == 0.88
+            assert "Kroenke" in result["method_citation"]
+
+    @pytest.mark.parametrize(
+        ("total", "band", "threat", "anomaly"),
+        [
+            (4, "minimal", "normal", False),
+            (5, "mild", "normal", False),
+            (10, "moderate", "normal", True),
+            (15, "severe", "mental_health_crisis", True),
+        ],
+    )
+    def test_gad7_bands(self, total: int, band: str, threat: str, anomaly: bool) -> None:
+        items = np.zeros(7)
+        remaining = total
+        for i in range(7):
+            items[i] = min(3, remaining)
+            remaining -= items[i]
+        result = NeuroscienceDetector().detect(items, "mental_health", {"instrument": "gad7"})
+        assert result["metrics"]["severity_band"] == band
+        assert result["threat_type"] == threat
+        assert result["anomaly_detected"] is anomaly
+        assert result["metrics"]["published_sensitivity"] == 0.89
+
+    def test_asrs_positive_screen_needs_four_shaded_items(self) -> None:
+        detector = NeuroscienceDetector()
+        positive = detector.detect(
+            np.array([2, 2, 2, 3, 0, 0]), "mental_health", {"instrument": "asrs6"}
+        )
+        assert positive["threat_type"] == "attention_deficit"
+        assert positive["anomaly_detected"] is True
+        assert positive["metrics"]["positive_items"] == 4
+        assert positive["recommendations"][0].startswith("Refer for a comprehensive adult ADHD")
+
+        three_only = detector.detect(
+            np.array([2, 2, 2, 2, 2, 2]), "mental_health", {"instrument": "asrs6"}
+        )
+        assert three_only["metrics"]["positive_items"] == 3  # items 4-6 need >= 3
+        assert three_only["threat_type"] == "normal"
+        assert three_only["anomaly_detected"] is False
+
+    def test_asrs_item_thresholds_differ_by_position(self) -> None:
+        detector = NeuroscienceDetector()
+        # Items 1-3 count from 2 ("sometimes"); a 1 never counts.
+        low_first_half = detector.detect(
+            np.array([1, 1, 1, 3, 3, 3]), "mental_health", {"instrument": "asrs6"}
+        )
+        assert low_first_half["metrics"]["positive_items"] == 3
+        # Items 4-6 count from 3 ("often"); a 4 counts everywhere it can.
+        maxed = detector.detect(
+            np.array([4, 4, 4, 4, 4, 4]), "mental_health", {"instrument": "asrs6"}
+        )
+        assert maxed["metrics"]["positive_items"] == 6
+        assert maxed["anomaly_detected"] is True
+
+    def test_invalid_instrument_inputs_are_refused(self) -> None:
+        detector = NeuroscienceDetector()
+        with pytest.raises(ValueError, match="unknown screening instrument"):
+            detector.detect(np.zeros(9), "mental_health", {"instrument": "mmpi"})
+        with pytest.raises(ValueError, match="exactly 9 item scores"):
+            detector.detect(np.zeros(3), "mental_health")
+        with pytest.raises(ValueError, match=r"integers in 0\.\.3"):
+            detector.detect(np.array([0, 0, 0, 0, 0, 0, 0, 0, 4]), "mental_health")
+        with pytest.raises(ValueError, match=r"integers in 0\.\.3"):
+            detector.detect(np.array([0.5, 0, 0, 0, 0, 0, 0, 0, 0]), "mental_health")
+        with pytest.raises(ValueError, match=r"integers in 0\.\.3"):
+            detector.detect(np.array([-1, 0, 0, 0, 0, 0, 0, 0, 0]), "mental_health")
+
+    def test_empty_input_returns_bare_negative(self) -> None:
+        assert NeuroscienceDetector().detect(np.array([]), "mental_health") == {
+            "anomaly_detected": False
+        }
+
+    def test_timestamps_are_utc(self) -> None:
+        from datetime import UTC
+
+        assert self._phq9(12)["timestamp"].tzinfo is UTC
+
+
+class TestSeaLevelDetection:
+    """Trend/acceleration vs the global-mean altimetry references."""
+
+    @staticmethod
+    def _series(trend_mm_yr: float, months: int = 350, seasonal_m: float = 0.05) -> np.ndarray:
+        t = np.arange(months) / 12.0
+        return trend_mm_yr / 1000.0 * t + seasonal_m * np.cos(2 * np.pi * t)
+
+    def test_trend_recovered_through_seasonal_cycle(self) -> None:
+        """The harmonic design recovers the trend on a non-integer year span."""
+        result = ClimateResilienceDetector().detect(self._series(3.0), "sea_level")
+        assert result["metrics"]["trend_mm_per_year"] == pytest.approx(3.0, abs=0.05)
+        assert result["anomaly_detected"] is False  # 3.0 < global 3.4
+        assert result["coastal_flood_risk"] == "baseline"
+
+    def test_above_global_trend_detects(self) -> None:
+        result = ClimateResilienceDetector().detect(self._series(5.0), "sea_level")
+        assert result["anomaly_detected"] is True
+        assert result["severity"] == "medium"
+        assert result["coastal_flood_risk"] == "elevated"
+
+    def test_hotspot_above_twice_global_is_high(self) -> None:
+        result = ClimateResilienceDetector().detect(self._series(7.0), "sea_level")
+        assert result["severity"] == "high"
+
+    def test_acceleration_alone_detects(self) -> None:
+        t = np.arange(360) / 12.0
+        series = 0.0005 * t**2  # 1 mm/yr^2
+        result = ClimateResilienceDetector().detect(series, "sea_level")
+        assert result["metrics"]["acceleration_mm_per_year2"] == pytest.approx(1.0, abs=0.01)
+        assert result["anomaly_detected"] is True
+
+    def test_flat_record_is_normal(self) -> None:
+        result = ClimateResilienceDetector().detect(np.full(60, 1.0), "sea_level")
+        assert result["metrics"]["trend_mm_per_year"] == pytest.approx(0.0, abs=1e-9)
+        assert result["anomaly_detected"] is False
+
+    def test_flood_threshold_context_grades_critical(self) -> None:
+        series = self._series(5.0) + 1.0
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(
+            series, {"minor_flood_threshold_m": 1.0}
+        )
+        assert result["event_type"] == "flood"
+        assert result["severity"] == "critical"
+
+    def test_short_or_bad_records_are_refused_not_scored(self) -> None:
+        detector = ClimateResilienceDetector()
+        assert detector.detect(np.array([]), "sea_level") == {"anomaly_detected": False}
+        short = detector.detect(np.full(23, 1.0), "sea_level")
+        assert short["anomaly_detected"] is False
+        assert "at least 24 monthly means" in short["note"]
+        with pytest.raises(ValueError, match="non-finite"):
+            detector.detect(np.array([1.0] * 30 + [np.nan]), "sea_level")
+
+    def test_battery_fixture_reproduces_recorded_trend(self) -> None:
+        """NOAA CO-OPS 8518750 (The Battery), monthly MSL 2000-2024.
+
+        Recorded from api.tidesandcurrents.noaa.gov (product=monthly_mean,
+        datum=MSL, metric); sha256
+        d1bd577994f58786c74ff506fc115314428d8aa88ca76ecf39798949927d9fbf.
+        The measured 2000-2024 trend (6.32 mm/yr) sits above NOAA's
+        published 1856-2024 long-term rate (2.98 mm/yr), the documented
+        post-2000 acceleration on the US Northeast coast.
+        """
+        import json
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "humanitarian"
+            / "coops_8518750_monthly_msl_2000_2024.json"
+        )
+        rows = json.loads(fixture.read_text())["data"]
+        assert [(int(r["year"]), int(r["month"])) for r in rows] == [
+            (y, m) for y in range(2000, 2025) for m in range(1, 13)
+        ]
+        msl = np.array([float(r["MSL"]) for r in rows])
+        result = ClimateResilienceDetector().detect(msl, "sea_level")
+        assert result["metrics"]["trend_mm_per_year"] == pytest.approx(6.3242, abs=0.01)
+        assert result["anomaly_detected"] is True
+        assert result["coastal_flood_risk"] == "elevated"
+
+
+class TestWindAndFireWeather:
+    """Saffir-Simpson wind thresholds and the Angström fire-weather index."""
+
+    def test_hurricane_force_boundary(self) -> None:
+        detector = ClimateResilienceDetector()
+        below = detector.detect(np.array([32.9]), "wind")
+        assert below["event_type"] == "normal"
+        assert below["anomaly_detected"] is False
+        at_force = detector.detect(np.array([64 * 0.514444]), "wind")
+        assert at_force["event_type"] == "hurricane"
+        assert at_force["severity"] == "high"
+        assert at_force["anomaly_detected"] is True
+
+    def test_major_hurricane_is_critical(self) -> None:
+        result = ClimateResilienceDetector().detect(np.array([30.0, 50.0]), "wind")
+        assert result["event_type"] == "hurricane"
+        assert result["severity"] == "critical"
+        assert result["recommendations"][-1].startswith("CRITICAL: Major hurricane")
+
+    def test_wind_validation(self) -> None:
+        detector = ClimateResilienceDetector()
+        assert detector.detect(np.array([]), "wind") == {"anomaly_detected": False}
+        with pytest.raises(ValueError, match="finite, non-negative"):
+            detector.detect(np.array([-5.0]), "wind")
+
+    @pytest.mark.parametrize(
+        ("temp", "humidity", "event", "severity"),
+        [
+            (35.0, 15.0, "wildfire", "high"),  # I = -0.05: very likely
+            (17.1, 20.0, "wildfire", "high"),  # I = 1.99, just under 2.0
+            (17.0, 20.0, "wildfire", "medium"),  # I = 2.0 exactly: favorable band
+            (25.0, 45.0, "wildfire", "medium"),  # I = 2.45
+            (10.0, 80.0, "normal", "low"),  # I = 5.7
+        ],
+    )
+    def test_angstrom_index_ladder(
+        self, temp: float, humidity: float, event: str, severity: str
+    ) -> None:
+        result = ClimateResilienceDetector().detect(np.array([[temp, humidity]]), "fire_weather")
+        assert result["event_type"] == event
+        assert result["severity"] == severity
+        assert result["metrics"]["worst_angstrom_index"] == pytest.approx(
+            humidity / 20.0 + (27.0 - temp) / 10.0
+        )
+
+    def test_worst_observation_decides(self) -> None:
+        result = ClimateResilienceDetector().detect(
+            np.array([[10.0, 80.0], [35.0, 15.0]]), "fire_weather"
+        )
+        assert result["event_type"] == "wildfire"
+        assert result["severity"] == "high"
+
+    def test_single_pair_is_accepted(self) -> None:
+        result = ClimateResilienceDetector().detect(np.array([35.0, 15.0]), "fire_weather")
+        assert result["event_type"] == "wildfire"
+
+    def test_fire_weather_validation(self) -> None:
+        detector = ClimateResilienceDetector()
+        with pytest.raises(ValueError, match="rows"):
+            detector.detect(np.zeros((2, 3)), "fire_weather")
+        with pytest.raises(ValueError, match="humidity"):
+            detector.detect(np.array([[20.0, 150.0]]), "fire_weather")
+
+
+class TestInflationAndRecession:
+    """Published inflation thresholds and the technical-recession rule."""
+
+    @pytest.mark.parametrize(
+        ("rate", "threat", "severity", "anomaly"),
+        [
+            (9.99, "normal", "low", False),
+            (10.0, "inflation_surge", "medium", True),
+            (14.99, "inflation_surge", "medium", True),
+            (15.0, "inflation_surge", "high", True),
+            (39.99, "inflation_surge", "high", True),
+            (40.0, "inflation_surge", "critical", True),
+        ],
+    )
+    def test_inflation_threshold_ladder(
+        self, rate: float, threat: str, severity: str, anomaly: bool
+    ) -> None:
+        result = EconomicResilienceDetector().detect(np.array([rate]), "inflation")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+        assert result["anomaly_detected"] is anomaly
+
+    def test_latest_value_is_graded_and_acceleration_reported(self) -> None:
+        result = EconomicResilienceDetector().detect(np.array([50.0, 8.0]), "inflation")
+        assert result["anomaly_detected"] is False  # only the latest counts
+        assert result["metrics"]["acceleration_pp"] == pytest.approx(-42.0)
+
+    def test_turkiye_2022_fixture_is_a_crisis(self) -> None:
+        """World Bank FP.CPI.TOTL.ZG for TUR (recorded fixture, sha256
+        fd6b475ceb1a0cde261dd916c7e396e938c92f18d51e5f6e...): 72.3% in 2022
+        exceeds the Bruno-Easterly 40% crisis threshold."""
+        import json
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "humanitarian"
+            / "wb_fp_cpi_totl_zg_tur.json"
+        )
+        rows = json.loads(fixture.read_text())[1]
+        by_year = {r["date"]: r["value"] for r in rows if r["value"] is not None}
+        series = np.array([by_year[y] for y in ("2020", "2021", "2022")])
+        result = EconomicResilienceDetector().detect(series, "inflation")
+        assert result["severity"] == "critical"
+        assert result["metrics"]["latest_inflation_pct"] == pytest.approx(72.31, abs=0.01)
+
+    @pytest.mark.parametrize(
+        ("growth", "threat", "severity", "streak"),
+        [
+            ([1.0, -0.5], "normal", "low", 1),
+            ([1.0, -0.5, -1.0], "recession_risk", "high", 2),
+            ([-1.0, -0.5, -0.2, -0.1], "recession_risk", "critical", 4),
+            ([-1.0, -0.5, 0.3], "normal", "low", 0),
+        ],
+    )
+    def test_technical_recession_rule(
+        self, growth: list[float], threat: str, severity: str, streak: int
+    ) -> None:
+        result = EconomicResilienceDetector().detect(np.array(growth), "gdp")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+        assert result["metrics"]["negative_quarter_streak"] == streak
+
+    def test_economic_validation(self) -> None:
+        detector = EconomicResilienceDetector()
+        assert detector.detect(np.array([]), "inflation") == {"anomaly_detected": False}
+        with pytest.raises(ValueError, match="non-finite"):
+            detector.detect(np.array([np.inf]), "gdp")
+
+
+class TestEducationAccessResourcesParity:
+    """UIS world benchmark, EFA pupil-teacher benchmark, UIS parity band."""
+
+    @pytest.mark.parametrize(
+        ("rate", "threat", "severity"),
+        [
+            (10.3, "normal", "low"),  # the world rate itself is not a barrier
+            (10.4, "access_barrier", "medium"),
+            (20.6, "access_barrier", "medium"),  # exactly 2x world
+            (20.7, "access_barrier", "high"),
+            (41.2, "access_barrier", "high"),  # exactly 4x world
+            (41.3, "access_barrier", "critical"),
+        ],
+    )
+    def test_access_barrier_ladder(self, rate: float, threat: str, severity: str) -> None:
+        result = EducationEquityDetector().detect(np.array([rate]), "access")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+
+    def test_world_benchmark_matches_the_recorded_uis_series(self) -> None:
+        """The 10.3% constant IS the latest UIS world value (ROFST.1.CP,
+        geoUnit 'SDG: World'; recorded fixture sha256
+        49b32bef43425aaab82e65accdcb03c097654f07c917801e39acdc4996b6a3cc)."""
+        import json
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "humanitarian"
+            / "uis_rofst1cp_sdg_world.json"
+        )
+        records = json.loads(fixture.read_text())["records"]
+        latest = max(records, key=lambda r: r["year"])
+        assert pytest.approx(latest["value"], abs=0.05) == (
+            EducationEquityDetector.WORLD_OUT_OF_SCHOOL_PCT
+        )
+
+    @pytest.mark.parametrize(
+        ("ratio", "threat", "severity"),
+        [
+            (40.0, "normal", "low"),
+            (40.1, "resource_inequity", "high"),
+            (60.0, "resource_inequity", "high"),
+            (60.1, "resource_inequity", "critical"),
+        ],
+    )
+    def test_pupil_teacher_ratio_benchmark(self, ratio: float, threat: str, severity: str) -> None:
+        result = EducationEquityDetector().detect(np.array([ratio]), "resources")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+
+    @pytest.mark.parametrize(
+        ("gpi", "threat", "severity", "group"),
+        [
+            (1.0, "normal", "low", "none"),
+            (0.97, "normal", "low", "none"),  # the band is inclusive
+            (1.03, "normal", "low", "none"),
+            (0.96, "bias_detected", "medium", "female"),
+            (1.04, "bias_detected", "medium", "male"),
+            (0.89, "bias_detected", "high", "female"),
+            (1.11, "bias_detected", "high", "male"),
+        ],
+    )
+    def test_gender_parity_band(self, gpi: float, threat: str, severity: str, group: str) -> None:
+        result = EducationEquityDetector().detect(np.array([gpi]), "parity")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+        assert result["metrics"]["disadvantaged_group"] == group
+
+    def test_world_gpi_fixture_is_within_parity(self) -> None:
+        """World primary GPI (WB SE.ENR.PRIM.FM.ZS, recorded fixture sha256
+        cfeabbc2aa2bd3e4ea3f06ed93d5966cf1c92011142c87cec94a8bf32754a26c)
+        sits inside the UIS parity band."""
+        import json
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "humanitarian"
+            / "wb_se_enr_prim_fm_zs_wld.json"
+        )
+        rows = json.loads(fixture.read_text())[1]
+        latest = next(r["value"] for r in rows if r["value"] is not None)
+        result = EducationEquityDetector().detect(np.array([latest]), "parity")
+        assert result["anomaly_detected"] is False
+
+    def test_education_validation(self) -> None:
+        detector = EducationEquityDetector()
+        assert detector.detect(np.array([]), "access") == {"anomaly_detected": False}
+        with pytest.raises(ValueError, match="percentages"):
+            detector.detect(np.array([120.0]), "access")
+        with pytest.raises(ValueError, match="positive"):
+            detector.detect(np.array([0.0]), "resources")
+        with pytest.raises(ValueError, match="positive"):
+            detector.detect(np.array([-0.5]), "parity")
+
+
+class TestSoilPestSupply:
+    """FAO/USDA soil thresholds, locust control density, stocks-to-use."""
+
+    _HEALTHY = [2.5, 6.5, 1.3, 1.0]
+
+    def test_healthy_soil_is_normal(self) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array(self._HEALTHY), "soil_health")
+        assert result["anomaly_detected"] is False
+        assert result["severity"] == "low"
+        assert result["metrics"]["thresholds_breached"] == []
+
+    @pytest.mark.parametrize(
+        ("vector", "breach"),
+        [
+            ([1.9, 6.5, 1.3, 1.0], "soil_organic_carbon_below_2pct"),
+            ([2.5, 5.4, 1.3, 1.0], "ph_outside_optimal_range"),
+            ([2.5, 7.6, 1.3, 1.0], "ph_outside_optimal_range"),
+            ([2.5, 6.5, 1.7, 1.0], "bulk_density_root_restrictive"),
+            ([2.5, 6.5, 1.3, 4.0], "saline_soil"),
+        ],
+    )
+    def test_each_single_breach_grades_medium(self, vector: list[float], breach: str) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array(vector), "soil_health")
+        assert result["metrics"]["thresholds_breached"] == [breach]
+        assert result["severity"] == "medium"
+        assert result["threat_type"] == "normal"
+        assert result["anomaly_detected"] is True
+
+    def test_soil_threshold_boundaries_exact(self) -> None:
+        detector = AgriFoodSecurityDetector()
+        # SOC 2.0 is NOT breached (strict <); bulk density 1.6 is NOT (strict >);
+        # pH 5.5 and 7.5 are inside (inclusive); salinity 4.0 IS saline (>=).
+        boundary = detector.detect(np.array([2.0, 5.5, 1.6, 3.9]), "soil_health")
+        assert boundary["metrics"]["thresholds_breached"] == []
+        at_75 = detector.detect(np.array([2.0, 7.5, 1.6, 3.9]), "soil_health")
+        assert at_75["metrics"]["thresholds_breached"] == []
+
+    def test_multiple_breaches_escalate(self) -> None:
+        detector = AgriFoodSecurityDetector()
+        two = detector.detect(np.array([1.5, 5.0, 1.3, 1.0]), "soil_health")
+        assert two["severity"] == "high"
+        assert two["threat_type"] == "crop_failure"
+        four = detector.detect(np.array([1.5, 8.2, 1.7, 5.0]), "soil_health")
+        assert four["severity"] == "critical"
+        assert len(four["metrics"]["thresholds_breached"]) == 4
+
+    def test_sample_matrix_is_judged_by_means(self) -> None:
+        samples = np.array([[1.0, 6.5, 1.3, 1.0], [3.0, 6.5, 1.3, 1.0]])  # mean SOC 2.0
+        result = AgriFoodSecurityDetector().detect(samples, "soil_health")
+        assert result["metrics"]["soil_organic_carbon_pct"] == pytest.approx(2.0)
+        assert result["metrics"]["thresholds_breached"] == []
+
+    def test_soil_validation(self) -> None:
+        detector = AgriFoodSecurityDetector()
+        with pytest.raises(ValueError, match="rows"):
+            detector.detect(np.array([1.0, 2.0, 3.0]), "soil_health")
+        with pytest.raises(ValueError, match="finite"):
+            detector.detect(np.array([np.nan, 6.5, 1.3, 1.0]), "soil_health")
+
+    @pytest.mark.parametrize(
+        ("density", "threat", "severity"),
+        [
+            (499.9, "normal", "low"),
+            (500.0, "pest_outbreak", "high"),
+            (4999.9, "pest_outbreak", "high"),
+            (5000.0, "pest_outbreak", "critical"),
+        ],
+    )
+    def test_locust_control_threshold(self, density: float, threat: str, severity: str) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array([density]), "pest")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+
+    def test_pest_grades_the_latest_observation(self) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array([600.0, 100.0]), "pest")
+        assert result["anomaly_detected"] is False
+
+    @pytest.mark.parametrize(
+        ("ratio", "threat", "severity", "anomaly"),
+        [
+            (18.0, "normal", "low", False),
+            (17.9, "normal", "medium", False),  # tight band
+            (17.0, "normal", "medium", False),
+            (16.9, "supply_disruption", "high", True),
+            (14.0, "supply_disruption", "high", True),
+            (13.9, "supply_disruption", "critical", True),
+        ],
+    )
+    def test_stocks_to_use_ladder(
+        self, ratio: float, threat: str, severity: str, anomaly: bool
+    ) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array([ratio]), "supply")
+        assert result["threat_type"] == threat
+        assert result["severity"] == severity
+        assert result["anomaly_detected"] is anomaly
+
+    def test_supply_disruption_recommendations(self) -> None:
+        result = AgriFoodSecurityDetector().detect(np.array([13.0]), "supply")
+        assert result["recommendations"][0] == "Release strategic reserves to stabilize supply"
+        assert result["recommendations"][-1].startswith("CRITICAL: Coordinate international")
+
+
+class TestMutationKillPins:
+    """Close the gaps the 2026-10-20 full enumeration measured (644 sites).
+
+    Each test pins behavior a surviving mutant falsified: empty-input
+    contracts, zero-value validity at ``< 0`` guards, exact published
+    boundaries, output units, and recommendation branch selection. The
+    survivors these leave open are classified in the floor lane's comment.
+    """
+
+    # ---- agrifood: soil ----
+
+    def test_soil_empty_input_is_the_bare_negative(self) -> None:
+        result = AgriFoodSecurityDetector().detect_soil_health_anomaly(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_soil_single_row_list_is_fully_scored(self) -> None:
+        result = AgriFoodSecurityDetector().detect_soil_health_anomaly(
+            np.array([[2.5, 6.5, 1.2, 0.5]])
+        )
+        assert result["anomaly_detected"] is False
+        assert result["threat_type"] == "normal"
+        assert "metrics" in result
+
+    def test_soil_zero_salinity_is_valid(self) -> None:
+        result = AgriFoodSecurityDetector().detect_soil_health_anomaly(
+            np.array([2.5, 6.5, 1.2, 0.0])
+        )
+        assert result["anomaly_detected"] is False
+
+    def test_soil_three_breaches_grade_critical(self) -> None:
+        result = AgriFoodSecurityDetector().detect_soil_health_anomaly(
+            np.array([1.0, 4.0, 1.7, 0.5])
+        )
+        assert result["severity"] == "critical"
+        assert result["threat_type"] == "crop_failure"
+        assert result["metrics"]["thresholds_breached"] == [
+            "soil_organic_carbon_below_2pct",
+            "ph_outside_optimal_range",
+            "bulk_density_root_restrictive",
+        ]
+
+    # ---- agrifood: pests and supply ----
+
+    def test_pest_empty_input_is_the_bare_negative(self) -> None:
+        result = AgriFoodSecurityDetector().detect_pest_outbreak(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_pest_nan_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            AgriFoodSecurityDetector().detect_pest_outbreak(np.array([float("nan")]))
+
+    def test_pest_zero_density_is_valid_and_normal(self) -> None:
+        result = AgriFoodSecurityDetector().detect_pest_outbreak(np.array([0.0]))
+        assert result["anomaly_detected"] is False
+        assert result["threat_type"] == "normal"
+
+    def test_pest_outbreak_recommendations_are_the_pest_branch(self) -> None:
+        result = AgriFoodSecurityDetector().detect_pest_outbreak(np.array([600.0]))
+        assert result["recommendations"] == [
+            "Launch coordinated pest control operations",
+            "Survey adjacent areas for spread",
+        ]
+
+    def test_supply_empty_input_is_the_bare_negative(self) -> None:
+        result = AgriFoodSecurityDetector().detect_supply_disruption(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_supply_nan_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            AgriFoodSecurityDetector().detect_supply_disruption(np.array([float("nan")]))
+
+    def test_supply_zero_ratio_is_valid_and_critical(self) -> None:
+        result = AgriFoodSecurityDetector().detect_supply_disruption(np.array([0.0]))
+        assert result["anomaly_detected"] is True
+        assert result["severity"] == "critical"
+
+    # ---- climate: precipitation ----
+
+    def test_rainless_window_grades_high_from_the_zero_total_alone(self) -> None:
+        """total <= 0 decides when the z-score does not reach -3."""
+        detector = ClimateResilienceDetector()
+        detector.precip_baseline = {"mean": 50.0, "std": 20.0}
+        result = detector.detect_precipitation_anomaly(np.zeros(5))
+        assert result["metrics"]["z_score"] == pytest.approx(-2.5)
+        assert result["event_type"] == "drought"
+        assert result["severity"] == "high"
+
+    def test_midband_total_is_normal(self) -> None:
+        """85 mm sits between +1.4 and +2 sigma: neither flood nor anomaly."""
+        result = ClimateResilienceDetector().detect_precipitation_anomaly(np.full(10, 8.5))
+        assert result["event_type"] == "normal"
+        assert result["anomaly_detected"] is False
+
+    # ---- climate: sea level ----
+
+    @staticmethod
+    def _msl_series(months: int, trend_m_yr: float, accel_m_yr2: float = 0.0) -> Any:
+        """Exact trend + full annual/semiannual harmonics, no noise."""
+        t = np.arange(months, dtype=float) / 12.0
+        return (
+            trend_m_yr * t
+            + 0.5 * accel_m_yr2 * t**2
+            + 0.03 * np.cos(2 * np.pi * t)
+            + 0.015 * np.sin(2 * np.pi * t)
+            + 0.02 * np.cos(4 * np.pi * t)
+            + 0.01 * np.sin(4 * np.pi * t)
+        )
+
+    def test_sea_level_exact_harmonic_recovery(self) -> None:
+        """The Zervas design recovers an exact synthetic trend to 1e-6 mm/yr.
+
+        Kills any mutation of the harmonic design columns or of the
+        m-to-mm scale factors: an unmodeled seasonal component leaks into
+        the trend estimate far beyond this tolerance.
+        """
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(self._msl_series(36, 0.005))
+        assert result["metrics"]["trend_mm_per_year"] == pytest.approx(5.0, abs=1e-6)
+        assert result["metrics"]["acceleration_mm_per_year2"] == pytest.approx(0.0, abs=1e-6)
+        assert result["severity"] == "medium"
+        assert result["coastal_flood_risk"] == "elevated"
+
+    def test_sea_level_acceleration_branch_grades_medium(self) -> None:
+        """Trend below global, acceleration 0.15 mm/yr^2 above Nerem 0.084."""
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(
+            self._msl_series(36, 0.002, 1.5e-4)
+        )
+        assert result["metrics"]["acceleration_mm_per_year2"] == pytest.approx(0.15, abs=1e-6)
+        assert result["severity"] == "medium"
+        assert result["anomaly_detected"] is True
+        assert result["coastal_flood_risk"] == "baseline"
+
+    def test_sea_level_trend_six_grades_medium_not_high(self) -> None:
+        """High needs twice the global trend (6.8); 6.0 stays medium."""
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(self._msl_series(36, 0.006))
+        assert result["metrics"]["trend_mm_per_year"] == pytest.approx(6.0, abs=1e-6)
+        assert result["severity"] == "medium"
+
+    def test_sea_level_exactly_24_months_is_scored(self) -> None:
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(self._msl_series(24, 0.001))
+        assert "note" not in result
+        assert result["metrics"]["n_months"] == 24
+
+    def test_flood_threshold_uses_the_latest_twelve_months_inclusively(self) -> None:
+        """Month -13 is far below threshold; the 12-month mean equals it."""
+        series = np.zeros(24)
+        series[11] = -13.0
+        series[12:] = 1.0
+        result = ClimateResilienceDetector().detect_sea_level_anomaly(
+            series, {"minor_flood_threshold_m": 1.0}
+        )
+        assert result["metrics"]["latest_12mo_mean_m"] == pytest.approx(1.0)
+        assert result["event_type"] == "flood"
+        assert result["severity"] == "critical"
+
+    # ---- climate: wind ----
+
+    def test_calm_zero_wind_is_valid(self) -> None:
+        result = ClimateResilienceDetector().detect_wind_anomaly(np.array([0.0]))
+        assert result["anomaly_detected"] is False
+        assert result["event_type"] == "normal"
+
+    def test_major_hurricane_boundary_is_inclusive_at_96_kt(self) -> None:
+        result = ClimateResilienceDetector().detect_wind_anomaly(np.array([96 * 0.514444]))
+        assert result["severity"] == "critical"
+        assert result["event_type"] == "hurricane"
+
+    def test_wind_kt_conversion_pins_the_nhc_factor(self) -> None:
+        result = ClimateResilienceDetector().detect_wind_anomaly(np.array([51.4444]))
+        assert result["metrics"]["max_sustained_wind_kt"] == pytest.approx(100.0, rel=1e-9)
+
+    # ---- climate: fire weather ----
+
+    def test_fire_empty_input_is_the_bare_negative(self) -> None:
+        result = ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_fire_single_scalar_fails_with_the_shape_message(self) -> None:
+        with pytest.raises(ValueError, match="temp_humidity takes"):
+            ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([5.0]))
+
+    def test_fire_range_boundaries_are_valid(self) -> None:
+        """Humidity 0 and 100, temperature -90 and 60 are all accepted."""
+        result = ClimateResilienceDetector().detect_fire_weather_anomaly(
+            np.array([[60.0, 0.0], [-90.0, 100.0]])
+        )
+        assert result["event_type"] == "wildfire"
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            [20.0, 100.5],
+            [20.0, -0.5],
+            [60.5, 50.0],
+            [-90.5, 50.0],
+        ],
+    )
+    def test_fire_out_of_range_observations_are_refused(self, row: list[float]) -> None:
+        with pytest.raises(ValueError, match="temperature must be finite"):
+            ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([row]))
+
+    def test_angstrom_exactly_two_is_favorable_not_very_likely(self) -> None:
+        """I = 40/20 + (27-27)/10 = 2.0 exactly: medium, not high."""
+        result = ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([[27.0, 40.0]]))
+        assert result["severity"] == "medium"
+        assert result["event_type"] == "wildfire"
+
+    def test_fire_recommendations_are_the_wildfire_branch(self) -> None:
+        high = ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([[35.0, 10.0]]))
+        assert high["recommendations"] == [
+            "Raise fire-weather readiness and restrict ignition sources",
+            "Pre-position firefighting resources",
+            "Issue fire-weather warnings to exposed communities",
+        ]
+        medium = ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([[27.0, 40.0]]))
+        assert medium["recommendations"] == [
+            "Raise fire-weather readiness and restrict ignition sources",
+            "Pre-position firefighting resources",
+        ]
+
+    # ---- economic ----
+
+    def test_single_rate_reports_zero_acceleration(self) -> None:
+        result = EconomicResilienceDetector().detect_inflation_anomaly(np.array([50.0]))
+        assert result["metrics"]["acceleration_pp"] == 0.0
+
+    def test_inflation_crisis_recommendations(self) -> None:
+        result = EconomicResilienceDetector().detect_inflation_anomaly(np.array([50.0]))
+        assert result["recommendations"] == [
+            "Tighten monetary policy coordination with the central bank",
+            "Protect purchasing power of vulnerable households",
+            "CRITICAL: Inflation above the crisis threshold — stabilization program needed",
+        ]
+
+    def test_recession_empty_input_is_the_bare_negative(self) -> None:
+        result = EconomicResilienceDetector().detect_recession_risk(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_zero_growth_breaks_the_negative_streak(self) -> None:
+        result = EconomicResilienceDetector().detect_recession_risk(np.array([2.0, -1.0, 0.0]))
+        assert result["anomaly_detected"] is False
+        assert result["metrics"]["negative_quarter_streak"] == 0
+
+    def test_recession_reports_the_latest_quarter(self) -> None:
+        result = EconomicResilienceDetector().detect_recession_risk(np.array([1.0, -1.0, -2.5]))
+        assert result["metrics"]["latest_growth_pct"] == -2.5
+        assert result["severity"] == "high"
+        assert result["recommendations"] == [
+            "Prepare counter-cyclical fiscal measures",
+            "Expand social safety nets ahead of labor-market impact",
+        ]
+
+    def test_prolonged_recession_recommendations_escalate(self) -> None:
+        result = EconomicResilienceDetector().detect_recession_risk(
+            np.array([-1.0, -1.0, -1.0, -2.0])
+        )
+        assert result["severity"] == "critical"
+        assert (
+            result["recommendations"][-1]
+            == "CRITICAL: Prolonged contraction — coordinate full response"
+        )
+
+    # ---- education ----
+
+    def test_zero_out_of_school_is_valid_and_normal(self) -> None:
+        result = EducationEquityDetector().detect_access_barrier(np.array([0.0]))
+        assert result["anomaly_detected"] is False
+
+    def test_hundred_percent_out_of_school_is_valid(self) -> None:
+        result = EducationEquityDetector().detect_access_barrier(np.array([100.0]))
+        assert result["anomaly_detected"] is True
+
+    def test_out_of_school_above_hundred_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="percentages"):
+            EducationEquityDetector().detect_access_barrier(np.array([100.5]))
+
+    def test_ptr_empty_input_is_the_bare_negative(self) -> None:
+        result = EducationEquityDetector().detect_resource_inequity(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_ptr_of_one_is_valid_and_normal(self) -> None:
+        result = EducationEquityDetector().detect_resource_inequity(np.array([1.0]))
+        assert result["anomaly_detected"] is False
+
+    def test_ptr_recommendations_are_the_resource_branch(self) -> None:
+        result = EducationEquityDetector().detect_resource_inequity(np.array([45.0]))
+        assert result["recommendations"] == [
+            "Recruit and deploy additional qualified teachers",
+            "Rebalance resource allocation toward under-served schools",
+        ]
+
+    def test_gpi_empty_input_is_the_bare_negative(self) -> None:
+        result = EducationEquityDetector().detect_gender_parity_bias(np.array([]))
+        assert result == {"anomaly_detected": False}
+
+    def test_gpi_zero_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            EducationEquityDetector().detect_gender_parity_bias(np.array([0.0]))
+
+    @pytest.mark.parametrize("gpi", [0.9, 1.1])
+    def test_gpi_severe_boundaries_are_exclusive(self, gpi: float) -> None:
+        """Exactly 0.9 / 1.1 is outside parity but below the high grade."""
+        result = EducationEquityDetector().detect_gender_parity_bias(np.array([gpi]))
+        assert result["threat_type"] == "bias_detected"
+        assert result["severity"] == "medium"
+
+    # ---- neuroscience ----
+
+    def test_gad7_item_above_three_is_refused(self) -> None:
+        with pytest.raises(ValueError, match=r"integers in 0\.\.3"):
+            NeuroscienceDetector().detect(
+                np.array([4, 0, 0, 0, 0, 0, 0]), "mental_health", {"instrument": "gad7"}
+            )
+
+    def test_asrs_item_above_four_is_refused(self) -> None:
+        with pytest.raises(ValueError, match=r"integers in 0\.\.4"):
+            NeuroscienceDetector().detect(
+                np.array([5, 0, 0, 0, 0, 0]), "mental_health", {"instrument": "asrs6"}
+            )
+
+    def test_gad7_reports_its_published_operating_point(self) -> None:
+        result = NeuroscienceDetector().detect(
+            np.array([3, 3, 3, 1, 0, 0, 0]), "mental_health", {"instrument": "gad7"}
+        )
+        assert result["metrics"]["published_sensitivity"] == 0.89
+        assert result["metrics"]["published_specificity"] == 0.82
+
+    def test_asrs_reports_its_published_operating_point(self) -> None:
+        result = NeuroscienceDetector().detect(
+            np.array([2, 2, 2, 3, 0, 0]), "mental_health", {"instrument": "asrs6"}
+        )
+        assert result["metrics"]["published_sensitivity"] == 0.687
+        assert result["metrics"]["published_specificity"] == 0.995
+
+    def test_gad7_exact_cutpoint_grades_medium_with_referral_first(self) -> None:
+        result = NeuroscienceDetector().detect(
+            np.array([3, 3, 3, 1, 0, 0, 0]), "mental_health", {"instrument": "gad7"}
+        )
+        assert result["severity"] == "medium"
+        assert result["recommendations"][0] == (
+            "Refer for clinical assessment by a licensed mental health professional"
+        )
+
+    def test_below_cutpoint_screen_carries_no_referral(self) -> None:
+        result = NeuroscienceDetector().detect(
+            np.array([1, 1, 1, 1, 1, 0, 0, 0, 0]), "mental_health"
+        )
+        assert result["severity"] == "low"
+        assert all("Refer for clinical assessment" not in r for r in result["recommendations"])
+
+    def test_angstrom_exactly_two_point_five_is_normal(self) -> None:
+        """I = 50/20 + (27-27)/10 = 2.5 exactly: the favorable band is exclusive."""
+        result = ClimateResilienceDetector().detect_fire_weather_anomaly(np.array([[27.0, 50.0]]))
+        assert result["event_type"] == "normal"
+        assert result["severity"] == "low"
+        assert result["anomaly_detected"] is False
+
+    def test_access_barrier_critical_escalation_is_severity_gated(self) -> None:
+        """The CRITICAL access line appears at critical severity and only there."""
+        detector = EducationEquityDetector()
+        critical = detector.detect_access_barrier(np.array([50.0]))
+        assert critical["severity"] == "critical"
+        assert critical["recommendations"][-1] == (
+            "CRITICAL: Deploy emergency education access programs"
+        )
+        moderate = detector.detect_access_barrier(np.array([15.0]))
+        assert moderate["severity"] != "critical"
+        assert all("CRITICAL" not in r for r in moderate["recommendations"])

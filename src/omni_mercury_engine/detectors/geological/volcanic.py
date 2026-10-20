@@ -363,7 +363,10 @@ class ThermalHotspotDetector:
 
         anomaly_threshold = self.baseline_temp_k + 20.0  # 20K above baseline
 
-        thermal_anomaly = max_temp > anomaly_threshold
+        # bool(): max_temp is np.float64, so the bare comparison yields
+        # np.bool_, which leaks into the bool-typed result fields (and does
+        # not survive json serialization).
+        thermal_anomaly = bool(max_temp > anomaly_threshold)
 
         hotspot_pixels = np.sum(brightness_temp_k > (mean_temp + 3 * std_temp))
 
@@ -483,7 +486,9 @@ class InSARDeformationDetector:
 
         total_displacement = np.sqrt(vertical_displacement_cm**2 + horizontal_displacement_cm**2)
 
-        deformation_detected = total_displacement > 5.0  # 5 cm threshold
+        # bool(): np.sqrt yields np.float64, so the bare comparison would
+        # leak np.bool_ into the bool-typed result field.
+        deformation_detected = bool(total_displacement > 5.0)  # 5 cm threshold
 
         deformation_type = "inflation" if vertical_displacement_cm > 0 else "deflation"
 

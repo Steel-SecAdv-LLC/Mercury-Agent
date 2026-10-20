@@ -1447,6 +1447,17 @@ class TestThreadSafety:
             for future in concurrent.futures.as_completed(futures):
                 future.result()  # Will raise if there was an exception
 
+        # The cache is still coherent after the concurrent storm.
+        point = DataPoint(
+            source_id="test_source",
+            source_type=DataSourceType.EARTHQUAKE,
+            event_id="post_storm_001",
+            timestamp=datetime.now(UTC),
+            data={"magnitude": 1.0},
+        )
+        source._set_cached("post_storm", [point])
+        assert source._get_cached("post_storm") == [point]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

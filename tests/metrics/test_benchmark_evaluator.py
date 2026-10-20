@@ -248,8 +248,9 @@ class TestEvaluationResult:
 
     def test_default_timestamp_is_isoformat(self) -> None:
         result = _result("d", "s", {})
-        # Raises ValueError if not a valid ISO-8601 timestamp
-        datetime.fromisoformat(result.timestamp)
+        # Raises ValueError if not a valid ISO-8601 timestamp.
+        parsed = datetime.fromisoformat(result.timestamp)
+        assert isinstance(parsed, datetime)
 
     def test_default_factory_containers_are_independent(self) -> None:
         first = _result("d", "s", {})

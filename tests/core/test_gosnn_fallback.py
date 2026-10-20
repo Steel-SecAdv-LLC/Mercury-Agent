@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import numpy as np
@@ -93,27 +92,34 @@ class TestGOSNNErrorHandling:
 
         return GlobalOmniScalarNetwork()
 
-    def test_gosnn_handles_invalid_input(self, gosnn: Any, caplog: Any) -> None:
-        """Test GOSNN handles invalid input gracefully."""
-        with caplog.at_level(logging.WARNING):
-            try:
-                gosnn.forward(None)
-            except Exception:
-                pass  # Expected: GOSNN should handle None input gracefully
+    def test_nonfinite_ethical_scalar_rejected_and_not_registered(self, gosnn: Any) -> None:
+        """A NaN ETHICAL scalar fails closed: ValueError, nothing written."""
+        from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
-    def test_gosnn_handles_empty_input(self, gosnn: Any) -> None:
-        """Test GOSNN handles empty input."""
-        try:
-            gosnn.forward(torch.tensor([]))
-        except Exception:
-            pass  # Expected: GOSNN may raise on empty tensor
+        with pytest.raises(ValueError, match="σ_Immutable trained support"):
+            gosnn.register_scalars(
+                component_name="test_errhandling_nan",
+                scalars={"omni_errhandling_nan": float("nan")},
+                group=ScalarGroup.ETHICAL,
+            )
+        # The batch is validated before any write, so the scalar is absent.
+        assert gosnn.get_scalar("omni_errhandling_nan", default=-1.0) == -1.0
 
-    def test_gosnn_handles_wrong_dimensions(self, gosnn: Any) -> None:
-        """Test GOSNN handles wrong dimensions."""
-        try:
-            gosnn.forward(torch.randn(1, 1, 1, 1))
-        except Exception:
-            pass  # Expected: GOSNN may raise on wrong dimensions
+    def test_out_of_support_ethical_scalar_rejected(self, gosnn: Any) -> None:
+        """An ETHICAL value above the trained support [0, high] is refused."""
+        from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
+
+        with pytest.raises(ValueError, match="σ_Immutable trained support"):
+            gosnn.register_scalars(
+                component_name="test_errhandling_oos",
+                scalars={"omni_errhandling_oos": 9.5},
+                group=ScalarGroup.ETHICAL,
+            )
+        assert gosnn.get_scalar("omni_errhandling_oos", default=-1.0) == -1.0
+
+    def test_unknown_scalar_name_returns_default(self, gosnn: Any) -> None:
+        """get_scalar on a never-registered name yields the caller's default."""
+        assert gosnn.get_scalar("omni_never_registered_anywhere", default=0.25) == 0.25
 
 
 # =============================================================================
@@ -136,7 +142,7 @@ class TestScalarRegistration:
         return GlobalOmniScalarNetwork()
 
     def test_register_scalars(self, gosnn: Any) -> None:
-        """Test scalar registration."""
+        """Registration writes the value, tracks ownership, and unregisters."""
         from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
         gosnn.register_scalars(
@@ -144,17 +150,26 @@ class TestScalarRegistration:
             scalars={"omni_test_scalar": 0.5},
             group=ScalarGroup.ETHICAL,
         )
+        assert gosnn.get_scalar("omni_test_scalar") == 0.5
+        assert gosnn.get_group_scalars(ScalarGroup.ETHICAL)["omni_test_scalar"] == 0.5
+        # Ownership is tracked: unregistering the component removes the entry.
+        assert gosnn.unregister_scalars("test_component") is True
+        assert "omni_test_scalar" not in gosnn.get_group_scalars(ScalarGroup.ETHICAL)
 
     def test_register_scalars_with_metadata(self, gosnn: Any) -> None:
-        """Test scalar registration with metadata."""
+        """Metadata rides the registration record verbatim."""
         from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
         gosnn.register_scalars(
-            component_name="test_component",
-            scalars={"omni_test_scalar": 0.5},
+            component_name="test_component_meta",
+            scalars={"omni_test_scalar_meta": 0.5},
             group=ScalarGroup.ETHICAL,
             metadata={"source": "test"},
         )
+        registration = gosnn.registered_scalars["test_component_meta"]
+        assert registration.metadata == {"source": "test"}
+        assert registration.scalars == {"omni_test_scalar_meta": 0.5}
+        assert gosnn.unregister_scalars("test_component_meta") is True
 
     def test_scalar_groups(self) -> None:
         """Test all scalar groups exist."""
@@ -209,14 +224,23 @@ class TestEthicalGating:
             assert result is not None
 
     def test_ethical_gate_blocks_low_benevolence(self, gosnn: Any) -> None:
-        """Test ethical gate blocks with low benevolence."""
-        if hasattr(gosnn, "apply_ethical_gate"):
-            features = torch.randn(1, 64)
-            benevolence = 0.5
-            try:
-                gosnn.apply_ethical_gate(features, benevolence)
-            except Exception:
-                pass  # Expected: ethical gate may block low benevolence
+        """A low (all-zero, in-support) scalar vector fails the trained gate."""
+        from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
+
+        gate = EthicalGate()
+        passes, score = gate.evaluate(np.zeros(24))
+        assert passes is False
+        assert score < gate.threshold
+
+    def test_ethical_gate_fails_closed_on_nonfinite_vector(self, gosnn: Any) -> None:
+        """NaN/inf in the scalar vector is unscoreable: (False, 0.0), never PASS."""
+        from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
+
+        gate = EthicalGate()
+        for bad in (np.array([np.nan, 1.0]), np.array([np.inf, 1.0]), np.array([-np.inf])):
+            passes, score = gate.evaluate(bad)
+            assert passes is False
+            assert score == 0.0
 
 
 # =============================================================================
@@ -446,13 +470,10 @@ class TestEngineGOSNNIntegration:
         """Test detect_with_fusion method exists."""
         assert hasattr(engine, "detect_with_fusion")
 
-    def test_engine_logging_on_error(self, engine: Any, caplog: Any) -> None:
-        """Test engine logs on GOSNN error."""
-        with caplog.at_level(logging.WARNING):
-            try:
-                engine.detect_with_fusion(None)
-            except Exception:
-                pass  # Expected: engine may raise on None input
+    def test_engine_refuses_fusion_before_fit(self, engine: Any) -> None:
+        """An unfitted engine refuses detect_with_fusion loudly, never auto-fits."""
+        with pytest.raises(RuntimeError, match="not fitted"):
+            engine.detect_with_fusion(None)
 
 
 # =============================================================================

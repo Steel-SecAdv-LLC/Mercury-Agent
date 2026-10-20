@@ -92,7 +92,8 @@ class TestRecordIsImmutable:
 
     def test_the_record_is_json_serialisable(self) -> None:
         """An audit artifact that cannot be written down is not an audit trail."""
-        json.dumps(_record().to_dict())
+        payload = _record().to_dict()
+        assert json.loads(json.dumps(payload)) == payload
 
 
 class TestLedgerIsAppendOnly:

@@ -33,7 +33,7 @@ from omni_mercury_engine.utils.constants import OmniCodes
 def test_roster_validates() -> None:
     # Single call asserting every structural invariant (unique ids, real
     # subsystem resolution, valid anchors, 7 code-bearers, depth/impl coherence).
-    validate_roster()
+    validate_roster()  # self-asserting: any invariant violation raises
 
 
 def test_exactly_33_public_members_plus_internal_floor() -> None:

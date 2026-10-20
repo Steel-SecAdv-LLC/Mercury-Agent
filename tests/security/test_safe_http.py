@@ -49,11 +49,16 @@ class TestSchemeGate:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("23.215.0.137")],  # public USGS-like IP
-        ):
-            SafeHTTPClient.validate_url(
-                "http://earthquake.usgs.gov/path",
-                allow_http=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "http://earthquake.usgs.gov/path",
+                    allow_http=True,
+                )
+                is None
             )
+        # http:// runs the private-network gate even for a trusted host.
+        resolve.assert_called_once_with("earthquake.usgs.gov")
 
     def test_no_host_rejected(self) -> None:
         with pytest.raises(UnsafeURLError, match="no host"):
@@ -97,15 +102,23 @@ class TestTrustedDomainsGate:
             SafeHTTPClient.validate_url("https://evil.example.com/path")
 
     def test_listed_host_passes(self) -> None:
-        # earthquake.usgs.gov is in TRUSTED_DOMAINS
-        SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        # earthquake.usgs.gov is in TRUSTED_DOMAINS; a trusted https URL
+        # passes without consulting DNS (needs_ip_gate short-circuit).
+        with patch("omni_mercury_engine.security.safe_http._resolve_ips") as resolve:
+            assert (
+                SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+                is None
+            )
+        resolve.assert_not_called()
 
     def test_listed_host_with_explicit_port_passes(self) -> None:
         # The Copilot review caught that the gate was matching against
         # parsed.netloc (which includes the port), so a URL like
         # https://earthquake.usgs.gov:443/... would be rejected even
         # though the host is allowlisted.  This test pins the fix.
-        SafeHTTPClient.validate_url("https://earthquake.usgs.gov:443/path")
+        with patch("omni_mercury_engine.security.safe_http._resolve_ips") as resolve:
+            assert SafeHTTPClient.validate_url("https://earthquake.usgs.gov:443/path") is None
+        resolve.assert_not_called()
 
     def test_user_configured_bypasses_allowlist_but_resolves_host(self) -> None:
         # Public DNS that is not in the allowlist; user_configured
@@ -116,10 +129,15 @@ class TestTrustedDomainsGate:
 
             resolve.return_value = [ipaddress.ip_address("93.184.216.34")]  # public TEST-IP
             # No exception expected.
-            SafeHTTPClient.validate_url(
-                "https://api.unknown-domain.example/",
-                user_configured=True,
+            assert (
+                SafeHTTPClient.validate_url(
+                    "https://api.unknown-domain.example/",
+                    user_configured=True,
+                )
+                is None
             )
+        # The allowlist is bypassed but the host IS resolved and gated.
+        resolve.assert_called_once_with("api.unknown-domain.example")
 
 
 class TestPrivateNetworkGate:
@@ -157,11 +175,15 @@ class TestPrivateNetworkGate:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("93.184.216.34")],
-        ):
-            SafeHTTPClient.validate_url(
-                "https://example.com/",
-                user_configured=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "https://example.com/",
+                    user_configured=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("example.com")
 
     def test_unresolvable_host_rejected(self) -> None:
         with (
@@ -196,13 +218,17 @@ class TestAllowPrivateGate:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address(ip)],
-        ):
-            SafeHTTPClient.validate_url(
-                "http://searxng.internal/search",
-                allow_http=True,
-                user_configured=True,
-                allow_private=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "http://searxng.internal/search",
+                    allow_http=True,
+                    user_configured=True,
+                    allow_private=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("searxng.internal")
 
     @pytest.mark.parametrize(
         ("ip", "fragment"),
@@ -268,13 +294,17 @@ class TestLoopbackOnlyGate:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("127.0.0.1")],
-        ):
-            SafeHTTPClient.validate_url(
-                "http://localhost:11434/api/tags",
-                allow_http=True,
-                user_configured=True,
-                loopback_only=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "http://localhost:11434/api/tags",
+                    allow_http=True,
+                    user_configured=True,
+                    loopback_only=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("localhost")
 
     def test_loopback_v6_allowed(self) -> None:
         import ipaddress
@@ -282,13 +312,17 @@ class TestLoopbackOnlyGate:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("::1")],
-        ):
-            SafeHTTPClient.validate_url(
-                "http://[::1]:11434/api/tags",
-                allow_http=True,
-                user_configured=True,
-                loopback_only=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "http://[::1]:11434/api/tags",
+                    allow_http=True,
+                    user_configured=True,
+                    loopback_only=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("::1")
 
 
 class TestRequestTimeDNSRecheck:
@@ -728,11 +762,15 @@ class TestMigrationFromAllowUntrusted:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("93.184.216.34")],  # public TEST-IP
-        ):
-            SafeHTTPClient.validate_url(
-                "https://api.operator-chosen.example/v1/signal",
-                user_configured=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "https://api.operator-chosen.example/v1/signal",
+                    user_configured=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("api.operator-chosen.example")
 
     def test_replacement_path_still_blocks_imds(self) -> None:
         """``user_configured=True`` does NOT unlock the metadata service."""
@@ -781,12 +819,16 @@ class TestMigrationFromAllowUntrusted:
         with patch(
             "omni_mercury_engine.security.safe_http._resolve_ips",
             return_value=[ipaddress.ip_address("10.0.0.10")],
-        ):
-            SafeHTTPClient.validate_url(
-                "https://internal-api.vpc.local/v1/signal",
-                user_configured=True,
-                allow_private=True,
+        ) as resolve:
+            assert (
+                SafeHTTPClient.validate_url(
+                    "https://internal-api.vpc.local/v1/signal",
+                    user_configured=True,
+                    allow_private=True,
+                )
+                is None
             )
+        resolve.assert_called_once_with("internal-api.vpc.local")
 
 
 class TestIPv6AlwaysBlocked:
@@ -1094,8 +1136,12 @@ class TestValidateUrlShortCircuit:
                 "getaddrinfo invoked for a trusted https:// URL; the "
                 "needs_ip_gate short-circuit is broken."
             ),
-        ):
-            SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        ) as gai:
+            assert (
+                SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+                is None
+            )
+        gai.assert_not_called()
 
     def test_http_url_does_call_getaddrinfo(self) -> None:
         """``http://`` URLs trigger the resolve even when the host is trusted."""

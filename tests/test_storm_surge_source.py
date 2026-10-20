@@ -191,7 +191,7 @@ class TestMutationClosedGaps:
             assert params is not None and params["f"] == "json"
             return _Response(payloads[endpoint])
 
-        source._http_get = _get  # type: ignore[method-assign]
+        source._http_get = _get  # type: ignore[method-assign, assignment, unused-ignore]
         points = asyncio.run(source._fetch_impl())
         assert seen == ["/2/query", "/1/query"]
         (point,) = points

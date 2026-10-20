@@ -50,6 +50,8 @@ jobs:
       hazard: ${{ steps.detect.outputs.hazard }}
       distillation: ${{ steps.detect.outputs.distillation }}
       humanitarian: ${{ steps.detect.outputs.humanitarian }}
+      geological: ${{ steps.detect.outputs.geological }}
+      crisismonitor: ${{ steps.detect.outputs.crisismonitor }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -106,6 +108,22 @@ jobs:
           else
             echo "humanitarian=false" >> "$GITHUB_OUTPUT"
             echo "humanitarian mutation surface unchanged."
+          fi
+          # The mutation-floored enhanced geological detector surface.
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/detectors/geological/(landslide|wildfire|volcanic)\.py|tests/detectors/test_(geological_detectors_3r|geological_detectors|geological_3r_integration|volcanic_honesty|volcanic_served_contract|wildfire_served_contract|live_wiring_geological)\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "geological=true" >> "$GITHUB_OUTPUT"
+            echo "geological mutation surface changed: geological floor lane runs."
+          else
+            echo "geological=false" >> "$GITHUB_OUTPUT"
+            echo "geological mutation surface unchanged."
+          fi
+          # The mutation-floored crisis-monitor surface.
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/infrastructure/humanitarian/crisis_monitoring/crisis_monitor\.py|tests/infrastructure/humanitarian/test_crisis_monitor\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "crisismonitor=true" >> "$GITHUB_OUTPUT"
+            echo "crisis-monitor mutation surface changed: crisis-monitor floor lane runs."
+          else
+            echo "crisismonitor=false" >> "$GITHUB_OUTPUT"
+            echo "crisis-monitor mutation surface unchanged."
           fi
 
   mutation-sample:
@@ -301,7 +319,11 @@ jobs:
     # before the behavioral test round, 91.3% after.
     if: github.event_name != 'pull_request' || needs.changes.outputs.distillation == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 90 min: 103 sites, 4 workers; the suite is seconds idle but a
+    # surviving mutant under 4-way contention pays the full contended
+    # runtime (150 s+ measured), and hosted runners are slower than the
+    # calibration box.
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -322,13 +344,24 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-20, local, 92 sites): 84/92 killed — 91.3%
-      # — with every survivor individually classified as semantically
+      # Floor calibration (2026-10-20, local; the alpha wiring grew the
+      # surface from 92 to 103 sites): 94/103 by full enumeration plus one
+      # hand-verified kill from the final pin round — 95/103, 92.2% — with
+      # every remaining survivor individually classified as semantically
       # equivalent: seven nn.ReLU(inplace=True) flips (a memory layout
       # choice; outputs are bit-identical) and data[:1] -> data[:2] in
       # network initialization (channel inference is batch-size invariant).
       # The floor sits at 80 so legitimate new mutation sites don't flake
       # the lane while real weakening fails it.
+      #
+      # --test-timeout 360: the suite runs in ~3 s on an idle box but
+      # inflates past 150 s under CPU contention (measured: the gate's own
+      # 4 concurrent workers, or a loaded calibration box, push torch's
+      # per-process Adam foreach-op registration and the training fits
+      # into minutes), so the gate's 120 s default sat inside the
+      # contention band and failed the green-baseline pre-check. 360 s
+      # bounds the contended worst case; a timeout still counts as killed,
+      # so the bound only affects wall-clock, never the measured kill rate.
       - name: Distillation mutation floor
         run: |
           python scripts/run_sigma_mutation_gate.py \
@@ -336,6 +369,7 @@ jobs:
             --test-cmd "python -m pytest tests/test_distillation.py -q -x" \
             --jobs 4 \
             --fail-under 80 \
+            --test-timeout 360 \
             --report distillation_mutation_report.json
 
       - name: Upload distillation mutation report
@@ -351,8 +385,11 @@ jobs:
     needs: changes
     # Second module set hardened under the per-module kill-rate program
     # (2026-10-20): the five humanitarian detectors measured 59.9% after
-    # the behavioral rewrite's first pass and 100% after the boundary and
-    # guard pins.
+    # the behavioral rewrite's first pass and 100% (312 sites) after the
+    # boundary and guard pins. The five new detect() capabilities grew the
+    # surface to 644 sites (88.2% on first measure); the kill-pin round
+    # closed every classifiable gap to a measured 98.9%, plus three
+    # hand-verified kills (640/644, 99.4%).
     if: github.event_name != 'pull_request' || needs.changes.outputs.humanitarian == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -376,10 +413,16 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-20, local, 312 sites): 312/312 killed —
-      # 100% — no surviving mutants at all after the exact-value boundary
-      # and division-guard pins. The floor sits at 90 so legitimate new
-      # mutation sites don't flake the lane while real weakening fails it.
+      # Floor calibration (2026-10-20, local, 644 sites after the five new
+      # detect() capabilities): 640/644 killed — 99.4% (full enumeration to
+      # 98.9%, plus three hand-verified kills from the final pin round).
+      # The four survivors are individually classified equivalent: three
+      # Gt->GtE swaps whose boundary is exact float equality of an
+      # lstsq-estimated trend/acceleration with the global reference
+      # (reachable only on a measure-zero input set), and one
+      # zip(strict=True) flip made unreachable by the upstream per-item
+      # count validation. The floor sits at 90 so legitimate new mutation
+      # sites don't flake the lane while real weakening fails it.
       - name: Humanitarian detectors mutation floor
         run: |
           python scripts/run_sigma_mutation_gate.py \
@@ -400,4 +443,121 @@ jobs:
         with:
           name: humanitarian-mutation-report
           path: humanitarian_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-crisis-monitor:
+    name: Crisis-monitor mutation kill-rate floor
+    needs: changes
+    # Fourth module set hardened under the per-module kill-rate program
+    # (2026-10-20): the GEOINT/OSINT crisis monitor measured 70.8% after
+    # the behavioral rewrite's first pass and 83.3% after the gap-closure
+    # pins (full enumeration, 72 sites, 60 killed; the 12 survivors are
+    # individually classified equivalents — log-scaled exposure defaults,
+    # severity-quantized score clips, and identical-value severity swaps).
+    if: github.event_name != 'pull_request' || needs.changes.outputs.crisismonitor == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-20, local, 72 sites): 60/72 killed —
+      # 83.3% — with every survivor classified equivalent. The floor sits
+      # at 75 so legitimate new mutation sites don't flake the lane while
+      # real weakening fails it.
+      - name: Crisis-monitor mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py \
+            --test-cmd "python -m pytest tests/infrastructure/humanitarian/test_crisis_monitor.py -q -x" \
+            --jobs 4 \
+            --fail-under 75 \
+            --report crisis_monitor_mutation_report.json
+
+      - name: Upload crisis-monitor mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: crisis-monitor-mutation-report
+          path: crisis_monitor_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-geological:
+    name: Geological detectors mutation kill-rate floor
+    needs: changes
+    # Fifth module set under the per-module kill-rate program (2026-10-20):
+    # the three enhanced geological detectors (landslide, wildfire,
+    # volcanic) measured 46.6% across all 1,302 sites before the behavioral
+    # rewrite round and 57.9% (754/1,302) after it, against the seven suites
+    # that cover the modules (per file: landslide 67.8%, wildfire 52.9%,
+    # volcanic 57.3%). The 548 survivors are measured, not classified:
+    # they concentrate in constructor-default tables, the neural/live
+    # paths, and the physics forecast internals, and their classification
+    # and closure is the next ranked item of the hardening program — the
+    # floor enforces today's measured state, it does not claim closure.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.geological == 'true'
+    runs-on: ubuntu-latest
+    # 1,302 sites against a ~10 s seven-suite baseline; survivors pay the
+    # full run. Measured ~2.5 h on the loaded calibration box at 4 jobs;
+    # hosted runners are slower still.
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-20, local, 1,302 sites): 754 killed —
+      # 57.9%. The floor sits at 50 so legitimate new mutation sites don't
+      # flake the lane while real weakening (losing a suite, gutting the
+      # physics pins) fails it.
+      - name: Geological detectors mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/detectors/geological/landslide.py \
+              src/omni_mercury_engine/detectors/geological/wildfire.py \
+              src/omni_mercury_engine/detectors/geological/volcanic.py \
+            --test-cmd "python -m pytest tests/detectors/test_geological_detectors_3r.py tests/detectors/test_volcanic_honesty.py tests/detectors/test_volcanic_served_contract.py tests/detectors/test_wildfire_served_contract.py tests/detectors/test_geological_detectors.py tests/detectors/test_live_wiring_geological.py tests/detectors/test_geological_3r_integration.py -q -x" \
+            --jobs 4 \
+            --fail-under 50 \
+            --report geological_mutation_report.json
+
+      - name: Upload geological mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: geological-mutation-report
+          path: geological_mutation_report.json
           if-no-files-found: ignore
