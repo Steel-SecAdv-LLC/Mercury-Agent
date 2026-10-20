@@ -67,16 +67,23 @@ class IncidenceForecast:
         log_likelihood: Log-likelihood of the observed counts at the fit.
         fitted: Expected daily incidence over the observed days.
         forecast_mean: Expected daily incidence over the forecast horizon.
-        mean_lower: Lower bound of the band of the mean. An UNCALIBRATED
-            percentile-bootstrap band: measured on simulated R0 = 3 outbreaks
-            with known truth it covers 86-92% of forecast days at a 95%
-            target (the parametric bootstrap understates refit variance when
-            the fitted dispersion runs high), and the basic, log-basic,
-            Beran-recycled and log-t variants measure no better (85.8-87.4%).
-            A correct calibration needs a nested (double) bootstrap at ~B
-            times the fit cost and is not shipped. For calibrated uncertainty
-            use ``prediction_lower``/``prediction_upper``.
+        mean_lower: Lower bound of the band of the mean: a percentile band
+            over refits whose replicates are drawn at a bootstrap
+            bias-corrected dispersion (the NB size MLE runs ~25-40% high at
+            these sample sizes, which quietens the bootstrap world), then
+            prepivoted per day by the fast double bootstrap — one inner refit
+            per outer replicate (Davidson & MacKinnon 2007; Giacomini,
+            Politis & White 2013), at 3x the single-bootstrap cost. Measured
+            coverage at a 95% target over 120 simulated R0 = 3 outbreaks
+            with known truth: 92.7% +/- 2.2 (``MEAN_BAND_MEASURED_COVERAGE``;
+            88.0% uncalibrated, 91.3% for calibration without the dispersion
+            correction) — better, documented, still short of nominal at
+            B = 200. For fully calibrated uncertainty on future COUNTS use
+            ``prediction_lower``/``prediction_upper``.
         mean_upper: Upper bound of the band of the mean (see ``mean_lower``).
+        mean_nominal: Per-day calibrated nominal level the mean band was
+            read at (>= ``level``; at most the widest level B outer refits
+            can express).
         prediction_lower: Lower prediction bound for future daily counts.
         prediction_upper: Upper prediction bound for future daily counts.
         prediction_level: Calibrated nominal level of each day's plug-in
@@ -103,6 +110,7 @@ class IncidenceForecast:
     r0_interval: tuple[float, float]
     level: float
     n_bootstrap: int
+    mean_nominal: np.ndarray[Any, Any] | None = None
 
 
 class _SEIRIncidence:
@@ -339,6 +347,41 @@ def _calibrated_prediction(
     return lower, upper, high
 
 
+#: Measured coverage of the mean band and its outbreak-clustered standard
+#: error at a 0.95 target (120 simulated R0 = 3 outbreaks with known truth,
+#: 28 observed days, B = 200): the uncalibrated percentile band measured
+#: 0.880, calibration alone 0.913, and the shipped corrected + calibrated
+#: band this value. Recorded here so callers can read it in code.
+MEAN_BAND_MEASURED_COVERAGE: tuple[float, float] = (0.927, 0.022)
+
+
+def _calibrated_mean_band(
+    boot_means: np.ndarray[Any, Any],
+    inner_deviations: np.ndarray[Any, Any],
+    fitted_forecast: np.ndarray[Any, Any],
+    level: float,
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Prepivoted percentile band of the mean: (lower, upper, nominal per day).
+
+    ``u_b[d]``, refit b's position of the fitted forecast within the pooled
+    inner-deviation law, is the fast-double-bootstrap estimate of the
+    percentile method's coverage root; the band is read at the smallest
+    nominal level whose roots cover ``level`` of the refits (never below
+    ``level``, never beyond what the outer sample can express).
+    """
+    n_eff = boot_means.shape[0]
+    gap = fitted_forecast[None, :] - boot_means
+    less = (inner_deviations[None, :, :] < gap[:, None, :]).sum(axis=1)
+    equal = (inner_deviations[None, :, :] == gap[:, None, :]).sum(axis=1)
+    u = (less + 0.5 * equal) / n_eff
+    v = np.abs(2.0 * u - 1.0)
+    k = min(math.ceil(level * (n_eff + 1)), n_eff) - 1
+    nominal = np.clip(np.sort(v, axis=0)[k], level, 1.0)
+    lower = np.quantile(boot_means, (1.0 - nominal) / 2.0, axis=0, method="lower").diagonal()
+    upper = np.quantile(boot_means, (1.0 + nominal) / 2.0, axis=0, method="higher").diagonal()
+    return lower, upper, nominal
+
+
 def _real(name: str, value: float) -> float:
     """``value`` as a finite float; booleans and non-numbers raise ``ValueError``."""
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, numbers.Real):
@@ -438,8 +481,37 @@ def fit_seir_incidence(
     if len(means) < needed:
         raise ValueError(f"only {len(means)} bootstrap refits succeeded")
 
+    # The NB size MLE runs high at these sample sizes, which quietens every
+    # replicate drawn from it. The band of the mean therefore redraws its
+    # replicates at the bootstrap bias-corrected dispersion (a log-scale
+    # ratio correction estimated from the refits above) and prepivots per
+    # day with one inner refit per outer replicate (fast double bootstrap).
+    correction = float(np.log(size) - np.mean(np.log(sizes)))
+    size_c = float(np.exp(np.log(size) + correction))
+    band_means, band_devs = [], []
+    for _ in range(int(n_bootstrap)):
+        replicate = rng.negative_binomial(size_c, size_c / (size_c + full_mean[: counts.size]))
+        theta_b, _ = _fit(replicate.astype(float), model, [theta], bounds)
+        beta_b, amplitude_b, size_b = (float(v) for v in np.exp(theta_b))
+        mean_b = model.expected(beta_b, amplitude_b, counts.size + horizon)
+        if mean_b is None:
+            continue
+        size_bc = float(np.exp(np.log(size_b) + correction))
+        inner = rng.negative_binomial(size_bc, size_bc / (size_bc + mean_b[: counts.size]))
+        theta_bb, _ = _fit(inner.astype(float), model, [theta_b], bounds)
+        beta_bb, amplitude_bb, _ = (float(v) for v in np.exp(theta_bb))
+        mean_bb = model.expected(beta_bb, amplitude_bb, counts.size + horizon)
+        if mean_bb is None:
+            continue
+        band_means.append(mean_b[counts.size :])
+        band_devs.append(mean_bb[counts.size :] - mean_b[counts.size :])
+    if len(band_means) < needed:
+        raise ValueError(f"only {len(band_means)} mean-band refits succeeded")
+
     tails = [(1.0 - level) / 2.0, (1.0 + level) / 2.0]
-    mean_band = np.quantile(np.array(means), tails, axis=0)
+    mean_band = _calibrated_mean_band(
+        np.array(band_means), np.array(band_devs), full_mean[counts.size :], level
+    )
     lower, upper, nominal = _calibrated_prediction(
         full_mean[counts.size :], size, np.array(means), np.array(sizes), level
     )
@@ -456,6 +528,7 @@ def fit_seir_incidence(
         forecast_mean=full_mean[counts.size :],
         mean_lower=mean_band[0],
         mean_upper=mean_band[1],
+        mean_nominal=mean_band[2],
         prediction_lower=lower,
         prediction_upper=upper,
         prediction_level=nominal,

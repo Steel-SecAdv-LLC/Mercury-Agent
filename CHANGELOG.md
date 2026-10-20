@@ -27,6 +27,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Hazard adapters on the engine contract; NHC peak storm surge as a numeric source; a calibrated mean band (branch `steel/version-cov4`)
+
+**Added — seven hazard adapters serve the full `BaseDetector` contract
+(`detectors/hazard_adapter.py`).** The hazard detectors registered in
+`DETECTOR_MANIFEST` without `extract_features`/`predict`, so the registry's
+feature extraction skipped them silently. `tornado_conditions`,
+`hurricane_pressure`, `flood_precipitation`, `financial_stress`,
+`solar_wind_geomag`, `xray_flare` and `gic_minute_series` now wrap their
+domain detectors in named-column batches (units documented per adapter):
+scores are the wrapped detector's own confidence or its cited scale (NOAA
+G/5, NOAA R/5, the Pulkkinen/Meta-R-321 dB/dt tiers over 3), decisions are
+the wrapped detector's own, wrong-width and non-finite batches are refused,
+and `fit` trains nothing (the detectors are physics- or checkpoint-backed).
+The manifest holds 101 entries; the manifest contract test now also holds
+every adapter-tagged entry to the full contract. Not adapted, with reasons
+stated in the module: wildfire (measures thermal rasters; a scalar-row
+adapter would be a constant) and EMP (waveform-level, no honest per-row
+attribution).
+
+**Added — NOAA NHC Peak Storm Surge as a numeric storm-surge source
+(`data_sources/storm_surge.py`, `DataSourceType.STORM_SURGE`).**
+`NHCPeakStormSurgeSource` reads the public ArcGIS service's line and polygon
+layers (US Gulf and Atlantic coasts, Puerto Rico, USVI; no key), and
+`parse_peak_surge_kml` reads the same product's archived per-advisory KML.
+Values stay in NHC's feet with exact-foot metres beside them, and each area
+is graded on the GDACS surge thresholds (Red >= 3 m, Orange >= 1 m) that
+previously had no measured feed. Recorded fixtures: Hurricane Milton
+advisory 17 byte-verbatim (Tampa Bay 10-15 ft -> 3.05-4.57 m -> Red; 27
+forecasts) and the live quiet-state layer answer, which the source reports
+as an empty result, never a zero surge. SURGEDAT (LSU) remains unreachable
+from this environment: surge.climate.lsu.edu serves a broken certificate
+chain and 503, surge.srcc.lsu.edu does not answer, and the Internet Archive
+mirror is denied by the environment's egress policy.
+
+**Changed — the band of the mean of the incidence fit is calibrated
+(`forecasting/incidence_fit.py`).** The NB dispersion MLE runs high at these
+sample sizes (geometric mean 12.7 for a true 10 at 28 observed days, 200
+fits), which quietens every parametric-bootstrap replicate; the band now
+redraws its replicates at a bootstrap bias-corrected dispersion and
+prepivots per day with one inner refit per outer replicate (fast double
+bootstrap: Davidson & MacKinnon 2007; Giacomini, Politis & White 2013), at
+3x the previous fit cost. `IncidenceForecast.mean_nominal` (additive) carries
+the per-day calibrated nominal level. Measured coverage at a 95% target over
+120 simulated R0 = 3 outbreaks with known truth: 92.7% +/- 2.2
+outbreak-clustered (88.0% uncalibrated, 91.3% for calibration without the
+dispersion correction; the estimated correction is size x 0.80) — better,
+documented, and still short of nominal at B = 200.
+
 ### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
 
 **Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**
