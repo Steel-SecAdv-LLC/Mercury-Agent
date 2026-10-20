@@ -5,7 +5,7 @@
 Production-grade data ingestion modules for multi-domain anomaly detection:
 - Space Weather & Solar Physics (NASA DONKI, NeoWs, NOAA SWPC, EONET)
 - Geomagnetic & Electromagnetic Monitoring (USGS, INTERMAGNET, HeartMath)
-- Earth Science & Hazards (USGS Earthquake/Volcano, NOAA, NWS, EPA)
+- Earth Science & Hazards (USGS Earthquake/Volcano, NOAA, NWS, EPA, NHC storm surge)
 - Consciousness Research (Global Consciousness Project)
 
 Usage:
@@ -73,6 +73,11 @@ from omni_mercury_engine.data_sources.space_weather import (
     NOAASWPCSource,
     SolarSystemOpenDataSource,
 )
+from omni_mercury_engine.data_sources.storm_surge import (
+    NHCPeakStormSurgeSource,
+    PeakSurgeForecast,
+    parse_peak_surge_kml,
+)
 
 __all__ = [
     # Base types
@@ -107,10 +112,12 @@ __all__ = [
     "NASADONKISource",
     "NASAEONETSource",
     "NASANeoWsSource",
+    "NHCPeakStormSurgeSource",
     "NOAACOOPSSource",
     "NOAANWPSSource",
     "NOAASWPCSource",
     "NWSWeatherAlertsSource",
+    "PeakSurgeForecast",
     "RateLimitConfig",
     "SentryImpactRisk",
     "SimulatedDataError",
@@ -123,5 +130,6 @@ __all__ = [
     "close_approaches_from_neows_datapoints",
     "fetch_live_datapoints",
     "fireball_events_from_datapoints",
+    "parse_peak_surge_kml",
     "sentry_risks_from_datapoints",
 ]

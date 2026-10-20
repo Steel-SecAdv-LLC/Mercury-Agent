@@ -72,6 +72,7 @@ class DataSourceType(Enum):
     VOLCANO = "volcano"
     WEATHER_ALERT = "weather_alert"
     FLOOD = "flood"
+    STORM_SURGE = "storm_surge"
     TIDE = "tide"
     AIR_QUALITY = "air_quality"
 

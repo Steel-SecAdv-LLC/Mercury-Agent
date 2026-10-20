@@ -38,10 +38,13 @@ will require humanitarian intervention":
   exposed country's vulnerability (Table 1, :func:`tropical_cyclone_point_level`);
   the storm takes its highest point; a Red more than three days ahead is reduced
   to Orange; scores 0.5, 1.5 and 2.5. The storm-surge level (Red >= 3 m, Orange
-  >= 1 m) is reported beside it and is not in the score; the manual is its only
-  source — GDACS's public API exposes surge solely as map resources
-  (surge_maxheight_* images on TC events), with no numeric height or surge
-  colour to check the thresholds against.
+  >= 1 m) is reported beside it and is not in the score. GDACS's own public API
+  exposes surge solely as map resources (surge_maxheight_* images on TC
+  events), with no numeric height or surge colour to check the thresholds
+  against; measured heights for :func:`storm_surge_level` come instead from
+  NOAA NHC's Peak Storm Surge product (US Gulf and Atlantic coasts, Puerto
+  Rico and the US Virgin Islands) via
+  :class:`omni_mercury_engine.data_sources.storm_surge.NHCPeakStormSurgeSource`.
 
 Earthquake country terms come from GDACS's published table
 (gdacs.org/Documents/2017_GDACS_EQ_algorithm_coefficients.xlsx, © European

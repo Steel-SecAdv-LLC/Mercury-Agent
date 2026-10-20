@@ -1,0 +1,148 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NHC Peak Storm Surge source against NHC's own recorded products.
+
+The KML fixture is Hurricane Milton's advisory-17 Peak Storm Surge file,
+byte-verbatim from the NHC GIS archive (tests/fixtures/nhc/PROVENANCE.json);
+the query fixture is the live ArcGIS layer with no active advisory. Every
+expected value below is read from the product, not invented.
+"""
+
+from __future__ import annotations
+
+import gzip
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from omni_mercury_engine.data_sources.base import AlertLevel, DataSourceError, DataSourceType
+from omni_mercury_engine.data_sources.storm_surge import (
+    FEET_TO_METERS,
+    NHCPeakStormSurgeSource,
+    parse_peak_surge_kml,
+    parse_peak_surge_name,
+)
+
+FIXTURES = Path(__file__).parent / "fixtures" / "nhc"
+
+
+@pytest.fixture(scope="module")
+def milton_forecasts() -> list:
+    data = gzip.open(FIXTURES / "AL142024_PeakStormSurge_017adv.kml.gz", "rb").read()
+    return parse_peak_surge_kml(data)
+
+
+class TestMiltonAdvisory17:
+    """The real Milton advisory-17 product parses to its published values."""
+
+    def test_counts(self, milton_forecasts: list) -> None:
+        kinds: dict[str, int] = {}
+        for forecast in milton_forecasts:
+            kinds[forecast.kind] = kinds.get(forecast.kind, 0) + 1
+        assert kinds == {"inundation_area": 14, "coastal_segment": 13}
+
+    def test_tampa_bay_is_the_10_15_ft_red(self, milton_forecasts: list) -> None:
+        (tampa,) = [f for f in milton_forecasts if f.area == "Tampa Bay"]
+        assert tampa.kind == "inundation_area"
+        assert (tampa.min_surge_ft, tampa.max_surge_ft) == (10.0, 15.0)
+        assert tampa.min_surge_m == pytest.approx(3.048)
+        assert tampa.max_surge_m == pytest.approx(4.572)
+        assert tampa.gdacs_level() == "red"
+
+    def test_coastal_segment_values(self, milton_forecasts: list) -> None:
+        (egmont,) = [f for f in milton_forecasts if f.area == "Egmont Key, FL to Boca Grande, FL"]
+        assert egmont.kind == "coastal_segment"
+        assert (egmont.min_surge_ft, egmont.max_surge_ft) == (10.0, 15.0)
+
+    def test_gdacs_levels_from_the_manual_thresholds(self, milton_forecasts: list) -> None:
+        levels: dict[str, int] = {}
+        for forecast in milton_forecasts:
+            levels[forecast.gdacs_level()] = levels.get(forecast.gdacs_level(), 0) + 1
+        # Red >= 3 m (>= 9.85 ft upper bound), Orange >= 1 m, Green below.
+        assert levels == {"red": 5, "orange": 12, "green": 10}
+        for forecast in milton_forecasts:
+            expected = (
+                "red"
+                if forecast.max_surge_m >= 3.0
+                else "orange" if forecast.max_surge_m >= 1.0 else "green"
+            )
+            assert forecast.gdacs_level() == expected
+
+    def test_label_and_breakpoint_cartography_is_not_data(self, milton_forecasts: list) -> None:
+        assert all("..." not in f.area for f in milton_forecasts)
+        assert all(f.min_surge_ft <= f.max_surge_ft for f in milton_forecasts)
+
+
+class TestNameParsing:
+    def test_feet_to_meters_is_the_international_foot(self) -> None:
+        assert FEET_TO_METERS == 0.3048
+
+    def test_label_names_are_none(self) -> None:
+        assert parse_peak_surge_name("4-7 ft", "coastal_segment") is None
+
+    def test_inverted_range_refused(self) -> None:
+        with pytest.raises(ValueError, match="inverted"):
+            parse_peak_surge_name("Tampa Bay...15-10 ft", "inundation_area")
+
+    def test_unknown_kind_refused(self) -> None:
+        with pytest.raises(ValueError, match="kind"):
+            parse_peak_surge_name("Tampa Bay...1-3 ft", "surge_zone")
+
+    def test_not_this_product_refused(self) -> None:
+        with pytest.raises(ValueError, match="not a Peak Storm Surge KML"):
+            parse_peak_surge_kml(b"<kml xmlns='http://www.opengis.net/kml/2.2'/>")
+
+
+class TestLiveQueryParsing:
+    """The recorded live layer answer and the service's failure shapes."""
+
+    def test_source_registration(self) -> None:
+        source = NHCPeakStormSurgeSource()
+        assert source.source_id == "nhc_peak_storm_surge"
+        assert source.default_source_types == [DataSourceType.STORM_SURGE]
+        assert source.base_url.startswith("https://mapservices.weather.noaa.gov/")
+
+    def test_quiet_feed_is_empty_not_zero(self) -> None:
+        payload = json.loads((FIXTURES / "peakstormsurge_query_layer2_20261020.json").read_text())
+        source = NHCPeakStormSurgeSource()
+        now = datetime.now(UTC)
+        assert source._points_from_query(payload, "inundation_area", now) == []
+
+    def test_active_feature_becomes_a_graded_datapoint(self) -> None:
+        source = NHCPeakStormSurgeSource()
+        payload = {
+            "features": [
+                {
+                    "attributes": {
+                        "name": "Tampa Bay...10-15 ft",
+                        "folderpath": "Peak Storm Surge/Polygons",
+                        "idp_filedate": 1728432000000,
+                    }
+                }
+            ]
+        }
+        (point,) = source._points_from_query(payload, "inundation_area", datetime.now(UTC))
+        assert point.source_type is DataSourceType.STORM_SURGE
+        assert point.data["area"] == "Tampa Bay"
+        assert point.data["max_surge_m"] == pytest.approx(4.572)
+        assert point.data["gdacs_level"] == "red"
+        assert point.alert_level is AlertLevel.SEVERE
+        assert point.timestamp == datetime(2024, 10, 9, 0, 0, tzinfo=UTC)
+
+    def test_service_error_body_is_an_error_not_quiet(self) -> None:
+        source = NHCPeakStormSurgeSource()
+        with pytest.raises(DataSourceError, match="service error"):
+            source._points_from_query(
+                {"error": {"code": 500}}, "inundation_area", datetime.now(UTC)
+            )
+
+    def test_unreadable_data_layer_name_is_an_error(self) -> None:
+        source = NHCPeakStormSurgeSource()
+        with pytest.raises(DataSourceError, match="unreadable"):
+            source._points_from_query(
+                {"features": [{"attributes": {"name": "4-7 ft"}}]},
+                "inundation_area",
+                datetime.now(UTC),
+            )

@@ -1,0 +1,19 @@
+{
+  "description": "Recorded real NOAA National Hurricane Center Peak Storm Surge products. Nothing is synthetic; the KML is NHC's archived advisory file byte-verbatim (stored gzip-compressed), and the query JSON is the live ArcGIS response byte-verbatim.",
+  "source": "NOAA National Hurricane Center, https://www.nhc.noaa.gov. US Government work, public domain.",
+  "notes": "Used by tests/test_storm_surge_source.py. The Peak Storm Surge product covers the US Gulf and Atlantic coasts, Puerto Rico and the US Virgin Islands; outside an active advisory the live service serves zero features, which the empty-query fixture records.",
+  "fixtures": {
+    "AL142024_PeakStormSurge_017adv.kml.gz": {
+      "url": "https://www.nhc.noaa.gov/gis/peakSurge/AL142024_PeakStormSurge_017adv.kml",
+      "recorded_utc": "2026-10-20T01:31:00Z",
+      "method": "GET; verbatim bytes, gzip-compressed for the repository; sha256 of the uncompressed KML: 23217c4c3f108724d709859c0c53be735ba56260e37ad86f06220a95f4b81971",
+      "content": "Hurricane Milton (AL142024) Peak Storm Surge forecast, advisory 17 (2024-10-08, the Tampa Bay 10-15 ft advisory before the track shifted south): 14 inundation-area polygons and 13 coastal line segments, each named '<area>...<lo>-<hi> ft', plus breakpoint and label cartography."
+    },
+    "peakstormsurge_query_layer2_20261020.json": {
+      "url": "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_PeakStormSurge/MapServer/2/query?where=1%3D1&outFields=name,folderpath,idp_filedate&returnGeometry=false&f=json",
+      "recorded_utc": "2026-10-20T02:39:00Z",
+      "method": "GET; verbatim response bytes; sha256 0d2d7870e35e8672f2fdeced833289e3027ed7ea0b18a7699c5ca3d26d6a32a5",
+      "content": "The live Peak Storm Surge polygons layer with no active advisory: a valid schema answer whose features list is empty (the feed's real quiet state, not a zero surge)."
+    }
+  }
+}
