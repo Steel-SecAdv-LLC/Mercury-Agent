@@ -21,6 +21,7 @@ from omni_mercury_engine.data_sources.base import AlertLevel, DataSourceError, D
 from omni_mercury_engine.data_sources.storm_surge import (
     FEET_TO_METERS,
     NHCPeakStormSurgeSource,
+    PeakSurgeForecast,
     parse_peak_surge_kml,
     parse_peak_surge_name,
 )
@@ -29,7 +30,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "nhc"
 
 
 @pytest.fixture(scope="module")
-def milton_forecasts() -> list:
+def milton_forecasts() -> list[PeakSurgeForecast]:
     data = gzip.open(FIXTURES / "AL142024_PeakStormSurge_017adv.kml.gz", "rb").read()
     return parse_peak_surge_kml(data)
 
@@ -37,13 +38,13 @@ def milton_forecasts() -> list:
 class TestMiltonAdvisory17:
     """The real Milton advisory-17 product parses to its published values."""
 
-    def test_counts(self, milton_forecasts: list) -> None:
+    def test_counts(self, milton_forecasts: list[PeakSurgeForecast]) -> None:
         kinds: dict[str, int] = {}
         for forecast in milton_forecasts:
             kinds[forecast.kind] = kinds.get(forecast.kind, 0) + 1
         assert kinds == {"inundation_area": 14, "coastal_segment": 13}
 
-    def test_tampa_bay_is_the_10_15_ft_red(self, milton_forecasts: list) -> None:
+    def test_tampa_bay_is_the_10_15_ft_red(self, milton_forecasts: list[PeakSurgeForecast]) -> None:
         (tampa,) = [f for f in milton_forecasts if f.area == "Tampa Bay"]
         assert tampa.kind == "inundation_area"
         assert (tampa.min_surge_ft, tampa.max_surge_ft) == (10.0, 15.0)
@@ -51,12 +52,14 @@ class TestMiltonAdvisory17:
         assert tampa.max_surge_m == pytest.approx(4.572)
         assert tampa.gdacs_level() == "red"
 
-    def test_coastal_segment_values(self, milton_forecasts: list) -> None:
+    def test_coastal_segment_values(self, milton_forecasts: list[PeakSurgeForecast]) -> None:
         (egmont,) = [f for f in milton_forecasts if f.area == "Egmont Key, FL to Boca Grande, FL"]
         assert egmont.kind == "coastal_segment"
         assert (egmont.min_surge_ft, egmont.max_surge_ft) == (10.0, 15.0)
 
-    def test_gdacs_levels_from_the_manual_thresholds(self, milton_forecasts: list) -> None:
+    def test_gdacs_levels_from_the_manual_thresholds(
+        self, milton_forecasts: list[PeakSurgeForecast]
+    ) -> None:
         levels: dict[str, int] = {}
         for forecast in milton_forecasts:
             levels[forecast.gdacs_level()] = levels.get(forecast.gdacs_level(), 0) + 1
@@ -70,7 +73,9 @@ class TestMiltonAdvisory17:
             )
             assert forecast.gdacs_level() == expected
 
-    def test_label_and_breakpoint_cartography_is_not_data(self, milton_forecasts: list) -> None:
+    def test_label_and_breakpoint_cartography_is_not_data(
+        self, milton_forecasts: list[PeakSurgeForecast]
+    ) -> None:
         assert all("..." not in f.area for f in milton_forecasts)
         assert all(f.min_surge_ft <= f.max_surge_ft for f in milton_forecasts)
 
