@@ -1078,6 +1078,74 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Neuro-symbolic spectral-domain anomaly detection with per-band scoring",
         tags=["physics", "spectral", "frequency", "neuro-symbolic", "humanitarian"],
     ),
+    # -- Hazard adapters: the engine contract over the hazard detectors ------
+    # Each wraps its domain detector's own API in named-column batches; the
+    # scores and decisions are the wrapped detector's own (see
+    # detectors/hazard_adapter.py). The "adapter" tag drives the manifest
+    # contract test that holds these to the full BaseDetector contract.
+    DetectorManifestEntry(
+        "tornado_conditions",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "TornadoConditionsAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows",
+        feature_dim=4,
+        tags=["adapter", "tornado", "atmospheric"],
+    ),
+    DetectorManifestEntry(
+        "hurricane_pressure",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "HurricanePressureAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius)",
+        feature_dim=4,
+        tags=["adapter", "hurricane", "pressure"],
+    ),
+    DetectorManifestEntry(
+        "flood_precipitation",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "FloodPrecipitationAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "FloodDetector over measured and forecast precipitation depth rows (inches)",
+        feature_dim=3,
+        tags=["adapter", "flood", "precipitation"],
+    ),
+    DetectorManifestEntry(
+        "financial_stress",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "FinancialStressAdapter",
+        DetectorCategory.ECONOMIC,
+        "FinancialCrisisDetector over measured market and banking metric rows",
+        feature_dim=4,
+        tags=["adapter", "financial", "market", "banking"],
+    ),
+    DetectorManifestEntry(
+        "solar_wind_geomag",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "SolarWindGeomagAdapter",
+        DetectorCategory.SPACE,
+        "SolarStormDetector over (solar_wind_speed_km_s, bz_imf_nt); score is NOAA G/5",
+        feature_dim=3,
+        tags=["adapter", "geomagnetic", "solar-wind"],
+    ),
+    DetectorManifestEntry(
+        "xray_flare",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "XrayFlareAdapter",
+        DetectorCategory.SPACE,
+        "SolarFlareDetector over GOES long-band flux rows; score is NOAA R/5",
+        feature_dim=3,
+        tags=["adapter", "flare", "xray"],
+    ),
+    DetectorManifestEntry(
+        "gic_minute_series",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "GICMinuteSeriesAdapter",
+        DetectorCategory.SPACE,
+        "GICDetector over a (bx_nt, by_nt) minute series; score is the dB/dt tier over 3",
+        feature_dim=3,
+        tags=["adapter", "gic", "magnetometer"],
+    ),
 ]
 
 

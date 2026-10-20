@@ -545,7 +545,7 @@ Modern anomaly detection faces three critical challenges:
 
 Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 89 detector classes (the measured, CI-gated count; 94 manifest entries, 5 in the engine's default set) under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 89 detector classes (the measured, CI-gated count; 101 manifest entries including the 7 hazard adapters, 5 in the engine's default set) under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v5.0.0, JWT authentication, rate limiting
 

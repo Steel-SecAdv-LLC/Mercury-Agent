@@ -26,6 +26,7 @@ from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST, Detect
 from omni_mercury_engine.engine import OmniMercuryEngine
 
 _BASE_ENTRIES = [e for e in DETECTOR_MANIFEST if e.category is DetectorCategory.BASE]
+_ADAPTED_ENTRIES = [e for e in DETECTOR_MANIFEST if "adapter" in e.tags]
 _CONTRACT_METHODS = ("fit", "detect", "extract_features", "is_fitted")
 
 
@@ -57,6 +58,38 @@ def test_base_detector_is_basedetector_with_contract(entry: Any) -> None:
     assert issubclass(cls, BaseDetector), f"{entry.class_name} is not a BaseDetector"
     for method in _CONTRACT_METHODS:
         assert callable(getattr(cls, method, None)), f"{entry.class_name}.{method} missing"
+
+
+@pytest.mark.parametrize("entry", _ADAPTED_ENTRIES, ids=lambda e: e.name)
+def test_hazard_adapter_is_basedetector_with_contract(entry: Any) -> None:
+    """Every adapter-tagged hazard entry serves the full engine contract.
+
+    Before the adapters, the hazard detectors registered in the manifest
+    without ``extract_features``/``predict``, so the registry's feature
+    extraction skipped them silently (features None, scores None).
+    """
+    cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
+    assert issubclass(cls, BaseDetector), f"{entry.class_name} is not a BaseDetector"
+    for method in (*_CONTRACT_METHODS, "predict"):
+        assert callable(getattr(cls, method, None)), f"{entry.class_name}.{method} missing"
+    assert entry.feature_dim == len(cls.FEATURE_NAMES), (
+        f"{entry.name}: manifest feature_dim {entry.feature_dim} != "
+        f"declared FEATURE_NAMES {len(cls.FEATURE_NAMES)}"
+    )
+
+
+def test_the_seven_hazard_adapters_are_in_the_manifest() -> None:
+    """The adapted hazard surfaces ship as discoverable manifest data."""
+    names = {entry.name for entry in _ADAPTED_ENTRIES}
+    assert names >= {
+        "tornado_conditions",
+        "hurricane_pressure",
+        "flood_precipitation",
+        "financial_stress",
+        "solar_wind_geomag",
+        "xray_flare",
+        "gic_minute_series",
+    }
 
 
 def test_engine_defaults_are_a_subset_of_manifest(engine: OmniMercuryEngine) -> None:
