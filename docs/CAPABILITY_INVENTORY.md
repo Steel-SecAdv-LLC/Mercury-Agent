@@ -7,24 +7,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,968
-- **Capability-bearing classes:** 1,963 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,978
+- **Capability-bearing classes:** 1,973 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 49
 - **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,161 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,162 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1161 |
+| Other capability classes | 1162 |
 | Support types (config / result / enum / error) | 1005 |
 | Detection | 176 |
 | Neural models & layers | 161 |
-| Data sources & loaders | 103 |
+| Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
+| Adapters & backends | 70 |
 | Training & optimization | 63 |
-| Adapters & backends | 62 |
 | Analysis & scoring | 59 |
 | Monitoring | 25 |
 | Prediction & forecasting | 21 |
@@ -929,7 +929,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `data_sources/` — 53 classes (26 capability)
+### `data_sources/` — 55 classes (28 capability)
 
 **Data sources & loaders**
 
@@ -944,6 +944,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `NASADONKISource` (`data_sources.space_weather`) — NASA DONKI (Space Weather Database) data source.
 - `NASAEONETSource` (`data_sources.space_weather`) — NASA EONET (Earth Observatory Natural Event Tracker) data source.
 - `NASANeoWsSource` (`data_sources.space_weather`) — NASA NeoWs (Near Earth Object Web Service) data source.
+- `NHCPeakStormSurgeSource` (`data_sources.storm_surge`) — NOAA NHC Peak Storm Surge forecasts from the public ArcGIS service.
 - `NOAACOOPSSource` (`data_sources.earth_science`) — NOAA CO-OPS (Tides & Currents) data source.
 - `NOAANWPSSource` (`data_sources.earth_science`) — NOAA National Water Prediction Service data source (river gauges).
 - `NOAASWPCSource` (`data_sources.space_weather`) — NOAA Space Weather Prediction Center data source.
@@ -964,6 +965,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `DataSourceBase` (`data_sources.base`) — Abstract base class for all data sources.
 - `GCPEgg` (`data_sources.consciousness`) — Representation of a GCP EGG (Random Number Generator) node.
 - `LiveFetch` (`data_sources.live_ingestion`) — Result of a provenance-checked live fetch.
+- `PeakSurgeForecast` (`data_sources.storm_surge`) — One NHC peak-surge statement: an area and its forecast height range.
 - `SentryImpactRisk` (`data_sources.jpl_ssd`) — NASA Sentry impact monitoring data.
 
 <details><summary>Support types (27)</summary>
@@ -1059,18 +1061,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 381 classes (263 capability)
+### `detectors/` — 389 classes (271 capability)
 
 **Adapters & backends**
 
 - `BLIPCaptionBackend` (`detectors.vlm.lvlm_backends`) — BLIP image-captioning backend (Salesforce, BSD-3-Clause).
 - `BLIPVQABackend` (`detectors.vlm.lvlm_backends`) — BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
 - `DynamicThresholdAdapter` (`detectors.statistical_extended`) — Dynamic threshold adaptation for streaming anomaly detection.
+- `FinancialStressAdapter` (`detectors.hazard_adapter`) — Financial crisis risk from measured market and banking metrics.
+- `FloodPrecipitationAdapter` (`detectors.hazard_adapter`) — Flood likelihood from measured and forecast precipitation depths.
+- `GICMinuteSeriesAdapter` (`detectors.hazard_adapter`) — GIC grid risk from a magnetometer minute series.
+- `HazardRowAdapter` (`detectors.hazard_adapter`) — Engine contract over a named-column batch, one hazard analysis per row.
+- `HurricanePressureAdapter` (`detectors.hazard_adapter`) — Cyclone intensity from central pressure and sea-surface temperature.
 - `LLaVABackend` (`detectors.vlm.lvlm_backends`) — LLaVA backend for vision-language tasks.
 - `LVLMBackend` (`detectors.vlm.lvlm_backends`) — Abstract base class for LVLM backends.
 - `MiniCPMVBackend` (`detectors.vlm.lvlm_backends`) — MiniCPM-V backend - efficient vision-language model.
 - `MockLVLMBackend` (`detectors.vlm.lvlm_backends`) — Mock LVLM backend — hard-fails at construction.
 - `Qwen2VLBackend` (`detectors.vlm.lvlm_backends`) — Qwen2-VL backend for vision-language tasks.
+- `SolarWindGeomagAdapter` (`detectors.hazard_adapter`) — Geomagnetic storm level from solar-wind speed and IMF Bz.
+- `TornadoConditionsAdapter` (`detectors.hazard_adapter`) — Tornado potential from sounding-derived convective parameters.
+- `XrayFlareAdapter` (`detectors.hazard_adapter`) — Solar flare class from the GOES long-band X-ray flux.
 
 **Analysis & scoring**
 
