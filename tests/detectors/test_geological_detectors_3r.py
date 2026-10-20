@@ -48,7 +48,8 @@ class TestRainfallTriggerModel:
     """Intensity-duration threshold (I*sqrt(D) vs 10*sqrt(6)) and severity ladder."""
 
     @pytest.fixture(scope="class")
-    def model(self) -> Any:
+    @classmethod
+    def model(cls) -> Any:
         from omni_mercury_engine.detectors.geological.landslide import RainfallTriggerModel
 
         return RainfallTriggerModel()
@@ -98,7 +99,8 @@ class TestSeismicTriggerModel:
     """PGA threshold (0.15 g, strict) and magnitude/distance scaling."""
 
     @pytest.fixture(scope="class")
-    def model(self) -> Any:
+    @classmethod
+    def model(cls) -> Any:
         from omni_mercury_engine.detectors.geological.landslide import SeismicTriggerModel
 
         return SeismicTriggerModel()
@@ -130,7 +132,8 @@ class TestRecursionMultiScaleAnalyzer:
     """Golden-ratio scale weighting and the 8-feature scale statistics."""
 
     @pytest.fixture(scope="class")
-    def analyzer(self) -> Any:
+    @classmethod
+    def analyzer(cls) -> Any:
         from omni_mercury_engine.detectors.geological.landslide import (
             RecursionMultiScaleAnalyzer,
         )
@@ -237,7 +240,8 @@ class TestLandslideDetector:
     """Physics stability math, failure-type ladder, alert and risk logic."""
 
     @pytest.fixture(scope="class")
-    def detector(self) -> Any:
+    @classmethod
+    def detector(cls) -> Any:
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 
         return LandslideDetector(enable_recursion=True)
@@ -524,7 +528,8 @@ class TestFireSpreadModel:
     """Wind-gated spread with exact factor arithmetic and the 0.1 km/h floor."""
 
     @pytest.fixture(scope="class")
-    def model(self) -> Any:
+    @classmethod
+    def model(cls) -> Any:
         from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
 
         return FireSpreadModel()
@@ -584,7 +589,8 @@ class TestNDVIProcessor:
     """NDVI arithmetic, fuel-load relation, drought and burn fractions."""
 
     @pytest.fixture(scope="class")
-    def processor(self) -> Any:
+    @classmethod
+    def processor(cls) -> Any:
         from omni_mercury_engine.detectors.geological.wildfire import NDVIProcessor
 
         return NDVIProcessor()
@@ -631,7 +637,8 @@ class TestResonanceFrequencyAnalyzer:
     """FFT dominant frequency and smoke-trend classification."""
 
     @pytest.fixture(scope="class")
-    def analyzer(self) -> Any:
+    @classmethod
+    def analyzer(cls) -> Any:
         from omni_mercury_engine.detectors.geological.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
@@ -686,7 +693,8 @@ class TestWildfireDetector:
     """Brightness-temperature physics, FIRMS contract, risk ladder, spread gating."""
 
     @pytest.fixture(scope="class")
-    def detector(self) -> Any:
+    @classmethod
+    def detector(cls) -> Any:
         from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         return WildfireDetector(enable_resonance=True)
@@ -922,7 +930,8 @@ class TestThermalHotspotDetector:
     """20 K-above-baseline anomaly rule and the intensity ladder."""
 
     @pytest.fixture(scope="class")
-    def detector(self) -> Any:
+    @classmethod
+    def detector(cls) -> Any:
         from omni_mercury_engine.detectors.geological.volcanic import ThermalHotspotDetector
 
         return ThermalHotspotDetector()
@@ -962,7 +971,8 @@ class TestGasEmissionAnalyzer:
     """SO2 3x / CO2 2x anomaly ratios and the degassing-index ladder."""
 
     @pytest.fixture(scope="class")
-    def analyzer(self) -> Any:
+    @classmethod
+    def analyzer(cls) -> Any:
         from omni_mercury_engine.detectors.geological.volcanic import GasEmissionAnalyzer
 
         return GasEmissionAnalyzer()
@@ -1006,7 +1016,8 @@ class TestInSARDeformationDetector:
     """Euclidean displacement, the strict 5 cm gate, and the severity ladder."""
 
     @pytest.fixture(scope="class")
-    def detector(self) -> Any:
+    @classmethod
+    def detector(cls) -> Any:
         from omni_mercury_engine.detectors.geological.volcanic import InSARDeformationDetector
 
         return InSARDeformationDetector()
@@ -1205,7 +1216,8 @@ class TestVolcanicEruptionDetector:
     """Physics forecast, USGS alert ladder, zones/warnings, determinism."""
 
     @pytest.fixture(scope="class")
-    def detector(self) -> Any:
+    @classmethod
+    def detector(cls) -> Any:
         from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
         )
@@ -1388,7 +1400,8 @@ class TestEnhancedDetectorIntegration:
     """All three enhanced detectors work end to end with their 3R synapses."""
 
     @pytest.fixture(scope="class")
-    def all_detectors(self) -> Any:
+    @classmethod
+    def all_detectors(cls) -> Any:
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
         from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
