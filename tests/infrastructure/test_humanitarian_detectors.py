@@ -2036,3 +2036,106 @@ class TestMutationKillPins:
         moderate = detector.detect_access_barrier(np.array([15.0]))
         assert moderate["severity"] != "critical"
         assert all("CRITICAL" not in r for r in moderate["recommendations"])
+
+
+class TestLegacyPathsRefuseUnmeasurableInput:
+    """The pre-C9 paths graded NaN windows as "normal" (fail-open).
+
+    Round 19 established the repo-wide rule that detectors refuse
+    unmeasurable input instead of grading it safe; these pins hold the
+    nine legacy humanitarian paths to it. Each test fails on the pre-fix
+    code, which returned anomaly_detected=False for every one of these
+    inputs.
+    """
+
+    _NAN_CASES = [
+        pytest.param(
+            lambda bad: ClimateResilienceDetector().detect_temperature_anomaly(bad),
+            id="temperature",
+        ),
+        pytest.param(
+            lambda bad: ClimateResilienceDetector().detect_precipitation_anomaly(bad),
+            id="precipitation",
+        ),
+        pytest.param(
+            lambda bad: AgriFoodSecurityDetector().detect_yield_anomaly(bad),
+            id="yield",
+        ),
+        pytest.param(
+            lambda bad: AgriFoodSecurityDetector().detect_price_anomaly(bad),
+            id="price",
+        ),
+        pytest.param(
+            lambda bad: EconomicResilienceDetector().detect_market_anomaly(bad),
+            id="market",
+        ),
+        pytest.param(
+            lambda bad: EconomicResilienceDetector().detect_employment_anomaly(bad),
+            id="employment",
+        ),
+        pytest.param(
+            lambda bad: EducationEquityDetector().detect_achievement_gap(bad),
+            id="achievement",
+        ),
+        pytest.param(
+            lambda bad: EducationEquityDetector().detect_dropout_risk(bad),
+            id="dropout",
+        ),
+        pytest.param(
+            lambda bad: NeuroscienceDetector().detect_neural_activity_anomaly(bad),
+            id="neural",
+        ),
+        pytest.param(
+            lambda bad: NeuroscienceDetector().detect_cognitive_anomaly(bad),
+            id="cognitive",
+        ),
+    ]
+
+    @pytest.mark.parametrize("run", _NAN_CASES)
+    @pytest.mark.parametrize("bad_value", [float("nan"), float("inf")], ids=["nan", "inf"])
+    def test_non_finite_window_is_refused_not_graded_normal(
+        self, run: Callable[[Any], dict[str, Any]], bad_value: float
+    ) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            run(np.array([1.0, bad_value, 2.0]))
+
+    @pytest.mark.parametrize(
+        "run",
+        [
+            pytest.param(
+                lambda bad: ClimateResilienceDetector().detect_precipitation_anomaly(bad),
+                id="precipitation",
+            ),
+            pytest.param(
+                lambda bad: AgriFoodSecurityDetector().detect_yield_anomaly(bad),
+                id="yield",
+            ),
+            pytest.param(
+                lambda bad: AgriFoodSecurityDetector().detect_price_anomaly(bad),
+                id="price",
+            ),
+            pytest.param(
+                lambda bad: EconomicResilienceDetector().detect_employment_anomaly(bad),
+                id="employment",
+            ),
+        ],
+    )
+    def test_physically_negative_quantities_are_refused(
+        self, run: Callable[[Any], dict[str, Any]]
+    ) -> None:
+        """Rainfall, harvests, prices and unemployment rates cannot be negative."""
+        with pytest.raises(ValueError, match="non-negative"):
+            run(np.array([5.0, -1.0]))
+
+    def test_negative_temperature_and_market_values_stay_valid(self) -> None:
+        """Temperatures and index returns are legitimately negative."""
+        cold = ClimateResilienceDetector().detect_temperature_anomaly(np.array([-30.0, -28.0]))
+        assert cold["anomaly_detected"] is True  # far below the baseline
+        market = EconomicResilienceDetector().detect_market_anomaly(np.array([-0.5, 0.5]))
+        assert "metrics" in market
+
+    def test_full_employment_zero_rate_is_valid(self) -> None:
+        """An unemployment rate of exactly 0% is measurable, not refused."""
+        result = EconomicResilienceDetector().detect_employment_anomaly(np.array([0.0, 0.5]))
+        assert result["anomaly_detected"] is False
+        assert result["metrics"]["unemployment_rate_pct"] == pytest.approx(0.25)

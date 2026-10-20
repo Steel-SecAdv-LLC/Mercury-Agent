@@ -389,7 +389,9 @@ jobs:
     # boundary and guard pins. The five new detect() capabilities grew the
     # surface to 644 sites (88.2% on first measure); the kill-pin round
     # closed every classifiable gap to a measured 98.9%, plus three
-    # hand-verified kills (640/644, 99.4%).
+    # hand-verified kills (640/644, 99.4%). The round-22 fail-closed input
+    # guards grew the surface to 666 sites, re-measured at 99.1% with the
+    # last two guard-boundary gaps closed by hand-verified kills (662/666).
     if: github.event_name != 'pull_request' || needs.changes.outputs.humanitarian == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -413,13 +415,14 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-20, local, 644 sites after the five new
-      # detect() capabilities): 640/644 killed — 99.4% (full enumeration to
-      # 98.9%, plus three hand-verified kills from the final pin round).
-      # The four survivors are individually classified equivalent: three
-      # Gt->GtE swaps whose boundary is exact float equality of an
-      # lstsq-estimated trend/acceleration with the global reference
-      # (reachable only on a measure-zero input set), and one
+      # Floor calibration (2026-10-20, local, 666 sites after the five new
+      # detect() capabilities and the round-22 fail-closed input guards):
+      # 662/666 killed — 99.4% (full enumeration to 99.1%, plus two
+      # hand-verified kills closing the employment guard's zero-rate
+      # boundary). The four survivors are individually classified
+      # equivalent: three Gt->GtE swaps whose boundary is exact float
+      # equality of an lstsq-estimated trend/acceleration with the global
+      # reference (reachable only on a measure-zero input set), and one
       # zip(strict=True) flip made unreachable by the upstream per-item
       # count validation. The floor sits at 90 so legitimate new mutation
       # sites don't flake the lane while real weakening fails it.
@@ -505,13 +508,19 @@ jobs:
     # Fifth module set under the per-module kill-rate program (2026-10-20):
     # the three enhanced geological detectors (landslide, wildfire,
     # volcanic) measured 46.6% across all 1,302 sites before the behavioral
-    # rewrite round and 57.9% (754/1,302) after it, against the seven suites
-    # that cover the modules (per file: landslide 67.8%, wildfire 52.9%,
-    # volcanic 57.3%). The 548 survivors are measured, not classified:
-    # they concentrate in constructor-default tables, the neural/live
-    # paths, and the physics forecast internals, and their classification
-    # and closure is the next ranked item of the hardening program — the
-    # floor enforces today's measured state, it does not claim closure.
+    # rewrite round, 57.9% after it, and 75.1% (975/1,299) after the
+    # round-22 survivor-closure pass (per file: landslide 77.4%, wildfire
+    # 72.8%, volcanic 76.0%), against the seven suites that cover the
+    # modules. That pass worked the measured clusters — exact Poisson-MLE
+    # recovery, the live alert ladder, mid-band probes on every served
+    # boundary, optimizer arithmetic, operating-point validation and
+    # checkpoint shape contracts — and fixed two real defects it exposed
+    # (frequency-component misattribution; a stale eruption operating
+    # point surviving a checkpoint swap). The remaining 324 survivors are
+    # measured, not individually classified: they concentrate in
+    # shape-preserving value-only network mutants (padding/dropout,
+    # killable only against trained-checkpoint outputs), fp-exact
+    # boundaries, and branches masked by later gates.
     if: github.event_name != 'pull_request' || needs.changes.outputs.geological == 'true'
     runs-on: ubuntu-latest
     # 1,302 sites against a ~10 s seven-suite baseline; survivors pay the
@@ -538,8 +547,8 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-20, local, 1,302 sites): 754 killed —
-      # 57.9%. The floor sits at 50 so legitimate new mutation sites don't
+      # Floor calibration (2026-10-20, local, 1,299 sites): 975 killed —
+      # 75.1%. The floor sits at 65 so legitimate new mutation sites don't
       # flake the lane while real weakening (losing a suite, gutting the
       # physics pins) fails it.
       - name: Geological detectors mutation floor
@@ -551,7 +560,7 @@ jobs:
               src/omni_mercury_engine/detectors/geological/volcanic.py \
             --test-cmd "python -m pytest tests/detectors/test_geological_detectors_3r.py tests/detectors/test_volcanic_honesty.py tests/detectors/test_volcanic_served_contract.py tests/detectors/test_wildfire_served_contract.py tests/detectors/test_geological_detectors.py tests/detectors/test_live_wiring_geological.py tests/detectors/test_geological_3r_integration.py -q -x" \
             --jobs 4 \
-            --fail-under 50 \
+            --fail-under 65 \
             --report geological_mutation_report.json
 
       - name: Upload geological mutation report

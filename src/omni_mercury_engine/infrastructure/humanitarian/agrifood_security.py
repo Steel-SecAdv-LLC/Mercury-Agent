@@ -76,9 +76,17 @@ class AgriFoodSecurityDetector:
     def detect_yield_anomaly(
         self, yield_data: np.ndarray[Any, Any], crop_type: str | None = None
     ) -> dict[str, Any]:
-        """Detect crop yield failures and productivity anomalies."""
+        """Detect crop yield failures and productivity anomalies.
+
+        Raises:
+            ValueError: Non-finite or negative yields — a NaN window must
+                never read as a normal harvest.
+        """
         if len(yield_data) == 0:
             return {"anomaly_detected": False}
+        yields = np.asarray(yield_data, dtype=float)
+        if not np.all(np.isfinite(yields)) or np.any(yields < 0):
+            raise ValueError("yield_data values must be finite and non-negative")
 
         mean_yield = np.mean(yield_data)
         baseline = self.yield_baseline["mean"]
@@ -118,9 +126,17 @@ class AgriFoodSecurityDetector:
     def detect_price_anomaly(
         self, price_data: np.ndarray[Any, Any], crop_type: str | None = None
     ) -> dict[str, Any]:
-        """Detect food price spikes and market disruptions."""
+        """Detect food price spikes and market disruptions.
+
+        Raises:
+            ValueError: Non-finite or negative prices — a NaN window must
+                never read as a calm market.
+        """
         if len(price_data) == 0:
             return {"anomaly_detected": False}
+        prices = np.asarray(price_data, dtype=float)
+        if not np.all(np.isfinite(prices)) or np.any(prices < 0):
+            raise ValueError("price_data values must be finite and non-negative")
 
         current_price = np.mean(price_data)
         baseline = self.price_baseline["mean"]

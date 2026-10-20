@@ -95,9 +95,16 @@ class ClimateResilienceDetector:
         temperature_series: np.ndarray[Any, Any],
         historical_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Detect heatwaves, cold snaps, and abnormal warming trends."""
+        """Detect heatwaves, cold snaps, and abnormal warming trends.
+
+        Raises:
+            ValueError: Non-finite temperature values — a NaN window must
+                never read as a normal climate.
+        """
         if len(temperature_series) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(temperature_series, dtype=float))):
+            raise ValueError("temperature_series contains non-finite values")
 
         mean_temp = np.mean(temperature_series)
         max_temp = np.max(temperature_series)
@@ -148,9 +155,17 @@ class ClimateResilienceDetector:
         and the "high" grade engages below three sigma (25.7 mm) or for a
         fully rainless window, the maximal physical drought. Both event
         boundaries stay inclusive at two sigma.
+
+        Raises:
+            ValueError: Non-finite or negative precipitation — negative
+                rainfall is unmeasurable, and a NaN window must never read
+                as normal rainfall.
         """
         if len(precipitation_mm) == 0:
             return {"anomaly_detected": False}
+        precip = np.asarray(precipitation_mm, dtype=float)
+        if not np.all(np.isfinite(precip)) or np.any(precip < 0):
+            raise ValueError("precipitation_mm values must be finite and non-negative")
 
         total_precip = np.sum(precipitation_mm)
         baseline = self.precip_baseline["mean"]

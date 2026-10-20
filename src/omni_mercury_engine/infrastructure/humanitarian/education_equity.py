@@ -78,9 +78,16 @@ class EducationEquityDetector:
     def detect_achievement_gap(
         self, achievement_data: np.ndarray[Any, Any], demographic_data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect achievement gaps across student populations."""
+        """Detect achievement gaps across student populations.
+
+        Raises:
+            ValueError: Non-finite scores — a NaN window must never read as
+                normal achievement.
+        """
         if len(achievement_data) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(achievement_data, dtype=float))):
+            raise ValueError("achievement_data contains non-finite values")
 
         mean_achievement = np.mean(achievement_data)
         std_achievement = np.std(achievement_data)
@@ -119,9 +126,16 @@ class EducationEquityDetector:
     def detect_dropout_risk(
         self, student_data: np.ndarray[Any, Any], demographic_data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect students at risk of dropping out."""
+        """Detect students at risk of dropping out.
+
+        Raises:
+            ValueError: Non-finite indicators — a NaN window must never
+                read as no dropout risk.
+        """
         if len(student_data) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(student_data, dtype=float))):
+            raise ValueError("student_data contains non-finite values")
 
         risk_indicators = np.mean(student_data, axis=0) if student_data.ndim > 1 else student_data
         dropout_risk = np.mean(risk_indicators < self.dropout_risk_threshold)

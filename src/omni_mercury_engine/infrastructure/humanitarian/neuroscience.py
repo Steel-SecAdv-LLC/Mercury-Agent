@@ -83,9 +83,16 @@ class NeuroscienceDetector:
     def detect_neural_activity_anomaly(
         self, neural_data: np.ndarray[Any, Any], subject_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect abnormal neural activity patterns."""
+        """Detect abnormal neural activity patterns.
+
+        Raises:
+            ValueError: Non-finite samples — a NaN window must never read
+                as normal neural activity.
+        """
         if len(neural_data) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(neural_data, dtype=float))):
+            raise ValueError("neural_data contains non-finite values")
 
         mean_activity = np.mean(neural_data)
         std_activity = np.std(neural_data)
@@ -124,9 +131,16 @@ class NeuroscienceDetector:
     def detect_cognitive_anomaly(
         self, cognitive_data: np.ndarray[Any, Any], subject_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect cognitive decline or attention deficits."""
+        """Detect cognitive decline or attention deficits.
+
+        Raises:
+            ValueError: Non-finite scores — a NaN window must never read as
+                normal cognition.
+        """
         if len(cognitive_data) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(cognitive_data, dtype=float))):
+            raise ValueError("cognitive_data contains non-finite values")
 
         cognitive_score = np.mean(cognitive_data)
 

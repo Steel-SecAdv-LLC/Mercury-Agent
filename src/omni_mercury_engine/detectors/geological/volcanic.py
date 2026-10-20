@@ -1111,6 +1111,13 @@ class VolcanicEruptionDetector:
                     "probability; refusing a nonsensical eruption-alert rule"
                 )
             self._operating_point = {"eruption_prob_threshold": tau}
+        else:
+            # A checkpoint without an operating point reverts to the legacy
+            # fixed rule. Without this reset, loading such a checkpoint OVER
+            # one that carried a tau kept the previous checkpoint's alert
+            # threshold in charge of the new weights (wildfire and landslide
+            # already reset; volcanic did not).
+            self._operating_point = None
         self._neural_trained = True
         self.logger.info(
             "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s%s); "

@@ -27,6 +27,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deep-review round: fail-closed input guards, three defect fixes, geological survivor closure 57.9% → 75.1% (branch `steel/version-cov4`)
+
+**Fixed — nine legacy humanitarian paths graded a NaN window as "normal"
+(fail-open; `infrastructure/humanitarian/`).** Every pre-existing detection
+path (temperature, precipitation, yield, price, market, employment,
+achievement, dropout, neural activity, cognition) returned
+`anomaly_detected: False` with severity "low" for windows containing NaN
+or infinity, and precipitation accepted negative rainfall as a drought
+measurement. All now refuse non-finite input with `ValueError`, and the
+physically non-negative quantities (rainfall, yields, prices, unemployment
+rates) refuse negatives — the rule Round 19 established repo-wide
+("detectors refuse unmeasurable input instead of grading it safe").
+25 regression tests; 24 verified failing on the pre-fix code (the 25th
+guards against over-validation: negative temperatures and index returns
+stay valid, and a 0% unemployment rate is measurable, not refused).
+**Breaking change:** callers feeding non-finite windows now get
+`ValueError` instead of a fabricated all-clear.
+
+**Fixed — wildfire resonance `frequency_components` misattribution
+(`detectors/geological/wildfire.py`).** Band scores were zipped against
+band names *by position*, so whenever an earlier band had no FFT bin the
+next band's score was reported under the wrong name and trailing bands
+vanished from the dict (a 1/h-sampled series reported the convective
+band's score as "wind_gust"). Scores are now keyed by band, absent bands
+read 0.0, and the phi-weighted aggregate is unchanged. Regression test
+verified failing on the old code.
+
+**Fixed — a stale volcanic eruption operating point survived a checkpoint
+swap (`detectors/geological/volcanic.py`).** Loading a checkpoint without
+an operating point over one that carried a validation-selected tau kept
+the previous checkpoint's alert threshold in charge of the new weights;
+wildfire and landslide already reset, volcanic did not. It now reverts to
+the legacy fixed rule. Regression test verified failing on the old code.
+
+**Changed — geological survivor-closure pass: 57.9% → 75.1% measured over
+the full enumeration (975/1,299; landslide 77.4%, wildfire 72.8%, volcanic
+76.0%), CI floor raised 50 → 65.** 57 kill-pin tests close the measured
+clusters: exact Poisson-MLE failure-time recovery against Bell, Naylor &
+Main (2013) expected counts (t_f to ±1 ms over 20 bins, likelihood ratio
+pinned), the full `detect_live` USGS alert-state decision ladder over
+stubbed HANS feeds, mid-band probes a tenth past every served threshold
+(thermal intensity, gas degassing, InSAR severity, Angström bands,
+Saffir-Simpson, fire-risk points, FIRMS raster bounds, NFDRS validation
+band edges), deterministic swarm/noisy-OR arithmetic, the adaptive
+optimizer's exact adaptation formulas, operating-point validation across
+all three detectors (invalid tau refused, validated before any state
+mutates), untrained-warning once-per-detector pins, and
+checkpoint-compatibility shape contracts for all five geological networks.
+The humanitarian lane re-measured over its guard-grown surface: 666 sites,
+662 killed (99.4%), the same four classified equivalents, floor 90
+unchanged.
+
 ### Humanitarian capabilities instituted on published methods; no-check test triage; per-module mutation floors for the crisis monitor and the enhanced geological detectors (branch `steel/version-cov4`)
 
 **Added — five humanitarian `detect()` capabilities, each on a published
@@ -88,10 +140,11 @@ Recorded fixtures with provenance and sha256 under
 `tests/fixtures/humanitarian/`: NOAA CO-OPS 8518750 monthly MSL, UNESCO UIS
 world out-of-school, World Bank TUR CPI and WLD primary GPI, and the NOAA
 NCEI climatology below. 150+ behavioral boundary tests pin every published
-constant; the full mutation enumeration over the grown surface (644 sites,
-up from 312) measures 99.4% killed (640/644, the last three kills
-hand-verified), with the four survivors individually classified equivalent
-— the CI floor lane stays at 90.
+constant; the full mutation enumeration over the grown surface (666 sites,
+up from 312, including the round-22 fail-closed input guards) measures
+99.4% killed (662/666, the last kills hand-verified), with the four
+survivors individually classified equivalent — the CI floor lane stays
+at 90.
 
 **Changed — the drought grading baseline is the measured NOAA climatology
 (`climate_resilience.py`; owner-approved).** The shipped 100 ± 50 mm

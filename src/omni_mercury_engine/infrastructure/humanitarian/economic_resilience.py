@@ -74,9 +74,16 @@ class EconomicResilienceDetector:
     def detect_market_anomaly(
         self, market_data: np.ndarray[Any, Any], economic_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect market crashes and volatility spikes."""
+        """Detect market crashes and volatility spikes.
+
+        Raises:
+            ValueError: Non-finite market values — a NaN window must never
+                read as a calm market.
+        """
         if len(market_data) == 0:
             return {"anomaly_detected": False}
+        if not np.all(np.isfinite(np.asarray(market_data, dtype=float))):
+            raise ValueError("market_data contains non-finite values")
 
         current_value = np.mean(market_data)
         volatility = np.std(market_data)
@@ -118,9 +125,17 @@ class EconomicResilienceDetector:
     def detect_employment_anomaly(
         self, employment_data: np.ndarray[Any, Any], economic_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Detect unemployment spikes and labor market stress."""
+        """Detect unemployment spikes and labor market stress.
+
+        Raises:
+            ValueError: Non-finite or negative rates — a NaN window must
+                never read as a healthy labor market.
+        """
         if len(employment_data) == 0:
             return {"anomaly_detected": False}
+        rates = np.asarray(employment_data, dtype=float)
+        if not np.all(np.isfinite(rates)) or np.any(rates < 0):
+            raise ValueError("employment_data values must be finite and non-negative")
 
         unemployment_rate = np.mean(employment_data)
         baseline = self.unemployment_baseline["mean"]

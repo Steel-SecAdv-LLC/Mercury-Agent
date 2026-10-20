@@ -624,14 +624,24 @@ class ResonanceFrequencyAnalyzer:
         dominant_freq = float(pos_freqs[dominant_idx])
         dominant_power = float(pos_power[dominant_idx])
 
-        # Compute resonance score based on fire behavior frequencies
+        # Compute resonance score based on fire behavior frequencies.
+        # component_scores keys each band's score BY NAME: the previous
+        # zip-by-position reporting attributed a found band's score to the
+        # first band names in dict order whenever an earlier band had no FFT
+        # bin (e.g. a 1/h-sampled series put the convective band's score
+        # under "wind_gust"). The aggregate below is unchanged: only found
+        # bands enter the phi-weighted sum, exactly as before.
         resonance_scores = []
+        component_scores: dict[str, float] = {}
         for name, target_freq in self.fire_frequencies.items():
             # Find power near target frequency
             freq_mask = np.abs(pos_freqs - target_freq) < target_freq * 0.2
+            band_score = 0.0
             if np.any(freq_mask):
                 power_at_freq = float(np.max(pos_power[freq_mask]))
-                resonance_scores.append(power_at_freq / (dominant_power + 1e-10))
+                band_score = power_at_freq / (dominant_power + 1e-10)
+                resonance_scores.append(band_score)
+            component_scores[name] = band_score
 
         # Aggregate resonance score using phi-weighting
         if resonance_scores:
@@ -651,12 +661,7 @@ class ResonanceFrequencyAnalyzer:
             "dominant_frequency": dominant_freq,
             "dominant_power": dominant_power,
             "fire_behavior_detected": fire_behavior_detected,
-            "frequency_components": dict(
-                zip(
-                    self.fire_frequencies.keys(),
-                    resonance_scores[:4] if resonance_scores else [0] * 4,
-                )
-            ),
+            "frequency_components": component_scores,
         }
 
     def analyze_smoke_patterns(

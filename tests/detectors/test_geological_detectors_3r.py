@@ -1613,7 +1613,15 @@ class TestMutationKillPins:
         assert out["dominant_frequency"] == pytest.approx(1 / 24, abs=1e-4)
         assert out["resonance_score"] == pytest.approx(0.618, abs=0.02)
         assert out["fire_behavior_detected"] is True
-        assert list(out["frequency_components"]) == ["diurnal", "wind_gust"]
+        # All four bands are reported by name (scores keyed by band since the
+        # 2026-10-20 misattribution fix); bands with no FFT bin read 0.0.
+        assert list(out["frequency_components"]) == [
+            "diurnal",
+            "wind_gust",
+            "convective",
+            "spotting",
+        ]
+        assert out["frequency_components"]["wind_gust"] == 0.0
 
     def test_smoke_trend_boundaries_are_strict(self) -> None:
         from omni_mercury_engine.detectors.geological.wildfire import (
@@ -1751,3 +1759,1170 @@ class TestMutationKillPins:
         # river-blockage cascade either.
         assert at_100.landslide_type == "mud_flow"
         assert "river_blockage_flooding" not in at_100.cascade_risks
+
+
+class TestVolcanicSurvivorPins:
+    """Round-22 kill pins for the volcanic enumeration's surviving mutants.
+
+    Each pin targets measured survivors of the 2026-10-20 full enumeration:
+    published constants to the digit, exact Poisson-MLE recovery, mid-band
+    threshold probes (a value just past each served boundary), the live
+    alert-state decision ladder, and the adaptive optimizer's arithmetic.
+    """
+
+    # ---- failure forecast methods ----
+
+    def test_ffm_published_constants(self) -> None:
+        from omni_mercury_engine.detectors.geological import volcanic
+
+        assert volcanic.FFM_MIN_R2 == 0.8
+        assert volcanic.FFM_MIN_POINTS == 5
+        # 95% point of chi-squared with one degree of freedom.
+        assert volcanic.FFM_LR_CRITICAL == 3.841
+
+    def test_poisson_mle_recovers_a_known_failure_time(self) -> None:
+        """Expected counts of k/(t_f - t) recover t_f to sub-millihour error.
+
+        Bins are 0.5 h wide (kills a loosened edge-increase guard), the first
+        bin holds 0.197 expected events (kills an occupancy cut at n > 1),
+        and the recovered time and likelihood ratio are pinned tightly
+        enough that any mutation of the profile search, the closed-form rate,
+        the log terms or the LR scale moves them out of tolerance.
+        """
+        from omni_mercury_engine.detectors.geological.volcanic import failure_forecast_poisson
+
+        tf, k = 10.4, 4.0
+        edges = np.arange(0, 10.5, 0.5)
+        counts = k * np.log((tf - edges[:-1]) / (tf - edges[1:]))
+        result = failure_forecast_poisson(edges, counts)
+        assert result is not None
+        assert result["failure_time_h"] == pytest.approx(10.4, abs=1e-3)
+        assert result["time_to_failure_h"] == pytest.approx(0.4, abs=1e-3)
+        assert result["n_bins"] == 20.0
+        # Deterministic statistic for expected counts; measured 2026-10-20.
+        assert result["likelihood_ratio"] == pytest.approx(10.4262, abs=0.01)
+
+    def test_poisson_rejects_malformed_and_refuses_no_signal(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import failure_forecast_poisson
+
+        edges = np.arange(0, 10.5, 0.5)
+        with pytest.raises(InvalidObservationError, match="bin edges"):
+            failure_forecast_poisson(np.arange(0, 3.5, 0.5), np.ones(5))
+        with pytest.raises(InvalidObservationError, match="increase"):
+            failure_forecast_poisson(np.array([0.0, 1.0, 1.0, 2.0, 3.0, 4.0]), np.ones(5))
+        # All-zero counts carry no signal: None, never a forecast.
+        assert failure_forecast_poisson(edges, np.zeros(20)) is None
+        # Deceleration must not beat the constant-rate model.
+        decel = 4.0 * np.log((edges[1:] + 5.0) / (edges[:-1] + 5.0))
+        assert failure_forecast_poisson(edges, decel) is None
+
+    # ---- live alert state ----
+
+    @staticmethod
+    def _live_detector(levels: list[str]) -> tuple[Any, dict[str, Any]]:
+        from datetime import UTC, datetime
+
+        from omni_mercury_engine.data_sources.base import DataPoint, DataSourceType
+        from omni_mercury_engine.data_sources.live_ingestion import LiveFetch
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        detector = VolcanicEruptionDetector()
+        seen: dict[str, Any] = {}
+        points = [
+            DataPoint(
+                source_id="stub",
+                source_type=DataSourceType.VOLCANO,
+                event_id=f"v{i}",
+                timestamp=datetime.now(UTC),
+                data={"name": f"Volcano {i}", "alert_level": level, "observatory": "OBS"},
+            )
+            for i, level in enumerate(levels)
+        ]
+
+        def fake_fetch(*, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+            seen["allow_simulated"] = allow_simulated
+            return LiveFetch(
+                source_id="stub",
+                data_points=points,
+                data_provenance="live",
+                fetched_at=datetime.now(UTC),
+            )
+
+        detector.fetch_live_data = fake_fetch  # type: ignore[method-assign]
+        return detector, seen
+
+    def test_live_quiet_feed_is_normal_with_no_asserted_confidence(self) -> None:
+        detector, seen = self._live_detector(["normal", "normal"])
+        result = detector.detect_live()
+        assert result.alert_level == "normal"
+        assert result.confidence == 0.0
+        assert result.eruption_imminent is False
+        assert result.eruption_type == "no_eruption"
+        assert result.early_warning_actions == []
+        assert result.live_context["alert_level_counts"] == {"normal": 2}
+        assert result.live_context["volcanoes_reported"] == 2
+        # Simulated sources stay opt-in: the default fetch asks for real data.
+        assert seen["allow_simulated"] is False
+
+    def test_live_advisory_asserts_official_confidence_without_actions(self) -> None:
+        detector, _ = self._live_detector(["normal", "advisory"])
+        result = detector.detect_live()
+        assert result.alert_level == "advisory"
+        assert result.confidence == pytest.approx(0.98)
+        assert result.eruption_imminent is False
+        assert result.eruption_type == "no_eruption"
+        assert result.early_warning_actions == []
+
+    def test_live_watch_carries_guidance_but_not_imminence(self) -> None:
+        detector, _ = self._live_detector(["watch"])
+        result = detector.detect_live()
+        assert result.alert_level == "watch"
+        assert result.eruption_imminent is False
+        assert result.eruption_type == "undetermined"
+        assert result.early_warning_actions == ["USGS WATCH for Volcano 0: follow OBS guidance."]
+
+    def test_live_warning_is_the_only_imminent_level(self) -> None:
+        detector, _ = self._live_detector(["advisory", "warning"])
+        result = detector.detect_live()
+        assert result.alert_level == "warning"
+        assert result.eruption_imminent is True
+        assert result.confidence == pytest.approx(0.98)
+        assert result.live_context["alert_level_counts"] == {"advisory": 1, "warning": 1}
+        assert result.live_context["highest_alert_volcano"]["name"] == "Volcano 1"
+
+    def test_live_unknown_levels_assert_nothing(self) -> None:
+        detector, _ = self._live_detector(["unassigned"])
+        result = detector.detect_live()
+        assert result.alert_level == "normal"
+        assert result.confidence == 0.0
+        assert result.live_context["alert_level_counts"] == {"unassigned": 1}
+
+    def test_live_name_filter_is_case_insensitive(self) -> None:
+        detector, _ = self._live_detector(["advisory", "watch"])
+        result = detector.detect_live(volcano_name="volcano 0")
+        assert result.live_context["volcanoes_reported"] == 1
+        assert result.alert_level == "advisory"
+
+    # ---- component mid-band threshold probes ----
+
+    def test_thermal_intensity_mid_band_probes(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import ThermalHotspotDetector
+
+        detector = ThermalHotspotDetector()
+        for temp, intensity in ((320.5, "moderate"), (350.5, "high"), (400.5, "extreme")):
+            result = detector.detect_thermal_anomaly({"brightness_temperature_k": np.array([temp])})
+            assert result["intensity"] == intensity, temp
+
+    def test_thermal_validation_band_edges(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import ThermalHotspotDetector
+
+        detector = ThermalHotspotDetector()
+        # Just inside the physical band on both sides: accepted.
+        ok = detector.detect_thermal_anomaly(
+            {"brightness_temperature_k": np.array([150.05, 1999.95]), "radiant_heat_mw": 0.05}
+        )
+        assert ok["max_temp_k"] == pytest.approx(1999.95)
+        # Just outside: refused.
+        with pytest.raises(InvalidObservationError):
+            detector.detect_thermal_anomaly({"brightness_temperature_k": np.array([2000.05])})
+        with pytest.raises(InvalidObservationError):
+            detector.detect_thermal_anomaly({"brightness_temperature_k": np.array([149.95])})
+
+    def test_thermal_hotspot_count_uses_three_sigma(self) -> None:
+        """One pixel sits between 3 and 4 robust sigmas: exactly 2 hotspots."""
+        from omni_mercury_engine.detectors.geological.volcanic import ThermalHotspotDetector
+
+        values = np.full(100, 300.0)
+        values[0] = 340.0
+        values[1] = 315.0  # above mean+3*std (313.26), below mean+4*std (317.50)
+        result = ThermalHotspotDetector().detect_thermal_anomaly(
+            {"brightness_temperature_k": values}
+        )
+        assert result["hotspot_pixel_count"] == 2
+
+    def test_gas_mid_band_probes(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import GasEmissionAnalyzer
+
+        analyzer = GasEmissionAnalyzer()
+        so2_only = analyzer.analyze_gas_emissions(
+            {
+                "so2_tons_per_day": 3.05 * analyzer.baseline_so2_tons_day,
+                "co2_tons_per_day": analyzer.baseline_co2_tons_day,
+            }
+        )
+        assert so2_only["so2_anomaly"] is True
+        assert so2_only["co2_anomaly"] is False
+        assert so2_only["degassing_index"] == pytest.approx(2.025)
+        assert so2_only["risk_level"] == "moderate"
+        critical = analyzer.analyze_gas_emissions(
+            {
+                "so2_tons_per_day": 8.05 * analyzer.baseline_so2_tons_day,
+                "co2_tons_per_day": 2.05 * analyzer.baseline_co2_tons_day,
+            }
+        )
+        assert critical["co2_anomaly"] is True
+        assert critical["degassing_index"] == pytest.approx(5.05)
+        assert critical["risk_level"] == "critical"
+
+    def test_insar_mid_band_probes(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import InSARDeformationDetector
+
+        detector = InSARDeformationDetector()
+        moderate = detector.detect_deformation(
+            {
+                "vertical_displacement_cm": 0.5,
+                "horizontal_displacement_cm": 5.0252,
+                "deformation_rate_cm_day": 0.05,
+            }
+        )
+        assert moderate["deformation_detected"] is True
+        assert moderate["deformation_type"] == "inflation"
+        assert moderate["severity"] == "moderate"
+        high = detector.detect_deformation({"vertical_displacement_cm": -10.05})
+        assert high["severity"] == "high"
+        assert high["deformation_type"] == "deflation"
+        critical = detector.detect_deformation({"vertical_displacement_cm": 20.05})
+        assert critical["severity"] == "critical"
+
+    # ---- deterministic swarm physics ----
+
+    def test_swarm_physics_exact_confidence_and_bar(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        physics = VolcanicEruptionDetector._detect_swarm_physics
+        # 4 of 100 samples exceed 3 robust sigma: confidence 0.04/0.10 = 0.4.
+        swarm = physics(np.array([0.0, 1.0] * 48 + [100.0] * 4))
+        assert swarm["swarm_detected"] is True
+        assert swarm["confidence"] == pytest.approx(0.4)
+        # Exactly 2% exceedance sits ON the bar: not a swarm (strict >).
+        at_bar = physics(np.concatenate([np.zeros(49), np.ones(49), np.full(2, 100.0)]))
+        assert at_bar["swarm_detected"] is False
+        assert at_bar["confidence"] == pytest.approx(0.2)
+        # The minimum window is exactly 4 samples, and confidence caps at 1.0.
+        four = physics(np.array([1.0, 1.0, 2.0, 50.0]))
+        assert four["swarm_detected"] is True
+        assert four["confidence"] == 1.0
+        three = physics(np.array([1.0, 1.0, 50.0]))
+        assert three["swarm_detected"] is False
+        assert three["confidence"] == 0.0
+
+    # ---- deterministic physics forecast ----
+
+    def test_physics_forecast_clips_and_bar(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        forecast = VolcanicEruptionDetector._forecast_eruption_physics
+        # Exactly 0.7 is not imminent (strict >).
+        at_bar = forecast({"hmm_eruption_prob": 0.7})
+        assert at_bar["eruption_imminent"] is False
+        assert at_bar["confidence"] == pytest.approx(0.7)
+        # Each severity clips to exactly 1.0 at saturation; an unclipped term
+        # would push the noisy-OR off 1.0.
+        for signals in (
+            {"seismic_confidence": 1.05},
+            {"degassing_index": 5.4},
+            {"total_displacement_cm": 21.0},
+            {"radiant_heat_mw": 1050.0},
+        ):
+            saturated = forecast(signals)
+            assert saturated["confidence"] == 1.0, signals
+            assert saturated["eruption_imminent"] is True
+        # Baseline gas (index 1.0) contributes nothing.
+        quiet = forecast({"degassing_index": 1.0})
+        assert quiet["confidence"] == 0.0
+
+    def test_alert_ladder_strict_boundaries(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        detector = VolcanicEruptionDetector(enable_hmm=False)
+        assert detector._determine_alert_level(3, 0.8) == "watch"
+        assert detector._determine_alert_level(2, 0.6) == "advisory"
+        assert detector._determine_alert_level(1, 0.4) == "normal"
+
+    # ---- adaptive optimizer arithmetic ----
+
+    def test_optimizer_defaults_and_adaptation_arithmetic(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import (
+            RefactoringAdaptiveOptimizer,
+        )
+
+        fresh = RefactoringAdaptiveOptimizer()
+        assert fresh.learning_rate == 0.01
+        assert fresh.phi == pytest.approx(1.618033988749895)
+        assert fresh.history_window == 100
+        assert fresh.threshold_adjustment == 0.0
+
+        # Fewer than 10 errors: parameters returned unchanged.
+        fresh.error_history = [0.9] * 9
+        assert fresh.adapt_parameters()["confidence_calibration"] == 1.0
+        # Exactly 10: adaptation runs.
+        fresh.error_history = [0.9] * 10
+        assert fresh.adapt_parameters()["confidence_calibration"] == pytest.approx(0.99)
+
+        # Mean exactly 0.5 adapts in neither direction.
+        flat = RefactoringAdaptiveOptimizer()
+        flat.error_history = [0.5] * 20
+        assert flat.adapt_parameters()["confidence_calibration"] == 1.0
+
+        # Low error raises calibration by lr/phi exactly.
+        low = RefactoringAdaptiveOptimizer()
+        low.error_history = [0.1] * 20
+        adapted = low.adapt_parameters()
+        assert adapted["confidence_calibration"] == pytest.approx(1 + 0.01 / low.phi)
+        assert adapted["refactoring_score"] == pytest.approx(0.9)
+
+        # The error window is the last 20: five older 1.0s must not leak in.
+        windowed = RefactoringAdaptiveOptimizer()
+        windowed.error_history = [1.0] * 5 + [0.6] * 20
+        assert windowed.adapt_parameters()["refactoring_score"] == pytest.approx(0.4)
+
+        # Rising errors nudge the threshold up by lr * 0.1 exactly.
+        rising = RefactoringAdaptiveOptimizer()
+        rising.error_history = list(np.linspace(0.0, 0.38, 20))
+        assert rising.adapt_parameters()["threshold_adjustment"] == pytest.approx(0.001)
+
+        # Calibration clips at 1.5.
+        capped = RefactoringAdaptiveOptimizer()
+        capped.confidence_calibration = 1.4999
+        capped.error_history = [0.1] * 20
+        assert capped.adapt_parameters()["confidence_calibration"] == 1.5
+
+    def test_optimizer_threshold_and_error_metrics(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import (
+            RefactoringAdaptiveOptimizer,
+        )
+
+        optimizer = RefactoringAdaptiveOptimizer()
+        assert optimizer.get_adapted_threshold(0.5) == 0.5
+        optimizer.threshold_adjustment = 0.1
+        assert optimizer.get_adapted_threshold(0.5) == pytest.approx(0.6)
+        # VEI error: a None estimate counts as 0, normalised by max VEI 8.
+        assert optimizer._compute_prediction_error(
+            {"vei_estimate": None}, {"actual_vei": 2}
+        ) == pytest.approx(0.25)
+        # A prediction without the paired key contributes nothing (and the
+        # key pairing is AND, never OR: no KeyError on partial inputs).
+        assert optimizer._compute_prediction_error(
+            {"eruption_imminent": True}, {"eruption_occurred": True}
+        ) == pytest.approx(0.0)
+        assert optimizer._compute_prediction_error({}, {}) == 0.5
+
+
+class TestWildfireSurvivorPins:
+    """Round-22 kill pins for the wildfire enumeration's surviving mutants."""
+
+    # ---- module constants (served thresholds) ----
+
+    def test_module_constants(self) -> None:
+        from omni_mercury_engine.detectors.geological import wildfire
+
+        assert wildfire.HOTSPOT_THRESHOLD_K == 350.0
+        assert wildfire.FIRE_PROB_THRESHOLD_DEFAULT == 0.6
+        assert wildfire.ONE_HOUR_FUEL_MOISTURE_PER_EMC == 1.03
+        # GTR INT-169 Table 6, by NFDRS state-of-weather code.
+        assert wildfire.FUEL_INTERFACE_ADJUSTMENT == {
+            0: (25.0, 0.75),
+            1: (19.0, 0.83),
+            2: (12.0, 0.91),
+            3: (5.0, 1.0),
+        }
+        assert wildfire._WEATHER_INPUTS == {
+            "wind_speed_kmh": ("km/h", 0.0, 500.0),
+            "wind_direction_deg": ("deg", 0.0, 360.0),
+            "relative_humidity_pct": ("%", 0.0, 100.0),
+            "temperature_c": ("degC", -90.0, 60.0),
+        }
+
+    def test_firms_raster_check_boundaries(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import _is_firms_raster
+
+        raster = np.zeros((3, 4, 4))
+        raster[0, 0, 0] = 700.0  # inclusive upper brightness bound
+        assert _is_firms_raster(raster) is True
+        raster[0, 0, 0] = 700.05
+        assert _is_firms_raster(raster) is False
+        raster[0, 0, 0] = 400.0
+        raster[1, 0, 0] = 15.05  # log1p(FRP) cannot reach 15
+        assert _is_firms_raster(raster) is False
+
+    # ---- brightness-temperature ignition physics ----
+
+    def test_contextual_fire_just_over_330(self) -> None:
+        """330.05 K over a flat 300 K background is a (weak) contextual fire."""
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        values = np.full(100, 300.0)
+        values[0] = 330.05
+        result = WildfireDetector._detect_ignition_physics(values)
+        assert result["fire_detected"] is True
+        assert result["confidence"] == pytest.approx(0.05 / 60.0)
+
+    def test_contextual_needs_four_times_the_robust_scale(self) -> None:
+        """A 27.5 K excursion over scale 11.12 is NOT 4-sigma contextual.
+
+        4 * scale = 44.48 while 4 + scale = 15.12: the multiplicative form
+        rejects this scene, the additive mutation would accept it.
+        """
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        values = np.concatenate([np.full(50, 300.0), np.full(49, 315.0), [335.0]])
+        result = WildfireDetector._detect_ignition_physics(values)
+        assert result["fire_detected"] is False
+
+    def test_absolute_fire_just_over_360(self) -> None:
+        """A flat 360.05 K scene is absolute combustion (and all-hot: conf 1)."""
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        result = WildfireDetector._detect_ignition_physics(np.full(50, 360.05))
+        assert result["fire_detected"] is True
+        assert result["confidence"] == 1.0
+
+    def test_confidence_noisy_or_of_temperature_and_hot_fraction(self) -> None:
+        """98x300 K + 2x380 K: ts = 50/60, hf = 0.02*20 = 0.4, conf = 0.9."""
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        values = np.concatenate([np.full(98, 300.0), [380.0, 380.0]])
+        result = WildfireDetector._detect_ignition_physics(values)
+        assert result["confidence"] == pytest.approx(0.9)
+        # A 10% hot fraction saturates the fraction term exactly at 1.0.
+        saturated = WildfireDetector._detect_ignition_physics(
+            np.concatenate([np.full(90, 300.0), np.full(10, 380.0)])
+        )
+        assert saturated["confidence"] == 1.0
+
+    def test_physics_spatial_intermediates_on_a_2d_raster(self) -> None:
+        """Two separate hot clusters: exact mask, centroids and sizes."""
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        image = np.full((8, 8), 300.0)
+        image[0, 0:2] = 380.0
+        image[6:8, 6] = 380.0
+        result = WildfireDetector._detect_ignition_physics(image)
+        assert result["hotspot_count"] == 4
+        assert result["hotspot_mask"].shape == (8, 8)
+        assert result["ignition_centroids"].tolist() == [[0.0, 0.5], [6.5, 6.0]]
+        assert result["ignition_component_sizes"].tolist() == [2, 2]
+        # A bare 1-D series has no pixel geometry: flat exceedance count only.
+        series = WildfireDetector._detect_ignition_physics(np.array([300.0, 351.0, 352.0]))
+        assert series["hotspot_count"] == 2
+        assert series["hotspot_mask"].shape == (0, 0)
+
+    # ---- thermal resonance and smoke ----
+
+    def test_resonance_exact_pins_on_a_pure_diurnal_tone(self) -> None:
+        """96 h of a 24-h sine: dominant bin pins exactly.
+
+        Power of the dominant bin is (n*A/2)^2 = (96*5/2)^2 = 57600; the
+        diurnal band holds the dominant tone so its ratio is 1.0 and the
+        phi-weighted aggregate is 1/phi = 0.618034 (second band weight
+        normalisation), measured 2026-10-20.
+        """
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            ResonanceFrequencyAnalyzer,
+        )
+
+        analyzer = ResonanceFrequencyAnalyzer()
+        assert analyzer.fire_frequencies == {
+            "diurnal": pytest.approx(1.0 / 24.0),
+            "wind_gust": 2.0,
+            "convective": 0.5,
+            "spotting": 4.0,
+        }
+        t = np.arange(96.0)
+        series = 5.0 * np.sin(2 * np.pi * t / 24.0) + 100.0
+        result = analyzer.analyze_thermal_resonance(series)
+        assert result["dominant_frequency"] == pytest.approx(1.0 / 24.0)
+        assert result["dominant_power"] == pytest.approx(57600.0)
+        assert result["resonance_score"] == pytest.approx(0.618034, abs=1e-5)
+        assert result["fire_behavior_detected"] is True
+        # Regression (fixed 2026-10-20): scores used to be zipped against the
+        # band names BY POSITION, so with no bin in the wind_gust band the
+        # convective band's score was reported as "wind_gust" and the last
+        # two bands vanished from the dict.
+        components = result["frequency_components"]
+        assert list(components) == ["diurnal", "wind_gust", "convective", "spotting"]
+        assert components["diurnal"] == pytest.approx(1.0, abs=1e-9)
+        assert components["wind_gust"] == 0.0
+        assert components["spotting"] == 0.0
+
+    def test_resonance_minimum_window_is_four_samples(self) -> None:
+        """Exactly 4 samples runs the full path (the early return lacks keys)."""
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            ResonanceFrequencyAnalyzer,
+        )
+
+        full = ResonanceFrequencyAnalyzer().analyze_thermal_resonance(
+            np.array([1.0, 5.0, 2.0, 8.0])
+        )
+        assert "dominant_power" in full
+        short = ResonanceFrequencyAnalyzer().analyze_thermal_resonance(np.array([1.0, 5.0, 2.0]))
+        assert "dominant_power" not in short
+        assert short["resonance_score"] == 0.0
+
+    def test_smoke_trend_boundaries_and_cap(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            ResonanceFrequencyAnalyzer,
+        )
+
+        smoke = ResonanceFrequencyAnalyzer().analyze_smoke_patterns
+        rising = smoke(np.array([0.0, 0.6, 1.2, 1.8, 2.4]))
+        assert rising["smoke_trend"] == "increasing"
+        assert rising["spread_indicator"] == 1.0  # min(1.0, 0.6 * 2)
+        assert rising["rapid_change_detected"] is True  # 0.6 > 0.5 strictly
+        # A mean change of exactly -0.1 is stable, not decreasing (strict <).
+        at_bar = smoke(np.array([0.4, 0.3, 0.2, 0.1, 0.0]))
+        assert at_bar["smoke_trend"] == "stable"
+        assert at_bar["spread_indicator"] == pytest.approx(0.3)
+        # Exactly 4 samples is enough for the full analysis.
+        four = smoke(np.array([0.0, 0.2, 0.4, 0.6]))
+        assert four["smoke_trend"] == "increasing"
+
+    # ---- NFDRS interface validation band edges ----
+
+    def test_fuel_moisture_validation_band_edges(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            equilibrium_moisture_content,
+            fuel_interface_moisture,
+        )
+
+        # Just inside every bound: accepted.
+        assert equilibrium_moisture_content(59.95, 99.95) > 0
+        assert equilibrium_moisture_content(-89.95, 0.05) > 0
+        assert fuel_interface_moisture(59.95, 99.95, 0)["equilibrium_moisture_pct"] > 0
+        # Just outside: refused.
+        for temp, hum in ((60.05, 50.0), (-90.05, 50.0), (20.0, 100.05), (20.0, -0.05)):
+            with pytest.raises(InvalidObservationError):
+                equilibrium_moisture_content(temp, hum)
+            with pytest.raises(InvalidObservationError):
+                fuel_interface_moisture(temp, hum, 0)
+
+    # ---- spread model bounds and wind gate ----
+
+    def test_spread_bounds_band_edges_and_wind_gate(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
+
+        model = FireSpreadModel()
+        # Just-inside values for every validated field are accepted.
+        result = model.predict_spread(
+            fire_data={"fuel_load_tons_ha": 499.95, "fuel_moisture_pct": 99.95},
+            weather_data={
+                "wind_speed_kmh": 299.95,
+                "wind_direction_deg": 359.95,
+                "relative_humidity_pct": 0.05,
+                "temperature_c": 59.95,
+            },
+        )
+        assert result["spread_rate_km_hr"] is not None
+        assert result["spread_direction_deg"] == pytest.approx(359.95)
+        assert result["wind_driven"] is True
+        # Just-outside values are refused.
+        with pytest.raises(InvalidObservationError):
+            model.predict_spread(fire_data={}, weather_data={"wind_speed_kmh": 300.05})
+        with pytest.raises(InvalidObservationError):
+            model.predict_spread(
+                fire_data={"fuel_load_tons_ha": 500.05},
+                weather_data={"wind_speed_kmh": 10.0},
+            )
+        # Wind of exactly 20 km/h is not wind-driven (strict >).
+        calm = model.predict_spread(fire_data={}, weather_data={"wind_speed_kmh": 20.0})
+        assert calm["wind_driven"] is False
+
+    # ---- fire risk ladder mid-band probes ----
+
+    def test_fire_risk_points_mid_band(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            WildfireDetector,
+            WildfirePredictionResult,
+        )
+
+        detector = WildfireDetector(load_shipped_weights=False)
+        fire = WildfirePredictionResult(fire_detected=True, confidence=0.9, risk_level="low")
+        no_fire = WildfirePredictionResult(fire_detected=False, confidence=0.0, risk_level="low")
+        weather_hot = {
+            "weather_data": {
+                "wind_speed_kmh": 30.5,
+                "relative_humidity_pct": 19.5,
+                "temperature_c": 35.5,
+            }
+        }
+        # 2 (fire) + 3 weather points = 5 -> extreme; without fire 3 -> high.
+        assert detector._assess_fire_risk(weather_hot, fire) == "extreme"
+        assert detector._assess_fire_risk(weather_hot, no_fire) == "high"
+        # Boundary values score no weather points (strict comparisons).
+        weather_at_bars = {
+            "weather_data": {
+                "wind_speed_kmh": 30.0,
+                "relative_humidity_pct": 20.0,
+                "temperature_c": 35.0,
+            }
+        }
+        assert detector._assess_fire_risk(weather_at_bars, fire) == "moderate"
+        # Missing weather defaults to benign (wind 0, humidity 100, temp 0).
+        assert detector._assess_fire_risk({}, no_fire) == "low"
+        # Weather just inside its physical bounds is accepted.
+        assert (
+            detector._assess_fire_risk(
+                {
+                    "weather_data": {
+                        "wind_speed_kmh": 499.95,
+                        "relative_humidity_pct": 0.05,
+                        "temperature_c": 59.95,
+                    }
+                },
+                no_fire,
+            )
+            == "high"
+        )
+
+    # ---- architecture = checkpoint compatibility ----
+
+    def test_ignition_cnn_checkpoint_shape_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import FireIgnitionDetector
+
+        shapes = {
+            k: tuple(v.shape)
+            for k, v in FireIgnitionDetector().state_dict().items()
+            if "weight" in k and v.dim() >= 2
+        }
+        assert shapes == {
+            "thermal_cnn.0.weight": (32, 3, 3, 3),
+            "thermal_cnn.4.weight": (64, 32, 3, 3),
+            "thermal_cnn.8.weight": (128, 64, 3, 3),
+            "fire_classifier.0.weight": (256, 2048),
+            "fire_classifier.3.weight": (64, 256),
+            "fire_classifier.5.weight": (1, 64),
+        }
+
+    def test_wildfire_cnn_checkpoint_shape_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireCNN
+
+        model = WildfireCNN()
+        shapes = {
+            k: tuple(v.shape)
+            for k, v in model.state_dict().items()
+            if "weight" in k and v.dim() >= 2
+        }
+        assert shapes == {
+            "conv_block1.0.weight": (32, 4, 3, 3),
+            "conv_block1.3.weight": (32, 32, 3, 3),
+            "conv_block2.0.weight": (64, 32, 3, 3),
+            "conv_block2.3.weight": (64, 64, 3, 3),
+            "conv_block3.0.weight": (128, 64, 3, 3),
+            "conv_block3.3.weight": (207, 128, 3, 3),  # int(128 * phi)
+            "fire_head.0.weight": (256, 3312),
+            "fire_head.3.weight": (64, 256),
+            "fire_head.5.weight": (1, 64),
+            "severity_head.0.weight": (256, 3312),
+            "severity_head.3.weight": (5, 256),
+        }
+        assert len(model.state_dict()) == 52
+
+
+class TestLandslideSurvivorPins:
+    """Round-22 kill pins for the landslide enumeration's surviving mutants."""
+
+    def test_result_dataclass_defaults(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            LandslidePredictionResult,
+        )
+
+        result = LandslidePredictionResult(
+            landslide_imminent=False,
+            confidence=0.0,
+            risk_level="low",
+            landslide_type="debris_flow",
+        )
+        assert result.slope_failure_probability == 0.0
+        assert result.rainfall_trigger is False
+        assert result.seismic_trigger is False
+        assert result.snowmelt_trigger is False
+
+    def test_rainfall_defaults_contribute_nothing(self) -> None:
+        """Duration without intensity is zero intensity, zero probability."""
+        from omni_mercury_engine.detectors.geological.landslide import RainfallTriggerModel
+
+        result = RainfallTriggerModel().assess_rainfall_trigger({"duration_hours": 4.0})
+        assert result["rainfall_trigger"] is False
+        assert result["trigger_probability"] == 0.0
+
+    def test_seismic_trigger_arithmetic_pins(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import SeismicTriggerModel
+
+        model = SeismicTriggerModel()
+        # (0.03/0.15) * (1 + (6.5-5)/3) * (1 + (1 - 25/50)) = 0.2*1.5*1.5.
+        mid = model.assess_seismic_trigger({"pga_g": 0.03, "magnitude": 6.5, "distance_km": 25.0})
+        assert mid["seismic_trigger"] is False
+        assert mid["trigger_probability"] == pytest.approx(0.45)
+        # Probability caps at 1.0, and the trigger needs pga > 0.15 g.
+        capped = model.assess_seismic_trigger(
+            {"pga_g": 0.09, "magnitude": 6.5, "distance_km": 25.0}
+        )
+        assert capped["seismic_trigger"] is False
+        assert capped["trigger_probability"] == 1.0
+        # Defaults: magnitude 0 and distance 100 km contribute no factors.
+        bare = model.assess_seismic_trigger({"pga_g": 0.06})
+        assert bare["trigger_probability"] == pytest.approx(0.4)
+
+    def test_lag_features_default_sample_rate_and_window_boundary(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            TemporalLagFeatureExtractor,
+        )
+
+        extractor = TemporalLagFeatureExtractor()
+        assert extractor.lag_hours == [1, 6, 12, 24, 48, 72]
+        # Default 1 Hz: the 1-hour lag on arange(8000) reads sample -3600.
+        features = extractor.extract_lag_features(np.arange(8000.0))
+        assert features[0] == 4400.0
+        assert features[1] == (4400.0 + 7999.0) * 3600 / 2
+        assert features[2] == pytest.approx(1.0)
+        # A lag of exactly the series length is skipped (features stay 0).
+        exact = extractor.extract_lag_features(np.arange(21600.0))
+        assert exact[3] == 0.0 and exact[4] == 0.0 and exact[5] == 0.0
+        # One sample longer: the 6 h lag engages with the exact lagged value.
+        over = extractor.extract_lag_features(np.arange(21601.0))
+        assert over[3] == 1.0  # series[-21600]
+        assert over[4] == (1.0 + 21600.0) * 21600 / 2
+
+    def test_ensemble_classifier_reproducibility_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            SVMRFEnsembleClassifier,
+        )
+
+        ensemble = SVMRFEnsembleClassifier()
+        assert ensemble.svm.probability is True
+        assert ensemble.svm.random_state == 42
+        assert ensemble.rf.n_estimators == 100
+        assert ensemble.rf.random_state == 42
+        assert ensemble.is_fitted is False
+
+    def test_untrained_when_shipped_weights_declined(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        assert detector._neural_trained is False
+
+    def test_snowmelt_trigger_mid_band(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        result = detector.predict_landslide({"weather_data": {"snowmelt_mm_day": 20.05}})
+        assert result.snowmelt_trigger is True
+        assert result.landslide_type == "snow_avalanche"
+        at_bar = detector.predict_landslide({"weather_data": {"snowmelt_mm_day": 20.0}})
+        assert at_bar.snowmelt_trigger is False
+
+    def test_physics_probability_exact_and_risk_ladder_boundaries(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            LandslideDetector,
+            LandslidePredictionResult,
+        )
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        result = LandslidePredictionResult(
+            landslide_imminent=False,
+            confidence=0.0,
+            risk_level="low",
+            landslide_type="debris_flow",
+        )
+        # displacement 20 mm/day alone: severity 20/50 = 0.4 exactly.
+        result.displacement_rate_mm_day = 20.0
+        physics = detector._assess_slope_stability_physics(result)
+        assert physics["failure_probability"] == 0.4
+        # p exactly 0.4 with no triggers: moderate (strict >).
+        result.slope_failure_probability = 0.4
+        assert detector._determine_risk_level(0, result) == "moderate"
+        # One trigger with p just over 0.6: very_high; exactly 0.6: high.
+        result.slope_failure_probability = 0.65
+        assert detector._determine_risk_level(1, result) == "very_high"
+        result.slope_failure_probability = 0.6
+        assert detector._determine_risk_level(1, result) == "high"
+        # p exactly 0.2 with nothing else: low (strict >).
+        result.slope_failure_probability = 0.2
+        assert detector._determine_risk_level(0, result) == "low"
+
+    def test_imminence_needs_trigger_and_bar_jointly(self) -> None:
+        """p > 0.6 with no trigger, and a trigger with p <= 0.6, both stay calm."""
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        # Saturated steep slope: p = 1 - (1-0)(1-geo) with geo high, no trigger.
+        quiet = detector.predict_landslide(
+            {
+                "slope_data": {"slope_angle_deg": 45.0},
+                "sensor_data": {"soil_saturation_pct": 95.0, "displacement_rate_mm_day": 45.0},
+            }
+        )
+        assert quiet.slope_failure_probability > 0.6
+        assert quiet.landslide_imminent is False
+        # A rainfall trigger with a quiet slope: no imminence either.
+        triggered = detector.predict_landslide(
+            {"rainfall_data": {"intensity_mm_hr": 30.0, "duration_hours": 8.0}}
+        )
+        assert triggered.rainfall_trigger is True
+        assert triggered.slope_failure_probability <= 0.6
+        assert triggered.landslide_imminent is False
+
+    def test_evacuation_zones_follow_type(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            LandslideDetector,
+            LandslidePredictionResult,
+        )
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        result = LandslidePredictionResult(
+            landslide_imminent=True,
+            confidence=0.9,
+            risk_level="extreme",
+            landslide_type="debris_flow",
+        )
+        zones = detector._identify_evacuation_zones(result)
+        assert zones == [
+            "immediate_downslope_area",
+            "potential_runout_path",
+            "drainage_channels",
+        ]
+        result.landslide_type = "snow_avalanche"
+        assert "avalanche_path" in detector._identify_evacuation_zones(result)
+
+    def test_cascade_population_strictly_above_100(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import (
+            LandslideDetector,
+            LandslidePredictionResult,
+        )
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        result = LandslidePredictionResult(
+            landslide_imminent=True,
+            confidence=0.9,
+            risk_level="extreme",
+            landslide_type="earth_flow",
+        )
+        dense = detector._assess_cascade_risks(
+            result, {"population_data": {"population_density": 100.5}}
+        )
+        assert "high_casualty_potential" in dense
+        at_bar = detector._assess_cascade_risks(
+            result, {"population_data": {"population_density": 100}}
+        )
+        assert "high_casualty_potential" not in at_bar
+
+    def test_stability_model_checkpoint_shape_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import SlopeStabilityModel
+
+        shapes = {
+            k: tuple(v.shape)
+            for k, v in SlopeStabilityModel().state_dict().items()
+            if "weight" in k and v.dim() >= 2
+        }
+        assert shapes == {
+            "feature_encoder.0.weight": (207, 64),  # int(128 * phi)
+            "feature_encoder.4.weight": (103, 207),
+            "feature_encoder.7.weight": (64, 103),
+            "stability_predictor.0.weight": (32, 64),
+            "stability_predictor.2.weight": (1, 32),
+            "type_classifier.0.weight": (32, 64),
+            "type_classifier.2.weight": (6, 32),
+        }
+
+
+class TestVolcanicArchitecturePins:
+    """Checkpoint-compatibility shape contracts for the volcanic networks."""
+
+    def test_seismic_swarm_lstm_shape_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import SeismicSwarmDetector
+
+        model = SeismicSwarmDetector()
+        shapes = {
+            k: tuple(v.shape)
+            for k, v in model.state_dict().items()
+            if "weight" in k and v.dim() >= 2
+        }
+        # 3 bidirectional LSTM layers, hidden 64, input 32.
+        assert shapes["lstm.weight_ih_l0"] == (256, 32)
+        assert shapes["lstm.weight_hh_l0"] == (256, 64)
+        assert shapes["lstm.weight_ih_l2_reverse"] == (256, 128)
+        assert shapes["attention.0.weight"] == (64, 128)
+        assert shapes["attention.2.weight"] == (1, 64)
+        assert shapes["swarm_classifier.0.weight"] == (64, 128)
+        assert shapes["swarm_classifier.3.weight"] == (1, 64)
+        assert len(model.state_dict()) == 32
+
+    def test_seismic_swarm_forward_contract(self) -> None:
+        """Attention normalises over TIME and the output is one probability."""
+        import torch
+
+        from omni_mercury_engine.detectors.geological.volcanic import SeismicSwarmDetector
+
+        torch.manual_seed(7)
+        model = SeismicSwarmDetector()
+        model.eval()
+        with torch.no_grad():
+            prob, attention = model(torch.randn(2, 12, 32))
+        assert prob.shape == (2, 1)
+        assert attention.shape == (2, 12)
+        assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
+        # Softmax over the sequence dimension: weights sum to 1 per sample.
+        sums = attention.sum(dim=1)
+        assert torch.allclose(sums, torch.ones(2), atol=1e-6)
+
+    def test_eruption_forecast_shape_contract(self) -> None:
+        from omni_mercury_engine.detectors.geological.volcanic import EruptionForecastModel
+
+        model = EruptionForecastModel()
+        shapes = {
+            k: tuple(v.shape)
+            for k, v in model.state_dict().items()
+            if "weight" in k and v.dim() >= 2
+        }
+        assert shapes == {
+            "feature_fusion.0.weight": (414, 128),  # int(256 * 1.618)
+            "feature_fusion.4.weight": (207, 414),  # int(128 * 1.618)
+            "feature_fusion.8.weight": (128, 207),
+            "eruption_predictor.0.weight": (64, 128),
+            "eruption_predictor.2.weight": (1, 64),
+            "vei_estimator.0.weight": (32, 128),
+            "vei_estimator.2.weight": (8, 32),
+            "time_predictor.0.weight": (32, 128),
+            "time_predictor.2.weight": (1, 32),
+        }
+        assert len(model.state_dict()) == 28
+
+
+class TestCheckpointAndIntegrationPins:
+    """Round-22 pins: operating-point validation, neural guards, warn-once."""
+
+    @staticmethod
+    def _zeroed(module: Any, **overrides: Any) -> dict[str, Any]:
+        """Zero state dict (running_var kept 1) with optional tensor overrides."""
+        import torch
+
+        state = {}
+        for key, value in module.state_dict().items():
+            if "running_var" in key:
+                state[key] = torch.ones_like(value)
+            else:
+                state[key] = torch.zeros_like(value)
+        for key, value in overrides.items():
+            state[key] = value
+        return state
+
+    def test_volcanic_operating_point_validation_and_decision(self, tmp_path: Any) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        detector = VolcanicEruptionDetector()
+        zeroed = self._zeroed(detector.eruption_model)
+        # Invalid thresholds are refused outright.
+        for tau in (0.0, 1.0, 1.05, float("nan")):
+            path = tmp_path / f"bad_{tau}.pt"
+            torch.save(
+                {"eruption_model": zeroed, "operating_point": {"eruption_prob_threshold": tau}},
+                path,
+            )
+            with pytest.raises(ValueError, match="probability"):
+                detector.load_neural_weights(str(path))
+        # A small-but-valid tau is accepted exactly.
+        good = tmp_path / "good.pt"
+        torch.save(
+            {"eruption_model": zeroed, "operating_point": {"eruption_prob_threshold": 0.05}},
+            good,
+        )
+        detector.load_neural_weights(str(good))
+        assert detector._operating_point == {"eruption_prob_threshold": 0.05}
+        assert detector._neural_trained is True
+
+    def test_volcanic_neural_guard_matrix_and_thresholds(self, tmp_path: Any) -> None:
+        """Zero weights give probability exactly 0.5: the decision pins land.
+
+        tau = 0.5 is an inclusive decision (0.5 >= 0.5 -> imminent); the
+        legacy rule without an operating point is strict > 0.7, pinned with a
+        bias-1.0 head (sigmoid(1) = 0.731, inside (0.7, 0.8)).
+        """
+        import torch
+
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+
+        detector = VolcanicEruptionDetector()
+        path = tmp_path / "tau_half.pt"
+        torch.save(
+            {
+                "eruption_model": self._zeroed(detector.eruption_model),
+                "operating_point": {"eruption_prob_threshold": 0.5},
+            },
+            path,
+        )
+        detector.load_neural_weights(str(path))
+        on_contract = detector._forecast_eruption({"fused_features": np.zeros(128)}, 0, {})
+        assert on_contract == {
+            "eruption_imminent": True,
+            "confidence": pytest.approx(0.5),
+            "method": "neural",
+        }
+        batched = detector._forecast_eruption({"fused_features": np.zeros((1, 128))}, 0, {})
+        assert batched["method"] == "neural"
+        # Off-contract shapes fall to physics, never crash the model.
+        for shape in ((2, 128), (64,), (1, 1, 128)):
+            off = detector._forecast_eruption({"fused_features": np.zeros(shape)}, 0, {})
+            assert off["method"] == "physics", shape
+
+        # Regression (fixed 2026-10-20): loading a checkpoint WITHOUT an
+        # operating point over one that carried a tau used to keep the stale
+        # tau in charge of the new weights. It must reset to the legacy rule.
+        legacy = VolcanicEruptionDetector()  # auto-loads the shipped tau
+        assert legacy._operating_point is not None
+        legacy_path = tmp_path / "legacy.pt"
+        import torch as _torch
+
+        torch.save(
+            {
+                "eruption_model": self._zeroed(
+                    legacy.eruption_model,
+                    **{"eruption_predictor.2.bias": _torch.tensor([1.0])},
+                )
+            },
+            legacy_path,
+        )
+        legacy.load_neural_weights(str(legacy_path))
+        assert legacy._operating_point is None
+        out = legacy._forecast_eruption({"fused_features": np.zeros(128)}, 0, {})
+        assert out["eruption_imminent"] is True
+        assert out["confidence"] == pytest.approx(0.7310586, abs=1e-6)
+
+    def test_wildfire_operating_point_validation(self, tmp_path: Any) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.geological.wildfire import (
+            FIRE_PROB_THRESHOLD_DEFAULT,
+            WildfireDetector,
+        )
+
+        detector = WildfireDetector(load_shipped_weights=False)
+        zeroed = self._zeroed(detector.ignition_detector)
+        for tau in (0.0, 1.05):
+            path = tmp_path / f"bad_{tau}.pt"
+            torch.save(
+                {"ignition_detector": zeroed, "operating_point": {"fire_prob_threshold": tau}},
+                path,
+            )
+            with pytest.raises(ValueError, match="probability"):
+                detector.load_neural_weights(str(path))
+        good = tmp_path / "good.pt"
+        torch.save(
+            {"ignition_detector": zeroed, "operating_point": {"fire_prob_threshold": 0.25}},
+            good,
+        )
+        detector.load_neural_weights(str(good))
+        assert detector._fire_prob_threshold == 0.25
+        # A checkpoint without an operating point restores the fixed default.
+        plain = tmp_path / "plain.pt"
+        torch.save({"ignition_detector": zeroed}, plain)
+        detector.load_neural_weights(str(plain))
+        assert detector._fire_prob_threshold == FIRE_PROB_THRESHOLD_DEFAULT
+
+    def test_landslide_operating_point_validated_before_any_state_mutates(
+        self, tmp_path: Any
+    ) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+
+        detector = LandslideDetector(load_shipped_weights=False)
+        zeroed = self._zeroed(detector.stability_model)
+        bad = tmp_path / "bad.pt"
+        torch.save(
+            {"stability_model": zeroed, "operating_point": {"detection_threshold": 1.05}}, bad
+        )
+        with pytest.raises(ValueError, match="probability"):
+            detector.load_neural_weights(str(bad))
+        # The invalid rule must not have half-loaded.
+        assert detector._neural_trained is False
+        assert detector._operating_point is None
+        good = tmp_path / "good.pt"
+        torch.save(
+            {"stability_model": zeroed, "operating_point": {"detection_threshold": 0.35}}, good
+        )
+        detector.load_neural_weights(str(good))
+        assert detector._operating_point == {"detection_threshold": 0.35}
+        assert detector._neural_trained is True
+
+    def test_untrained_warning_fires_exactly_once_per_detector(self, caplog: Any) -> None:
+        import logging as _logging
+
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        with caplog.at_level(_logging.WARNING):
+            landslide = LandslideDetector(load_shipped_weights=False)
+            landslide.predict_landslide({"slope_data": {"slope_angle_deg": 20.0}})
+            landslide.predict_landslide({"slope_data": {"slope_angle_deg": 25.0}})
+            wildfire = WildfireDetector(load_shipped_weights=False)
+            wildfire.predict_wildfire({"thermal_image": np.full((4, 4), 300.0)})
+            wildfire.predict_wildfire({"thermal_image": np.full((4, 4), 301.0)})
+            volcanic = VolcanicEruptionDetector(load_shipped_weights=False)
+            volcanic.predict_eruption({"seismic_sequence": np.ones(16)})
+            volcanic.predict_eruption({"seismic_sequence": np.full(16, 2.0)})
+        untrained = [r for r in caplog.records if "untrained" in r.getMessage()]
+        assert len(untrained) == 3  # one per detector, not one per call
+
+    def test_wildfire_perimeter_diagnostics_and_interface_moisture(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        detector = WildfireDetector(load_shipped_weights=False, keep_diagnostics=True)
+        image = np.full((8, 8), 300.0)
+        image[0, 0:2] = 380.0
+        result = detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.5})
+        assert result.thermal_hotspots == 2
+        assert result.fire_perimeter_km2 == pytest.approx(0.5)  # 2 * 0.5^2
+        assert result.ignition_locations == [(0.0, 0.5)]
+        assert result.diagnostics is not None
+        assert result.diagnostics.arrays["hotspot_mask"].shape == (8, 8)
+        # Without a pixel size there is no ground-area estimate.
+        bare = detector.predict_wildfire({"thermal_image": image})
+        assert bare.fire_perimeter_km2 is None
+        with pytest.raises(InvalidObservationError):
+            detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.0})
+
+    def test_interface_moisture_needs_temperature_and_humidity_jointly(self) -> None:
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        detector = WildfireDetector(load_shipped_weights=False)
+        image = np.full((4, 4), 300.0)
+        partial = detector.predict_wildfire(
+            {
+                "thermal_image": image,
+                "weather_data": {"nfdrs_state_of_weather": 1, "relative_humidity_pct": 40.0},
+            }
+        )
+        assert sorted(partial.weather_factors) == ["relative_humidity_pct"]
+        assert partial.fuel_moisture is None
+        full = detector.predict_wildfire(
+            {
+                "thermal_image": image,
+                "weather_data": {
+                    "nfdrs_state_of_weather": 1,
+                    "relative_humidity_pct": 40.0,
+                    "temperature_c": 25.0,
+                },
+            }
+        )
+        assert full.fuel_moisture == pytest.approx(6.3079, abs=1e-3)
+        assert "equilibrium_moisture_pct" in full.weather_factors
+
+    def test_detector_enable_flags_default_on(self) -> None:
+        from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+
+        volcanic = VolcanicEruptionDetector()
+        assert volcanic.enable_seismic and volcanic.enable_thermal
+        assert volcanic.enable_gas and volcanic.enable_insar
+        assert volcanic.keep_diagnostics is False
+        wildfire = WildfireDetector(load_shipped_weights=False)
+        assert wildfire.enable_ignition and wildfire.enable_spread
+        assert wildfire.keep_diagnostics is False
+        landslide = LandslideDetector(load_shipped_weights=False)
+        assert landslide.enable_rainfall and landslide.enable_seismic
+        assert landslide.enable_stability
+        assert landslide.keep_diagnostics is False
