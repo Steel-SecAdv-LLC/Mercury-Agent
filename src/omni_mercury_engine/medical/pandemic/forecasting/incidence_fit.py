@@ -78,14 +78,17 @@ class IncidenceForecast:
             with known truth: 92.7% +/- 2.2 (``MEAN_BAND_MEASURED_COVERAGE``;
             88.0% uncalibrated, 91.3% for calibration without the dispersion
             correction) — better, documented, still short of nominal at
-            B = 200. The gold standard — a FULL nested double bootstrap
-            (B_inner = 60 per refit, ~40x this cost) — measures 95.7% +/-
-            2.3 over 40 such outbreaks, and on those same outbreaks this
-            fast method measures 95.9%, so the one-inner-refit shortcut
-            loses nothing; the remaining deficit concentrates in outbreaks
-            whose calibrated level saturates what B = 200 order statistics
-            can express. For fully calibrated uncertainty on future COUNTS
-            use ``prediction_lower``/``prediction_upper``.
+            B = 200. The ceiling is measured from three directions: a FULL
+            nested double bootstrap (B_inner = 60, ~40x this cost) covers
+            95.7% +/- 2.3 over 40 such outbreaks with this fast method at
+            95.9% on the same outbreaks (the shortcut loses nothing);
+            B = 500 covers 91.1% +/- 2.5 over all 120 (more resolution
+            does not help); and the five uncalibrated variants measure
+            85.8-88.0%. The residual deficit therefore lives in the hard
+            minority of outbreaks whose fitted law sits too far from the
+            truth for any within-model resampling calibration to repair at
+            these sample sizes. For fully calibrated uncertainty on future
+            COUNTS use ``prediction_lower``/``prediction_upper``.
         mean_upper: Upper bound of the band of the mean (see ``mean_lower``).
         mean_nominal: Per-day calibrated nominal level the mean band was
             read at (>= ``level``; at most the widest level B outer refits

@@ -73,11 +73,14 @@ the per-day calibrated nominal level. Measured coverage at a 95% target over
 120 simulated R0 = 3 outbreaks with known truth: 92.7% +/- 2.2
 outbreak-clustered (88.0% uncalibrated, 91.3% for calibration without the
 dispersion correction; the estimated correction is size x 0.80) — better,
-documented, and still short of nominal at B = 200. The gold standard — a
-full nested double bootstrap (B_inner = 60, ~40x the cost) — measures
-95.7% +/- 2.3 over 40 outbreaks, and the shipped fast method measures
-95.9% on those same outbreaks, so the shortcut loses nothing; the deficit
-concentrates where the calibrated level saturates B = 200's resolution.
+documented, and still short of nominal. The ceiling is measured from three
+directions: the full nested double bootstrap (B_inner = 60, ~40x the cost)
+covers 95.7% +/- 2.3 over 40 outbreaks with the shipped fast method at
+95.9% on the same outbreaks (the shortcut loses nothing); B = 500 covers
+91.1% +/- 2.5 over all 120 (resolution is not the constraint); so the
+residual deficit lives in the hard minority of outbreaks whose fitted law
+sits too far from the truth for any within-model resampling calibration to
+repair at these sample sizes.
 
 ### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
 
