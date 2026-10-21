@@ -284,7 +284,12 @@ def test_cartpole_runs_500_steps_when_balanced() -> None:
 
 @pytest.mark.parametrize(
     "state",
-    [[2.4, 0.0, 0.0, 0.0], [-2.4, 0.0, 0.0, 0.0], [0.0, 0.0, 12 * 2 * math.pi / 360, 0.0]],
+    [
+        [2.4, 0.0, 0.0, 0.0],
+        [-2.4, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 12 * 2 * math.pi / 360, 0.0],
+        [0.0, 0.0, -12 * 2 * math.pi / 360, 0.0],
+    ],
 )
 def test_termination_is_strictly_beyond_the_threshold(state: list[float]) -> None:
     """Exactly at |x| = 2.4 or |theta| = 12 degrees the episode continues."""
@@ -331,5 +336,6 @@ def test_space_comparison_across_kinds() -> None:
     assert _same_space(Discrete(2), Discrete(2))
     assert not _same_space(Discrete(2), Box(np.zeros(2), np.ones(2)))
     assert not _same_space(Discrete(2), MultiBinary())
+    assert not _same_space(MultiBinary(), Discrete(2))
     assert not _same_space(Box(np.zeros(2), np.ones(2)), Box(np.ones(2), np.ones(2)))
     assert not _same_space(Box(np.zeros(2), np.ones(2)), Box(np.zeros(2), 2 * np.ones(2)))

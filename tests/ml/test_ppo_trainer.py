@@ -16,6 +16,7 @@ import inspect
 import itertools
 import logging
 import math
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -326,6 +327,8 @@ def test_running_mean_std_equals_the_batch_statistics() -> None:
     assert np.array_equal(restored.mean, rms.mean) and restored.count == rms.count
     with pytest.raises(ValueError):
         RunningMeanStd((3,)).load_state_dict(rms.state_dict())
+    with pytest.raises(ValueError):  # the variance alone mismatched
+        RunningMeanStd((4,)).load_state_dict({**rms.state_dict(), "var": torch.ones(3)})
 
 
 # -- configuration ------------------------------------------------------------
@@ -1004,10 +1007,10 @@ def test_gsde_standard_deviation_formula() -> None:
 
 def test_gsde_noise_scale_and_actions() -> None:
     torch.manual_seed(0)
-    policy = ActorCritic(3, 1, discrete=False, use_sde=True, log_std_init=math.log(0.1))
+    policy = ActorCritic(3, 2, discrete=False, use_sde=True, log_std_init=math.log(0.1))
     gen = torch.Generator().manual_seed(0)
     noise = policy.sample_sde_noise(4000, gen)
-    assert noise.shape == (4000, 64, 1)
+    assert noise.shape == (4000, 64, 2)
     assert noise.std().item() == pytest.approx(0.1, rel=0.02) and abs(noise.mean().item()) < 0.002
     obs = torch.randn(5, 3)
     actions, _, _ = policy.act(obs, deterministic=False, generator=gen, sde_noise=noise[:5])
@@ -1015,7 +1018,7 @@ def test_gsde_noise_scale_and_actions() -> None:
     expected = mean + torch.bmm(hidden[-1][0].unsqueeze(1), noise[:5]).squeeze(1)
     assert torch.allclose(actions, expected)
     drawn, _, _ = policy.act(obs, deterministic=False, generator=gen)  # fresh noise per row
-    assert drawn.shape == (5, 1)
+    assert drawn.shape == (5, 2) and actions.shape == (5, 2)
 
 
 def test_gaussian_actions_are_mean_plus_scaled_noise() -> None:
@@ -1135,6 +1138,12 @@ def test_advantages_are_normalized_per_minibatch() -> None:
     single_probe = _probe(single)
     single.learn(2)
     assert all(torch.isfinite(c["advantages"]).all() for c in single_probe.calls)
+    pairs = PPOTrainer("CartPole-v1", small(batch_size=2, n_epochs=1, n_steps=2, n_envs=1))
+    pair_probe = _probe(pairs)
+    pairs.learn(2)
+    assert pair_probe.calls[0]["advantages"].abs().tolist() == pytest.approx(
+        [2**-0.5] * 2, rel=1e-4
+    )
 
 
 def test_minibatches_cover_every_sample_once_per_epoch() -> None:
@@ -1212,6 +1221,11 @@ def test_train_online_budget_arithmetic() -> None:
     assert [round(s["lr"] / 3e-4, 6) for s in seen] == [0.6, 0.2, 0.0]
     trainer.train_online(num_episodes=3, update_freq=4)
     assert trainer.stats.total_episodes == 13
+    del seen[:]
+    trainer.train_online(num_episodes=8, update_freq=4)  # anneals over this call's budget
+    assert [round(s["lr"] / 3e-4, 6) for s in seen] == [0.5, 0.0]
+    trainer.train_online(num_episodes=5, update_freq=4)  # 4, then the last 1
+    assert trainer.stats.total_episodes == 26
 
 
 def test_train_online_updates_once_per_rollout() -> None:
@@ -1337,6 +1351,15 @@ def test_logging(caplog: pytest.LogCaptureFixture) -> None:
         assert "trained 32 steps" in caplog.text and "steps=32 " not in caplog.text
         PPOTrainer("CartPole-v1", small(verbose=2)).learn(32)
         assert "steps=32 " in caplog.text
+        caplog.clear()
+        again = PPOTrainer(lambda: CountdownEnv(4), small(n_envs=2, verbose=1))
+        again.learn(32)
+        again.learn(32)
+        match = re.search(
+            r"trained (\d+) steps \((\d+) episodes\) in ([\d.]+)s", caplog.records[-1].message
+        )
+        assert match is not None
+        assert (int(match[1]), int(match[2])) == (32, 8) and float(match[3]) < 60
 
 
 # -- evaluation, persistence, helpers ---------------------------------------------------
@@ -1462,4 +1485,5 @@ def test_pretrain_wires_its_callbacks(tmp_path: Path) -> None:
 def test_checkpoint_callback_reuses_an_existing_directory(tmp_path: Path) -> None:
     CheckpointCallback(tmp_path / "ckpt")
     CheckpointCallback(tmp_path / "ckpt")
-    assert (tmp_path / "ckpt").is_dir()
+    CheckpointCallback(tmp_path / "nested" / "deeper")
+    assert (tmp_path / "ckpt").is_dir() and (tmp_path / "nested" / "deeper").is_dir()
