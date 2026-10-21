@@ -9,8 +9,8 @@ description: |
   serving humanitarian technology and STEAM research domains.
 
 type: application
-version: 2.1.0
-appVersion: "2.1.0"
+version: 3.0.0
+appVersion: "3.0.0"
 
 # Minimum Kubernetes version required
 kubeVersion: ">=1.23.0-0"

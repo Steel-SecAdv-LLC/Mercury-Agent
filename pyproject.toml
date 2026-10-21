@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent-global"
-version = "2.1.0"
+version = "3.0.0"
 description = "Mercury Agent: civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}

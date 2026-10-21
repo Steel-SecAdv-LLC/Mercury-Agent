@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-21
+
+Upgrading from 2.x: the license is now AGPL-3.0-or-later (first entry below;
+2.x releases stay GPL-3.0-or-later), and the surfaces removed or changed in
+this release for security and correctness are listed, with replacements and
+regression tests, in DEPRECATION.md §6.11-§6.15.
+
 ### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
 
 Mercury Agent is now licensed under the GNU Affero General Public License
@@ -9888,9 +9895,10 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/2.0.0...v3.0.0
 [2.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...v2.1.0
-[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v2.0.0
+[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1

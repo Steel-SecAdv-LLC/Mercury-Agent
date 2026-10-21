@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                            Mercury Agent ♱ v2.1.0                             |
+              |                            Mercury Agent ♱ v3.0.0                             |
               | Computational Systems Intelligence - Multi-Domain Anomaly & Hazard Detection  |
               |                                                                               |
               |   Cognitive Orchestrator |   Hybrid Fusion ML      |   Production Security    |
@@ -45,7 +45,7 @@
 **Contact:** steel.sa.llc@mercuryagent.global (operations & security) · contact@mercuryagent.global (general inquiries & support)\
 **License:** GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
-**Version:** v2.1.0\
+**Version:** v3.0.0\
 **Date:** 2026-10-21
 
 ---

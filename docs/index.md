@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-10-14.
+Version `3.0.0` — Steel-SecAdv-LLC. Last updated: 2026-10-21.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an

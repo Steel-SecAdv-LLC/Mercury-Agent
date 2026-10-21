@@ -2,9 +2,9 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 1.3 |
-| Last Updated | 2026-07-11 |
-| Applies to | Mercury Agent v2.1.x |
+| Document Version | 1.4 |
+| Last Updated | 2026-10-21 |
+| Applies to | Mercury Agent v3.0.x |
 
 This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
 
@@ -57,11 +57,11 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
 | `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
 | `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
-| `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v2.1** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
-| `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v2.1** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
-| `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult` | `security.counterintelligence.CounterintelligenceAssessor` | **Removed in v2.1** - correctness exception: scored reports it fabricated itself (see §6.13) |
-| `truth_decipher.TruthDecipherFramework.decipher_truth` / `TruthDecipherResult` | `truth_decipher.StatementVerifier` (the `TruthDecipherFramework` name is kept as its alias) | **Removed in v2.1** - correctness exception: fixed ethics inputs, every case recorded as a success (see §6.14) |
-| `security.quantum_risk_cyber.QuantumRiskCyber` / `PostQuantumMigrationPlanner` / `QuantumThreat` / `ThreatLevel` / `CryptoSystem` | `security.quantum_risk_cyber.classify_algorithm` / `assess_asset` / `prioritize` / `read_cbom` / `audit_mercury_posture` | **Removed in v2.1** - security exception: flagged ML-DSA as quantum-vulnerable, counted SIKE and Rainbow as post-quantum (see §6.15) |
+| `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v3.0** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
+| `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v3.0** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
+| `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult` | `security.counterintelligence.CounterintelligenceAssessor` | **Removed in v3.0** - correctness exception: scored reports it fabricated itself (see §6.13) |
+| `truth_decipher.TruthDecipherFramework.decipher_truth` / `TruthDecipherResult` | `truth_decipher.StatementVerifier` (the `TruthDecipherFramework` name is kept as its alias) | **Removed in v3.0** - correctness exception: fixed ethics inputs, every case recorded as a success (see §6.14) |
+| `security.quantum_risk_cyber.QuantumRiskCyber` / `PostQuantumMigrationPlanner` / `QuantumThreat` / `ThreatLevel` / `CryptoSystem` | `security.quantum_risk_cyber.classify_algorithm` / `assess_asset` / `prioritize` / `read_cbom` / `audit_mercury_posture` | **Removed in v3.0** - security exception: flagged ML-DSA as quantum-vulnerable, counted SIKE and Rainbow as post-quantum (see §6.15) |
 
 ---
 
@@ -369,11 +369,12 @@ preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
 were removed across the v2.1 improvement and live-wiring passes, and §6.11
-with the AMA Cryptography v5 migration. §6.12 records a value change, not a
-removal: the surfaces stay, their fabricated values do not. §6.13-6.15 record
-three modules removed on `steel/version-cov3` and rebuilt from scratch on
-`steel/version-cov4` under their released module paths; the released classes
-are not restored.
+with the AMA Cryptography v5 migration, released in v3.0. §6.12 records a
+value change in v3.0, not a removal: the surfaces stay, their fabricated
+values do not. §6.13-6.15 record three modules removed on
+`steel/version-cov3` and rebuilt from scratch on `steel/version-cov4` under
+their released module paths, released in v3.0; the released classes are not
+restored.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -579,7 +580,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.12 EMP detector: `intentional_attack_probability` and `gic_amplitude_a` values
 
-* **Changed by:** the v2.1 EMP detector rework (October 2026). The
+* **Changed by:** the v3.0 EMP detector rework (October 2026). The
   `EMPPredictionResult` field and the `detect_e3_pulse()` key keep their
   released names and positions; only the value is now `None`, so code that
   compares it with a number (`> 0.7`) or does arithmetic with it raises
@@ -613,7 +614,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.13 `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult`
 
-* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+* **Removed by:** the v3.0 orphan-module vetting pass (October 2026,
   `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
 * **Override criterion:** §2 (Fundamental Incompatibility) with the
   no-fabricated-data doctrine. With `enable_ci=False` (the default)
@@ -639,7 +640,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.14 `truth_decipher.TruthDecipherFramework` API / `TruthDecipherResult`
 
-* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+* **Removed by:** the v3.0 orphan-module vetting pass (October 2026,
   `steel/version-cov3`); the module was rebuilt on `steel/version-cov4`.
 * **Override criterion:** §2 (Fundamental Incompatibility) with the
   no-fabricated-data doctrine and the ethical gate contract. `determine_ethics`
@@ -661,7 +662,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.15 `security.quantum_risk_cyber` released classes (`QuantumRiskCyber`, `PostQuantumMigrationPlanner`, `QuantumThreat`, `ThreatLevel`, `CryptoSystem`)
 
-* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+* **Removed by:** the v3.0 orphan-module vetting pass (October 2026,
   `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
 * **Override criterion:** §1 (Security Vulnerability): the classes gave wrong
   cryptographic advice. Vulnerability was a substring match against a list
@@ -686,8 +687,9 @@ added. New code must use the `compliance.` import path.
 
 | Version | Commitment |
 |---------|------------|
-| 1.x | All items fully functional with optional warnings, except the items enumerated in §6 |
-| 2.x | All items fully functional with optional warnings |
+| 1.x | All items fully functional with optional warnings, except the items enumerated in §6.1-§6.4 |
+| 2.x | All items fully functional with optional warnings, except the items removed in v2.1 (§6.6-§6.10) |
+| 3.x | All items fully functional with optional warnings, except the items removed or changed in v3.0 (§6.11-§6.15) |
 | Future | Removal only with documented justification per policy |
 
 ---

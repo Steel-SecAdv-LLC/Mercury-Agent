@@ -157,7 +157,7 @@ ARG USER_GID=$USER_UID
 # OCI version label (build-time metadata; bump with pyproject [project].version
 # or override via --build-arg MERCURY_VERSION=...). The runtime __version__ is
 # SSOT-resolved at import; this image-metadata surface can't read it at build.
-ARG MERCURY_VERSION=2.1.0
+ARG MERCURY_VERSION=3.0.0
 
 # Security labels
 LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@mercuryagent.global>"
