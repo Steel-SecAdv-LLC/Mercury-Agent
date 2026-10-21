@@ -53,6 +53,48 @@ third-party consent. Historical records (dated CHANGELOG entries and the
 `tlp_handler` port-provenance note) are left as written: they were true when
 written. AMA Cryptography (Apache-2.0) remains one-way compatible.
 
+### SURGEDAT acquired; DONKI Kp encoding verified (branch `steel/version-cov5`)
+
+**Added — SURGEDAT observed peak storm surge (`data_sources/storm_surge.py`:
+`parse_surgedat_csv`, `SurgeObservation`, `SurgeHeight`).** The LSU
+databases the previous round could not reach are recorded byte-verbatim:
+the global database (745 observations, 1737-2014) and the Gulf of Mexico
+database (240, 1880-2011), with provenance in
+`tests/fixtures/surgedat/PROVENANCE.json`. The server sends its leaf
+certificate without the issuing intermediate; the intermediate (InCommon
+RSA Server CA 2) was taken from Mozilla's CCADB, verified against the
+system roots, and the files fetched with full TLS verification. Both are
+classic Mac OS files (carriage-return line ends, Mac Roman text), read as
+such. Most heights are stated in feet and in metres; a pair counts as one
+reading only when the two rounding intervals overlap, so four pairs in the
+global file are reported as conflicts the database holds against itself
+(Roger 1993's 1.3 ft beside 0.7 m among them) and none in the Gulf file.
+A conflict or a stated range keeps both readings and has no single value;
+the GDACS surge level is assigned only when every stated reading falls in
+one band, and only storm surge is graded (storm tide adds the tide). The
+files are static archives (last modified 2014 and 2013), so the parser
+reads a snapshot; no live source is added, since a client would need the
+same chain repair to reach the server.
+
+**Fixed — the DONKI storm-window labels dropped NOAA G1's lowest third
+(`loaders/space_weather_loader.py`).** The loader kept its literal
+`Kp >= 5.0` last round because the kpIndex encoding could not be checked.
+It is now checked against an independent primary source: GFZ's definitive
+Kp as NASA OMNI2 serves it (`tests/fixtures/space_weather/omni2_kp_2024_05.json`,
+Kp*10 in thirds). The recorded live DONKI May 2024 response, which holds
+the Gannon storm, writes Kp in decimal thirds (x.33 = x+, x.67 = (x+1)-):
+every one of its 20 values is a third, 14 equal GFZ's value and the other
+six differ by one third (NOAA's estimate against GFZ's definitive index);
+on the Gannon records alone, 10 of 16 match. So a 5- arrives as 4.67, which
+the literal read as quiet. Windows are now classified through `noaa_g_scale`
+like every other G-scale site, thirds strings ("5-") parse, and
+`KP_STORM_THRESHOLD` states the G1 onset (14/3). Not settled by this
+evidence: whether DONKI omits G1-only windows by policy. Five of the six
+GFZ G1-only windows of May 2024 have no DONKI entry, so the labels cover
+what DONKI reports; DONKI's own definition and NOAA's archived estimates
+were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
+by the egress path).
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.

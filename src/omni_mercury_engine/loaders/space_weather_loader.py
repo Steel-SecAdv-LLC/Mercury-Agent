@@ -16,9 +16,10 @@ Two real, live sources:
 Ground-truth events are five documented major storms with archived
 magnetometer coverage (the USGS web service serves adjusted minute data
 from ~2017 onward; earlier storms return empty series and are therefore
-not cataloged here). Labels mark the 3-hour planetary Kp windows at or
-above Kp 5 (NOAA G1) reported by DONKI GST — a threshold on a
-geomagnetic index, hence ``LABEL_SOURCE = "statistical"`` (see
+not cataloged here). Labels mark the 3-hour planetary Kp windows at NOAA
+G1 or above (Kp 5-, classified by
+:func:`~omni_mercury_engine.evaluation.hazard_metrics.noaa_g_scale`) reported
+by DONKI GST — a threshold on a geomagnetic index, hence ``LABEL_SOURCE = "statistical"`` (see
 ``loaders.label_provenance``): Kp is derived from the same class of
 ground-magnetometer disturbance that the engineered features score, so
 these labels are excluded from the governed-fusion headline as circular.
@@ -34,6 +35,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale, parse_kp
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -44,8 +46,14 @@ logger = logging.getLogger(__name__)
 _GEOMAG_URL = "https://geomag.usgs.gov/ws/data/"
 _DONKI_GST_URL = "https://api.nasa.gov/DONKI/GST"
 
-#: Kp threshold (NOAA G1) defining a storm-labelled 3-hour window.
-KP_STORM_THRESHOLD: float = 5.0
+#: NOAA G1 onset, Kp 5- (14/3), defining a storm-labelled 3-hour window.
+#: Documentation of the rule only: windows are classified through
+#: ``noaa_g_scale``. DONKI writes Kp in decimal thirds (x.33 = x+,
+#: x.67 = (x+1)-): its recorded Gannon-storm series (2024-05-10/13) equals
+#: GFZ's definitive Kp (NASA OMNI2) on 10 of 16 windows and is within one
+#: third on all 16, so a 5- arrives as 4.67 and the former literal
+#: ``Kp >= 5.0`` read it as quiet.
+KP_STORM_THRESHOLD: float = 14.0 / 3.0
 
 # ---------------------------------------------------------------------------
 # Ground-truth event catalog: documented major geomagnetic storms with
@@ -204,7 +212,7 @@ class SpaceWeatherLoader(BaseDomainLoader):
         """Label each minute sample by DONKI GST observed-Kp storm windows.
 
         A sample is anomalous (1) when it falls inside a 3-hour planetary
-        Kp window at or above :data:`KP_STORM_THRESHOLD` (Kp 5 = NOAA G1)
+        Kp window at NOAA G1 or above (Kp 5-, :data:`KP_STORM_THRESHOLD`)
         reported by a DONKI GST record. DONKI tags each ``allKpIndex``
         entry with the *end* of its 3-hour synoptic window, so the window
         spans ``[observedTime - 3 h, observedTime)``.
@@ -228,7 +236,7 @@ class SpaceWeatherLoader(BaseDomainLoader):
         windows = self._storm_windows(event_id, event)
         if not windows:
             raise ValueError(
-                f"DONKI GST returned no Kp >= {KP_STORM_THRESHOLD} windows for "
+                "DONKI GST returned no NOAA G1+ (Kp >= 5-) windows for "
                 f"cataloged storm '{event_id}'; refusing to emit all-quiet labels "
                 "for a documented storm."
             )
@@ -238,12 +246,11 @@ class SpaceWeatherLoader(BaseDomainLoader):
         for window_start, window_end in windows:
             labels |= (times >= window_start) & (times < window_end)
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total (%d Kp>=%.0f windows).",
+            "Ground truth for '%s': %d anomalies / %d total (%d NOAA G1+ windows).",
             event_id,
             int(labels.sum()),
             len(labels),
             len(windows),
-            KP_STORM_THRESHOLD,
         )
         return labels
 
@@ -363,7 +370,7 @@ class SpaceWeatherLoader(BaseDomainLoader):
         )
 
     def _storm_windows(self, event_id: str, event: dict[str, Any]) -> list[tuple[float, float]]:
-        """Kp >= threshold 3-hour windows (epoch seconds) from DONKI GST."""
+        """NOAA G1+ 3-hour Kp windows (epoch seconds) from DONKI GST."""
         cache_key = f"space_weather_gst_{event_id}"
         gst_records = self._read_cache(cache_key)
         if gst_records is None:
@@ -392,7 +399,7 @@ class SpaceWeatherLoader(BaseDomainLoader):
                 observed = entry.get("observedTime")
                 if kp is None or observed is None:
                     continue
-                if float(kp) < KP_STORM_THRESHOLD:
+                if noaa_g_scale(parse_kp(kp)) < 1:
                     continue
                 end_s = _parse_utc(str(observed)).timestamp()
                 windows.append((end_s - 3.0 * 3600.0, end_s))

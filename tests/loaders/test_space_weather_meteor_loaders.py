@@ -132,6 +132,71 @@ class TestSpaceWeatherLoader:
         assert registry[key][0] == "statistical"
 
 
+class TestDonkiKpThirds:
+    """DONKI writes Kp in decimal thirds; G1 starts at 5- (4.67), not 5.0.
+
+    Checked against an independent primary reference: GFZ's definitive Kp
+    as NASA OMNI2 serves it (Kp*10 in thirds), for the recorded live DONKI
+    May 2024 response that holds the Gannon storm.
+    """
+
+    def _loader_with_kp(self, tmp_path: Path, kp: Any) -> tuple[SpaceWeatherLoader, str]:
+        from datetime import datetime, timedelta
+
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        event_id = loader.list_events()[0]["event_id"]
+        t0 = datetime.fromisoformat(loader._event(event_id)["start"].replace("Z", "+00:00"))
+        times = [(t0 + timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(6)]
+        window_end = (t0 + timedelta(minutes=3)).strftime("%Y-%m-%dT%H:%MZ")
+
+        def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
+            if "DONKI" in url:
+                return [{"allKpIndex": [{"observedTime": window_end, "kpIndex": kp}]}]
+            return _geomag_payload(times, x=[1.0] * 6, y=[1.0] * 6)
+
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        return loader, event_id
+
+    @pytest.mark.parametrize("kp", [4.67, "5-", 5.0, 5.33])
+    def test_every_g1_third_labels_its_window(self, tmp_path: Path, kp: Any) -> None:
+        loader, event_id = self._loader_with_kp(tmp_path, kp)
+        labels = loader.get_ground_truth(event_id)
+        assert labels.tolist() == [1, 1, 1, 0, 0, 0]
+
+    @pytest.mark.parametrize("kp", [4.33, "4+", 4.0])
+    def test_below_g1_is_not_a_storm_window(self, tmp_path: Path, kp: Any) -> None:
+        loader, event_id = self._loader_with_kp(tmp_path, kp)
+        with pytest.raises(ValueError, match="no NOAA G1"):
+            loader.get_ground_truth(event_id)
+
+    def test_threshold_constant_is_the_g1_onset(self) -> None:
+        assert pytest.approx(14.0 / 3.0) == KP_STORM_THRESHOLD
+
+    def test_recorded_gannon_series_is_in_thirds_and_matches_gfz(self) -> None:
+        from datetime import datetime, timedelta
+
+        gfz = {row["window_start"]: row["kp_x10"] for row in _fixture("omni2_kp_2024_05.json")}
+        records = _fixture("donki_gst_2024_05.json")
+        gannon = next(r for r in records if r["gstID"] == "2024-05-10T15:00:00-GST-001")
+        exact = 0
+        compared = 0
+        for record in records:
+            for entry in record["allKpIndex"]:
+                kp = float(entry["kpIndex"])
+                thirds = round(kp * 3.0)
+                assert abs(kp * 3.0 - thirds) < 0.02, f"{kp} is not a Kp third"
+                end = datetime.fromisoformat(entry["observedTime"].replace("Z", "+00:00"))
+                start = (end - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%MZ")
+                # OMNI2: n- = 10n - 3, no = 10n, n+ = 10n + 3.
+                n, rem = divmod(gfz[start] + 3, 10)
+                gfz_thirds = 3 * n + (rem // 3) - 1
+                assert abs(thirds - gfz_thirds) <= 1, (entry, gfz[start])
+                compared += 1
+                exact += thirds == gfz_thirds
+        assert len(gannon["allKpIndex"]) == 13
+        assert (compared, exact) == (20, 14)
+
+
 class TestMeteorLoader:
     def _loader(self, tmp_path: Path) -> MeteorLoader:
         loader = MeteorLoader(cache_dir=tmp_path)
