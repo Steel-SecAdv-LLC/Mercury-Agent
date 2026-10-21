@@ -659,8 +659,9 @@ jobs:
     # 100%. Survivor classification found two real validator gaps (non-
     # printable characters and malformed mailto:/tel: contacts were
     # accepted), fixed with fail-on-old tests, and closed the killable test
-    # gaps; the one classified equivalent is the tarpit-cap boundary, where
-    # the capped and uncapped delays coincide exactly.
+    # gaps. Re-measured (115 sites, the validator rewrite having changed the
+    # site set): 114 killed, 99.1%. The sole survivor is the classified
+    # equivalent at the tarpit cap, where capped and uncapped delays coincide.
     if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -684,10 +685,10 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-21, local, full enumeration, first pass):
-      # 98/120 killed -- 81.7% -- before the survivor kill-pins, which only
-      # raise it. The floor sits at 70 so legitimate new mutation sites don't
-      # flake the lane while real weakening fails it.
+      # Floor calibration (2026-10-21, local, full enumeration): 114/115
+      # killed -- 99.1% -- with the one survivor a classified equivalent.
+      # The floor sits at 90 so legitimate new mutation sites don't flake the
+      # lane while real weakening fails it.
       - name: Trust-surface mutation floor
         run: |
           python scripts/run_sigma_mutation_gate.py \
@@ -698,7 +699,7 @@ jobs:
               src/omni_mercury_engine/api/routes/agent_notice.py \
             --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/api/test_trust_surface_routes.py -q -x" \
             --jobs 4 \
-            --fail-under 70 \
+            --fail-under 90 \
             --report trust_surface_mutation_report.json
 
       - name: Upload trust-surface mutation report

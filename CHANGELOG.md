@@ -116,7 +116,7 @@ admits none of them — and accepted malformed contacts such as
 `tzinfo`, CLI help) are closed by 24 kill-pins; a redundant
 `replace(microsecond=0)` (already dropped by `strftime`) was removed, leaving
 one classified equivalent, the tarpit-cap boundary where capped and uncapped
-delays coincide. CI enforces floor 70 (`mutation-floor-trust-surface`).
+delays coincide. Re-measured over the hardened code (115 sites): **114 killed, 99.1%**, the sole survivor that classified equivalent. CI enforces floor 90 (`mutation-floor-trust-surface`).
 
 ### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
 
