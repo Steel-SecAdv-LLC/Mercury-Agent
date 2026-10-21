@@ -1102,18 +1102,24 @@ class TestCampaignLogging:
     """The campaign warning fires once per window, boundary included."""
 
     def test_logs_once_inside_a_window(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Two campaign events in one window: one warning."""
+        """Two campaign events in one window: one warning, checked at each step."""
+
+        def warnings() -> int:
+            return sum("campaign signal" in r.message for r in caplog.records)
+
         clock = FakeClock()
         sensor = DeceptionSensor(
             policy=TarpitPolicy(window_s=60.0), clock=clock, campaign_sources=1
         )
         with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.security.deception"):
             sensor.record("203.0.113.1", ADMIN, "GET")
+            assert warnings() == 1
             clock.now += 60.0  # exactly the window edge: still the same window
             sensor.record("203.0.113.2", ADMIN, "GET")
+            assert warnings() == 1  # checked HERE: totals alone cannot see this
             clock.now += 0.5  # now strictly past it: a new window
             sensor.record("203.0.113.3", ADMIN, "GET")
-        assert sum("campaign signal" in r.message for r in caplog.records) == 2
+            assert warnings() == 2
 
 
 class TestStoreBoundaries:
