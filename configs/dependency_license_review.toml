@@ -1,0 +1,63 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Reviewed dependency licenses for scripts/check_dependency_licenses.py.
+#
+# An entry covers a dependency only while its observed license metadata is
+# one of `signatures`, exactly as the gate prints it. If the dependency's
+# metadata changes, the entry stops matching and the gate fails until the
+# dependency is reviewed again. `name` may be a glob over normalised names.
+#
+# status = "verified"  The license is established by primary evidence the
+#                      metadata does not carry; `evidence` names it.
+# status = "flagged"   The metadata names a license not known to be
+#                      AGPL-compatible. The owner decides; the gate reports a
+#                      warning on every run and never passes it silently.
+
+[[review]]
+name = "tokenizers"
+status = "verified"
+signatures = ["Classifier: Apache Software License"]
+evidence = """\
+The wheel ships no license file, only the unversioned classifier. The \
+project's sdist (tokenizers-0.23.3, tokenizers/LICENSE, sha256 \
+c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4) is the \
+Apache License, Version 2.0 text."""
+
+[[review]]
+name = "namex"
+status = "verified"
+signatures = ["none"]
+evidence = """\
+No License, License-Expression or classifier in its metadata. The wheel \
+(namex-0.1.0, dist-info/licenses/LICENSE, sha256 \
+29aea94ee8d7f78b22d2f7ea626fa513dce47feb17f86c1430ec0d56e3e40a7f) is the \
+Apache License, Version 2.0 notice, copyright 2023 fchollet; it arrives as a \
+dependency of keras."""
+
+[[review]]
+name = "regex"
+status = "flagged"
+signatures = ["License-Expression: Apache-2.0 AND CNRI-Python"]
+reason = """\
+Declared Apache-2.0 AND CNRI-Python (code derived from CPython's re module \
+under the CNRI Python 1.6 license, which the FSF lists as GPL-incompatible \
+for its Virginia choice-of-law clause). Mercury's own code does not import \
+it; it arrives as a dependency of transformers ([vlm], [llm], [foundation]). \
+Owner decision: legal review, or a supported path without transformers."""
+
+[[review]]
+name = "nvidia-*"
+status = "flagged"
+signatures = [
+    "License-Expression: LicenseRef-NVIDIA-Proprietary",
+    "License: LicenseRef-NVIDIA-Proprietary",
+    "License: NVIDIA Proprietary Software",
+]
+reason = """\
+NVIDIA's proprietary CUDA runtime libraries, installed as dependencies of the \
+CUDA builds of torch from PyPI; Mercury's own code does not link them. They \
+keep the image's documented, opt-in GPU support working. Owner decision: \
+whether they qualify as System Libraries under AGPL section 1, an explicit \
+section 7 permission for them, or a CPU-only image with GPU torch installed \
+by the operator."""

@@ -1528,6 +1528,16 @@ try:
 except ImportError as e:
     logger.warning(f"Agent notice routes not available: {e}")
 
+# Include the corresponding-source offer (AGPL-3.0 section 13; always on:
+# read-only, unauthenticated, accepts no input)
+try:
+    from omni_mercury_engine.api.routes.source import router as source_router
+
+    app.include_router(source_router)
+    logger.info("Source offer route registered")
+except ImportError as e:
+    logger.warning(f"Source offer route not available: {e}")
+
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)

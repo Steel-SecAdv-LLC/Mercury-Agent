@@ -60,6 +60,50 @@ third-party consent. Historical records (dated CHANGELOG entries and the
 `tlp_handler` port-provenance note) are left as written: they were true when
 written. AMA Cryptography (Apache-2.0) remains one-way compatible.
 
+### The AGPL made operable: a source offer and a dependency license gate (branch `steel/version-cov5`)
+
+**Added — `/source`, the corresponding-source offer (AGPL-3.0 section 13).**
+Every deployment now serves, publicly and with no input, the license, the
+running version and where its complete corresponding source is published —
+the upstream repository by default, so a stock deployment complies by
+existing. An operator running a modified Mercury sets `MERCURY_SOURCE_URL` to
+their published fork (and `MERCURY_SOURCE_REVISION` to the exact commit); a
+URL that is not `https://`, has no host or embeds credentials is refused and
+logged — a credential in a refused URL never reaches the log — and the upstream
+location is served instead; a revision that is not a Git object id is omitted.
+38 tests, failing without the new module; full mutation enumeration of the
+offer and its route kills 10 of 10 (the first run's survivor, the URL length
+limit, was a real boundary gap, closed with an exact-limit test).
+
+**Added — dependency license gate** (`scripts/check_dependency_licenses.py`,
+`configs/dependency_license_review.toml`). It walks the runtime requirement
+closure `pyproject.toml` declares for the requested extras and resolves each
+installed distribution's license from its own metadata (PEP 639 expression,
+then a recognised `License` field, then classifiers as alternatives). Labels
+that name a family without a version — "BSD", "Apache" — are never guessed:
+the shipped license text decides (an advertising clause or a non-2.0 Apache
+text fails), and no text is unknown. Unknown or incompatible licenses fail
+unless a reviewed entry pins their exact metadata: `verified` entries carry
+primary evidence, `flagged` ones are reported on every run as the owner's
+decision. It runs in Type Checking on every PR (`[ml]`, 101 distributions)
+and in ML Tests over `[all]`, the closure the Docker image ships. The `[all]`
+lane was pre-validated against pip's full resolution of `[all]` (186
+distributions, classified by the gate's own resolver; every unversioned label
+settled from the package's real license text) so it lands green. 51 tests over
+real `.dist-info` directories.
+
+What it found, reported rather than hidden: the CUDA builds of torch install
+NVIDIA's proprietary runtime libraries (14 packages) into the `[all]` closure
+and the image; `regex`, pulled in by transformers, declares
+`Apache-2.0 AND CNRI-Python`, a license the FSF lists as GPL-incompatible.
+Both are flagged for the owner's decision. `tokenizers` and `namex` ship no
+usable license metadata; both are verified Apache-2.0 from their own license
+files (sha256 recorded).
+
+**Fixed — `run_ci_gates.sh` had drifted from ci.yml.** Its shipped-scripts
+mypy list lacked `scripts/record_gdacs_fixtures.py`, which ci.yml checks; the
+local mirror now matches (20 scripts, both lists).
+
 ### SURGEDAT acquired; DONKI Kp encoding verified (branch `steel/version-cov5`)
 
 **Added — SURGEDAT observed peak storm surge (`data_sources/storm_surge.py`:

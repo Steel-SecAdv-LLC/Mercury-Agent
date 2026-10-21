@@ -123,6 +123,9 @@ if [[ "${FAST}" -eq 0 ]]; then
   run_gate "mypy version matches the pyproject pin (${MYPY_PIN})" \
     bash -c "mypy --version | grep -qF 'mypy ${MYPY_PIN}' || { echo \"resolved \$(mypy --version) at \$(command -v mypy); expected ${MYPY_PIN} — a shadowing install (e.g. ~/.local/bin/mypy) must be removed\"; exit 1; }"
 
+  run_gate "dependency license gate (ci.yml: Type Checking, [ml] closure)" \
+    python scripts/check_dependency_licenses.py --extras ml
+
   run_gate "mypy src lane (ci.yml: Run MyPy)" \
     mypy src/omni_mercury_engine/ --show-error-codes
 
@@ -172,6 +175,8 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/render_prometheus_rules.py \
     scripts/check_torch_load_safety.py \
     scripts/ci_gate_watchdog.py \
+    scripts/check_dependency_licenses.py \
+    scripts/record_gdacs_fixtures.py \
     --show-error-codes
 else
   echo ""

@@ -567,6 +567,13 @@ jobs:
           pip install mypy==2.3.1 types-requests==2.33.0.20260712 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
+      - name: Dependency license gate ([ml] runtime closure)
+        # Mercury is AGPL-3.0-or-later: every runtime dependency must carry a
+        # license known to be compatible, or a reviewed entry in
+        # configs/dependency_license_review.toml. The ml-tests job runs the
+        # same gate over [all], the closure the Docker image ships.
+        run: python scripts/check_dependency_licenses.py --extras ml
+
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
@@ -719,6 +726,7 @@ jobs:
             scripts/render_prometheus_rules.py \
             scripts/check_torch_load_safety.py \
             scripts/ci_gate_watchdog.py \
+            scripts/check_dependency_licenses.py \
             scripts/record_gdacs_fixtures.py \
             --show-error-codes \
             --pretty
@@ -1399,6 +1407,10 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
+
+      - name: Dependency license gate ([all] runtime closure, as shipped)
+        # The closure ``pip install ".[all]"`` and the Docker image ship.
+        run: python scripts/check_dependency_licenses.py --extras all
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # ``ml-tests`` collects everything under ``tests/``, including
