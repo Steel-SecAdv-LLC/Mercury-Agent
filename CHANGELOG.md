@@ -95,6 +95,41 @@ what DONKI reports; DONKI's own definition and NOAA's archived estimates
 were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
 by the egress path).
 
+### Trust surface: a bounded store, decoys behind the rate limiter (branch `steel/version-cov5`)
+
+**Fixed — the cross-worker tripwire store grew without bound
+(`security/deception_store.py`).** The in-process sensor keeps at most
+`max_sources` sources; the store kept every source and aggregate it ever
+saw and never pruned decoy touches, and every touch counted distinct
+sources by scanning all of them. Measured under address rotation (100
+touches/s inside one window): 40,000 rotated sources left 40,000 touch
+rows and per-touch latency climbing from 0.24 ms to 5.0 ms, serialized
+across workers on the shared file's write lock. The store now caps sources
+and aggregates at the sensor's `max_sources` (passed through
+`record_touch(..., max_sources=)`), evicting the least recently seen with
+its hits and touches -- the in-process LRU rule -- and counts the campaign
+signal from an indexed last-seen table. Same flood: 10,000 touch rows and
+about 1 ms per touch at the cap. A store written before the cap is
+backfilled on open, so its keys are covered too.
+
+**Fixed — reliability grading was per-worker (`security/deception.py`).**
+`DeceptionSensor.outcomes()` / `posterior()` read only the process's own
+touches, so with the shared store each worker graded a source on the
+decoys that worker happened to see. With a store they now read the
+cluster-wide count (`TripwireStore.distinct_decoys`), falling back to the
+process's view on a store failure.
+
+**Fixed — silent tripwires answered refusals late (`api/routes/decoys.py`).**
+The observe-only middleware was added outermost, so a request the rate
+limiter refused was still recorded, written to the store and held by the
+tarpit before its 429 -- an unthrottled write path, and a delayed 429
+where a real missing path answers at once. It now sits innermost, beside
+the router: it sees only what the application answers, and a refused
+probe is refused exactly as a real missing path is (pinned by a
+differential test against a real `RateLimitMiddleware`).
+`register_decoys` refuses an application that has already started instead
+of half-registering.
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.

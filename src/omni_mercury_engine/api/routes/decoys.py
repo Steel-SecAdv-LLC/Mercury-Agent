@@ -17,7 +17,10 @@ construction rather than by imitation:
   so the application's own router answers with its genuine 404 -- for every
   method (a route would answer ``OPTIONS`` or ``PROPFIND`` with a telltale
   405) and every path variant (a route would redirect its trailing-slash form
-  with a telltale 307).
+  with a telltale 307). The middleware sits innermost, beside the router, so
+  it sees only requests the application itself answers: one the rate limiter
+  or another outer layer refuses is neither recorded nor held, and is refused
+  exactly as a real missing path is.
 
 Registration refuses any decoy path the application already serves, checked
 with the framework's own matcher, so a configured decoy can never shadow a
@@ -34,6 +37,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from starlette.middleware import Middleware
 from starlette.requests import HTTPConnection
 from starlette.routing import Match
 
@@ -306,9 +310,15 @@ def register_decoys(
         consumers that grade a source; the active decoys are
         ``app.state.deception_decoys``), or ``None`` when disabled -- in which
         case nothing is registered.
+
+    Raises:
+        RuntimeError: ``app`` has already started (its middleware stack is
+            built), so a silent tripwire could no longer be installed.
     """
     if not (deception_enabled() if enabled is None else enabled):
         return None
+    if app.middleware_stack is not None:
+        raise RuntimeError("Cannot add middleware after an application has started")
     if sensor is None:
         from omni_mercury_engine.api.auth_audit import shared_secure_logger
         from omni_mercury_engine.security.deception_store import build_tripwire_store
@@ -333,7 +343,12 @@ def register_decoys(
     app.include_router(build_decoy_router(sensor, gate, active))
     silent = [decoy for decoy in active if decoy.response == "not_found"]
     if silent:
-        app.add_middleware(SilentTripwireMiddleware, sensor=sensor, gate=gate, decoys=silent)
+        # Innermost user middleware, not add_middleware's outermost slot: the
+        # tripwire must observe only what the application answers, behind the
+        # rate limiter and every other outer layer.
+        app.user_middleware.append(
+            Middleware(SilentTripwireMiddleware, sensor=sensor, gate=gate, decoys=silent)
+        )
     app.state.deception_sensor = sensor
     app.state.deception_decoys = tuple(active)
     return sensor

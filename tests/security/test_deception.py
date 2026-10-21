@@ -35,6 +35,7 @@ from omni_mercury_engine.security.deception import (
 from omni_mercury_engine.security.deception_store import (
     TRIPWIRE_STORE_PATH_ENV,
     SqliteTripwireStore,
+    TouchRecord,
     build_tripwire_store,
 )
 
@@ -929,6 +930,136 @@ class TestSqliteTripwireStore:
             store.record_touch("k", "a", ADMIN, window_s=0.0, max_hits=3)
         with pytest.raises(ValueError, match="max_hits"):
             store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=0)
+
+
+class TestStoreIsBounded:
+    """The store keeps the sensor's LRU bound; rotation cannot grow it forever.
+
+    Each test failed against the replaced store, which had no cap on the
+    sources or aggregates on record and never pruned decoy touches.
+    """
+
+    @staticmethod
+    def _rows(store: SqliteTripwireStore, table: str) -> int:
+        return int(store._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+
+    def test_sources_and_touches_capped_at_max_sources(self, tmp_path: Path) -> None:
+        """Rotating through 40 sources over a cap of 8 leaves 8 on record."""
+        clock = FakeClock(5000.0)
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
+        for i in range(40):
+            clock.now += 1.0
+            store.record_touch(
+                f"198.51.{i}.7",
+                f"198.51.{i}.0/24",
+                ADMIN,
+                window_s=3600.0,
+                max_hits=4,
+                max_sources=8,
+            )
+        assert self._rows(store, "deception_touches") == 8
+        keys = store._conn.execute(
+            "SELECT scope, COUNT(*) FROM deception_keys GROUP BY scope ORDER BY scope"
+        ).fetchall()
+        assert [tuple(row) for row in keys] == [("agg", 8), ("src", 8)]
+        assert self._rows(store, "deception_hits") == 16  # one src + one agg hit each
+
+    def test_least_recently_seen_source_is_evicted(self, tmp_path: Path) -> None:
+        """A source seen again stays; the stalest one goes, with its history."""
+        clock = FakeClock(5000.0)
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
+
+        def touch(ip: str) -> TouchRecord:
+            clock.now += 1.0
+            return store.record_touch(
+                ip, "198.51.100.0/24", ADMIN, window_s=3600.0, max_hits=64, max_sources=2
+            )
+
+        touch("198.51.100.1")
+        touch("198.51.100.2")
+        touch("198.51.100.1")  # .1 is now the most recently seen
+        touch("198.51.100.3")  # evicts .2
+        assert store.distinct_decoys("198.51.100.1") == 1
+        assert store.distinct_decoys("198.51.100.2") == 0
+        rec = touch("198.51.100.2")
+        assert rec.first_touch is True  # its record went with the eviction
+        assert rec.hits == 1
+
+    def test_sources_in_window_unchanged_by_the_cap(self, tmp_path: Path) -> None:
+        """Below the cap, the campaign count is the distinct sources in the window."""
+        clock = FakeClock(5000.0)
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
+        for i in range(1, 6):
+            clock.now += 1.0
+            rec = store.record_touch(
+                f"198.51.100.{i}", "198.51.100.0/24", ADMIN, window_s=60.0, max_hits=8
+            )
+        assert rec.sources_in_window == 5
+        clock.now += 58.5  # sources 1-3 now older than the window
+        rec = store.record_touch(
+            "198.51.100.9", "198.51.100.0/24", ADMIN, window_s=60.0, max_hits=8
+        )
+        assert rec.sources_in_window == 3  # .4, .5 and .9
+
+    def test_sensor_passes_its_capacity_to_the_store(self, tmp_path: Path) -> None:
+        """The sensor's max_sources is the store's cap."""
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=FakeClock(5000.0))
+        sensor = DeceptionSensor(clock=FakeClock(), store=store, max_sources=3)
+        for i in range(10):
+            sensor.record(f"198.51.{i}.7", ADMIN, "GET")
+        assert self._rows(store, "deception_touches") == 3
+
+    def test_max_sources_validated(self, tmp_path: Path) -> None:
+        """A non-positive cap is refused."""
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=FakeClock(5000.0))
+        with pytest.raises(ValueError, match="max_sources"):
+            store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=3, max_sources=0)
+
+    def test_store_written_before_the_cap_is_backfilled(self, tmp_path: Path) -> None:
+        """Keys already in an older store are put on record, so the cap covers them."""
+        import sqlite3
+
+        path = tmp_path / "state.db"
+        conn = sqlite3.connect(path)
+        conn.executescript(
+            "CREATE TABLE deception_hits (scope TEXT NOT NULL, scope_key TEXT NOT NULL,"
+            " hit_s REAL NOT NULL);"
+            "CREATE TABLE deception_touches (source_key TEXT NOT NULL, decoy_path TEXT NOT NULL,"
+            " first_s REAL NOT NULL, audited_s REAL NOT NULL,"
+            " PRIMARY KEY (source_key, decoy_path));"
+            "INSERT INTO deception_hits VALUES ('src', 'old', 4000.0), ('agg', 'old/24', 4000.0);"
+            "INSERT INTO deception_touches VALUES ('old', '/api/v1/admin', 4000.0, 4000.0);"
+        )
+        conn.commit()
+        conn.close()
+        clock = FakeClock(5000.0)
+        store = SqliteTripwireStore(path, clock=clock)
+        store.record_touch("new", "new/24", ADMIN, window_s=3600.0, max_hits=8, max_sources=1)
+        assert store.distinct_decoys("old") == 0  # evicted as least recently seen
+        assert store.distinct_decoys("new") == 1
+
+
+class TestClusterWideGrading:
+    """Every worker grades a source from the same, cluster-wide record."""
+
+    def test_outcomes_count_touches_seen_by_other_workers(self, tmp_path: Path) -> None:
+        """Worker 2 grades the decoys a source touched through worker 1."""
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=FakeClock(5000.0))
+        w1 = DeceptionSensor(clock=FakeClock(), store=store)
+        w2 = DeceptionSensor(clock=FakeClock(), store=store)
+        w1.record("198.51.100.7", ADMIN, "GET")
+        w1.record("198.51.100.7", KEYS, "GET")
+        w2.record("198.51.100.7", ADMIN, "GET")
+        assert len(w2.outcomes("198.51.100.7")) == 2
+        assert w2.posterior("198.51.100.7") == w1.posterior("198.51.100.7")
+
+    def test_outcomes_fall_back_to_process_state(self, tmp_path: Path) -> None:
+        """A dead store grades from this process's view, never raises."""
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=FakeClock(5000.0))
+        sensor = DeceptionSensor(clock=FakeClock(), store=store)
+        sensor.record("198.51.100.7", ADMIN, "GET")
+        store.close()
+        assert len(sensor.outcomes("198.51.100.7")) == 1
 
 
 class TestBuildTripwireStore:

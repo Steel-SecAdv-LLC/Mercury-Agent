@@ -519,3 +519,59 @@ class TestCollisionRefusal:
         assert client.get("/api/v1/private/console").status_code == 401
         assert client.get("/private.bak").status_code == 404
         assert len(sensor.outcomes("203.0.113.70")) == 2
+
+
+class TestSilentTripwireSitsInsideTheStack:
+    """A silent tripwire observes only what the application itself answers.
+
+    Failed against the replaced registration, which added the middleware
+    outermost: a request the rate limiter refused was still recorded, written
+    to the store and held by the tarpit before its 429 -- an unthrottled write
+    path, and a delayed 429 where a real missing path answers at once.
+    """
+
+    @staticmethod
+    def _app(monkeypatch: pytest.MonkeyPatch) -> tuple[FastAPI, DeceptionSensor, RecordingSleep]:
+        from omni_mercury_engine.api.server import RateLimitMiddleware
+        from omni_mercury_engine.security.deception import TarpitPolicy
+
+        monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "true")
+        monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
+        app = FastAPI()
+        app.add_middleware(RateLimitMiddleware, requests_per_minute=60, burst_size=3)
+        sleep = RecordingSleep()
+        sensor = DeceptionSensor(policy=TarpitPolicy(free_hits=0))
+        register_decoys(app, enabled=True, sensor=sensor, gate=TarpitGate(4, sleep=sleep))
+        return app, sensor, sleep
+
+    def test_refused_probe_is_neither_recorded_nor_held(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app, sensor, sleep = self._app(monkeypatch)
+        client = TestClient(app, client=("203.0.113.80", 50000))
+        statuses = [client.get("/.env").status_code for _ in range(6)]
+        assert statuses == [404, 404, 404, 429, 429, 429]
+        assert len(sleep.delays) == 3  # only the three the application answered
+        last = sensor.record("203.0.113.80", "/.env", "GET")
+        assert last.hits_in_window == 4  # three observed touches, then this one
+
+    def test_refusal_matches_a_real_missing_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        app, _, sleep = self._app(monkeypatch)
+        decoy = TestClient(app, client=("203.0.113.81", 50000))
+        plain = TestClient(app, client=("203.0.113.82", 50000))
+        for _ in range(3):
+            decoy.get("/.env")
+            plain.get("/no-such-path")
+        held = len(sleep.delays)
+        decoy_refusal = decoy.get("/.env")
+        plain_refusal = plain.get("/no-such-path")
+        assert len(sleep.delays) == held  # the refusal itself is never held
+        assert decoy_refusal.status_code == plain_refusal.status_code == 429
+        assert decoy_refusal.content == plain_refusal.content
+        assert sorted(decoy_refusal.headers) == sorted(plain_refusal.headers)
+
+    def test_registration_after_start_is_refused(self) -> None:
+        app = FastAPI()
+        TestClient(app).get("/")  # builds the middleware stack
+        with pytest.raises(RuntimeError, match="after an application has started"):
+            register_decoys(app, enabled=True, sensor=DeceptionSensor(), gate=TarpitGate(1))

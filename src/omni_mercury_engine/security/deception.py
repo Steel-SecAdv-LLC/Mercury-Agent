@@ -33,7 +33,8 @@ Four properties carry the design:
   addresses to spam the tamper-evident chain buys one summary line.
 * **One picture across workers.** With the shared platform store configured
   (``MERCURY_KEYSTORE_PATH``, the same SQLite file the rate limiter and key
-  store use), hit counts, audit dedupe and the campaign signal are cluster-wide
+  store use), hit counts, audit dedupe, the campaign signal and the reliability
+  outcomes are cluster-wide
   (:mod:`omni_mercury_engine.security.deception_store`); unset, state is
   per-process, exactly as before. A store failure falls back to the in-process
   view for that request -- the decoys keep answering.
@@ -499,8 +500,10 @@ class DeceptionSensor:
             tamper-evident chain from being flooded by spent addresses.
         store: Optional cross-worker tripwire store
             (:mod:`omni_mercury_engine.security.deception_store`). When set,
-            hit counts, audit dedupe and the campaign signal come from the
-            shared store; the in-process state keeps running as the fallback
+            hit counts, audit dedupe, the campaign signal and
+            :meth:`outcomes` come from the shared store, which keeps at most
+            ``max_sources`` sources and aggregates on record; the in-process
+            state keeps running as the fallback
             for a store failure, which is logged and never blocks the answer.
 
     Raises:
@@ -705,6 +708,7 @@ class DeceptionSensor:
                 path,
                 window_s=self._policy.window_s,
                 max_hits=self._max_hits,
+                max_sources=self._max_sources,
             )
         except Exception:
             logger.exception("deception store failed; serving from in-process state")
@@ -767,11 +771,18 @@ class DeceptionSensor:
 
         Returns:
             One refuted :class:`SourceOutcome` per distinct decoy touched,
-            oldest first; empty for an untracked source.
+            oldest first; empty for an untracked source. With a shared store
+            the count is cluster-wide, so every worker grades a source alike;
+            a store failure falls back to this process's view.
         """
         with self._lock:
             state = self._sources.get(key)
             touched = len(state.touched) if state is not None else 0
+        if self._store is not None:
+            try:
+                touched = self._store.distinct_decoys(key)
+            except Exception:
+                logger.exception("deception store failed; grading from in-process state")
         return tuple(
             SourceOutcome(confirmed=False, weight=self._outcome_weight) for _ in range(touched)
         )

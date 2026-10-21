@@ -20,7 +20,11 @@ its own for the in-process fallback.
 
 Bounded like the sensor: per-key hit history is capped (oldest rows dropped),
 rows older than the window are pruned on every touch for the keys involved,
-and a full prune of all stale rows runs opportunistically.
+a full prune of all stale rows runs opportunistically, and the sources and
+aggregates on record are each capped at the sensor's ``max_sources`` -- past
+it the least recently seen key is evicted with its hits and decoy touches,
+the in-process sensor's LRU rule. Without the cap, every rotated address
+added rows forever and every touch paid a scan over all of them.
 """
 
 from __future__ import annotations
@@ -82,9 +86,20 @@ class TripwireStore(Protocol):
     """What the deception sensor needs from a shared state backend."""
 
     def record_touch(
-        self, key: str, aggregate: str, path: str, *, window_s: float, max_hits: int
+        self,
+        key: str,
+        aggregate: str,
+        path: str,
+        *,
+        window_s: float,
+        max_hits: int,
+        max_sources: int = 10_000,
     ) -> TouchRecord:
         """Record one touch and return the cluster-wide counts."""
+        ...  # pragma: no cover - protocol signature
+
+    def distinct_decoys(self, key: str) -> int:
+        """Return the distinct decoys the source has touched on record."""
         ...  # pragma: no cover - protocol signature
 
     def close(self) -> None:
@@ -115,6 +130,23 @@ class SqliteTripwireStore:
         audited_s  REAL NOT NULL,
         PRIMARY KEY (source_key, decoy_path)
     );
+    CREATE TABLE IF NOT EXISTS deception_keys (
+        scope     TEXT NOT NULL,
+        scope_key TEXT NOT NULL,
+        last_s    REAL NOT NULL,
+        PRIMARY KEY (scope, scope_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_deception_keys_last
+        ON deception_keys (scope, last_s);
+    """
+
+    # A store written before deception_keys existed: put its keys on record
+    # so the cap sees them. Idempotent; a no-op once every key is listed.
+    _BACKFILL = """
+    INSERT OR IGNORE INTO deception_keys (scope, scope_key, last_s)
+        SELECT scope, scope_key, MAX(hit_s) FROM deception_hits GROUP BY scope, scope_key;
+    INSERT OR IGNORE INTO deception_keys (scope, scope_key, last_s)
+        SELECT 'src', source_key, MAX(audited_s) FROM deception_touches GROUP BY source_key;
     """
 
     def __init__(
@@ -135,6 +167,7 @@ class SqliteTripwireStore:
             self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.execute("PRAGMA busy_timeout=5000")
             self._conn.executescript(self._SCHEMA)
+            self._conn.executescript(self._BACKFILL)
 
     def close(self) -> None:
         """Close the underlying connection."""
@@ -166,8 +199,75 @@ class SqliteTripwireStore:
         ).fetchone()
         return int(row["n"])
 
+    def _touch_key(self, scope: str, scope_key: str, now: float, max_keys: int) -> None:
+        """Mark a key seen now; past ``max_keys`` keys, evict the least recently seen."""
+        known = self._conn.execute(
+            "UPDATE deception_keys SET last_s = ? WHERE scope = ? AND scope_key = ?",
+            (now, scope, scope_key),
+        ).rowcount
+        if known:
+            return
+        self._conn.execute(
+            "INSERT INTO deception_keys (scope, scope_key, last_s) VALUES (?, ?, ?)",
+            (scope, scope_key, now),
+        )
+        excess = (
+            int(
+                self._conn.execute(
+                    "SELECT COUNT(*) AS n FROM deception_keys WHERE scope = ?", (scope,)
+                ).fetchone()["n"]
+            )
+            - max_keys
+        )
+        if excess <= 0:
+            return
+        evicted = [
+            str(row["scope_key"])
+            for row in self._conn.execute(
+                "SELECT scope_key FROM deception_keys WHERE scope = ? "
+                "ORDER BY last_s ASC, scope_key ASC LIMIT ?",
+                (scope, excess),
+            ).fetchall()
+        ]
+        for old in evicted:
+            self._conn.execute(
+                "DELETE FROM deception_keys WHERE scope = ? AND scope_key = ?", (scope, old)
+            )
+            self._conn.execute(
+                "DELETE FROM deception_hits WHERE scope = ? AND scope_key = ?", (scope, old)
+            )
+            if scope == "src":
+                self._conn.execute("DELETE FROM deception_touches WHERE source_key = ?", (old,))
+
+    def distinct_decoys(self, key: str) -> int:
+        """Return the distinct decoys the source has touched on record.
+
+        Args:
+            key: The :func:`~omni_mercury_engine.security.deception.source_key`.
+
+        Returns:
+            The cluster-wide count; 0 for a source not on record (never seen,
+            or evicted by the ``max_sources`` cap).
+
+        Raises:
+            sqlite3.Error: The database refused the read; the caller (the
+                sensor) logs it and answers from its in-process state.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM deception_touches WHERE source_key = ?", (key,)
+            ).fetchone()
+        return int(row["n"])
+
     def record_touch(
-        self, key: str, aggregate: str, path: str, *, window_s: float, max_hits: int
+        self,
+        key: str,
+        aggregate: str,
+        path: str,
+        *,
+        window_s: float,
+        max_hits: int,
+        max_sources: int = 10_000,
     ) -> TouchRecord:
         """Record one touch atomically and return the cluster-wide counts.
 
@@ -178,12 +278,15 @@ class SqliteTripwireStore:
             path: The decoy path touched.
             window_s: The tarpit window (> 0).
             max_hits: Per-key hit-history cap (>= 1).
+            max_sources: Cap on sources, and separately on aggregates, kept
+                on record (>= 1); the least recently seen is evicted.
 
         Returns:
             The :class:`TouchRecord`.
 
         Raises:
-            ValueError: ``window_s`` or ``max_hits`` out of range.
+            ValueError: ``window_s``, ``max_hits`` or ``max_sources`` out of
+                range.
             sqlite3.Error: The database refused the transaction; the caller
                 (the sensor) logs it and serves from its in-process state.
         """
@@ -191,6 +294,8 @@ class SqliteTripwireStore:
             raise ValueError("window_s must be positive")
         if max_hits < 1:
             raise ValueError("max_hits must be >= 1")
+        if max_sources < 1:
+            raise ValueError("max_sources must be >= 1")
         now = self._clock()
         floor_s = now - window_s
         with self._lock:
@@ -204,6 +309,8 @@ class SqliteTripwireStore:
                     "INSERT INTO deception_hits (scope, scope_key, hit_s) VALUES ('agg', ?, ?)",
                     (aggregate, now),
                 )
+                self._touch_key("src", key, now, max_sources)
+                self._touch_key("agg", aggregate, now, max_sources)
                 hits = self._count_scope("src", key, floor_s, max_hits)
                 aggregate_hits = self._count_scope("agg", aggregate, floor_s, max_hits)
                 touch = self._conn.execute(
@@ -233,8 +340,8 @@ class SqliteTripwireStore:
                 )
                 sources = int(
                     self._conn.execute(
-                        "SELECT COUNT(DISTINCT scope_key) AS n FROM deception_hits "
-                        "WHERE scope = 'src' AND hit_s > ?",
+                        "SELECT COUNT(*) AS n FROM deception_keys "
+                        "WHERE scope = 'src' AND last_s > ?",
                         (floor_s,),
                     ).fetchone()["n"]
                 )
