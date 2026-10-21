@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -39,9 +40,6 @@ from omni_mercury_engine.security.deception import (
     TarpitGate,
     TripwireEvent,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 from omni_mercury_engine.security.secure_audit_logging import (
     AuditEventCategory,
     AuditEventSeverity,
@@ -128,6 +126,19 @@ class TestDocuments:
         body = client.get("/.well-known/security.txt").text
         assert "Contact: mailto:ops@example.org\n" in body
         assert "SECURITY.md#reporting" not in body
+
+    def test_malformed_operator_contact_never_breaks_the_file(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A contact the URI parser rejects is dropped; the file is still served."""
+        app = FastAPI()
+        app.include_router(notice_router)
+        client = TestClient(app, raise_server_exceptions=False)
+        monkeypatch.setenv("MERCURY_SECURITY_CONTACT", "https://[::1, mailto:ops@example.org")
+        response = client.get("/.well-known/security.txt")
+        assert response.status_code == 200
+        assert "Contact: mailto:ops@example.org\n" in response.text
+        assert "[::1" not in response.text
 
     def test_agent_notice_json(self, client: TestClient) -> None:
         """The notice is served as its module renders it."""
@@ -521,6 +532,102 @@ class TestCollisionRefusal:
         assert len(sensor.outcomes("203.0.113.70")) == 2
 
 
+class TestOperatorConfiguration:
+    """Every trust-surface variable reaches the operator's deployment surfaces.
+
+    Failed against the replaced tree: none of the four appeared in the
+    configuration reference, the Helm values, the kustomize env file or the
+    compose overlay, so a third-party deployment served the upstream
+    security contact with nothing prompting the operator to change it.
+    """
+
+    _ROOT = Path(__file__).resolve().parents[2]
+    _VARS = (
+        "MERCURY_SECURITY_CONTACT",
+        DECEPTION_ENABLED_ENV,
+        "MERCURY_DECOY_PATHS",
+        "MERCURY_SILENT_DECOY_PATHS",
+    )
+
+    def test_the_names_are_the_modules_constants(self) -> None:
+        from omni_mercury_engine.security import agent_notice, deception
+
+        assert self._VARS == (
+            agent_notice.SECURITY_CONTACT_ENV,
+            deception.DECEPTION_ENABLED_ENV,
+            deception.DECOY_PATHS_ENV,
+            deception.SILENT_DECOY_PATHS_ENV,
+        )
+
+    def test_configuration_reference_documents_each(self) -> None:
+        text = (self._ROOT / "docs" / "PLATFORM_HARDENING.md").read_text(encoding="utf-8")
+        reference = text[text.index("## Configuration reference") :]
+        for name in self._VARS:
+            assert f"| `{name}` |" in reference, name
+
+    def test_helm_values_carry_each_with_decoys_off(self) -> None:
+        import yaml
+
+        values = yaml.safe_load(
+            (self._ROOT / "helm" / "mercury-agent" / "values.yaml").read_text(encoding="utf-8")
+        )
+        app_config = values["config"]["app"]
+        assert {name: app_config[name] for name in self._VARS} == {
+            "MERCURY_SECURITY_CONTACT": "",
+            DECEPTION_ENABLED_ENV: "false",
+            "MERCURY_DECOY_PATHS": "",
+            "MERCURY_SILENT_DECOY_PATHS": "",
+        }
+
+    def test_kustomize_env_carries_each_with_decoys_off(self) -> None:
+        lines = (
+            (self._ROOT / "k8s" / "base" / "config" / "mercury-agent.env")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        env = dict(line.split("=", 1) for line in lines if line and not line.startswith("#"))
+        assert {name: env[name] for name in self._VARS} == {
+            "MERCURY_SECURITY_CONTACT": "",
+            DECEPTION_ENABLED_ENV: "false",
+            "MERCURY_DECOY_PATHS": "",
+            "MERCURY_SILENT_DECOY_PATHS": "",
+        }
+
+    def test_compose_overlay_passes_each_through_with_decoys_off(self) -> None:
+        import yaml
+
+        compose = yaml.safe_load(
+            (self._ROOT / "docker-compose.platform.yml").read_text(encoding="utf-8")
+        )
+        env = compose["services"]["mercury-agent"]["environment"]
+        assert env[DECEPTION_ENABLED_ENV] == f"${{{DECEPTION_ENABLED_ENV}:-false}}"
+        for name in (
+            "MERCURY_SECURITY_CONTACT",
+            "MERCURY_DECOY_PATHS",
+            "MERCURY_SILENT_DECOY_PATHS",
+        ):
+            assert env[name] == f"${{{name}:-}}"
+
+    def test_blank_shipped_values_mean_the_documented_defaults(self) -> None:
+        """The blanks the surfaces ship resolve to upstream contact and no decoys."""
+        from omni_mercury_engine.security.agent_notice import configured_contacts
+        from omni_mercury_engine.security.deception import (
+            DEFAULT_DECOYS,
+            configured_decoys,
+            deception_enabled,
+        )
+
+        shipped = {
+            "MERCURY_SECURITY_CONTACT": "",
+            DECEPTION_ENABLED_ENV: "false",
+            "MERCURY_DECOY_PATHS": "",
+            "MERCURY_SILENT_DECOY_PATHS": "",
+        }
+        assert configured_contacts(shipped) == configured_contacts({})
+        assert deception_enabled(shipped) is False
+        assert configured_decoys(shipped) == DEFAULT_DECOYS
+
+
 class TestSilentTripwireSitsInsideTheStack:
     """A silent tripwire observes only what the application itself answers.
 
@@ -538,7 +645,11 @@ class TestSilentTripwireSitsInsideTheStack:
         monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "true")
         monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
         app = FastAPI()
-        app.add_middleware(RateLimitMiddleware, requests_per_minute=60, burst_size=3)
+        app.add_middleware(
+            RateLimitMiddleware,  # type: ignore[arg-type, unused-ignore]
+            requests_per_minute=60,
+            burst_size=3,
+        )
         sleep = RecordingSleep()
         sensor = DeceptionSensor(policy=TarpitPolicy(free_hits=0))
         register_decoys(app, enabled=True, sensor=sensor, gate=TarpitGate(4, sleep=sleep))

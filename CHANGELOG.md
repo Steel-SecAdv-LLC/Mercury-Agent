@@ -95,7 +95,7 @@ what DONKI reports; DONKI's own definition and NOAA's archived estimates
 were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
 by the egress path).
 
-### Trust surface: a bounded store, decoys behind the rate limiter (branch `steel/version-cov5`)
+### Trust surface: a bounded store, decoys behind the rate limiter, contacts that cannot break security.txt (branch `steel/version-cov5`)
 
 **Fixed — the cross-worker tripwire store grew without bound
 (`security/deception_store.py`).** The in-process sensor keeps at most
@@ -129,6 +129,23 @@ probe is refused exactly as a real missing path is (pinned by a
 differential test against a real `RateLimitMiddleware`).
 `register_decoys` refuses an application that has already started instead
 of half-registering.
+
+**Fixed — one malformed operator contact broke `/.well-known/security.txt`
+(`security/agent_notice.py`).** `MERCURY_SECURITY_CONTACT` entries are
+documented as dropped with a warning, but an `https` value the URI parser
+cannot read (`https://[::1`) raised out of `configured_contacts`, failing
+the request. Such values are now refused, as are an out-of-range or
+non-numeric port, an `https` URI with a port but no host, and userinfo
+(a published contact must not carry credentials, RFC 3986 section 3.2.1).
+
+**Added — the trust-surface variables reach the deployment surfaces.**
+`MERCURY_SECURITY_CONTACT`, `MERCURY_DECEPTION_ENABLED`,
+`MERCURY_DECOY_PATHS` and `MERCURY_SILENT_DECOY_PATHS` were absent from
+the configuration reference (`docs/PLATFORM_HARDENING.md`), the Helm
+values, the kustomize env file and the compose overlay, so a third-party
+deployment served the upstream security contact with nothing prompting the
+operator to change it. All four are now documented and carried, the decoys
+off by default; a test holds each surface to the modules' constants.
 
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 

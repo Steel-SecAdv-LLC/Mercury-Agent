@@ -280,7 +280,10 @@ def _valid_contact(value: str) -> bool:
     are refused: a line break inside a value would let an operator-supplied
     string inject fields into the served file, and URI syntax admits none of
     them. A ``mailto:`` needs ``local@domain`` and a ``tel:`` at least one
-    digit, so a typo such as ``mailto:security`` is caught, not served.
+    digit, so a typo such as ``mailto:security`` is caught, not served. An
+    ``https`` URI needs a host, a port in range when one is given, and no
+    userinfo: a published contact must not carry credentials (RFC 3986
+    section 3.2.1). A URI the parser cannot read is refused, never raised.
 
     Args:
         value: Candidate URI.
@@ -295,8 +298,17 @@ def _valid_contact(value: str) -> bool:
         return bool(local and at and domain)
     if value.startswith("tel:"):
         return any(char.isdigit() for char in value.removeprefix("tel:"))
-    parts = urlsplit(value)
-    return parts.scheme == "https" and bool(parts.netloc)
+    try:
+        parts = urlsplit(value)
+        _ = parts.port  # raises ValueError on a malformed or out-of-range port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and bool(parts.hostname)
+        and parts.username is None
+        and parts.password is None
+    )
 
 
 def configured_contacts(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:

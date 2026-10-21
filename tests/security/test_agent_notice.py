@@ -321,6 +321,47 @@ class TestContactValidationHardening:
         assert configured_contacts({SECURITY_CONTACT_ENV: good}) == (good,)
 
 
+class TestUnparseableWebContacts:
+    """An https contact the URI parser cannot read is refused, never raised.
+
+    Each case raised ``ValueError`` out of ``configured_contacts`` (so the
+    security.txt request failed) or was served, under the replaced validator.
+    """
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "https://[::1",  # unterminated IPv6 literal: urlsplit raises
+            "https://example.org:99999/sec",  # port out of range
+            "https://example.org:abc/sec",  # non-numeric port
+            "https://:443/sec",  # a port but no host
+            "https://user:secret@example.org/sec",  # credentials in a public file
+            "https://user@example.org/sec",  # userinfo without a password
+        ],
+    )
+    def test_refused_not_raised(self, bad: str) -> None:
+        """The entry is dropped and the default contacts are served."""
+        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == DEFAULT_CONTACTS
+
+    def test_one_bad_entry_keeps_the_good_ones(self) -> None:
+        """A malformed entry beside valid ones costs only itself."""
+        env = {SECURITY_CONTACT_ENV: "https://[::1, mailto:ok@example.org"}
+        assert configured_contacts(env) == ("mailto:ok@example.org",)
+
+    @pytest.mark.parametrize(
+        "good",
+        ["https://example.org:8443/sec", "https://[2001:db8::1]/sec", "https://example.org:443"],
+    )
+    def test_ports_and_ip_literals_stay_legal(self, good: str) -> None:
+        """A valid port and a bracketed IPv6 host are still served."""
+        assert configured_contacts({SECURITY_CONTACT_ENV: good}) == (good,)
+
+    def test_render_refuses_instead_of_raising_from_the_parser(self) -> None:
+        """render_security_txt reports the contact, not an internal parser error."""
+        with pytest.raises(ValueError, match=r"invalid security\.txt contact"):
+            render_security_txt(NOW, ["https://[::1"])
+
+
 class TestNoticeInvariants:
     """Immutability, the documented window, and the CLI's description."""
 
