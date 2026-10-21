@@ -82,7 +82,10 @@ def test_shap_adapter_when_present() -> None:
     assert len(result.feature_importances) == 3
 
 
-@pytest.mark.skipif(not ex.LIME_AVAILABLE, reason="lime not installed ([explainability] extra)")
+@pytest.mark.skipif(
+    not ex.LIME_AVAILABLE,
+    reason="lime not installed (in no extra: its only release cannot build; manual install)",
+)
 def test_lime_adapter_when_present() -> None:
     rng = np.random.default_rng(0)
     training = rng.normal(size=(50, 3))

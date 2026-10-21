@@ -163,6 +163,33 @@ one second instead of hanging for the harness's 120. Final: 204 killed,
 98.1%, the four survivors classified equivalents in the lane comment. The
 floor rises from 90 to 95.
 
+### Explainers: the fallback LIME and SHAP paths compute what they name (branch `steel/version-cov5`)
+
+**Fixed — the LIME surrogate spread a model's level across every feature
+(`cognitive/explainability.py`).** Every install takes the in-repo
+surrogate: `lime` is in no extra, its only release cannot build. The
+surrogate regressed predictions on raw perturbed inputs with no intercept,
+so `3 + 2*x0` at (1, 1, 1) read as slopes (2.95, 1.06, 0.98) and `100 + x1`
+at the origin as (-35.8, 24.3, 11.5). It now fits LIME's local model
+(Ribeiro, Singh & Guestrin 2016): a kernel-weighted linear fit with an
+intercept over centred perturbations. Those cases return (2, 0, 0) and
+(0, 1, 0), `x0**2` at x0 = 3 its local slope 6.00, and R^2 is the weighted
+R^2 of that fit.
+
+**Fixed — the SHAP fallback was neither Shapley nor anchored.** It
+averaged random coalitions with equal weight (a Banzhaf estimate, which
+breaks efficiency under interactions) and set `base_value` to the
+prediction itself, so `base_value + sum(values)` could not reconstruct it:
+`x0*x1 + x2` at (2, 3, 1) gave (4.5, 4.5, 1.0), local accuracy -0.43. Up to
+ten features it now enumerates every coalition with the Shapley weights
+(exact; one batched model call); above that it averages random orderings,
+whose increments sum to `f(x) - f(baseline)` exactly. The baseline is the
+background mean when `background_data` is given, else zeros, and
+`base_value` is the model at that baseline: the same case gives (3, 3, 1),
+local accuracy 1.0. `metadata["method"]` names what ran (`exact_shapley`,
+`permutation_shapley`, or `kernel_shap` for the installed `shap` library,
+whose path is unchanged).
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.
