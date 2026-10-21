@@ -117,7 +117,11 @@ and aggregates at the sensor's `max_sources` (passed through
 its hits and touches -- the in-process LRU rule -- and counts the campaign
 signal from an indexed last-seen table. Same flood: 10,000 touch rows and
 about 1 ms per touch at the cap. A store written before the cap is
-backfilled on open, so its keys are covered too.
+backfilled on open, so its keys are covered too. The key being recorded is
+never an eviction candidate: the store runs on the wall clock, and after a
+backward step a fresh key stamped older than every other evicted itself
+mid-touch, so the touch counted zero hits (no tarpit) and left an orphaned
+touch row.
 
 **Fixed — reliability grading was per-worker (`security/deception.py`).**
 `DeceptionSensor.outcomes()` / `posterior()` read only the process's own
