@@ -42,7 +42,7 @@
 
 **Copyright 2025 Steel Security Advisors LLC**\
 **Author/Inventor:** Andrew E. A.\
-**Contact:** steel.sa.llc@mercuryagent.global (primary) · contact@mercuryagent.global (general)\
+**Contact:** steel.sa.llc@mercuryagent.global (operations & security) · contact@mercuryagent.global (general inquiries & support)\
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
 **Version:** v2.1.0\
@@ -984,10 +984,11 @@ Row 3 anomaly probability: 1.0
 ```
 
 Fit before detecting: the engine refuses to auto-fit on the inference batch.
-Read per-row results from `anomaly_probs` / `is_anomaly_rows`; the scalar
-`anomaly_prob` / `is_anomaly` keys describe the first row only. Each served
-result also carries a `decision` record (the calibrated decision or
-abstention, with its reasons).
+Per-row results are in `anomaly_probs` / `is_anomaly_rows`; the scalar
+`is_anomaly` is the batch verdict (`True` when any row crosses the threshold),
+`anomaly_prob` is the most anomalous row's probability, and `top_row` names
+that row. Each served result also carries a `decision` record (the calibrated
+decision or abstention, with its reasons).
 
 ### Extending the engine with additional detectors
 
@@ -2487,8 +2488,8 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 | Type | Contact |
 |------|---------|
-| Primary | steel.sa.llc@mercuryagent.global |
-| General inquiries and the hosted service (mercuryagent.global) | contact@mercuryagent.global |
+| Operations & Security | steel.sa.llc@mercuryagent.global |
+| General Inquiries & Support (incl. the hosted service, mercuryagent.global) | contact@mercuryagent.global |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
 | GitHub Repository | [Mercury Agent](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
@@ -2566,7 +2567,9 @@ The human architect does not hold formal credentials in machine learning or medi
 - **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8613) bit for bit. Figures that are still estimates are labelled as estimates.
 - **Tests that are themselves tested:** 18,538 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and eight module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
 - **Fail closed, never fabricate:** detectors refuse unmeasurable input rather than grade it safe; a missing oracle reports *unavailable* under the three-state contract instead of guessing; benchmarks skip an unreachable dataset rather than substitute synthetic data.
-- **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.
+- **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not — its one enforcing use is the human-subject purpose screen, which scores the caller's own stated purpose and refuses stalking and harassment the weapons-scoped gate does not cover. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.
+- **Evidence that cannot be quietly edited:** authentication events and deception-layer tripwires are written to a hash-linked, tamper-evident audit chain whose verification is itself tested — across process restarts, segment rotation and multi-writer deployments, with tests proving a tampered record is detected, not merely that an intact one verifies.
+- **Vulnerabilities eliminated, not waived:** the blocking container-CVE gate's ledger removes findings at the source — `perl-base` purged from the runtime image (5 CVEs, two of them CRITICAL), pip and its vendored copies stripped entirely — each verified by rebuilding and re-scanning the image to prove absence, with negative probes in the Dockerfile so a regression fails the build. Every release ships its SBOM and build provenance alongside the wheel and sdist.
 - **Executable mathematical certificates:** the Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job — a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Honest about its own claims:** the AMA Cryptography statement separates passing published test vectors from certification, and `scripts/doc_lint.py` fails CI on the certification phrases Mercury has not earned; open mathematical problems are described as open, and announced-but-unverified results are carried as dated claims.
 - **Standards-based design:** OWASP input validation, NIST post-quantum standards (FIPS 203/204/205, via AMA Cryptography v5.0.0), Fairlearn fairness metrics, RFC 9116 `security.txt`, and Sepsis-3 (JAMA 2016) for the medical modules.

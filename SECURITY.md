@@ -505,8 +505,8 @@ deployment configuration must be loud.
 
 ## Contact
 
-- **Security Team**: steel.sa.llc@mercuryagent.global
-- **General Support**: contact@mercuryagent.global
+- **Operations & Security**: steel.sa.llc@mercuryagent.global
+- **General Inquiries & Support**: contact@mercuryagent.global
 - **GitHub Issues**: For non-sensitive security discussions
 
 ## Acknowledgments

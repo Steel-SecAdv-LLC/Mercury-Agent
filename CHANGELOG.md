@@ -27,6 +27,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### The scalar detection verdict is now the batch verdict (branch `steel/version-cov5`)
+
+**Fixed — `anomaly_prob` / `is_anomaly` described row 0 only.** On a
+multi-row batch, `detect_with_fusion`'s top-level scalars copied the first
+row, so a batch whose only anomaly sat on any other row read "normal" at the
+top level — and the LLM-enhancement hook, which keys on `is_anomaly`, skipped
+exactly the batches it was for. The scalars are now the batch verdict:
+`anomaly_prob` is the most anomalous row's probability (so
+`is_anomaly == anomaly_prob > threshold` is True exactly when any row crosses
+the threshold), `severity` and `class_prediction` come from that same row, and
+a new `top_row` key names it. Single-row inputs are unchanged (the maximum of
+one row is the row), as are the per-row `anomaly_probs` / `is_anomaly_rows` /
+`severity_scores` lists. Three new tests fail against the replaced code.
+
+**Clarified — where `check="benevolence"` still enforces.** The ethical
+package docstring said the code is retired outright; in fact the assessment
+purpose screen (`assessment/policy.py`) still raises it — scored on the
+caller's own stated purpose for a human-subject measurement, never an
+engine-written string — for stalking/harassment purposes the weapons-scoped
+harm-uplift gate measurably admits. The docstring now says exactly that.
+
+**Changed — contact labels.** `steel.sa.llc@mercuryagent.global` is labelled
+*Operations & Security* and `contact@mercuryagent.global` *General Inquiries &
+Support* across README, CONTRIBUTING and SECURITY. README "What We Did Right"
+gains two measured claims: the tamper-evident audit chain (tampering-detected
+tests across restarts and rotation) and the eliminate-not-waive container-CVE
+practice (perl-base purged, pip stripped, absence proven by re-scan).
+
 ### Official contact addresses; README corrected against the code (branch `steel/version-cov5`)
 
 **Changed — official email.** Every project contact now uses the

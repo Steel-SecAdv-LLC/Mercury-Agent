@@ -45,9 +45,16 @@ The first gate used to be a **benevolence pass-bar**: every action had to score
 * A high bar on a positivity lexicon is not a harm control. It refused benign
   work whose vocabulary was plain, and admitted anything phrased warmly.
 
-Benevolence is retained as an **advisory** score: computed, logged and attached
-to the :class:`EthicalScore`, deciding nothing. ``check="benevolence"`` is
-retired; the enforced code is ``check="harm_uplift"``.
+Benevolence is retained as an **advisory** score at these detection
+boundaries: computed, logged and attached to the :class:`EthicalScore`,
+deciding nothing. ``check="benevolence"`` is retired as a boundary pass-bar;
+the enforced code here is ``check="harm_uplift"``. One enforcing use remains,
+and it does not share the flaws above: the assessment purpose screen
+(:func:`omni_mercury_engine.assessment.policy.gate`) scores the **caller's own
+stated purpose** for a human-subject measurement — never an engine-written
+string — and raises ``check="benevolence"`` when that purpose is impermissible
+harm to a person (stalking, harassment, intimidation), a case the weapons-scoped
+harm-uplift gate measurably admits.
 
 Boundary surfaces:
 

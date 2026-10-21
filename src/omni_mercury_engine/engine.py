@@ -5405,10 +5405,17 @@ class OmniMercuryEngine(LoggerMixin):
 
         Returns:
             Dictionary containing:
-                - anomaly_prob: Probability of anomaly (0.0-1.0)
-                - is_anomaly: Boolean anomaly flag (prob > 0.5)
-                - class_prediction: Predicted anomaly class
-                - severity: Anomaly severity score
+                - anomaly_prob: The batch's maximum per-row anomaly
+                  probability (0.0-1.0) — the most anomalous row's score
+                - is_anomaly: ``True`` when any row crosses
+                  ``threshold_used`` (equivalently, ``anomaly_prob`` does)
+                - class_prediction: Predicted class of that row
+                - severity: Severity score of that row
+                - top_row: Index of the row the four scalars above describe
+                  (``0`` for a single-row input)
+                - anomaly_probs / is_anomaly_rows / severity_scores:
+                  per-row values, aligned with the input rows
+                - threshold_used: The decision threshold applied
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
                 - explanation: (only when ``explain=True``) Integrated-Gradients
@@ -5745,41 +5752,36 @@ class OmniMercuryEngine(LoggerMixin):
             )
         )
 
-        anomaly_prob_val = fusion_result["anomaly_probs"][0]
-        if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
-            anomaly_prob_val = anomaly_prob_val.item()
+        anomaly_probs_all = np.asarray(fusion_result["anomaly_probs"], dtype=np.float64).reshape(-1)
+        severity_all = np.asarray(fusion_result["severity_scores"], dtype=np.float64).reshape(-1)
+        class_preds_all = np.asarray(fusion_result["class_predictions"]).reshape(-1)
 
-        severity_val = fusion_result["severity_scores"][0]
-        if isinstance(severity_val, np.ndarray) or hasattr(severity_val, "item"):
-            severity_val = severity_val.item()
-
-        class_pred_val = fusion_result["class_predictions"][0]
-        if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
-            class_pred_val = class_pred_val.item()
+        # The scalar verdict describes the batch through its most anomalous
+        # row: ``anomaly_prob`` is the maximum row probability, so
+        # ``is_anomaly`` is True exactly when any row crosses the threshold,
+        # and ``severity``/``class_prediction`` come from that same row
+        # (``top_row``). On a single-row input the maximum is the row itself,
+        # so the serving contract is unchanged. The scalars used to copy
+        # row 0, so a batch whose only anomaly sat on any other row read
+        # "normal" at the top level, and the LLM-enhancement hook, which
+        # keys on ``is_anomaly``, skipped exactly the batches it was for.
+        top_row = int(np.argmax(anomaly_probs_all))
+        anomaly_prob_val = float(anomaly_probs_all[top_row])
+        severity_val = float(severity_all[top_row])
+        class_pred_val = int(class_preds_all[top_row])
 
         # Determine threshold for anomaly classification
-        threshold = self._get_anomaly_threshold(
-            anomaly_prob_val,
-            fusion_result.get("anomaly_probs", np.array([anomaly_prob_val])),
-        )
-
-        anomaly_probs_all = np.asarray(
-            fusion_result.get("anomaly_probs", [anomaly_prob_val]), dtype=np.float64
-        ).reshape(-1)
-        severity_all = np.asarray(
-            fusion_result.get("severity_scores", [severity_val]), dtype=np.float64
-        ).reshape(-1)
+        threshold = self._get_anomaly_threshold(anomaly_prob_val, anomaly_probs_all)
 
         result = {
-            "anomaly_prob": float(anomaly_prob_val),
-            "is_anomaly": bool(float(anomaly_prob_val) > threshold),
-            "class_prediction": int(class_pred_val),
-            "severity": float(severity_val),
-            # Per-row verdicts for multi-row inputs. The scalar keys above
-            # describe row 0 only (the single-sample serving contract);
-            # batch callers must consume these lists -- detect_batch used
-            # to stamp row 0's verdict onto every row of the batch. Plain
-            # lists keep the result JSON-serialisable for the HTTP surface.
+            "anomaly_prob": anomaly_prob_val,
+            "is_anomaly": bool(anomaly_prob_val > threshold),
+            "class_prediction": class_pred_val,
+            "severity": severity_val,
+            "top_row": top_row,
+            # Per-row verdicts for multi-row inputs; the scalars above are
+            # the batch verdict (the most anomalous row). Plain lists keep
+            # the result JSON-serialisable for the HTTP surface.
             "anomaly_probs": anomaly_probs_all.tolist(),
             "is_anomaly_rows": (anomaly_probs_all > threshold).tolist(),
             "severity_scores": severity_all.tolist(),
