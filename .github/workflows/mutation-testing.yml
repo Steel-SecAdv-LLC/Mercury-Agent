@@ -55,6 +55,7 @@ jobs:
       observatory: ${{ steps.detect.outputs.observatory }}
       trustsurface: ${{ steps.detect.outputs.trustsurface }}
       hazardevidence: ${{ steps.detect.outputs.hazardevidence }}
+      rltrainer: ${{ steps.detect.outputs.rltrainer }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -151,6 +152,14 @@ jobs:
           else
             echo "hazardevidence=false" >> "$GITHUB_OUTPUT"
             echo "hazard-evidence mutation surface unchanged."
+          fi
+          # The mutation-floored PPO trainer and its environments.
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/ml/(ppo_trainer|rl_envs)\.py|tests/ml/test_(ppo_trainer|rl_envs)\.py|tests/fixtures/rl_envs/.+|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "rltrainer=true" >> "$GITHUB_OUTPUT"
+            echo "PPO trainer mutation surface changed: PPO trainer floor lane runs."
+          else
+            echo "rltrainer=false" >> "$GITHUB_OUTPUT"
+            echo "PPO trainer mutation surface unchanged."
           fi
 
   mutation-sample:
@@ -806,4 +815,77 @@ jobs:
         with:
           name: hazard-evidence-mutation-report
           path: hazard_evidence_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-rl-trainer:
+    name: PPO trainer mutation kill-rate floor
+    needs: changes
+    # Tenth module set under the per-module kill-rate program (2026-10-21):
+    # the native PPO trainer and its batched environments. First full
+    # enumeration (691 sites): 475 killed, 68.7% -- defaults, validation
+    # edges and the update's arithmetic (normalization, clipping, the KL
+    # stop, Gaussian constants, budgets) were unpinned. Two test rounds,
+    # several through a stand-in gradient that records what the update
+    # passes, brought it to 659 of 687 killed, 95.9%. The 28 survivors are
+    # classified equivalents: numpy's reshape(-2) alias of reshape(-1) (six);
+    # exact-tie comparisons at a float clip boundary (four: value clipping
+    # twice, the clip fraction, explained variance's zero-variance branch,
+    # which yields NaN either way); initial values that reset() or
+    # init_callback() overwrite (four: CartPole's and Pendulum's state
+    # shapes, BaseCallback.num_timesteps, CheckpointCallback's period
+    # count); a different but equally valid seed (two: the unseeded draw's
+    # length, the sampling generator's offset); fused vs unfused Adam; an
+    # astype copy flag; keepdim into a contiguous out buffer; Module._apply's
+    # recurse flag (no submodules); the progress cap (progress never exceeds
+    # 1); the advantage and return-variance floors (the standard deviation is
+    # 0 only for identical advantages, giving 0 either way, and the return
+    # variance never reaches 0 from its prior of 1); the evaluation copy
+    # count of a named environment; the temporary file's missing_ok (it
+    # always exists); Box's dataclass eq flag (its own __eq__ wins);
+    # (theta +/- pi) mod 2 pi; and l**2 vs l**3 with l = 1.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rltrainer == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration, 4 workers,
+      # about 40 minutes): 659/687 killed -- 95.9% -- with the 28 survivors
+      # classified equivalents. The floor sits at 91: the equivalents cost
+      # 4.1 points, and the rest of the margin (about 30 mutants) absorbs
+      # legitimate new sites.
+      - name: PPO trainer mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/ml/ppo_trainer.py \
+              src/omni_mercury_engine/ml/rl_envs.py \
+            --test-cmd "python -m pytest tests/ml/test_ppo_trainer.py tests/ml/test_rl_envs.py -q -x" \
+            --jobs 4 \
+            --fail-under 91 \
+            --report rl_trainer_mutation_report.json
+
+      - name: Upload PPO trainer mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: rl-trainer-mutation-report
+          path: rl_trainer_mutation_report.json
           if-no-files-found: ignore

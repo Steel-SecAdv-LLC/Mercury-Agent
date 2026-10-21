@@ -67,6 +67,14 @@ seed; Mercury trains in 10.6 s on average against 28.8 s (2.7x). Pendulum-v1:
 mean evaluation return -220 against -447 (worst seed -324 against -678;
 higher on every seed, seed 1 within 1.4), in 20.4 s against 55.7 s (2.7x).
 
+**Measured — the two modules are mutation-floored (`mutation-testing.yml`:
+`mutation-floor-rl-trainer`).** First full enumeration of
+`ml/ppo_trainer.py` and `ml/rl_envs.py` (691 sites): 475 killed, 68.7%.
+Defaults, validation edges and the update's arithmetic were unpinned. Two
+test rounds, several through a stand-in gradient that records what the
+update passes and steps, bring it to 659 of 687 killed, 95.9%; the 28
+survivors are classified equivalents in the lane comment. Floor 91.
+
 ### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
 
 Mercury Agent is now licensed under the GNU Affero General Public License
