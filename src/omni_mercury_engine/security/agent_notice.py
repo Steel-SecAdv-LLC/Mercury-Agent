@@ -48,6 +48,7 @@ __all__ = [
     "NOTICE_UPDATED",
     "NOTICE_VERSION",
     "SECURITY_CONTACT_ENV",
+    "SECURITY_EMAIL",
     "SECURITY_MD_URL",
     "SECURITY_TXT_EXPIRES_DAYS",
     "NoticeSection",
@@ -77,7 +78,15 @@ SECURITY_CONTACT_ENV = "MERCURY_SECURITY_CONTACT"
 #: truthful statement that its content is current.
 SECURITY_TXT_EXPIRES_DAYS = 180
 
-_DEFAULT_CONTACT = f"{SECURITY_MD_URL}#reporting-a-vulnerability"
+#: The upstream project's security mailbox (SECURITY.md, "How to Report").
+SECURITY_EMAIL = "steel.sa.llc@mercuryagent.global"
+
+#: Upstream ``Contact`` URIs, in order of preference: the mailbox, then the
+#: reporting policy that names it.
+_DEFAULT_CONTACTS = (
+    f"mailto:{SECURITY_EMAIL}",
+    f"{SECURITY_MD_URL}#reporting-a-vulnerability",
+)
 
 
 @dataclass(frozen=True)
@@ -297,7 +306,8 @@ def configured_contacts(environ: Mapping[str, str] | None = None) -> tuple[str, 
 
     Returns:
         The valid entries of :data:`SECURITY_CONTACT_ENV`; the upstream
-        SECURITY.md contact when the variable is unset or has no valid entry.
+        security mailbox and SECURITY.md when the variable is unset or has no
+        valid entry.
         Invalid entries are dropped with a warning, never served.
     """
     env = os.environ if environ is None else environ
@@ -306,7 +316,7 @@ def configured_contacts(environ: Mapping[str, str] | None = None) -> tuple[str, 
     valid = [value for value in candidates if _valid_contact(value)]
     for rejected in sorted(set(candidates) - set(valid)):
         logger.warning("%s: ignoring invalid contact %r", SECURITY_CONTACT_ENV, rejected)
-    return tuple(valid) or (_DEFAULT_CONTACT,)
+    return tuple(valid) or _DEFAULT_CONTACTS
 
 
 def render_security_txt(now: datetime, contacts: Sequence[str]) -> str:

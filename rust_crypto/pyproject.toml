@@ -12,7 +12,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
 authors = [
-    { name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com" }
+    { name = "Steel Security Advisors LLC", email = "steel.sa.llc@mercuryagent.global" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

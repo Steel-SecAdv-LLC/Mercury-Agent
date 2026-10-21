@@ -160,7 +160,7 @@ ARG USER_GID=$USER_UID
 ARG MERCURY_VERSION=2.1.0
 
 # Security labels
-LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@gmail.com>"
+LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@mercuryagent.global>"
 LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="Civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"

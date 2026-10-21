@@ -15,6 +15,7 @@ from omni_mercury_engine.security import agent_notice
 from omni_mercury_engine.security.agent_notice import (
     AGENT_NOTICE_URL,
     SECURITY_CONTACT_ENV,
+    SECURITY_EMAIL,
     SECURITY_MD_URL,
     SECURITY_TXT_EXPIRES_DAYS,
     as_dict,
@@ -29,6 +30,7 @@ from omni_mercury_engine.security.agent_notice import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 10, 21, 3, 0, 0, tzinfo=UTC)
 DEFAULT_CONTACT = f"{SECURITY_MD_URL}#reporting-a-vulnerability"
+DEFAULT_CONTACTS = ("mailto:steel.sa.llc@mercuryagent.global", DEFAULT_CONTACT)
 
 
 def _full_text() -> str:
@@ -239,8 +241,15 @@ class TestConfiguredContacts:
     """Operator contacts are validated; invalid ones are never served."""
 
     def test_unset_uses_upstream_default(self) -> None:
-        """No override: the upstream SECURITY.md contact."""
-        assert configured_contacts({}) == (DEFAULT_CONTACT,)
+        """No override: the upstream mailbox first, then SECURITY.md."""
+        assert configured_contacts({}) == DEFAULT_CONTACTS
+
+    def test_upstream_mailbox_is_the_one_security_md_names(self) -> None:
+        """The default mailbox is SECURITY.md's reporting address, and is servable."""
+        policy = (REPO_ROOT / "SECURITY.md").read_text(encoding="utf-8")
+        assert f"Send a detailed report to {SECURITY_EMAIL}" in policy
+        mailbox = f"mailto:{SECURITY_EMAIL}"
+        assert configured_contacts({SECURITY_CONTACT_ENV: mailbox}) == (mailbox,)
 
     def test_valid_schemes_kept_in_order(self) -> None:
         """mailto, https and tel are kept, in order."""
@@ -267,7 +276,7 @@ class TestConfiguredContacts:
     )
     def test_invalid_entries_dropped(self, bad: str) -> None:
         """Each invalid form is dropped, falling back to the default when nothing is left."""
-        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == (DEFAULT_CONTACT,)
+        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == DEFAULT_CONTACTS
 
     def test_mixed_keeps_only_valid(self, caplog: pytest.LogCaptureFixture) -> None:
         """Valid entries survive; invalid ones are logged, never served."""
@@ -301,7 +310,7 @@ class TestContactValidationHardening:
     )
     def test_refused(self, bad: str) -> None:
         """Non-printable characters, @-less mailto and digit-less tel are never served."""
-        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == (DEFAULT_CONTACT,)
+        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == DEFAULT_CONTACTS
 
     @pytest.mark.parametrize(
         "good",

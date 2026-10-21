@@ -657,7 +657,7 @@ class NewEngineModel(BaseModel):
 
 - **GitHub Issues:** Bug reports, feature requests
 - **GitHub Discussions:** General questions, ideas
-- **Email:** steel.sa.llc@gmail.com
+- **Email:** steel.sa.llc@mercuryagent.global (primary) · contact@mercuryagent.global (general)
 
 ### Recognition
 

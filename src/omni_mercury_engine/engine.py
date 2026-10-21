@@ -150,9 +150,9 @@ from omni_mercury_engine.core.parallel_detectors import (
 # that exercise non-GOSNN code paths can opt out of σ_Immutable's
 # corpus / weights bootstrap when running on stripped-down CI images
 # (no torch, no signed corpus).  Setting it True turns every
-# ``detect_with_fusion`` call into a benevolence-only check; the
-# engine still runs the BenevolenceScorer hard gate, but skips the
-# σ_Immutable second gate.
+# ``detect_with_fusion`` call into a harm-uplift-only check; the
+# engine still runs the shared fail-closed harm-uplift gate, but skips
+# the σ_Immutable second gate.
 #
 # At every public call site, the ``_enable_gosnn`` parameter is private
 # (leading underscore) — public callers cannot bypass σ_Immutable.
@@ -5349,8 +5349,11 @@ class OmniMercuryEngine(LoggerMixin):
         Decision boundary:
             The method enforces TWO hard ethical gates in order:
 
-            1. ``BenevolenceScorer.enforce`` — keyword/context-driven gate
-               raised as ``EthicalConstraintViolationError(check="benevolence")``.
+            1. The shared fail-closed harm-uplift gate
+               (:mod:`omni_mercury_engine.cognitive.decision_gate`), raised as
+               ``EthicalConstraintViolationError(check="harm_uplift")``.
+               Benevolence is scored and attached as advisory metadata; it
+               decides nothing.
             2. ``SigmaImmutableGate.enforce`` — trained 256-D scalar
                network raised as
                ``EthicalConstraintViolationError(check="sigma_immutable")``.
@@ -5470,10 +5473,10 @@ class OmniMercuryEngine(LoggerMixin):
         # locked May-2026 audit decisions forbid.
         #
         # σ_Immutable is now trained (scripts/train_sigma_immutable.py)
-        # and serves as a second independent gate alongside the
-        # BenevolenceScorer.  The primary, per-call, content-driven ethical
-        # contract is BenevolenceScorer.enforce (keyword- and context-driven,
-        # deterministic) — enforced here, before the GOSNN block.
+        # and serves as a second independent gate.  The primary, per-call,
+        # content-driven ethical contract is the shared fail-closed
+        # harm-uplift gate (cognitive.decision_gate), applied by this
+        # method's GATED_BOUNDARY contract before the body runs.
         #
         # σ_Immutable is NOT a per-input-data classifier: it evaluates the
         # 127 operational governance scalars (padded to the network's 256-d
@@ -5491,7 +5494,7 @@ class OmniMercuryEngine(LoggerMixin):
         # (enforce_ethical_floor); the learned score over the full vector is
         # advisory (and, since the harvested retrain, agrees with the floor on
         # anchor collapse instead of falsely assuring it).  Per-call ethical
-        # sensitivity lives in BenevolenceScorer, not here.
+        # sensitivity lives in the harm-uplift gate, not here.
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 

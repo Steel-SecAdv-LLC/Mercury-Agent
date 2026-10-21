@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-16%2C717%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-18%2C538%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -42,11 +42,11 @@
 
 **Copyright 2025 Steel Security Advisors LLC**\
 **Author/Inventor:** Andrew E. A.\
-**Contact:** steel.sa.llc@gmail.com\
+**Contact:** steel.sa.llc@mercuryagent.global (primary) · contact@mercuryagent.global (general)\
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
 **Version:** v2.1.0\
-**Date:** 2026-10-17
+**Date:** 2026-10-21
 
 ---
 
@@ -69,12 +69,11 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 >
 > **This project is licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)**
 >
-> Everyone is permitted to copy and distribute verbatim copies of this license document, but **changing it is not allowed**.
-> Any derivative work, fork, or modification **must also be released under GPL v3** — no proprietary versions allowed, ever.
-> This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
+> Anyone may use, study, modify and share Mercury. Whoever **distributes** Mercury, or a work based on it, must do so under the same license with the complete corresponding source — so no distributed proprietary version can exist, and every copy that is passed on stays free.
+> The GPL's obligations attach to distribution: private modifications that are never distributed carry none, and offering Mercury as a network service is not distribution under the GPL.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-10-17
+> **Last Updated:** 2026-10-21
 >
 
 ---
@@ -209,7 +208,7 @@ opt-in — see `cognitive/__init__.py`).
 <details>
 <summary><strong>Detailed benchmarks and methodology</strong></summary>
 
-Snapshot of the committed `mercury_benchmark_results.json` run (2026-06-21). The
+Snapshot of the committed `mercury_benchmark_results.json` run (2026-10-14). The
 [*Latest Benchmark Results*](#latest-benchmark-results) block at the top of this
 README is the CI-refreshed current headline; the tables here are the detailed
 breakdown. All numbers are measured on real data — no synthetic substitution, no
@@ -646,7 +645,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 89 detector classes across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 16,717 tests collected (2026-10-17, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
+| Comprehensive Testing | 18,538 tests collected (2026-10-21) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning, and full-enumeration mutation testing with kill-rate floors enforced in CI on eight module sets |
 | Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
@@ -663,7 +662,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; enabled by default on the served entrypoints (API `/detect/flagship`, MCP, CLI fusion), opt-in on the core engine via `enable_decision_layer()` |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
-| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
+| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's native HMAC (its ACVP-Server known-answer vectors pass bit-for-bit), fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
 | Real-Data Validation | **Partial** | NSL-KDD benchmarked (AUC 0.975, table above); medical modules still require MIMIC-III clinical validation |
@@ -767,12 +766,12 @@ not at import.
 <details>
 <summary><strong>Memory Footprint</strong></summary>
 
-| Component | Memory |
-|-----------|--------|
-| Harmonic Encoder | ~10 MB |
-| Fusion Network | ~50 MB |
-| DeepFace (VGG-Face) | ~200 MB |
-| Full Runtime | ~500 MB |
+| Component | Memory | Basis |
+|-----------|--------|-------|
+| Engine import + construction (shipped checkpoint) | **611 MB** peak RSS | Measured 2026-10-21, Python 3.13, x86-64 (`resource.getrusage` after `OmniMercuryEngine(mode="fusion")`) |
+| Harmonic Encoder | ~10 MB | Estimate, not yet measured |
+| Fusion Network | ~50 MB | Estimate, not yet measured |
+| DeepFace (VGG-Face) | ~200 MB | Estimate, not yet measured (optional dependency) |
 
 </details>
 
@@ -958,17 +957,37 @@ pip install deepface
 
 ### Simple Example
 
+Self-contained and runnable as written (after the installation above):
+
 ```python
+import numpy as np
 from omni_mercury_engine import OmniMercuryEngine
 
-# Initialize engine
-engine = OmniMercuryEngine(mode="fusion", device="cuda")
+rng = np.random.default_rng(42)
+X_train = rng.normal(size=(500, 8))          # historical rows ...
+y_train = (rng.random(500) < 0.05).astype(int)
+X_train[y_train == 1] += 4.0                 # ... with labels (1 = anomaly)
+X_new = rng.normal(size=(20, 8))
+X_new[3] += 6.0                              # one obvious anomaly
 
-# Detect anomalies
-result = engine.detect_with_fusion(data)
-print(f"Anomaly Score: {result['anomaly_score']:.3f}")
-print(f"Is Anomaly: {result['is_anomaly']}")
+engine = OmniMercuryEngine(mode="fusion")
+engine.fit_fusion(X_train, y_train)          # labels optional: fit_fusion(X_train) fits without them
+
+result = engine.detect_with_fusion(X_new)    # one score per row
+print("Flagged rows:", np.flatnonzero(result["is_anomaly_rows"]).tolist())
+print("Row 3 anomaly probability:", round(float(np.ravel(result["anomaly_probs"])[3]), 3))
 ```
+
+```text
+Flagged rows: [3]
+Row 3 anomaly probability: 1.0
+```
+
+Fit before detecting: the engine refuses to auto-fit on the inference batch.
+Read per-row results from `anomaly_probs` / `is_anomaly_rows`; the scalar
+`anomaly_prob` / `is_anomaly` keys describe the first row only. Each served
+result also carries a `decision` record (the calibrated decision or
+abstention, with its reasons).
 
 ### Extending the engine with additional detectors
 
@@ -1118,30 +1137,18 @@ docker run -it \
 
 ### Usage Mode 3: Inference Mode (Batch Processing)
 
-Run batch inference on data files:
+Run batch inference on data files with the CLI (CSV with or without a header
+row, `.json` or `.npy`):
 
 ```bash
-# Run anomaly detection on a data file
-docker run -it \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/output:/app/output \
-  mercury-agent:latest \
-  python -c "
-from omni_mercury_engine import OmniMercuryEngine
-import numpy as np
-
-engine = OmniMercuryEngine(mode='fusion')
-data = np.load('/app/data/input.npy')
-result = engine.detect_with_fusion(data)
-print(f'Anomaly Score: {result[\"anomaly_score\"]:.3f}')
-"
-
-# Use CLI for detection
 docker run -it \
   -v $(pwd)/data:/app/data \
   mercury-agent:latest \
   mercury-agent detect --input /app/data/input.csv --detector fusion
 ```
+
+From Python, fit before detecting, as in the [Simple Example](#quick-start):
+the engine refuses to auto-fit on the inference batch.
 
 ### Usage Mode 4: Interactive Development
 
@@ -1486,15 +1493,20 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **16,717 tests collected** (2026-10-17, with the
-  optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` / `h5py` /
-  `plotly` dependencies installed) across
+- **18,538 tests collected** (2026-10-21, with the optional `torch` /
+  `scikit-learn` / `hypothesis` / `fastapi` / `h5py` dependencies
+  installed; `plotly` was absent, so one dashboard module skipped at
+  collection) across
   the test modules counted in the CI-gated
   [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
   module count is measured from disk, never hand-typed). A minimal install
   collects fewer tests because modules gated behind those optional imports
   skip at collection time.
 - **Property-based testing** with Hypothesis for edge case discovery
+- **Mutation testing**: eight module sets are mutation-tested by full
+  enumeration (`scripts/run_sigma_mutation_gate.py`), with kill-rate floors
+  enforced in CI (`.github/workflows/mutation-testing.yml`) — a suite that
+  stops catching injected defects fails the build
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: the merge gate enforces measured floors
   (CORE ≥ 33 %, FULL ≥ 62 %) on every PR; `pyproject.toml
@@ -1533,11 +1545,13 @@ The test suite includes:
 The legacy heuristic ethics tests use keyword-presence scoring against
 stringified action parameters — for example, the compassion check awards
 a base 0.55 plus a +0.1 boost when `create_backup` appears in the
-serialised params.  The dual hard ethical gate contract (Benevolence
-+ σ_Immutable, raising `EthicalConstraintViolationError(check=…)` at
-every public detect / analyze / predict surface) is the production
-decision-boundary and is exercised by
-`tests/ethical/test_hard_enforcement.py`; the keyword tests are
+serialised params.  The production decision boundary is two hard
+gates — the fail-closed harm-uplift gate (`check="harm_uplift"`), then
+σ_Immutable (`check="sigma_immutable"`; `check="gosnn_unavailable"`
+when GOSNN cannot run) — at every gated detect surface, exercised by
+`tests/ethical/test_hard_enforcement.py` and
+`tests/pillars/test_non_maleficence.py`.  Benevolence is computed and
+logged as an advisory score, deciding nothing; the keyword tests are
 retained for backward compatibility with the v1.x heuristic surface
 and should not be read as the operative ethics contract.
 
@@ -1573,7 +1587,8 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `network-tests.yml` | External Source Probe | nightly | Diagnostic probe of upstream data providers |
 | `docker.yml` | Docker Release | tag-driven | Push runtime image with provenance attestation |
 | `format.yml` | Formatting check | yes | Drift guard for `black` / `ruff format` output |
-| `release.yml` | Tagged Release | tag-driven | sdist + wheel + signed artifacts |
+| `mutation-testing.yml` | Mutation Kill-Rate Floors | path-filtered | Full-enumeration mutation testing of eight module sets (σ hot path, hazard adapters, distillation, humanitarian, crisis monitor, geological, observatory, trust surface), plus a cheap sample on every PR |
+| `release.yml` | Tagged Release | tag-driven | sdist + wheel + SBOM + provenance |
 | `gate-watchdog.yml` | Gate Watchdog | scheduled | Detects required-gate runs that hang or get cancelled without superseding pushes; files an alert issue and auto-closes it once the gates run clean |
 
 The table above is the curated gate surface; the repository's full workflow
@@ -1596,7 +1611,7 @@ lanes) is measured in the CI-gated
 | Layer | Protection |
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
-| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v5.0.0's ACVP-validated native HMAC, fail-closed |
+| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v5.0.0's native HMAC (ACVP-Server known-answer vectors pass bit-for-bit), fail-closed |
 | Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v5.0.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
 | Classical Cryptography | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via Rust + PyO3 (`rust_crypto/`); constant-time comparisons |
 | Rate Limiting | Token bucket algorithm with configurable limits (100 req/min, 20 burst by default) |
@@ -1954,7 +1969,7 @@ result = global_detector.detect(new_data)
 <details>
 <summary><strong>Ethical AI Governance</strong> - Mathematically-Bound Fairness Constraints</summary>
 
-Mercury Agent pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent embeds ethical considerations into the detection foundation itself.
+Mercury Agent integrates ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent embeds ethical considerations into the detection foundation itself.
 
 **Fairlearn Integration** provides bias detection across all predictions:
 
@@ -2035,7 +2050,7 @@ Mercury Agent employs a comprehensive security architecture designed for product
 <details>
 <summary><strong>Multi-Domain Detection</strong> - 30 Specialized Engines</summary>
 
-Mercury Agent transcends single-domain limitations by providing specialized detection engines across multiple domains:
+Mercury Agent provides specialized detection engines across multiple domains:
 
 | Domain | Engines | Capabilities |
 |--------|---------|--------------|
@@ -2072,7 +2087,7 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub. It regis
 - **ADVANCED_REASONING (~16)**: Logic, inference, knowledge synthesis (all operational)
 
 **Key Features:**
-- **Hard Ethical Gate (Wave B, PR #179)**: σ_Immutable is the **second mandatory hard gate** at every public detect / analyze / predict surface, running after the Benevolence gate. A score below threshold raises `EthicalConstraintViolationError(check="sigma_immutable")`; if GOSNN itself cannot run, the boundary raises `EthicalConstraintViolationError(check="gosnn_unavailable")`. There is no advisory mode and no public flag that disables either gate (test-only bypass requires the auditable module-level `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS` flag).
+- **Hard Ethical Gate (Wave B, PR #179)**: σ_Immutable is the **second mandatory hard gate** at every public detect / analyze / predict surface, running after the fail-closed harm-uplift gate. A score below threshold raises `EthicalConstraintViolationError(check="sigma_immutable")`; if GOSNN itself cannot run, the boundary raises `EthicalConstraintViolationError(check="gosnn_unavailable")`. There is no advisory mode and no public flag that disables either gate (test-only bypass requires the auditable module-level `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS` flag).
 - **32-Head Triadic φ-Weighting**: Multi-head attention with golden ratio optimization
 - **Harmonic Synergy**: Bidirectional synapse connections to 3R mechanism
 - **Single source of truth for σ layout**: `SIGMA_IMMUTABLE_DIM=256`, `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180` exported from `omni_mercury_engine.security.sigma_immutable_gate`.
@@ -2450,7 +2465,7 @@ the Free Software Foundation, either version 3 of the License, or
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
 - **FastAPI**: MIT license
-- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v5.0.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
+- **AMA Cryptography**: Apache License 2.0 (pinned to `v5.0.0`; the sole PQC backend, and the source of the native HMAC bindings — ACVP-Server known-answer vectors pass bit-for-bit — consumed by `omni_mercury_engine.security.native_jwt`). Apache-2.0 is compatible with GPL-3.0, so Mercury can depend on it
 
 PyJWT was retired from the dependency surface in v1.7.0; Mercury now
 ships a pure-stdlib JOSE implementation
@@ -2472,8 +2487,8 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 | Type | Contact |
 |------|---------|
-| General Inquiries | steel.sa.llc@gmail.com |
-| Hosted Service (mercuryagent.global) | contact@mercuryagent.global |
+| Primary | steel.sa.llc@mercuryagent.global |
+| General inquiries and the hosted service (mercuryagent.global) | contact@mercuryagent.global |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
 | GitHub Repository | [Mercury Agent](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
@@ -2548,19 +2563,19 @@ The human architect does not hold formal credentials in machine learning or medi
 
 ### What We Did Right
 
-- **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
-- **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** 16,717 tests collected with the full optional-dependency surface (2026-10-17) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
-- **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
-- **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
-- **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
-- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v5.0.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
+- **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8613) bit for bit. Figures that are still estimates are labelled as estimates.
+- **Tests that are themselves tested:** 18,538 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and eight module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
+- **Fail closed, never fabricate:** detectors refuse unmeasurable input rather than grade it safe; a missing oracle reports *unavailable* under the three-state contract instead of guessing; benchmarks skip an unreachable dataset rather than substitute synthetic data.
+- **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.
+- **Executable mathematical certificates:** the Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job — a documentation claim that disagrees with the certificate fails CI rather than going to print.
+- **Honest about its own claims:** the AMA Cryptography statement separates passing published test vectors from certification, and `scripts/doc_lint.py` fails CI on the certification phrases Mercury has not earned; open mathematical problems are described as open, and announced-but-unverified results are carried as dated claims.
+- **Standards-based design:** OWASP input validation, NIST post-quantum standards (FIPS 203/204/205, via AMA Cryptography v5.0.0), Fairlearn fairness metrics, RFC 9116 `security.txt`, and Sepsis-3 (JAMA 2016) for the medical modules.
 
 ### What Requires Caution
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **67 reproducible real datasets** (of 76 attempted; canonical Mean ROC-AUC **0.8545** / Median **0.9052** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8515**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on 67 of 76 attempted real datasets (figures in [Latest Benchmark Results](#latest-benchmark-results); the externally comparable figure is ADBench Mean AUC **0.8515**). The 9 unreachable sources are tracked by a two-lane reachability harness (offline + nightly network). Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 
@@ -2571,7 +2586,7 @@ Before production use:
 - Validate performance on domain-specific real-world datasets (e.g. MIMIC-III for the medical modules; NSL-KDD is already in the committed benchmarks)
 - Commission independent security audit by qualified professionals
 - Conduct clinical validation for any medical applications
-- Deploy with FIPS 140-2 Level 3+ HSM for production secrets
+- Deploy with a FIPS 140-3 Level 3+ validated HSM for production secrets (FIPS 140-2 certificates were scheduled to move to the CMVP Historical list on 21 September 2026)
 - Test bias detection on representative data for your use case
 
 ### No Warranty
@@ -2584,12 +2599,12 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v2.1.0 — Computational Systems Intelligence for Multi-Domain Anomaly & Hazard Detection**
+**Mercury Agent — Computational Systems Intelligence for Multi-Domain Anomaly & Hazard Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
 <img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
-*Last updated: 2026-10-17*
+*Last updated: 2026-10-21*
 
 </div>

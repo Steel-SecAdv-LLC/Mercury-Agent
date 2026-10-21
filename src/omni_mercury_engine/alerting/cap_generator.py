@@ -222,7 +222,7 @@ class CAPAlertGenerator:
 
     def __init__(
         self,
-        sender: str = "mercury-agent@steelsecurityadvisors.com",
+        sender: str = "steel.sa.llc@mercuryagent.global",
         sender_name: str = "Mercury-Agent Anomaly Detection System",
         status: CAPStatus = CAPStatus.SYSTEM,
         scope: CAPScope = CAPScope.PUBLIC,

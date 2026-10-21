@@ -27,6 +27,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Official contact addresses; README corrected against the code (branch `steel/version-cov5`)
+
+**Changed — official email.** Every project contact now uses the
+`mercuryagent.global` domain: `steel.sa.llc@mercuryagent.global` (primary —
+security reports, conduct enforcement, package metadata, the OpenAPI contact,
+HTTP `User-Agent` strings, ACME and Alertmanager) and
+`contact@mercuryagent.global` (general enquiries). The CAP alert `sender`
+default moves to the primary address, and `/.well-known/security.txt` now
+lists `mailto:steel.sa.llc@mercuryagent.global` ahead of the SECURITY.md link
+when `MERCURY_SECURITY_CONTACT` is unset (a test pins that mailbox to the one
+SECURITY.md names). The User-Agent recorded in
+`tests/fixtures/meteorological/PROVENANCE.json` is left as captured: it is a
+historical record of the request that produced the fixture.
+
+**Fixed — AMA Cryptography's license.** The README said AMA Cryptography is
+GNU GPL v3.0; it is Apache License 2.0 (one-way compatible with Mercury's
+GPL-3.0-or-later). The GPL paragraph now states the obligation accurately: it
+attaches on distribution; private modification and network use are not
+distribution.
+
+**Fixed — README claims the code did not support.**
+- The *Simple Example* raised `RuntimeError: Detector 'statistical' is not
+  fitted` and read a key the result does not have. It is replaced by an example
+  run as written (`Flagged rows: [3]`), with a note that the scalar
+  `anomaly_prob` / `is_anomaly` describe the first row only.
+- *Memory Footprint* listed figures that were never measured; it now leads with
+  a measured 611 MB peak RSS (Python 3.13, CPU) and labels the rest estimates.
+- Docker *Mode 3* contained a Python snippet that could not run; it is now the
+  CLI invocation.
+- Test count 18,538 (collected); mutation floors across eight module sets.
+- "ACVP-validated" HMAC → native HMAC whose ACVP-Server known-answer vectors
+  pass bit-for-bit (no CAVP certificate is claimed).
+- *Ethics Scoring* now describes the enforcing gates (`harm_uplift`,
+  `sigma_immutable`) and benevolence as advisory, citing the tests that pin it.
+- CI table: `release.yml` attaches sdist, wheel, SBOM and provenance (no
+  signing is claimed); `mutation-testing.yml` added.
+- FIPS guidance points to FIPS 140-3 validated HSMs (140-2 certificates were
+  scheduled to move to the CMVP Historical list on 21 September 2026).
+- *What We Did Right* rewritten around what the repository demonstrates.
+
+The `detect_with_fusion` docstring and two engine comments still named
+`BenevolenceScorer.enforce` (`check="benevolence"`) as the first hard gate;
+they now name the shared harm-uplift gate it was replaced by.
+
 ### Trust surface red-team: four ways around the decoys, closed (branch `steel/version-cov5`)
 
 An adversarial pass against the decoy layer found four ways around it; three

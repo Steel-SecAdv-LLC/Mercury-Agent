@@ -14,10 +14,10 @@ readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.11"
 authors = [
-    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com"}
+    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@mercuryagent.global"}
 ]
 maintainers = [
-    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com"}
+    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@mercuryagent.global"}
 ]
 keywords = [
     "anomaly-detection",

@@ -23,7 +23,7 @@ We appreciate the security community's efforts in helping keep Mercury Agent sec
 
 ### How to Report
 
-1. **Email**: Send a detailed report to steel.sa.llc@gmail.com
+1. **Email**: Send a detailed report to steel.sa.llc@mercuryagent.global
 2. **Subject Line**: Use the format `[SECURITY] Mercury Agent: Brief Description`
 3. **PGP Encryption**: For sensitive reports, request our PGP public key
 
@@ -505,8 +505,8 @@ deployment configuration must be loud.
 
 ## Contact
 
-- **Security Team**: steel.sa.llc@gmail.com
-- **General Support**: steel.sa.llc@gmail.com
+- **Security Team**: steel.sa.llc@mercuryagent.global
+- **General Support**: contact@mercuryagent.global
 - **GitHub Issues**: For non-sensitive security discussions
 
 ## Acknowledgments
