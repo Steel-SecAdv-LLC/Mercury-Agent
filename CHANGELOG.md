@@ -34,6 +34,39 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### `ml.ppo_trainer` rebuilt natively: PPO with no reinforcement-learning dependency (branch `steel/version-cov5`)
+
+**Rebuilt — `ml.ppo_trainer` under its 2.0.0 names (`ml/ppo_trainer.py`,
+`ml/rl_envs.py`).** The 2.0.0 module wrapped stable-baselines3, which no
+install profile provided, and fabricated results when forced to run
+(DEPRECATION.md §6.6). PPO is now implemented in PyTorch: PPO-Clip with GAE,
+separate policy and value networks with orthogonal initialization,
+per-minibatch advantage normalization, gradient-norm clipping, optional
+value clipping, linear learning-rate and clip-range annealing,
+approximate-KL early stopping, value bootstrapping through time-limit
+truncations, observation and reward normalization, and gSDE for continuous
+actions. Both networks run as batched matrix products over one flat
+parameter vector, and the loss gradient is computed by hand, about twice as
+fast as autograd on the same network; it equals autograd in all 60 tested
+configurations (worst relative error 2.6e-7). `ml.rl_envs` supplies batched
+`CartPole-v1` and `Pendulum-v1` that replay a recorded Gymnasium trajectory
+bit for bit (4,000 steps across 135 episodes; `tests/fixtures/rl_envs/`), plus an
+adapter for any Gymnasium-API environment. Every 2.0.0 entry point exists
+and works; the changes from 2.0.0 are listed in §6.6. Checkpoints hold only
+tensors and primitives and load through `safe_torch_load`, so loading one
+cannot run code (stable-baselines3's `.zip` format unpickles with
+`cloudpickle.loads`). Training is reproducible from `PPOConfig.seed` and
+leaves the process-wide random state untouched.
+
+**Measured — against stable-baselines3 2.9.0 on identical settings
+(`benchmarks/ppo_benchmark.py`, `benchmarks/ppo_results.json`).** The
+rl-baselines3-zoo PPO hyperparameters, 100,000 steps, one CPU thread, seeds
+0-4 alternating between the two implementations, 20 deterministic
+evaluation episodes per run. CartPole-v1: both reach the 500 cap on every
+seed; Mercury trains in 10.6 s on average against 28.8 s (2.7x). Pendulum-v1:
+mean evaluation return -220 against -447 (worst seed -324 against -678;
+higher on every seed, seed 1 within 1.4), in 20.4 s against 55.7 s (2.7x).
+
 ### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
 
 Mercury Agent is now licensed under the GNU Affero General Public License

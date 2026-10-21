@@ -7,26 +7,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,995
-- **Capability-bearing classes:** 1,986 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,012
+- **Capability-bearing classes:** 2,001 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
-- **Refined via base-class analysis:** 90 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,173 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,184 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1173 |
-| Support types (config / result / enum / error) | 1009 |
+| Other capability classes | 1184 |
+| Support types (config / result / enum / error) | 1011 |
 | Detection | 176 |
-| Neural models & layers | 161 |
+| Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
 | Adapters & backends | 70 |
-| Training & optimization | 63 |
+| Training & optimization | 65 |
 | Analysis & scoring | 59 |
-| Monitoring | 25 |
+| Monitoring | 26 |
 | Prediction & forecasting | 21 |
 | Ethics & governance | 14 |
 | Solvers & scorers | 11 |
@@ -1948,7 +1948,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `ml/` — 312 classes (247 capability)
+### `ml/` — 329 classes (262 capability)
 
 **Adapters & backends**
 
@@ -2001,8 +2001,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `ThalamocorticalGate` (`ml.cortical_network`) — Thalamocortical gating mechanism for attention.
 
+**Monitoring**
+
+- `ConvergenceMonitor` (`ml.ppo_trainer`) — Stop training once episodic return plateaus.
+
 **Neural models & layers**
 
+- `ActorCritic` (`ml.ppo_trainer`) — Separate policy and value MLPs over a flat observation vector.
 - `AffectiveEncoder` (`ml.encoders`) — BiLSTM encoder for emotional sequences (handles both sequential and pre-extracted).
 - `AstrophysicalEncoder` (`ml.encoders`) — Encodes astrophysical features (gravitational fields, event horizons).
 - `BiometricEncoder` (`ml.encoders`) — Encoder for biometric features (handles both images and pre-extracted embeddings).
@@ -2065,6 +2070,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AnomalyMetaLearner` (`ml.__init__`) — Lazy-loaded AnomalyMetaLearner wrapper.
 - `AnomalyMetaLearner` (`ml.meta_learning`) — Meta-learner specialized for anomaly detection.
 - `AuxiliaryMaxVariance` (`ml.optimizers`) — Auxiliary Maximum-Variance (AMAV) for multi-task learning.
+- `BaseCallback` (`ml.ppo_trainer`) — Hook into :meth:`PPOTrainer.learn`.
 - `BaseExplainer` (`ml.explainability`) — Base class for explainability methods.
 - `BaseFewShotLearner` (`ml.few_shot_learning`) — Base class for few-shot learning methods.
 - `BaseSampler` (`ml.active_learning`) — Base class for active learning samplers.
@@ -2072,9 +2078,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BatchInference` (`ml.inference`) — Batch inference processor for large datasets.
 - `BiasmitigationProcessor` (`ml.fairness`) — Post-processing bias mitigation.
 - `BlockCachedRangeReader` (`ml.hazard_training.seismic_wave`) — Read-only seekable file over a ``fetch_range(start, end)`` callable.
+- `Box` (`ml.rl_envs`) — A box in R^d (bounds may be infinite).
+- `CartPoleVecEnv` (`ml.rl_envs`) — Gymnasium ``CartPole-v1``, batched: balance a pole on a moving cart.
 - `Catalog` (`ml.hazard_training.earthquake_precursor`) — Parsed earthquake catalog, time-sorted (days since 1980-01-01 UTC).
 - `CatalogIndex` (`ml.hazard_training.earthquake_precursor`) — Per-cell and per-neighborhood views of a catalog for fast windowing.
 - `ChannelStats` (`ml.rule_evolution`) — Per-channel training statistics anchoring predicate generation.
+- `CheckpointCallback` (`ml.ppo_trainer`) — Save periodic and best checkpoints during training.
 - `ConceptDriftEvaluator` (`ml.__init__`) — Lazy-loaded ConceptDriftEvaluator wrapper.
 - `ConceptDriftEvaluator` (`ml.concept_drift_evaluation`) — Comprehensive concept drift evaluation framework.
 - `CounterfactualExplainer` (`ml.explainability`) — Generates counterfactual explanations.
@@ -2091,6 +2100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DetectorEntry` (`ml.ensemble_coordinator`) — Entry for a detector in the ensemble.
 - `DetectorMetrics` (`ml.ensemble_coordinator`) — Performance metrics for a detector.
 - `DifferenceTargetPropagation` (`ml.optimizers`) — Difference Target Propagation (DTP) for biologically plausible learning.
+- `Discrete` (`ml.rl_envs`) — A finite action space ``{0, ..., n - 1}``.
 - `DiversitySampler` (`ml.active_learning`) — Diversity-based sampling.
 - `EarlyStopping` (`ml.training`) — Early stopping callback to prevent overfitting.
 - `EarthquakeDataset` (`ml.hazard_training.earthquake_precursor`) — Feature/label matrices plus sampling weights and diagnostics targets.
@@ -2145,6 +2155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ParetoFront` (`ml.multi_objective`) — The non-dominated set returned by :meth:`NSGA2Optimizer.optimize`.
 - `ParetoSolution` (`ml.multi_objective`) — One evaluated individual.
 - `PassiveAggressiveOnlineLearner` (`ml.online_learning`) — Passive-Aggressive online learner.
+- `PendulumVecEnv` (`ml.rl_envs`) — Gymnasium ``Pendulum-v1``, batched: swing a pendulum up and hold it.
 - `PipelineContext` (`ml.hazard_training.common`) — Runtime options threaded through every pipeline stage.
 - `PlannedDay` (`ml.hazard_training.volcanic_eruption`) — One planned (volcano, day) sample with its chosen station-channel.
 - `Prototype` (`ml.meta_learning`) — A class prototype for prototypical networks.
@@ -2162,6 +2173,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RuleFitnessEvaluator` (`ml.rule_evolution`) — Fitness = mean held-out validation F1 through the deployed scoring path.
 - `RuleGenome` (`ml.rule_evolution`) — An individual of the search: a canonicalised set of evolved rules.
 - `RuleGraph` (`ml.symbolic_constraint`) — An ordered, named collection of :class:`Rule` objects.
+- `RunningMeanStd` (`ml.ppo_trainer`) — Running mean and variance, merged batch by batch (Chan et al., 1979).
 - `SGDOnlineLearner` (`ml.online_learning`) — Stochastic Gradient Descent based online learner.
 - `SHAPExplainer` (`ml.explainability`) — SHAP-based explainability for anomaly detection.
 - `SVC` (`ml.mercury_ml`) — SVC using kernel-based scoring.
@@ -2178,6 +2190,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `StratifiedKFold` (`ml.mercury_ml`) — Stratified K-Fold cross-validator preserving class proportions.
 - `StratifiedShuffleSplit` (`ml.mercury_ml`) — Stratified shuffle-split cross-validator.
 - `StreamingSample` (`ml.online_learning`) — A single sample from the data stream.
+- `SyncVectorEnv` (`ml.rl_envs`) — Step a list of single Gymnasium-API environments as one vector environment.
 - `SyntheticGradientModule` (`ml.optimizers`) — Module wrapper for synthetic gradient training with bootstrap and blending.
 - `Task` (`ml.meta_learning`) — A meta-learning task (episode).
 - `TemporalSplit` (`ml.concept_drift_evaluation`) — A single temporal train/test split.
@@ -2185,6 +2198,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TemporalSplitter` (`ml.concept_drift_evaluation`) — Generates temporal train/test splits preserving time ordering.
 - `ThresholdAtom` (`ml.symbolic_constraint`) — One soft threshold test over a named score channel.
 - `TornadoRadarDataset` (`ml.hazard_training.tornado_radar`) — Sector windows with labels and physics observables for training.
+- `TrainingStats` (`ml.ppo_trainer`) — Cumulative statistics of a trainer.
 - `TsunamiDataset` (`ml.hazard_training.tsunami_waveform`) — Windowed DART dataset with labels and split metadata.
 - `UncertaintySampler` (`ml.active_learning`) — Uncertainty-based sampling strategies.
 - `VAEPatternLearner` (`ml.vae_pattern_learner`) — Wrapper for VAE-based unsupervised pattern learning.
@@ -2195,11 +2209,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `VotingEnsemble` (`ml.ensemble`) — Simple voting ensemble for detector outputs.
 - `WildfireDataset` (`ml.hazard_training.wildfire_ignition`) — Sampled patches with labels, per-sample year/month/kind, and counts.
 - `ZipMember` (`ml.hazard_training.schumann_harmonics`) — One central-directory entry of a (possibly remote) ZIP archive.
+- `_BatchedEnv` (`ml.rl_envs`) — Shared bookkeeping for the batched environments: seeding and time limits.
 - `_CellArrays` (`ml.hazard_training.earthquake_precursor`) — Time-sorted event arrays for one cell or one 3x3 neighborhood.
 - `_DecisionStump` (`ml.mercury_ml`) — Simple decision tree (stump or shallow) for gradient boosting / RF.
 - `_DownloadBudget` (`ml.hazard_training.tornado_radar`) — Loud accounting against the volume-download byte cap.
 - `_HttpRangeFetcher` (`ml.hazard_training.seismic_wave`) — Thread-safe HTTP Range transport with mirror failover + byte counting.
 - `_RangeFetcher` (`ml.hazard_training.schumann_harmonics`) — Thread-safe HTTP range fetcher with a hard total-byte budget.
+- `_Rollout` (`ml.ppo_trainer`) — One rollout: ``[T, N, ...]`` arrays plus the values after its last step.
 - `_Sample` (`ml.hazard_training.landslide_stability`) — One (cell, date) candidate before feature extraction.
 - `_SynopticPoints` (`ml.hazard_training.hurricane_wind`) — IBTrACS main-track synoptic points, parsed into flat arrays.
 
@@ -2222,14 +2238,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MercuryHarmonicOptimizer` (`ml.training`) — Mercury optimizer with harmonic oscillator variant.
 - `MercuryMomentumOptimizer` (`ml.training`) — Mercury optimizer with momentum variant.
 - `MercuryOptimizer` (`ml.training`) — Base Mercury optimizer with state evolution dynamics.
+- `MultiEnvPPOTrainer` (`ml.ppo_trainer`) — One policy trained across several environments at once.
 - `NSGA2Optimizer` (`ml.multi_objective`) — Elitist non-dominated sorting genetic algorithm (NSGA-II).
+- `PPOTrainer` (`ml.ppo_trainer`) — Train a policy with PPO.
 - `ThreeRAnomalyTrainer` (`ml.training`) — PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (65)</summary>
+<details><summary>Support types (67)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `_CachedCallable`, `_UncacheableArgumentError`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
 
 </details>
 

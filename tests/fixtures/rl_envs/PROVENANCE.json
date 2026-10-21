@@ -1,0 +1,11 @@
+{
+  "description": "Trajectories recorded from Gymnasium's own CartPole-v1 and Pendulum-v1 (gymnasium 1.4.0, numpy 2.5.4), driven by seeded random actions across many episode boundaries. Nothing is synthetic: every observation, reward and termination/truncation flag is what Gymnasium returned.",
+  "source": "Gymnasium (Farama Foundation), https://github.com/Farama-Foundation/Gymnasium, MIT License. Recorded with scripts/record_gymnasium_trajectories.py.",
+  "notes": "Used by tests/ml/test_rl_envs.py, which replays each recording through omni_mercury_engine.ml.rl_envs and requires bit-identical results. Each environment is reset once with the stored seed and then unseeded after each episode, as an autoresetting vector environment does; actions come from numpy.random.default_rng(0).",
+  "fixtures": {
+    "gymnasium_trajectories.npz": {
+      "recorded_utc": "2026-10-21",
+      "content": "Per environment (keys '<env id>/...'): seed, actions, observations (the observation each step returned, before any reset), rewards (float64), terminated, truncated, resets (the first observation of every episode, in order). CartPole-v1: 3000 steps, 129 episodes started. Pendulum-v1: 1000 steps, 6 episodes started (5 truncations at 200 steps). 'meta' holds the recording versions as JSON."
+    }
+  }
+}

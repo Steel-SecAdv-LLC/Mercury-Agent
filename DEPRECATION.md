@@ -52,7 +52,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |
 | `strict_ethics=False` engine flag | _no replacement_ | **Removed in v1.7** - dual hard gates are non-negotiable (see §6) |
 | `result["gosnn_metadata"]["fallback_mode"] is True` path | `EthicalConstraintViolationError(check="gosnn_unavailable")` | **Removed in v1.7** - σ_Immutable second hard gate (see §6) |
-| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v3.0** - correctness exception (see §6) |
+| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | The same names, rebuilt natively in PyTorch (no stable-baselines3) | **Rebuilt in v3.0** - same entry points; changed behaviour listed in §6.6 |
 | Geological `SolarFlareDetector` duplicate + `GeomagneticHMM` | Canonical `space.solar_storm_detector.SolarFlareDetector` (re-exported from `detectors.geological`) | **Removed in v3.0** - correctness exception (see §6.7) |
 | `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v3.0** - correctness exception (see §6.8) |
 | `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v3.0** - correctness exception (see §6.9) |
@@ -370,7 +370,8 @@ that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal). §6.6–6.15
 ship in v3.0, the first release after 2.0.0 (2.1.0 was prepared but never
 released): §6.6–6.10 were removed across the improvement and live-wiring
-passes and §6.11 with the AMA Cryptography v5 migration. §6.12 records a
+passes (§6.6 since rebuilt under its released names) and §6.11 with the AMA
+Cryptography v5 migration. §6.12 records a
 value change, not a removal: the surfaces stay, their fabricated values do
 not. §6.13-6.15 record three modules removed on `steel/version-cov3` and
 rebuilt from scratch on `steel/version-cov4` under their released module
@@ -448,31 +449,56 @@ threat detection, audit logging) and governance frameworks live in
 sites at the time of relocation; no backwards-compatibility shim was
 added. New code must use the `compliance.` import path.
 
-### 6.6 `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer`)
+### 6.6 `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer`): removed, then rebuilt
 
-* **Removed by:** the v3.0 improvement pass (July 2026)
-* **Override criterion:** §2 (Fundamental Incompatibility) + §3 (Zero
-  Active Usage). The module was dead in every supported install
-  profile: `stable_baselines3` appears in no dependency extra (it was
-  only a mypy override) and `gymnasium` nowhere at all, so
-  `PPOTrainer.__init__` raised `NotImplementedError` unconditionally.
-  With SB3 hand-installed it was *still* broken — its custom callback
-  class lacks SB3's `init_callback` interface, so `model.learn()`
-  raised `AttributeError`, which `pretrain()` swallowed and then logged
-  "Pretraining complete" with zeroed stats: silent fake success,
+* **Removed by:** the v3.0 improvement pass (July 2026); **rebuilt** natively
+  in v3.0 (October 2026) under the released module path and names.
+* **Why the 2.0.0 module went:** §2 (Fundamental Incompatibility) + §3
+  (Zero Active Usage). It was a stable-baselines3 wrapper that was dead in
+  every supported install profile: `stable_baselines3` appears in no
+  dependency extra (it was only a mypy override) and `gymnasium` nowhere at
+  all, so `PPOTrainer.__init__` raised `NotImplementedError`
+  unconditionally. With SB3 hand-installed it was *still* broken — its
+  custom callback class lacks SB3's `init_callback` interface, so
+  `model.learn()` raised `AttributeError`, which `pretrain()` swallowed and
+  then logged "Pretraining complete" with zeroed stats: silent fake success,
   violating the §6.2 "stub collaborators must hard-fail" contract. A
   `_mock_pretrain` residue fabricated reward/convergence numbers, and
   `train_online`/`evaluate` silently substituted random actions when no
-  model was loaded. Despite being import-guarded as if lazy, the module
-  was eagerly imported on every `[ml]` install
-  (`if HAS_TORCH or TYPE_CHECKING`). Repository-wide grep: no runtime
-  callers, no tests, no docs.
-* **Replacement:** `agentic.agentic_autonomy.AgenticAutonomy` (in-house
-  numpy Q-learning with experience replay) for RL-style workflow
-  adaptation; `automl.BayesianOptimizer` / `engine.tune_fusion` for
-  hyperparameter search. Neither niche benefits from on-policy PPO at
-  Mercury's trial budgets.
-* **Regression test:** `tests/ml/test_removed_ppo.py`
+  model was loaded. Despite being import-guarded as if lazy, the module was
+  eagerly imported on every `[ml]` install.
+* **The rebuild:** PPO implemented in PyTorch with no reinforcement-learning
+  dependency, plus `ml.rl_envs` (batched `CartPole-v1` / `Pendulum-v1`,
+  bit-identical to Gymnasium's, and an adapter for any Gymnasium-API
+  environment). It loads lazily. Every 2.0.0 entry point exists and works:
+  `PPOConfig` (the 2.0.0 fields and defaults, plus new fields),
+  `TrainingStats`, `BaseCallback`, `ConvergenceMonitor`,
+  `CheckpointCallback`, `PPOTrainer.pretrain` / `train_online` /
+  `save_model` / `load_model` / `evaluate` / `get_training_summary`,
+  `MultiEnvPPOTrainer.pretrain_on_benchmarks`, `create_ppo_trainer`,
+  `create_multi_env_trainer`. Measured against stable-baselines3 on identical
+  settings: see `benchmarks/ppo_results.json`.
+* **Changed from 2.0.0** (each 2.0.0 behaviour was fabricated or broken):
+  * `HAS_STABLE_BASELINES` and `TrainingStats.ethics_score` are gone (the
+    score was never computed; it was always 0.0).
+  * `save_model` writes Mercury's own checkpoint (tensors and primitives,
+    loaded through `security.safe_torch.safe_torch_load`); SB3 `.zip` files
+    do not load. `load_model` and `pretrain` raise on failure instead of
+    logging it.
+  * `ConvergenceMonitor` stops on a plateau: `patience` episodes whose
+    100-episode mean does not beat the best by `1 - convergence_threshold`
+    of its magnitude. 2.0.0 declared convergence at the first full window
+    (a new best divided by itself is 1), inverted the ratio for negative
+    returns, and counted one finished episode per step.
+  * `CheckpointCallback.save_freq` counts environment steps across all
+    copies; checkpoint files end in `.pt`.
+  * `train_online` updates on the episodes it runs (2.0.0 discarded them
+    and collected `n_steps` more). `pretrain_on_benchmarks` trains and
+    evaluates a separate policy per named benchmark (2.0.0 retrained the
+    same environment once per name). `MultiEnvPPOTrainer` normalizes
+    observations and rewards only by default, not over an explicit config.
+* **Regression tests:** `tests/ml/test_ppo_trainer.py`,
+  `tests/ml/test_rl_envs.py`
 
 ### 6.7 Geological `SolarFlareDetector` duplicate + `GeomagneticHMM`
 
