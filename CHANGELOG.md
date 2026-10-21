@@ -50,6 +50,25 @@ files are static archives (last modified 2014 and 2013), so the parser
 reads a snapshot; no live source is added, since a client would need the
 same chain repair to reach the server.
 
+**Fixed — the DONKI storm-window labels dropped NOAA G1's lowest third
+(`loaders/space_weather_loader.py`).** The loader kept its literal
+`Kp >= 5.0` last round because the kpIndex encoding could not be checked.
+It is now checked against an independent primary source: GFZ's definitive
+Kp as NASA OMNI2 serves it (`tests/fixtures/space_weather/omni2_kp_2024_05.json`,
+Kp*10 in thirds). The recorded live DONKI May 2024 response, which holds
+the Gannon storm, writes Kp in decimal thirds (x.33 = x+, x.67 = (x+1)-):
+every one of its 20 values is a third, 14 equal GFZ's value and the other
+six differ by one third (NOAA's estimate against GFZ's definitive index);
+on the Gannon records alone, 10 of 16 match. So a 5- arrives as 4.67, which
+the literal read as quiet. Windows are now classified through `noaa_g_scale`
+like every other G-scale site, thirds strings ("5-") parse, and
+`KP_STORM_THRESHOLD` states the G1 onset (14/3). Not settled by this
+evidence: whether DONKI omits G1-only windows by policy. Five of the six
+GFZ G1-only windows of May 2024 have no DONKI entry, so the labels cover
+what DONKI reports; DONKI's own definition and NOAA's archived estimates
+were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
+by the egress path).
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.
